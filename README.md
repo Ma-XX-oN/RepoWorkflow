@@ -1,107 +1,97 @@
 # RepoWorkflow
 
-RepoWorkflow defines a shared, platform-independent repository workflow for CI,
-branching policy, validation, generated artifacts, and result tagging.
+RepoWorkflow provides the shared, platform-independent repository workflow for
+CI, branch policy, validation, generated artifacts, and terminal result tagging.
+It is consumed as a Git submodule named `RepoWorkflow` in each repository.
 
-**Status:** design/documentation only.  Implementation has not started.  The
-architecture is tracked by issue #1 and is intentionally being documented
-before code is written.
+The central boundary is:
 
-## Purpose
+> GitHub workflow YAML is only a GitHub adapter. Repository workflow logic must
+> remain executable locally and on other CI platforms.
 
-Multiple repositories need the same workflow invariants without copying and
-slowly diverging CI implementations.  RepoWorkflow is intended to be consumed
-as a Git submodule named `RepoWorkflow` in each repository.
-
-The central rule is:
-
-> GitHub workflow YAML is only a GitHub adapter.  Repository workflow logic
-> must remain usable locally and on other CI platforms.
-
-A consuming repository should therefore look broadly like this:
+A consumer is structured broadly as:
 
 ```text
 Project/
 ├── RepoWorkflow/               # submodule pinned to an exact commit
 ├── .ci/                        # repository-specific declarations
-├── .github/workflows/ci.yml    # thin, common GitHub adapter
+├── .github/workflows/ci.yml    # byte-identical GitHub adapter
 ├── scripts/                    # repository-specific operations
 └── tests/
 ```
 
-## Responsibility boundary
+## Responsibilities
 
-### RepoWorkflow owns
+RepoWorkflow owns common lifecycle and invariant machinery:
 
-- CI request/version guard semantics;
-- terminal-tag eligibility and immutability;
-- exact candidate/checkout validation;
-- PASS / FAIL / INCOMPLETE result semantics;
-- required-environment result aggregation;
-- branch-parent/dependency-history policy algorithms;
-- GitHub Actions/repository-mutation policy algorithms;
-- generated-artifact change-set safeguards;
-- common result schemas and tagging rules;
-- reusable helpers for serial/parallel validation orchestration.
+- `.ci/run-ci-request` version/candidate eligibility;
+- authoritative remote terminal-tag checks;
+- exact-candidate and clean-checkout validation;
+- PASS / FAIL / INCOMPLETE semantics and result aggregation;
+- branch-parent/dependency-history policy;
+- canonical GitHub-workflow/repository policy;
+- generated-artifact output and verifier safeguards;
+- terminal result tagging rules;
+- serial/parallel orchestration helpers.
 
-### Each consuming repository owns
+Each consumer owns repository-specific facts and operations:
 
-- an authoritative version script;
-- one authoritative validation script per required environment/capability set;
-- repository-specific tests, builds, packaging and integration checks;
+- one authoritative version command;
+- one authoritative validation command per genuinely distinct environment;
+- repository-specific tests, builds, packaging, and integration checks;
 - branch topology declarations;
-- environment/capability requirements;
-- optional generated-artifact generator and verifier scripts;
-- generated-output allow-lists;
-- repository-specific prerequisites and dependency contracts.
+- required platform/capability declarations;
+- optional committed-artifact generator and independent verifier commands;
+- generated-output allow-lists.
 
-### GitHub workflow YAML owns only GitHub mechanics
+GitHub YAML owns only GitHub mechanics: events, permissions, recursive checkout,
+runner provisioning, matrix fan-out, Actions artifact transport, job outputs,
+and narrowly authorized publication/tagging plumbing.
 
-Examples include events, permissions, checkout/submodule initialization,
-runner provisioning, matrix fan-out, GitHub artifact transport, job outputs,
-and narrowly authorized GitHub publication operations.
+## Universal request guard
 
-It must not become the implementation of repository validation, version
-handling, branch policy, artifact generation, or result semantics.
+`.ci/run-ci-request` is required for authoritative execution everywhere, not
+only on GitHub. Its development version must match the repository's own version
+command, the candidate must be exact and clean, and the authoritative remote
+must not already contain either terminal tag:
 
-## Validation entry points
+```text
+v<version>
+v<version>-CI-FAIL
+```
 
-RepoWorkflow does not receive a JSON list of individual tests.  Each required
-execution environment has exactly one repository-owned validation entry point.
-That script decides how to fan out its internal work, including parallel and
-serial groups.  RepoWorkflow may provide shared orchestration helpers, but the
-repository remains authoritative for which tests are required and how they are
-composed.
-
-Different matrix entries should represent genuinely different required
-machines, platforms, or capabilities rather than test-level parallelism.
-
-## CI request guard
-
-`.ci/run-ci-request` is a universal candidate guard, not merely a GitHub
-trigger.  Before an authoritative validation run, RepoWorkflow must establish
-that:
-
-1. the request file exists;
-2. its version equals the version reported by the repository's version script;
-3. the exact candidate commit is being validated;
-4. neither `v<version>` nor `v<version>-CI-FAIL` already exists on the
-   authoritative tag source;
-5. inability to establish eligibility is INCOMPLETE, not success.
-
-GitHub may additionally use modification of `.ci/run-ci-request` as the
-explicit trigger for expensive remote CI.
+If authoritative eligibility cannot be established, execution is INCOMPLETE.
+A terminal tag consumes that development iteration.
 
 ## Result semantics
 
-- Complete required validation PASS: `v<version>`.
-- Complete genuine validation failure: `v<version>-CI-FAIL`.
-- Infrastructure, platform, credential, network, runner, or prerequisite
-  inability: INCOMPLETE and no terminal result tag.
-- Terminal result tags are immutable and consume that development iteration.
+- complete required PASS => `v<version>`;
+- complete genuine validation failure => `v<version>-CI-FAIL`;
+- missing platform/capability/infrastructure/prerequisite => INCOMPLETE, no tag.
+
+## Entry points
+
+The shared command-line entry point is:
+
+```text
+python RepoWorkflow/repo_workflow.py <command>
+```
+
+Important commands include `preflight`, `verify`, `run`, `finalize`,
+`branch-policy`, `repository-policy`, and `materialize-artifacts`.  `verify` is
+the full local authoritative path: it enforces repository and branch policy,
+applies the universal candidate guard, materializes/verifies declared committed
+artifacts, runs every locally addressable environment, aggregates results, and
+optionally creates/pushes the terminal tag.
+
+A repository's individual tests are not listed in RepoWorkflow configuration.
+Each environment exposes one repository-owned validation command, which may use
+RepoWorkflow's serial/parallel helpers or its own orchestration.
 
 ## Documentation
 
-See [DESIGN.md](DESIGN.md) for the architectural contract and
-[MIGRATION.md](MIGRATION.md) for the intended migration of existing
-repositories.
+- [DESIGN.md](DESIGN.md) defines the architecture and invariants.
+- [CONFIGURATION.md](CONFIGURATION.md) defines the implemented configuration and
+  script contracts.
+- [ADOPTION.md](ADOPTION.md) defines the consumer migration procedure.
+- [MIGRATION.md](MIGRATION.md) records the existing-repository migration scope.
