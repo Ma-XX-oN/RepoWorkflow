@@ -1,0 +1,27 @@
+name: Temporary issue 1 dotnet GREEN
+
+on:
+  push:
+    branches:
+      - tmp-issue-1-dotnet-green
+    paths:
+      - .github/workflows/_temporary_issue_1_dotnet_green.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 755f1449db56ccdfefe4f15eb91cb6d6c300174c
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify dotnet projection regression
+        run: python -m unittest tests/test_dotnet_toolchain_projection.py
+      - name: Run complete RepoWorkflow validator
+        run: python scripts/validate.py
