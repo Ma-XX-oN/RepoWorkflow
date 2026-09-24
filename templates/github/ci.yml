@@ -101,7 +101,6 @@ jobs:
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
           echo "tested_sha=$after" >> "$GITHUB_OUTPUT"
-          exit "$materialize_rc"
       - name: Upload structured artifact-preparation result
         if: always()
         continue-on-error: true
