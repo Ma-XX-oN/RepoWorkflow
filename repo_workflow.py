@@ -26,6 +26,7 @@ from repo_workflow.git import (
 from repo_workflow.github_adapter import (
   AdapterError,
   github_matrix,
+  github_prepare_context,
   github_prepare_runner,
   load_github_config,
   request_changed,
@@ -96,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
 
   commands.add_parser("github-matrix")
   commands.add_parser("github-prepare-runner")
+  commands.add_parser("github-prepare-context")
   return parser
 
 
@@ -219,6 +221,13 @@ def main() -> int:
 
     if args.command == "github-prepare-runner":
       print(github_prepare_runner(load_github_config(root)))
+      return 0
+
+    if args.command == "github-prepare-context":
+      print(json.dumps(
+        github_prepare_context(load_config(root), load_github_config(root)),
+        separators=(",", ":"),
+      ))
       return 0
   except (
     ActionsPolicyError,
