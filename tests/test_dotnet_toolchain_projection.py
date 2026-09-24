@@ -25,7 +25,7 @@ class DotnetToolchainProjectionTests(unittest.TestCase):
       "include": [{
         "id": "windows-dotnet10-python313",
         "runner": "windows-latest",
-        "dotnetVersion": "10",
+        "dotnetVersion": "10.0.x",
         "nodeVersion": "",
         "pythonVersion": "3.13",
       }]
@@ -41,7 +41,7 @@ class DotnetToolchainProjectionTests(unittest.TestCase):
     github = {"schema": 1, "prepareRunner": "windows-latest", "runners": {}}
     self.assertEqual(github_prepare_context(config, github), {
       "runner": "windows-latest",
-      "dotnetVersion": "10",
+      "dotnetVersion": "10.0.x",
       "nodeVersion": "",
       "pythonVersion": "3.13",
     })
