@@ -4,7 +4,12 @@ import subprocess
 import tempfile
 import unittest
 
-from repo_workflow.github_adapter import AdapterError, github_matrix, request_changed
+from repo_workflow.github_adapter import (
+  AdapterError,
+  github_matrix,
+  load_github_config,
+  request_changed,
+)
 
 
 class GithubAdapterTests(unittest.TestCase):
@@ -112,6 +117,40 @@ class GithubAdapterTests(unittest.TestCase):
           "linux": "ubuntu-latest", "old": "ubuntu-latest"
         }},
       )
+
+  def test_github_config_accepts_explicit_migration_workflows(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      (root / ".ci").mkdir()
+      expected = {
+        "schema": 1,
+        "prepareRunner": "ubuntu-latest",
+        "runners": {"linux": "ubuntu-latest"},
+        "migrationWorkflows": ["legacy-artifact.yml"],
+      }
+      (root / ".ci" / "github.json").write_text(json.dumps(expected))
+      self.assertEqual(load_github_config(root), expected)
+
+  def test_github_config_rejects_invalid_migration_workflow_paths(self):
+    invalid_values = [
+      ["ci.yml"],
+      ["nested/legacy.yml"],
+      ["legacy.txt"],
+      ["legacy.yml", "legacy.yml"],
+    ]
+    for workflows in invalid_values:
+      with self.subTest(workflows=workflows), tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / ".ci").mkdir()
+        value = {
+          "schema": 1,
+          "prepareRunner": "ubuntu-latest",
+          "runners": {"linux": "ubuntu-latest"},
+          "migrationWorkflows": workflows,
+        }
+        (root / ".ci" / "github.json").write_text(json.dumps(value))
+        with self.assertRaises(AdapterError):
+          load_github_config(root)
 
 
 if __name__ == "__main__":
