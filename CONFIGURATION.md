@@ -63,6 +63,16 @@ Fields:
 - `capabilities`: declarative capability labels;
 - `validationCommand`: the single authoritative repository validation command.
 
+The GitHub adapter projects numeric `node-<version>` and `python-<version>`
+capabilities into `actions/setup-node` and `actions/setup-python` respectively.
+For example, `node-22` selects Node 22 and `python-3.13` selects Python 3.13.
+Conflicting versions for the same projected toolchain are rejected rather than
+silently choosing one.  When no Python capability is declared, GitHub uses
+Python 3.13 for the RepoWorkflow engine and repository command.  Other
+capability labels remain declarative requirements of the selected runner and
+repository validation command; the shared adapter does not pretend to provision
+capabilities it does not understand.
+
 Validation exit codes are:
 
 - `0`: PASS;
@@ -85,6 +95,10 @@ mechanism is intentionally only for committed generated artifacts; a
 - a different, independent `verifierCommand`;
 - non-empty `outputs` allow-list;
 - optional `platform` and `capabilities` declarations.
+
+Numeric Node/Python artifact capabilities use the same GitHub projection rules
+as validation environments so the preparation job runs the generator and
+verifier under the declared toolchains.
 
 Generation may change only declared outputs.  Verification must be read-only.
 RepoWorkflow rejects generator/verifier worktree, history, symbolic-HEAD, or
@@ -115,7 +129,9 @@ logic:
 ```
 
 Every configured environment must have exactly one runner mapping, and stale
-runner mappings are rejected.
+runner mappings are rejected. Runtime requirements remain in
+`.ci/repoworkflow.json`; `github.json` only says which GitHub machines host
+those declared environments and artifact preparation.
 
 ## `.ci/branch-policy.json`
 
