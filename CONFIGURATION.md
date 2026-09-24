@@ -133,6 +133,16 @@ runner mappings are rejected. Runtime requirements remain in
 `.ci/repoworkflow.json`; `github.json` only says which GitHub machines host
 those declared environments and artifact preparation.
 
+During a consumer migration, `github.json` may additionally contain an explicit
+`migrationWorkflows` array. Each entry must be the direct filename of an
+existing `.github/workflows/*.yml` or `*.yaml` workflow other than `ci.yml`.
+Duplicates, nested paths, non-YAML files, and `ci.yml` are rejected. The normal
+policy remains closed: every additional workflow must be named in this array,
+and the canonical `ci.yml` must still match the pinned RepoWorkflow template
+byte-for-byte. This field exists only to keep a legacy hosted path executable
+while causal equivalence is being demonstrated; remove the legacy workflow and
+its entry after equivalence is established.
+
 ## `.ci/branch-policy.json`
 
 The branch policy declares intended ancestry. Schema 1 provides:
@@ -145,8 +155,8 @@ The branch policy declares intended ancestry. Schema 1 provides:
 - `umbrella`;
 - `integrationTarget`.
 
-RepoWorkflow refreshes authoritative remote ancestry before evaluating the
-branch. Unmatched non-integration branches are rejected.
+RepoWorkflow refreshes authoritative remote ancestry before evaluating the branch.
+Unmatched non-integration branches are rejected.
 
 ## `.ci/run-ci-request`
 
@@ -162,4 +172,6 @@ iteration/request.
 
 A consumer's `.github/workflows/ci.yml` must match
 `RepoWorkflow/templates/github/ci.yml` byte-for-byte. Product-specific commands
-or policy do not belong in that YAML.
+or policy do not belong in that YAML. During a documented migration window,
+only workflows explicitly named by `migrationWorkflows` may coexist with that
+canonical adapter.
