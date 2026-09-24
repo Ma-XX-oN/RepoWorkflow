@@ -85,6 +85,17 @@ class RepositoryPolicyTests(unittest.TestCase):
     with td:
       check_repository_policy(consumer, consumer / "RepoWorkflow")
 
+  def test_declared_migration_workflow_passes_repository_policy(self):
+    td, consumer = self.make_consumer()
+    with td:
+      legacy = consumer / ".github" / "workflows" / "legacy-artifact.yml"
+      legacy.write_text("name: legacy\n")
+      github_path = consumer / ".ci" / "github.json"
+      github = json.loads(github_path.read_text())
+      github["migrationWorkflows"] = ["legacy-artifact.yml"]
+      github_path.write_text(json.dumps(github))
+      check_repository_policy(consumer, consumer / "RepoWorkflow")
+
   def test_copied_engine_directory_is_not_a_submodule(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
