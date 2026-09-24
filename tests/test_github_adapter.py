@@ -87,8 +87,14 @@ class GithubAdapterTests(unittest.TestCase):
       "linux": "ubuntu-latest", "windows": "windows-latest"
     }}
     self.assertEqual(github_matrix(config, github), {"include": [
-      {"id": "linux", "runner": "ubuntu-latest"},
-      {"id": "windows", "runner": "windows-latest"},
+      {
+        "id": "linux", "runner": "ubuntu-latest",
+        "nodeVersion": "", "pythonVersion": "3.13",
+      },
+      {
+        "id": "windows", "runner": "windows-latest",
+        "nodeVersion": "", "pythonVersion": "3.13",
+      },
     ]})
 
   def test_matrix_rejects_missing_runner_mapping(self):
