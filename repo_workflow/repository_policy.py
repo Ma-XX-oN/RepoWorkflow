@@ -82,4 +82,8 @@ def check_repository_policy(root: Path, engine_root: Path) -> None:
     raise RepositoryPolicyError(
       "github.json runners must map exactly the declared validation environments"
     )
-  check_actions_policy(root, engine_root)
+  check_actions_policy(
+    root,
+    engine_root,
+    migration_workflows=github.get("migrationWorkflows", []),
+  )
