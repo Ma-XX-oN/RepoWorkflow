@@ -16,7 +16,7 @@ jobs:
     outputs:
       run_ci: ${{ steps.request.outputs.run_ci }}
       matrix: ${{ steps.matrix.outputs.matrix }}
-      prepare_runner: ${{ steps.prepare-runner.outputs.runner }}
+      prepare_context: ${{ steps.prepare-context.outputs.context }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,11 +40,11 @@ jobs:
           echo "run_ci=$(python RepoWorkflow/repo_workflow.py github-request
           --event-name '${{ github.event_name }}'
           --event-path "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
-      - name: Resolve artifact-preparation runner
-        id: prepare-runner
+      - name: Resolve artifact-preparation context
+        id: prepare-context
         shell: bash
         run: >-
-          echo "runner=$(python RepoWorkflow/repo_workflow.py github-prepare-runner)"
+          echo "context=$(python RepoWorkflow/repo_workflow.py github-prepare-context)"
           >> "$GITHUB_OUTPUT"
       - name: Load GitHub validation matrix
         if: steps.request.outputs.run_ci == 'true'
@@ -57,7 +57,7 @@ jobs:
   prepare:
     needs: policy
     if: needs.policy.outputs.run_ci == 'true'
-    runs-on: ${{ needs.policy.outputs.prepare_runner }}
+    runs-on: ${{ fromJSON(needs.policy.outputs.prepare_context).runner }}
     permissions:
       contents: write
     outputs:
@@ -70,7 +70,11 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: ${{ fromJSON(needs.policy.outputs.prepare_context).pythonVersion }}
+      - uses: actions/setup-node@v4
+        if: fromJSON(needs.policy.outputs.prepare_context).nodeVersion != ''
+        with:
+          node-version: ${{ fromJSON(needs.policy.outputs.prepare_context).nodeVersion }}
       - name: Verify requested candidate
         run: >-
           python RepoWorkflow/repo_workflow.py preflight
@@ -97,6 +101,7 @@ jobs:
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
           echo "tested_sha=$after" >> "$GITHUB_OUTPUT"
+          exit "$materialize_rc"
       - name: Upload structured artifact-preparation result
         if: always()
         continue-on-error: true
@@ -125,7 +130,11 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: ${{ matrix.pythonVersion }}
+      - uses: actions/setup-node@v4
+        if: matrix.nodeVersion != ''
+        with:
+          node-version: ${{ matrix.nodeVersion }}
       - name: Run repository-owned validation entry point
         id: validation
         continue-on-error: true
