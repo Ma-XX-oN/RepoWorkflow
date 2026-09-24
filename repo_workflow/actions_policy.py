@@ -7,7 +7,12 @@ class ActionsPolicyError(RuntimeError):
   pass
 
 
-def check_actions_policy(root: Path, engine_root: Path) -> None:
+def check_actions_policy(
+  root: Path,
+  engine_root: Path,
+  *,
+  migration_workflows: list[str] | None = None,
+) -> None:
   workflows = root / ".github" / "workflows"
   canonical = engine_root / "templates" / "github" / "ci.yml"
   if not canonical.is_file():
@@ -19,10 +24,11 @@ def check_actions_policy(root: Path, engine_root: Path) -> None:
     for path in workflows.rglob("*")
     if path.is_file()
   )
-  if files != ["ci.yml"]:
+  expected = sorted(["ci.yml", *(migration_workflows or [])])
+  if files != expected:
     raise ActionsPolicyError(
-      "consumer must contain exactly .github/workflows/ci.yml; found: "
-      + ", ".join(files)
+      "consumer workflow set must match canonical adapter plus declared migration "
+      "workflows; expected: " + ", ".join(expected) + "; found: " + ", ".join(files)
     )
   consumer = workflows / "ci.yml"
   if consumer.read_bytes() != canonical.read_bytes():
