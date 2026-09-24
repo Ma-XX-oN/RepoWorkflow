@@ -21,15 +21,20 @@ behaviour before duplicate machinery is removed.
    verifier, and exact output allow-list.
 9. Install `RepoWorkflow/templates/github/ci.yml` byte-for-byte as
    `.github/workflows/ci.yml`.
-10. Establish `.ci/run-ci-request` using the exact development version.
-11. Run RepoWorkflow locally and compare its coverage/results with the existing
+10. If hosted causal-equivalence testing requires a pre-existing GitHub workflow
+    to remain executable during migration, list only that exact direct workflow
+    filename in `.ci/github.json` `migrationWorkflows`.  Undeclared additional
+    workflows remain policy violations.  Remove every migration entry and its
+    legacy workflow immediately after equivalence is established.
+11. Establish `.ci/run-ci-request` using the exact development version.
+12. Run RepoWorkflow locally and compare its coverage/results with the existing
     repository workflow.
-12. Run the hosted path where permitted and compare environment, artifact, and
+13. Run the hosted path where permitted and compare environment, artifact, and
     terminal-tag behaviour.
-13. Remove old CI engines or standalone policy/integration workflows only after
+14. Remove old CI engines or standalone policy/integration workflows only after
     causal-equivalence verification proves their responsibilities are present
     in the new path.
-14. Re-run local and hosted validation after cleanup.
+15. Re-run local and hosted validation after cleanup.
 
 The submodule pin, configuration, and repository scripts are part of the
 consumer candidate. RepoWorkflow never silently self-updates.
