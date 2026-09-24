@@ -12,6 +12,9 @@ from repo_workflow.github_adapter import (
 )
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 class GithubAdapterTests(unittest.TestCase):
   def make_repo(self):
     td = tempfile.TemporaryDirectory()
@@ -151,6 +154,18 @@ class GithubAdapterTests(unittest.TestCase):
         (root / ".ci" / "github.json").write_text(json.dumps(value))
         with self.assertRaises(AdapterError):
           load_github_config(root)
+
+  def test_canonical_finalizer_configures_tag_identity_before_finalize(self):
+    workflow = (ROOT / "templates" / "github" / "ci.yml").read_text()
+    finalize = workflow.split("\n  finalize:\n", 1)[1]
+    name = 'git config user.name "github-actions[bot]"'
+    email = 'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"'
+    command = "python RepoWorkflow/repo_workflow.py finalize"
+    self.assertIn(name, finalize)
+    self.assertIn(email, finalize)
+    self.assertIn(command, finalize)
+    self.assertLess(finalize.index(name), finalize.index(command))
+    self.assertLess(finalize.index(email), finalize.index(command))
 
 
 if __name__ == "__main__":
