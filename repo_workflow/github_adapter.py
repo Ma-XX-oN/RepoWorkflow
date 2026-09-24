@@ -2,12 +2,34 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 from .git import git
 
 
+DEFAULT_PYTHON_VERSION = "3.13"
+_TOOLCHAIN_CAPABILITY = re.compile(r"^(node|python)-([0-9]+(?:\.[0-9]+){0,2})$")
+
+
 class AdapterError(RuntimeError):
   pass
+
+
+def _toolchain_versions(capabilities) -> dict[str, str]:
+  found: dict[str, set[str]] = {"node": set(), "python": set()}
+  for capability in capabilities or []:
+    match = _TOOLCHAIN_CAPABILITY.fullmatch(str(capability))
+    if match is not None:
+      found[match.group(1)].add(match.group(2))
+  for tool, versions in found.items():
+    if len(versions) > 1:
+      raise AdapterError(
+        f"conflicting {tool} toolchain capabilities: {', '.join(sorted(versions))}"
+      )
+  return {
+    "nodeVersion": next(iter(found["node"]), ""),
+    "pythonVersion": next(iter(found["python"]), DEFAULT_PYTHON_VERSION),
+  }
 
 
 def request_changed(root: Path, event_name: str, event_path: Path) -> bool:
@@ -93,7 +115,11 @@ def github_matrix(config: dict, github_config: dict) -> dict:
     runner = runners.get(env_id)
     if not isinstance(runner, str) or not runner:
       raise AdapterError(f"no GitHub runner mapping for environment: {env_id}")
-    include.append({"id": env_id, "runner": runner})
+    include.append({
+      "id": env_id,
+      "runner": runner,
+      **_toolchain_versions(environment.get("capabilities", [])),
+    })
   extra = sorted(set(runners) - {env["id"] for env in config["environments"]})
   if extra:
     raise AdapterError("GitHub runner mapping has unknown environment(s): " + ", ".join(extra))
@@ -105,3 +131,13 @@ def github_prepare_runner(github_config: dict) -> str:
   if not isinstance(runner, str) or not runner:
     raise AdapterError("GitHub prepare runner is not configured")
   return runner
+
+
+def github_prepare_context(config: dict, github_config: dict) -> dict[str, str]:
+  capabilities = []
+  for artifact in config.get("artifacts", []):
+    capabilities.extend(artifact.get("capabilities", []))
+  return {
+    "runner": github_prepare_runner(github_config),
+    **_toolchain_versions(capabilities),
+  }
