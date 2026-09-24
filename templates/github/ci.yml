@@ -71,6 +71,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ fromJSON(needs.policy.outputs.prepare_context).pythonVersion }}
+      - uses: actions/setup-dotnet@v4
+        if: fromJSON(needs.policy.outputs.prepare_context).dotnetVersion != ''
+        with:
+          dotnet-version: ${{ fromJSON(needs.policy.outputs.prepare_context).dotnetVersion }}
       - uses: actions/setup-node@v4
         if: fromJSON(needs.policy.outputs.prepare_context).nodeVersion != ''
         with:
@@ -130,6 +134,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.pythonVersion }}
+      - uses: actions/setup-dotnet@v4
+        if: matrix.dotnetVersion != ''
+        with:
+          dotnet-version: ${{ matrix.dotnetVersion }}
       - uses: actions/setup-node@v4
         if: matrix.nodeVersion != ''
         with:

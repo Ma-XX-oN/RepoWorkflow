@@ -8,15 +8,30 @@ from .git import git
 
 
 DEFAULT_PYTHON_VERSION = "3.13"
-_TOOLCHAIN_CAPABILITY = re.compile(r"^(node|python)-([0-9]+(?:\.[0-9]+){0,2})$")
+_TOOLCHAIN_CAPABILITY = re.compile(
+  r"^(dotnet|node|python)-([0-9]+(?:\.[0-9]+){0,2})$"
+)
 
 
 class AdapterError(RuntimeError):
   pass
 
 
+def _dotnet_setup_version(version: str) -> str:
+  parts = version.split(".")
+  if len(parts) == 1:
+    return f"{version}.0.x"
+  if len(parts) == 2:
+    return f"{version}.x"
+  return version
+
+
 def _toolchain_versions(capabilities) -> dict[str, str]:
-  found: dict[str, set[str]] = {"node": set(), "python": set()}
+  found: dict[str, set[str]] = {
+    "dotnet": set(),
+    "node": set(),
+    "python": set(),
+  }
   for capability in capabilities or []:
     match = _TOOLCHAIN_CAPABILITY.fullmatch(str(capability))
     if match is not None:
@@ -26,10 +41,13 @@ def _toolchain_versions(capabilities) -> dict[str, str]:
       raise AdapterError(
         f"conflicting {tool} toolchain capabilities: {', '.join(sorted(versions))}"
       )
-  return {
+  result = {
     "nodeVersion": next(iter(found["node"]), ""),
     "pythonVersion": next(iter(found["python"]), DEFAULT_PYTHON_VERSION),
   }
+  if found["dotnet"]:
+    result["dotnetVersion"] = _dotnet_setup_version(next(iter(found["dotnet"])))
+  return result
 
 
 def request_changed(root: Path, event_name: str, event_path: Path) -> bool:
