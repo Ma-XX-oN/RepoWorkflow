@@ -41,6 +41,26 @@ class ActionsPolicyTests(unittest.TestCase):
       with self.assertRaises(ActionsPolicyError):
         check_actions_policy(root, engine)
 
+  def test_explicit_migration_workflow_can_coexist_with_canonical_adapter(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      workflows, engine = self.setup_paths(root)
+      (engine / "templates" / "github" / "ci.yml").write_text("name: CI\n")
+      (workflows / "ci.yml").write_text("name: CI\n")
+      (workflows / "legacy-artifact.yml").write_text("name: legacy\n")
+      check_actions_policy(root, engine, migration_workflows=["legacy-artifact.yml"])
+
+  def test_migration_allow_list_does_not_hide_undeclared_workflows(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      workflows, engine = self.setup_paths(root)
+      (engine / "templates" / "github" / "ci.yml").write_text("name: CI\n")
+      (workflows / "ci.yml").write_text("name: CI\n")
+      (workflows / "legacy-artifact.yml").write_text("name: legacy\n")
+      (workflows / "undeclared.yml").write_text("name: undeclared\n")
+      with self.assertRaises(ActionsPolicyError):
+        check_actions_policy(root, engine, migration_workflows=["legacy-artifact.yml"])
+
 
 if __name__ == "__main__":
   unittest.main()
