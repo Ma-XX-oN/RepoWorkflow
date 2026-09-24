@@ -82,6 +82,29 @@ def request_changed(root: Path, event_name: str, event_path: Path) -> bool:
   return ".ci/run-ci-request" in set(completed.stdout.splitlines())
 
 
+def _validate_migration_workflows(value: object) -> list[str]:
+  if value is None:
+    return []
+  if not isinstance(value, list) or not all(
+    isinstance(item, str) and item for item in value
+  ):
+    raise AdapterError("github.json migrationWorkflows must be an array of filenames")
+  if len(set(value)) != len(value):
+    raise AdapterError("github.json migrationWorkflows must not contain duplicates")
+  for filename in value:
+    if (
+      filename == "ci.yml"
+      or "/" in filename
+      or "\\" in filename
+      or not filename.endswith((".yml", ".yaml"))
+    ):
+      raise AdapterError(
+        "github.json migrationWorkflows entries must be direct workflow YAML "
+        "filenames other than ci.yml"
+      )
+  return list(value)
+
+
 def load_github_config(root: Path) -> dict:
   path = root / ".ci" / "github.json"
   try:
@@ -98,12 +121,17 @@ def load_github_config(root: Path) -> dict:
   prepare = value.get("prepareRunner")
   if not isinstance(prepare, str) or not prepare:
     raise AdapterError("github.json prepareRunner is required")
-  unknown = sorted(set(value) - {"schema", "runners", "prepareRunner"})
+  unknown = sorted(
+    set(value) - {"schema", "runners", "prepareRunner", "migrationWorkflows"}
+  )
   if unknown:
     raise AdapterError("github.json has unsupported fields: " + ", ".join(unknown))
   for key, runner in runners.items():
     if not isinstance(key, str) or not key or not isinstance(runner, str) or not runner:
       raise AdapterError("github.json runner mappings must use non-empty strings")
+  migration_workflows = _validate_migration_workflows(value.get("migrationWorkflows"))
+  if "migrationWorkflows" in value:
+    value["migrationWorkflows"] = migration_workflows
   return value
 
 
