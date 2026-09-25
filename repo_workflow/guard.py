@@ -9,6 +9,7 @@ from .process import run_command
 
 
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+-issue\.\d+\.\d+$")
+STABLE_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 
 
 class GuardError(RuntimeError):
@@ -34,14 +35,37 @@ def _request_version(root: Path) -> str:
 
 
 def _reported_version(root: Path, config: dict) -> str:
+  return _reported_version_matching(
+    root,
+    config,
+    VERSION_RE,
+    "development version",
+  )
+
+
+def _reported_stable_version(root: Path, config: dict) -> str:
+  return _reported_version_matching(
+    root,
+    config,
+    STABLE_VERSION_RE,
+    "stable version",
+  )
+
+
+def _reported_version_matching(
+  root: Path,
+  config: dict,
+  pattern: re.Pattern[str],
+  label: str,
+) -> str:
   before = repository_state(root)
   result = run_command(config["versionCommand"], root)
   if result.returncode:
     detail = (result.stderr or result.stdout).strip()
     raise GuardError(f"repository version command failed: {detail}")
   lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-  if len(lines) != 1 or not VERSION_RE.fullmatch(lines[0]):
-    raise GuardError("version command must print exactly one valid development version")
+  if len(lines) != 1 or not pattern.fullmatch(lines[0]):
+    raise GuardError(f"version command must print exactly one valid {label}")
   after = repository_state(root)
   if after.commit != before.commit:
     raise GuardError("repository version command modified candidate history")
@@ -171,3 +195,60 @@ def validate_candidate(
   remote = config["repository"]["authoritativeRemote"]
   _refresh_and_check_tags(root, remote, request)
   return Candidate(request, commit, remote)
+
+
+def validate_stable_candidate(
+  root: Path,
+  *,
+  expected_sha: str | None = None,
+) -> Candidate:
+  from .config import load_config
+
+  root = root.resolve()
+  _assert_clean_full_checkout(root)
+  initial_commit = head_sha(root)
+  config = load_config(root)
+  version = _reported_stable_version(root, config)
+  _assert_clean_full_checkout(root)
+  if head_sha(root) != initial_commit:
+    raise GuardError("repository version command modified candidate history")
+  commit = head_sha(root)
+  if expected_sha is not None and commit != expected_sha:
+    raise GuardError(f"candidate commit {commit} does not match expected {expected_sha}")
+
+  remote = config["repository"]["authoritativeRemote"]
+  remote_result = git(root, "remote", "get-url", remote, check=False)
+  if remote_result.returncode or not remote_result.stdout.strip():
+    raise GuardError(f"authoritative remote is unavailable: {remote}")
+
+  integration_branch = config["repository"]["integrationBranch"]
+  integration_ref = f"refs/heads/{integration_branch}"
+  remote_head = git(root, "ls-remote", "--heads", remote, integration_ref, check=False)
+  if remote_head.returncode:
+    detail = (remote_head.stderr or remote_head.stdout).strip()
+    raise GuardError(f"cannot establish authoritative integration branch: {detail}")
+  matches = [
+    line.split("\t", 1)[0].strip()
+    for line in remote_head.stdout.splitlines()
+    if "\t" in line and line.split("\t", 1)[1].strip() == integration_ref
+  ]
+  if len(matches) != 1 or matches[0] != commit:
+    raise GuardError(
+      "stable candidate is not the authoritative integration branch head"
+    )
+
+  tag = f"v{version}"
+  tag_ref = f"refs/tags/{tag}"
+  remote_tag = git(root, "ls-remote", "--tags", remote, tag_ref, check=False)
+  if remote_tag.returncode:
+    detail = (remote_tag.stderr or remote_tag.stdout).strip()
+    raise GuardError(f"cannot establish authoritative stable release tag state: {detail}")
+  if any(
+    "\t" in line and line.split("\t", 1)[1].strip() == tag_ref
+    for line in remote_tag.stdout.splitlines()
+  ):
+    raise GuardError(f"stable release tag already exists: {tag}")
+  local = git(root, "show-ref", "--verify", tag_ref, check=False)
+  if local.returncode == 0:
+    git(root, "update-ref", "-d", tag_ref)
+  return Candidate(version, commit, remote)

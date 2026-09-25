@@ -7,7 +7,7 @@ import sys
 from typing import Any
 
 from .artifacts import ARTIFACT_ENVIRONMENT_ID
-from .guard import validate_candidate
+from .guard import Candidate, validate_candidate, validate_stable_candidate
 from .git import (
   changed_files,
   git,
@@ -38,15 +38,13 @@ def _find_environment(config: dict, env_id: str) -> dict:
   raise ResultError(f"unknown environment: {env_id}")
 
 
-def run_environment(
+def _run_environment_for_candidate(
   root: Path,
   config: dict,
   env_id: str,
   result_path: Path,
-  *,
-  expected_sha: str | None = None,
+  candidate: Candidate,
 ) -> int:
-  candidate = validate_candidate(root, config, expected_sha=expected_sha)
   environment = _find_environment(config, env_id)
   required_platform = environment.get("platform", "any")
   actual_platform = _platform_name()
@@ -110,6 +108,30 @@ def run_environment(
   result_path.parent.mkdir(parents=True, exist_ok=True)
   result_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
   return rc
+
+
+def run_environment(
+  root: Path,
+  config: dict,
+  env_id: str,
+  result_path: Path,
+  *,
+  expected_sha: str | None = None,
+) -> int:
+  candidate = validate_candidate(root, config, expected_sha=expected_sha)
+  return _run_environment_for_candidate(root, config, env_id, result_path, candidate)
+
+
+def run_stable_environment(
+  root: Path,
+  config: dict,
+  env_id: str,
+  result_path: Path,
+  *,
+  expected_sha: str | None = None,
+) -> int:
+  candidate = validate_stable_candidate(root, expected_sha=expected_sha)
+  return _run_environment_for_candidate(root, config, env_id, result_path, candidate)
 
 
 def collect_results(results_dir: Path) -> list[dict[str, Any]]:
@@ -205,6 +227,40 @@ def finalize_results(
   if outcome == "INCOMPLETE":
     return outcome
   if do_tag and tag:
+    git(root, "tag", "-a", tag, candidate.commit, "-m", tag)
+    if push:
+      git(root, "push", candidate.remote, f"refs/tags/{tag}")
+  return outcome
+
+
+def finalize_stable_results(
+  root: Path,
+  results_dir: Path,
+  *,
+  do_tag: bool,
+  push: bool,
+  expected_sha: str | None = None,
+) -> str:
+  from .config import load_config
+
+  if push and not do_tag:
+    raise ResultError("push requires tag creation")
+  config = load_config(root)
+  candidate = validate_stable_candidate(root, expected_sha=expected_sha)
+  outcome, _development_tag, warnings = evaluate_results(
+    config,
+    collect_results(results_dir),
+    candidate.version,
+    candidate.commit,
+  )
+  for warning in warnings:
+    print(f"WARNING: {warning}", file=sys.stderr)
+  print(f"Stable release outcome: {outcome}")
+  if outcome != "PASS":
+    return outcome
+  tag = f"v{candidate.version}"
+  print(f"Stable release tag: {tag}")
+  if do_tag:
     git(root, "tag", "-a", tag, candidate.commit, "-m", tag)
     if push:
       git(root, "push", candidate.remote, f"refs/tags/{tag}")
