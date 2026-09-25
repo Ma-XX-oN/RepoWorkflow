@@ -19,17 +19,24 @@ from .git import (
   repository_state,
   restore_repository_state,
 )
-from .guard import validate_candidate
+from .guard import validate_candidate, validate_stable_candidate
 from .repository_policy import check_repository_policy
-from .results import ResultError, finalize_results, run_environment
+from .results import (
+  ResultError,
+  finalize_results,
+  finalize_stable_results,
+  run_environment,
+  run_stable_environment,
+)
 
 
-def verify_local(
+def _verify_local(
   root: Path,
   *,
   engine_root: Path,
-  do_tag: bool = False,
-  push: bool = False,
+  stable: bool,
+  do_tag: bool,
+  push: bool,
 ) -> str:
   if push and not do_tag:
     raise ResultError("push requires tag creation")
@@ -42,7 +49,11 @@ def verify_local(
     raise ValueError("local authoritative verification requires a named branch")
   remote = config["repository"]["authoritativeRemote"]
   check_branch_policy(root, branch, None, remote)
-  candidate = validate_candidate(root, config)
+  candidate = (
+    validate_stable_candidate(root)
+    if stable
+    else validate_candidate(root, config)
+  )
 
   with tempfile.TemporaryDirectory(prefix="repoworkflow-results-") as directory:
     results_dir = Path(directory)
@@ -58,9 +69,13 @@ def verify_local(
         artifact_result,
         f"chore(workflow): materialize generated artifacts for {candidate.version}",
       )
-      candidate = validate_candidate(root, config, expected_sha=commit)
       if push and commit != before_state.commit:
         git(root, "push", remote, f"HEAD:{branch}")
+      candidate = (
+        validate_stable_candidate(root, expected_sha=commit)
+        if stable
+        else validate_candidate(root, config, expected_sha=commit)
+      )
     else:
       restore_repository_state(root, before_state)
 
@@ -72,17 +87,51 @@ def verify_local(
     )
 
     for environment in config["environments"]:
-      run_environment(
+      runner = run_stable_environment if stable else run_environment
+      runner(
         root,
         config,
         environment["id"],
         results_dir / f"{environment['id']}.json",
         expected_sha=candidate.commit,
       )
-    return finalize_results(
+    finalizer = finalize_stable_results if stable else finalize_results
+    return finalizer(
       root,
       results_dir,
       do_tag=do_tag,
       push=push,
       expected_sha=candidate.commit,
     )
+
+
+def verify_local(
+  root: Path,
+  *,
+  engine_root: Path,
+  do_tag: bool = False,
+  push: bool = False,
+) -> str:
+  return _verify_local(
+    root,
+    engine_root=engine_root,
+    stable=False,
+    do_tag=do_tag,
+    push=push,
+  )
+
+
+def verify_stable_local(
+  root: Path,
+  *,
+  engine_root: Path,
+  do_tag: bool = False,
+  push: bool = False,
+) -> str:
+  return _verify_local(
+    root,
+    engine_root=engine_root,
+    stable=True,
+    do_tag=do_tag,
+    push=push,
+  )

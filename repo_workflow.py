@@ -26,13 +26,18 @@ from repo_workflow.git import (
 from repo_workflow.github_adapter import (
   AdapterError,
   github_matrix,
+  github_mode,
   github_prepare_context,
   github_prepare_runner,
   load_github_config,
   request_changed,
 )
-from repo_workflow.guard import GuardError, validate_candidate
-from repo_workflow.local import verify_local
+from repo_workflow.guard import (
+  GuardError,
+  validate_candidate,
+  validate_stable_candidate,
+)
+from repo_workflow.local import verify_local, verify_stable_local
 from repo_workflow.repository_policy import (
   RepositoryPolicyError,
   check_repository_policy,
@@ -40,7 +45,9 @@ from repo_workflow.repository_policy import (
 from repo_workflow.results import (
   ResultError,
   finalize_results,
+  finalize_stable_results,
   run_environment,
+  run_stable_environment,
 )
 
 
@@ -59,22 +66,40 @@ def build_parser() -> argparse.ArgumentParser:
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
 
+  stable_preflight = commands.add_parser("stable-preflight")
+  stable_preflight.add_argument("--expected-sha")
+
   commands.add_parser("matrix")
 
   verify = commands.add_parser("verify")
   verify.add_argument("--tag", action="store_true")
   verify.add_argument("--push", action="store_true")
 
+  verify_stable = commands.add_parser("verify-stable")
+  verify_stable.add_argument("--tag", action="store_true")
+  verify_stable.add_argument("--push", action="store_true")
+
   run = commands.add_parser("run")
   run.add_argument("--environment", required=True)
   run.add_argument("--result", required=True)
   run.add_argument("--expected-sha")
+
+  stable_run = commands.add_parser("stable-run")
+  stable_run.add_argument("--environment", required=True)
+  stable_run.add_argument("--result", required=True)
+  stable_run.add_argument("--expected-sha")
 
   finalize = commands.add_parser("finalize")
   finalize.add_argument("--results-dir", required=True)
   finalize.add_argument("--expected-sha")
   finalize.add_argument("--tag", action="store_true")
   finalize.add_argument("--push", action="store_true")
+
+  stable_finalize = commands.add_parser("stable-finalize")
+  stable_finalize.add_argument("--results-dir", required=True)
+  stable_finalize.add_argument("--expected-sha")
+  stable_finalize.add_argument("--tag", action="store_true")
+  stable_finalize.add_argument("--push", action="store_true")
 
   branch = commands.add_parser("branch-policy")
   branch.add_argument("--branch", required=True)
@@ -90,10 +115,16 @@ def build_parser() -> argparse.ArgumentParser:
   materialize = commands.add_parser("materialize-artifacts")
   materialize.add_argument("--result")
   materialize.add_argument("--commit", action="store_true")
+  materialize.add_argument("--stable", action="store_true")
 
   github_request = commands.add_parser("github-request")
   github_request.add_argument("--event-name", required=True)
   github_request.add_argument("--event-path", required=True)
+
+  github_mode_parser = commands.add_parser("github-mode")
+  github_mode_parser.add_argument("--event-name", required=True)
+  github_mode_parser.add_argument("--event-path", required=True)
+  github_mode_parser.add_argument("--branch", required=True)
 
   commands.add_parser("github-matrix")
   commands.add_parser("github-prepare-runner")
@@ -111,6 +142,11 @@ def main() -> int:
         load_config(root),
         expected_sha=args.expected_sha,
       )
+      print(json.dumps({"version": candidate.version, "commit": candidate.commit}))
+      return 0
+
+    if args.command == "stable-preflight":
+      candidate = validate_stable_candidate(root, expected_sha=args.expected_sha)
       print(json.dumps({"version": candidate.version, "commit": candidate.commit}))
       return 0
 
@@ -136,6 +172,15 @@ def main() -> int:
       )
       return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
 
+    if args.command == "verify-stable":
+      outcome = verify_stable_local(
+        root,
+        engine_root=ENGINE_ROOT,
+        do_tag=args.tag,
+        push=args.push,
+      )
+      return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
+
     if args.command == "run":
       return run_environment(
         root,
@@ -145,8 +190,27 @@ def main() -> int:
         expected_sha=args.expected_sha,
       )
 
+    if args.command == "stable-run":
+      return run_stable_environment(
+        root,
+        load_config(root),
+        args.environment,
+        Path(args.result),
+        expected_sha=args.expected_sha,
+      )
+
     if args.command == "finalize":
       outcome = finalize_results(
+        root,
+        Path(args.results_dir),
+        do_tag=args.tag,
+        push=args.push,
+        expected_sha=args.expected_sha,
+      )
+      return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
+
+    if args.command == "stable-finalize":
+      outcome = finalize_stable_results(
         root,
         Path(args.results_dir),
         do_tag=args.tag,
@@ -174,7 +238,11 @@ def main() -> int:
 
     if args.command == "materialize-artifacts":
       config = load_config(root)
-      candidate = validate_candidate(root, config)
+      candidate = (
+        validate_stable_candidate(root)
+        if args.stable
+        else validate_candidate(root, config)
+      )
       before_state = repository_state(root)
       try:
         result = materialize_artifacts(root, config)
@@ -210,6 +278,17 @@ def main() -> int:
     if args.command == "github-request":
       value = request_changed(root, args.event_name, Path(args.event_path))
       print("true" if value else "false")
+      return 0
+
+    if args.command == "github-mode":
+      config = load_config(root)
+      print(github_mode(
+        root,
+        args.event_name,
+        Path(args.event_path),
+        args.branch,
+        config["repository"]["integrationBranch"],
+      ))
       return 0
 
     if args.command == "github-matrix":

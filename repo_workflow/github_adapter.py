@@ -100,6 +100,22 @@ def request_changed(root: Path, event_name: str, event_path: Path) -> bool:
   return ".ci/run-ci-request" in set(completed.stdout.splitlines())
 
 
+def github_mode(
+  root: Path,
+  event_name: str,
+  event_path: Path,
+  branch: str,
+  integration_branch: str,
+) -> str:
+  if event_name == "workflow_dispatch":
+    return "development"
+  if event_name != "push":
+    return "none"
+  if branch == integration_branch:
+    return "stable"
+  return "development" if request_changed(root, event_name, event_path) else "none"
+
+
 def _validate_migration_workflows(value: object) -> list[str]:
   if value is None:
     return []

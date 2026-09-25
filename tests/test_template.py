@@ -14,8 +14,9 @@ class TemplateTests(unittest.TestCase):
     ):
       self.assertNotIn(product, text)
     for command in (
-      "repository-policy", "branch-policy", "github-request", "github-matrix",
+      "repository-policy", "branch-policy", "github-mode", "github-matrix",
       "preflight", "materialize-artifacts", "run", "finalize",
+      "stable-preflight", "stable-run", "stable-finalize",
     ):
       self.assertIn(command, text)
     self.assertIn("submodules: recursive", text)
@@ -58,9 +59,10 @@ class TemplateTests(unittest.TestCase):
       r"uses: actions/download-artifact@v4\n\s+continue-on-error: true",
     )
 
-  def test_expensive_jobs_are_request_gated(self):
+  def test_expensive_jobs_are_authoritative_mode_gated(self):
     text = (ROOT / "templates" / "github" / "ci.yml").read_text()
-    self.assertIn("needs.policy.outputs.run_ci == 'true'", text)
+    self.assertIn("needs.policy.outputs.mode != 'none'", text)
+    self.assertNotIn("needs.policy.outputs.run_ci == 'true'", text)
     self.assertIn("fail-fast: false", text)
 
 
