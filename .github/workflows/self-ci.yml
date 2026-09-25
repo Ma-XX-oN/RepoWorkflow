@@ -1,0 +1,30 @@
+name: RepoWorkflow Self CI
+
+on:
+  push:
+    branches:
+      - main
+      - issue-1-repoworkflow-foundation
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run authoritative RepoWorkflow validation
+        run: python scripts/validate.py
+      - name: Require validation to leave repository clean
+        shell: bash
+        run: |
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
