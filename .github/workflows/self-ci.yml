@@ -28,3 +28,39 @@ jobs:
         shell: bash
         run: |
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+  release:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Publish exact stable tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION is not a plain stable semantic version: $version" >&2
+            exit 1
+          fi
+          head_sha="$(git rev-parse HEAD)"
+          remote_head="$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')"
+          if [ -z "$remote_head" ] || [ "$remote_head" != "$head_sha" ]; then
+            echo "checked-out commit is not the authoritative remote main head" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
+            echo "stable release tag already exists: $tag" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$head_sha" -m "$tag"
+          git push origin "refs/tags/$tag"
