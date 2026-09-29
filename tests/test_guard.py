@@ -10,7 +10,9 @@ from tests.support import RepoFixture
 class GuardIntegrationBranchTests(unittest.TestCase):
   def test_development_candidate_on_integration_branch_is_rejected(self):
     with tempfile.TemporaryDirectory() as directory:
-      fixture = RepoFixture(Path(directory) / "repo")
+      root = Path(directory) / "repo"
+      root.mkdir()
+      fixture = RepoFixture(root)
       fixture._run("checkout", "main")
       config = load_config(fixture.root)
 
@@ -22,7 +24,9 @@ class GuardIntegrationBranchTests(unittest.TestCase):
 
   def test_development_candidate_on_issue_branch_is_accepted(self):
     with tempfile.TemporaryDirectory() as directory:
-      fixture = RepoFixture(Path(directory) / "repo")
+      root = Path(directory) / "repo"
+      root.mkdir()
+      fixture = RepoFixture(root)
       config = load_config(fixture.root)
 
       candidate = validate_candidate(fixture.root, config)
