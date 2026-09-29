@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
 
-from .git import git, head_sha, repository_state
+from .git import current_branch, git, head_sha, repository_state
 from .process import run_command
 
 
@@ -74,6 +75,26 @@ def _reported_version_matching(
   if after.refs != before.refs:
     raise GuardError("repository version command modified local Git refs")
   return lines[0]
+
+
+def _candidate_branch(root: Path) -> str | None:
+  for name in ("GITHUB_HEAD_REF", "GITHUB_REF_NAME"):
+    value = os.environ.get(name, "").strip()
+    if value:
+      return value.removeprefix("refs/heads/")
+  branch = current_branch(root).strip()
+  if not branch or branch == "HEAD":
+    return None
+  return branch.removeprefix("refs/heads/")
+
+
+def _assert_development_branch(root: Path, config: dict) -> None:
+  branch = _candidate_branch(root)
+  integration_branch = config["repository"]["integrationBranch"]
+  if branch == integration_branch:
+    raise GuardError(
+      f"development candidate cannot run on integration branch {integration_branch}"
+    )
 
 
 def _assert_clean_full_checkout(root: Path) -> None:
@@ -178,6 +199,7 @@ def validate_candidate(
 ) -> Candidate:
   root = root.resolve()
   _assert_clean_full_checkout(root)
+  _assert_development_branch(root, config)
   initial_commit = head_sha(root)
   request = _request_version(root)
   reported = _reported_version(root, config)
