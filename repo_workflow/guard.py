@@ -78,14 +78,14 @@ def _reported_version_matching(
 
 
 def _candidate_branch(root: Path) -> str | None:
+  branch = current_branch(root).strip()
+  if branch and branch != "HEAD":
+    return branch.removeprefix("refs/heads/")
   for name in ("GITHUB_HEAD_REF", "GITHUB_REF_NAME"):
     value = os.environ.get(name, "").strip()
     if value:
       return value.removeprefix("refs/heads/")
-  branch = current_branch(root).strip()
-  if not branch or branch == "HEAD":
-    return None
-  return branch.removeprefix("refs/heads/")
+  return None
 
 
 def _assert_development_branch(root: Path, config: dict) -> None:
