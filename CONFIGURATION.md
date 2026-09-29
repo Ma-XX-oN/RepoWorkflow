@@ -46,6 +46,13 @@ RepoWorkflow compares that value with `.ci/run-ci-request`.
 `integrationBranch` is the repository's normal integration line. The value must
 also agree with `.ci/branch-policy.json`.
 
+A development candidate may not run on `integrationBranch`. RepoWorkflow rejects
+that state before authoritative development validation can begin. This prevents
+an issue-qualified development identity from being accepted and tagged after it
+has landed on the integration line. Stable publication is the separate path for
+the integration branch and requires the repository version command to report a
+plain stable `x.y.z` version.
+
 `authoritativeRemote` is the Git remote used for authoritative branch/tag facts.
 Failure to establish remote state is not interpreted as success.
 
