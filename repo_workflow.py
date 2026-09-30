@@ -72,7 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
   commands.add_parser("matrix")
 
   verify = commands.add_parser("verify")
-  verify.add_argument("--tag", action="store_true")
+  verify.add_argument("--tag", action="store_true", help=argparse.SUPPRESS)
   verify.add_argument("--push", action="store_true")
 
   verify_stable = commands.add_parser("verify-stable")
@@ -167,7 +167,6 @@ def main() -> int:
       outcome = verify_local(
         root,
         engine_root=ENGINE_ROOT,
-        do_tag=args.tag,
         push=args.push,
       )
       return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
