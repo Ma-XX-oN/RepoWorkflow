@@ -5,6 +5,7 @@ import repo_workflow.github_adapter as adapter
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPLEMENTATION = ROOT / ".github" / "workflows" / "consumer-ci.yml"
 
 
 class GithubToolchainTests(unittest.TestCase):
@@ -59,7 +60,7 @@ class GithubToolchainTests(unittest.TestCase):
     })
 
   def test_canonical_template_consumes_projected_toolchains(self):
-    text = (ROOT / "templates" / "github" / "ci.yml").read_text(encoding="utf-8")
+    text = IMPLEMENTATION.read_text(encoding="utf-8")
     self.assertGreaterEqual(text.count("uses: actions/setup-node@v4"), 2)
     self.assertIn("matrix.nodeVersion", text)
     self.assertIn("prepare_context", text)
