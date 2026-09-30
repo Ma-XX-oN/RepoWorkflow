@@ -13,6 +13,7 @@ from repo_workflow.github_adapter import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPLEMENTATION = ROOT / ".github" / "workflows" / "consumer-ci.yml"
 
 
 class GithubAdapterTests(unittest.TestCase):
@@ -156,7 +157,7 @@ class GithubAdapterTests(unittest.TestCase):
           load_github_config(root)
 
   def test_canonical_finalizer_configures_tag_identity_before_finalize(self):
-    workflow = (ROOT / "templates" / "github" / "ci.yml").read_text()
+    workflow = IMPLEMENTATION.read_text()
     finalize = workflow.split("\n  finalize:\n", 1)[1]
     name = 'git config user.name "github-actions[bot]"'
     email = 'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"'
