@@ -181,6 +181,9 @@ def _run_environment_for_candidate(
         rc = 2
       else:
         result["status"] = "FAIL"
+        result["message"] = (
+          f"validation command returned {command_result.returncode} (FAIL)"
+        )
         rc = 1
   result_path.parent.mkdir(parents=True, exist_ok=True)
   result_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
@@ -223,7 +226,7 @@ def collect_results(results_dir: Path) -> list[dict[str, Any]]:
   return values
 
 
-def _incomplete_detail(result: dict[str, Any]) -> str:
+def _result_detail(result: dict[str, Any]) -> str:
   detail = str(result.get("message") or "reason not provided")
   output = []
   stdout = str(result.get("stdout") or "").strip()
@@ -275,7 +278,7 @@ def evaluate_results(
     for env_id in incomplete:
       warnings.append(
         f"required environment incomplete: {env_id}: "
-        + _incomplete_detail(by_environment[env_id])
+        + _result_detail(by_environment[env_id])
       )
     return "INCOMPLETE", None, warnings
   invalid = sorted(
@@ -290,6 +293,11 @@ def evaluate_results(
     if by_environment[env_id].get("status") == "FAIL"
   )
   if failed:
+    for env_id in failed:
+      warnings.append(
+        f"required environment failed: {env_id}: "
+        + _result_detail(by_environment[env_id])
+      )
     return "FAIL", f"v{version}-CI-FAIL", warnings
   return "PASS", f"v{version}", warnings
 
