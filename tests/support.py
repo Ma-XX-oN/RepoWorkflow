@@ -14,6 +14,7 @@ class RepoFixture:
     version: str = "1.0.0-issue.1.1",
     validation_body: str = "raise SystemExit(0)\n",
     platform: str = "any",
+    capabilities: list[str] | None = None,
     artifacts: list[dict] | None = None,
   ):
     self.root = root
@@ -53,7 +54,7 @@ class RepoFixture:
         "id": "local",
         "required": True,
         "platform": platform,
-        "capabilities": [],
+        "capabilities": capabilities or [],
         "validationCommand": [sys.executable, "scripts/validate.py"],
       }],
       "artifacts": artifacts or [],
