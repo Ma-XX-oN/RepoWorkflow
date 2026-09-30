@@ -24,25 +24,29 @@ behaviour before duplicate machinery is removed.
    `.github/workflows/ci.yml` bootstrap. The bootstrap delegates hosted work to
    RepoWorkflow's stable reusable workflow instead of duplicating the full CI
    implementation in the consumer.
-10. If hosted causal-equivalence testing requires a pre-existing GitHub workflow
+10. Install `RepoWorkflow/templates/local/repoworkflow.py` as
+    `scripts/repoworkflow.py`. This launcher executes before submodule engine
+    code, compares the consumer gitlink with the checked-out RepoWorkflow HEAD,
+    skips submodule repair when they match, and repairs a missing/mismatched
+    checkout before delegation.
+11. If hosted causal-equivalence testing requires a pre-existing GitHub workflow
     to remain executable during migration, list only that exact direct workflow
     filename in `.ci/github.json` `migrationWorkflows`. Undeclared additional
     workflows remain policy violations. Remove every migration entry and its
     legacy workflow immediately after equivalence is established.
-11. Establish `.ci/run-ci-request` using the exact development version.
-12. Initialize the `RepoWorkflow` submodule once. After that, normal local
-    verification uses the already-present pinned checkout directly; do not run
-    a submodule update before every validation. If the checkout is missing or
-    mismatched, explicitly repair it with:
-
-    ```text
-    git submodule update --init --recursive --force RepoWorkflow
-    ```
-
+12. Establish `.ci/run-ci-request` using the exact development version.
 13. Run the authoritative local path:
 
     ```text
-    python RepoWorkflow/repo_workflow.py verify --push
+    python scripts/repoworkflow.py verify --push
+    ```
+
+    When the local submodule already matches the gitlink, this performs no
+    submodule update. A missing or stale checkout is repaired automatically.
+    Force repair explicitly when diagnosing the checkout itself:
+
+    ```text
+    python scripts/repoworkflow.py --force-repair verify --push
     ```
 
 14. Run the hosted path where permitted and compare environment, artifact, and
@@ -52,7 +56,7 @@ behaviour before duplicate machinery is removed.
     in the new path.
 16. Re-run local and hosted validation after cleanup.
 
-The submodule gitlink, configuration, and repository scripts are part of the
-consumer candidate. The gitlink is authoritative: normal validation compares the
-checked-out RepoWorkflow HEAD to that pin and does not silently self-update or
-perform unnecessary network work.
+The submodule gitlink, configuration, launchers, and repository scripts are part
+of the consumer candidate. The gitlink is authoritative: the local launcher
+establishes that exact engine before delegation and avoids network/submodule work
+when the checked-out pin is already correct.
