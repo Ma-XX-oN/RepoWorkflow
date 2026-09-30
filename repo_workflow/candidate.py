@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 
 from .git import changed_files, git, head_sha, repository_state, restore_repository_state
-from .guard import GuardError, VERSION_RE, validate_candidate
+from .guard import Candidate, GuardError, VERSION_RE, validate_candidate
 from .process import run_command
 
 
@@ -146,12 +146,25 @@ def _request_needs_refresh(root: Path, config: dict, version: str) -> bool:
   return bool(changed - allowed)
 
 
+def _refresh_request_file(root: Path, version: str) -> None:
+  request = root / ".ci" / "run-ci-request"
+  request.parent.mkdir(parents=True, exist_ok=True)
+  try:
+    current = request.read_text(encoding="utf-8")
+  except FileNotFoundError:
+    current = ""
+  canonical = version + "\n"
+  alternate = version + "\n\n"
+  target = alternate if current == canonical else canonical
+  request.write_text(target, encoding="utf-8")
+
+
 def prepare_development_candidate(
   root: Path,
   config: dict,
   *,
   push: bool = False,
-) -> tuple[object, bool]:
+) -> tuple[Candidate, bool]:
   root = root.resolve()
   if changed_files(root):
     raise GuardError(
@@ -169,9 +182,7 @@ def prepare_development_candidate(
       prepared = True
 
     if _request_needs_refresh(root, config, version):
-      request = root / ".ci" / "run-ci-request"
-      request.parent.mkdir(parents=True, exist_ok=True)
-      request.write_text(version + "\n", encoding="utf-8")
+      _refresh_request_file(root, version)
       prepared = True
 
     if prepared:
