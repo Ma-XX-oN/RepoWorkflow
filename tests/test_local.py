@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from repo_workflow.actions_policy import ActionsPolicyError
+from repo_workflow.guard import GuardError
 from repo_workflow.local import verify_local
 from tests.support import RepoFixture
 
@@ -59,18 +60,66 @@ class LocalVerifyTests(unittest.TestCase):
     )
     (root / ".github" / "workflows").mkdir(parents=True)
     (root / ".github" / "workflows" / "ci.yml").write_text(canonical)
-    # Rebind the request to this complete consumer candidate.
     (root / ".ci" / "run-ci-request").write_text(fx.version + "\n\n")
     fx.commit("adopt RepoWorkflow")
     fx.push()
     return td, root, fx
 
-  def test_local_verify_uses_same_guard_policy_and_result_semantics(self):
-    td, root, _ = self.make_consumer()
+  def test_local_verify_uses_same_guard_policy_and_tags_pass_automatically(self):
+    td, root, fx = self.make_consumer()
     with td:
       self.assertEqual(
         verify_local(root, engine_root=root / "RepoWorkflow"),
         "PASS",
+      )
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{fx.version}").stdout.strip(),
+        f"v{fx.version}",
+      )
+
+  def test_local_verify_rebinds_request_after_source_commit(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("fixed\n")
+      source_commit = fx.commit("fix source after request")
+      self.assertNotEqual(
+        fx._run("log", "-1", "--format=%H", "--", ".ci/run-ci-request").stdout.strip(),
+        source_commit,
+      )
+
+      self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
+      head = fx.head()
+      self.assertNotEqual(head, source_commit)
+      self.assertEqual(
+        fx._run("log", "-1", "--format=%H", "--", ".ci/run-ci-request").stdout.strip(),
+        head,
+      )
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{fx.version}").stdout.strip(),
+        f"v{fx.version}",
+      )
+
+  def test_local_verify_advances_consumed_iteration_automatically(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+
+      self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
+      next_version = "1.0.0-issue.1.2"
+      self.assertEqual((root / "VERSION").read_text().strip(), next_version)
+      self.assertEqual((root / ".ci" / "run-ci-request").read_text().strip(), next_version)
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{next_version}").stdout.strip(),
+        f"v{next_version}",
+      )
+
+  def test_local_verify_tags_genuine_failure_automatically(self):
+    td, root, fx = self.make_consumer(validation_body="raise SystemExit(1)\n")
+    with td:
+      self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "FAIL")
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{fx.version}-CI-FAIL").stdout.strip(),
+        f"v{fx.version}-CI-FAIL",
       )
 
   def test_local_verify_enforces_canonical_github_adapter(self):
@@ -145,9 +194,9 @@ class LocalVerifyTests(unittest.TestCase):
       self.assertFalse((root / "undeclared.txt").exists())
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
 
-  def test_platform_mismatch_is_incomplete(self):
+  def test_platform_mismatch_is_incomplete_and_does_not_tag(self):
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
-    td, root, _ = self.make_consumer(
+    td, root, fx = self.make_consumer(
       validation_body="raise RuntimeError('must not run')\n", platform=mismatch
     )
     with td:
@@ -155,6 +204,28 @@ class LocalVerifyTests(unittest.TestCase):
         verify_local(root, engine_root=root / "RepoWorkflow"),
         "INCOMPLETE",
       )
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{fx.version}*").stdout.strip(),
+        "",
+      )
+
+  def test_consumed_iteration_without_setter_rolls_back_preparation(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      config_path = root / ".ci" / "repoworkflow.json"
+      config = json.loads(config_path.read_text())
+      del config["setVersionCommand"]
+      config_path.write_text(json.dumps(config, indent=2) + "\n")
+      (root / ".ci" / "run-ci-request").write_text(fx.version + "\n")
+      fx.commit("remove version setter")
+      fx.push()
+      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+      before = fx.head()
+
+      with self.assertRaisesRegex(GuardError, "setVersionCommand"):
+        verify_local(root, engine_root=root / "RepoWorkflow")
+      self.assertEqual(fx.head(), before)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
 
 
 if __name__ == "__main__":

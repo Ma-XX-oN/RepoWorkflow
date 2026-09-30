@@ -1,16 +1,17 @@
 # RepoWorkflow Configuration
 
 RepoWorkflow schema 1 keeps repository-specific facts in the consumer while the
-shared engine owns lifecycle semantics and invariants.
+shared engine owns lifecycle semantics, candidate bookkeeping, and invariants.
 
 ## `.ci/repoworkflow.json`
 
-Required shape:
+Recommended development shape:
 
 ```json
 {
   "schema": 1,
   "versionCommand": ["python", "scripts/workflow-version.py"],
+  "setVersionCommand": ["python", "scripts/workflow-version.py", "--set"],
   "repository": {
     "integrationBranch": "main",
     "authoritativeRemote": "origin"
@@ -39,7 +40,36 @@ The command is repository-owned. It must:
 - use the form `x.y.z-issue.<issue>.<iteration>`;
 - leave the candidate worktree and history unchanged.
 
-RepoWorkflow compares that value with `.ci/run-ci-request`.
+Lower-level distributed commands compare that value with `.ci/run-ci-request`.
+The normal local `verify` path prepares that request binding before validation.
+
+### `setVersionCommand`
+
+`setVersionCommand` is the repository-owned mutation counterpart to
+`versionCommand`. RepoWorkflow appends exactly one argument: the complete target
+development version.
+
+For example, this declaration:
+
+```json
+"setVersionCommand": ["python", "scripts/workflow-version.py", "--set"]
+```
+
+is invoked as:
+
+```text
+python scripts/workflow-version.py --set 1.2.3-issue.17.4
+```
+
+The setter may modify the consumer's version-bearing worktree files, but it must
+not create commits, move `HEAD`, or mutate Git refs. RepoWorkflow re-runs
+`versionCommand` afterward and requires the exact requested version.
+
+The setter is optional for repositories that never need RepoWorkflow to advance
+an already-consumed development iteration. It is required for the full
+one-command workflow: if the authoritative remote already contains either
+terminal tag for the current iteration, `verify` uses `setVersionCommand` to
+advance to the next iteration automatically.
 
 ### `repository`
 
@@ -74,10 +104,10 @@ The GitHub adapter projects numeric `node-<version>` and `python-<version>`
 capabilities into `actions/setup-node` and `actions/setup-python` respectively.
 For example, `node-22` selects Node 22 and `python-3.13` selects Python 3.13.
 Conflicting versions for the same projected toolchain are rejected rather than
-silently choosing one.  When no Python capability is declared, GitHub uses
-Python 3.13 for the RepoWorkflow engine and repository command.  Other
-capability labels remain declarative requirements of the selected runner and
-repository validation command; the shared adapter does not pretend to provision
+silently choosing one. When no Python capability is declared, GitHub uses
+Python 3.13 for the RepoWorkflow engine and repository command. Other capability
+labels remain declarative requirements of the selected runner and repository
+validation command; the shared adapter does not pretend to provision
 capabilities it does not understand.
 
 Validation exit codes are:
@@ -87,15 +117,15 @@ Validation exit codes are:
 - `2`: INCOMPLETE because the required result could not be established.
 
 A validation command must not modify the candidate worktree, commit history,
-symbolic `HEAD` target, or local Git refs.  RepoWorkflow records the violation,
+symbolic `HEAD` target, or local Git refs. RepoWorkflow records the violation,
 restores the known-clean candidate state, and continues independent validation
 where possible.
 
 ### `artifacts`
 
-Repositories with committed generated artifacts may declare them.  The artifact
+Repositories with committed generated artifacts may declare them. The artifact
 mechanism is intentionally only for committed generated artifacts; a
-`committed: false` declaration is rejected.  Each artifact has:
+`committed: false` declaration is rejected. Each artifact has:
 
 - unique `id`;
 - `generatorCommand`;
@@ -107,17 +137,36 @@ Numeric Node/Python artifact capabilities use the same GitHub projection rules
 as validation environments so the preparation job runs the generator and
 verifier under the declared toolchains.
 
-Generation may change only declared outputs.  Verification must be read-only.
+Generation may change only declared outputs. Verification must be read-only.
 RepoWorkflow rejects generator/verifier worktree, history, symbolic-HEAD, or
-local-ref mutation outside the authorized generated-output commit.  A failed or
+local-ref mutation outside the authorized generated-output commit. A failed or
 incomplete artifact gate is recorded with the same candidate identity used by
 the validation matrix and participates in terminal result aggregation.
 
 The full local `verify` path materializes and commits successful declared
 artifact changes using the same allow-list safeguards before validating the new
-candidate.  Failed/incomplete artifact-script side effects are rolled back to
+candidate. Failed/incomplete artifact-script side effects are rolled back to
 the previously established clean candidate before independent validation
 continues.
+
+## Local `verify` bookkeeping
+
+`python RepoWorkflow/repo_workflow.py verify` requires a clean named issue branch
+but does not require the caller to manually prepare RepoWorkflow bookkeeping.
+The command:
+
+1. reads the repository's development version;
+2. checks authoritative terminal-tag state;
+3. advances a consumed iteration through `setVersionCommand` when necessary;
+4. refreshes `.ci/run-ci-request` after ordinary source commits when necessary;
+5. commits only the bookkeeping/version changes it performed;
+6. validates that prepared candidate through the normal guard;
+7. runs required validation; and
+8. automatically creates the PASS or FAIL terminal tag.
+
+INCOMPLETE produces no terminal tag. `--push` pushes generated bookkeeping or
+artifact commits and the terminal tag to `authoritativeRemote`. Candidate
+preparation is rolled back if the setter, bookkeeping commit, or guard fails.
 
 ## `.ci/github.json`
 
@@ -167,13 +216,16 @@ Unmatched non-integration branches are rejected.
 
 ## `.ci/run-ci-request`
 
-This file contains exactly the requested development version. It is a universal
-candidate guard. GitHub additionally treats a modification of this file (or an
-explicit manual dispatch) as the request to spend remote CI resources.
+This file contains exactly the requested development version. It remains the
+universal exact-candidate guard for distributed/lower-level execution. GitHub
+additionally treats a modification of this file, or an explicit manual dispatch,
+as the request to spend remote CI resources.
 
-After the request commit, only declared committed generated-artifact paths may
-change before the tested candidate; source changes require a new issue
-iteration/request.
+During normal local authoritative `verify`, RepoWorkflow owns refreshing this
+file and places the bookkeeping commit after ordinary source commits. After that
+request commit, only declared committed generated-artifact paths may change
+before the tested candidate. The guard still rejects post-request ordinary source
+changes when encountered outside the normal preparation path.
 
 ## GitHub adapter
 
