@@ -196,13 +196,14 @@ def prepare_development_candidate(
         "-m",
         f"chore(workflow): prepare authoritative validation for {version}",
       )
-      if push:
-        branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-        if not branch or branch == "HEAD":
-          raise GuardError("cannot push prepared candidate from detached HEAD")
-        git(root, "push", remote, f"HEAD:{branch}")
 
-    return validate_candidate(root, config), prepared
+    candidate = validate_candidate(root, config)
+    if push:
+      branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+      if not branch or branch == "HEAD":
+        raise GuardError("cannot push prepared candidate from detached HEAD")
+      git(root, "push", remote, f"HEAD:{branch}")
+    return candidate, prepared
   except Exception:
     restore_repository_state(root, before)
     raise
