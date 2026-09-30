@@ -5,6 +5,9 @@ import unittest
 from repo_workflow.actions_policy import ActionsPolicyError, check_actions_policy
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 class ActionsPolicyTests(unittest.TestCase):
   def setup_paths(self, root: Path):
     workflows = root / ".github" / "workflows"
@@ -13,7 +16,7 @@ class ActionsPolicyTests(unittest.TestCase):
     (engine / "templates" / "github").mkdir(parents=True)
     return workflows, engine
 
-  def test_exact_canonical_adapter_passes(self):
+  def test_exact_canonical_bootstrap_passes(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       workflows, engine = self.setup_paths(root)
@@ -22,7 +25,7 @@ class ActionsPolicyTests(unittest.TestCase):
       (workflows / "ci.yml").write_text(canonical)
       check_actions_policy(root, engine)
 
-  def test_modified_adapter_is_rejected(self):
+  def test_modified_bootstrap_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       workflows, engine = self.setup_paths(root)
@@ -41,7 +44,7 @@ class ActionsPolicyTests(unittest.TestCase):
       with self.assertRaises(ActionsPolicyError):
         check_actions_policy(root, engine)
 
-  def test_explicit_migration_workflow_can_coexist_with_canonical_adapter(self):
+  def test_explicit_migration_workflow_can_coexist_with_canonical_bootstrap(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       workflows, engine = self.setup_paths(root)
@@ -60,6 +63,24 @@ class ActionsPolicyTests(unittest.TestCase):
       (workflows / "undeclared.yml").write_text("name: undeclared\n")
       with self.assertRaises(ActionsPolicyError):
         check_actions_policy(root, engine, migration_workflows=["legacy-artifact.yml"])
+
+  def test_canonical_consumer_workflow_is_only_a_reusable_handoff(self):
+    bootstrap = (ROOT / "templates" / "github" / "ci.yml").read_text()
+
+    self.assertIn(
+      "uses: Ma-XX-oN/RepoWorkflow/.github/workflows/consumer-ci.yml@bootstrap-v1",
+      bootstrap,
+    )
+    self.assertNotIn("RepoWorkflow/repo_workflow.py", bootstrap)
+    self.assertNotIn("actions/checkout", bootstrap)
+
+  def test_reusable_workflow_owns_hosted_execution(self):
+    reusable = (ROOT / ".github" / "workflows" / "consumer-ci.yml").read_text()
+
+    self.assertIn("workflow_call:", reusable)
+    self.assertIn("actions/checkout@v4", reusable)
+    self.assertIn("python RepoWorkflow/repo_workflow.py repository-policy", reusable)
+    self.assertIn("submodules: recursive", reusable)
 
 
 if __name__ == "__main__":

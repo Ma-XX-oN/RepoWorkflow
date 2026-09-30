@@ -16,7 +16,7 @@ def check_actions_policy(
   workflows = root / ".github" / "workflows"
   canonical = engine_root / "templates" / "github" / "ci.yml"
   if not canonical.is_file():
-    raise ActionsPolicyError(f"canonical GitHub adapter is missing: {canonical}")
+    raise ActionsPolicyError(f"canonical GitHub bootstrap is missing: {canonical}")
   if not workflows.is_dir():
     raise ActionsPolicyError(".github/workflows is missing")
   files = sorted(
@@ -27,11 +27,11 @@ def check_actions_policy(
   expected = sorted(["ci.yml", *(migration_workflows or [])])
   if files != expected:
     raise ActionsPolicyError(
-      "consumer workflow set must match canonical adapter plus declared migration "
+      "consumer workflow set must match canonical bootstrap plus declared migration "
       "workflows; expected: " + ", ".join(expected) + "; found: " + ", ".join(files)
     )
   consumer = workflows / "ci.yml"
   if consumer.read_bytes() != canonical.read_bytes():
     raise ActionsPolicyError(
-      ".github/workflows/ci.yml does not match the pinned RepoWorkflow adapter"
+      ".github/workflows/ci.yml does not match the pinned RepoWorkflow bootstrap"
     )

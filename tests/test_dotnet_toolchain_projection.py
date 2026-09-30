@@ -5,6 +5,7 @@ from repo_workflow.github_adapter import github_matrix, github_prepare_context
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPLEMENTATION = ROOT / ".github" / "workflows" / "consumer-ci.yml"
 
 
 class DotnetToolchainProjectionTests(unittest.TestCase):
@@ -47,7 +48,7 @@ class DotnetToolchainProjectionTests(unittest.TestCase):
     })
 
   def test_canonical_adapter_provisions_dotnet_in_prepare_and_validate(self):
-    workflow = (ROOT / "templates" / "github" / "ci.yml").read_text(encoding="utf-8")
+    workflow = IMPLEMENTATION.read_text(encoding="utf-8")
     prepare = workflow.split("\n  prepare:\n", 1)[1].split("\n  validate:\n", 1)[0]
     validate = workflow.split("\n  validate:\n", 1)[1].split("\n  finalize:\n", 1)[0]
 
