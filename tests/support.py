@@ -30,13 +30,21 @@ class RepoFixture:
     (root / "VERSION").write_text(version + "\n", encoding="utf-8")
     (root / "scripts" / "version.py").write_text(
       "from pathlib import Path\n"
-      "print((Path(__file__).resolve().parents[1] / 'VERSION').read_text().strip())\n",
+      "import sys\n"
+      "path = Path(__file__).resolve().parents[1] / 'VERSION'\n"
+      "if len(sys.argv) == 1:\n"
+      "  print(path.read_text().strip())\n"
+      "elif len(sys.argv) == 3 and sys.argv[1] == '--set':\n"
+      "  path.write_text(sys.argv[2] + '\\n')\n"
+      "else:\n"
+      "  raise SystemExit(2)\n",
       encoding="utf-8",
     )
     (root / "scripts" / "validate.py").write_text(validation_body, encoding="utf-8")
     config = {
       "schema": 1,
       "versionCommand": [sys.executable, "scripts/version.py"],
+      "setVersionCommand": [sys.executable, "scripts/version.py", "--set"],
       "repository": {
         "integrationBranch": "main",
         "authoritativeRemote": "origin",
