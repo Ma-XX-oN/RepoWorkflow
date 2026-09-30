@@ -8,6 +8,7 @@ from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPLEMENTATION = ROOT / ".github" / "workflows" / "consumer-ci.yml"
 
 
 class StableAdapterTests(unittest.TestCase):
@@ -55,7 +56,7 @@ class StableAdapterTests(unittest.TestCase):
       )
 
   def test_canonical_template_carries_stable_mode_end_to_end(self):
-    text = (ROOT / "templates" / "github" / "ci.yml").read_text(encoding="utf-8")
+    text = IMPLEMENTATION.read_text(encoding="utf-8")
     for value in (
       "github-mode",
       "stable-preflight",
