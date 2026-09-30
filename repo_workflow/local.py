@@ -11,6 +11,7 @@ from .artifacts import (
   write_artifact_result,
 )
 from .branch_policy import check_branch_policy
+from .candidate import prepare_development_candidate
 from .config import load_config
 from .git import (
   changed_files,
@@ -22,7 +23,6 @@ from .git import (
 from .guard import validate_candidate, validate_stable_candidate
 from .repository_policy import check_repository_policy
 from .results import (
-  ResultError,
   finalize_results,
   finalize_stable_results,
   run_environment,
@@ -38,8 +38,6 @@ def _verify_local(
   do_tag: bool,
   push: bool,
 ) -> str:
-  if push and not do_tag:
-    raise ResultError("push requires tag creation")
   root = root.resolve()
   engine_root = engine_root.resolve()
   check_repository_policy(root, engine_root)
@@ -49,11 +47,14 @@ def _verify_local(
     raise ValueError("local authoritative verification requires a named branch")
   remote = config["repository"]["authoritativeRemote"]
   check_branch_policy(root, branch, None, remote)
-  candidate = (
-    validate_stable_candidate(root)
-    if stable
-    else validate_candidate(root, config)
-  )
+  if stable:
+    candidate = validate_stable_candidate(root)
+  else:
+    candidate, _prepared = prepare_development_candidate(
+      root,
+      config,
+      push=push,
+    )
 
   with tempfile.TemporaryDirectory(prefix="repoworkflow-results-") as directory:
     results_dir = Path(directory)
@@ -109,14 +110,13 @@ def verify_local(
   root: Path,
   *,
   engine_root: Path,
-  do_tag: bool = False,
   push: bool = False,
 ) -> str:
   return _verify_local(
     root,
     engine_root=engine_root,
     stable=False,
-    do_tag=do_tag,
+    do_tag=True,
     push=push,
   )
 
