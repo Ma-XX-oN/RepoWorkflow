@@ -35,13 +35,32 @@ class ResultTests(unittest.TestCase):
       self.assertEqual(rc, 1)
       self.assertEqual(json.loads(result_path.read_text())["status"], "FAIL")
 
-  def test_exit_two_is_incomplete(self):
-    td, root, _ = self.make(validation_body="raise SystemExit(2)\n")
+  def test_exit_two_is_incomplete_with_actionable_diagnostics(self):
+    body = (
+      "import sys\n"
+      "print('setup unavailable')\n"
+      "print('missing sdk', file=sys.stderr)\n"
+      "raise SystemExit(2)\n"
+    )
+    td, root, _ = self.make(validation_body=body)
     with td:
       result_path = root.parent / "result.json"
       rc = run_environment(root, load_config(root), "local", result_path)
       self.assertEqual(rc, 2)
-      self.assertEqual(json.loads(result_path.read_text())["status"], "INCOMPLETE")
+      value = json.loads(result_path.read_text())
+      self.assertEqual(value["status"], "INCOMPLETE")
+      self.assertIn("returned 2", value["message"])
+      self.assertIn("setup unavailable", value["stdout"])
+      self.assertIn("missing sdk", value["stderr"])
+      outcome, tag, warnings = evaluate_results(
+        load_config(root), [value], value["version"], value["commit"]
+      )
+      self.assertEqual(outcome, "INCOMPLETE")
+      self.assertIsNone(tag)
+      text = "\n".join(warnings)
+      self.assertIn("returned 2", text)
+      self.assertIn("setup unavailable", text)
+      self.assertIn("missing sdk", text)
 
   def test_platform_mismatch_is_incomplete_without_running_validation(self):
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
@@ -52,7 +71,34 @@ class ResultTests(unittest.TestCase):
       result_path = root.parent / "result.json"
       rc = run_environment(root, load_config(root), "local", result_path)
       self.assertEqual(rc, 2)
-      self.assertEqual(json.loads(result_path.read_text())["status"], "INCOMPLETE")
+      value = json.loads(result_path.read_text())
+      self.assertEqual(value["status"], "INCOMPLETE")
+      self.assertIn("required platform", value["message"])
+
+  def test_matching_python_capability_is_verified(self):
+    required = f"python-{sys.version_info.major}.{sys.version_info.minor}"
+    td, root, _ = self.make(capabilities=[required])
+    with td:
+      result_path = root.parent / "result.json"
+      rc = run_environment(root, load_config(root), "local", result_path)
+      self.assertEqual(rc, 0)
+      value = json.loads(result_path.read_text())
+      self.assertIn("python", value["runtime"]["toolchains"])
+
+  def test_mismatched_python_capability_is_incomplete_before_validation(self):
+    required = f"python-{sys.version_info.major + 10}"
+    td, root, _ = self.make(
+      validation_body="raise RuntimeError('must not run')\n",
+      capabilities=[required],
+    )
+    with td:
+      result_path = root.parent / "result.json"
+      rc = run_environment(root, load_config(root), "local", result_path)
+      self.assertEqual(rc, 2)
+      value = json.loads(result_path.read_text())
+      self.assertEqual(value["status"], "INCOMPLETE")
+      self.assertIn(required, value["message"])
+      self.assertNotIn("returncode", value)
 
   def test_validation_worktree_mutation_is_failure(self):
     body = (
