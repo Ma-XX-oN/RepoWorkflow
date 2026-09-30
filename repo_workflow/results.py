@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import platform
+import re
+import shutil
+import subprocess
 import sys
 from typing import Any
 
@@ -19,6 +22,11 @@ from .process import run_command
 
 class ResultError(RuntimeError):
   pass
+
+
+_TOOLCHAIN_CAPABILITY = re.compile(
+  r"^(dotnet|node|python)-([0-9]+(?:\.[0-9]+){0,2})$"
+)
 
 
 def _platform_name() -> str:
@@ -38,6 +46,66 @@ def _find_environment(config: dict, env_id: str) -> dict:
   raise ResultError(f"unknown environment: {env_id}")
 
 
+def _version_parts(value: str) -> tuple[int, ...] | None:
+  match = re.search(r"([0-9]+(?:\.[0-9]+){0,2})", value)
+  if match is None:
+    return None
+  return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _tool_version(tool: str) -> tuple[str | None, str | None]:
+  if tool == "python":
+    command = [sys.executable, "--version"]
+  else:
+    executable = shutil.which(tool)
+    if executable is None:
+      return None, f"required capability tool is unavailable: {tool}"
+    command = [executable, "--version"]
+  completed = subprocess.run(command, capture_output=True, text=True, check=False)
+  output = (completed.stdout or completed.stderr).strip()
+  if completed.returncode:
+    return None, (
+      f"cannot establish {tool} version: command exited {completed.returncode}"
+      + (f": {output}" if output else "")
+    )
+  if _version_parts(output) is None:
+    return None, f"cannot parse {tool} version from: {output!r}"
+  return output, None
+
+
+def _check_capabilities(capabilities: list[str]) -> tuple[dict[str, str], str | None]:
+  runtime: dict[str, str] = {}
+  requirements: dict[str, tuple[int, ...]] = {}
+  labels: dict[str, str] = {}
+  for capability in capabilities:
+    match = _TOOLCHAIN_CAPABILITY.fullmatch(str(capability))
+    if match is None:
+      continue
+    tool = match.group(1)
+    required = tuple(int(part) for part in match.group(2).split("."))
+    if tool in requirements and requirements[tool] != required:
+      return runtime, f"conflicting {tool} capabilities declared"
+    requirements[tool] = required
+    labels[tool] = str(capability)
+
+  for tool, required in requirements.items():
+    output, error = _tool_version(tool)
+    if error is not None:
+      return runtime, f"{labels[tool]} unavailable: {error}"
+    assert output is not None
+    actual = _version_parts(output)
+    assert actual is not None
+    runtime[tool] = ".".join(str(part) for part in actual)
+    if actual[:len(required)] != required:
+      expected = ".".join(str(part) for part in required)
+      found = ".".join(str(part) for part in actual)
+      return runtime, (
+        f"required capability {labels[tool]} is unavailable: "
+        f"found {tool} {found}, expected {expected}"
+      )
+  return runtime, None
+
+
 def _run_environment_for_candidate(
   root: Path,
   config: dict,
@@ -48,6 +116,7 @@ def _run_environment_for_candidate(
   environment = _find_environment(config, env_id)
   required_platform = environment.get("platform", "any")
   actual_platform = _platform_name()
+  capabilities = list(environment.get("capabilities", []))
   result: dict[str, Any] = {
     "schema": 1,
     "environment": env_id,
@@ -56,7 +125,7 @@ def _run_environment_for_candidate(
     "commit": candidate.commit,
     "declared": {
       "platform": required_platform,
-      "capabilities": list(environment.get("capabilities", [])),
+      "capabilities": capabilities,
     },
     "runtime": {
       "platform": actual_platform,
@@ -72,39 +141,47 @@ def _run_environment_for_candidate(
     )
     rc = 2
   else:
-    before_state = repository_state(root)
-    command_result = run_command(environment["validationCommand"], root)
-    result["durationSeconds"] = command_result.duration_seconds
-    result["stdout"] = command_result.stdout
-    result["stderr"] = command_result.stderr
-    result["returncode"] = command_result.returncode
-    mutations = changed_files(root)
-    after_state = repository_state(root)
-    history_changed = after_state.commit != before_state.commit
-    head_ref_changed = after_state.head_ref != before_state.head_ref
-    refs_changed = after_state.refs != before_state.refs
-    if mutations or history_changed or head_ref_changed or refs_changed:
-      result["status"] = "FAIL"
-      details = []
-      if mutations:
-        details.append("worktree=" + ", ".join(mutations))
-      if history_changed:
-        details.append("HEAD changed")
-      if head_ref_changed:
-        details.append("HEAD reference changed")
-      if refs_changed:
-        details.append("local Git refs changed")
-      result["message"] = "validation modified repository state: " + "; ".join(details)
-      restore_repository_state(root, before_state)
-      rc = 1
-    elif command_result.returncode == 0:
-      rc = 0
-    elif command_result.returncode == 2:
+    toolchains, capability_error = _check_capabilities(capabilities)
+    result["runtime"]["toolchains"] = toolchains
+    if capability_error is not None:
       result["status"] = "INCOMPLETE"
+      result["message"] = capability_error
       rc = 2
     else:
-      result["status"] = "FAIL"
-      rc = 1
+      before_state = repository_state(root)
+      command_result = run_command(environment["validationCommand"], root)
+      result["durationSeconds"] = command_result.duration_seconds
+      result["stdout"] = command_result.stdout
+      result["stderr"] = command_result.stderr
+      result["returncode"] = command_result.returncode
+      mutations = changed_files(root)
+      after_state = repository_state(root)
+      history_changed = after_state.commit != before_state.commit
+      head_ref_changed = after_state.head_ref != before_state.head_ref
+      refs_changed = after_state.refs != before_state.refs
+      if mutations or history_changed or head_ref_changed or refs_changed:
+        result["status"] = "FAIL"
+        details = []
+        if mutations:
+          details.append("worktree=" + ", ".join(mutations))
+        if history_changed:
+          details.append("HEAD changed")
+        if head_ref_changed:
+          details.append("HEAD reference changed")
+        if refs_changed:
+          details.append("local Git refs changed")
+        result["message"] = "validation modified repository state: " + "; ".join(details)
+        restore_repository_state(root, before_state)
+        rc = 1
+      elif command_result.returncode == 0:
+        rc = 0
+      elif command_result.returncode == 2:
+        result["status"] = "INCOMPLETE"
+        result["message"] = "validation command returned 2 (INCOMPLETE)"
+        rc = 2
+      else:
+        result["status"] = "FAIL"
+        rc = 1
   result_path.parent.mkdir(parents=True, exist_ok=True)
   result_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
   return rc
@@ -146,6 +223,20 @@ def collect_results(results_dir: Path) -> list[dict[str, Any]]:
   return values
 
 
+def _incomplete_detail(result: dict[str, Any]) -> str:
+  detail = str(result.get("message") or "reason not provided")
+  output = []
+  stdout = str(result.get("stdout") or "").strip()
+  stderr = str(result.get("stderr") or "").strip()
+  if stdout:
+    output.append("stdout:\n" + stdout)
+  if stderr:
+    output.append("stderr:\n" + stderr)
+  if output:
+    detail += "\n" + "\n".join(output)
+  return detail
+
+
 def evaluate_results(
   config: dict,
   results: list[dict[str, Any]],
@@ -181,7 +272,11 @@ def evaluate_results(
     if by_environment[env_id].get("status") == "INCOMPLETE"
   )
   if incomplete:
-    warnings.append("required environment incomplete: " + ", ".join(incomplete))
+    for env_id in incomplete:
+      warnings.append(
+        f"required environment incomplete: {env_id}: "
+        + _incomplete_detail(by_environment[env_id])
+      )
     return "INCOMPLETE", None, warnings
   invalid = sorted(
     env_id for env_id in required
