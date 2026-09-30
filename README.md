@@ -7,8 +7,8 @@ in each repository.
 
 The central boundary is:
 
-> GitHub workflow YAML is only a GitHub adapter. Repository workflow logic must
-> remain executable locally and on other CI platforms.
+> GitHub workflow YAML is only a bootstrap. Repository workflow logic must remain
+> executable locally and on other CI platforms.
 
 A consumer is structured broadly as:
 
@@ -16,7 +16,7 @@ A consumer is structured broadly as:
 Project/
 ├── RepoWorkflow/               # submodule pinned to an exact commit
 ├── .ci/                        # repository-specific declarations
-├── .github/workflows/ci.yml    # byte-identical GitHub adapter
+├── .github/workflows/ci.yml    # tiny stable reusable-workflow handoff
 ├── scripts/                    # repository-specific operations
 └── tests/
 ```
@@ -48,9 +48,47 @@ Each consumer owns repository-specific facts and operations:
 - optional committed-artifact generator and independent verifier commands;
 - generated-output allow-lists.
 
-GitHub YAML owns only GitHub mechanics: events, permissions, recursive checkout,
-runner provisioning, matrix fan-out, Actions artifact transport, job outputs,
-and narrowly authorized publication/tagging plumbing.
+## Pinned local engine
+
+The superproject gitlink is the authoritative RepoWorkflow identity. Normal
+local validation does not fetch or update the submodule. RepoWorkflow compares
+its checked-out `RepoWorkflow` HEAD with the gitlink already recorded by the
+consumer and fails if they differ.
+
+Once the submodule has been initialized, the normal command is simply:
+
+```text
+python RepoWorkflow/repo_workflow.py verify
+```
+
+There is no reason to run `git submodule update` before every verification when
+the checkout already matches the pin. If the submodule is missing or has been
+moved away from the pin, repair it explicitly:
+
+```text
+git submodule update --init --recursive --force RepoWorkflow
+```
+
+That network/repair path is exceptional rather than part of every test run.
+
+## GitHub bootstrap and reusable workflow
+
+GitHub must discover a workflow file in the consumer repository before checkout,
+so every consumer retains a tiny stable `.github/workflows/ci.yml`. It contains
+only event declarations and a reusable-workflow handoff to:
+
+```text
+Ma-XX-oN/RepoWorkflow/.github/workflows/consumer-ci.yml@bootstrap-v1
+```
+
+The large hosted implementation lives once in RepoWorkflow. The reusable
+workflow checks out the consumer recursively, which materializes the exact
+RepoWorkflow gitlink pinned by that candidate, and repository policy verifies
+that the checked-out engine HEAD equals that gitlink before validation.
+
+`bootstrap-v1` is the stable handoff contract. Normal RepoWorkflow releases do
+not require copying a large workflow into every consumer. A bootstrap-contract
+change is therefore explicit and exceptional.
 
 ## Authoritative local verification
 
