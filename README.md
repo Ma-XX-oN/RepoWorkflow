@@ -17,6 +17,7 @@ Project/
 ├── RepoWorkflow/               # submodule pinned to an exact commit
 ├── .ci/                        # repository-specific declarations
 ├── .github/workflows/ci.yml    # tiny stable reusable-workflow handoff
+├── scripts/repoworkflow.py     # tiny stable local pin launcher
 ├── scripts/                    # repository-specific operations
 └── tests/
 ```
@@ -50,26 +51,38 @@ Each consumer owns repository-specific facts and operations:
 
 ## Pinned local engine
 
-The superproject gitlink is the authoritative RepoWorkflow identity. Normal
-local validation does not fetch or update the submodule. RepoWorkflow compares
-its checked-out `RepoWorkflow` HEAD with the gitlink already recorded by the
-consumer and fails if they differ.
+The superproject gitlink is the authoritative RepoWorkflow identity. Consumers
+install `templates/local/repoworkflow.py` as `scripts/repoworkflow.py`. This
+small launcher runs before any submodule engine code is trusted.
 
-Once the submodule has been initialized, the normal command is simply:
+The normal command is:
 
 ```text
-python RepoWorkflow/repo_workflow.py verify
+python scripts/repoworkflow.py verify
 ```
 
-There is no reason to run `git submodule update` before every verification when
-the checkout already matches the pin. If the submodule is missing or has been
-moved away from the pin, repair it explicitly:
+The launcher performs only local Git reads first:
+
+1. read the expected RepoWorkflow commit from `HEAD:RepoWorkflow`;
+2. read the current `RepoWorkflow` checkout HEAD;
+3. if they match, immediately delegate to the pinned engine without a submodule
+   update or network repair;
+4. if the checkout is missing or mismatched, run the exact submodule repair,
+   verify the resulting HEAD equals the gitlink, and only then delegate.
+
+An explicit repair can be forced even when the checkout currently matches:
+
+```text
+python scripts/repoworkflow.py --force-repair verify
+```
+
+The repair operation is:
 
 ```text
 git submodule update --init --recursive --force RepoWorkflow
 ```
 
-That network/repair path is exceptional rather than part of every test run.
+It is therefore exceptional rather than part of every test run.
 
 ## GitHub bootstrap and reusable workflow
 
@@ -95,15 +108,16 @@ change is therefore explicit and exceptional.
 The normal local development workflow is one command:
 
 ```text
-python RepoWorkflow/repo_workflow.py verify
+python scripts/repoworkflow.py verify
 ```
 
-The caller does not manually refresh `.ci/run-ci-request`, reorder bookkeeping
-commits, or opt into terminal tagging. Before validation, `verify` rebinds the
-request after ordinary source commits when necessary. If the current development
-iteration is already consumed remotely and `setVersionCommand` is configured,
-RepoWorkflow advances to the next iteration and records the new request in one
-bookkeeping commit.
+The launcher first establishes the pinned engine as described above. The engine
+then owns candidate bookkeeping. The caller does not manually refresh
+`.ci/run-ci-request`, reorder bookkeeping commits, or opt into terminal tagging.
+Before validation, `verify` rebinds the request after ordinary source commits
+when necessary. If the current development iteration is already consumed
+remotely and `setVersionCommand` is configured, RepoWorkflow advances to the
+next iteration and records the new request in one bookkeeping commit.
 
 A completed development result always creates a local terminal tag:
 
@@ -149,7 +163,13 @@ cannot be established, execution is INCOMPLETE rather than a false PASS/FAIL.
 
 ## Entry points
 
-The shared command-line entry point is:
+The normal consumer-side entry point is:
+
+```text
+python scripts/repoworkflow.py <command>
+```
+
+After pin establishment, that launcher delegates unchanged arguments to:
 
 ```text
 python RepoWorkflow/repo_workflow.py <command>
