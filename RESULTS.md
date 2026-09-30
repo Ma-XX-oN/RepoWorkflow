@@ -20,18 +20,14 @@ The requested numeric components are exact prefixes of the detected runtime vers
 
 Other capability labels remain declarative requirements. RepoWorkflow does not claim to have verified a capability it does not understand.
 
-## Actionable INCOMPLETE output
+## Actionable validation output
 
-A validation command may return exit code `2` to state that the required result could not be established. RepoWorkflow records:
+RepoWorkflow records the validation command return code, captured stdout, and captured stderr for every executed environment.
 
-- the environment;
-- the concrete INCOMPLETE reason;
-- the validation command return code;
-- captured stdout;
-- captured stderr.
+A validation command may return exit code `2` to state that the required result could not be established. RepoWorkflow records that as `INCOMPLETE` with an explicit reason. Any other nonzero return code is a genuine `FAIL`, also with an explicit return-code reason.
 
-Before temporary result storage is removed, final local reporting prints the environment reason and any captured stdout/stderr. A known reason must not be reduced to only `required environment incomplete: <id>`.
+Before temporary result storage is removed, final local reporting prints the environment reason and any captured stdout/stderr for both `INCOMPLETE` and `FAIL`. A known reason must not be reduced to only an aggregate environment status.
 
-Capability or platform failures are also reported with their specific reason, such as a missing tool or detected version mismatch.
+Capability or platform failures are `INCOMPLETE` and are reported with their specific reason, such as a missing tool or detected version mismatch; because the validation command is not run in that case, there is no command output to print.
 
-INCOMPLETE never creates a terminal result tag.
+`INCOMPLETE` never creates a terminal result tag. Genuine `FAIL` continues to create `v<version>-CI-FAIL` when terminal tagging is enabled; exposing diagnostics does not change result or tagging semantics.
