@@ -482,7 +482,7 @@ A reasonable dependency order is:
 
 For consumer repositories, no issue branch, GREEN result, completed task, or
 ready pull request authorizes a merge by itself.  Merge remains a separate
-explicitly authorized operation unless that repository has an explicit
+explicitly authorized operation unless that repository has a documented
 repository-owned exception.
 
 RepoWorkflow itself has such an exception.  RepoWorkflow work is expected to be
