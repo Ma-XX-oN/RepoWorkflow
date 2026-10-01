@@ -37,6 +37,7 @@ from repo_workflow.guard import (
   validate_candidate,
   validate_stable_candidate,
 )
+from repo_workflow.init_setup import InitError, bash_source, initialize
 from repo_workflow.local import verify_local, verify_stable_local
 from repo_workflow.repository_policy import (
   RepositoryPolicyError,
@@ -94,6 +95,11 @@ def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(description="Shared repository workflow engine")
   parser.add_argument("--root", default=".", help="consumer repository root")
   commands = parser.add_subparsers(dest="command", required=True)
+
+  init = commands.add_parser("init")
+  init.add_argument("--bash", action="store_true")
+  init.add_argument("--force", action="store_true")
+  init.add_argument("--home", help=argparse.SUPPRESS)
 
   what_next = commands.add_parser("what-next")
   what_next.add_argument("--json", action="store_true")
@@ -183,6 +189,22 @@ def main() -> int:
   args = build_parser().parse_args()
   root = _root(args.root)
   try:
+    if args.command == "init":
+      home = Path(args.home).resolve() if args.home else Path.home()
+      result = initialize(
+        root,
+        ENGINE_ROOT,
+        home=home,
+        force=args.force,
+      )
+      if args.bash:
+        print(bash_source(ENGINE_ROOT), end="")
+      else:
+        print(f"Initialized RepoWorkflow in {result.root}")
+        print(f"Bash integration: {result.shell_file}")
+        print("Git hooks: " + ", ".join(path.name for path in result.hooks))
+      return 0
+
     if args.command == "what-next":
       plan = derive_plan(discover_facts(root))
       if args.json:
@@ -390,6 +412,7 @@ def main() -> int:
     ArtifactError,
     BranchPolicyError,
     ConfigError,
+    InitError,
     RepositoryPolicyError,
     ResultError,
     GitError,
