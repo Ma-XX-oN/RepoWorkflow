@@ -5,10 +5,10 @@
 _repo_workflow_complete() {
   local command="${REPO_WORKFLOW_COMMAND:-repo-workflow}"
   local root="${REPO_WORKFLOW_ROOT:-$PWD}"
-  local -a words=("${COMP_WORDS[@]:1}")
+  local -a words=("${COMP_WORDS[@]:1:$COMP_CWORD}")
   COMPREPLY=()
   mapfile -t COMPREPLY < <(
-    "$command" --root "$root" complete "${words[@]}" 2>/dev/null
+    "$command" --root "$root" complete -- "${words[@]}" 2>/dev/null
   )
 }
 
