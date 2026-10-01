@@ -474,7 +474,8 @@ A reasonable dependency order is:
 2. implement the workflow state machine, `what-next`, CLI transitions, alias,
    and completion;
 3. add the validation audit trail and exact-candidate local/hosted reuse;
-4. add GUID-qualified `prelim-main-<GUID>`, reintegration, PRELIM tags, and\n   the integration ticket;
+4. add GUID-qualified `prelim-main-<GUID>`, reintegration, PRELIM tags, and
+   the integration ticket;
 5. add local Git guard hooks backed by the state machine;
 6. add/enable server rules for protected `main`, exact-current validation, and
    stable-tag finalization;
