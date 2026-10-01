@@ -103,7 +103,7 @@ def completion_candidates(plan: WorkflowPlan, words: Iterable[str]) -> list[str]
   prefix = tokens[-1]
   completed = tokens[:-1]
 
-  commands = ["what-next", *plan.transitions]
+  commands = ["init", "what-next", *plan.transitions]
   candidates: set[str] = set()
   for command in commands:
     command_tokens = command.split()
@@ -117,6 +117,10 @@ def completion_candidates(plan: WorkflowPlan, words: Iterable[str]) -> list[str]
 
   if completed == ["what-next"] and "--json".startswith(prefix):
     candidates.add("--json")
+  if completed == ["init"]:
+    for option in ("--bash", "--force"):
+      if option.startswith(prefix):
+        candidates.add(option)
   return sorted(candidates)
 
 
