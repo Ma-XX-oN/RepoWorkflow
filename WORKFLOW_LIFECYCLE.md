@@ -193,30 +193,59 @@ PRELIM tags:
 12. Acceptance does **not** authorize merge/integration.  Explicit merge or
     integration authorization remains a separate boundary.
 
-## 7. Local `main` and ephemeral `prelim-main`
+## 7. Local `main` and ephemeral `prelim-main-<GUID>`
 
 Local `main` is tracking state.  It should remain synchronized with the
 authoritative server `main` and should not be used as a local integration
 workspace.
 
-For one integration cycle:
+A preliminary integration branch is not part of ordinary issue development.
+Create one only when an authorized workflow is actually attempting a local
+integration toward `main`.
 
-1. create an ephemeral `prelim-main` from the current authoritative `main` tip;
-2. merge the accepted task or umbrella result into `prelim-main`;
-3. keep integration-specific conflict resolution, generated artifacts, and
-   proposed stable version on `prelim-main`;
-4. choose release intent with either:
+Each integration attempt receives a newly generated GUID and uses that identity
+for the lifetime of the attempt:
+
+```text
+prelim-main-<GUID>
+```
+
+The GUID identifies the integration attempt, not the worker.  A fixed shared
+`prelim-main` remote ref is forbidden because concurrent workers could
+otherwise overwrite, adopt, or delete one another's preliminary integration
+state.
+
+For one local integration attempt:
+
+1. generate a new integration-attempt GUID;
+2. create ephemeral `prelim-main-<GUID>` from the current authoritative
+   server `main` tip;
+3. associate that GUID-bearing branch with its integration workflow record;
+4. merge the accepted task or umbrella result into `prelim-main-<GUID>`;
+5. keep integration-specific conflict resolution, generated artifacts, and
+   proposed stable version on `prelim-main-<GUID>`;
+6. choose release intent with either:
    - `repo-workflow version integrate increment patch`, or
    - `repo-workflow version integrate increment minor`;
-5. RepoWorkflow forwards the intent to the repository adapter, which derives
+7. RepoWorkflow forwards the intent to the repository adapter, which derives
    and applies the literal stable candidate version;
-6. run complete local validation if desired;
-7. create immutable PRELIM tags/audit records for tested candidates;
-8. push the prelim candidate and create/use a distinct integration ticket/PR;
-9. after successful protected server integration and local resynchronization,
-   delete/clear `prelim-main`;
-10. the next integration cycle creates a fresh `prelim-main` from the then
-    current server `main`.
+8. run complete local validation if desired;
+9. create immutable PRELIM tags/audit records for tested candidates;
+10. push the GUID-qualified prelim candidate and create/use a distinct
+    integration ticket/PR;
+11. retain `prelim-main-<GUID>` while the corresponding server integration is
+    pending; a push, GREEN validation result, or ready PR is not sufficient
+    evidence for cleanup;
+12. after observing and verifying that the corresponding integration has
+    actually reached authoritative server `main`, resynchronize local
+    `main` and delete the local and remote `prelim-main-<GUID>` refs;
+13. a later local integration attempt generates a new GUID and creates a fresh
+    `prelim-main-<GUID>` from the then-current server `main`.
+
+RepoWorkflow must identify prelim branches through their integration workflow
+records and GUIDs, not by searching for or assuming one shared `prelim-main`
+branch.  One worker must never adopt, modify, or clean up another worker's
+preliminary integration branch.
 
 The local machine may construct and completely validate a proposed stable
 candidate, but it does not create the stable release tag and should not bypass
@@ -411,7 +440,7 @@ Useful checks include:
 
 - manual/direct version edits outside the repository adapter;
 - deliberate local integration commits on tracking `main` instead of
-  `prelim-main`;
+  `prelim-main-<GUID>`;
 - direct push to `main`;
 - force/deletion hazards;
 - malformed or unauthorized stable/PRELIM/task tags;
@@ -445,7 +474,7 @@ A reasonable dependency order is:
 2. implement the workflow state machine, `what-next`, CLI transitions, alias,
    and completion;
 3. add the validation audit trail and exact-candidate local/hosted reuse;
-4. add `prelim-main`, reintegration, PRELIM tags, and the integration ticket;
+4. add GUID-qualified `prelim-main-<GUID>`, reintegration, PRELIM tags, and\n   the integration ticket;
 5. add local Git guard hooks backed by the state machine;
 6. add/enable server rules for protected `main`, exact-current validation, and
    stable-tag finalization;
