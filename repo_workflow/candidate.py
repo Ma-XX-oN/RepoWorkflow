@@ -4,32 +4,18 @@ from pathlib import Path
 import re
 
 from .git import changed_files, git, head_sha, repository_state, restore_repository_state
-from .guard import Candidate, GuardError, VERSION_RE, validate_candidate
-from .process import run_command
-
-
-_VERSION_PARTS_RE = re.compile(
-  r"^(?P<base>\d+\.\d+\.\d+)-issue\.(?P<issue>\d+)\.(?P<iteration>\d+)$"
+from .guard import Candidate, GuardError, validate_candidate
+from .version_adapter import (
+  VersionAdapterError,
+  read_development_version,
+  run_transition,
 )
 
 
-def _reported_version(root: Path, config: dict) -> str:
-  before = repository_state(root)
-  result = run_command(config["versionCommand"], root)
-  if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
-    raise GuardError(f"repository version command failed: {detail}")
-  lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-  if len(lines) != 1 or not VERSION_RE.fullmatch(lines[0]):
-    raise GuardError("version command must print exactly one valid development version")
-  after = repository_state(root)
-  if after.commit != before.commit:
-    raise GuardError("repository version command modified candidate history")
-  if after.head_ref != before.head_ref:
-    raise GuardError("repository version command modified HEAD reference")
-  if after.refs != before.refs:
-    raise GuardError("repository version command modified local Git refs")
-  return lines[0]
+_VERSION_PARTS_RE = re.compile(
+  r"^(?P<base>\d+\.\d+\.\d+)-issue\."
+  r"(?P<issue>\d+)\.(?P<generation>\d+)\.(?P<iteration>\d+)$"
+)
 
 
 def _terminal_tag(root: Path, remote: str, version: str) -> str | None:
@@ -53,39 +39,33 @@ def _terminal_tag(root: Path, remote: str, version: str) -> str | None:
   return None
 
 
-def _next_iteration(version: str) -> str:
-  match = _VERSION_PARTS_RE.fullmatch(version)
-  if match is None:
-    raise GuardError(f"cannot advance invalid development version: {version}")
-  return (
-    f"{match.group('base')}-issue.{match.group('issue')}."
-    f"{int(match.group('iteration')) + 1}"
-  )
+def _assert_ci_iteration_advanced(before: str, after: str) -> None:
+  before_match = _VERSION_PARTS_RE.fullmatch(before)
+  after_match = _VERSION_PARTS_RE.fullmatch(after)
+  if before_match is None or after_match is None:
+    raise GuardError("repository version adapter produced an invalid task version")
+  expected = {
+    "base": before_match.group("base"),
+    "issue": before_match.group("issue"),
+    "generation": before_match.group("generation"),
+    "iteration": str(int(before_match.group("iteration")) + 1),
+  }
+  actual = {name: after_match.group(name) for name in expected}
+  if actual != expected:
+    raise GuardError(
+      "repository version adapter did not perform exactly one CI-iteration increment: "
+      f"{before} -> {after}"
+    )
 
 
-def _set_version(root: Path, config: dict, version: str) -> None:
-  command = config.get("setVersionCommand")
-  if command is None:
-    raise GuardError(
-      "development iteration is consumed and setVersionCommand is not configured"
-    )
-  before = repository_state(root)
-  result = run_command([*command, version], root)
-  if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
-    raise GuardError(f"repository version setter failed: {detail}")
-  after = repository_state(root)
-  if after.commit != before.commit:
-    raise GuardError("repository version setter modified candidate history")
-  if after.head_ref != before.head_ref:
-    raise GuardError("repository version setter modified HEAD reference")
-  if after.refs != before.refs:
-    raise GuardError("repository version setter modified local Git refs")
-  reported = _reported_version(root, config)
-  if reported != version:
-    raise GuardError(
-      f"repository version setter produced {reported}, expected {version}"
-    )
+def _advance_ci_iteration(root: Path, config: dict, version: str) -> str:
+  try:
+    run_transition(root, config, "task", "--increment", "CI-iteration")
+    advanced = read_development_version(root, config)
+  except VersionAdapterError as exc:
+    raise GuardError(str(exc)) from exc
+  _assert_ci_iteration_advanced(version, advanced)
+  return advanced
 
 
 def _request_commit(root: Path) -> str | None:
@@ -174,11 +154,13 @@ def prepare_development_candidate(
   remote = config["repository"]["authoritativeRemote"]
   prepared = False
   try:
-    version = _reported_version(root, config)
+    try:
+      version = read_development_version(root, config)
+    except VersionAdapterError as exc:
+      raise GuardError(str(exc)) from exc
     consumed = _terminal_tag(root, remote, version)
     if consumed is not None:
-      version = _next_iteration(version)
-      _set_version(root, config, version)
+      version = _advance_ci_iteration(root, config, version)
       prepared = True
 
     if _request_needs_refresh(root, config, version):
