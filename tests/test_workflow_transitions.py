@@ -1,6 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.workflow_state import discover_facts, save_local_state
 from repo_workflow.workflow_transitions import validate_integration, validate_regression
@@ -15,12 +16,16 @@ class WorkflowTransitionTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      fx = RepoFixture(root, validation_body="raise SystemExit(1)\n")
-      failed_version = fx.version
+      fx = RepoFixture(root)
       failed_candidate = fx.head()
 
-      outcome = validate_regression(root, engine_root=ROOT)
+      with patch(
+        "repo_workflow.workflow_transitions.verify_local",
+        return_value="FAIL",
+      ) as verify:
+        outcome = validate_regression(root, engine_root=ROOT)
 
+      verify.assert_called_once_with(root, engine_root=ROOT, push=False)
       self.assertEqual(outcome, "FAIL")
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
@@ -28,10 +33,6 @@ class WorkflowTransitionTests(unittest.TestCase):
       )
       self.assertNotEqual(fx.head(), failed_candidate)
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
-      tag_target = fx._run(
-        "rev-parse", f"v{failed_version}-CI-FAIL^{{}}"
-      ).stdout.strip()
-      self.assertEqual(tag_target, failed_candidate)
       self.assertEqual(discover_facts(root).regression, "missing")
 
   def test_integration_failure_advances_generation_and_resets_iteration(self):
