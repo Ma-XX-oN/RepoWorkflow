@@ -49,6 +49,21 @@ from repo_workflow.results import (
   run_environment,
   run_stable_environment,
 )
+from repo_workflow.version_adapter import (
+  VersionAdapterError,
+  read_version,
+  run_transition,
+)
+from repo_workflow.workflow_state import (
+  completion_candidates,
+  derive_plan,
+  discover_facts,
+  render_human,
+)
+from repo_workflow.workflow_transitions import (
+  validate_integration,
+  validate_regression,
+)
 
 
 ENGINE_ROOT = Path(__file__).resolve().parent
@@ -58,10 +73,42 @@ def _root(value: str) -> Path:
   return Path(value).resolve()
 
 
+def _version_transition_arguments(words: list[str]) -> tuple[str, ...] | None:
+  if not words:
+    return None
+  if len(words) == 3 and words[:2] == ["task", "issue"]:
+    int(words[2])
+    return "task", "--issue", words[2]
+  if (
+    len(words) == 3
+    and words[:2] == ["integrate", "increment"]
+    and words[2] in {"patch", "minor"}
+  ):
+    return "integrate", "--increment", words[2]
+  if words == ["release-major"]:
+    return ("release-major",)
+  raise ValueError("invalid version transition")
+
+
 def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(description="Shared repository workflow engine")
   parser.add_argument("--root", default=".", help="consumer repository root")
   commands = parser.add_subparsers(dest="command", required=True)
+
+  what_next = commands.add_parser("what-next")
+  what_next.add_argument("--json", action="store_true")
+
+  validate = commands.add_parser("validate")
+  validation = validate.add_subparsers(dest="validation", required=True)
+  validation.add_parser("regression")
+  integration = validation.add_parser("integration")
+  integration.add_argument("result", choices=("succeeded", "failed"))
+
+  version = commands.add_parser("version")
+  version.add_argument("version_words", nargs="*")
+
+  complete = commands.add_parser("complete", help=argparse.SUPPRESS)
+  complete.add_argument("words", nargs="*")
 
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
@@ -136,6 +183,36 @@ def main() -> int:
   args = build_parser().parse_args()
   root = _root(args.root)
   try:
+    if args.command == "what-next":
+      plan = derive_plan(discover_facts(root))
+      if args.json:
+        print(json.dumps(plan.to_json_value(), separators=(",", ":")))
+      else:
+        print(render_human(plan))
+      return 0
+
+    if args.command == "complete":
+      plan = derive_plan(discover_facts(root))
+      for candidate in completion_candidates(plan, args.words):
+        print(candidate)
+      return 0
+
+    if args.command == "validate":
+      if args.validation == "regression":
+        outcome = validate_regression(root, engine_root=ENGINE_ROOT)
+        return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
+      candidate = validate_integration(root, args.result)
+      print(candidate)
+      return 0
+
+    if args.command == "version":
+      config = load_config(root)
+      transition = _version_transition_arguments(args.version_words)
+      if transition is not None:
+        run_transition(root, config, *transition)
+      print(read_version(root, config))
+      return 0
+
     if args.command == "preflight":
       candidate = validate_candidate(
         root,
@@ -317,6 +394,7 @@ def main() -> int:
     ResultError,
     GitError,
     GuardError,
+    VersionAdapterError,
     ValueError,
   ) as exc:
     print(f"RepoWorkflow error: {exc}", file=sys.stderr)
