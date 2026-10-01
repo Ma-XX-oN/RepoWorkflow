@@ -26,7 +26,7 @@ class GuardTests(unittest.TestCase):
   def test_request_version_mismatch_is_rejected(self):
     td, root, fx = self.make()
     with td:
-      (root / ".ci" / "run-ci-request").write_text("1.0.0-issue.1.2\n")
+      (root / ".ci" / "run-ci-request").write_text("1.0.0-issue.1.0.2\n")
       fx.commit("wrong request")
       fx.push()
       with self.assertRaisesRegex(GuardError, "does not match"):
