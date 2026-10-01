@@ -105,6 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
   integration.add_argument("result", choices=("succeeded", "failed"))
 
   version = commands.add_parser("version")
+  version.add_argument("--json", action="store_true")
   version.add_argument("version_words", nargs="*")
 
   complete = commands.add_parser("complete", help=argparse.SUPPRESS)
@@ -210,7 +211,11 @@ def main() -> int:
       transition = _version_transition_arguments(args.version_words)
       if transition is not None:
         run_transition(root, config, *transition)
-      print(read_version(root, config))
+      value = read_version(root, config)
+      if args.json:
+        print(json.dumps({"version": value}, separators=(",", ":")))
+      else:
+        print(value)
       return 0
 
     if args.command == "preflight":
