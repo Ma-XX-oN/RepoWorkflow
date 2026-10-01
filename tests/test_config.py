@@ -29,18 +29,16 @@ class ConfigTests(unittest.TestCase):
       config = load_config(root)
       self.assertTrue(config["environments"][0]["required"])
       self.assertEqual(config["environments"][0]["platform"], "any")
+      self.assertEqual(config["versionCommand"], ["python", "version.py"])
 
-  def test_set_version_command_is_optional_and_normalized(self):
+  def test_legacy_literal_version_setter_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       value = self.base()
       value["setVersionCommand"] = ["python", "version.py", "--set"]
       self.write(root, value)
-      config = load_config(root)
-      self.assertEqual(
-        config["setVersionCommand"],
-        ["python", "version.py", "--set"],
-      )
+      with self.assertRaisesRegex(ConfigError, "setVersionCommand"):
+        load_config(root)
 
   def test_duplicate_environment_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
