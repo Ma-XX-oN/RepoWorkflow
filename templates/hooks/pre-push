@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python RepoWorkflow/hook.py --root . push
