@@ -33,12 +33,14 @@ class WorkflowCliTests(unittest.TestCase):
       self.assertEqual(machine.returncode, 0, machine.stderr)
       self.assertEqual(human.returncode, 0, human.stderr)
       value = json.loads(machine.stdout)
+      lines = human.stdout.splitlines()
+      blocked_index = lines.index("Blocked:")
       human_transitions = {
         line.strip()
-        for line in human.stdout.splitlines()[1:]
-        if line.startswith("  ") and not line.startswith("  (")
+        for line in lines[1:blocked_index]
+        if line.startswith("  ") and line.strip() != "(none)"
       }
-      self.assertTrue(set(value["transitions"]).issubset(human_transitions))
+      self.assertEqual(set(value["transitions"]), human_transitions)
 
   def test_what_next_fails_closed_without_authorization(self):
     with tempfile.TemporaryDirectory() as td:
@@ -65,9 +67,27 @@ class WorkflowCliTests(unittest.TestCase):
       self.assertEqual(queried.returncode, 0, queried.stderr)
       self.assertEqual(queried.stdout.strip(), fx.version)
 
+      machine = self.run_cli(root, "version", "--json")
+      self.assertEqual(machine.returncode, 0, machine.stderr)
+      self.assertEqual(json.loads(machine.stdout), {"version": fx.version})
+
       advanced = self.run_cli(root, "version", "integrate", "increment", "patch")
       self.assertEqual(advanced.returncode, 2)
       self.assertIn("repository version adapter failed", advanced.stderr)
+
+  def test_repo_workflow_and_rwf_aliases_execute_same_cli(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      for alias in ("repo-workflow", "rwf"):
+        completed = subprocess.run(
+          [str(ROOT / alias), "--root", str(root), "version"],
+          capture_output=True,
+          text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), fx.version)
 
   def test_hidden_completion_command_uses_state_machine(self):
     with tempfile.TemporaryDirectory() as td:
