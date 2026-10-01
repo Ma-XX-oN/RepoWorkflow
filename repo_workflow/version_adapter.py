@@ -49,19 +49,38 @@ def _run_adapter(
   return result.stdout
 
 
+def _query_version(root: Path, config: dict) -> str:
+  stdout = _run_adapter(root, config, [], allow_worktree_changes=False)
+  lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+  if len(lines) != 1:
+    raise VersionAdapterError(
+      "repository version adapter must print exactly one version"
+    )
+  return lines[0]
+
+
+def read_version(root: Path, config: dict) -> str:
+  value = _query_version(root, config)
+  if not (
+    DEVELOPMENT_VERSION_RE.fullmatch(value)
+    or STABLE_VERSION_RE.fullmatch(value)
+  ):
+    raise VersionAdapterError("repository version adapter printed an invalid version")
+  return value
+
+
 def _read_matching(
   root: Path,
   config: dict,
   pattern: re.Pattern[str],
   label: str,
 ) -> str:
-  stdout = _run_adapter(root, config, [], allow_worktree_changes=False)
-  lines = [line.strip() for line in stdout.splitlines() if line.strip()]
-  if len(lines) != 1 or not pattern.fullmatch(lines[0]):
+  value = _query_version(root, config)
+  if not pattern.fullmatch(value):
     raise VersionAdapterError(
       f"repository version adapter must print exactly one valid {label}"
     )
-  return lines[0]
+  return value
 
 
 def read_development_version(root: Path, config: dict) -> str:
