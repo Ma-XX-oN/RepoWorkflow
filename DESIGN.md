@@ -396,3 +396,17 @@ When implementation begins:
 No generated-artifact, branch-policy, integration-validation, or other existing
 check should be removed merely because RepoWorkflow has a nominal replacement;
 its responsibility must first be mapped and verified in the new path.
+
+## 16. Guarded task-to-release lifecycle
+
+Issue #14 extends this architecture with an explicit state-machine-driven
+workflow for task validation, preliminary integration, protected server
+integration, stable publication, local/hosted validation reuse, validation audit
+records, workflow-aware completion, and local Git guard hooks.
+
+The authoritative lifecycle design is documented in
+[`WORKFLOW_LIFECYCLE.md`](WORKFLOW_LIFECYCLE.md).  Implementations must preserve
+the responsibility boundaries in this document: RepoWorkflow owns generic
+workflow/state semantics, while each consumer repository retains its
+repository-specific version mutation and validation logic behind declared
+adapter contracts.
