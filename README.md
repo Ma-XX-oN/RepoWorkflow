@@ -143,6 +143,66 @@ source changes remain the caller's commits. The existing request-boundary guard
 remains an invariant check for corruption or unsupported manual manipulation,
 not normal workflow bookkeeping.
 
+## Workflow guide rail
+
+`repo-workflow what-next` inspects repository and workflow facts and reports the
+legal next transitions plus operations that are currently blocked. The same
+transition set is available as machine-readable JSON with:
+
+```text
+repo-workflow what-next --json
+```
+
+Normal lifecycle transitions include:
+
+```text
+repo-workflow validate regression
+repo-workflow validate integration succeeded
+repo-workflow validate integration failed
+repo-workflow version
+repo-workflow version --json
+repo-workflow version task issue <number>
+repo-workflow version integrate increment patch
+repo-workflow version integrate increment minor
+repo-workflow version release-major
+```
+
+`repo-workflow` and `rwf` are equivalent command names. Version mutations are
+forwarded semantically to the consumer-owned `repo-version` adapter; RepoWorkflow
+does not construct repository-specific literal target versions.
+
+A genuine regression FAIL advances the regression iteration automatically after
+the failed candidate is recorded. A failed integration result advances the
+integration-failure generation and resets the regression iteration. A successful
+integration result marks the task accepted, but acceptance never implies merge
+or integration authorization. Until explicit authorization evidence is defined
+and present, the state machine reports merge/integration as blocked.
+
+Workflow projection state that is not yet part of the durable validation audit
+is candidate-scoped under the repository's Git directory, not committed as
+source. Durable validation evidence is a separate lifecycle concern.
+
+### Bash completion
+
+Bash completion is a projection of the same state machine used by `what-next`;
+the completion script contains no independent workflow policy. Once
+`repo-workflow` is available on `PATH`, enable completion with:
+
+```text
+source RepoWorkflow/completions/repo-workflow.bash
+```
+
+The script registers completion for both `repo-workflow` and `rwf`. For example,
+when an integration result is the only legal next decision:
+
+```text
+rwf validate integration <TAB>
+```
+
+offers only `succeeded` and `failed`. The Bash completion contract is exercised
+by automated tests that source the shipped script and drive Bash's
+`COMP_WORDS`, `COMP_CWORD`, and `COMPREPLY` variables directly.
+
 ## Universal request guard
 
 `.ci/run-ci-request` remains the exact-candidate binding used by distributed
@@ -182,12 +242,13 @@ After pin establishment, that launcher delegates unchanged arguments to:
 python RepoWorkflow/repo_workflow.py <command>
 ```
 
-Important commands include `preflight`, `verify`, `run`, `finalize`,
-`branch-policy`, `repository-policy`, and `materialize-artifacts`. `verify` is
-the full local authoritative path: it enforces repository and branch policy,
-prepares development bookkeeping, materializes/verifies declared committed
-artifacts, runs every locally addressable environment, aggregates results, and
-creates the terminal development result tag automatically.
+Important commands include `what-next`, `validate`, `version`, `preflight`,
+`verify`, `run`, `finalize`, `branch-policy`, `repository-policy`, and
+`materialize-artifacts`. `verify` is the full local authoritative path: it
+enforces repository and branch policy, prepares development bookkeeping,
+materializes/verifies declared committed artifacts, runs every locally
+addressable environment, aggregates results, and creates the terminal
+development result tag automatically.
 
 A repository's individual tests are not listed in RepoWorkflow configuration.
 Each environment exposes one repository-owned validation command, which may use
