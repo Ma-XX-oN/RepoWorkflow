@@ -91,7 +91,8 @@ class LocalGuardTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       fx = RepoFixture(root)
-      tagged = fx.head()
+      (root / "tagged.txt").write_text("tagged\n", encoding="utf-8")
+      tagged = fx.commit("tagged task candidate")
       fx._run("tag", "v1.0.0-issue.1.0.1", tagged)
       (root / "next.txt").write_text("next\n", encoding="utf-8")
       fx.commit("later work")
@@ -102,7 +103,7 @@ class LocalGuardTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      fx = RepoFixture(root)
+      RepoFixture(root)
       hooks = root / ".git" / "hooks"
       hooks.mkdir(exist_ok=True)
       existing = hooks / "pre-push"
