@@ -480,5 +480,17 @@ A reasonable dependency order is:
    stable-tag finalization;
 7. pilot the full lifecycle in a consumer repository before broad migration.
 
-No issue branch, GREEN result, completed task, or ready pull request authorizes
-a merge by itself.  Merge remains a separate explicitly authorized operation.
+For consumer repositories, no issue branch, GREEN result, completed task, or
+ready pull request authorizes a merge by itself.  Merge remains a separate
+explicitly authorized operation unless that repository has an explicit
+repository-owned exception.
+
+RepoWorkflow itself has such an exception.  RepoWorkflow work is expected to be
+fully self-tested by the implementing worker using automated, integration, Git,
+and hosted validation as applicable; the user is not a required manual test
+stage.  Once RepoWorkflow work satisfies its documented acceptance criteria,
+all required validation and merge gates are GREEN, and no unresolved design or
+external dependency remains, the implementing worker may merge that
+RepoWorkflow change without waiting for separate user merge authorization.
+This exception applies only to the RepoWorkflow repository and must not be
+inherited by consumer repositories.
