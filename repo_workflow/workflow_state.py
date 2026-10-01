@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import Iterable
@@ -8,7 +8,8 @@ from typing import Iterable
 from .branch_policy import BranchPolicyError, check_branch_policy
 from .config import load_config
 from .git import current_branch, head_sha
-from .version_adapter import VersionAdapterError, read_development_version
+from .prelim import PRELIM_BRANCH, PrelimError, prelim_status
+from .version_adapter import VersionAdapterError, read_version
 
 
 REGRESSION_STATUSES = {"missing", "PASS", "FAIL", "INCOMPLETE"}
@@ -161,7 +162,19 @@ def discover_facts(root: Path) -> WorkflowFacts:
   config = load_config(root)
   branch = current_branch(root)
   branch_valid = branch != "HEAD"
-  if branch_valid:
+  prelim_present = False
+  prelim_base_current: bool | None = True
+
+  if branch_valid and branch == PRELIM_BRANCH:
+    try:
+      status = prelim_status(root, config)
+      prelim_present = status.present
+      prelim_base_current = status.current
+      branch_valid = status.present
+    except (PrelimError, ValueError):
+      branch_valid = False
+      prelim_base_current = None
+  elif branch_valid:
     try:
       check_branch_policy(
         root,
@@ -174,7 +187,7 @@ def discover_facts(root: Path) -> WorkflowFacts:
 
   version_valid = True
   try:
-    read_development_version(root, config)
+    read_version(root, config)
   except (VersionAdapterError, ValueError):
     version_valid = False
 
@@ -186,11 +199,6 @@ def discover_facts(root: Path) -> WorkflowFacts:
   integration_result = state.get("integrationResult")
   if integration_result not in INTEGRATION_STATUSES:
     integration_result = None
-
-  prelim_present = bool(state.get("prelimPresent", False))
-  prelim_base_current = state.get("prelimBaseCurrent", True)
-  if prelim_base_current not in {True, False, None}:
-    prelim_base_current = None
 
   return WorkflowFacts(
     branch_valid=branch_valid,
