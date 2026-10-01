@@ -405,8 +405,10 @@ integration, stable publication, local/hosted validation reuse, validation audit
 records, workflow-aware completion, and local Git guard hooks.
 
 The authoritative lifecycle design is documented in
-[`WORKFLOW_LIFECYCLE.md`](WORKFLOW_LIFECYCLE.md).  Implementations must preserve
-the responsibility boundaries in this document: RepoWorkflow owns generic
+[`WORKFLOW_LIFECYCLE.md`](WORKFLOW_LIFECYCLE.md).  The corresponding overall,
+per-stage, concurrency, platform, and end-to-end test requirements are in
+[`TEST_STRATEGY.md`](TEST_STRATEGY.md).  Implementations must preserve the
+responsibility boundaries in this document: RepoWorkflow owns generic
 workflow/state semantics, while each consumer repository retains its
 repository-specific version mutation and validation logic behind declared
 adapter contracts.
