@@ -40,7 +40,7 @@ Consumer/
 │   └── repository configuration
 ├── .github/workflows/ci.yml      # common thin GitHub adapter
 ├── scripts/
-│   ├── workflow-version          # repo-defined authoritative version
+│   ├── repo-version              # repo-defined version adapter
 │   └── validate-*                # one authoritative entry per environment
 └── ...
 ```
@@ -146,13 +146,29 @@ until that restriction expires unless the user explicitly changes it.
 
 ## 6. Version migration
 
-Each consumer should replace format-specific logic in the common engine with a
-repository-owned version script.  That script is responsible for reconciling
-all version-bearing locations in that repository and emitting one canonical
-version only when they agree.
+Each consumer should replace format-specific logic in the common engine with one
+repository-owned `repo-version` adapter.  The adapter is responsible for
+reconciling all version-bearing locations and for performing repository-specific
+version edits when RepoWorkflow requests a semantic transition.
 
-RepoWorkflow then compares the emitted version to `.ci/run-ci-request` and
-checks terminal-tag eligibility.
+The no-argument adapter query reports exactly one canonical version only when the
+consumer's version state is internally valid.  Task versions use:
+
+```text
+X.Y.Z-issue-P.Q.R
+```
+
+where `P` is the issue number, `Q` counts returns to development after failed
+integration/acceptance, and `R` is the regression-validation iteration.
+
+RepoWorkflow owns when transitions occur.  The adapter owns how they are
+implemented.  Required semantic operations include task initialization, CI
+iteration advancement, integration-failure generation advancement, patch/minor
+integration increments, and explicit major release.  RepoWorkflow must not pass
+a complete literal target version to a generic setter.
+
+RepoWorkflow compares the emitted development version to `.ci/run-ci-request`
+and checks terminal-tag eligibility.
 
 ## 7. Environment migration
 
