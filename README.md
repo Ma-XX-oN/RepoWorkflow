@@ -198,6 +198,13 @@ repository's authoritative result-recording workflow.
 ## Documentation
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
+- [WORKFLOW_LIFECYCLE.md](WORKFLOW_LIFECYCLE.md) defines the guarded
+  task-to-release lifecycle.
+- [TEST_STRATEGY.md](TEST_STRATEGY.md) defines the required lifecycle test
+  coverage and completion gates.
+- [INIT.md](INIT.md) defines local hook, Bash command, and completion setup.
+- [SERVER_ENFORCEMENT.md](SERVER_ENFORCEMENT.md) defines the required remote
+  integration/tag controls and current administrative limitations.
 - [CONFIGURATION.md](CONFIGURATION.md) defines the implemented configuration and
   script contracts.
 - [ADOPTION.md](ADOPTION.md) defines the consumer migration procedure.
