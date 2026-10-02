@@ -31,6 +31,15 @@ class ConfigTests(unittest.TestCase):
       self.assertEqual(config["environments"][0]["platform"], "any")
       self.assertEqual(config["versionCommand"], ["python", "version.py"])
 
+  def test_missing_version_adapter_is_actionable(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      del value["versionCommand"]
+      self.write(root, value)
+      with self.assertRaisesRegex(ConfigError, "versionCommand"):
+        load_config(root)
+
   def test_legacy_literal_version_setter_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
