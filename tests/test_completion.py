@@ -50,6 +50,7 @@ class BashCompletionTests(unittest.TestCase):
 
       script = f"""
 set -uo pipefail
+${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
@@ -111,6 +112,7 @@ exit 0
 
       script = f"""
 set -uo pipefail
+${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(root)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
