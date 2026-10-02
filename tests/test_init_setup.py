@@ -146,6 +146,7 @@ printf 'b-short:%s\\n' "$(rwf probe)"
 printf 'b-long:%s\\n' "$(repo-workflow probe)"
 cd {_bash_path(first)!r}
 printf 'a-long:%s\\n' "$(repo-workflow probe)"
+exit 0
 """
       completed = subprocess.run(
         ["bash", "-c", script],
