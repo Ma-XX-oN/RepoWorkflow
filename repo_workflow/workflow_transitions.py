@@ -6,7 +6,14 @@ from .config import load_config
 from .git import changed_files, git, head_sha, repository_state, restore_repository_state
 from .local import verify_local
 from .version_adapter import read_development_version, run_transition
-from .workflow_state import discover_facts, save_local_state
+from .workflow_state import derive_plan, discover_facts, save_local_state
+
+
+def _require_transition(root: Path, transition: str) -> None:
+  plan = derive_plan(discover_facts(root))
+  if transition not in plan.transitions:
+    detail = "; ".join(plan.blocks) if plan.blocks else "transition is not legal"
+    raise ValueError(f"{transition} is blocked: {detail}")
 
 
 def _write_request(root: Path, version: str) -> None:
@@ -26,6 +33,7 @@ def _commit_bookkeeping(root: Path, message: str) -> str:
 
 def validate_regression(root: Path, *, engine_root: Path) -> str:
   root = root.resolve()
+  _require_transition(root, "validate regression")
   outcome = verify_local(root, engine_root=engine_root, push=False)
   candidate = head_sha(root)
   save_local_state(root, candidate, regression=outcome, integrationResult=None)
@@ -53,9 +61,7 @@ def validate_integration(root: Path, result: str) -> str:
   root = root.resolve()
   if result not in {"succeeded", "failed"}:
     raise ValueError(f"invalid integration result: {result}")
-  facts = discover_facts(root)
-  if facts.regression != "PASS":
-    raise ValueError("integration result requires regression PASS for the exact candidate")
+  _require_transition(root, f"validate integration {result}")
 
   candidate = head_sha(root)
   if result == "succeeded":
