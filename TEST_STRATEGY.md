@@ -159,6 +159,28 @@ environment rather than merely inspect generated text:
 - completion works after command aliases and partial tokens;
 - completion failure cannot execute a workflow mutation.
 
+## 4A. Local initialization and shell dispatch
+
+This stage covers issue #27 and the interactive Bash surface used to reach the
+repository-local engine.
+
+Required tests:
+
+- `rwf init` installs all managed hooks;
+- repeated initialization is idempotent;
+- initialization from a nested directory finds the Git worktree root;
+- a plain Git repository without RepoWorkflow configuration is rejected with an
+  actionable diagnostic;
+- `rwf` and `repo-workflow` are registered in an actual Bash process;
+- `source <(rwf init --bash)` activates both names and completion in the
+  already-running Bash;
+- both names produce identical state-sensitive completion;
+- moving one Bash session between two consumers dispatches each invocation to
+  that current repository's own launcher/engine;
+- unrelated user hook/completion content is not overwritten without explicit
+  force;
+- completion is non-mutating and does not leak unrelated filename candidates.
+
 ## 5. Stage 3 - validation audit and local/hosted equivalence
 
 Required audit tests:
