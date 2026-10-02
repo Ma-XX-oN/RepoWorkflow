@@ -10,7 +10,7 @@ from repo_workflow.local_guards import (
   check_rebase,
   install_hooks,
 )
-from repo_workflow.prelim import PRELIM_BRANCH, merge_accepted, start_prelim
+from repo_workflow.prelim import merge_accepted, start_prelim
 from tests.support import RepoFixture
 
 
@@ -71,19 +71,47 @@ class LocalGuardTests(unittest.TestCase):
       fx.commit("accepted issue work")
       fx.push()
       config = load_config(root)
-      start_prelim(root, config)
+      started = start_prelim(root, config)
       candidate = merge_accepted(root, "issue-1-test")
 
       fx._run("switch", "-c", "server-advance", "main")
       (root / "server.txt").write_text("advance\n", encoding="utf-8")
       fx.commit("server main advance")
       fx._run("push", "origin", "HEAD:main")
-      fx._run("switch", PRELIM_BRANCH)
+      fx._run("switch", started.branch)
 
-      with self.assertRaisesRegex(LocalGuardError, "stale prelim-main"):
+      with self.assertRaisesRegex(LocalGuardError, "stale preliminary candidate"):
         check_push(
           root,
-          f"refs/heads/{PRELIM_BRANCH} {candidate} refs/heads/{PRELIM_BRANCH} {ZERO}\n",
+          f"refs/heads/{started.branch} {candidate} "
+          f"refs/heads/{started.branch} {ZERO}\n",
+        )
+
+  def test_current_guid_prelim_push_is_permitted(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      config = load_config(root)
+      started = start_prelim(root, config)
+      check_push(
+        root,
+        f"refs/heads/{started.branch} {started.candidate} "
+        f"refs/heads/{started.branch} {ZERO}\n",
+      )
+
+  def test_immutable_task_tag_move_is_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      head = fx.head()
+      old = fx._run("rev-parse", "main").stdout.strip()
+      with self.assertRaisesRegex(LocalGuardError, "may not be moved"):
+        check_push(
+          root,
+          f"refs/tags/v1.0.0-issue.1.0.1 {head} "
+          f"refs/tags/v1.0.0-issue.1.0.1 {old}\n",
         )
 
   def test_rebase_that_rewrites_tagged_candidate_is_blocked(self):
