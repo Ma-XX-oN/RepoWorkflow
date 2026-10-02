@@ -110,10 +110,11 @@ printf 'complete-long:%s\\n' "${{COMPREPLY[*]}}"
 """
       completed = subprocess.run(
         ["bash", "-c", script],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
       )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertEqual(
         completed.stdout.splitlines(),
         [
@@ -157,10 +158,11 @@ printf 'a-long:%s\\n' "$(repo-workflow probe)"
 """
       completed = subprocess.run(
         ["bash", "-c", script],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
       )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertEqual(
         completed.stdout.splitlines(),
         ["a-short:A", "b-short:B", "b-long:B", "a-long:A"],
