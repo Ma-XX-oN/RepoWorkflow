@@ -60,6 +60,7 @@ class BashCompletionTests(unittest.TestCase):
 
       script = f"""
 set -euo pipefail
+export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
 COMP_WORDS=(rwf validate integration \"\")
@@ -119,6 +120,7 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
 
       script = f"""
 set -euo pipefail
+export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(root)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
 COMP_WORDS=(rwf validate integration s)
