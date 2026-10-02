@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -8,6 +9,15 @@ from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _bash_path(path: Path) -> str:
+  value = str(path.resolve())
+  if os.name != "nt":
+    return value
+  drive = value[0].lower()
+  rest = value[2:].replace("\\", "/")
+  return f"/{drive}{rest}"
 
 
 def _write_launcher(root: Path) -> None:
@@ -39,8 +49,8 @@ class BashCompletionTests(unittest.TestCase):
 
       script = f"""
 set -euo pipefail
-cd {str(nested)!r}
-source {str(ROOT / 'completions' / 'repo-workflow.bash')!r}
+cd {_bash_path(nested)!r}
+source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
 COMP_WORDS=(rwf validate integration \"\")
 COMP_CWORD=3
 _repo_workflow_complete
@@ -97,8 +107,8 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
 
       script = f"""
 set -euo pipefail
-cd {str(root)!r}
-source {str(ROOT / 'completions' / 'repo-workflow.bash')!r}
+cd {_bash_path(root)!r}
+source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
 COMP_WORDS=(rwf validate integration s)
 COMP_CWORD=3
 _repo_workflow_complete
