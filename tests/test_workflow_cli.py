@@ -69,6 +69,17 @@ class WorkflowCliTests(unittest.TestCase):
       self.assertEqual(advanced.returncode, 2)
       self.assertIn("repository version adapter failed", advanced.stderr)
 
+  def test_version_query_supports_json(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+
+      completed = self.run_cli(root, "version", "--json")
+
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      self.assertEqual(json.loads(completed.stdout), {"version": fx.version})
+
   def test_hidden_completion_command_uses_state_machine(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
