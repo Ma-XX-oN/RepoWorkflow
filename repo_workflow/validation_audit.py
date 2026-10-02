@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
+import time
 from typing import Iterable
 
 
@@ -120,12 +122,39 @@ def read_records(path: Path) -> list[ValidationRecord]:
   return records
 
 
+def _acquire_append_lock(path: Path, *, timeout: float = 10.0) -> int:
+  lock = path.with_suffix(path.suffix + ".lock")
+  deadline = time.monotonic() + timeout
+  while True:
+    try:
+      return os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+      if time.monotonic() >= deadline:
+        raise ValidationAuditError(f"timed out waiting for validation audit lock: {lock}")
+      time.sleep(0.01)
+
+
+def _release_append_lock(path: Path, descriptor: int) -> None:
+  lock = path.with_suffix(path.suffix + ".lock")
+  os.close(descriptor)
+  try:
+    lock.unlink()
+  except FileNotFoundError:
+    pass
+
+
 def append_record(root: Path, record: ValidationRecord) -> Path:
   record.validate()
   path = audit_path(root, record.issue)
   path.parent.mkdir(parents=True, exist_ok=True)
-  with path.open("a", encoding="utf-8", newline="\n") as stream:
-    stream.write(record.to_json() + "\n")
+  descriptor = _acquire_append_lock(path)
+  try:
+    with path.open("a", encoding="utf-8", newline="\n") as stream:
+      stream.write(record.to_json() + "\n")
+      stream.flush()
+      os.fsync(stream.fileno())
+  finally:
+    _release_append_lock(path, descriptor)
   return path
 
 
