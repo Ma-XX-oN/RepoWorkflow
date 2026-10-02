@@ -29,6 +29,22 @@ jobs:
         run: |
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
+  argv-limits:
+    name: Probe argv limits (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Probe direct process argument limit
+        run: python scripts/probe-argv-limits.py
+
   release:
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
