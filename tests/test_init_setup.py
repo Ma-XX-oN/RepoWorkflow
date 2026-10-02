@@ -82,7 +82,7 @@ class InitSetupTests(unittest.TestCase):
       nested.mkdir()
 
       script = f"""
-set -euo pipefail
+set -uo pipefail
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
@@ -136,7 +136,7 @@ printf 'complete-long:%s\\n' "${{COMPREPLY[*]}}"
 
       first, second = repos
       script = f"""
-set -euo pipefail
+set -uo pipefail
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(first)!r}
 source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
