@@ -34,7 +34,7 @@ def _launches(payload_bytes: int) -> bool:
       stderr=subprocess.DEVNULL,
     )
     return True
-  except OSError:
+  except (OSError, subprocess.CalledProcessError):
     return False
 
 
