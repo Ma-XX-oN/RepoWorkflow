@@ -53,6 +53,12 @@ repo-workflow what-next
 repo-workflow what-next --json
 
 repo-workflow validate regression
+repo-workflow validate regression --fast
+repo-workflow validate regression --group NAME
+repo-workflow validate integration
+repo-workflow validate integration --automatic
+repo-workflow validate integration --manual
+repo-workflow validate integration --group NAME
 repo-workflow validate integration succeeded
 repo-workflow validate integration failed
 
@@ -75,6 +81,20 @@ such as changing output representation with `--json`.
 Low-level consumer operations such as advancing a CI iteration or an
 integration-failure generation remain available to RepoWorkflow through the
 repository adapter, but are not normal user-facing commands.
+
+Validation is divided into three classes:
+
+- **ART** is automated regression testing. Bare `validate regression` runs the
+  complete required ART set. `--fast` and `--group NAME` are diagnostic
+  subsets and do not satisfy the complete ART gate.
+- **AIT** is automated integration testing. It records its own succeeded/failed
+  outcome and requires no human result entry.
+- **MIT** is manual integration testing and exists only when a repository/task
+  declares it. Only MIT exposes a human succeeded/failed result transition.
+
+Bare `validate integration` orchestrates all required AIT plus any required
+MIT. `--automatic`, `--manual`, and `--group NAME` run only selected work
+and cannot satisfy omitted required integration tests.
 
 ## 4. `what-next` is the workflow guide rail
 
@@ -184,12 +204,15 @@ PRELIM tags:
 8. On PASS:
    - create the immutable successful task candidate tag;
    - proceed to required integration/acceptance testing.
-9. Record integration/acceptance outcome using:
+9. Run all required integration testing. AIT records its own result. Required
+   MIT waits for the human result using:
    - `repo-workflow validate integration succeeded`, or
    - `repo-workflow validate integration failed`.
-10. A failed integration result advances `Q`, resets `R`, and returns the task
-    to development.
-11. A successful integration result marks the task accepted.
+10. Any required AIT or MIT failure advances `Q`, resets `R`, and returns
+    the task to development.
+11. The task is accepted only when all required ART, AIT, and MIT for the exact
+    candidate have succeeded. If MIT is not required, RepoWorkflow must not
+    invent a manual acceptance gate.
 12. Acceptance does **not** authorize merge/integration.  Explicit merge or
     integration authorization remains a separate boundary.
 
