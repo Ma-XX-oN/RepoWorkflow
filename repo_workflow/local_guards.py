@@ -7,7 +7,7 @@ import shutil
 
 from .config import load_config
 from .git import changed_files, current_branch, git
-from .prelim import PRELIM_BRANCH, PrelimError, prelim_status
+from .prelim import PRELIM_PREFIX, PrelimError, is_prelim_branch, prelim_status
 from .workflow_state import discover_facts
 
 
@@ -72,7 +72,7 @@ def check_commit(root: Path) -> None:
   if branch == _integration_branch(config):
     raise LocalGuardError(
       f"direct commits on tracking {_integration_branch(config)} are blocked; "
-      f"use {PRELIM_BRANCH} for integration work"
+      f"use {PRELIM_PREFIX}<GUID> for integration work"
     )
   _assert_current_state(root)
 
@@ -114,17 +114,22 @@ def check_push(root: Path, input_text: str) -> None:
       )
     if update.remote_ref.startswith("refs/tags/"):
       _check_tag_update(update)
-    if update.remote_ref == f"refs/heads/{PRELIM_BRANCH}" and not update.deleting:
+    remote_branch = update.remote_ref.removeprefix("refs/heads/")
+    if is_prelim_branch(remote_branch) and not update.deleting:
       try:
-        status = prelim_status(root, config)
+        status = prelim_status(root, config, remote_branch)
       except PrelimError as exc:
         raise LocalGuardError(str(exc)) from exc
       if not status.present or status.candidate is None:
-        raise LocalGuardError(f"{PRELIM_BRANCH} does not exist locally")
+        raise LocalGuardError(f"{remote_branch} does not exist locally")
       if update.local_oid != status.candidate:
-        raise LocalGuardError("pre-push candidate does not match local prelim-main")
+        raise LocalGuardError(
+          "pre-push candidate does not match local preliminary branch"
+        )
       if not status.current:
-        raise LocalGuardError("stale prelim-main must be reintegrated before push")
+        raise LocalGuardError(
+          "stale preliminary candidate must be reintegrated before push"
+        )
 
   current_ref = f"refs/heads/{current}"
   if any(update.local_ref == current_ref and not update.deleting for update in updates):
