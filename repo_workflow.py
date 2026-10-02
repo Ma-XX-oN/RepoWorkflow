@@ -19,6 +19,7 @@ from repo_workflow.config import ConfigError, load_config
 from repo_workflow.git import (
   GitError,
   changed_files,
+  current_branch,
   head_sha,
   repository_state,
   restore_repository_state,
@@ -39,6 +40,7 @@ from repo_workflow.guard import (
 )
 from repo_workflow.init_setup import InitError, bash_source, initialize
 from repo_workflow.local import verify_local, verify_stable_local
+from repo_workflow.prelim import is_prelim_branch
 from repo_workflow.repository_policy import (
   RepositoryPolicyError,
   check_repository_policy,
@@ -232,6 +234,14 @@ def main() -> int:
       config = load_config(root)
       transition = _version_transition_arguments(args.version_words)
       if transition is not None:
+        if (
+          transition[0] in {"integrate", "release-major"}
+          and not is_prelim_branch(current_branch(root))
+        ):
+          raise ValueError(
+            "integration release version transitions require a "
+            "GUID-qualified preliminary integration branch"
+          )
         run_transition(root, config, *transition)
       value = read_version(root, config)
       if args.json:
