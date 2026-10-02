@@ -165,6 +165,62 @@ class ValidationClassCliTests(unittest.TestCase):
       facts = discover_facts(root)
       self.assertEqual(facts.regression, "missing")
 
+  def test_no_mit_requirement_does_not_expose_human_result(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _configure_validation_classes(root, manual_required=False)
+      fx.commit("declare validation classes")
+      save_local_state(root, fx.head(), regression="PASS")
+
+      completed = self.run_cli(root, "validate", "integration")
+
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      facts = discover_facts(root)
+      self.assertEqual(facts.automatic_integration, "PASS")
+      plan = derive_plan(facts)
+      self.assertNotIn("validate integration succeeded", plan.transitions)
+      self.assertNotIn("validate integration failed", plan.transitions)
+
+  def test_manual_selector_is_rejected_when_mit_is_not_required(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _configure_validation_classes(root, manual_required=False)
+      fx.commit("declare validation classes")
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        automaticIntegration="PASS",
+      )
+
+      completed = self.run_cli(root, "validate", "integration", "--manual")
+
+      self.assertEqual(completed.returncode, 2)
+      self.assertIn("manual integration is blocked", completed.stderr)
+
+  def test_explicit_automatic_selector_runs_complete_ait(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _configure_validation_classes(root)
+      fx.commit("declare validation classes")
+      save_local_state(root, fx.head(), regression="PASS")
+
+      completed = self.run_cli(
+        root,
+        "validate",
+        "integration",
+        "--automatic",
+      )
+
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      self.assertEqual(discover_facts(root).automatic_integration, "PASS")
+
   def test_integration_group_cannot_satisfy_complete_ait_gate(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
