@@ -52,6 +52,15 @@ Normal commands are intended to be:
 repo-workflow what-next
 repo-workflow what-next --json
 
+repo-workflow config
+repo-workflow config get [KEY]
+repo-workflow config set KEY VALUE
+repo-workflow config unset KEY
+repo-workflow config --json
+
+repo-workflow pull-request
+repo-workflow pull-request --json
+
 repo-workflow validate regression
 repo-workflow validate regression --fast
 repo-workflow validate regression --group NAME
@@ -516,6 +525,14 @@ particular current parent state, is a valid proposed stable state.
 
 Server rules should reject direct task/issue integration into stable `main` and
 permit only the controlled preliminary-integration path.
+
+Pull-request use is repository policy, configured as `required`, `allowed`, or
+`disabled`.  `repo-workflow pull-request` is the state-aware operation for
+creating/reconciling the appropriate task or integration PR.  It derives the
+head/base and workflow metadata rather than requiring callers to reproduce
+policy.  `what-next` and completion expose it only when legal, and required-PR
+mode blocks transitions that would bypass the PR boundary.  PR creation itself
+never implies validation, acceptance, currency, or merge authorization.
 
 ## 13. Protected server integration
 
