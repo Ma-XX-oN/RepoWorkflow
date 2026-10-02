@@ -103,6 +103,61 @@ printf 'complete-long:%s\\n' "${{COMPREPLY[*]}}"
         ],
       )
 
+  def test_same_shell_switches_between_repository_local_launchers(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      home = base / "home"
+      home.mkdir()
+      repos = []
+      for name, marker_value in (("repo-a", "A"), ("repo-b", "B")):
+        root = base / name
+        root.mkdir()
+        RepoFixture(root)
+        launcher = root / "scripts" / "repoworkflow.py"
+        launcher.write_text(
+          "import sys\n"
+          f"print({marker_value!r})\n",
+          encoding="utf-8",
+        )
+        repos.append(root)
+
+      first, second = repos
+      script = f"""
+set -euo pipefail
+cd {str(first)!r}
+source <({str(Path(subprocess.check_output(['which', 'python3'], text=True).strip()))!r} {str(ROOT / 'repo_workflow.py')!r} init --home {str(home)!r} --bash)
+printf 'a-short:%s\\n' "$(rwf probe)"
+cd {str(second)!r}
+printf 'b-short:%s\\n' "$(rwf probe)"
+printf 'b-long:%s\\n' "$(repo-workflow probe)"
+cd {str(first)!r}
+printf 'a-long:%s\\n' "$(repo-workflow probe)"
+"""
+      completed = subprocess.run(
+        ["bash", "-c", script],
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      self.assertEqual(
+        completed.stdout.splitlines(),
+        ["a-short:A", "b-short:B", "b-long:B", "a-long:A"],
+      )
+
+  def test_discovery_rejects_plain_git_repository_without_rwf_config(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+      )
+
+      with self.assertRaisesRegex(InitError, "not a RepoWorkflow consumer"):
+        discover_worktree(root)
+
   def test_init_refuses_foreign_completion_file(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
