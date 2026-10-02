@@ -239,6 +239,43 @@ Creating a PR is not evidence that validation passed, that the base remains
 current, that acceptance is complete, or that merge is authorized.  Those
 remain independent workflow gates.
 
+## Change classification
+
+Repositories may define cheap, deterministic change classes in
+`.repoworkflow/change-classes.json`.  Classification is based on the actual
+changed-file set; commit messages are not authoritative.
+
+```json
+{
+  "schema": 1,
+  "classes": {
+    "docs": {
+      "paths": [
+        "**/*.md",
+        "docs/**",
+        "VERSION"
+      ],
+      "validation": "fast"
+    }
+  }
+}
+```
+
+Every changed path must match at least one path pattern in a class before that
+class applies.  A single unmatched path falls back to `full` validation.  An
+empty diff also falls back to `full`.  This makes a documentation change such
+as `DESIGN.md` plus the required `VERSION` update eligible for cheap
+validation without trusting a `docs:` commit-message assertion.
+
+`rwf classify --base <commit> [--head <commit>]` reports the class, validation
+level, and exact changed paths as JSON.  The same classifier is usable locally,
+by GitHub Actions, or by another CI adapter.
+
+RepoWorkflow's self-CI uses the `docs` class to keep its normal authoritative
+validation but skip the cross-platform argv-limit probes, which do not provide
+additional evidence for documentation-only changes.  Changes to source, tests,
+workflow code, or any other unmatched path continue to receive full validation.
+
 ## `.ci/github.json`
 
 This file contains GitHub-only runner mapping rather than repository validation

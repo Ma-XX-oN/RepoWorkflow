@@ -27,6 +27,14 @@ class SelfCiTests(unittest.TestCase):
     )
     self.assertIn("^[0-9]+\\.[0-9]+\\.[0-9]+$", text)
 
+  def test_docs_only_changes_skip_expensive_argv_probe(self):
+    text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
+      encoding="utf-8"
+    )
+    self.assertIn("python repo_workflow.py classify --base", text)
+    self.assertIn("needs: classify", text)
+    self.assertIn("needs.classify.outputs.validation != 'fast'", text)
+
 
 if __name__ == "__main__":
   unittest.main()

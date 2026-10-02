@@ -15,6 +15,12 @@ from repo_workflow.artifacts import (
   write_artifact_result,
 )
 from repo_workflow.branch_policy import BranchPolicyError, check_branch_policy
+from repo_workflow.classification import (
+  ClassificationError,
+  changed_paths,
+  classify_paths,
+  load_change_classes,
+)
 from repo_workflow.config import ConfigError, load_config
 from repo_workflow.git import (
   GitError,
@@ -70,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
   stable_preflight.add_argument("--expected-sha")
 
   commands.add_parser("matrix")
+
+  classify = commands.add_parser("classify")
+  classify.add_argument("--base", required=True)
+  classify.add_argument("--head", default="HEAD")
 
   verify = commands.add_parser("verify")
   verify.add_argument("--tag", action="store_true", help=argparse.SUPPRESS)
@@ -148,6 +158,16 @@ def main() -> int:
     if args.command == "stable-preflight":
       candidate = validate_stable_candidate(root, expected_sha=args.expected_sha)
       print(json.dumps({"version": candidate.version, "commit": candidate.commit}))
+      return 0
+
+    if args.command == "classify":
+      paths = changed_paths(root, args.base, args.head)
+      name, validation = classify_paths(paths, load_change_classes(root))
+      print(json.dumps({
+        "class": name or "default",
+        "validation": validation,
+        "paths": paths,
+      }, separators=(",", ":")))
       return 0
 
     if args.command == "matrix":
@@ -312,6 +332,7 @@ def main() -> int:
     AdapterError,
     ArtifactError,
     BranchPolicyError,
+    ClassificationError,
     ConfigError,
     RepositoryPolicyError,
     ResultError,
