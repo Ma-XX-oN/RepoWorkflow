@@ -136,16 +136,16 @@ Where:
   sent it back to development;
 - `R` is the regression-validation iteration.
 
-`R` is the automated-validation iteration.  It is consumed by a genuine
-failure in automated regression testing (ART) or automated integration testing
-(AIT).  RepoWorkflow records the failed exact candidate and internally asks the
-consumer `repo-version` adapter to advance the automated-validation iteration.
+`R` is the automated regression/CI iteration.  It is consumed by a genuine
+failure in automated regression testing (ART).  RepoWorkflow records the
+failed exact candidate and internally asks the consumer `repo-version` adapter
+to advance the regression-validation iteration.
 
-`Q` is the manual integration/acceptance rejection generation.  It advances
-only when required manual integration testing (MIT) rejects a candidate.
-RepoWorkflow records that manual rejection, asks the consumer adapter to
-advance the merge/integration-failed generation, and resets `R` for the next
-development candidate.
+`Q` is the integration/acceptance rejection generation.  A failed integration
+test advances `Q` whether that integration test is automated (AIT) or manual
+(MIT).  RepoWorkflow records the rejected exact candidate, asks the consumer
+adapter to advance the merge/integration-failed generation, and resets `R` for
+the next development candidate.
 
 Users should not manually manage these counters.
 
@@ -169,39 +169,45 @@ PRELIM tags:
 
 ## 6. Task lifecycle and test classes
 
-The workflow distinguishes three test classes.  They must not be collapsed
-into one generic integration/acceptance transition.
+The workflow distinguishes three test classes.  The distinction is about what
+is being tested and who supplies the result, not merely whether a test happens
+to be executable by a program.
 
 - **ART -- automated regression testing:** automated validation of the task
   candidate for regressions.  ART requires no user result entry.
 - **AIT -- automated integration testing:** automated validation that the task
   works in its required integration context.  AIT requires no user result
-  entry; its runner records the result automatically.
-- **MIT -- manual integration testing:** required human integration/acceptance
-  testing for behaviour that cannot be established authoritatively by the
-  automated suites.  MIT is the user-result boundary.
+  entry; its runner records the integration result automatically.
+- **MIT -- manual integration testing:** human integration/acceptance testing
+  for behaviour that cannot be established authoritatively by automated
+  integration tests, such as required UI, network, security, hardware, or
+  other observational acceptance.
 
-ART and AIT are automated-validation stages.  A genuine automated failure
-consumes the current automated-validation iteration `R`, records immutable
-failure evidence for the exact candidate, advances `R` through the repository
-adapter, and returns to development.  It does **not** advance `Q`.
+ART failure is a regression/CI failure.  It records immutable failure evidence
+for the exact candidate, advances `R`, and returns to development without
+advancing `Q`.
 
-MIT has different transition semantics.  A manual MIT rejection advances
-`Q`, resets `R`, records the rejection, and returns the task to development.
-A successful MIT result marks the required manual acceptance complete.
+AIT and MIT are both integration/acceptance testing.  A failed AIT or MIT
+rejects the task at the integration boundary, advances `Q`, resets `R`, and
+returns to development.  The difference is how the result transition occurs:
 
-The concise integration-result commands remain:
+- AIT invokes the integration-result transition automatically from its runner.
+- MIT waits for the human result and exposes that result transition to the
+  user.
+
+The concise integration-result commands are:
 
 ```text
 repo-workflow validate integration succeeded
 repo-workflow validate integration failed
 ```
 
-They record the result for the **currently pending integration-test class**.
-When AIT is pending, the automated runner invokes the appropriate result
-transition itself.  When MIT is pending, the command records the human result.
-The state machine must therefore know whether AIT or MIT is pending; identical
-result words do not imply identical state transitions.
+When AIT is pending, the automated runner invokes the appropriate command
+without user intervention.  When MIT is pending, the human invokes it.  The
+state machine must know which integration-test class is pending because AIT
+PASS may transition to required MIT, while MIT PASS completes the manual
+acceptance boundary.  An integration failure from either class has the same
+version consequence: `Q += 1` and `R` resets.
 
 The task lifecycle is:
 
@@ -220,37 +226,47 @@ The task lifecycle is:
    - create no terminal PASS/FAIL tag;
    - permit retry only while the exact candidate is unchanged.
 8. On ART PASS:
-   - create the immutable successful automated candidate evidence;
+   - create the immutable successful task-candidate evidence;
    - proceed to required AIT, if any.
 9. Run required AIT automatically.  Its runner records
    `validate integration succeeded` or `validate integration failed`
    without user intervention.
-10. On AIT genuine FAIL:
-    - record/tag the failed exact candidate;
-    - append automated integration evidence;
-    - advance `R`, not `Q`;
+10. On AIT FAIL:
+    - record the integration rejection for the exact candidate;
+    - append audit evidence;
+    - advance `Q`;
+    - reset `R`;
     - return to development.
 11. On AIT INCOMPLETE:
     - create no terminal PASS/FAIL result for that stage;
     - permit retry only while the exact candidate is unchanged.
 12. On AIT PASS:
     - proceed to required MIT, if any;
-    - if no MIT is required, automated acceptance requirements are complete.
-13. Run required MIT only when the repository declares a manual integration
+    - if no MIT is required, the task's integration/acceptance requirement is
+      complete.
+13. Run MIT only when the repository/task declares a manual integration
     requirement.  The human records `validate integration succeeded` or
     `validate integration failed`.
-14. On MIT failed:
-    - record the manual rejection;
+14. On MIT FAIL:
+    - record the manual integration rejection;
     - advance `Q`;
     - reset `R`;
     - return to development.
-15. On MIT succeeded, mark the required manual acceptance complete.
+15. On MIT PASS, mark the required manual acceptance complete.
 16. The task is accepted only after every required ART, AIT, and MIT stage for
     the exact candidate has succeeded.  A repository with no required MIT does
     not invent a user test stage.
 17. Acceptance does **not** itself authorize merge/integration in consumer
     repositories.  Merge authorization remains a separate repository policy
     boundary unless that repository has an explicit exception.
+
+The same test classes apply again to a newly constructed preliminary
+integration candidate.  Merging/reconciling an accepted task with the current
+parent creates a new physical tree, so prior task-candidate evidence cannot by
+itself validate the integrated result.  The prelim candidate must run the
+required ART and then its required AIT/MIT against that exact integrated SHA.
+Only that accepted integrated candidate may proceed toward protected server
+`main`.
 
 ## 7. Local `main` and ephemeral `prelim-main-<GUID>`
 
@@ -288,7 +304,10 @@ For one local integration attempt:
    - `repo-workflow version integrate increment minor`;
 7. RepoWorkflow forwards the intent to the repository adapter, which derives
    and applies the literal stable candidate version;
-8. run complete local validation if desired;
+8. run the required ART on the exact integrated candidate, followed by its
+   required AIT and MIT; complete authoritative local evidence may satisfy
+   these stages, otherwise the server runs missing automated ART/AIT after
+   push while any required MIT remains a human acceptance boundary;
 9. create immutable PRELIM tags/audit records for tested candidates;
 10. push the GUID-qualified prelim candidate and create/use a distinct
     integration ticket/PR;
