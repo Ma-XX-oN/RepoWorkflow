@@ -12,6 +12,7 @@ from repo_workflow.local_guards import (
 )
 from repo_workflow.prelim import merge_accepted, start_prelim
 from repo_workflow.version_adapter import run_transition
+from repo_workflow.workflow_state import derive_plan, discover_facts
 from tests.support import RepoFixture
 
 
@@ -46,6 +47,19 @@ class LocalGuardTests(unittest.TestCase):
       fx._run("reset", "--hard", "HEAD")
       run_transition(root, config, "task", "--increment", "CI-iteration")
       check_commit(root)
+
+  def test_invalid_version_is_blocked_by_both_state_machine_and_commit_guard(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      (root / "VERSION").write_text("not-a-version\n", encoding="utf-8")
+
+      plan = derive_plan(discover_facts(root))
+      self.assertEqual(plan.transitions, ())
+      self.assertIn("invalid version state", plan.blocks)
+      with self.assertRaisesRegex(LocalGuardError, "version state"):
+        check_commit(root)
 
   def test_direct_main_push_and_stable_tag_creation_are_blocked(self):
     with tempfile.TemporaryDirectory() as td:
