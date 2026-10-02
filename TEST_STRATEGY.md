@@ -197,6 +197,24 @@ Required `what-next` tests:
 - no GREEN result, ready PR, or completed task is mistaken for a transition
   that the repository's policy does not permit.
 
+Required configuration/PR tests:
+
+- `config` reports effective configuration and source in text and JSON forms;
+- `config get/set/unset` round-trips every supported mutable policy value;
+- invalid keys/values fail atomically without modifying checked-in config;
+- PR policy accepts exactly `required|allowed|disabled`;
+- required mode exposes `pull-request` when state permits and blocks bypass;
+- allowed mode permits both policy-legal PR and non-PR paths;
+- disabled mode rejects `pull-request` with an actionable reason;
+- `pull-request` derives the correct head/base/title/body/workflow metadata;
+- repeated `pull-request` is idempotent and does not create duplicate PRs;
+- ambiguous/conflicting existing PR state is a STOP;
+- creating a PR never advances validation/acceptance/merge state by itself;
+- platform/hardware config accepts only declared reproducibility capabilities
+  and rejects forbidden identifying inventory;
+- `what-next`, JSON, command acceptance, and completion agree with configured
+  PR policy.
+
 Required completion tests must exercise an actual supported shell completion
 environment rather than merely inspect generated text:
 
