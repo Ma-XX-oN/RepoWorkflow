@@ -69,6 +69,58 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
         ],
       )
 
+  def test_completion_partial_tokens_and_options_do_not_mutate_repository(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      marker_path = root / "validation-ran.txt"
+      fx = RepoFixture(
+        root,
+        validation_body=(
+          "from pathlib import Path\n"
+          "Path('validation-ran.txt').write_text('ran')\n"
+        ),
+      )
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        integrationResult=None,
+      )
+      _write_launcher(root)
+      (root / "succeeded-unrelated-file").write_text(
+        "unrelated\n",
+        encoding="utf-8",
+      )
+
+      script = f"""
+set -euo pipefail
+cd {str(root)!r}
+source {str(ROOT / 'completions' / 'repo-workflow.bash')!r}
+COMP_WORDS=(rwf validate integration s)
+COMP_CWORD=3
+_repo_workflow_complete
+printf 'partial:%s\\n' "${COMPREPLY[*]}"
+COMP_WORDS=(repo-workflow what-next --)
+COMP_CWORD=2
+_repo_workflow_complete
+printf 'option:%s\\n' "${COMPREPLY[*]}"
+"""
+      completed = subprocess.run(
+        ["bash", "-c", script],
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      self.assertEqual(
+        completed.stdout.splitlines(),
+        ["partial:succeeded", "option:--json"],
+      )
+      self.assertFalse(marker_path.exists())
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
 
 if __name__ == "__main__":
   unittest.main()
