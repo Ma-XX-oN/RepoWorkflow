@@ -19,17 +19,14 @@ class WorkflowStateTests(unittest.TestCase):
     self.assertTrue(any("failed" in block for block in plan.blocks))
     self.assertFalse(any("integration succeeded" in item for item in plan.transitions))
 
-  def test_regression_pass_requires_integration_result_transition(self):
+  def test_regression_pass_requires_automatic_integration_transition(self):
     plan = derive_plan(WorkflowFacts(regression="PASS"))
-    self.assertEqual(
-      plan.transitions,
-      ("validate integration succeeded", "validate integration failed"),
-    )
+    self.assertEqual(plan.transitions, ("validate integration",))
 
   def test_accepted_task_without_authorization_is_merge_blocked(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="succeeded",
+      automatic_integration="PASS",
       integration_authorized=False,
     ))
     self.assertNotIn("integrate", plan.transitions)
@@ -38,7 +35,7 @@ class WorkflowStateTests(unittest.TestCase):
   def test_stale_prelim_requires_reintegration_and_blocks_merge(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="succeeded",
+      automatic_integration="PASS",
       prelim_present=True,
       prelim_base_current=False,
     ))
@@ -53,15 +50,17 @@ class WorkflowStateTests(unittest.TestCase):
   def test_integration_failure_returns_to_regression(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="failed",
+      automatic_integration="FAIL",
     ))
     self.assertEqual(plan.transitions, ("validate regression",))
-    self.assertTrue(any("previous integration failed" in block for block in plan.blocks))
+    self.assertTrue(
+      any("previous automatic integration failed" in block for block in plan.blocks)
+    )
 
   def test_authorized_accepted_task_exposes_integration_transition(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="succeeded",
+      automatic_integration="PASS",
       integration_authorized=True,
     ))
     self.assertEqual(plan.transitions, ("integrate",))
@@ -89,13 +88,23 @@ class WorkflowStateTests(unittest.TestCase):
     )
 
   def test_completion_is_projection_of_plan(self):
-    plan = derive_plan(WorkflowFacts(regression="PASS"))
+    automatic = derive_plan(WorkflowFacts(regression="PASS"))
     self.assertEqual(
-      completion_candidates(plan, ["validate", "integration", ""]),
+      completion_candidates(automatic, ["validate", "integration", ""]),
+      ["--automatic", "--group"],
+    )
+
+    manual = derive_plan(WorkflowFacts(
+      regression="PASS",
+      automatic_integration="PASS",
+      manual_integration_required=True,
+    ))
+    self.assertEqual(
+      completion_candidates(manual, ["validate", "integration", ""]),
       ["failed", "succeeded"],
     )
     self.assertEqual(
-      completion_candidates(plan, ["validate", "integration", "s"]),
+      completion_candidates(manual, ["validate", "integration", "s"]),
       ["succeeded"],
     )
 

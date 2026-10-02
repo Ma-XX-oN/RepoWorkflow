@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,6 +10,14 @@ from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _require_mit(root: Path, fx: RepoFixture) -> None:
+  path = root / ".ci" / "repoworkflow.json"
+  config = json.loads(path.read_text(encoding="utf-8"))
+  config["manualIntegrationRequired"] = True
+  path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+  fx.commit("require manual integration")
 
 
 class WorkflowTransitionTests(unittest.TestCase):
@@ -43,7 +52,13 @@ class WorkflowTransitionTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       fx = RepoFixture(root, version="1.0.0-issue.1.3.7")
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+      _require_mit(root, fx)
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        automaticIntegration="PASS",
+      )
 
       validate_integration(root, "failed")
 
@@ -74,7 +89,13 @@ class WorkflowTransitionTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       fx = RepoFixture(root)
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+      _require_mit(root, fx)
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        automaticIntegration="PASS",
+      )
       validate_integration(root, "succeeded")
       before = fx.head()
 

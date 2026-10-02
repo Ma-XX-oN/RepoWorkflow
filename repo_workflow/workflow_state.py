@@ -14,6 +14,7 @@ from .version_adapter import VersionAdapterError, read_version
 
 REGRESSION_STATUSES = {"missing", "PASS", "FAIL", "INCOMPLETE"}
 INTEGRATION_STATUSES = {None, "succeeded", "failed"}
+AUTOMATIC_INTEGRATION_STATUSES = {"missing", "PASS", "FAIL", "INCOMPLETE"}
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,10 @@ class WorkflowFacts:
   version_valid: bool = True
   regression: str = "missing"
   integration_result: str | None = None
+  automatic_integration: str = "missing"
+  automatic_integration_required: bool = True
+  manual_integration_required: bool = False
+  manual_integration_result: str | None = None
   integration_authorized: bool = False
   prelim_present: bool = False
   prelim_base_current: bool | None = True
@@ -31,6 +36,34 @@ class WorkflowFacts:
       raise ValueError(f"invalid regression status: {self.regression}")
     if self.integration_result not in INTEGRATION_STATUSES:
       raise ValueError(f"invalid integration result: {self.integration_result}")
+    if self.automatic_integration not in AUTOMATIC_INTEGRATION_STATUSES:
+      raise ValueError(
+        f"invalid automatic integration status: {self.automatic_integration}"
+      )
+    if self.manual_integration_result not in INTEGRATION_STATUSES:
+      raise ValueError(
+        f"invalid manual integration result: {self.manual_integration_result}"
+      )
+
+  @property
+  def resolved_automatic_integration(self) -> str:
+    if not self.automatic_integration_required:
+      return "PASS"
+    if self.automatic_integration is not None:
+      return self.automatic_integration
+    if self.integration_result == "succeeded":
+      return "PASS"
+    if self.integration_result == "failed":
+      return "FAIL"
+    return "missing"
+
+  @property
+  def resolved_manual_integration_result(self) -> str | None:
+    if self.manual_integration_result is not None:
+      return self.manual_integration_result
+    if self.manual_integration_required:
+      return self.integration_result
+    return None
 
 
 @dataclass(frozen=True)
@@ -76,18 +109,37 @@ def derive_plan(facts: WorkflowFacts) -> WorkflowPlan:
     blocks.append("integration blocked: regression validation failed")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
-  if facts.integration_result is None:
-    transitions.extend((
-      "validate integration succeeded",
-      "validate integration failed",
-    ))
-    blocks.append("merge/integration blocked: integration result required")
+  automatic = facts.resolved_automatic_integration
+  if automatic == "missing":
+    transitions.append("validate integration")
+    blocks.append("merge/integration blocked: automatic integration validation required")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
-  if facts.integration_result == "failed":
-    transitions.append("validate regression")
-    blocks.append("integration blocked: previous integration failed")
+  if automatic == "INCOMPLETE":
+    transitions.append("validate integration")
+    blocks.append(
+      "merge/integration blocked: automatic integration validation incomplete"
+    )
     return WorkflowPlan(tuple(transitions), tuple(blocks))
+
+  if automatic == "FAIL":
+    transitions.append("validate regression")
+    blocks.append("integration blocked: previous automatic integration failed")
+    return WorkflowPlan(tuple(transitions), tuple(blocks))
+
+  if facts.manual_integration_required:
+    manual = facts.resolved_manual_integration_result
+    if manual is None:
+      transitions.extend((
+        "validate integration succeeded",
+        "validate integration failed",
+      ))
+      blocks.append("merge/integration blocked: manual integration result required")
+      return WorkflowPlan(tuple(transitions), tuple(blocks))
+    if manual == "failed":
+      transitions.append("validate regression")
+      blocks.append("integration blocked: previous manual integration failed")
+      return WorkflowPlan(tuple(transitions), tuple(blocks))
 
   if not facts.integration_authorized:
     blocks.append("merge/integration blocked: explicit authorization absent")
@@ -131,6 +183,17 @@ def completion_candidates(plan: WorkflowPlan, words: Iterable[str]) -> list[str]
         candidates.add(candidate)
   if completed == ["init"]:
     for option in ("--bash", "--force"):
+      if option.startswith(prefix):
+        candidates.add(option)
+  if completed == ["validate", "regression"]:
+    for option in ("--fast", "--group"):
+      if option.startswith(prefix):
+        candidates.add(option)
+  if (
+    completed == ["validate", "integration"]
+    and "validate integration" in plan.transitions
+  ):
+    for option in ("--automatic", "--group"):
       if option.startswith(prefix):
         candidates.add(option)
   return sorted(candidates)
@@ -215,12 +278,25 @@ def discover_facts(root: Path) -> WorkflowFacts:
   integration_result = state.get("integrationResult")
   if integration_result not in INTEGRATION_STATUSES:
     integration_result = None
+  automatic_integration_required = bool(config.get("integrationEnvironments", []))
+  automatic_integration = state.get("automaticIntegration")
+  if automatic_integration not in AUTOMATIC_INTEGRATION_STATUSES:
+    automatic_integration = (
+      "missing" if automatic_integration_required else "PASS"
+    )
+  manual_integration_result = state.get("manualIntegrationResult")
+  if manual_integration_result not in INTEGRATION_STATUSES:
+    manual_integration_result = None
 
   return WorkflowFacts(
     branch_valid=branch_valid,
     version_valid=version_valid,
     regression=regression,
     integration_result=integration_result,
+    automatic_integration=automatic_integration,
+    automatic_integration_required=automatic_integration_required,
+    manual_integration_required=config.get("manualIntegrationRequired", False),
+    manual_integration_result=manual_integration_result,
     integration_authorized=False,
     prelim_present=prelim_present,
     prelim_base_current=prelim_base_current,

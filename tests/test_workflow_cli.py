@@ -121,7 +121,17 @@ class WorkflowCliTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       fx = RepoFixture(root)
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+      config_path = root / ".ci" / "repoworkflow.json"
+      config = json.loads(config_path.read_text(encoding="utf-8"))
+      config["manualIntegrationRequired"] = True
+      config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+      fx.commit("require manual integration")
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        automaticIntegration="PASS",
+      )
       completed = self.run_cli(root, "complete", "validate", "integration", "")
       self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertEqual(completed.stdout.splitlines(), ["failed", "succeeded"])

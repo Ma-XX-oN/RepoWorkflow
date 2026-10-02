@@ -29,7 +29,8 @@ def _validate_environment(value: Any, seen: set[str]) -> dict[str, Any]:
   if not isinstance(value, dict):
     raise ConfigError("each environment must be an object")
   allowed = {
-    "id", "required", "platform", "capabilities", "validationCommand"
+    "id", "required", "platform", "capabilities", "validationCommand",
+    "fast", "groups",
   }
   unknown = sorted(set(value) - allowed)
   if unknown:
@@ -53,6 +54,8 @@ def _validate_environment(value: Any, seen: set[str]) -> dict[str, Any]:
     value.get("capabilities", []), f"{env_id}.capabilities"
   )
   result["validationCommand"] = command
+  result["fast"] = bool(value.get("fast", False))
+  result["groups"] = _strings(value.get("groups", []), f"{env_id}.groups")
   return result
 
 
@@ -116,7 +119,8 @@ def load_config(root: Path) -> dict[str, Any]:
   if not isinstance(data, dict) or data.get("schema") != 1:
     raise ConfigError("repoworkflow.json must declare schema 1")
   allowed_top = {
-    "schema", "versionCommand", "repository", "environments", "artifacts"
+    "schema", "versionCommand", "repository", "environments",
+    "integrationEnvironments", "manualIntegrationRequired", "artifacts",
   }
   unknown = sorted(set(data) - allowed_top)
   if unknown:
@@ -143,6 +147,20 @@ def load_config(root: Path) -> dict[str, Any]:
     raise ConfigError("at least one environment is required")
   env_seen: set[str] = set()
   validated_envs = [_validate_environment(item, env_seen) for item in environments]
+  integration_environments = data.get("integrationEnvironments", [])
+  if not isinstance(integration_environments, list):
+    raise ConfigError("integrationEnvironments must be an array")
+  validated_integration_envs = [
+    _validate_environment(item, env_seen) for item in integration_environments
+  ]
+  for environment in validated_integration_envs:
+    if environment["fast"]:
+      raise ConfigError(
+        f"{environment['id']}.fast is valid only for regression environments"
+      )
+  manual_integration_required = data.get("manualIntegrationRequired", False)
+  if not isinstance(manual_integration_required, bool):
+    raise ConfigError("manualIntegrationRequired must be boolean")
   artifacts = data.get("artifacts", [])
   if not isinstance(artifacts, list):
     raise ConfigError("artifacts must be an array")
@@ -163,5 +181,7 @@ def load_config(root: Path) -> dict[str, Any]:
   result["versionCommand"] = version_command
   result["repository"] = dict(repository)
   result["environments"] = validated_envs
+  result["integrationEnvironments"] = validated_integration_envs
+  result["manualIntegrationRequired"] = manual_integration_required
   result["artifacts"] = validated_artifacts
   return result

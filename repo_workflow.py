@@ -64,6 +64,8 @@ from repo_workflow.workflow_state import (
   render_human,
 )
 from repo_workflow.workflow_transitions import (
+  require_manual_integration,
+  validate_automatic_integration,
   validate_integration,
   validate_regression,
 )
@@ -108,9 +110,14 @@ def build_parser() -> argparse.ArgumentParser:
 
   validate = commands.add_parser("validate")
   validation = validate.add_subparsers(dest="validation", required=True)
-  validation.add_parser("regression")
+  regression = validation.add_parser("regression")
+  regression.add_argument("--fast", action="store_true")
+  regression.add_argument("--group")
   integration = validation.add_parser("integration")
-  integration.add_argument("result", choices=("succeeded", "failed"))
+  integration.add_argument("--automatic", action="store_true")
+  integration.add_argument("--manual", action="store_true")
+  integration.add_argument("--group")
+  integration.add_argument("result", nargs="?", choices=("succeeded", "failed"))
 
   version = commands.add_parser("version")
   version.add_argument("--json", action="store_true")
@@ -224,11 +231,40 @@ def main() -> int:
 
     if args.command == "validate":
       if args.validation == "regression":
-        outcome = validate_regression(root, engine_root=ENGINE_ROOT)
+        if args.fast and args.group is not None:
+          raise ValueError("--fast and --group are mutually exclusive")
+        outcome = validate_regression(
+          root,
+          engine_root=ENGINE_ROOT,
+          fast=args.fast,
+          group=args.group,
+        )
         return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
-      candidate = validate_integration(root, args.result)
-      print(candidate)
-      return 0
+
+      selectors = sum(bool(value) for value in (
+        args.automatic,
+        args.manual,
+        args.group is not None,
+      ))
+      if selectors > 1:
+        raise ValueError(
+          "--automatic, --manual, and --group are mutually exclusive"
+        )
+      if args.result is not None:
+        if selectors:
+          raise ValueError(
+            "manual integration result cannot be combined with selectors"
+          )
+        candidate = validate_integration(root, args.result)
+        print(candidate)
+        return 0
+      if args.manual:
+        require_manual_integration(root)
+        print("manual integration result required: succeeded or failed")
+        return 0
+
+      outcome = validate_automatic_integration(root, group=args.group)
+      return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
 
     if args.command == "version":
       config = load_config(root)

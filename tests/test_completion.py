@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import shlex
@@ -44,6 +45,14 @@ def _bash_executable() -> str:
   raise RuntimeError("Git for Windows Bash is unavailable")
 
 
+def _require_mit(root: Path, fx: RepoFixture) -> None:
+  path = root / ".ci" / "repoworkflow.json"
+  config = json.loads(path.read_text(encoding="utf-8"))
+  config["manualIntegrationRequired"] = True
+  path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+  fx.commit("require manual integration")
+
+
 def _write_launcher(root: Path) -> None:
   launcher = root / "scripts" / "repoworkflow.py"
   launcher.write_text(
@@ -61,11 +70,12 @@ class BashCompletionTests(unittest.TestCase):
       root = base / "repo"
       root.mkdir()
       fx = RepoFixture(root)
+      _require_mit(root, fx)
       save_local_state(
         root,
         fx.head(),
         regression="PASS",
-        integrationResult=None,
+        automaticIntegration="PASS",
       )
       _write_launcher(root)
       nested = root / "nested" / "dir"
@@ -125,11 +135,12 @@ exit 0
         encoding="utf-8",
       )
       fx.commit("add completion fixture files")
+      _require_mit(root, fx)
       save_local_state(
         root,
         fx.head(),
         regression="PASS",
-        integrationResult=None,
+        automaticIntegration="PASS",
       )
 
       script = f"""
