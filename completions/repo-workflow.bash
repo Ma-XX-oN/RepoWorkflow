@@ -107,4 +107,5 @@ _repo_workflow_complete() {
   )
 }
 
+shopt -s progcomp
 complete -F _repo_workflow_complete repo-workflow rwf
