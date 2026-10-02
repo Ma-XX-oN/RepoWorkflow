@@ -32,7 +32,7 @@ def _write_launcher(root: Path) -> None:
   launcher.write_text(
     "import subprocess\n"
     "import sys\n"
-    f"raise SystemExit(subprocess.call([sys.executable, {_bash_path(ROOT / 'repo_workflow.py')!r}, *sys.argv[1:]]))\n",
+    f"raise SystemExit(subprocess.call([sys.executable, {str(ROOT / 'repo_workflow.py')!r}, *sys.argv[1:]]))\n",
     encoding="utf-8",
   )
 
