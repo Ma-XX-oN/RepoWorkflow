@@ -34,6 +34,46 @@ reviewable in the consumer's history.
 A consumer may update the submodule only as an explicit repository change.
 RepoWorkflow must not silently self-update during validation.
 
+## 2.1 Consumer root and self-hosting
+
+RepoWorkflow is intended to be able to consume its own workflow without
+creating recursive RepoWorkflow submodules.  Engine location and consumer
+repository identity are separate concepts.
+
+For a normal consumer using RepoWorkflow as a submodule, the layout may be:
+
+```text
+repo/
+├── .repoworkflow/
+└── RepoWorkflow/
+    └── .repoworkflow/
+```
+
+The enclosing `repo/.repoworkflow/` belongs to the consumer and is the only
+RepoWorkflow state/configuration namespace applicable while operating on
+`repo`.  The nested `repo/RepoWorkflow/.repoworkflow/` belongs to the
+RepoWorkflow repository itself.  Its presence in the pinned submodule must not
+affect, supplement, override, or leak into the enclosing consumer's workflow.
+
+This is a lookup rule, not a Git-ignore rule.  RepoWorkflow's own
+`.repoworkflow/` may contain checked-in policy needed when RepoWorkflow is
+developed as a repository in its own right.
+
+All `.repoworkflow` lookup must therefore be rooted explicitly at the resolved
+consumer repository root.  RWF must not recursively search for, merge, or
+inherit nested `.repoworkflow` directories.
+
+When RepoWorkflow is developed directly, its repository root is also its
+consumer root and its own root-level `.repoworkflow/` is active.  Self-hosting
+therefore uses the same consumer contract as any other repository; it does not
+require a nested `RepoWorkflow/RepoWorkflow` submodule or product-specific
+special case.
+
+Initialization invoked through a consumer's pinned engine, for example
+`RepoWorkflow/repo-workflow init`, initializes the enclosing consumer root.
+It must not initialize or select the submodule's own workflow namespace merely
+because the executable resides inside that submodule.
+
 ## 3. Layering
 
 ### 3.1 GitHub adapter
