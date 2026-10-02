@@ -369,51 +369,82 @@ Issue #14 extends the validation design toward a static, language-agnostic test
 catalogue.  This subsection records the settled design decisions reached so far;
 the complete schema and TDD policy remain under design and are not frozen here.
 
-A test declaration object identifies one test-harness family with `test-type`.
-It may also supply the executable in `command`.  Each RWF group key maps to
-metadata including the native harness test target in `name`:
+The catalogue has two top-level collections: `test-harnesses` and `tests`.
+`test-harnesses` is the Rosetta dictionary.  Each key names a harness and its
+value describes how native test targets are translated into process arguments.
+`tests` is an array of test declaration objects.  Each declaration selects a
+Rosetta entry with `test-harness` and maps RWF group keys to native targets.
+
+For example:
 
 ```json
 {
-  "command": "test/ctest",
-  "test-type": "CTest",
-  "issue-123-empty-input": {
-    "type": "regression",
-    "speed": "fast",
-    "name": "parser_empty_input"
+  "test-harnesses": {
+    "CTest": {
+      "leading-params": ["--output-on-failure"],
+      "delim": "|",
+      "layout": ["-R", "$tests"]
+    }
   },
-  "issue-123-null-input": {
-    "type": "regression",
-    "speed": "fast",
-    "name": "parser_null_input"
-  }
+  "tests": [
+    {
+      "test-harness": "CTest",
+      "command": "test/ctest",
+      "issue-123-empty-input": {
+        "type": "regression",
+        "speed": "fast",
+        "name": "parser_empty_input"
+      },
+      "issue-123-null-input": {
+        "type": "regression",
+        "speed": "fast",
+        "name": "parser_null_input"
+      }
+    }
+  ]
 }
 ```
 
 The group key is the RWF identity.  `name` is the native test target understood
-by the selected harness.  `command` always means the executable; it is never a
-test name, project target, or other input.
+by the selected harness.  `type` describes the RWF validation role, such as
+`regression` or `integration`.  `test-harness` identifies how those native
+targets are executed and selected.  This avoids overloading the word "type" for
+both concepts.
 
-A Rosetta object translates those native test names into the invocation syntax
-of a harness family:
+`command` always means the executable; it is never a test name, project target,
+or other input.  It may be supplied by either the selected harness definition or
+the test declaration, but not both.  The resolved pair must contain `command`
+in exactly one place: both present and both absent are invalid.  The effective
+command is therefore unambiguous and remains a single string.
+
+A harness can supply the standard executable:
 
 ```json
 {
-  "test-type": "CTest",
-  "command": "ctest",
-  "leading-params": ["--output-on-failure"],
-  "delim": "|",
-  "layout": ["-R", "$tests"]
+  "test-harnesses": {
+    "CTest": {
+      "command": "ctest",
+      "leading-params": ["--output-on-failure"],
+      "delim": "|",
+      "layout": ["-R", "$tests"]
+    }
+  },
+  "tests": [
+    {
+      "test-harness": "CTest",
+      "issue-123-empty-input": {
+        "type": "regression",
+        "speed": "fast",
+        "name": "parser_empty_input"
+      }
+    }
+  ]
 }
 ```
 
-The Rosetta and test declaration are joined by exact `test-type`.  `command`
-is optional in each object individually, but the resolved pair must contain it
-in exactly one place: both present and both absent are invalid.  The effective
-command is therefore unambiguous and remains a single string.  A Rosetta can
-omit `command` when repositories use compatible wrappers or alternate
-executables; a declaration can omit it when the Rosetta supplies the standard
-executable.
+Alternatively, a harness can omit `command` so multiple declaration objects can
+reuse the same translation while supplying compatible repository-specific
+executables or wrappers.
 
 `leading-params` contains invariant arguments placed after the executable and
 before the generated selection layout.  `layout` may be a string or an array
@@ -434,18 +465,34 @@ The layout template vocabulary currently has these meanings:
 including `$tests` and `$ftests{...}`.  It is not needed for purely individual
 `$test` expansion.
 
-For example, a .NET Rosetta can express the native filter grammar without
+For example, a .NET harness can express the native filter grammar without
 teaching RWF what `FullyQualifiedName` or `|` means:
 
 ```json
 {
-  "test-type": "dotnet",
-  "command": "dotnet",
-  "leading-params": ["test"],
-  "delim": "|",
-  "layout": [
-    "--filter",
-    "$ftests{FullyQualifiedName=$test}"
+  "test-harnesses": {
+    "dotnet": {
+      "command": "dotnet",
+      "leading-params": ["test"],
+      "delim": "|",
+      "layout": [
+        "--filter",
+        "$ftests{FullyQualifiedName=$test}"
+      ]
+    }
+  },
+  "tests": [
+    {
+      "test-harness": "dotnet",
+      "issue-123-example": {
+        "type": "regression",
+        "name": "A"
+      },
+      "issue-123-other": {
+        "type": "regression",
+        "name": "B"
+      }
+    }
   ]
 }
 ```
