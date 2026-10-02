@@ -4,7 +4,13 @@
 # the same state machine; this file contains no workflow policy.
 
 _rwf_worktree_root() {
-  command git rev-parse --show-toplevel 2>/dev/null
+  local root
+  root="$(command git rev-parse --show-toplevel 2>/dev/null)" || return $?
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -u "$root"
+  else
+    printf '%s\n' "$root"
+  fi
 }
 
 _rwf_python() {
