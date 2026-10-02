@@ -201,6 +201,6 @@ def regression_reuse_decision(
   result = latest_result_for_sha(records, test_sha, kind="regression")
   if result == "succeeded":
     return "reuse-pass"
-  if result in {"failed", "incomplete"}:
+  if result == "failed":
     return "reuse-terminal"
   return "run"
