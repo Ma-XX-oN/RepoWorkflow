@@ -149,10 +149,16 @@ def append_record(root: Path, record: ValidationRecord) -> Path:
   path.parent.mkdir(parents=True, exist_ok=True)
   descriptor = _acquire_append_lock(path)
   try:
-    with path.open("a", encoding="utf-8", newline="\n") as stream:
-      stream.write(record.to_json() + "\n")
-      stream.flush()
-      os.fsync(stream.fileno())
+    descriptor_out = os.open(
+      path,
+      os.O_CREAT | os.O_WRONLY | os.O_APPEND,
+      0o666,
+    )
+    try:
+      os.write(descriptor_out, (record.to_json() + "\n").encode("utf-8"))
+      os.fsync(descriptor_out)
+    finally:
+      os.close(descriptor_out)
   finally:
     _release_append_lock(path, descriptor)
   return path
