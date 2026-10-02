@@ -416,7 +416,13 @@ A record should contain at least:
   "testSHA": "...",
   "candidateTag": "...",
   "result": "succeeded|failed|incomplete",
-  "runner": "local|github-actions|..."
+  "runner": "local|github-actions|...",
+  "platform": {
+    "os": "...",
+    "architecture": "...",
+    "runtime": "..."
+  },
+  "hardware": null
 }
 ```
 
@@ -430,7 +436,27 @@ Field meanings:
 - `testSHA`: exact physical candidate tested;
 - `candidateTag`: durable Git ref where one exists;
 - `result`: authoritative outcome;
-- `runner`: execution location/provider.
+- `runner`: execution location/provider;
+- `platform`: reproducibility-relevant software platform, including at least OS
+  and architecture plus the relevant runtime/toolchain identity where the
+  validator declares one;
+- `hardware`: normally `null`; when a validator declares hardware-sensitive
+  evidence, a structured object containing only the capabilities/specifications
+  needed to interpret or reproduce that validation.
+
+`platform` is part of the core audit record because otherwise evidence from
+materially different operating systems or architectures can become
+indistinguishable.  Platform matching requirements belong to the validation
+contract: recording a platform does not imply that every suite must run on
+all platforms.
+
+Hardware collection is deliberately **test-declared and data-minimized**, not
+an automatic machine inventory.  A hardware-sensitive validator may record
+facts such as CPU architecture/features, GPU model/API, accelerator class, or
+another capability that affects the test result.  It must not collect serial
+numbers, hostnames, MAC/network addresses, device IDs, account identifiers, or
+other machine-unique values merely for audit convenience.  Validators that do
+not need hardware information leave `hardware` as `null`.
 
 Do not add redundant fields merely because they are convenient when equivalent
 facts can be derived from the tested commit.  A separate `suite` field is not
