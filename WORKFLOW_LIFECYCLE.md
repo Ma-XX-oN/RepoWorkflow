@@ -53,6 +53,12 @@ repo-workflow what-next
 repo-workflow what-next --json
 
 repo-workflow validate regression
+repo-workflow validate regression --fast
+repo-workflow validate regression --group NAME
+repo-workflow validate integration
+repo-workflow validate integration --automatic
+repo-workflow validate integration --manual
+repo-workflow validate integration --group NAME
 repo-workflow validate integration succeeded
 repo-workflow validate integration failed
 
@@ -75,6 +81,30 @@ such as changing output representation with `--json`.
 Low-level consumer operations such as advancing a CI iteration or an
 integration-failure generation remain available to RepoWorkflow through the
 repository adapter, but are not normal user-facing commands.
+
+Validation execution is explicit locally.  RWF does not infer that code is
+ready merely because files changed or implementation activity stopped.
+
+`validate regression` runs the complete required ART suite for the current
+candidate.  `--fast` runs the repository-defined minimal fast/smoke ART set,
+and `--group NAME` runs one named ART subset.  Fast/group runs are diagnostic:
+they may record useful evidence, but they do not satisfy the complete ART gate
+or advance the workflow to integration testing.  Only a complete required ART
+PASS for the exact candidate satisfies that gate.
+
+`validate integration` orchestrates the complete required integration test
+set for the current candidate: all required AIT plus any required MIT.
+`--automatic` selects only AIT, `--manual` selects only MIT, and
+`--group NAME` selects a named integration subset.  Selected/partial runs are
+diagnostic and do not by themselves satisfy the complete integration gate.
+The complete gate becomes satisfied only when all required integration groups
+for the exact candidate have authoritative PASS evidence.
+
+AIT can be executed and have its result recorded by an automated runner.  MIT
+cannot be executed automatically: when a full integration run reaches required
+MIT, RWF presents/orchestrates the manual test requirement and waits for the
+human result.  A server push may automatically run missing ART/AIT for the
+exact pushed candidate, but it cannot manufacture required MIT evidence.
 
 ## 4. `what-next` is the workflow guide rail
 
@@ -216,7 +246,9 @@ The task lifecycle is:
 3. RepoWorkflow forwards to the repository `repo-version` adapter, which
    derives and applies the initial task version.
 4. Implement the task.
-5. Run required ART automatically.
+5. When the implementation is ready for full regression validation, explicitly
+   run `repo-workflow validate regression`.  Local RWF does not start ART merely
+   because it guesses development is finished.
 6. On ART genuine FAIL:
    - record/tag the failed exact candidate;
    - append audit evidence;
@@ -228,9 +260,12 @@ The task lifecycle is:
 8. On ART PASS:
    - create the immutable successful task-candidate evidence;
    - proceed to required AIT, if any.
-9. Run required AIT automatically.  Its runner records
-   `validate integration succeeded` or `validate integration failed`
-   without user intervention.
+9. When ready for integration validation, explicitly run
+   `repo-workflow validate integration` locally.  RWF runs the required AIT;
+   its automated runner records `validate integration succeeded` or
+   `validate integration failed` without user result entry.  If required MIT
+   remains after AIT passes, the same full validation operation presents that
+   manual requirement and waits for the human result.
 10. On AIT FAIL:
     - record the integration rejection for the exact candidate;
     - append audit evidence;
@@ -304,10 +339,11 @@ For one local integration attempt:
    - `repo-workflow version integrate increment minor`;
 7. RepoWorkflow forwards the intent to the repository adapter, which derives
    and applies the literal stable candidate version;
-8. run the required ART on the exact integrated candidate, followed by its
-   required AIT and MIT; complete authoritative local evidence may satisfy
-   these stages, otherwise the server runs missing automated ART/AIT after
-   push while any required MIT remains a human acceptance boundary;
+8. explicitly run full regression/integration validation on the exact
+   integrated candidate when validating locally; complete authoritative local
+   evidence may satisfy these stages, otherwise a later server push runs
+   missing automated ART/AIT while any required MIT remains a human acceptance
+   boundary;
 9. create immutable PRELIM tags/audit records for tested candidates;
 10. push the GUID-qualified prelim candidate and create/use a distinct
     integration ticket/PR;
