@@ -18,6 +18,10 @@ _rwf_python() {
     printf '%s\n' "$PYTHON"
     return 0
   fi
+  if [[ -n "${MSYSTEM:-}" ]] && command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
   if command -v python3 >/dev/null 2>&1; then
     command -v python3
     return 0
