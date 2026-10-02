@@ -82,16 +82,17 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
           "Path('validation-ran.txt').write_text('ran')\n"
         ),
       )
+      _write_launcher(root)
+      (root / "succeeded-unrelated-file").write_text(
+        "unrelated\n",
+        encoding="utf-8",
+      )
+      fx.commit("add completion fixture files")
       save_local_state(
         root,
         fx.head(),
         regression="PASS",
         integrationResult=None,
-      )
-      _write_launcher(root)
-      (root / "succeeded-unrelated-file").write_text(
-        "unrelated\n",
-        encoding="utf-8",
       )
 
       script = f"""
@@ -101,11 +102,11 @@ source {str(ROOT / 'completions' / 'repo-workflow.bash')!r}
 COMP_WORDS=(rwf validate integration s)
 COMP_CWORD=3
 _repo_workflow_complete
-printf 'partial:%s\\n' "${COMPREPLY[*]}"
+printf 'partial:%s\\n' "${{COMPREPLY[*]}}"
 COMP_WORDS=(repo-workflow what-next --)
 COMP_CWORD=2
 _repo_workflow_complete
-printf 'option:%s\\n' "${COMPREPLY[*]}"
+printf 'option:%s\\n' "${{COMPREPLY[*]}}"
 """
       completed = subprocess.run(
         ["bash", "-c", script],
