@@ -11,6 +11,7 @@ from repo_workflow.local_guards import (
   install_hooks,
 )
 from repo_workflow.prelim import merge_accepted, start_prelim
+from repo_workflow.version_adapter import run_transition
 from tests.support import RepoFixture
 
 
@@ -27,6 +28,24 @@ class LocalGuardTests(unittest.TestCase):
       fx._run("switch", "main")
       with self.assertRaisesRegex(LocalGuardError, "direct commits"):
         check_commit(root)
+
+  def test_manual_version_edit_is_blocked_but_adapter_transition_is_allowed(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      config = load_config(root)
+
+      (root / "VERSION").write_text(
+        "1.0.0-issue.1.0.2\n",
+        encoding="utf-8",
+      )
+      with self.assertRaisesRegex(LocalGuardError, "outside an authorized"):
+        check_commit(root)
+
+      fx._run("reset", "--hard", "HEAD")
+      run_transition(root, config, "task", "--increment", "CI-iteration")
+      check_commit(root)
 
   def test_direct_main_push_and_stable_tag_creation_are_blocked(self):
     with tempfile.TemporaryDirectory() as td:
@@ -113,6 +132,40 @@ class LocalGuardTests(unittest.TestCase):
           root,
           f"refs/tags/v1.0.0-issue.1.0.1 {head} "
           f"refs/tags/v1.0.0-issue.1.0.1 {old}\n",
+        )
+
+  def test_direct_prelim_delete_is_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      started = start_prelim(root, load_config(root))
+
+      with self.assertRaisesRegex(LocalGuardError, "verified cleanup"):
+        check_push(
+          root,
+          f"(delete) {ZERO} refs/heads/{started.branch} "
+          f"{started.candidate}\n",
+        )
+
+  def test_non_fast_forward_prelim_update_is_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      config = load_config(root)
+      started = start_prelim(root, config)
+      candidate = started.candidate
+      fx._run("switch", "-c", "other", "main")
+      (root / "other.txt").write_text("other\n", encoding="utf-8")
+      other = fx.commit("other line")
+      fx._run("switch", started.branch)
+
+      with self.assertRaisesRegex(LocalGuardError, "non-fast-forward"):
+        check_push(
+          root,
+          f"refs/heads/{started.branch} {candidate} "
+          f"refs/heads/{started.branch} {other}\n",
         )
 
   def test_rebase_that_rewrites_tagged_candidate_is_blocked(self):
