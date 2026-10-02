@@ -14,6 +14,11 @@ _TASK_VERSION_RE = re.compile(
   r"^(?P<base>\d+\.\d+\.\d+)-issue\."
   r"(?P<issue>\d+)\.(?P<generation>\d+)\.(?P<iteration>\d+)$"
 )
+_STABLE_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+_PRELIM_TAG_RE = re.compile(
+  r"^v\d+\.\d+\.\d+-PRELIM-(?P<issue>\d+)\."
+  r"(?P<generation>\d+)\.(?P<iteration>\d+)$"
+)
 _KINDS = {"regression", "integration"}
 _RESULTS = {"succeeded", "failed", "incomplete"}
 
@@ -46,11 +51,14 @@ class ValidationRecord:
     if not re.fullmatch(r"[0-9a-fA-F]{40,64}", self.testSHA):
       raise ValidationAuditError("validation testSHA is not a commit id")
     match = _TASK_VERSION_RE.fullmatch(self.testVersion)
-    if match is None:
-      raise ValidationAuditError("validation testVersion is not a task version")
-    if match.group("base") != self.baseVersion:
+    if match is not None:
+      if match.group("base") != self.baseVersion:
+        raise ValidationAuditError(
+          "validation baseVersion does not match testVersion base"
+        )
+    elif _STABLE_VERSION_RE.fullmatch(self.testVersion) is None:
       raise ValidationAuditError(
-        "validation baseVersion does not match testVersion base"
+        "validation testVersion is not a task or stable version"
       )
     try:
       parsed = datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
@@ -62,9 +70,16 @@ class ValidationRecord:
   @property
   def issue(self) -> int:
     match = _TASK_VERSION_RE.fullmatch(self.testVersion)
-    if match is None:
-      raise ValidationAuditError("validation testVersion is not a task version")
-    return int(match.group("issue"))
+    if match is not None:
+      return int(match.group("issue"))
+    if self.candidateTag is not None:
+      prelim = _PRELIM_TAG_RE.fullmatch(self.candidateTag)
+      if prelim is not None:
+        return int(prelim.group("issue"))
+    raise ValidationAuditError(
+      "stable validation record requires a PRELIM candidate tag "
+      "to identify its issue"
+    )
 
   def to_json(self) -> str:
     self.validate()

@@ -327,7 +327,13 @@ def retire_prelim(
   remote, integration_branch = _repository_settings(config)
   local_main = _local_branch_sha(root, integration_branch)
   if local_main is None:
-    raise PrelimError(f"local {integration_branch} does not exist")
+    remote_ref = f"{remote}/{integration_branch}"
+    git(root, "branch", "--track", integration_branch, remote_ref)
+    local_main = _local_branch_sha(root, integration_branch)
+    if local_main is None:
+      raise PrelimError(
+        f"cannot create local tracking branch {integration_branch}"
+      )
   ff = git(
     root,
     "merge-base",
