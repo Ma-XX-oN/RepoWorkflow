@@ -128,9 +128,13 @@ def _acquire_append_lock(path: Path, *, timeout: float = 10.0) -> int:
   while True:
     try:
       return os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
+    except (FileExistsError, PermissionError) as exc:
+      if isinstance(exc, PermissionError) and not lock.exists():
+        raise
       if time.monotonic() >= deadline:
-        raise ValidationAuditError(f"timed out waiting for validation audit lock: {lock}")
+        raise ValidationAuditError(
+          f"timed out waiting for validation audit lock: {lock}"
+        )
       time.sleep(0.01)
 
 
