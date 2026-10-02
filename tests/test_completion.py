@@ -77,10 +77,11 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
 """
       completed = subprocess.run(
         ["bash", "-c", script],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
       )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertEqual(
         completed.stdout.splitlines(),
         [
@@ -131,10 +132,11 @@ printf 'option:%s\\n' "${{COMPREPLY[*]}}"
 """
       completed = subprocess.run(
         ["bash", "-c", script],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
       )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
 
       self.assertEqual(
         completed.stdout.splitlines(),
