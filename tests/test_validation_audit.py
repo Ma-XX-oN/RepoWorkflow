@@ -68,13 +68,15 @@ class ValidationAuditTests(unittest.TestCase):
   def test_missing_evidence_requires_validation(self):
     self.assertEqual(regression_reuse_decision([], SHA1), "run")
 
-  def test_failed_and_incomplete_are_terminal_evidence_not_pass_reuse(self):
-    for result in ("failed", "incomplete"):
-      with self.subTest(result=result):
-        self.assertEqual(
-          regression_reuse_decision([record(result=result)], SHA1),
-          "reuse-terminal",
-        )
+  def test_failed_is_terminal_but_incomplete_may_retry_same_sha(self):
+    self.assertEqual(
+      regression_reuse_decision([record(result="failed")], SHA1),
+      "reuse-terminal",
+    )
+    self.assertEqual(
+      regression_reuse_decision([record(result="incomplete")], SHA1),
+      "run",
+    )
 
   def test_latest_same_sha_record_controls_kind_result(self):
     records = [
