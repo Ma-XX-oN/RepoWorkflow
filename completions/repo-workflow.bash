@@ -30,8 +30,25 @@ _rwf_python() {
   return 2
 }
 
+_rwf_python() {
+  if [[ -n "${PYTHON:-}" ]]; then
+    printf '%s\n' "$PYTHON"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  printf '%s\n' 'RepoWorkflow error: Python interpreter not found' >&2
+  return 2
+}
+
 _rwf_invoke() {
-  local root
+  local root python
   root="$(_rwf_worktree_root)" || {
     printf '%s\n' 'RepoWorkflow error: not inside a Git worktree' >&2
     return 2
