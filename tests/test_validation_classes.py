@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.config import ConfigError, load_config
 from repo_workflow.workflow_state import (
   WorkflowFacts,
   derive_plan,
@@ -184,6 +185,159 @@ class ValidationClassCliTests(unittest.TestCase):
       self.assertEqual(completed.returncode, 0, completed.stderr)
       facts = discover_facts(root)
       self.assertEqual(facts.automatic_integration, "missing")
+
+  def test_automatic_selector_runs_complete_ait(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _configure_validation_classes(root)
+      fx.commit("declare validation classes")
+      save_local_state(root, fx.head(), regression="PASS")
+
+      completed = self.run_cli(
+        root,
+        "validate",
+        "integration",
+        "--automatic",
+      )
+
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      self.assertEqual(discover_facts(root).automatic_integration, "PASS")
+
+  def test_manual_selector_is_blocked_until_ait_passes(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _configure_validation_classes(root, manual_required=True)
+      fx.commit("declare validation classes")
+      save_local_state(root, fx.head(), regression="PASS")
+
+      blocked = self.run_cli(
+        root,
+        "validate",
+        "integration",
+        "--manual",
+      )
+      self.assertEqual(blocked.returncode, 2)
+
+      automatic = self.run_cli(
+        root,
+        "validate",
+        "integration",
+        "--automatic",
+      )
+      self.assertEqual(automatic.returncode, 0, automatic.stderr)
+      before = fx.head()
+      selected = self.run_cli(
+        root,
+        "validate",
+        "integration",
+        "--manual",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(fx.head(), before)
+      self.assertIn("succeeded or failed", selected.stdout)
+
+  def test_ait_incomplete_retries_same_candidate_without_q_increment(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root, version="1.0.0-issue.1.2.4")
+      _configure_validation_classes(
+        root,
+        integration_body="raise SystemExit(2)\n",
+      )
+      fx.commit("declare incomplete automatic integration")
+      candidate = fx.head()
+      save_local_state(root, candidate, regression="PASS")
+
+      completed = self.run_cli(root, "validate", "integration")
+
+      self.assertEqual(completed.returncode, 2)
+      self.assertEqual(fx.head(), candidate)
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8").strip(),
+        "1.0.0-issue.1.2.4",
+      )
+      facts = discover_facts(root)
+      self.assertEqual(facts.automatic_integration, "INCOMPLETE")
+      self.assertEqual(derive_plan(facts).transitions, ("validate integration",))
+
+  def test_no_declared_ait_or_mit_does_not_create_manual_gate(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      save_local_state(root, fx.head(), regression="PASS")
+
+      facts = discover_facts(root)
+      self.assertFalse(facts.automatic_integration_required)
+      self.assertFalse(facts.manual_integration_required)
+      plan = derive_plan(facts)
+      self.assertNotIn("validate integration succeeded", plan.transitions)
+      self.assertNotIn("validate integration failed", plan.transitions)
+      self.assertTrue(any("authorization absent" in block for block in plan.blocks))
+
+  def test_unknown_group_is_actionable_and_nonmutating(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _configure_validation_classes(root)
+      fx.commit("declare validation classes")
+      candidate = fx.head()
+      save_local_state(root, candidate, regression="PASS")
+
+      completed = self.run_cli(
+        root,
+        "validate",
+        "integration",
+        "--group",
+        "missing",
+      )
+
+      self.assertEqual(completed.returncode, 2)
+      self.assertIn("not declared", completed.stderr)
+      self.assertEqual(fx.head(), candidate)
+
+
+class ValidationClassConfigTests(unittest.TestCase):
+  def test_duplicate_art_and_ait_environment_ids_are_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      path = root / ".ci" / "repoworkflow.json"
+      config = json.loads(path.read_text(encoding="utf-8"))
+      config["integrationEnvironments"] = [{
+        **config["environments"][0],
+      }]
+      path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+      with self.assertRaisesRegex(ConfigError, "duplicate environment id"):
+        load_config(root)
+
+  def test_fast_flag_is_rejected_for_ait_environment(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      path = root / ".ci" / "repoworkflow.json"
+      config = json.loads(path.read_text(encoding="utf-8"))
+      config["integrationEnvironments"] = [{
+        "id": "integration",
+        "required": True,
+        "platform": "any",
+        "capabilities": [],
+        "fast": True,
+        "validationCommand": [sys.executable, "scripts/validate.py"],
+      }]
+      path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+      with self.assertRaisesRegex(ConfigError, "valid only for regression"):
+        load_config(root)
 
 
 if __name__ == "__main__":
