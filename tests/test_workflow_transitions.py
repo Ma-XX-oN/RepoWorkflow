@@ -53,6 +53,51 @@ class WorkflowTransitionTests(unittest.TestCase):
       self.assertEqual(facts.regression, "missing")
       self.assertEqual(facts.integration_result, "failed")
 
+  def test_integration_result_before_regression_pass_is_rejected_without_mutation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      before = fx.head()
+
+      with self.assertRaisesRegex(ValueError, "validate integration succeeded is blocked"):
+        validate_integration(root, "succeeded")
+
+      self.assertEqual(fx.head(), before)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
+  def test_repeated_integration_result_is_rejected_without_mutation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+      validate_integration(root, "succeeded")
+      before = fx.head()
+
+      with self.assertRaisesRegex(ValueError, "validate integration failed is blocked"):
+        validate_integration(root, "failed")
+
+      self.assertEqual(fx.head(), before)
+      self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
+  def test_regression_rerun_after_pass_is_rejected_before_validation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+
+      with patch(
+        "repo_workflow.workflow_transitions.verify_local",
+        return_value="PASS",
+      ) as verify:
+        with self.assertRaisesRegex(ValueError, "validate regression is blocked"):
+          validate_regression(root, engine_root=ROOT)
+
+      verify.assert_not_called()
+
 
 if __name__ == "__main__":
   unittest.main()
