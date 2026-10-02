@@ -89,15 +89,7 @@ _repo_workflow_complete() {
   )
   local index
   for index in "${!COMPREPLY[@]}"; do
-    COMPREPLY[index]="${COMPREPLY[index]%}
-
-# Programmable completion is meaningful in an interactive Bash shell. Some
-# non-interactive Git Bash builds return 1 from `complete` even though the
-# sourced functions themselves are valid; sourcing setup must not fail for that
-# reason.
-shopt -s progcomp 2>/dev/null || true
-complete -F _repo_workflow_complete repo-workflow rwf 2>/dev/null || true
-\\r'}"
+    COMPREPLY[index]="${COMPREPLY[index]%$'\r'}"
   done
 }
 
