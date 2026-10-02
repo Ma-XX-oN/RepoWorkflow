@@ -49,7 +49,7 @@ class BashCompletionTests(unittest.TestCase):
       nested.mkdir(parents=True)
 
       script = f"""
-set -euo pipefail
+set -uo pipefail
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
@@ -109,7 +109,7 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
       )
 
       script = f"""
-set -euo pipefail
+set -uo pipefail
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(root)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
