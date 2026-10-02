@@ -7,6 +7,23 @@ _rwf_worktree_root() {
   command git rev-parse --show-toplevel 2>/dev/null
 }
 
+_rwf_python() {
+  if [[ -n "${PYTHON:-}" ]]; then
+    printf '%s\n' "$PYTHON"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  printf '%s\n' 'RepoWorkflow error: Python interpreter not found' >&2
+  return 2
+}
+
 _rwf_invoke() {
   local root
   root="$(_rwf_worktree_root)" || {
@@ -19,8 +36,11 @@ _rwf_invoke() {
     return 2
   fi
 
+  local python
+  python="$(_rwf_python)" || return $?
+
   if [[ -f "$root/scripts/repoworkflow.py" ]]; then
-    "${PYTHON:-python3}" "$root/scripts/repoworkflow.py" --root "$root" "$@"
+    "$python" "$root/scripts/repoworkflow.py" --root "$root" "$@"
     return $?
   fi
   if [[ -x "$root/RepoWorkflow/repo-workflow" ]]; then
@@ -28,7 +48,7 @@ _rwf_invoke() {
     return $?
   fi
   if [[ -f "$root/RepoWorkflow/repo_workflow.py" ]]; then
-    "${PYTHON:-python3}" "$root/RepoWorkflow/repo_workflow.py" --root "$root" "$@"
+    "$python" "$root/RepoWorkflow/repo_workflow.py" --root "$root" "$@"
     return $?
   fi
   if [[ -x "$root/repo-workflow" ]]; then
@@ -36,7 +56,7 @@ _rwf_invoke() {
     return $?
   fi
   if [[ -f "$root/repo_workflow.py" ]]; then
-    "${PYTHON:-python3}" "$root/repo_workflow.py" --root "$root" "$@"
+    "$python" "$root/repo_workflow.py" --root "$root" "$@"
     return $?
   fi
 
