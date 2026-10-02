@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,28 @@ def _bash_path(path: Path) -> str:
   drive = value[0].lower()
   rest = value[2:].replace("\\", "/")
   return f"/{drive}{rest}"
+
+
+
+
+def _bash_executable() -> str:
+  if os.name != "nt":
+    value = shutil.which("bash")
+    if not value:
+      raise RuntimeError("Bash is unavailable")
+    return value
+  git = shutil.which("git")
+  if not git:
+    raise RuntimeError("Git is unavailable")
+  git_path = Path(git).resolve()
+  candidates = (
+    git_path.parent / "bash.exe",
+    git_path.parent.parent / "bin" / "bash.exe",
+  )
+  for candidate in candidates:
+    if candidate.is_file():
+      return str(candidate)
+  raise RuntimeError("Git for Windows Bash is unavailable")
 
 
 def _write_launcher(root: Path) -> None:
@@ -83,7 +106,6 @@ class InitSetupTests(unittest.TestCase):
 
       script = f"""
 set -uo pipefail
-${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
@@ -101,7 +123,7 @@ printf 'complete-long:%s\\n' "${{COMPREPLY[*]}}"
 exit 0
 """
       completed = subprocess.run(
-        ["bash", "-c", script],
+        [_bash_executable(), "-c", script],
         check=False,
         capture_output=True,
         text=True,
@@ -139,7 +161,6 @@ exit 0
       first, second = repos
       script = f"""
 set -uo pipefail
-${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(first)!r}
 source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
@@ -152,7 +173,7 @@ printf 'a-long:%s\\n' "$(repo-workflow probe)"
 exit 0
 """
       completed = subprocess.run(
-        ["bash", "-c", script],
+        [_bash_executable(), "-c", script],
         check=False,
         capture_output=True,
         text=True,
