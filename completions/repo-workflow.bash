@@ -34,23 +34,6 @@ _rwf_python() {
   return 2
 }
 
-_rwf_python() {
-  if [[ -n "${PYTHON:-}" ]]; then
-    printf '%s\n' "$PYTHON"
-    return 0
-  fi
-  if command -v python3 >/dev/null 2>&1; then
-    command -v python3
-    return 0
-  fi
-  if command -v python >/dev/null 2>&1; then
-    command -v python
-    return 0
-  fi
-  printf '%s\n' 'RepoWorkflow error: Python interpreter not found' >&2
-  return 2
-}
-
 _rwf_invoke() {
   local root python
   root="$(_rwf_worktree_root)" || {
@@ -63,7 +46,6 @@ _rwf_invoke() {
     return 2
   fi
 
-  local python
   python="$(_rwf_python)" || return $?
 
   if [[ -f "$root/scripts/repoworkflow.py" ]]; then
@@ -107,5 +89,9 @@ _repo_workflow_complete() {
   )
 }
 
-shopt -s progcomp
-complete -F _repo_workflow_complete repo-workflow rwf
+# Programmable completion is meaningful in an interactive Bash shell. Some
+# non-interactive Git Bash builds return 1 from `complete` even though the
+# sourced functions themselves are valid; sourcing setup must not fail for that
+# reason.
+shopt -s progcomp 2>/dev/null || true
+complete -F _repo_workflow_complete repo-workflow rwf 2>/dev/null || true
