@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -16,12 +18,21 @@ from tests.support import RepoFixture
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _bash_path(path: Path) -> str:
+  value = str(path.resolve())
+  if os.name != "nt":
+    return value
+  drive = value[0].lower()
+  rest = value[2:].replace("\\", "/")
+  return f"/{drive}{rest}"
+
+
 def _write_launcher(root: Path) -> None:
   launcher = root / "scripts" / "repoworkflow.py"
   launcher.write_text(
     "import subprocess\n"
     "import sys\n"
-    f"raise SystemExit(subprocess.call([sys.executable, {str(ROOT / 'repo_workflow.py')!r}, *sys.argv[1:]]))\n",
+    f"raise SystemExit(subprocess.call([sys.executable, {_bash_path(ROOT / 'repo_workflow.py')!r}, *sys.argv[1:]]))\n",
     encoding="utf-8",
   )
 
@@ -72,8 +83,8 @@ class InitSetupTests(unittest.TestCase):
 
       script = f"""
 set -euo pipefail
-cd {str(nested)!r}
-source <({str(Path(subprocess.check_output(['which', 'python3'], text=True).strip()))!r} {str(ROOT / 'repo_workflow.py')!r} init --home {str(home)!r} --bash)
+cd {_bash_path(nested)!r}
+source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
 printf 'types:%s,%s\\n' "$(type -t rwf)" "$(type -t repo-workflow)"
 printf 'short:%s\\n' "$(rwf version)"
 printf 'long:%s\\n' "$(repo-workflow version)"
@@ -124,13 +135,13 @@ printf 'complete-long:%s\\n' "${{COMPREPLY[*]}}"
       first, second = repos
       script = f"""
 set -euo pipefail
-cd {str(first)!r}
-source <({str(Path(subprocess.check_output(['which', 'python3'], text=True).strip()))!r} {str(ROOT / 'repo_workflow.py')!r} init --home {str(home)!r} --bash)
+cd {_bash_path(first)!r}
+source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
 printf 'a-short:%s\\n' "$(rwf probe)"
-cd {str(second)!r}
+cd {_bash_path(second)!r}
 printf 'b-short:%s\\n' "$(rwf probe)"
 printf 'b-long:%s\\n' "$(repo-workflow probe)"
-cd {str(first)!r}
+cd {_bash_path(first)!r}
 printf 'a-long:%s\\n' "$(repo-workflow probe)"
 """
       completed = subprocess.run(
