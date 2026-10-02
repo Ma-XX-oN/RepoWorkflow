@@ -526,6 +526,102 @@ This Rosetta layer is deliberately data-driven.  RWF understands substitution,
 joining, batching, and indirect-file mechanics, but does not embed CTest,
 pytest, .NET, or another harness's test-selection grammar.
 
+## 13.2 Declarative command grammar and Bash completion
+
+Issue #15 uses one Python-owned command data structure as the authoritative
+description of the user-facing CLI grammar.  Argument parsing/validation,
+shell-completion candidates, completion help, and normal command help must be
+projections of that structure rather than independently maintained command
+lists.
+
+The intended shape is deliberately simple and inspectable.  For example:
+
+```python
+COMMANDS = {
+  "validate": {
+    "regression": {
+      "": "Run all regression tests",
+      "--fast": "Run fast smoke tests",
+      "--group": [
+        "Run a specific group of tests",
+        function_to_get_names,
+      ],
+    },
+    "integration": {
+      "": "Run all integration tests",
+      "--automatic": "Run automated integration tests",
+      "--manual": "Run manual integration tests",
+      "--group": [
+        "Run a specific group of tests",
+        function_to_get_names,
+      ],
+    },
+  },
+  "config": {
+    "": "Show repository configuration",
+    "get": "...",
+    "set": "...",
+    "unset": "...",
+    "--json": "...",
+  },
+}
+```
+
+The exact Python representation may gain metadata as implementation requires,
+but it must preserve the single-source invariant.  In particular, the empty
+string describes the action represented by the current command node, ordinary
+keys describe literal subcommands/options, and a callable associated with an
+argument-bearing entry supplies its dynamic completion values.
+
+The Bash adapter is a presentation layer.  It supplies the current command
+line/cursor context to the RWF completion engine and receives the candidates
+derived from the command grammar and current workflow state.  It must not
+duplicate RWF command or state policy.
+
+The intended Bash interaction is:
+
+- one Tab performs normal completion and displays/inserts candidate names;
+- a second Tab within one second, with the same command line and completion
+  context, displays the static command descriptions as additional detail;
+- changing the command line or completion context resets the double-Tab state;
+- when a dynamic value provider supplies values, those values are the
+  completions on both single and double Tab.  RWF does not manufacture or
+  maintain a second description set for them.
+
+For example:
+
+```text
+rwf validate regression <TAB>
+--fast  --group
+```
+
+A second Tab within one second may show:
+
+```text
+--fast     Run fast smoke tests
+--group    Run a specific group of tests
+```
+
+By contrast, dynamic group completion remains:
+
+```text
+rwf validate regression --group <TAB><TAB>
+
+issue-123-parser-empty-input
+issue-123-browser-reconnect
+```
+
+The group names come from the static test catalogue.  Their completion data is
+not duplicated in the command grammar.
+
+A Bash prototype using a real pseudo-terminal established that Bash invokes the
+completion function on repeated Tab presses with the same completion context,
+that timing can be measured, and that the second invocation can print the
+detailed list while returning an empty `COMPREPLY` to suppress Bash's redundant
+plain list.  That path may produce the terminal bell; this is acceptable for
+the initial implementation and can be revisited if it proves distracting in
+normal use.
+
 ## 14. Non-goals
 
 RepoWorkflow must not:
