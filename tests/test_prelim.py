@@ -58,6 +58,7 @@ class PrelimTests(unittest.TestCase):
       fx = self.make_diverged_fixture(root)
       config = load_config(root)
       main_before = fx._run("rev-parse", "main").stdout.strip()
+      issue_before = fx._run("rev-parse", "issue-1-test").stdout.strip()
 
       started = start_prelim(root, config)
       self.assertTrue(is_prelim_branch(started.branch))
@@ -73,6 +74,10 @@ class PrelimTests(unittest.TestCase):
       self.assertNotEqual(candidate, started.candidate)
       self.assertTrue((root / "feature.txt").exists())
       self.assertEqual(fx._run("rev-parse", "main").stdout.strip(), main_before)
+      self.assertEqual(
+        fx._run("rev-parse", "issue-1-test").stdout.strip(),
+        issue_before,
+      )
       self.assertTrue(prelim_status(root, config, started.branch).current)
 
   def test_two_workers_receive_distinct_branches_and_cannot_adopt_each_other(self):
@@ -104,6 +109,69 @@ class PrelimTests(unittest.TestCase):
       second._run("switch", first_status.branch)
       with self.assertRaisesRegex(PrelimError, "not owned by this clone"):
         prelim_status(second_root, load_config(second_root), first_status.branch)
+
+  def test_cleanup_one_attempt_preserves_concurrent_remote_attempt(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      first_root = base / "first"
+      first_root.mkdir()
+      first = self.make_diverged_fixture(first_root)
+      second_root = base / "second"
+      second = self.clone_worker(first, second_root)
+
+      first_config = load_config(first_root)
+      second_config = load_config(second_root)
+      first_started = start_prelim(first_root, first_config)
+      first_candidate = merge_accepted(first_root, "issue-1-test")
+      second_started = start_prelim(second_root, second_config)
+
+      first._run("push", "origin", first_started.branch)
+      second._run("push", "origin", second_started.branch)
+      first._run("push", "origin", f"{first_candidate}:main")
+
+      retire_prelim(first_root, first_config, first_started.branch)
+
+      remote = first._run("ls-remote", "--heads", "origin").stdout
+      self.assertNotIn(f"refs/heads/{first_started.branch}", remote)
+      self.assertIn(f"refs/heads/{second_started.branch}", remote)
+
+  def test_squash_landing_allows_cleanup_and_keeps_prelim_tag_reachable(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = self.make_diverged_fixture(root)
+      config = load_config(root)
+      started = start_prelim(root, config)
+      merge_accepted(root, "issue-1-test")
+      (root / "VERSION").write_text("1.0.1\n", encoding="utf-8")
+      candidate = fx.commit("stable prelim")
+      tag = create_prelim_tag(
+        root,
+        config,
+        issue=1,
+        integration_generation=0,
+        validation_iteration=1,
+      )
+      fx._run("push", "origin", started.branch)
+
+      fx._run("switch", "main")
+      fx._run("checkout", candidate, "--", ".")
+      squash = fx.commit("squash landed candidate")
+      self.assertNotEqual(squash, candidate)
+      self.assertEqual(
+        fx._run("diff", "--quiet", squash, candidate, "--", check=False).returncode,
+        0,
+      )
+      fx._run("push", "origin", "HEAD:main")
+      fx._run("switch", started.branch)
+
+      landed = retire_prelim(root, config, started.branch)
+
+      self.assertEqual(landed, squash)
+      self.assertEqual(
+        fx._run("rev-parse", f"{tag}^{{}}").stdout.strip(),
+        candidate,
+      )
 
   def test_server_main_movement_requires_fresh_reintegration_and_validation(self):
     with tempfile.TemporaryDirectory() as td:
