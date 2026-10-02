@@ -63,7 +63,10 @@ def _advance_ci_iteration(root: Path, config: dict, version: str) -> str:
     run_transition(root, config, "task", "--increment", "CI-iteration")
     advanced = read_development_version(root, config)
   except VersionAdapterError as exc:
-    raise GuardError(str(exc)) from exc
+    raise GuardError(
+      "repository version adapter did not perform exactly one "
+      f"CI-iteration increment: {exc}"
+    ) from exc
   _assert_ci_iteration_advanced(version, advanced)
   return advanced
 
