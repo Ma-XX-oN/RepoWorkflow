@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
+import uuid
 
 from .git import changed_files, current_branch, git, head_sha
 from .version_adapter import read_stable_version
 
 
-PRELIM_BRANCH = "prelim-main"
+PRELIM_PREFIX = "prelim-main-"
 
 
 class PrelimError(RuntimeError):
@@ -16,10 +18,37 @@ class PrelimError(RuntimeError):
 
 @dataclass(frozen=True)
 class PrelimStatus:
+  branch: str
+  attempt_id: str
   present: bool
   candidate: str | None
   authoritative_main: str
   current: bool
+
+
+def prelim_branch(attempt_id: str) -> str:
+  try:
+    normalized = str(uuid.UUID(attempt_id))
+  except ValueError as exc:
+    raise PrelimError(f"invalid preliminary integration GUID: {attempt_id}") from exc
+  return PRELIM_PREFIX + normalized
+
+
+def prelim_attempt_id(branch: str) -> str | None:
+  if not branch.startswith(PRELIM_PREFIX):
+    return None
+  value = branch[len(PRELIM_PREFIX):]
+  try:
+    normalized = str(uuid.UUID(value))
+  except ValueError:
+    return None
+  if value != normalized:
+    return None
+  return normalized
+
+
+def is_prelim_branch(branch: str) -> bool:
+  return prelim_attempt_id(branch) is not None
 
 
 def _repository_settings(config: dict) -> tuple[str, str]:
@@ -70,12 +99,63 @@ def _require_clean(root: Path) -> None:
     )
 
 
-def prelim_status(root: Path, config: dict) -> PrelimStatus:
+def _git_dir(root: Path) -> Path:
+  value = git(root, "rev-parse", "--git-dir").stdout.strip()
+  path = Path(value)
+  return path if path.is_absolute() else (root / path).resolve()
+
+
+def _attempt_path(root: Path, attempt_id: str) -> Path:
+  return _git_dir(root) / "repoworkflow" / "prelim" / f"{attempt_id}.json"
+
+
+def _write_attempt(root: Path, attempt_id: str, branch: str) -> None:
+  path = _attempt_path(root, attempt_id)
+  path.parent.mkdir(parents=True, exist_ok=True)
+  if path.exists():
+    raise PrelimError(f"preliminary integration attempt already exists: {attempt_id}")
+  path.write_text(
+    json.dumps({"attemptId": attempt_id, "branch": branch}, sort_keys=True) + "\n",
+    encoding="utf-8",
+  )
+
+
+def _require_owned_attempt(root: Path, branch: str) -> str:
+  attempt_id = prelim_attempt_id(branch)
+  if attempt_id is None:
+    raise PrelimError(f"not a GUID-qualified preliminary branch: {branch}")
+  path = _attempt_path(root, attempt_id)
+  try:
+    value = json.loads(path.read_text(encoding="utf-8"))
+  except (FileNotFoundError, json.JSONDecodeError) as exc:
+    raise PrelimError(
+      f"preliminary integration branch is not owned by this clone: {branch}"
+    ) from exc
+  if value != {"attemptId": attempt_id, "branch": branch}:
+    raise PrelimError(f"invalid preliminary integration record: {path}")
+  return attempt_id
+
+
+def _resolve_branch(root: Path, branch: str | None) -> str:
+  value = branch or current_branch(root)
+  if not is_prelim_branch(value):
+    raise PrelimError("current branch is not a GUID-qualified preliminary integration")
+  _require_owned_attempt(root, value)
+  return value
+
+
+def prelim_status(
+  root: Path,
+  config: dict,
+  branch: str | None = None,
+) -> PrelimStatus:
   root = root.resolve()
+  branch = _resolve_branch(root, branch)
+  attempt_id = _require_owned_attempt(root, branch)
   authoritative = authoritative_main_sha(root, config)
-  candidate = _local_branch_sha(root, PRELIM_BRANCH)
+  candidate = _local_branch_sha(root, branch)
   if candidate is None:
-    return PrelimStatus(False, None, authoritative, False)
+    return PrelimStatus(branch, attempt_id, False, None, authoritative, False)
   ancestry = git(
     root,
     "merge-base",
@@ -84,27 +164,50 @@ def prelim_status(root: Path, config: dict) -> PrelimStatus:
     candidate,
     check=False,
   )
-  return PrelimStatus(True, candidate, authoritative, ancestry.returncode == 0)
+  return PrelimStatus(
+    branch,
+    attempt_id,
+    True,
+    candidate,
+    authoritative,
+    ancestry.returncode == 0,
+  )
 
 
-def start_prelim(root: Path, config: dict) -> str:
+def start_prelim(
+  root: Path,
+  config: dict,
+  *,
+  attempt_id: str | None = None,
+) -> PrelimStatus:
   root = root.resolve()
   _require_clean(root)
-  if _local_branch_sha(root, PRELIM_BRANCH) is not None:
-    raise PrelimError(f"{PRELIM_BRANCH} already exists")
+  attempt_id = str(uuid.UUID(attempt_id)) if attempt_id else str(uuid.uuid4())
+  branch = prelim_branch(attempt_id)
+  if _local_branch_sha(root, branch) is not None:
+    raise PrelimError(f"{branch} already exists")
+  if _attempt_path(root, attempt_id).exists():
+    raise PrelimError(f"preliminary integration attempt already exists: {attempt_id}")
   authoritative = authoritative_main_sha(root, config)
-  git(root, "branch", PRELIM_BRANCH, authoritative)
-  git(root, "switch", PRELIM_BRANCH)
+  git(root, "branch", branch, authoritative)
+  _write_attempt(root, attempt_id, branch)
+  try:
+    git(root, "switch", branch)
+  except Exception:
+    git(root, "branch", "-D", branch, check=False)
+    _attempt_path(root, attempt_id).unlink(missing_ok=True)
+    raise
   if head_sha(root) != authoritative:
     raise PrelimError("preliminary branch did not start at authoritative main")
-  return authoritative
+  return PrelimStatus(branch, attempt_id, True, authoritative, authoritative, True)
 
 
 def merge_accepted(root: Path, source_ref: str) -> str:
   root = root.resolve()
   _require_clean(root)
-  if current_branch(root) != PRELIM_BRANCH:
-    raise PrelimError(f"accepted work may be integrated only on {PRELIM_BRANCH}")
+  branch = _resolve_branch(root, None)
+  if current_branch(root) != branch:
+    raise PrelimError(f"accepted work may be integrated only on {branch}")
   before = head_sha(root)
   result = git(root, "rev-parse", "--verify", source_ref, check=False)
   if result.returncode:
@@ -123,16 +226,17 @@ def merge_accepted(root: Path, source_ref: str) -> str:
   return after
 
 
-def reintegrate_prelim(root: Path, config: dict) -> str:
+def reintegrate_prelim(root: Path, config: dict, branch: str | None = None) -> str:
   root = root.resolve()
   _require_clean(root)
-  status = prelim_status(root, config)
+  branch = _resolve_branch(root, branch)
+  status = prelim_status(root, config, branch)
   if not status.present or status.candidate is None:
-    raise PrelimError(f"{PRELIM_BRANCH} does not exist")
+    raise PrelimError(f"{branch} does not exist")
   if status.current:
     raise PrelimError("preliminary candidate is already based on current main")
-  if current_branch(root) != PRELIM_BRANCH:
-    git(root, "switch", PRELIM_BRANCH)
+  if current_branch(root) != branch:
+    git(root, "switch", branch)
   before = head_sha(root)
   git(
     root,
@@ -145,7 +249,7 @@ def reintegrate_prelim(root: Path, config: dict) -> str:
   after = head_sha(root)
   if after == before:
     raise PrelimError("reintegration produced no new candidate")
-  refreshed = prelim_status(root, config)
+  refreshed = prelim_status(root, config, branch)
   if not refreshed.current:
     raise PrelimError("reintegrated candidate is still stale")
   return after
@@ -162,8 +266,7 @@ def create_prelim_tag(
 ) -> str:
   root = root.resolve()
   _require_clean(root)
-  if current_branch(root) != PRELIM_BRANCH:
-    raise PrelimError(f"PRELIM tags may be created only on {PRELIM_BRANCH}")
+  _resolve_branch(root, None)
   if issue < 1 or integration_generation < 0 or validation_iteration < 1:
     raise PrelimError("invalid PRELIM tag identity")
   version = read_stable_version(root, config)
@@ -199,12 +302,17 @@ def _same_tree(root: Path, left: str, right: str) -> bool:
   return result.returncode == 0
 
 
-def retire_prelim(root: Path, config: dict) -> str:
+def retire_prelim(
+  root: Path,
+  config: dict,
+  branch: str | None = None,
+) -> str:
   root = root.resolve()
   _require_clean(root)
-  status = prelim_status(root, config)
+  branch = _resolve_branch(root, branch)
+  status = prelim_status(root, config, branch)
   if not status.present or status.candidate is None:
-    raise PrelimError(f"{PRELIM_BRANCH} does not exist")
+    raise PrelimError(f"{branch} does not exist")
   integrated = git(
     root,
     "merge-base",
@@ -216,7 +324,7 @@ def retire_prelim(root: Path, config: dict) -> str:
   if not integrated and not _same_tree(root, status.candidate, status.authoritative_main):
     raise PrelimError("server main does not yet contain the preliminary candidate")
 
-  _remote, integration_branch = _repository_settings(config)
+  remote, integration_branch = _repository_settings(config)
   local_main = _local_branch_sha(root, integration_branch)
   if local_main is None:
     raise PrelimError(f"local {integration_branch} does not exist")
@@ -230,8 +338,23 @@ def retire_prelim(root: Path, config: dict) -> str:
   )
   if ff.returncode:
     raise PrelimError(f"local {integration_branch} cannot fast-forward to server main")
+
+  published = git(
+    root,
+    "ls-remote",
+    "--heads",
+    remote,
+    f"refs/heads/{branch}",
+    check=False,
+  )
+  if published.returncode:
+    raise PrelimError("cannot establish remote preliminary branch state")
+  if published.stdout.strip():
+    git(root, "push", remote, "--delete", branch)
+
   if current_branch(root) != integration_branch:
     git(root, "switch", integration_branch)
   git(root, "merge", "--ff-only", status.authoritative_main)
-  git(root, "branch", "-D", PRELIM_BRANCH)
+  git(root, "branch", "-D", branch)
+  _attempt_path(root, status.attempt_id).unlink(missing_ok=True)
   return head_sha(root)
