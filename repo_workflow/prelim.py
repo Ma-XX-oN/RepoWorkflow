@@ -350,7 +350,7 @@ def retire_prelim(
   if published.returncode:
     raise PrelimError("cannot establish remote preliminary branch state")
   if published.stdout.strip():
-    git(root, "push", remote, "--delete", branch)
+    git(root, "push", "--no-verify", remote, "--delete", branch)
 
   if current_branch(root) != integration_branch:
     git(root, "switch", integration_branch)
