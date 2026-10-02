@@ -136,14 +136,16 @@ Where:
   sent it back to development;
 - `R` is the regression-validation iteration.
 
-`R` is owned by `repo-workflow validate regression`.  On genuine regression
-FAIL, RepoWorkflow records the failed candidate and internally asks the
-consumer `repo-version` adapter to advance the CI iteration.
+`R` is the automated-validation iteration.  It is consumed by a genuine
+failure in automated regression testing (ART) or automated integration testing
+(AIT).  RepoWorkflow records the failed exact candidate and internally asks the
+consumer `repo-version` adapter to advance the automated-validation iteration.
 
-`Q` is owned by `repo-workflow validate integration failed`.  That transition
-records the failed integration/acceptance result and internally asks the
-consumer adapter to advance the merge/integration-failed generation and reset
-the CI iteration.
+`Q` is the manual integration/acceptance rejection generation.  It advances
+only when required manual integration testing (MIT) rejects a candidate.
+RepoWorkflow records that manual rejection, asks the consumer adapter to
+advance the merge/integration-failed generation, and resets `R` for the next
+development candidate.
 
 Users should not manually manage these counters.
 
@@ -165,33 +167,90 @@ PRELIM tags:
 - may point to a tree whose source already contains proposed stable `X.Y.Z`;
 - never become or move to the final stable `vX.Y.Z` tag.
 
-## 6. Task lifecycle
+## 6. Task lifecycle and test classes
+
+The workflow distinguishes three test classes.  They must not be collapsed
+into one generic integration/acceptance transition.
+
+- **ART -- automated regression testing:** automated validation of the task
+  candidate for regressions.  ART requires no user result entry.
+- **AIT -- automated integration testing:** automated validation that the task
+  works in its required integration context.  AIT requires no user result
+  entry; its runner records the result automatically.
+- **MIT -- manual integration testing:** required human integration/acceptance
+  testing for behaviour that cannot be established authoritatively by the
+  automated suites.  MIT is the user-result boundary.
+
+ART and AIT are automated-validation stages.  A genuine automated failure
+consumes the current automated-validation iteration `R`, records immutable
+failure evidence for the exact candidate, advances `R` through the repository
+adapter, and returns to development.  It does **not** advance `Q`.
+
+MIT has different transition semantics.  A manual MIT rejection advances
+`Q`, resets `R`, records the rejection, and returns the task to development.
+A successful MIT result marks the required manual acceptance complete.
+
+The concise integration-result commands remain:
+
+```text
+repo-workflow validate integration succeeded
+repo-workflow validate integration failed
+```
+
+They record the result for the **currently pending integration-test class**.
+When AIT is pending, the automated runner invokes the appropriate result
+transition itself.  When MIT is pending, the command records the human result.
+The state machine must therefore know whether AIT or MIT is pending; identical
+result words do not imply identical state transitions.
+
+The task lifecycle is:
 
 1. Create an `issue-*` branch from its declared parent.
 2. Run `repo-workflow version task issue <number>`.
 3. RepoWorkflow forwards to the repository `repo-version` adapter, which
    derives and applies the initial task version.
 4. Implement the task.
-5. Run `repo-workflow validate regression`.
-6. On genuine regression FAIL:
+5. Run required ART automatically.
+6. On ART genuine FAIL:
    - record/tag the failed exact candidate;
    - append audit evidence;
-   - advance the CI iteration through the repository adapter;
+   - advance `R` through the repository adapter;
    - return to development.
-7. On INCOMPLETE:
+7. On ART INCOMPLETE:
    - create no terminal PASS/FAIL tag;
    - permit retry only while the exact candidate is unchanged.
-8. On PASS:
-   - create the immutable successful task candidate tag;
-   - proceed to required integration/acceptance testing.
-9. Record integration/acceptance outcome using:
-   - `repo-workflow validate integration succeeded`, or
-   - `repo-workflow validate integration failed`.
-10. A failed integration result advances `Q`, resets `R`, and returns the task
-    to development.
-11. A successful integration result marks the task accepted.
-12. Acceptance does **not** authorize merge/integration.  Explicit merge or
-    integration authorization remains a separate boundary.
+8. On ART PASS:
+   - create the immutable successful automated candidate evidence;
+   - proceed to required AIT, if any.
+9. Run required AIT automatically.  Its runner records
+   `validate integration succeeded` or `validate integration failed`
+   without user intervention.
+10. On AIT genuine FAIL:
+    - record/tag the failed exact candidate;
+    - append automated integration evidence;
+    - advance `R`, not `Q`;
+    - return to development.
+11. On AIT INCOMPLETE:
+    - create no terminal PASS/FAIL result for that stage;
+    - permit retry only while the exact candidate is unchanged.
+12. On AIT PASS:
+    - proceed to required MIT, if any;
+    - if no MIT is required, automated acceptance requirements are complete.
+13. Run required MIT only when the repository declares a manual integration
+    requirement.  The human records `validate integration succeeded` or
+    `validate integration failed`.
+14. On MIT failed:
+    - record the manual rejection;
+    - advance `Q`;
+    - reset `R`;
+    - return to development.
+15. On MIT succeeded, mark the required manual acceptance complete.
+16. The task is accepted only after every required ART, AIT, and MIT stage for
+    the exact candidate has succeeded.  A repository with no required MIT does
+    not invent a user test stage.
+17. Acceptance does **not** itself authorize merge/integration in consumer
+    repositories.  Merge authorization remains a separate repository policy
+    boundary unless that repository has an explicit exception.
 
 ## 7. Local `main` and ephemeral `prelim-main-<GUID>`
 

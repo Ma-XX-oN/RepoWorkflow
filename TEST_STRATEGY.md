@@ -128,9 +128,15 @@ Required state-machine tests:
 
 - initial task-development state;
 - regression-required state;
-- regression PASS, FAIL, and INCOMPLETE transitions;
-- integration/acceptance-required state;
-- integration succeeded and failed transitions;
+- ART PASS, FAIL, and INCOMPLETE transitions with no user result entry;
+- AIT-required state and automatic AIT result recording;
+- AIT PASS, FAIL, and INCOMPLETE transitions, including that AIT FAIL advances
+  `R` and never `Q`;
+- MIT-required state only when manual integration testing is declared;
+- MIT succeeded and failed transitions, including that MIT FAIL advances `Q`
+  and resets `R`;
+- acceptance with AIT but no MIT, proving no unnecessary user test gate is
+  introduced;
 - accepted-but-not-yet-integrated state;
 - preliminary-integration states;
 - stale preliminary candidate state;
@@ -150,7 +156,8 @@ Required completion tests must exercise an actual supported shell completion
 environment rather than merely inspect generated text:
 
 - completion is generated from the same state-machine result as `what-next`;
-- `rwf validate integration <TAB>` offers only legal outcomes;
+- `rwf validate integration <TAB>` offers only legal outcomes when a result
+  transition is pending, and the state identifies whether it is AIT or MIT;
 - illegal commands disappear as state changes;
 - options such as `--json` remain options rather than workflow states;
 - filenames or unrelated shell candidates do not leak into controlled
@@ -303,49 +310,63 @@ At minimum, exercise these complete scenarios:
 
 ### 9.1 Happy path
 
-Issue branch -> task version -> regression PASS -> acceptance succeeded ->
-GUID prelim -> patch/minor version intent -> PRELIM validation -> controlled
-server integration -> observe server main -> prelim cleanup -> stable
-finalization.
+Exercise both required forms:
+
+- issue branch -> task version -> ART PASS -> AIT PASS -> no MIT required ->
+  accepted -> GUID prelim -> patch/minor version intent -> PRELIM validation ->
+  controlled server integration -> observe server main -> prelim cleanup ->
+  stable finalization;
+- issue branch -> task version -> ART PASS -> AIT PASS -> MIT PASS -> accepted
+  -> the same integration/finalization path.
+
+AIT result recording must occur automatically.  MIT result recording must be
+an explicit human-result transition.
 
 Verify every intermediate branch, version, SHA, tag, audit record, legal next
 action, and cleanup result.
 
-### 9.2 Regression failure and recovery
+### 9.2 ART failure and recovery
 
-Regression FAIL -> immutable failure evidence -> automatic R increment ->
+ART FAIL -> immutable failure evidence -> automatic `R` increment ->
 development fix -> new candidate -> PASS.  Prove failed evidence remains
 reachable and cannot validate the replacement candidate.
 
-### 9.3 Integration failure and recovery
+### 9.3 AIT failure and recovery
 
-Acceptance/integration FAIL -> automatic Q increment and R reset -> return to
-development -> new validation -> acceptance succeeds.
+AIT FAIL -> immutable automated failure evidence -> automatic `R` increment ->
+return to development -> new ART/AIT validation -> AIT succeeds.  Prove `Q`
+does not change and no user result entry is required.
 
-### 9.4 INCOMPLETE and retry
+### 9.4 MIT failure and recovery
+
+MIT FAIL -> manual rejection evidence -> automatic `Q` increment and `R` reset
+-> return to development -> fresh automated validation -> required MIT -> MIT
+succeeds.
+
+### 9.5 INCOMPLETE and retry
 
 Missing capability/environment -> INCOMPLETE -> no terminal tag -> unchanged
 candidate may retry -> changed candidate cannot inherit the incomplete run as
 terminal evidence.
 
-### 9.5 Main advances during integration
+### 9.6 Main advances during integration
 
 Run the A/B/B'/C reintegration scenario from Stage 4 end to end, including
 server rejection of stale B' and successful fresh validation of C.
 
-### 9.6 Concurrent workers
+### 9.7 Concurrent workers
 
 Two accepted tasks begin separate integration attempts against the same remote.
 Verify unique GUID branches, no ref collision, no cross-worker cleanup, and
 correct stale handling when one lands first.
 
-### 9.7 Squash integration and evidence retention
+### 9.8 Squash integration and evidence retention
 
 Land an integration using squash semantics, clean up the prelim branch, and
 prove the PRELIM tag still reaches the exact tested pre-squash candidate while
 the stable tag identifies the final server-main release commit.
 
-### 9.8 Guard/bypass defence in depth
+### 9.9 Guard/bypass defence in depth
 
 Demonstrate that an operation blocked locally is also rejected at the server
 boundary when local hooks are absent or bypassed, for every remotely enforceable
