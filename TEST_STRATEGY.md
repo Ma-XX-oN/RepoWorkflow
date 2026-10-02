@@ -63,14 +63,36 @@ These tests apply across implementation stages.
 - mutations made by validators are detected, rolled back where specified, and
   cannot produce PASS evidence.
 
-### 2.3 Git ref immutability and reachability
+### 2.3 Validation environment evidence
+
+- every authoritative validation record includes structured `platform`
+  evidence with OS and architecture;
+- validators that declare a relevant runtime/toolchain record its identity in
+  `platform`;
+- platform evidence is sufficient to distinguish materially different
+  validation environments without relying on hostname or another machine ID;
+- hardware-insensitive validators record `hardware: null` and do not inventory
+  the host;
+- hardware-sensitive validators record only their declared relevant
+  capabilities/specifications;
+- hardware evidence may include a required CPU feature, GPU model/API, or
+  accelerator capability when the test contract requires it;
+- hardware evidence never includes serial numbers, hostnames, MAC/network
+  addresses, device IDs, account identifiers, or unrelated inventory;
+- local and hosted validation both produce the same environment-evidence
+  schema;
+- evidence reuse enforces any platform/hardware constraints declared by the
+  suite rather than assuming that evidence is portable merely because its SHA
+  matches.
+
+### 2.4 Git ref immutability and reachability
 
 - task, PRELIM, and stable tags cannot be reused or moved;
 - deleting an ephemeral branch does not make a tagged candidate unreachable;
 - squashing the final integration does not destroy PRELIM reachability;
 - malformed or unauthorized refs are rejected.
 
-### 2.4 Concurrency and worker isolation
+### 2.5 Concurrency and worker isolation
 
 Use at least two independent clones against one disposable remote.
 
@@ -81,7 +103,7 @@ Use at least two independent clones against one disposable remote.
 - concurrent audit updates do not silently lose records;
 - stale observations are rejected before destructive cleanup or integration.
 
-### 2.5 Failure atomicity
+### 2.6 Failure atomicity
 
 Inject failures at mutation boundaries such as version update, commit, tag,
 push, audit append, and cleanup.
