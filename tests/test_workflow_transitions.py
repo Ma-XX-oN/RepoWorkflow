@@ -25,7 +25,7 @@ class WorkflowTransitionTests(unittest.TestCase):
       ) as verify:
         outcome = validate_regression(root, engine_root=ROOT)
 
-      verify.assert_called_once_with(root, engine_root=ROOT, push=False)
+      verify.assert_called_once_with(root.resolve(), engine_root=ROOT, push=False)
       self.assertEqual(outcome, "FAIL")
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
