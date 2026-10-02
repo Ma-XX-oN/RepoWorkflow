@@ -83,6 +83,7 @@ class InitSetupTests(unittest.TestCase):
 
       script = f"""
 set -uo pipefail
+${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
@@ -138,6 +139,7 @@ exit 0
       first, second = repos
       script = f"""
 set -uo pipefail
+${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(first)!r}
 source <({_bash_path(Path(sys.executable))!r} {_bash_path(ROOT / 'repo_workflow.py')!r} init --home {_bash_path(home)!r} --bash)
