@@ -49,6 +49,17 @@ class VersionAdapterTests(unittest.TestCase):
       run_transition(root, config, "release-major")
       self.assertEqual(read_stable_version(root, config), "2.0.0")
 
+  def test_task_base_integration_intent_derives_stable_candidate(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root, version="2.4.9-issue.7.3.2")
+      config = load_config(root)
+
+      run_transition(root, config, "integrate", "--increment", "patch")
+
+      self.assertEqual(read_stable_version(root, config), "2.4.10")
+
   def test_query_must_not_modify_worktree(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
