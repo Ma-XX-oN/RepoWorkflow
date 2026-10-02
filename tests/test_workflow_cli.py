@@ -67,7 +67,7 @@ class WorkflowCliTests(unittest.TestCase):
 
       advanced = self.run_cli(root, "version", "integrate", "increment", "patch")
       self.assertEqual(advanced.returncode, 2)
-      self.assertIn("repository version adapter failed", advanced.stderr)
+      self.assertIn("integration increment requires a stable version", advanced.stderr)
 
   def test_version_query_supports_json(self):
     with tempfile.TemporaryDirectory() as td:
