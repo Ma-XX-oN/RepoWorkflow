@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .config import load_config
 from .git import git
-from .prelim import PRELIM_BRANCH, authoritative_main_sha
+from .prelim import PRELIM_PREFIX, authoritative_main_sha, is_prelim_branch
 
 
 class ServerPolicyError(RuntimeError):
@@ -27,9 +27,9 @@ def check_integration_admission(root: Path, admission: IntegrationAdmission) -> 
   config = load_config(root)
   integration_branch = config["repository"]["integrationBranch"]
 
-  if admission.source_branch != PRELIM_BRANCH:
+  if not is_prelim_branch(admission.source_branch):
     raise ServerPolicyError(
-      f"controlled integration source must be {PRELIM_BRANCH}; "
+      f"controlled integration source must be {PRELIM_PREFIX}<GUID>; "
       f"got {admission.source_branch}"
     )
   if admission.base_branch != integration_branch:

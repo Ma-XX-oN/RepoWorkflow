@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,6 +10,14 @@ from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _require_mit(root: Path, fx: RepoFixture) -> None:
+  path = root / ".ci" / "repoworkflow.json"
+  config = json.loads(path.read_text(encoding="utf-8"))
+  config["manualIntegrationRequired"] = True
+  path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+  fx.commit("require manual integration")
 
 
 class WorkflowTransitionTests(unittest.TestCase):
@@ -25,7 +34,10 @@ class WorkflowTransitionTests(unittest.TestCase):
       ) as verify:
         outcome = validate_regression(root, engine_root=ROOT)
 
-      verify.assert_called_once_with(root, engine_root=ROOT, push=False)
+      verify.assert_called_once()
+      actual_root = Path(verify.call_args.args[0])
+      self.assertTrue(actual_root.samefile(root))
+      self.assertEqual(verify.call_args.kwargs, {"engine_root": ROOT, "push": False})
       self.assertEqual(outcome, "FAIL")
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
@@ -40,7 +52,13 @@ class WorkflowTransitionTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       fx = RepoFixture(root, version="1.0.0-issue.1.3.7")
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+      _require_mit(root, fx)
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        automaticIntegration="PASS",
+      )
 
       validate_integration(root, "failed")
 
@@ -52,6 +70,57 @@ class WorkflowTransitionTests(unittest.TestCase):
       facts = discover_facts(root)
       self.assertEqual(facts.regression, "missing")
       self.assertEqual(facts.integration_result, "failed")
+
+  def test_integration_result_before_regression_pass_is_rejected_without_mutation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      before = fx.head()
+
+      with self.assertRaisesRegex(ValueError, "validate integration succeeded is blocked"):
+        validate_integration(root, "succeeded")
+
+      self.assertEqual(fx.head(), before)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
+  def test_repeated_integration_result_is_rejected_without_mutation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      _require_mit(root, fx)
+      save_local_state(
+        root,
+        fx.head(),
+        regression="PASS",
+        automaticIntegration="PASS",
+      )
+      validate_integration(root, "succeeded")
+      before = fx.head()
+
+      with self.assertRaisesRegex(ValueError, "validate integration failed is blocked"):
+        validate_integration(root, "failed")
+
+      self.assertEqual(fx.head(), before)
+      self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
+  def test_regression_rerun_after_pass_is_rejected_before_validation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+
+      with patch(
+        "repo_workflow.workflow_transitions.verify_local",
+        return_value="PASS",
+      ) as verify:
+        with self.assertRaisesRegex(ValueError, "validate regression is blocked"):
+          validate_regression(root, engine_root=ROOT)
+
+      verify.assert_not_called()
 
 
 if __name__ == "__main__":

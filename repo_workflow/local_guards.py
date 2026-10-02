@@ -6,8 +6,14 @@ import re
 import shutil
 
 from .config import load_config
-from .git import changed_files, current_branch, git
-from .prelim import PRELIM_BRANCH, PrelimError, prelim_status
+from .git import changed_files, current_branch, git, head_sha
+from .prelim import PRELIM_PREFIX, PrelimError, is_prelim_branch, prelim_status
+from .version_adapter import (
+  VersionAdapterError,
+  read_head_version,
+  read_version,
+  transition_marker,
+)
 from .workflow_state import discover_facts
 
 
@@ -65,6 +71,29 @@ def _assert_current_state(root: Path) -> None:
     raise LocalGuardError("current repository version state is invalid")
 
 
+def _assert_version_provenance(root: Path, config: dict) -> None:
+  try:
+    current = read_version(root, config)
+    committed = read_head_version(root, config)
+  except VersionAdapterError as exc:
+    raise LocalGuardError(str(exc)) from exc
+  if current == committed:
+    return
+
+  marker = transition_marker(root)
+  changes = set(changed_files(root))
+  if (
+    marker is None
+    or marker.get("candidate") != head_sha(root)
+    or marker.get("before") != committed
+    or marker.get("after") != current
+    or not set(marker.get("changedFiles", [])).issubset(changes)
+  ):
+    raise LocalGuardError(
+      "repository version changed outside an authorized repo-version transition"
+    )
+
+
 def check_commit(root: Path) -> None:
   root = root.resolve()
   config = load_config(root)
@@ -72,9 +101,10 @@ def check_commit(root: Path) -> None:
   if branch == _integration_branch(config):
     raise LocalGuardError(
       f"direct commits on tracking {_integration_branch(config)} are blocked; "
-      f"use {PRELIM_BRANCH} for integration work"
+      f"use {PRELIM_PREFIX}<GUID> for integration work"
     )
   _assert_current_state(root)
+  _assert_version_provenance(root, config)
 
 
 def _check_tag_update(update: PushUpdate) -> None:
@@ -114,17 +144,50 @@ def check_push(root: Path, input_text: str) -> None:
       )
     if update.remote_ref.startswith("refs/tags/"):
       _check_tag_update(update)
-    if update.remote_ref == f"refs/heads/{PRELIM_BRANCH}" and not update.deleting:
+    remote_branch = update.remote_ref.removeprefix("refs/heads/")
+    if is_prelim_branch(remote_branch) and update.deleting:
+      raise LocalGuardError(
+        "preliminary integration refs may be deleted only by verified cleanup"
+      )
+    if is_prelim_branch(remote_branch) and not update.deleting:
       try:
-        status = prelim_status(root, config)
+        status = prelim_status(root, config, remote_branch)
       except PrelimError as exc:
         raise LocalGuardError(str(exc)) from exc
       if not status.present or status.candidate is None:
-        raise LocalGuardError(f"{PRELIM_BRANCH} does not exist locally")
+        raise LocalGuardError(f"{remote_branch} does not exist locally")
       if update.local_oid != status.candidate:
-        raise LocalGuardError("pre-push candidate does not match local prelim-main")
+        raise LocalGuardError(
+          "pre-push candidate does not match local preliminary branch"
+        )
+      if not update.creating and update.remote_oid != update.local_oid:
+        known = git(
+          root,
+          "cat-file",
+          "-e",
+          f"{update.remote_oid}^{{commit}}",
+          check=False,
+        )
+        if known.returncode:
+          raise LocalGuardError(
+            "cannot establish previous preliminary branch state"
+          )
+        fast_forward = git(
+          root,
+          "merge-base",
+          "--is-ancestor",
+          update.remote_oid,
+          update.local_oid,
+          check=False,
+        )
+        if fast_forward.returncode:
+          raise LocalGuardError(
+            "non-fast-forward preliminary branch update is blocked"
+          )
       if not status.current:
-        raise LocalGuardError("stale prelim-main must be reintegrated before push")
+        raise LocalGuardError(
+          "stale preliminary candidate must be reintegrated before push"
+        )
 
   current_ref = f"refs/heads/{current}"
   if any(update.local_ref == current_ref and not update.deleting for update in updates):

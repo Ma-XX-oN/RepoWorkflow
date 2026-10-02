@@ -21,6 +21,15 @@ class SelfCiTests(unittest.TestCase):
     self.assertIn("git tag -a", text)
     self.assertIn("git push origin", text)
 
+  def test_authoritative_suite_runs_on_linux_and_windows(self):
+    text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
+      encoding="utf-8"
+    )
+    self.assertIn("ubuntu-latest", text)
+    self.assertIn("windows-latest", text)
+    self.assertIn("fail-fast: false", text)
+    self.assertIn("runs-on: ${{ matrix.os }}", text)
+
   def test_bootstrap_release_requires_plain_semver(self):
     text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
       encoding="utf-8"

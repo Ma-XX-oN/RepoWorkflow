@@ -10,7 +10,9 @@ from repo_workflow.local_guards import (
   check_rebase,
   install_hooks,
 )
-from repo_workflow.prelim import PRELIM_BRANCH, merge_accepted, start_prelim
+from repo_workflow.prelim import merge_accepted, start_prelim
+from repo_workflow.version_adapter import run_transition
+from repo_workflow.workflow_state import derive_plan, discover_facts
 from tests.support import RepoFixture
 
 
@@ -26,6 +28,37 @@ class LocalGuardTests(unittest.TestCase):
       check_commit(root)
       fx._run("switch", "main")
       with self.assertRaisesRegex(LocalGuardError, "direct commits"):
+        check_commit(root)
+
+  def test_manual_version_edit_is_blocked_but_adapter_transition_is_allowed(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      config = load_config(root)
+
+      (root / "VERSION").write_text(
+        "1.0.0-issue.1.0.2\n",
+        encoding="utf-8",
+      )
+      with self.assertRaisesRegex(LocalGuardError, "outside an authorized"):
+        check_commit(root)
+
+      fx._run("reset", "--hard", "HEAD")
+      run_transition(root, config, "task", "--increment", "CI-iteration")
+      check_commit(root)
+
+  def test_invalid_version_is_blocked_by_both_state_machine_and_commit_guard(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      (root / "VERSION").write_text("not-a-version\n", encoding="utf-8")
+
+      plan = derive_plan(discover_facts(root))
+      self.assertEqual(plan.transitions, ())
+      self.assertIn("invalid version state", plan.blocks)
+      with self.assertRaisesRegex(LocalGuardError, "version state"):
         check_commit(root)
 
   def test_direct_main_push_and_stable_tag_creation_are_blocked(self):
@@ -71,20 +104,171 @@ class LocalGuardTests(unittest.TestCase):
       fx.commit("accepted issue work")
       fx.push()
       config = load_config(root)
-      start_prelim(root, config)
+      started = start_prelim(root, config)
       candidate = merge_accepted(root, "issue-1-test")
 
       fx._run("switch", "-c", "server-advance", "main")
       (root / "server.txt").write_text("advance\n", encoding="utf-8")
       fx.commit("server main advance")
       fx._run("push", "origin", "HEAD:main")
-      fx._run("switch", PRELIM_BRANCH)
+      fx._run("switch", started.branch)
 
-      with self.assertRaisesRegex(LocalGuardError, "stale prelim-main"):
+      with self.assertRaisesRegex(LocalGuardError, "stale preliminary candidate"):
         check_push(
           root,
-          f"refs/heads/{PRELIM_BRANCH} {candidate} refs/heads/{PRELIM_BRANCH} {ZERO}\n",
+          f"refs/heads/{started.branch} {candidate} "
+          f"refs/heads/{started.branch} {ZERO}\n",
         )
+
+  def test_current_guid_prelim_push_is_permitted(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      config = load_config(root)
+      started = start_prelim(root, config)
+      check_push(
+        root,
+        f"refs/heads/{started.branch} {started.candidate} "
+        f"refs/heads/{started.branch} {ZERO}\n",
+      )
+
+  def test_immutable_task_tag_move_is_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      old = fx.head()
+      (root / "new.txt").write_text("new\n", encoding="utf-8")
+      head = fx.commit("new candidate")
+      with self.assertRaisesRegex(LocalGuardError, "may not be moved"):
+        check_push(
+          root,
+          f"refs/tags/v1.0.0-issue.1.0.1 {head} "
+          f"refs/tags/v1.0.0-issue.1.0.1 {old}\n",
+        )
+
+  def test_direct_prelim_delete_is_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      started = start_prelim(root, load_config(root))
+
+      with self.assertRaisesRegex(LocalGuardError, "verified cleanup"):
+        check_push(
+          root,
+          f"(delete) {ZERO} refs/heads/{started.branch} "
+          f"{started.candidate}\n",
+        )
+
+  def test_non_fast_forward_prelim_update_is_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      config = load_config(root)
+      started = start_prelim(root, config)
+      candidate = started.candidate
+      fx._run("switch", "-c", "other", "main")
+      (root / "other.txt").write_text("other\n", encoding="utf-8")
+      other = fx.commit("other line")
+      fx._run("switch", started.branch)
+
+      with self.assertRaisesRegex(LocalGuardError, "non-fast-forward"):
+        check_push(
+          root,
+          f"refs/heads/{started.branch} {candidate} "
+          f"refs/heads/{started.branch} {other}\n",
+        )
+
+  def test_main_force_update_and_delete_are_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      old = fx._run("rev-parse", "main").stdout.strip()
+      (root / "new.txt").write_text("new\n", encoding="utf-8")
+      head = fx.commit("new candidate")
+
+      with self.assertRaisesRegex(LocalGuardError, "protected main"):
+        check_push(
+          root,
+          f"refs/heads/issue-1-test {head} refs/heads/main {old}\n",
+        )
+      with self.assertRaisesRegex(LocalGuardError, "protected main"):
+        check_push(
+          root,
+          f"(delete) {ZERO} refs/heads/main {old}\n",
+        )
+
+  def test_malformed_task_and_prelim_tags_are_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      head = fx.head()
+
+      for tag in (
+        "v1.0.0-issue.1.0",
+        "v1.0.0-PRELIM-1.0",
+      ):
+        with self.subTest(tag=tag):
+          with self.assertRaisesRegex(LocalGuardError, "malformed"):
+            check_push(
+              root,
+              f"refs/tags/{tag} {head} refs/tags/{tag} {ZERO}\n",
+            )
+
+  def test_invalid_branch_push_agrees_with_state_machine_and_does_not_mutate(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      fx._run("switch", "-c", "untracked-policy-branch")
+      (root / "work.txt").write_text("work\n", encoding="utf-8")
+      candidate = fx.commit("work on invalid branch")
+      version_before = (root / "VERSION").read_text(encoding="utf-8")
+      head_before = fx.head()
+
+      plan = derive_plan(discover_facts(root))
+      self.assertEqual(plan.transitions, ())
+      self.assertIn("invalid branch state", plan.blocks)
+
+      with self.assertRaisesRegex(LocalGuardError, "branch is invalid"):
+        check_push(
+          root,
+          f"refs/heads/untracked-policy-branch {candidate} "
+          f"refs/heads/untracked-policy-branch {ZERO}\n",
+        )
+
+      self.assertEqual(fx.head(), head_before)
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8"),
+        version_before,
+      )
+
+  def test_rejected_version_push_is_stop_without_repair_forward(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      (root / "VERSION").write_text("not-a-version\n", encoding="utf-8")
+      head_before = fx.head()
+      version_before = (root / "VERSION").read_text(encoding="utf-8")
+
+      with self.assertRaisesRegex(LocalGuardError, "version state"):
+        check_push(
+          root,
+          f"refs/heads/issue-1-test {head_before} "
+          f"refs/heads/issue-1-test {ZERO}\n",
+        )
+
+      self.assertEqual(fx.head(), head_before)
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8"),
+        version_before,
+      )
 
   def test_rebase_that_rewrites_tagged_candidate_is_blocked(self):
     with tempfile.TemporaryDirectory() as td:

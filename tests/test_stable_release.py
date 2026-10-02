@@ -64,6 +64,42 @@ class StableReleaseTests(unittest.TestCase):
       self.assertEqual(outcome, "PASS")
       remote = fx._run("ls-remote", "--tags", "origin", "refs/tags/v1.2.3").stdout
       self.assertIn("refs/tags/v1.2.3", remote)
+      peeled = fx._run(
+        "ls-remote",
+        "--tags",
+        "origin",
+        "refs/tags/v1.2.3^{}",
+      ).stdout.strip()
+      self.assertTrue(peeled)
+      self.assertEqual(peeled.split()[0], fx.head())
+
+  def test_prelim_and_stable_tags_remain_distinct_even_on_same_commit(self):
+    td, root, fx = self.make()
+    with td:
+      fx._run(
+        "tag",
+        "-a",
+        "v1.2.3-PRELIM-9.0.1",
+        "-m",
+        "prelim",
+      )
+      results = root.parent / "results"
+      self.write_result(results, fx, "PASS")
+
+      outcome = finalize_stable_results(root, results, do_tag=True, push=False)
+
+      self.assertEqual(outcome, "PASS")
+      prelim = fx._run(
+        "rev-parse",
+        "v1.2.3-PRELIM-9.0.1^{}",
+      ).stdout.strip()
+      stable = fx._run("rev-parse", "v1.2.3^{}").stdout.strip()
+      self.assertEqual(prelim, fx.head())
+      self.assertEqual(stable, fx.head())
+      self.assertNotEqual(
+        fx._run("rev-parse", "v1.2.3-PRELIM-9.0.1").stdout.strip(),
+        fx._run("rev-parse", "v1.2.3").stdout.strip(),
+      )
 
   def test_failure_never_creates_a_stable_tag(self):
     td, root, fx = self.make()

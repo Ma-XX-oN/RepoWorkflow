@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
 import unittest
@@ -53,6 +54,21 @@ class ValidationAuditTests(unittest.TestCase):
       self.assertEqual(read_records(path), [first, second])
       self.assertTrue(path.read_text(encoding="utf-8").endswith("\n"))
 
+  def test_stable_prelim_record_derives_issue_from_candidate_tag(self):
+    stable = ValidationRecord(
+      timestamp="2026-10-02T13:00:00Z",
+      kind="regression",
+      baseVersion="1.2.3",
+      branch="prelim-main-11111111-1111-1111-1111-111111111111",
+      testVersion="1.2.4",
+      testSHA=SHA1,
+      candidateTag="v1.2.4-PRELIM-16.0.1",
+      result="succeeded",
+      runner="local",
+    )
+    stable.validate()
+    self.assertEqual(stable.issue, 16)
+
   def test_branch_remains_semantic_metadata_after_branch_deletion(self):
     original = record(branch="issue-16-now-deleted")
     parsed = ValidationRecord.from_json(original.to_json())
@@ -67,13 +83,15 @@ class ValidationAuditTests(unittest.TestCase):
   def test_missing_evidence_requires_validation(self):
     self.assertEqual(regression_reuse_decision([], SHA1), "run")
 
-  def test_failed_and_incomplete_are_terminal_evidence_not_pass_reuse(self):
-    for result in ("failed", "incomplete"):
-      with self.subTest(result=result):
-        self.assertEqual(
-          regression_reuse_decision([record(result=result)], SHA1),
-          "reuse-terminal",
-        )
+  def test_failed_is_terminal_but_incomplete_may_retry_same_sha(self):
+    self.assertEqual(
+      regression_reuse_decision([record(result="failed")], SHA1),
+      "reuse-terminal",
+    )
+    self.assertEqual(
+      regression_reuse_decision([record(result="incomplete")], SHA1),
+      "run",
+    )
 
   def test_latest_same_sha_record_controls_kind_result(self):
     records = [
@@ -101,6 +119,33 @@ class ValidationAuditTests(unittest.TestCase):
         runner=sixteen.runner,
       )
       self.assertNotEqual(append_record(root, sixteen), append_record(root, seventeen))
+
+  def test_truncated_record_is_detected(self):
+    with tempfile.TemporaryDirectory() as td:
+      path = audit_path(Path(td), 16)
+      path.parent.mkdir(parents=True)
+      path.write_text(record().to_json() + "\n{\"timestamp\":", encoding="utf-8")
+
+      with self.assertRaisesRegex(ValidationAuditError, ":2: invalid validation JSON"):
+        read_records(path)
+
+  def test_concurrent_same_issue_appends_do_not_lose_records(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      records = [
+        record(sha=f"{index:040x}", tag=None)
+        for index in range(1, 33)
+      ]
+
+      with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda value: append_record(root, value), records))
+
+      actual = read_records(audit_path(root, 16))
+      self.assertEqual(len(actual), len(records))
+      self.assertEqual(
+        {value.testSHA for value in actual},
+        {value.testSHA for value in records},
+      )
 
   def test_schema_rejects_base_version_mismatch(self):
     broken = ValidationRecord(
