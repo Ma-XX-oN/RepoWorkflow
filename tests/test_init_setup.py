@@ -97,6 +97,7 @@ COMP_WORDS=(repo-workflow validate integration \"\")
 COMP_CWORD=3
 _repo_workflow_complete
 printf 'complete-long:%s\\n' "${{COMPREPLY[*]}}"
+exit 0
 """
       completed = subprocess.run(
         ["bash", "-c", script],
