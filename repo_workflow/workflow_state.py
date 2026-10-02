@@ -23,7 +23,7 @@ class WorkflowFacts:
   version_valid: bool = True
   regression: str = "missing"
   integration_result: str | None = None
-  automatic_integration: str | None = None
+  automatic_integration: str = "missing"
   automatic_integration_required: bool = True
   manual_integration_required: bool = False
   manual_integration_result: str | None = None
@@ -36,10 +36,7 @@ class WorkflowFacts:
       raise ValueError(f"invalid regression status: {self.regression}")
     if self.integration_result not in INTEGRATION_STATUSES:
       raise ValueError(f"invalid integration result: {self.integration_result}")
-    if (
-      self.automatic_integration is not None
-      and self.automatic_integration not in AUTOMATIC_INTEGRATION_STATUSES
-    ):
+    if self.automatic_integration not in AUTOMATIC_INTEGRATION_STATUSES:
       raise ValueError(
         f"invalid automatic integration status: {self.automatic_integration}"
       )
