@@ -3,14 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .git import changed_files, repository_state
+from .git import (
+  changed_files,
+  repository_state,
+  restore_repository_state,
+)
 from .process import run_command
 
 
 DEVELOPMENT_VERSION_RE = re.compile(
-  r"^\d+\.\d+\.\d+-issue\.\d+\.\d+\.\d+$"
+  r"^(\d+)\.(\d+)\.(\d+)-issue\.(\d+)\.(\d+)\.(\d+)$"
 )
-STABLE_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+STABLE_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
 class VersionAdapterError(RuntimeError):
@@ -36,14 +40,25 @@ def _run_adapter(
 ) -> str:
   before_state = repository_state(root)
   before_changes = changed_files(root)
+  if allow_worktree_changes and before_changes:
+    raise VersionAdapterError(
+      "repository version transition requires a clean worktree"
+    )
   result = run_command([*config["versionCommand"], *arguments], root)
   if result.returncode:
+    if allow_worktree_changes:
+      restore_repository_state(root, before_state)
     detail = (result.stderr or result.stdout).strip()
     raise VersionAdapterError(
       "repository version adapter failed"
       + (f": {detail}" if detail else "")
     )
-  _assert_git_state_unchanged(root, before_state)
+  try:
+    _assert_git_state_unchanged(root, before_state)
+  except VersionAdapterError:
+    if allow_worktree_changes:
+      restore_repository_state(root, before_state)
+    raise
   if not allow_worktree_changes and changed_files(root) != before_changes:
     raise VersionAdapterError("repository version query modified the worktree")
   return result.stdout
@@ -101,6 +116,64 @@ def read_stable_version(root: Path, config: dict) -> str:
   )
 
 
+def _expected_transition(before: str, arguments: tuple[str, ...]) -> str:
+  stable = STABLE_VERSION_RE.fullmatch(before)
+  development = DEVELOPMENT_VERSION_RE.fullmatch(before)
+
+  if len(arguments) == 3 and arguments[:2] == ("task", "--issue"):
+    if stable is None:
+      raise VersionAdapterError("task initialization requires a stable version")
+    issue = int(arguments[2])
+    if issue < 1:
+      raise VersionAdapterError("task issue number must be positive")
+    return f"{before}-issue.{issue}.0.1"
+
+  if arguments == ("task", "--increment", "CI-iteration"):
+    if development is None:
+      raise VersionAdapterError("CI iteration increment requires a task version")
+    base = ".".join(development.group(i) for i in range(1, 4))
+    issue, generation, iteration = (
+      int(development.group(4)),
+      int(development.group(5)),
+      int(development.group(6)),
+    )
+    return f"{base}-issue.{issue}.{generation}.{iteration + 1}"
+
+  if arguments == ("task", "--increment", "merge-integration-failed"):
+    if development is None:
+      raise VersionAdapterError(
+        "integration-failure increment requires a task version"
+      )
+    base = ".".join(development.group(i) for i in range(1, 4))
+    issue = int(development.group(4))
+    generation = int(development.group(5))
+    return f"{base}-issue.{issue}.{generation + 1}.1"
+
+  if arguments in (
+    ("integrate", "--increment", "patch"),
+    ("integrate", "--increment", "minor"),
+  ):
+    if stable is None:
+      raise VersionAdapterError("integration increment requires a stable version")
+    major, minor, patch = (int(stable.group(i)) for i in range(1, 4))
+    if arguments[-1] == "patch":
+      patch += 1
+    else:
+      minor += 1
+      patch = 0
+    return f"{major}.{minor}.{patch}"
+
+  if arguments == ("release-major",):
+    if stable is None:
+      raise VersionAdapterError("major release requires a stable version")
+    major = int(stable.group(1)) + 1
+    return f"{major}.0.0"
+
+  raise VersionAdapterError(
+    "unsupported repository version transition: " + " ".join(arguments)
+  )
+
+
 def run_transition(
   root: Path,
   config: dict,
@@ -108,9 +181,22 @@ def run_transition(
 ) -> None:
   if not arguments:
     raise VersionAdapterError("repository version transition requires arguments")
+  before_state = repository_state(root)
+  before = read_version(root, config)
+  expected = _expected_transition(before, tuple(arguments))
   _run_adapter(
     root,
     config,
     list(arguments),
     allow_worktree_changes=True,
   )
+  try:
+    after = read_version(root, config)
+    if after != expected:
+      raise VersionAdapterError(
+        "repository version adapter produced inconsistent transition: "
+        f"expected {expected}, got {after}"
+      )
+  except VersionAdapterError:
+    restore_repository_state(root, before_state)
+    raise
