@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
 import unittest
@@ -101,6 +102,33 @@ class ValidationAuditTests(unittest.TestCase):
         runner=sixteen.runner,
       )
       self.assertNotEqual(append_record(root, sixteen), append_record(root, seventeen))
+
+  def test_truncated_record_is_detected(self):
+    with tempfile.TemporaryDirectory() as td:
+      path = audit_path(Path(td), 16)
+      path.parent.mkdir(parents=True)
+      path.write_text(record().to_json() + "\n{\"timestamp\":", encoding="utf-8")
+
+      with self.assertRaisesRegex(ValidationAuditError, ":2: invalid validation JSON"):
+        read_records(path)
+
+  def test_concurrent_same_issue_appends_do_not_lose_records(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      records = [
+        record(sha=f"{index:040x}", tag=None)
+        for index in range(1, 33)
+      ]
+
+      with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda value: append_record(root, value), records))
+
+      actual = read_records(audit_path(root, 16))
+      self.assertEqual(len(actual), len(records))
+      self.assertEqual(
+        {value.testSHA for value in actual},
+        {value.testSHA for value in records},
+      )
 
   def test_schema_rejects_base_version_mismatch(self):
     broken = ValidationRecord(
