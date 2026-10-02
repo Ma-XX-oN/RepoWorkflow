@@ -124,6 +124,18 @@ and reports legal next transitions plus blocked operations and reasons.
 machine-readable form.  Shell completion must derive from the same state
 machine rather than maintaining a second policy implementation.
 
+Completion and normal CLI help use the same Python-owned declarative
+command grammar as argument parsing.  The grammar attaches descriptions to
+static commands/options and may attach a dynamic value provider to an
+argument-bearing option.  The Bash adapter only renders that authoritative
+projection; it does not maintain another command list.
+
+Normal Tab completion shows candidate names.  A second Tab within one second at
+the same completion point shows descriptions for static commands/options.  A
+dynamic provider, such as the provider for `--group`, returns the catalogue
+group names directly; both single and double Tab show those names without a
+second, redundant description source.
+
 For example, when an integration result is required:
 
 ```text
