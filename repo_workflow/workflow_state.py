@@ -8,7 +8,7 @@ from typing import Iterable
 from .branch_policy import BranchPolicyError, check_branch_policy
 from .config import load_config
 from .git import current_branch, head_sha
-from .prelim import PRELIM_BRANCH, PrelimError, prelim_status
+from .prelim import PrelimError, is_prelim_branch, prelim_status
 from .version_adapter import VersionAdapterError, read_version
 
 
@@ -181,9 +181,9 @@ def discover_facts(root: Path) -> WorkflowFacts:
   prelim_present = False
   prelim_base_current: bool | None = True
 
-  if branch_valid and branch == PRELIM_BRANCH:
+  if branch_valid and is_prelim_branch(branch):
     try:
-      status = prelim_status(root, config)
+      status = prelim_status(root, config, branch)
       prelim_present = status.present
       prelim_base_current = status.current
       branch_valid = status.present
