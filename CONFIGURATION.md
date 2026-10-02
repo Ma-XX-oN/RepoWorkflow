@@ -168,6 +168,77 @@ INCOMPLETE produces no terminal tag. `--push` pushes generated bookkeeping or
 artifact commits and the terminal tag to `authoritativeRemote`. Candidate
 preparation is rolled back if the setter, bookkeeping commit, or guard fails.
 
+## `rwf config`
+
+RepoWorkflow provides a state-aware configuration interface so repositories do
+not require hand-editing JSON for ordinary policy/capability changes:
+
+```text
+rwf config
+rwf config get [KEY]
+rwf config set KEY VALUE
+rwf config unset KEY
+rwf config --json
+```
+
+Bare `rwf config` shows the effective repository configuration and its source.
+`get` reads one value, `set` validates and persists one value, and `unset`
+removes a repository override only when the resulting configuration remains
+valid.  Unknown keys and invalid values are rejected before files are changed.
+
+Configuration remains checked-in repository policy.  The command is an
+interface to the schema, not a private per-worker settings database.  Changes
+made by `rwf config` therefore remain ordinary reviewable repository changes.
+
+Repository policy includes a pull-request mode:
+
+```text
+repository.pullRequests = required | allowed | disabled
+```
+
+- `required`: RWF must use the pull-request path at the applicable integration
+  boundary and must not offer a direct alternative;
+- `allowed`: a pull request is available but not intrinsically required by
+  RWF policy;
+- `disabled`: RWF does not offer/create a pull request for that boundary.
+
+Repository validation capabilities may also declare relevant platform and
+hardware facts.  Hardware configuration follows the same data-minimization
+rule as validation evidence: declare capabilities needed to select or interpret
+tests (for example a GPU/API or CPU feature), never machine identifiers or a
+general inventory.
+
+Secrets, credentials, tokens, hostnames, serial numbers, MAC/network addresses,
+device IDs, and account identifiers are not valid RWF repository
+configuration.
+
+## `rwf pull-request`
+
+`rwf pull-request` creates or reconciles the pull request appropriate to the
+current workflow state:
+
+```text
+rwf pull-request
+rwf pull-request --json
+```
+
+RWF derives the head branch, base branch, issue/integration identity, title,
+body, and required workflow metadata from authoritative workflow state.  The
+caller must not have to reconstruct those facts manually.
+
+The command is idempotent: if the matching open pull request already exists,
+RWF reports/reconciles that PR rather than creating a duplicate.  A conflicting
+PR or ambiguous remote state is a STOP.
+
+`what-next` and shell completion expose `pull-request` only when the current
+state and `repository.pullRequests` policy permit it.  In `required` mode,
+workflow transitions that would bypass the required PR are blocked.  In
+`disabled` mode, `rwf pull-request` is rejected with the policy reason.
+
+Creating a PR is not evidence that validation passed, that the base remains
+current, that acceptance is complete, or that merge is authorized.  Those
+remain independent workflow gates.
+
 ## `.ci/github.json`
 
 This file contains GitHub-only runner mapping rather than repository validation
