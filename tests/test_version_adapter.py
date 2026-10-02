@@ -69,6 +69,96 @@ class VersionAdapterTests(unittest.TestCase):
       with self.assertRaisesRegex(VersionAdapterError, "modified the worktree"):
         read_development_version(root, config)
 
+  def test_initial_task_issue_transition_is_verified(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root, version="1.2.3")
+      config = load_config(root)
+
+      run_transition(root, config, "task", "--issue", "42")
+
+      self.assertEqual(read_development_version(root, config), "1.2.3-issue.42.0.1")
+
+  def test_malformed_adapter_output_is_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      script = root / "scripts" / "bad-version.py"
+      script.write_text("print('not-a-version')\n", encoding="utf-8")
+      config_path = root / ".ci" / "repoworkflow.json"
+      value = json.loads(config_path.read_text())
+      value["versionCommand"] = [sys.executable, "scripts/bad-version.py"]
+      config_path.write_text(json.dumps(value, indent=2) + "\n")
+      fx.commit("install malformed adapter")
+      config = load_config(root)
+
+      with self.assertRaisesRegex(VersionAdapterError, "invalid version"):
+        read_development_version(root, config)
+
+  def test_failed_transition_rolls_back_partial_worktree_mutation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      original = (root / "VERSION").read_text()
+      script = root / "scripts" / "bad-version.py"
+      script.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        "path = Path('VERSION')\n"
+        "if len(sys.argv) == 1:\n"
+        "  print(path.read_text().strip())\n"
+        "else:\n"
+        "  path.write_text('9.9.9-issue.9.9.9\\n')\n"
+        "  raise SystemExit(1)\n",
+        encoding="utf-8",
+      )
+      config_path = root / ".ci" / "repoworkflow.json"
+      value = json.loads(config_path.read_text())
+      value["versionCommand"] = [sys.executable, "scripts/bad-version.py"]
+      config_path.write_text(json.dumps(value, indent=2) + "\n")
+      fx.commit("install failing adapter")
+      original = (root / "VERSION").read_text()
+      config = load_config(root)
+
+      with self.assertRaisesRegex(VersionAdapterError, "adapter failed"):
+        run_transition(root, config, "task", "--increment", "CI-iteration")
+
+      self.assertEqual((root / "VERSION").read_text(), original)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
+  def test_inconsistent_transition_is_rejected_and_rolled_back(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      script = root / "scripts" / "bad-version.py"
+      script.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        "path = Path('VERSION')\n"
+        "if len(sys.argv) == 1:\n"
+        "  print(path.read_text().strip())\n"
+        "else:\n"
+        "  path.write_text('1.0.0-issue.1.0.9\\n')\n",
+        encoding="utf-8",
+      )
+      config_path = root / ".ci" / "repoworkflow.json"
+      value = json.loads(config_path.read_text())
+      value["versionCommand"] = [sys.executable, "scripts/bad-version.py"]
+      config_path.write_text(json.dumps(value, indent=2) + "\n")
+      fx.commit("install inconsistent adapter")
+      original = (root / "VERSION").read_text()
+      config = load_config(root)
+
+      with self.assertRaisesRegex(VersionAdapterError, "inconsistent transition"):
+        run_transition(root, config, "task", "--increment", "CI-iteration")
+
+      self.assertEqual((root / "VERSION").read_text(), original)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+
 
 if __name__ == "__main__":
   unittest.main()
