@@ -5,6 +5,8 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.config import load_config
+from repo_workflow.prelim import start_prelim
 from repo_workflow.workflow_state import save_local_state
 from tests.support import RepoFixture
 
@@ -40,6 +42,20 @@ class WorkflowCliTests(unittest.TestCase):
       }
       self.assertTrue(set(value["transitions"]).issubset(human_transitions))
 
+  def test_what_next_is_deterministic_for_unchanged_state(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+
+      first = self.run_cli(root, "what-next", "--json")
+      second = self.run_cli(root, "what-next", "--json")
+
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(second.returncode, 0, second.stderr)
+      self.assertEqual(first.stdout, second.stdout)
+
   def test_what_next_fails_closed_without_authorization(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
@@ -67,7 +83,27 @@ class WorkflowCliTests(unittest.TestCase):
 
       advanced = self.run_cli(root, "version", "integrate", "increment", "patch")
       self.assertEqual(advanced.returncode, 2)
-      self.assertIn("integration increment requires a stable version", advanced.stderr)
+      self.assertIn("GUID-qualified preliminary integration branch", advanced.stderr)
+
+  def test_release_intent_succeeds_on_guid_prelim_from_task_base(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      started = start_prelim(root, load_config(root))
+      self.assertTrue(started.branch.startswith("prelim-main-"))
+
+      completed = self.run_cli(
+        root,
+        "version",
+        "integrate",
+        "increment",
+        "patch",
+      )
+
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      self.assertEqual(completed.stdout.strip(), "1.0.1")
+      self.assertEqual((root / "VERSION").read_text().strip(), "1.0.1")
 
   def test_version_query_supports_json(self):
     with tempfile.TemporaryDirectory() as td:
