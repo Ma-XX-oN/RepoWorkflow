@@ -3,7 +3,6 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
-import sys
 import tempfile
 import unittest
 
@@ -18,16 +17,6 @@ from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
-
-def _bash_path(path: Path) -> str:
-  if sys.platform != "win32":
-    return str(path)
-  return subprocess.check_output(
-    ["bash", "-lc", 'cygpath -u "$1"', "bash", str(path)],
-    text=True,
-  ).strip()
-
-
 
 def _bash_path(path: Path) -> str:
   value = str(path.resolve())
