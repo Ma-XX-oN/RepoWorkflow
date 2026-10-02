@@ -148,10 +148,10 @@ Required `what-next` tests:
 
 ### 4.1 ART/AIT/MIT validation-class extension
 
-These requirements track the newer issue #14 validation-class contract. They
-become executable stage gates with the implementation that introduces these
-selectors and states; they must not be simulated by the older single-result
-state model.
+These requirements track the issue #14 validation-class contract.  The
+selectors and local state model are executable gates; hosted evidence reuse
+requirements remain part of Stage 3 until the durable publication owner/ref is
+defined.
 
 Required tests:
 
