@@ -26,7 +26,7 @@ class WorkflowStateTests(unittest.TestCase):
   def test_accepted_task_without_authorization_is_merge_blocked(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="succeeded",
+      automatic_integration="PASS",
       integration_authorized=False,
     ))
     self.assertNotIn("integrate", plan.transitions)
@@ -35,7 +35,7 @@ class WorkflowStateTests(unittest.TestCase):
   def test_stale_prelim_requires_reintegration_and_blocks_merge(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="succeeded",
+      automatic_integration="PASS",
       prelim_present=True,
       prelim_base_current=False,
     ))
@@ -60,7 +60,7 @@ class WorkflowStateTests(unittest.TestCase):
   def test_authorized_accepted_task_exposes_integration_transition(self):
     plan = derive_plan(WorkflowFacts(
       regression="PASS",
-      integration_result="succeeded",
+      automatic_integration="PASS",
       integration_authorized=True,
     ))
     self.assertEqual(plan.transitions, ("integrate",))
