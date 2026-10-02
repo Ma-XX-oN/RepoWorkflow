@@ -130,11 +130,13 @@ Required state-machine tests:
 - regression-required state;
 - ART PASS, FAIL, and INCOMPLETE transitions with no user result entry;
 - AIT-required state and automatic AIT result recording;
-- AIT PASS, FAIL, and INCOMPLETE transitions, including that AIT FAIL advances
-  `R` and never `Q`;
+- AIT PASS, FAIL, and INCOMPLETE transitions, including automatic result
+  recording and that AIT FAIL advances `Q` and resets `R`;
 - MIT-required state only when manual integration testing is declared;
-- MIT succeeded and failed transitions, including that MIT FAIL advances `Q`
-  and resets `R`;
+- MIT succeeded and failed human-result transitions, including that MIT FAIL
+  advances `Q` and resets `R`;
+- AIT PASS -> MIT-required when MIT is declared, versus AIT PASS -> accepted
+  integration requirement when no MIT is declared;
 - acceptance with AIT but no MIT, proving no unnecessary user test gate is
   introduced;
 - accepted-but-not-yet-integrated state;
@@ -333,9 +335,10 @@ reachable and cannot validate the replacement candidate.
 
 ### 9.3 AIT failure and recovery
 
-AIT FAIL -> immutable automated failure evidence -> automatic `R` increment ->
-return to development -> new ART/AIT validation -> AIT succeeds.  Prove `Q`
-does not change and no user result entry is required.
+AIT FAIL -> immutable integration-rejection evidence -> automatic `Q`
+increment and `R` reset -> return to development -> new ART/AIT validation ->
+AIT succeeds.  Prove no user result entry is required and that AIT failure is
+not misclassified as an ART/CI iteration.
 
 ### 9.4 MIT failure and recovery
 
@@ -349,24 +352,34 @@ Missing capability/environment -> INCOMPLETE -> no terminal tag -> unchanged
 candidate may retry -> changed candidate cannot inherit the incomplete run as
 terminal evidence.
 
-### 9.6 Main advances during integration
+### 9.6 Exact integrated-candidate validation
+
+Construct a prelim candidate by combining an already accepted task with the
+current parent.  Prove the resulting SHA cannot inherit task-candidate ART,
+AIT, or MIT evidence merely because the task was accepted.  Run required ART
+and AIT against the integrated SHA and require MIT again when the declared
+acceptance contract applies to the integrated result.  Verify complete local
+evidence is reusable for the exact prelim SHA and that the server runs missing
+automated ART/AIT rather than asking the user to run them.
+
+### 9.7 Main advances during integration
 
 Run the A/B/B'/C reintegration scenario from Stage 4 end to end, including
 server rejection of stale B' and successful fresh validation of C.
 
-### 9.7 Concurrent workers
+### 9.8 Concurrent workers
 
 Two accepted tasks begin separate integration attempts against the same remote.
 Verify unique GUID branches, no ref collision, no cross-worker cleanup, and
 correct stale handling when one lands first.
 
-### 9.8 Squash integration and evidence retention
+### 9.9 Squash integration and evidence retention
 
 Land an integration using squash semantics, clean up the prelim branch, and
 prove the PRELIM tag still reaches the exact tested pre-squash candidate while
 the stable tag identifies the final server-main release commit.
 
-### 9.9 Guard/bypass defence in depth
+### 9.10 Guard/bypass defence in depth
 
 Demonstrate that an operation blocked locally is also rejected at the server
 boundary when local hooks are absent or bypassed, for every remotely enforceable
