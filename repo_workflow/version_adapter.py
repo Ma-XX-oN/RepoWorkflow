@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
+import tempfile
 
 from .git import (
   changed_files,
+  git,
+  head_sha,
   repository_state,
   restore_repository_state,
 )
@@ -19,6 +23,61 @@ STABLE_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 class VersionAdapterError(RuntimeError):
   pass
+
+
+def _git_dir(root: Path) -> Path:
+  value = git(root, "rev-parse", "--git-dir").stdout.strip()
+  path = Path(value)
+  return path if path.is_absolute() else (root / path).resolve()
+
+
+def _transition_marker_path(root: Path) -> Path:
+  return _git_dir(root) / "repoworkflow" / "version-transition.json"
+
+
+def _write_transition_marker(
+  root: Path,
+  *,
+  before: str,
+  after: str,
+  paths: list[str],
+) -> None:
+  marker = _transition_marker_path(root)
+  marker.parent.mkdir(parents=True, exist_ok=True)
+  marker.write_text(
+    json.dumps({
+      "candidate": head_sha(root),
+      "before": before,
+      "after": after,
+      "changedFiles": paths,
+    }, sort_keys=True) + "\n",
+    encoding="utf-8",
+  )
+
+
+def transition_marker(root: Path) -> dict | None:
+  try:
+    value = json.loads(_transition_marker_path(root).read_text(encoding="utf-8"))
+  except (FileNotFoundError, json.JSONDecodeError):
+    return None
+  if not isinstance(value, dict):
+    return None
+  if set(value) != {"candidate", "before", "after", "changedFiles"}:
+    return None
+  if not isinstance(value["changedFiles"], list):
+    return None
+  return value
+
+
+def read_head_version(root: Path, config: dict) -> str:
+  root = root.resolve()
+  with tempfile.TemporaryDirectory() as td:
+    worktree = Path(td) / "head"
+    git(root, "worktree", "add", "--detach", "--force", str(worktree), "HEAD")
+    try:
+      return read_version(worktree, config)
+    finally:
+      git(root, "worktree", "remove", "--force", str(worktree), check=False)
 
 
 def _assert_git_state_unchanged(root: Path, before) -> None:
@@ -197,6 +256,17 @@ def run_transition(
         "repository version adapter produced inconsistent transition: "
         f"expected {expected}, got {after}"
       )
+    paths = changed_files(root)
+    if not paths:
+      raise VersionAdapterError(
+        "repository version adapter transition changed no repository files"
+      )
+    _write_transition_marker(
+      root,
+      before=before,
+      after=after,
+      paths=paths,
+    )
   except VersionAdapterError:
     restore_repository_state(root, before_state)
     raise
