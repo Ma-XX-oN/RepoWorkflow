@@ -142,6 +142,52 @@ symbolic `HEAD` target, or local Git refs. RepoWorkflow records the violation,
 restores the known-clean candidate state, and continues independent validation
 where possible.
 
+### Validation classes: ART, AIT, and MIT
+
+`environments` declares **ART** (automated regression testing)
+environments.  Each ART environment may additionally declare:
+
+- `fast: true` to include it in `validate regression --fast`;
+- `groups: ["name", ...]` to include it in one or more named diagnostic
+  subsets used by `validate regression --group NAME`.
+
+Bare `validate regression` remains the complete ART gate.  Fast and group
+runs are diagnostic subsets: PASS from a subset does not satisfy the complete
+ART gate.  ART FAIL advances only the regression iteration `R`; ART
+INCOMPLETE leaves the exact candidate retryable without creating terminal
+evidence.
+
+`integrationEnvironments` declares **AIT** (automated integration testing)
+environments.  They use the same environment shape as ART, including optional
+`groups`, except `fast` is invalid for AIT.  Bare
+`validate integration` and `validate integration --automatic` run the
+complete required AIT set.  `validate integration --group NAME` is a
+diagnostic subset and cannot satisfy omitted required AIT.
+
+AIT records its own result.  AIT FAIL is an integration rejection and advances
+`Q` while resetting `R` to 1.  AIT INCOMPLETE leaves the unchanged exact
+candidate retryable.  AIT PASS proceeds directly toward authorization unless
+manual integration testing is declared.
+
+`manualIntegrationRequired` is a boolean, defaulting to `false`.  When
+`true`, successful AIT exposes **MIT** (manual integration testing) result
+transitions:
+
+```text
+rwf validate integration succeeded
+rwf validate integration failed
+```
+
+`rwf validate integration --manual` checks that MIT is actually pending and
+prints the required result choices without recording a result.  RWF never
+fabricates a manual gate when `manualIntegrationRequired` is false.  MIT
+FAIL has the same version consequence as AIT FAIL: advance `Q`, reset `R`,
+and return to development.
+
+ART, AIT, and MIT state is bound to the exact candidate SHA through the local
+workflow-state cache.  A changed candidate does not inherit the prior
+candidate's completed validation-class state.
+
 ### `artifacts`
 
 Repositories with committed generated artifacts may declare them. The artifact
