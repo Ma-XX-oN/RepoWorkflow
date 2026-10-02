@@ -54,6 +54,21 @@ class ValidationAuditTests(unittest.TestCase):
       self.assertEqual(read_records(path), [first, second])
       self.assertTrue(path.read_text(encoding="utf-8").endswith("\n"))
 
+  def test_stable_prelim_record_derives_issue_from_candidate_tag(self):
+    stable = ValidationRecord(
+      timestamp="2026-10-02T13:00:00Z",
+      kind="regression",
+      baseVersion="1.2.3",
+      branch="prelim-main-11111111-1111-1111-1111-111111111111",
+      testVersion="1.2.4",
+      testSHA=SHA1,
+      candidateTag="v1.2.4-PRELIM-16.0.1",
+      result="succeeded",
+      runner="local",
+    )
+    stable.validate()
+    self.assertEqual(stable.issue, 16)
+
   def test_branch_remains_semantic_metadata_after_branch_deletion(self):
     original = record(branch="issue-16-now-deleted")
     parsed = ValidationRecord.from_json(original.to_json())
