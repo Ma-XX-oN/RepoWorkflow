@@ -363,6 +363,122 @@ Changing execution platform must not alter:
 This makes local execution a real authoritative workflow path rather than an
 approximation of GitHub Actions.
 
+## 13.1 Static test catalogue and Rosetta translation
+
+Issue #14 extends the validation design toward a static, language-agnostic test
+catalogue.  This subsection records the settled design decisions reached so far;
+the complete schema and TDD policy remain under design and are not frozen here.
+
+A test declaration object identifies one test-harness family with `test-type`.
+It may also supply the executable in `command`.  Each RWF group key maps to
+metadata including the native harness test target in `name`:
+
+```json
+{
+  "command": "test/ctest",
+  "test-type": "CTest",
+  "issue-123-empty-input": {
+    "type": "regression",
+    "speed": "fast",
+    "name": "parser_empty_input"
+  },
+  "issue-123-null-input": {
+    "type": "regression",
+    "speed": "fast",
+    "name": "parser_null_input"
+  }
+}
+```
+
+The group key is the RWF identity.  `name` is the native test target understood
+by the selected harness.  `command` always means the executable; it is never a
+test name, project target, or other input.
+
+A Rosetta object translates those native test names into the invocation syntax
+of a harness family:
+
+```json
+{
+  "test-type": "CTest",
+  "command": "ctest",
+  "leading-params": ["--output-on-failure"],
+  "delim": "|",
+  "layout": ["-R", "$tests"]
+}
+```
+
+The Rosetta and test declaration are joined by exact `test-type`.  `command`
+is optional in each object individually, but the resolved pair must contain it
+in exactly one place: both present and both absent are invalid.  The effective
+command is therefore unambiguous and remains a single string.  A Rosetta can
+omit `command` when repositories use compatible wrappers or alternate
+executables; a declaration can omit it when the Rosetta supplies the standard
+executable.
+
+`leading-params` contains invariant arguments placed after the executable and
+before the generated selection layout.  `layout` may be a string or an array
+of strings; an array preserves process argument boundaries rather than asking
+RWF or a shell to parse a command line.
+
+The layout template vocabulary currently has these meanings:
+
+- `$test`: expand the layout once for each selected native test name;
+- `$tests`: join the selected native test names with `delim` and substitute
+  the joined value once;
+- `$ftests{...$test...}`: apply the enclosed template to every selected native
+  test name, join the formatted values with `delim`, and substitute the joined
+  value once;
+- `$file`: substitute the pathname of a temporary indirect-selection file.
+
+`delim` is valid and required when a template performs a multiple-test join,
+including `$tests` and `$ftests{...}`.  It is not needed for purely individual
+`$test` expansion.
+
+For example, a .NET Rosetta can express the native filter grammar without
+teaching RWF what `FullyQualifiedName` or `|` means:
+
+```json
+{
+  "test-type": "dotnet",
+  "command": "dotnet",
+  "leading-params": ["test"],
+  "delim": "|",
+  "layout": [
+    "--filter",
+    "$ftests{FullyQualifiedName=$test}"
+  ]
+}
+```
+
+Selecting native names `A` and `B` produces process arguments equivalent to:
+
+```text
+dotnet test --filter "FullyQualifiedName=A|FullyQualifiedName=B"
+```
+
+Indirect harnesses use `$file` in the command parameters so RWF can provide a
+temporary selection file.  The exact file-content template/schema is still
+under design and must be settled before this part of the Rosetta contract is
+implemented.
+
+The catalogue is static.  Full regression selection is derived from entries
+whose metadata says `type: regression`; fast selection is derived from speed
+metadata; group selection matches canonical group keys.  Separate manually
+maintained aggregate suite membership is intentionally avoided because it would
+create multiple places that must remain synchronized.
+
+When many selected tests are representable in one native invocation, RWF may
+batch them.  Batching must preserve whole test selections and respect the
+platform's process argument limit rather than imposing an arbitrary test-count
+limit.  Diagnostic hosted-runner probes have established that native Windows is
+the constraining tested platform, so implementations must leave a conservative
+margin rather than assume Unix-sized argument capacity.  Indirect selection can
+avoid command-line growth when the harness supports it.
+
+This Rosetta layer is deliberately data-driven.  RWF understands substitution,
+joining, batching, and indirect-file mechanics, but does not embed CTest,
+pytest, .NET, or another harness's test-selection grammar.
+
 ## 14. Non-goals
 
 RepoWorkflow must not:
