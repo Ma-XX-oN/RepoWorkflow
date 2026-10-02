@@ -105,8 +105,9 @@ class LocalGuardTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       fx = RepoFixture(root)
-      head = fx.head()
-      old = fx._run("rev-parse", "main").stdout.strip()
+      old = fx.head()
+      (root / "new.txt").write_text("new\n", encoding="utf-8")
+      head = fx.commit("new candidate")
       with self.assertRaisesRegex(LocalGuardError, "may not be moved"):
         check_push(
           root,
