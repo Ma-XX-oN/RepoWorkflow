@@ -182,6 +182,94 @@ class LocalGuardTests(unittest.TestCase):
           f"refs/heads/{started.branch} {other}\n",
         )
 
+  def test_main_force_update_and_delete_are_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      old = fx._run("rev-parse", "main").stdout.strip()
+      (root / "new.txt").write_text("new\n", encoding="utf-8")
+      head = fx.commit("new candidate")
+
+      with self.assertRaisesRegex(LocalGuardError, "protected main"):
+        check_push(
+          root,
+          f"refs/heads/issue-1-test {head} refs/heads/main {old}\n",
+        )
+      with self.assertRaisesRegex(LocalGuardError, "protected main"):
+        check_push(
+          root,
+          f"(delete) {ZERO} refs/heads/main {old}\n",
+        )
+
+  def test_malformed_task_and_prelim_tags_are_blocked(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      head = fx.head()
+
+      for tag in (
+        "v1.0.0-issue.1.0",
+        "v1.0.0-PRELIM-1.0",
+      ):
+        with self.subTest(tag=tag):
+          with self.assertRaisesRegex(LocalGuardError, "malformed"):
+            check_push(
+              root,
+              f"refs/tags/{tag} {head} refs/tags/{tag} {ZERO}\n",
+            )
+
+  def test_invalid_branch_push_agrees_with_state_machine_and_does_not_mutate(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      fx._run("switch", "-c", "untracked-policy-branch")
+      (root / "work.txt").write_text("work\n", encoding="utf-8")
+      candidate = fx.commit("work on invalid branch")
+      version_before = (root / "VERSION").read_text(encoding="utf-8")
+      head_before = fx.head()
+
+      plan = derive_plan(discover_facts(root))
+      self.assertEqual(plan.transitions, ())
+      self.assertIn("invalid branch state", plan.blocks)
+
+      with self.assertRaisesRegex(LocalGuardError, "branch is invalid"):
+        check_push(
+          root,
+          f"refs/heads/untracked-policy-branch {candidate} "
+          f"refs/heads/untracked-policy-branch {ZERO}\n",
+        )
+
+      self.assertEqual(fx.head(), head_before)
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8"),
+        version_before,
+      )
+
+  def test_rejected_version_push_is_stop_without_repair_forward(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      (root / "VERSION").write_text("not-a-version\n", encoding="utf-8")
+      head_before = fx.head()
+      version_before = (root / "VERSION").read_text(encoding="utf-8")
+
+      with self.assertRaisesRegex(LocalGuardError, "version state"):
+        check_push(
+          root,
+          f"refs/heads/issue-1-test {head_before} "
+          f"refs/heads/issue-1-test {ZERO}\n",
+        )
+
+      self.assertEqual(fx.head(), head_before)
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8"),
+        version_before,
+      )
+
   def test_rebase_that_rewrites_tagged_candidate_is_blocked(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
