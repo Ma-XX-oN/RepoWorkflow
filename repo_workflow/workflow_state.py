@@ -24,6 +24,7 @@ class WorkflowFacts:
   regression: str = "missing"
   integration_result: str | None = None
   automatic_integration: str | None = None
+  automatic_integration_required: bool = True
   manual_integration_required: bool = False
   manual_integration_result: str | None = None
   integration_authorized: bool = False
@@ -49,6 +50,8 @@ class WorkflowFacts:
 
   @property
   def resolved_automatic_integration(self) -> str:
+    if not self.automatic_integration_required:
+      return "PASS"
     if self.automatic_integration is not None:
       return self.automatic_integration
     if self.integration_result == "succeeded":
@@ -189,15 +192,13 @@ def completion_candidates(plan: WorkflowPlan, words: Iterable[str]) -> list[str]
     for option in ("--fast", "--group"):
       if option.startswith(prefix):
         candidates.add(option)
-  if completed == ["validate", "integration"]:
-    manual_pending = any(
-      transition.startswith("validate integration ")
-      for transition in plan.transitions
-    )
-    if not manual_pending:
-      for option in ("--automatic", "--group", "--manual"):
-        if option.startswith(prefix):
-          candidates.add(option)
+  if (
+    completed == ["validate", "integration"]
+    and "validate integration" in plan.transitions
+  ):
+    for option in ("--automatic", "--group"):
+      if option.startswith(prefix):
+        candidates.add(option)
   return sorted(candidates)
 
 
@@ -280,9 +281,12 @@ def discover_facts(root: Path) -> WorkflowFacts:
   integration_result = state.get("integrationResult")
   if integration_result not in INTEGRATION_STATUSES:
     integration_result = None
+  automatic_integration_required = bool(config.get("integrationEnvironments", []))
   automatic_integration = state.get("automaticIntegration")
   if automatic_integration not in AUTOMATIC_INTEGRATION_STATUSES:
-    automatic_integration = None
+    automatic_integration = (
+      "missing" if automatic_integration_required else "PASS"
+    )
   manual_integration_result = state.get("manualIntegrationResult")
   if manual_integration_result not in INTEGRATION_STATUSES:
     manual_integration_result = None
@@ -293,6 +297,7 @@ def discover_facts(root: Path) -> WorkflowFacts:
     regression=regression,
     integration_result=integration_result,
     automatic_integration=automatic_integration,
+    automatic_integration_required=automatic_integration_required,
     manual_integration_required=config.get("manualIntegrationRequired", False),
     manual_integration_result=manual_integration_result,
     integration_authorized=False,
