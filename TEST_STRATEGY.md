@@ -146,6 +146,40 @@ Required `what-next` tests:
 - no GREEN result, ready PR, or completed task is mistaken for a transition
   that the repository's policy does not permit.
 
+### 4.1 ART/AIT/MIT validation-class extension
+
+These requirements track the newer issue #14 validation-class contract. They
+become executable stage gates with the implementation that introduces these
+selectors and states; they must not be simulated by the older single-result
+state model.
+
+Required tests:
+
+- bare `validate regression` runs complete required ART;
+- `validate regression --fast` runs only the declared fast ART subset and
+  cannot advance the complete ART gate;
+- `validate regression --group NAME` runs only that declared group and cannot
+  advance the complete ART gate by itself;
+- ART FAIL advances only `R`; ART INCOMPLETE creates no terminal tag and may
+  retry only for the unchanged exact candidate;
+- bare `validate integration` orchestrates all required AIT and required MIT;
+- `--automatic`, `--manual`, and `--group NAME` cannot satisfy omitted
+  required integration work;
+- AIT records succeeded/failed automatically and never requires a human result;
+- AIT FAIL advances `Q` and resets `R`;
+- AIT PASS exposes MIT only when MIT is required;
+- MIT succeeded/failed is a human-result transition and exists only when MIT is
+  declared;
+- MIT FAIL advances `Q` and resets `R`;
+- a repository with no MIT requirement never receives a fabricated manual gate;
+- task acceptance requires complete required ART, AIT, and MIT evidence for the
+  same exact SHA;
+- evidence from the accepted task candidate does not satisfy the newly created
+  GUID prelim candidate;
+- hosted execution may fill missing ART/AIT but never manufactures MIT evidence;
+- `what-next`, JSON guidance, CLI acceptance, and completion all expose the
+  same pending validation class and legal selectors.
+
 Required completion tests must exercise an actual supported shell completion
 environment rather than merely inspect generated text:
 
