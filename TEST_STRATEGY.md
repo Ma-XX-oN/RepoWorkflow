@@ -129,7 +129,28 @@ Required state-machine tests:
 - initial task-development state;
 - regression-required state;
 - ART PASS, FAIL, and INCOMPLETE transitions with no user result entry;
+- local ART starts only on explicit full validation invocation; no heuristic such as
+  code changes, idleness, or implementation completion starts it automatically;
+- `validate regression --fast` runs the repository-defined minimal fast ART
+  set and cannot satisfy/advance the complete ART gate;
+- `validate regression --group NAME` runs only that ART group and cannot by
+  itself satisfy/advance the complete ART gate;
+- accumulated partial ART evidence does not satisfy the full gate unless the
+  repository's declared complete required set for the exact candidate is
+  authoritatively covered;
 - AIT-required state and automatic AIT result recording;
+- local integration validation starts only on explicit `validate integration`;
+- bare `validate integration` orchestrates all required AIT and required MIT;
+- `validate integration --automatic` selects AIT only and cannot skip a
+  required MIT gate;
+- `validate integration --manual` selects MIT only and cannot skip required
+  AIT;
+- `validate integration --group NAME` runs only the named integration subset
+  and cannot by itself satisfy the complete integration gate;
+- a full integration run executes AIT automatically but stops/presents required
+  MIT for a human result rather than pretending MIT was automated;
+- server examination automatically runs missing ART/AIT only; it never creates
+  MIT evidence;
 - AIT PASS, FAIL, and INCOMPLETE transitions, including automatic result
   recording and that AIT FAIL advances `Q` and resets `R`;
 - MIT-required state only when manual integration testing is declared;
