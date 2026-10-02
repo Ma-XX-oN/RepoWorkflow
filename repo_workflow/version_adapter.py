@@ -212,9 +212,17 @@ def _expected_transition(before: str, arguments: tuple[str, ...]) -> str:
     ("integrate", "--increment", "patch"),
     ("integrate", "--increment", "minor"),
   ):
-    if stable is None:
-      raise VersionAdapterError("integration increment requires a stable version")
-    major, minor, patch = (int(stable.group(i)) for i in range(1, 4))
+    if stable is not None:
+      major, minor, patch = (int(stable.group(i)) for i in range(1, 4))
+    elif development is not None:
+      major, minor, patch = (
+        int(development.group(i))
+        for i in range(1, 4)
+      )
+    else:
+      raise VersionAdapterError(
+        "integration increment requires a stable or task version"
+      )
     if arguments[-1] == "patch":
       patch += 1
     else:
