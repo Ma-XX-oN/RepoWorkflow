@@ -12,6 +12,30 @@ permissions:
   contents: read
 
 jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      validation: ${{ steps.classify.outputs.validation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Classify changed files
+        id: classify
+        shell: bash
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          result="$(python repo_workflow.py classify --base "$base")"
+          echo "validation=$(python -c 'import json,sys; print(json.load(sys.stdin)["validation"])' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "$result"
+
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -30,6 +54,8 @@ jobs:
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
   argv-limits:
+    needs: classify
+    if: needs.classify.outputs.validation != 'fast'
     name: Probe argv limits (${{ matrix.os }})
     strategy:
       matrix:
