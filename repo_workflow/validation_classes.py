@@ -11,7 +11,7 @@ from .results import _run_environment_for_candidate
 from .version_adapter import read_development_version
 
 
-class ValidationClassError(RuntimeError):
+class ValidationClassError(ValueError):
   pass
 
 
