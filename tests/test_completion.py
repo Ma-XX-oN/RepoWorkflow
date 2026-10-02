@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,28 @@ def _bash_path(path: Path) -> str:
   drive = value[0].lower()
   rest = value[2:].replace("\\", "/")
   return f"/{drive}{rest}"
+
+
+
+
+def _bash_executable() -> str:
+  if os.name != "nt":
+    value = shutil.which("bash")
+    if not value:
+      raise RuntimeError("Bash is unavailable")
+    return value
+  git = shutil.which("git")
+  if not git:
+    raise RuntimeError("Git is unavailable")
+  git_path = Path(git).resolve()
+  candidates = (
+    git_path.parent / "bash.exe",
+    git_path.parent.parent / "bin" / "bash.exe",
+  )
+  for candidate in candidates:
+    if candidate.is_file():
+      return str(candidate)
+  raise RuntimeError("Git for Windows Bash is unavailable")
 
 
 def _write_launcher(root: Path) -> None:
@@ -50,7 +73,6 @@ class BashCompletionTests(unittest.TestCase):
 
       script = f"""
 set -uo pipefail
-${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(nested)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
@@ -69,7 +91,7 @@ printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
 exit 0
 """
       completed = subprocess.run(
-        ["bash", "-c", script],
+        [_bash_executable(), "-c", script],
         check=False,
         capture_output=True,
         text=True,
@@ -112,7 +134,6 @@ exit 0
 
       script = f"""
 set -uo pipefail
-${'set -x' if os.name == 'nt' else ''}
 export PYTHON={shlex.quote(_bash_path(Path(sys.executable)))}
 cd {_bash_path(root)!r}
 source {_bash_path(ROOT / 'completions' / 'repo-workflow.bash')!r}
@@ -127,7 +148,7 @@ printf 'option:%s\\n' "${{COMPREPLY[*]}}"
 exit 0
 """
       completed = subprocess.run(
-        ["bash", "-c", script],
+        [_bash_executable(), "-c", script],
         check=False,
         capture_output=True,
         text=True,
