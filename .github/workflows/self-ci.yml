@@ -30,11 +30,13 @@ jobs:
         run: |
           base="${{ github.event.pull_request.base.sha || github.event.before }}"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
-            base="$(git rev-parse HEAD^)"
+            echo "validation=full" >> "$GITHUB_OUTPUT"
+            echo '{"class":"default","validation":"full","paths":[]}'
+          else
+            result="$(python repo_workflow.py classify --base "$base")"
+            echo "validation=$(python -c 'import json,sys; print(json.load(sys.stdin)["validation"])' <<<"$result")" >> "$GITHUB_OUTPUT"
+            echo "$result"
           fi
-          result="$(python repo_workflow.py classify --base "$base")"
-          echo "validation=$(python -c 'import json,sys; print(json.load(sys.stdin)["validation"])' <<<"$result")" >> "$GITHUB_OUTPUT"
-          echo "$result"
 
   validate:
     runs-on: ubuntu-latest
