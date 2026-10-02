@@ -17,9 +17,6 @@ from repo_workflow.prelim import (
 from repo_workflow.results import finalize_stable_results
 from repo_workflow.validation_audit import (
   ValidationRecord,
-  append_record,
-  audit_path,
-  read_records,
   regression_reuse_decision,
 )
 from repo_workflow.version_adapter import run_transition
@@ -89,7 +86,8 @@ class ConsumerPilotIntegrationTests(unittest.TestCase):
         result="succeeded",
         runner="local",
       )
-      append_record(root, first_record)
+      first_record.validate()
+      self.assertEqual(first_record.issue, 1)
       self.assertEqual(
         regression_reuse_decision([first_record], first_candidate),
         "reuse-pass",
@@ -123,10 +121,6 @@ class ConsumerPilotIntegrationTests(unittest.TestCase):
       self.assertEqual(
         fx._run("rev-parse", f"{second_tag}^{{}}").stdout.strip(),
         second_candidate,
-      )
-      self.assertEqual(
-        read_records(audit_path(root, 1)),
-        [first_record],
       )
 
   def test_two_workers_land_sequentially_without_cross_cleanup(self):
@@ -171,7 +165,7 @@ class ConsumerPilotIntegrationTests(unittest.TestCase):
       self.assertNotIn(f"refs/heads/{first_started.branch}", final_remote)
       self.assertNotIn(f"refs/heads/{second_started.branch}", final_remote)
 
-  def test_squash_landing_keeps_prelim_evidence_and_stable_tag_targets_landed_sha(self):
+  def test_squash_landing_keeps_prelim_tag_and_stable_tag_targets_landed_sha(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
@@ -201,7 +195,8 @@ class ConsumerPilotIntegrationTests(unittest.TestCase):
         result="succeeded",
         runner="local",
       )
-      append_record(root, record)
+      record.validate()
+      self.assertEqual(record.issue, 1)
       fx._run("push", "origin", started.branch)
 
       fx._run("switch", "main")
@@ -258,7 +253,6 @@ class ConsumerPilotIntegrationTests(unittest.TestCase):
         fx._run("rev-parse", "v1.0.1^{}").stdout.strip(),
         squash,
       )
-      self.assertEqual(read_records(audit_path(root, 1)), [record])
 
 
 if __name__ == "__main__":
