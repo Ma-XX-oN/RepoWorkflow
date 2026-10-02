@@ -107,6 +107,36 @@ plain stable `x.y.z` version.
 `authoritativeRemote` is the Git remote used for authoritative branch/tag facts.
 Failure to establish remote state is not interpreted as success.
 
+### Validation classes
+
+RepoWorkflow distinguishes automated regression testing (ART), automated
+integration testing (AIT), and optional manual integration testing (MIT).
+
+`environments` declares ART environments. An ART environment may additionally
+declare:
+
+- `fast: true` to include it in `validate regression --fast`;
+- `groups: ["name", ...]` to include it in named
+  `validate regression --group NAME` subsets.
+
+`integrationEnvironments` declares AIT environments using the same environment
+shape plus optional `groups`. AIT environments may not declare `fast`.
+
+`manualIntegrationRequired` is a boolean. When true, a complete AIT PASS leaves
+the exact candidate waiting for MIT. Only then are
+`validate integration succeeded` and `validate integration failed` legal
+human-result transitions. When false, RepoWorkflow must not invent a manual
+acceptance gate.
+
+Bare `validate regression` is the complete ART gate. `--fast` and
+`--group` are diagnostic subsets and never advance that complete gate.
+
+Bare `validate integration` runs the complete required AIT set. The
+`--automatic` selector is the explicit AIT-only spelling; `--group NAME`
+runs only that AIT subset. Subset runs are diagnostic and cannot satisfy omitted
+required AIT. `--manual` is valid only when complete AIT has passed and MIT is
+actually required.
+
 ### `environments`
 
 Each genuinely distinct required execution environment has one entry and one
