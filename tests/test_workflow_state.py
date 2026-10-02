@@ -45,11 +45,48 @@ class WorkflowStateTests(unittest.TestCase):
     self.assertEqual(plan.transitions, ("reintegrate",))
     self.assertTrue(any("stale integration base" in block for block in plan.blocks))
 
+  def test_regression_incomplete_retries_only_regression(self):
+    plan = derive_plan(WorkflowFacts(regression="INCOMPLETE"))
+    self.assertEqual(plan.transitions, ("validate regression",))
+    self.assertTrue(any("incomplete" in block for block in plan.blocks))
+
+  def test_integration_failure_returns_to_regression(self):
+    plan = derive_plan(WorkflowFacts(
+      regression="PASS",
+      integration_result="failed",
+    ))
+    self.assertEqual(plan.transitions, ("validate regression",))
+    self.assertTrue(any("previous integration failed" in block for block in plan.blocks))
+
+  def test_authorized_accepted_task_exposes_integration_transition(self):
+    plan = derive_plan(WorkflowFacts(
+      regression="PASS",
+      integration_result="succeeded",
+      integration_authorized=True,
+    ))
+    self.assertEqual(plan.transitions, ("integrate",))
+    self.assertEqual(plan.blocks, ())
+
   def test_invalid_branch_and_version_fail_closed(self):
     plan = derive_plan(WorkflowFacts(branch_valid=False, version_valid=False))
     self.assertEqual(plan.transitions, ())
     self.assertIn("invalid branch state", plan.blocks)
     self.assertIn("invalid version state", plan.blocks)
+
+  def test_completion_exposes_documented_version_surface(self):
+    plan = derive_plan(WorkflowFacts(regression="missing"))
+    self.assertEqual(
+      completion_candidates(plan, ["version", ""]),
+      ["--json", "integrate", "release-major", "task"],
+    )
+    self.assertEqual(
+      completion_candidates(plan, ["version", "task", ""]),
+      ["issue"],
+    )
+    self.assertEqual(
+      completion_candidates(plan, ["version", "integrate", "increment", ""]),
+      ["minor", "patch"],
+    )
 
   def test_completion_is_projection_of_plan(self):
     plan = derive_plan(WorkflowFacts(regression="PASS"))
