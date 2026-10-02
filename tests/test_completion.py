@@ -65,6 +65,7 @@ COMP_WORDS=(rwf init --)
 COMP_CWORD=2
 _repo_workflow_complete
 printf 'init:%s\\n' \"${{COMPREPLY[*]}}\"
+exit 0
 """
       completed = subprocess.run(
         ["bash", "-c", script],
@@ -121,6 +122,7 @@ COMP_WORDS=(repo-workflow what-next --)
 COMP_CWORD=2
 _repo_workflow_complete
 printf 'option:%s\\n' "${{COMPREPLY[*]}}"
+exit 0
 """
       completed = subprocess.run(
         ["bash", "-c", script],
