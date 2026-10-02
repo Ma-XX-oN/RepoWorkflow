@@ -3,6 +3,34 @@
 RepoWorkflow schema 1 keeps repository-specific facts in the consumer while the
 shared engine owns lifecycle semantics, candidate bookkeeping, and invariants.
 
+## Consumer-root state isolation
+
+RepoWorkflow resolves one consumer repository root for an operation.  Persistent
+or checked-in data under `.repoworkflow/` is always resolved relative to that
+root; nested repositories and submodules do not contribute configuration or
+state.
+
+Consequently, after initializing a consumer that pins RepoWorkflow as a
+submodule, both of these directories may legitimately exist:
+
+```text
+repo/.repoworkflow/
+repo/RepoWorkflow/.repoworkflow/
+```
+
+The first belongs to `repo` and is active while RWF operates on that consumer.
+The second belongs to RepoWorkflow itself and is ignored for the enclosing
+consumer operation.  It remains part of the RepoWorkflow checkout so that the
+RepoWorkflow repository can use its own workflow when developed directly.
+
+`RepoWorkflow/repo-workflow init` must resolve and initialize the enclosing
+consumer rather than treating the executable's submodule as the consumer.
+Subsequent lookup must use that resolved consumer root directly and must never
+discover policy by recursively searching for `.repoworkflow` directories.
+
+This separation prevents RepoWorkflow's self-hosting state from interfering
+with repositories that consume it as a pinned submodule.
+
 ## `.ci/repoworkflow.json`
 
 Recommended development shape:
