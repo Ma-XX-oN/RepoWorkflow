@@ -25,6 +25,7 @@ class VersionAdapterTests(unittest.TestCase):
       self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.0.1")
       run_transition(root, config, "task", "--increment", "CI-iteration")
       self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.0.2")
+      fx.commit("record CI iteration")
       run_transition(root, config, "task", "--increment", "merge-integration-failed")
       self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.1.1")
 
@@ -41,10 +42,10 @@ class VersionAdapterTests(unittest.TestCase):
       self.assertEqual(read_stable_version(root, config), "1.2.3")
       run_transition(root, config, "integrate", "--increment", "patch")
       self.assertEqual(read_stable_version(root, config), "1.2.4")
-      (root / "VERSION").write_text("1.2.3\n")
+      fx._run("reset", "--hard", "HEAD")
       run_transition(root, config, "integrate", "--increment", "minor")
       self.assertEqual(read_stable_version(root, config), "1.3.0")
-      (root / "VERSION").write_text("1.2.3\n")
+      fx._run("reset", "--hard", "HEAD")
       run_transition(root, config, "release-major")
       self.assertEqual(read_stable_version(root, config), "2.0.0")
 
@@ -94,7 +95,7 @@ class VersionAdapterTests(unittest.TestCase):
       fx.commit("install malformed adapter")
       config = load_config(root)
 
-      with self.assertRaisesRegex(VersionAdapterError, "invalid version"):
+      with self.assertRaisesRegex(VersionAdapterError, "valid development version"):
         read_development_version(root, config)
 
   def test_failed_transition_rolls_back_partial_worktree_mutation(self):
