@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
-from typing import Iterable
 
 from .branch_policy import BranchPolicyError, check_branch_policy
 from .config import load_config
@@ -110,30 +109,6 @@ def derive_plan(facts: WorkflowFacts) -> WorkflowPlan:
   else:
     transitions.append("integrate")
   return WorkflowPlan(tuple(transitions), tuple(blocks))
-
-
-def completion_candidates(plan: WorkflowPlan, words: Iterable[str]) -> list[str]:
-  tokens = list(words)
-  if not tokens:
-    tokens = [""]
-  prefix = tokens[-1]
-  completed = tokens[:-1]
-
-  commands = ["what-next", *plan.transitions]
-  candidates: set[str] = set()
-  for command in commands:
-    command_tokens = command.split()
-    if len(completed) >= len(command_tokens):
-      continue
-    if command_tokens[:len(completed)] != completed:
-      continue
-    candidate = command_tokens[len(completed)]
-    if candidate.startswith(prefix):
-      candidates.add(candidate)
-
-  if completed == ["what-next"] and "--json".startswith(prefix):
-    candidates.add("--json")
-  return sorted(candidates)
 
 
 def _git_dir(root: Path) -> Path:
