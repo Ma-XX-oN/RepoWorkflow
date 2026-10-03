@@ -127,7 +127,11 @@ class WorkflowCliTests(unittest.TestCase):
         completed.stderr,
         "RepoWorkflow error: unrecognised command.\n"
         "  foo\n"
-        "  ^^^\n",
+        "  ^^^\n"
+        "\n"
+        "Legal transitions:\n"
+        "  regression required\n"
+        "  → validate regression\n",
       )
 
   def test_manually_typed_state_invalid_command_uses_shared_diagnostic(self):
