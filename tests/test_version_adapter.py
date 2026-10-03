@@ -7,6 +7,7 @@ import unittest
 from repo_workflow.config import load_config
 from repo_workflow.version_adapter import (
   VersionAdapterError,
+  VersionTransitionResult,
   read_development_version,
   read_stable_version,
   read_version,
@@ -103,6 +104,141 @@ class VersionAdapterTests(unittest.TestCase):
       fx.commit("install ref-mutating version adapter")
       with self.assertRaisesRegex(VersionAdapterError, "local Git refs"):
         run_transition(root, load_config(root), "task", "--increment", "CI-iteration")
+
+
+  def test_transition_returns_normalized_before_and_after(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      config = load_config(root)
+      result = run_transition(
+        root,
+        config,
+        "task",
+        "--increment",
+        "CI-iteration",
+      )
+      self.assertEqual(
+        result,
+        VersionTransitionResult(
+          request=("task", "--increment", "CI-iteration"),
+          before="1.0.0-issue.1.0.1",
+          after="1.0.0-issue.1.0.2",
+        ),
+      )
+
+  def test_unknown_semantic_request_is_rejected_before_adapter_runs(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      config = load_config(root)
+      with self.assertRaisesRegex(
+        VersionAdapterError,
+        "unsupported repository version semantic request",
+      ):
+        run_transition(root, config, "set", "9.9.9")
+      self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.0.1")
+
+  def test_successful_but_wrong_transition_is_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      script = root / "scripts" / "wrong-transition.py"
+      script.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        "path = Path('VERSION')\n"
+        "if len(sys.argv) == 1:\n"
+        "  print(path.read_text().strip())\n"
+        "else:\n"
+        "  path.write_text('1.0.0-issue.1.0.9\\n')\n"
+      )
+      config_path = root / ".ci" / "repoworkflow.json"
+      value = json.loads(config_path.read_text())
+      value["versionCommand"] = [sys.executable, "scripts/wrong-transition.py"]
+      config_path.write_text(json.dumps(value, indent=2) + "\n")
+      fx.commit("install wrong version adapter")
+      with self.assertRaisesRegex(
+        VersionAdapterError,
+        "invalid semantic transition",
+      ):
+        run_transition(
+          root,
+          load_config(root),
+          "task",
+          "--increment",
+          "CI-iteration",
+        )
+
+  def test_failed_mutation_must_restore_canonical_version(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      script = root / "scripts" / "partial-failure.py"
+      script.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        "path = Path('VERSION')\n"
+        "if len(sys.argv) == 1:\n"
+        "  print(path.read_text().strip())\n"
+        "else:\n"
+        "  path.write_text('1.0.0-issue.1.0.2\\n')\n"
+        "  print('injected failure', file=sys.stderr)\n"
+        "  raise SystemExit(2)\n"
+      )
+      config_path = root / ".ci" / "repoworkflow.json"
+      value = json.loads(config_path.read_text())
+      value["versionCommand"] = [sys.executable, "scripts/partial-failure.py"]
+      config_path.write_text(json.dumps(value, indent=2) + "\n")
+      fx.commit("install partial-failure version adapter")
+      with self.assertRaisesRegex(
+        VersionAdapterError,
+        "failed after changing canonical version",
+      ):
+        run_transition(
+          root,
+          load_config(root),
+          "task",
+          "--increment",
+          "CI-iteration",
+        )
+
+  def test_failed_mutation_that_moves_refs_reports_invariant_violation(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      script = root / "scripts" / "failed-ref-mutation.py"
+      script.write_text(
+        "from pathlib import Path\n"
+        "import subprocess\n"
+        "import sys\n"
+        "if len(sys.argv) == 1:\n"
+        "  print(Path('VERSION').read_text().strip())\n"
+        "else:\n"
+        "  subprocess.run(['git', 'tag', 'bad-failed-side-effect'], check=True)\n"
+        "  raise SystemExit(2)\n"
+      )
+      config_path = root / ".ci" / "repoworkflow.json"
+      value = json.loads(config_path.read_text())
+      value["versionCommand"] = [sys.executable, "scripts/failed-ref-mutation.py"]
+      config_path.write_text(json.dumps(value, indent=2) + "\n")
+      fx.commit("install failed ref-mutating version adapter")
+      with self.assertRaisesRegex(
+        VersionAdapterError,
+        "failed and violated Git invariants",
+      ):
+        run_transition(
+          root,
+          load_config(root),
+          "task",
+          "--increment",
+          "CI-iteration",
+        )
 
 
 if __name__ == "__main__":
