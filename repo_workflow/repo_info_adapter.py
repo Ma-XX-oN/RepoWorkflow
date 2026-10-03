@@ -35,7 +35,8 @@ def _nonempty_text(value: Any, label: str) -> str:
 
 
 def _schema(value: dict[str, Any], label: str) -> None:
-  if value["schema_version"] != 1:
+  schema = value["schema_version"]
+  if isinstance(schema, bool) or not isinstance(schema, int) or schema != 1:
     raise RepoInfoError(
       f"repository information adapter returned unsupported {label} schema version"
     )
@@ -94,7 +95,7 @@ def issue_info(root: Path, config: dict, issue_number: int) -> dict[str, Any]:
       "repository information adapter returned the wrong issue number"
     )
   _nonempty_text(value["title"], "issue title")
-  if value["state"] not in {"open", "closed"}:
+  if not isinstance(value["state"], str) or value["state"] not in {"open", "closed"}:
     raise _fail("issue state")
   return value
 
