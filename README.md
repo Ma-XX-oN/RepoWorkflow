@@ -183,6 +183,17 @@ Existing low-level validation/provider commands such as `preflight`, `run`,
 needed during migration.  Issue #55 moves provider-specific mechanics behind a
 portable `repo-ci` boundary.
 
+## Cross-repository management
+
+RepoWorkflow defines repository-neutral workflow and work-graph semantics.
+[WorkStack](https://github.com/Ma-XX-oN/WorkStack) is a separate
+cross-repository manager that can consume those semantics to coordinate work,
+dependencies, and durable lanes across multiple repositories.
+
+RepoWorkflow does not define WorkStack's internal policy or data model; this
+reference identifies the cross-repository layer that consumes RWF's generic
+methodology.
+
 ## Documentation
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
