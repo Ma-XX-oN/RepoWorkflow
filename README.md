@@ -205,6 +205,8 @@ methodology.
   shared capability umbrellas, and executable dependency graphs.
 - [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md) defines the versioned direct
   relationship schema, reconstruction rules, and executable readiness edges.
+- [STATE_LAYOUT.md](STATE_LAYOUT.md) defines durable, clone-common, and
+  worktree-local state ownership and path invariants.
 - [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
   graph-testing, refinement procedure, and leaf/umbrella acceptance checks.
 - [WORKSPACE_MODEL.md](WORKSPACE_MODEL.md) defines repository-local workspace
