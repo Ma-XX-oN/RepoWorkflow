@@ -91,16 +91,33 @@ environment rather than merely inspect generated text:
 - state-dependent dynamic completion with no matching partial candidate reports
   `no completions available from the current state` and shows the
   human-readable current state plus legal transitions exactly once;
-- bare `list[str]` completion with no match reports generic
+- catalogue-value completion with no match reports generic
   `no completions available for` and does not render workflow-state or legal
   transition information;
-- a callable `_values` provider returning `list[str]` receives the same
-  bare-value diagnostic behaviour as a literal `list[str]`;
+- a completion provider returning catalogue values receives the same
+  bare-value diagnostic behaviour as a catalogue-value;
 - multiple possible descendants sharing the same first illegal token produce
   one diagnostic for that first failure rather than duplicate downstream
   errors;
 - state names rendered in diagnostics are normal human-readable phrases, not
   hyphenated internal identifiers.
+## Issue #52 completion refinement
+
+Issue #52 supersedes the old dynamic-provider return-shape cases below.
+The authoritative additions are:
+
+- providers always return `{"completions": [...], "on-tab": handler?}`;
+- provider behaviour is not inferred from outer Python return shape;
+- `on-tab` defaults to the standard handler and is first-class when supplied;
+- custom handlers can return contextual errors;
+- `--help` after every valid public prefix uses the same semantic projection
+  as detailed/double-Tab completion;
+- completion/help/diagnostic paths remain read-only;
+- root, executable-prefix, and dynamic-prefix help equivalence is tested in the
+  real CLI;
+- real Bash alias registration, no filename fallback, repeated-Tab detail, and
+  completion-context reset remain required.
+
 ## Concrete issue #15 TDD matrix
 
 The cases below are fixed before implementation.  Tests may use helper
@@ -117,7 +134,7 @@ remain equivalent.
 6. `<last-terminal>` used as an authored token is rejected.
 7. A literal `_values` list containing only non-empty strings validates.
 8. A literal `_values` list containing an empty/non-string value is rejected.
-9. A callable `_values` provider returning `list[str]` validates at runtime.
+9. A completion provider returning catalogue values validates at runtime.
 10. A callable returning described command fragments validates recursively.
 11. A callable returning a mixed list of strings and dictionaries is rejected.
 12. A dynamic fragment containing `""` or `_values` at its fragment root is
@@ -127,7 +144,7 @@ remain equivalent.
 
 ### Static parsing and terminal behaviour
 
-15. A complete static terminal command parses successfully.
+19. A complete static terminal command parses successfully.
 16. A node with `""` plus continuations parses successfully without a
     continuation.
 17. A non-terminal prefix is rejected as incomplete.
@@ -208,7 +225,7 @@ RepoWorkflow error: no completions available for:
 The catalogue miss must not contain `Legal transitions:`.
 
 29. A callable provider returning `list[str]` produces the same generic
-    catalogue-miss diagnostic as a literal `list[str]`.
+    catalogue-miss diagnostic as a catalogue-value.
 30. If several descendants lie below one state-invalid token, only the first
     invalid token is diagnosed once.
 31. A state-related diagnostic contains exactly one `Legal transitions:`
