@@ -30,7 +30,19 @@ class ConfigTests(unittest.TestCase):
       self.assertTrue(config["environments"][0]["required"])
       self.assertEqual(config["environments"][0]["platform"], "any")
 
-  def test_info_command_is_validated_when_configured(self):\n    with tempfile.TemporaryDirectory() as td:\n      root = Path(td)\n      value = self.base()\n      value["infoCommand"] = ["python", "repo-info.py"]\n      self.write(root, value)\n      self.assertEqual(load_config(root)["infoCommand"], value["infoCommand"])\n      value["infoCommand"] = []\n      self.write(root, value)\n      with self.assertRaisesRegex(ConfigError, "infoCommand"):\n        load_config(root)\n\n  def test_obsolete_set_version_command_is_rejected(self):
+  def test_info_command_is_validated_when_configured(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      value["infoCommand"] = ["python", "repo-info.py"]
+      self.write(root, value)
+      self.assertEqual(load_config(root)["infoCommand"], value["infoCommand"])
+      value["infoCommand"] = []
+      self.write(root, value)
+      with self.assertRaisesRegex(ConfigError, "infoCommand"):
+        load_config(root)
+
+  def test_obsolete_set_version_command_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       value = self.base()
