@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
-from .state_store import (\n  JsonRecordStore,\n  StateStoreError,\n  WriterIdentity,\n  _acquire_lock,\n  _release_lock,\n)
+from .state_store import (
+  JsonRecordStore,
+  StateStoreError,
+  WriterIdentity,
+  _acquire_lock,
+  _release_lock,
+)
 
 
 TRANSACTION_SCHEMA_VERSION = 1
