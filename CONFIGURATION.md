@@ -11,7 +11,6 @@ Recommended development shape:
 {
   "schema": 1,
   "versionCommand": ["python", "scripts/workflow-version.py"],
-  "setVersionCommand": ["python", "scripts/workflow-version.py", "--set"],
   "repository": {
     "integrationBranch": "main",
     "authoritativeRemote": "origin"
@@ -33,43 +32,37 @@ Unknown fields are rejected so configuration drift fails visibly.
 
 ### `versionCommand`
 
-The command is repository-owned. It must:
+The command is the repository-owned semantic version adapter.  With no
+arguments it must:
 
 - exit zero only when the repository's version state is internally valid;
-- print exactly one canonical development version to stdout;
-- use the form `x.y.z-issue.<issue>.<iteration>`;
-- leave the candidate worktree and history unchanged.
+- print exactly one canonical version to stdout;
+- report task versions as `x.y.z-issue.P.Q.R`, where `P` is the issue,
+  `Q` is the integration-failure generation, and `R` is the
+  regression-validation iteration;
+- report stable versions as plain `x.y.z`;
+- leave the worktree, candidate history, symbolic `HEAD`, and local Git refs
+  unchanged.
 
-Lower-level distributed commands compare that value with `.ci/run-ci-request`.
-The normal local `verify` path prepares that request binding before validation.
-
-### `setVersionCommand`
-
-`setVersionCommand` is the repository-owned mutation counterpart to
-`versionCommand`. RepoWorkflow appends exactly one argument: the complete target
-development version.
-
-For example, this declaration:
-
-```json
-"setVersionCommand": ["python", "scripts/workflow-version.py", "--set"]
-```
-
-is invoked as:
+RepoWorkflow requests mutations by semantic intent through the same adapter:
 
 ```text
-python scripts/workflow-version.py --set 1.2.3-issue.17.4
+task --issue <number>
+task --increment CI-iteration
+task --increment merge-integration-failed
+integrate --increment patch
+integrate --increment minor
+release-major
 ```
 
-The setter may modify the consumer's version-bearing worktree files, but it must
-not create commits, move `HEAD`, or mutate Git refs. RepoWorkflow re-runs
-`versionCommand` afterward and requires the exact requested version.
+The adapter derives and writes the literal target version.  RepoWorkflow never
+constructs a repository-specific literal target version.  A mutation may change
+only the repository's version-bearing worktree state; it must not create
+commits, move `HEAD`, or mutate Git refs.
 
-The setter is optional for repositories that never need RepoWorkflow to advance
-an already-consumed development iteration. It is required for the full
-one-command workflow: if the authoritative remote already contains either
-terminal tag for the current iteration, `verify` uses `setVersionCommand` to
-advance to the next iteration automatically.
+Lower-level distributed commands compare the adapter's reported development
+version with `.ci/run-ci-request`.  The normal local `verify` path prepares
+that request binding before validation.
 
 ### `repository`
 
@@ -157,7 +150,8 @@ The command:
 
 1. reads the repository's development version;
 2. checks authoritative terminal-tag state;
-3. advances a consumed iteration through `setVersionCommand` when necessary;
+3. advances a consumed iteration through
+   `versionCommand task --increment CI-iteration` when necessary;
 4. refreshes `.ci/run-ci-request` after ordinary source commits when necessary;
 5. commits only the bookkeeping/version changes it performed;
 6. validates that prepared candidate through the normal guard;
@@ -166,7 +160,8 @@ The command:
 
 INCOMPLETE produces no terminal tag. `--push` pushes generated bookkeeping or
 artifact commits and the terminal tag to `authoritativeRemote`. Candidate
-preparation is rolled back if the setter, bookkeeping commit, or guard fails.
+preparation is rolled back if the semantic adapter, bookkeeping commit, or
+guard fails.
 
 ## `rwf config`
 
