@@ -225,9 +225,18 @@ contribute to umbrella #100, neither depends on the other.
 
 An apparent indirect dependency is a decomposition signal rather than a
 workflow relationship to preserve.  Work should be broken down until every
-real ordering constraint can be represented by direct dependency edges.  A
-common prerequisite should normally become its own issue with direct edges
-from the issues that require it.
+real ordering constraint can be represented by direct dependency edges.
+
+Decompose an issue when more than one task is required to satisfy that issue's
+outcome.  The original issue remains the umbrella for those child tasks because
+their completion collectively satisfies the original target.
+
+During decomposition, a prerequisite may be discovered that is useful to
+multiple otherwise unrelated issues or umbrellas.  That prerequisite is not a
+child of either consumer merely because they need it.  It becomes its own
+independent issue, and every issue that requires it records a direct dependency
+edge to it.  The shared prerequisite may itself become an umbrella if it needs
+further decomposition.
 
 For example:
 

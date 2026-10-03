@@ -274,9 +274,15 @@ dependencies.  An issue is blocked while any direct dependency remains
 incomplete.  Once all of its direct dependencies are satisfied, it is ready
 regardless of whether other siblings under the same umbrella remain active.
 
-If two issues appear to depend on one another only through some unstated common
-prerequisite, the work should be decomposed further.  The common prerequisite
-becomes an explicit issue and the consuming issues depend directly on it.
+If an issue requires several distinct tasks to satisfy its outcome, those
+tasks should be split into child issues while the original issue remains their
+umbrella target.
+
+If two or more otherwise unrelated issues or umbrellas share an unstated
+common prerequisite, that prerequisite should become an independent issue
+rather than a child of one consumer.  Each consuming issue then depends
+directly on it.  If that prerequisite itself requires several tasks, it may
+become its own umbrella.
 
 The resulting dependency graph is intended to make execution order visible:
 

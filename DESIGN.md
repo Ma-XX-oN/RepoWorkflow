@@ -257,6 +257,13 @@ that the work has not been decomposed far enough.  Introduce the missing
 prerequisite task(s) until the dependency graph can express every ordering
 constraint through direct edges.
 
+When one issue decomposes into several tasks that collectively satisfy its
+outcome, the original issue remains their umbrella.  When decomposition instead
+discovers one reusable prerequisite shared by otherwise unrelated issues or
+umbrellas, that prerequisite is an independent issue with direct incoming
+dependency edges from each consumer; it does not belong under one consumer's
+umbrella merely because that consumer discovered it first.
+
 This graph is also the scheduling graph:
 
 - an issue with no unresolved direct dependencies is ready;
