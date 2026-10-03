@@ -286,9 +286,24 @@ consolidated under their own shared capability umbrella.
 
 Each consumer umbrella attaches to that shared capability umbrella.  The
 capability's child issues retain one owning umbrella only; they are not copied
-or multi-parented into each consumer.  Concrete workflow ordering still uses
-direct dependency edges from consuming leaves to the exact capability leaves
-they require.
+or multi-parented into each consumer.
+
+Four relations must remain distinct:
+
+- child ownership;
+- shared-capability umbrella attachment;
+- direct leaf dependency;
+- direct umbrella dependency.
+
+Concrete workflow ordering uses direct leaf dependencies from consuming leaves
+to the exact capability leaves they require.  A direct umbrella dependency is
+also recorded when the complete consumer outcome cannot be complete until the
+complete prerequisite umbrella is complete.  Do not create an umbrella
+dependency merely because one child uses one child from another umbrella.
+
+The umbrella-dependency graph is a transitive-reduced roadmap: omit an A -> C
+edge when A -> B -> C already expresses it.  Exact leaf dependencies remain
+authoritative for executable readiness.
 
 The resulting dependency graph is intended to make execution order visible:
 
