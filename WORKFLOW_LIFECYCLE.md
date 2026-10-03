@@ -136,6 +136,51 @@ dynamic provider, such as the provider for `--group`, returns the catalogue
 group names directly; both single and double Tab show those names without a
 second, redundant description source.
 
+Invalid manual commands and invalid completion attempts use the same
+command-path diagnosis.  RWF preserves the literal tokens supplied by the
+caller and underlines the first token where the path diverges.  It does not
+invent a valid-looking completion to explain the failure.
+
+For a state-invalid command, for example:
+
+```text
+RepoWorkflow error: transition is not legal in the current state:
+  validate integration s
+           ^^^^^^^^^^^
+
+Legal transitions:
+  regression required
+  → validate regression
+```
+
+If the command prefix is legal but the current partial token has no legal
+state-dependent completion:
+
+```text
+RepoWorkflow error: no completions available from the current state:
+  validate integration s
+                       ^
+
+Legal transitions:
+  integration result pending
+  → validate integration failed
+```
+
+If the completion source is instead a bare value list, such as a test-group
+catalogue, no workflow transition is involved and no `Legal transitions:`
+block is shown:
+
+```text
+RepoWorkflow error: no completions available for:
+  validate regression --group z
+                              ^
+```
+
+A token that is absent from the general command grammar is reported as an
+unrecognised command, again preserving and underlining exactly what the user
+typed.  State names in diagnostics are human-readable phrases rather than
+hyphenated internal identifiers.
+
 For example, when an integration result is required:
 
 ```text
