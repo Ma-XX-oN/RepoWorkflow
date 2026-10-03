@@ -40,12 +40,17 @@ class WorkspaceStore:
     *,
     issue: int,
     work_identity: str,
+    branch: str,
+    worktree_path: Path,
   ) -> dict:
     workspace_id = _workspace_id(workspace_id)
     if isinstance(issue, bool) or not isinstance(issue, int) or issue < 1:
       raise WorkspaceClaimError(f"invalid issue number: {issue!r}")
     if not isinstance(work_identity, str) or not work_identity.strip():
       raise WorkspaceClaimError("work_identity must be non-empty text")
+    if not isinstance(branch, str) or not branch.strip():
+      raise WorkspaceClaimError("branch must be non-empty text")
+    worktree_path = Path(worktree_path).resolve()
 
     directory = self.workspace_dir(workspace_id)
     try:
@@ -60,6 +65,8 @@ class WorkspaceStore:
       "workspace_id": workspace_id,
       "issue": issue,
       "work_identity": work_identity,
+      "branch": branch,
+      "worktree_path": str(worktree_path),
     }
     claim = {
       "schema_version": WORKSPACE_SCHEMA_VERSION,
@@ -85,6 +92,16 @@ class WorkspaceStore:
         pass
       raise
     return workspace
+
+  def list_workspaces(self) -> tuple[dict, ...]:
+    if not self.workspaces_root.exists():
+      return ()
+    values = []
+    for directory in sorted(self.workspaces_root.iterdir()):
+      if not directory.is_dir() or not WORKSPACE_ID_RE.fullmatch(directory.name):
+        continue
+      values.append(self.read_workspace(directory.name))
+    return tuple(values)
 
   def read_workspace(self, workspace_id: str) -> dict:
     path = self.workspace_dir(workspace_id) / "workspace.json"
@@ -202,6 +219,14 @@ def _validate_workspace(value: dict, workspace_id: str) -> None:
   identity = value.get("work_identity")
   if not isinstance(identity, str) or not identity.strip():
     raise WorkspaceClaimError("workspace work_identity must be non-empty text")
+  branch = value.get("branch")
+  if not isinstance(branch, str) or not branch.strip():
+    raise WorkspaceClaimError("workspace branch must be non-empty text")
+  worktree_path = value.get("worktree_path")
+  if not isinstance(worktree_path, str) or not worktree_path.strip():
+    raise WorkspaceClaimError("workspace worktree_path must be non-empty text")
+  if not Path(worktree_path).is_absolute():
+    raise WorkspaceClaimError("workspace worktree_path must be absolute")
 
 
 def _validate_claim(value: dict, workspace_id: str) -> None:
