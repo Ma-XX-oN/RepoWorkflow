@@ -231,12 +231,19 @@ Decompose an issue when more than one task is required to satisfy that issue's
 outcome.  The original issue remains the umbrella for those child tasks because
 their completion collectively satisfies the original target.
 
-During decomposition, a prerequisite may be discovered that is useful to
-multiple otherwise unrelated issues or umbrellas.  That prerequisite is not a
-child of either consumer merely because they need it.  It becomes its own
-independent issue, and every issue that requires it records a direct dependency
-edge to it.  The shared prerequisite may itself become an umbrella if it needs
-further decomposition.
+During decomposition, prerequisite work may be discovered that is useful to
+multiple otherwise unrelated issues or umbrellas.  It does not become a child
+of whichever consumer discovered it first.
+
+A single shared prerequisite may remain an independent issue.  If the shared
+capability itself requires several interface or implementation tasks, those
+tasks belong under their own **shared capability umbrella**.  Consumer
+umbrellas attach to that shared capability umbrella rather than duplicating or
+multi-parenting its child issues.  Executable ordering still uses explicit
+direct dependency edges to the specific leaf interfaces each consumer needs.
+
+An owning umbrella, a shared-capability attachment, and a dependency edge are
+therefore distinct relationships.
 
 For example:
 
