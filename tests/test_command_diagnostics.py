@@ -45,14 +45,16 @@ class CommandDiagnosticTests(unittest.TestCase):
   def test_state_invalid_path_underlines_first_invalid_token(self):
     def provider(context):
       if context.legal_only:
-        return [{"regression": "Run regression"}]
-      return [
-        {"regression": "Run regression"},
-        {"integration": {
-          "succeeded": "Report success",
-          "failed": "Report failure",
-        }},
-      ]
+        return {"completions": [{"regression": "Run regression"}]}
+      return {
+        "completions": [
+          {"regression": "Run regression"},
+          {"integration": {
+            "succeeded": "Report success",
+            "failed": "Report failure",
+          }},
+        ],
+      }
 
     commands = {"validate": {"_values": provider}}
     failure = analyse_failure(
@@ -80,11 +82,13 @@ class CommandDiagnosticTests(unittest.TestCase):
   def test_state_completion_miss_underlines_literal_partial_token(self):
     def provider(context):
       if context.legal_only:
-        return [{"failed": "Report failure"}]
-      return [
-        {"succeeded": "Report success"},
-        {"failed": "Report failure"},
-      ]
+        return {"completions": [{"failed": "Report failure"}]}
+      return {
+        "completions": [
+          {"succeeded": "Report success"},
+          {"failed": "Report failure"},
+        ],
+      }
 
     commands = {"validate": {"integration": {"_values": provider}}}
     failure = analyse_failure(
@@ -114,7 +118,7 @@ class CommandDiagnosticTests(unittest.TestCase):
       "validate": {
         "regression": {
           "--group": {
-            "_values": ["alpha", "beta"],
+            "_values": lambda context: {"completions": ["alpha", "beta"]},
           },
         },
       },
@@ -143,7 +147,7 @@ class CommandDiagnosticTests(unittest.TestCase):
       "validate": {
         "regression": {
           "--group": {
-            "_values": lambda context: ["alpha", "beta"],
+            "_values": lambda context: {"completions": ["alpha", "beta"]},
           },
         },
       },
@@ -163,14 +167,16 @@ class CommandDiagnosticTests(unittest.TestCase):
   def test_descendants_do_not_duplicate_first_state_failure(self):
     def provider(context):
       if context.legal_only:
-        return [{"regression": "Run regression"}]
-      return [{
-        "integration": {
-          "succeeded": "Report success",
-          "stopped": "Report stopped",
-          "skipped": "Report skipped",
-        },
-      }]
+        return {"completions": [{"regression": "Run regression"}]}
+      return {
+        "completions": [{
+          "integration": {
+            "succeeded": "Report success",
+            "stopped": "Report stopped",
+            "skipped": "Report skipped",
+          },
+        }],
+      }
 
     commands = {"validate": {"_values": provider}}
     failure = analyse_failure(
@@ -189,11 +195,13 @@ class CommandDiagnosticTests(unittest.TestCase):
   def test_manual_and_completion_share_first_state_mismatch(self):
     def provider(context):
       if context.legal_only:
-        return [{"regression": "Run regression"}]
-      return [
-        {"regression": "Run regression"},
-        {"integration": {"succeeded": "Report success"}},
-      ]
+        return {"completions": [{"regression": "Run regression"}]}
+      return {
+        "completions": [
+          {"regression": "Run regression"},
+          {"integration": {"succeeded": "Report success"}},
+        ],
+      }
 
     commands = {"validate": {"_values": provider}}
     manual = analyse_failure(
@@ -219,7 +227,15 @@ class CommandDiagnosticTests(unittest.TestCase):
     self.assertEqual(manual.index, completion.index)
 
   def test_state_display_is_human_readable(self):
-    commands = {"validate": {"_values": lambda context: [] if context.legal_only else [{"regression": "Run"}]}}
+    commands = {
+      "validate": {
+        "_values": lambda context: {
+          "completions": (
+            [] if context.legal_only else [{"regression": "Run"}]
+          ),
+        },
+      },
+    }
     failure = analyse_failure(
       commands,
       ["validate", "regression"],
