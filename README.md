@@ -205,6 +205,8 @@ methodology.
   shared capability umbrellas, and executable dependency graphs.
 - [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
   graph-testing, refinement procedure, and leaf/umbrella acceptance checks.
+- [WORKSPACE_MODEL.md](WORKSPACE_MODEL.md) defines repository-local workspace
+  identity, lifecycle, claims, resume semantics, and cleanup invariants.
 - [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md) defines the intended human-facing
   `rwf` lifecycle, adapters, initialization, TDD, validation, and completion.
 - [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md) defines the recursive public command
