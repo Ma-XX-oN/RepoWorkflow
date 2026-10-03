@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
 
-from .command_grammar import Context, next_entries
+from .command_grammar import Context, TERMINAL, next_entries
 
 
 class FailureKind(str, Enum):
@@ -122,6 +122,22 @@ def analyse_failure(
       return None
 
   if not completion:
+    if isinstance(general_node, dict) and TERMINAL not in general_node:
+      return CommandFailure(
+        FailureKind.UNRECOGNISED,
+        tokens,
+        max(0, len(tokens) - 1),
+        state_name,
+        transitions,
+      )
+    if isinstance(legal_node, dict) and TERMINAL not in legal_node:
+      return CommandFailure(
+        FailureKind.STATE_INVALID,
+        tokens,
+        max(0, len(tokens) - 1),
+        state_name,
+        transitions,
+      )
     return None
 
   partial = tokens[-1]
