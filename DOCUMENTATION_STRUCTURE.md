@@ -32,8 +32,13 @@ In particular, do not remove or abbreviate solely for line count:
 - cross-component responsibility boundaries;
 - verification or acceptance requirements.
 
-Concise wording is preferred when it preserves the complete meaning.  Concision
-must not create ambiguity or silently discard constraints.
+Concise wording is preferred when it preserves the complete meaning and makes
+the material equally clear or clearer.  Rewriting several verbose paragraphs
+into a shorter, more direct explanation is desirable when no semantic
+information is lost.
+
+Concision becomes a problem only when it creates ambiguity, removes necessary
+context, or silently discards constraints.
 
 ## 3. Split by responsibility
 
@@ -108,9 +113,10 @@ understand either new one.
 
 Do not optimize a document toward 499 or 500 lines.
 
-If a document is approaching the practical ceiling and another coherent
-responsibility can be extracted, perform the split even if small wording edits
-could technically keep the file under the threshold.
+If a document is approaching the practical ceiling, first remove avoidable
+verbosity where the result is equally clear or clearer.  If the document still
+mixes responsibilities or remains too large, extract a coherent responsibility
+into its own focused document.
 
 Likewise, do not split a focused document merely because it is moderately long
 if there is no sound responsibility boundary.  The structural boundary is the
@@ -140,9 +146,10 @@ Before accepting a size-driven split, verify:
 - Did the split reduce mixed responsibilities rather than merely page length?
 - Could a reader understand either document without knowing the pre-split
   layout?
-- Was anything shortened only to make the line counter pass?
+- Was anything shortened in a way that made the meaning less clear or less
+  complete?
 
-If the last answer is yes, restore the information and find a better structural
+If the last answer is yes, restore the lost context or find a better structural
 split.
 
 ## 9. Principle
