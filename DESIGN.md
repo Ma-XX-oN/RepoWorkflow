@@ -269,8 +269,23 @@ shared capability umbrella.  Consumer umbrellas attach to that capability
 umbrella while executable ordering remains expressed by direct dependencies on
 the specific leaf interfaces consumed.
 
-Owning umbrella membership, shared-capability attachment, and dependency are
-separate graph relations.
+The issue model distinguishes four graph relations:
+
+1. child ownership;
+2. shared-capability umbrella attachment;
+3. direct leaf dependency;
+4. direct umbrella dependency.
+
+A direct umbrella dependency exists only when the consumer outcome cannot be
+complete until the entire prerequisite umbrella outcome is complete.  It is a
+high-level roadmap relation and does not replace executable leaf dependencies.
+Do not promote a cross-umbrella leaf edge into an umbrella dependency unless
+the whole prerequisite outcome is actually required.
+
+Keep the umbrella-dependency graph transitively reduced: if A depends on B and
+B depends on C, do not also record A -> C merely because the transitive
+relationship exists.  Leaf dependencies remain authoritative for executable
+readiness and may be more precise than the umbrella roadmap.
 
 This graph is also the scheduling graph:
 
