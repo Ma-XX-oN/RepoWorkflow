@@ -212,21 +212,51 @@ without discarding durable evidence/history.
 
 ## 6. Umbrellas, dependencies, and multiple agents
 
-An umbrella issue is an explicitly stated, usually faux,
-dependency/grouping relationship.  It is not a shared execution stack.
+An umbrella issue groups work that contributes to one larger problem or goal.
+It is not itself a dependency edge and it is not a shared execution stack.
 
-Several agents may concurrently work on different sibling issues beneath one
-umbrella.
+Sibling issues beneath one umbrella may have no ordering relationship at all.
+Several agents may therefore work on those siblings concurrently.
 
-The durable model must distinguish:
+RepoWorkflow models only explicit **direct issue dependencies** for ordering.
+If issue #102 cannot proceed until #101 produces a required result, #102
+directly depends on #101.  If #101 and #102 are merely related because both
+contribute to umbrella #100, neither depends on the other.
+
+An apparent indirect dependency is a decomposition signal rather than a
+workflow relationship to preserve.  Work should be broken down until every
+real ordering constraint can be represented by direct dependency edges.  A
+common prerequisite should normally become its own issue with direct edges
+from the issues that require it.
+
+For example:
+
+```text
+#104  Define parser API
+├── #101 Tokenizer     depends on #104
+├── #102 Diagnostics   depends on #104
+└── #103 Benchmarks    depends on #104
+```
+
+Before #104 completes, #101/#102/#103 are blocked.  After #104 completes,
+those three issues are independently ready and may run in parallel.  If #105
+depends on both #101 and #102, it remains blocked until both direct
+dependencies complete.
+
+The durable model must therefore distinguish:
 
 - umbrella/grouping relationship;
-- actual issue dependencies, which may vary in strength;
+- explicit direct issue-dependency edges;
 - branch/dependency base;
 - integration target;
 - clone/agent-local current work context.
 
-A branch based on another issue does not imply umbrella parenthood.
+A branch based on another issue does not imply an issue dependency, and neither
+branch ancestry nor umbrella membership may be used to infer dependency edges.
+
+This direct dependency graph provides scheduling information as well as safety:
+RWF can determine which issues are ready now, which are blocked, and which
+ready issues can be worked in parallel.
 
 One shared mutable active-issue stack is therefore not authoritative workflow
 state.  A local navigation/context stack may exist, but it cannot serialize or
@@ -397,7 +427,7 @@ synopsis:
 
 - exact durable/shared versus clone-local `.repoworkflow/` schema (#57);
 - multi-agent active-work representation (#57);
-- dependency strength and relationship representation (#57);
+- direct dependency and umbrella/grouping representation (#57);
 - authorization representation/lifetime (#56/#57);
 - exact `done patch|minor|major` integration transitions (#56);
 - test-evidence fingerprint/invalidation rules (#16);
