@@ -1,5 +1,8 @@
+import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -8,6 +11,9 @@ from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.workspace_readiness import readiness_json, workspace_readiness
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def graph():
@@ -100,6 +106,27 @@ class WorkspaceReadinessTests(unittest.TestCase):
       [item["issue"] for item in value["issues"]],
       [1, 2, 3, 4, 5, 6],
     )
+
+  def test_workspace_ready_cli_returns_machine_readable_projection(self):
+    completed = subprocess.run(
+      [
+        sys.executable,
+        str(ROOT / "repo_workflow.py"),
+        "--root",
+        str(self.repo),
+        "workspace",
+        "ready",
+      ],
+      capture_output=True,
+      text=True,
+      env=dict(os.environ),
+    )
+
+    self.assertEqual(completed.returncode, 0, completed.stderr)
+    value = json.loads(completed.stdout)
+    self.assertEqual(value["ready"], [1, 3, 4, 5])
+    self.assertEqual(value["issues"][1]["status"], "blocked")
+    self.assertEqual(value["issues"][1]["blockers"], [1])
 
   def test_missing_relationship_graph_fails_closed(self):
     other = Path(self.temp.name) / "other"
