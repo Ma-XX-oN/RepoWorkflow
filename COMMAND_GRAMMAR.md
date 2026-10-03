@@ -187,8 +187,10 @@ callable `_values` providers whose resolved result is `list[str]`, such as
 test-group catalogues.  No state-transition explanation is rendered for those
 value-only positions.
 
-State-related diagnostics render one human-readable state line followed by the
-currently legal transitions exactly once:
+Workflow-command diagnostics for either an unrecognised command or a
+state-derived mismatch render one human-readable state line followed by the
+currently legal transitions exactly once.  Bare value-list misses are the
+exception because they are not workflow transitions:
 
 ```text
 Legal transitions:
