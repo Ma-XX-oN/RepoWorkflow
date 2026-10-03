@@ -44,6 +44,23 @@ class WorkflowPlan:
     }
 
 
+
+def state_name(facts: WorkflowFacts) -> str:
+  if not facts.branch_valid or not facts.version_valid:
+    return "workflow state invalid"
+  if facts.prelim_present and facts.prelim_base_current is not True:
+    return "preliminary integration stale"
+  if facts.regression in {"missing", "FAIL", "INCOMPLETE"}:
+    return "regression required"
+  if facts.integration_result is None:
+    return "integration result pending"
+  if facts.integration_result == "failed":
+    return "regression required"
+  if not facts.integration_authorized:
+    return "integration accepted; authorization pending"
+  return "integration authorized"
+
+
 def derive_plan(facts: WorkflowFacts) -> WorkflowPlan:
   transitions: list[str] = []
   blocks: list[str] = []
@@ -203,10 +220,12 @@ def discover_facts(root: Path) -> WorkflowFacts:
   )
 
 
-def render_human(plan: WorkflowPlan) -> str:
+def render_human(plan: WorkflowPlan, state: str | None = None) -> str:
   lines = ["Legal transitions:"]
+  if state is not None:
+    lines.append(f"  {state}")
   if plan.transitions:
-    lines.extend(f"  {transition}" for transition in plan.transitions)
+    lines.extend(f"  → {transition}" for transition in plan.transitions)
   else:
     lines.append("  (none)")
   lines.append("Blocked:")
