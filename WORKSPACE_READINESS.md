@@ -96,11 +96,23 @@ A terminal issue is not returned as ready for new work.
 Its terminal state can satisfy dependency edges from other issues according to
 the canonical durable workflow-state contract.
 
-Readiness therefore distinguishes:
+Readiness therefore distinguishes durable lifecycle before dependency
+eligibility:
 
-- ready: open and all direct dependencies resolved;
-- blocked: open with unresolved direct dependencies;
-- terminal: not eligible for new work.
+- ready: lifecycle is `unstarted` or `aborted`, and all direct dependencies
+  are resolved;
+- blocked: lifecycle is `unstarted` or `aborted`, with one or more unresolved
+  direct dependencies;
+- active: lifecycle is `active`; work is already in progress and is not a new
+  allocation candidate;
+- accepted: lifecycle is `accepted`; task acceptance is complete but durable
+  completion/integration has not occurred, so it is not a new allocation
+  candidate;
+- terminal: lifecycle is `completed`; it is not eligible for new work and its
+  dependency edge is satisfied.
+
+`aborted` is eligible for re-entry when its direct dependencies are resolved.
+The durable lifecycle state does not recreate or imply a local worker claim.
 
 ## 9. Determinism and diagnostics
 
@@ -110,9 +122,18 @@ returns identical classifications and blocker identities.
 A non-ready result must be actionable:
 
 - blocked results identify unresolved direct dependency issue numbers;
+- active results identify that durable work is already in progress;
+- accepted results identify that the issue awaits durable completion rather
+  than new work;
 - terminal results identify the terminal state;
 - unavailable canonical state is an explicit error, not an assumed ready
   result.
+
+Lifecycle classification precedes dependency classification.  An `active`,
+`accepted`, or `completed` issue is not reported as dependency-blocked merely
+because its graph still contains an unresolved edge.  Such a contradiction is a
+workflow-state diagnostic for the owning transition rather than an invitation
+to allocate the issue again.
 
 The projection fails closed when required authoritative state cannot be read.
 
@@ -128,8 +149,12 @@ Implementation must prove at least:
 6. branch base and Git ancestry create no blocker;
 7. transitive dependencies are not rewritten as direct edges;
 8. blocker output contains the exact unresolved direct dependencies;
-9. a terminal issue is not returned as ready;
-10. missing authoritative relationship/state input fails explicitly.
+9. `active` and `accepted` issues are not returned as ready;
+10. an `aborted` issue with resolved dependencies is eligible for re-entry;
+11. a `completed` issue is terminal, not ready, and satisfies dependency
+    edges;
+12. lifecycle classification is not replaced by clone-local claim state;
+13. missing authoritative relationship/state input fails explicitly.
 
 The implementation owned by #144 must preserve this contract rather than
 embedding provider-specific scheduling rules.
