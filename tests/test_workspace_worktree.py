@@ -140,6 +140,90 @@ class WorktreeBackendTests(unittest.TestCase):
         self.base / "RWF-89",
       )
 
+  def test_post_create_failure_rolls_back_worktree_and_branch(self):
+    path = self.base / "RWF-159"
+    branch = "issue-159-rollback"
+
+    class FailingValidationBackend(WorktreeBackend):
+      def _validate_created_worktree(
+        self,
+        path: Path,
+        base_sha: str,
+        branch_name: str,
+      ) -> tuple[str, str]:
+        raise RuntimeError("injected post-create failure")
+
+    backend = FailingValidationBackend(self.root)
+    with self.assertRaisesRegex(
+      RuntimeError,
+      "injected post-create failure",
+    ):
+      backend.provision(
+        "RWF-159",
+        self.main_branch,
+        self.base_sha,
+        branch,
+        path,
+      )
+
+    self.assertFalse(path.exists())
+    registered = run_git(self.root, "worktree", "list", "--porcelain")
+    self.assertNotIn(str(path.resolve()), registered)
+    branch_result = subprocess.run(
+      [
+        "git",
+        "show-ref",
+        "--verify",
+        "--quiet",
+        f"refs/heads/{branch}",
+      ],
+      cwd=self.root,
+      check=False,
+    )
+    self.assertNotEqual(branch_result.returncode, 0)
+
+  def test_post_create_failure_preserves_dirty_work(self):
+    path = self.base / "RWF-159"
+    branch = "issue-159-dirty-rollback"
+
+    class DirtyFailingValidationBackend(WorktreeBackend):
+      def _validate_created_worktree(
+        self,
+        path: Path,
+        base_sha: str,
+        branch_name: str,
+      ) -> tuple[str, str]:
+        (path / "user-work.txt").write_text(
+          "preserve me\n",
+          encoding="utf-8",
+        )
+        raise RuntimeError("injected dirty post-create failure")
+
+    backend = DirtyFailingValidationBackend(self.root)
+    with self.assertRaisesRegex(
+      RuntimeError,
+      "injected dirty post-create failure",
+    ):
+      backend.provision(
+        "RWF-159",
+        self.main_branch,
+        self.base_sha,
+        branch,
+        path,
+      )
+
+    self.assertTrue(path.is_dir())
+    self.assertEqual(
+      (path / "user-work.txt").read_text(encoding="utf-8"),
+      "preserve me\n",
+    )
+    registered = run_git(self.root, "worktree", "list", "--porcelain")
+    self.assertIn(str(path.resolve()), registered)
+    self.assertEqual(
+      run_git(self.root, "rev-parse", f"refs/heads/{branch}"),
+      self.base_sha,
+    )
+
   def test_retire_refuses_uncommitted_work(self):
     path = self.base / "RWF-89"
     self.backend.provision(
