@@ -134,7 +134,8 @@ use a recoverable transaction protocol whose durable state distinguishes:
 
 Partial publication must never be reported as successful workflow state.
 
-The recovery rules for interrupted transactions are defined by #100.
+The recovery rules for interrupted transactions are defined by
+[STATE_RECOVERY.md](STATE_RECOVERY.md).
 
 ## 9. Writer identity and auditability
 
@@ -204,5 +205,6 @@ The generic state store in #101 must prove at least:
 10. multi-record transitions either commit completely or remain explicitly
     recoverable.
 
-#100 defines reconstruction/recovery after stale or interrupted state.  #101
-implements the provider-neutral storage primitives that enforce this contract.
+[STATE_RECOVERY.md](STATE_RECOVERY.md) defines reconstruction/recovery after
+stale or interrupted state.  #101 implements the provider-neutral storage
+primitives that enforce both contracts.
