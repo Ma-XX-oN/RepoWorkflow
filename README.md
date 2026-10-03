@@ -207,6 +207,8 @@ methodology.
   graph-testing, refinement procedure, and leaf/umbrella acceptance checks.
 - [WORKSPACE_MODEL.md](WORKSPACE_MODEL.md) defines repository-local workspace
   identity, lifecycle, claims, resume semantics, and cleanup invariants.
+- [WORKTREE_BACKEND.md](WORKTREE_BACKEND.md) defines transactional local Git
+  worktree provisioning, retirement, recovery, and dirty-work safeguards.
 - [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md) defines the intended human-facing
   `rwf` lifecycle, adapters, initialization, TDD, validation, and completion.
 - [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md) defines the recursive public command
