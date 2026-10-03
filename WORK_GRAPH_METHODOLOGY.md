@@ -29,6 +29,11 @@ Good decomposition should make it possible to answer, mechanically:
 The graph should expose architecture problems before production code is
 written.
 
+Cross-repository managers can consume the same model.  WorkStack
+(https://github.com/Ma-XX-oN/WorkStack) is one such manager: it coordinates
+work spanning multiple repositories while this document remains the
+repository-neutral source for decomposition and work-graph semantics.
+
 ## 2. Decompose by contract boundary, not task size
 
 "Too large" is not the primary test for whether an issue should be split.
