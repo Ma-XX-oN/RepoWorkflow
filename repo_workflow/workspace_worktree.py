@@ -88,17 +88,11 @@ class WorktreeBackend:
         )
       created = True
 
-      head = _rev_parse(path, "HEAD")
-      branch = git(
+      head, branch = self._validate_created_worktree(
         path,
-        "rev-parse",
-        "--abbrev-ref",
-        "HEAD",
-      ).stdout.strip()
-      if head != base_sha or branch != branch_name:
-        raise WorktreeError(
-          "created worktree does not match planned branch/base"
-        )
+        base_sha,
+        branch_name,
+      )
       return WorktreeInfo(
         workspace_id=workspace_id,
         path=path,
@@ -181,6 +175,25 @@ class WorktreeBackend:
       raise WorktreeError(
         f"worktree remains registered after retirement: {path}"
       )
+
+  def _validate_created_worktree(
+    self,
+    path: Path,
+    base_sha: str,
+    branch_name: str,
+  ) -> tuple[str, str]:
+    head = _rev_parse(path, "HEAD")
+    branch = git(
+      path,
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ).stdout.strip()
+    if head != base_sha or branch != branch_name:
+      raise WorktreeError(
+        "created worktree does not match planned branch/base"
+      )
+    return head, branch
 
   def _registered_worktrees(self) -> tuple[_RegisteredWorktree, ...]:
     output = git(
