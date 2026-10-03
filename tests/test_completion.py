@@ -67,7 +67,7 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
         'COMP_WORDS=(rwf validate integration "")\n'
         "COMP_CWORD=3\n"
         "_repo_workflow_complete\n"
-        'printf "REPLY:%s\\n" "\${COMPREPLY[@]}"\n',
+        'printf "REPLY:%s\\n" "${COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertIn("<last-terminal>", completed.stdout)
@@ -88,7 +88,7 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
         'COMP_WORDS=(rwf validate integration s)\n'
         "COMP_CWORD=3\n"
         "_repo_workflow_complete\n"
-        'printf "COUNT:%s\\n" "\${#COMPREPLY[@]}"\n',
+        'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0)
       self.assertIn("COUNT:0", completed.stdout)
@@ -114,7 +114,7 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
         "COMP_CWORD=3\n"
         "_repo_workflow_complete\n"
         "_repo_workflow_complete\n"
-        'printf "COUNT:%s\\n" "\${#COMPREPLY[@]}"\n',
+        'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertIn("failed", completed.stdout)
@@ -135,7 +135,7 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
         'COMP_WORDS=(rwf validate integration f)\n'
         "COMP_CWORD=3\n"
         "_repo_workflow_complete >/dev/null\n"
-        'printf "REPLY:%s\\n" "\${COMPREPLY[@]}"\n',
+        'printf "REPLY:%s\\n" "${COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertEqual(completed.stdout.splitlines(), ["REPLY:failed"])
