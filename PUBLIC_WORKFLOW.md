@@ -261,7 +261,8 @@ dependencies complete.
 
 The durable model must therefore distinguish:
 
-- umbrella/grouping relationship;
+- owning umbrella/grouping relationship;
+- shared-capability umbrella attachment;
 - explicit direct issue-dependency edges;
 - branch/dependency base;
 - integration target;
