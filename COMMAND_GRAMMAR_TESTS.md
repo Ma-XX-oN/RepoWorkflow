@@ -159,12 +159,16 @@ Use fixtures with human-readable states and exact legal transitions:
 All diagnostics preserve the literal typed command after the executable name,
 use a non-zero status for manual execution errors, and perform no mutation.
 
-25. Unknown top-level command:
+25. Unknown top-level command while the state is `regression required`:
 
 ```text
 RepoWorkflow error: unrecognised command.
   foo
   ^^^
+
+Legal transitions:
+  regression required
+  → validate regression
 ```
 
 26. First state-invalid token, with input
