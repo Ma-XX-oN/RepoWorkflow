@@ -242,8 +242,22 @@ umbrellas attach to that shared capability umbrella rather than duplicating or
 multi-parenting its child issues.  Executable ordering still uses explicit
 direct dependency edges to the specific leaf interfaces each consumer needs.
 
-An owning umbrella, a shared-capability attachment, and a dependency edge are
-therefore distinct relationships.
+RepoWorkflow distinguishes four graph relationships:
+
+- **child ownership**: a leaf or sub-umbrella contributes to one owning
+  umbrella outcome;
+- **shared-capability attachment**: a consumer umbrella uses a reusable
+  subsystem owned by another umbrella; attachment alone creates no ordering;
+- **direct leaf dependency**: one executable task requires another exact task
+  interface or transition first;
+- **direct umbrella dependency**: one complete umbrella outcome cannot be
+  complete until another complete umbrella outcome is complete.
+
+A direct umbrella dependency is a high-level roadmap relation, not a
+replacement for leaf dependencies.  Record it only when the whole prerequisite
+umbrella is required, not merely because one child consumes one child from
+another umbrella.  The umbrella-dependency graph should omit edges already
+implied transitively by other umbrella dependencies.
 
 For example:
 
