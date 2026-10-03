@@ -176,12 +176,21 @@ After pin establishment, that launcher delegates unchanged arguments to:
 python RepoWorkflow/repo_workflow.py <command>
 ```
 
-Important commands include `preflight`, `verify`, `run`, `finalize`,
-`branch-policy`, `repository-policy`, and `materialize-artifacts`. `verify` is
-the full local authoritative path: it enforces repository and branch policy,
-prepares development bookkeeping, materializes/verifies declared committed
-artifacts, runs every locally addressable environment, aggregates results, and
-creates the terminal development result tag automatically.
+Important commands include `what-next`, `validate`, `version`, `preflight`,
+`verify`, `run`, `finalize`, `branch-policy`, `repository-policy`, and
+`materialize-artifacts`.  `repo-workflow` and `rwf` are equivalent aliases.
+`what-next` reports the legal transitions for the current workflow state;
+`validate regression` and `validate integration succeeded|failed` record the
+issue-#15 workflow transitions; and `version` forwards semantic version intent
+to the repository-owned adapter.  Bash completion is generated from the same
+recursive `COMMANDS` grammar and state projection rather than a separate shell
+command list.
+
+`verify` remains the full local authoritative validation path: it enforces
+repository and branch policy, prepares development bookkeeping,
+materializes/verifies declared committed artifacts, runs every locally
+addressable environment, aggregates results, and creates the terminal
+development result tag automatically.
 
 A repository's individual tests are not listed in RepoWorkflow configuration.
 Each environment exposes one repository-owned validation command, which may use
@@ -192,6 +201,10 @@ repository's authoritative result-recording workflow.
 ## Documentation
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
+- [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md) defines the recursive public command
+  grammar, state-aware completion, and shared diagnostic contract.
+- [COMMAND_GRAMMAR_TESTS.md](COMMAND_GRAMMAR_TESTS.md) freezes the Stage-2 TDD
+  matrix for state, CLI, and completion behaviour.
 - [CONFIGURATION.md](CONFIGURATION.md) defines the implemented configuration and
   script contracts.
 - [ADOPTION.md](ADOPTION.md) defines the consumer migration procedure.
