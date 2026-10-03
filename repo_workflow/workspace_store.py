@@ -130,7 +130,7 @@ class WorkspaceStore:
       source = current["status"]
       legal = {
         "available": {"claimed", "closed"},
-        "claimed": {"available", "blocked", "closed"},
+        "claimed": {"available", "claimed", "blocked", "closed"},
         "blocked": {"claimed", "closed"},
         "closed": set(),
       }
