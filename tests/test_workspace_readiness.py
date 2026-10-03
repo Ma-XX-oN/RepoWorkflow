@@ -11,6 +11,7 @@ from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.workspace_readiness import readiness_json, workspace_readiness
+from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,7 +46,7 @@ class WorkspaceReadinessTests(unittest.TestCase):
     self.temp = tempfile.TemporaryDirectory()
     self.repo = Path(self.temp.name) / "repo"
     self.repo.mkdir()
-    subprocess.run(["git", "init"], cwd=self.repo, check=True, capture_output=True)
+    self.fx = RepoFixture(self.repo)
     self.writer = WriterIdentity("agent-a", "session-1")
     RelationshipStore(self.repo).create(graph(), self.writer)
     self.lifecycle = LifecycleStore(self.repo)
