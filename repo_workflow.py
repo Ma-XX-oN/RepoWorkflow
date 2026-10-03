@@ -155,7 +155,7 @@ def _subcommand_names(parser: argparse.ArgumentParser) -> set[str]:
   return set()
 
 
-def _public_route(argv: list[str]) -> tuple[Path, list[str], bool] | None:
+def _public_route(argv: list[str]) -> tuple[str, Path, list[str], bool] | None:
   pre_parser = argparse.ArgumentParser(add_help=False)
   pre_parser.add_argument("--root", default=".")
   pre_args, words = pre_parser.parse_known_args(argv)
@@ -171,11 +171,11 @@ def _public_route(argv: list[str]) -> tuple[Path, list[str], bool] | None:
       completion_words = completion_words[1:]
     if completion_words and completion_words[0] == "--":
       completion_words = completion_words[1:]
-    return root, completion_words, describe
+    return "complete", root, completion_words, describe
 
   parser = build_parser()
   if is_public_command(words[0]) or words[0] not in _subcommand_names(parser):
-    return root, words, False
+    return "public", root, words, False
   return None
 
 
@@ -184,8 +184,8 @@ def main(argv: list[str] | None = None) -> int:
   try:
     routed = _public_route(argv)
     if routed is not None:
-      root, words, describe = routed
-      if argv and "complete" in argv:
+      mode, root, words, describe = routed
+      if mode == "complete":
         return handle_completion(root, words, describe=describe)
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
