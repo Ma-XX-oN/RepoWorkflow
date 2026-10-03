@@ -57,6 +57,60 @@ class WorkflowCliTests(unittest.TestCase):
       self.assertNotIn("integrate", value["transitions"])
       self.assertTrue(any("authorization absent" in block for block in value["blocks"]))
 
+  def test_help_matches_double_tab_projection_at_dynamic_prefix(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root)
+      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
+
+      help_result = self.run_cli(root, "validate", "integration", "--help")
+      detailed = self.run_cli(
+        root,
+        "complete",
+        "--describe",
+        "--",
+        "validate",
+        "integration",
+        "",
+      )
+      self.assertEqual(help_result.returncode, 0, help_result.stderr)
+      self.assertEqual(detailed.returncode, 0, detailed.stderr)
+      self.assertEqual(help_result.stdout, detailed.stdout)
+
+  def test_help_matches_double_tab_projection_at_executable_prefix(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+
+      help_result = self.run_cli(root, "what-next", "--help")
+      detailed = self.run_cli(
+        root,
+        "complete",
+        "--describe",
+        "--",
+        "what-next",
+        "",
+      )
+      self.assertEqual(help_result.returncode, 0, help_result.stderr)
+      self.assertEqual(detailed.returncode, 0, detailed.stderr)
+      self.assertEqual(help_result.stdout, detailed.stdout)
+      self.assertIn("<last-terminal>", help_result.stdout)
+      self.assertIn("--json", help_result.stdout)
+
+  def test_root_help_matches_root_double_tab_projection(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+
+      help_result = self.run_cli(root, "--help")
+      detailed = self.run_cli(root, "complete", "--describe", "--", "")
+      self.assertEqual(help_result.returncode, 0, help_result.stderr)
+      self.assertEqual(detailed.returncode, 0, detailed.stderr)
+      self.assertEqual(help_result.stdout, detailed.stdout)
+
   def test_version_query_and_json_use_repository_adapter(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
