@@ -18,6 +18,17 @@ class CommandGrammarError(ValueError):
 class Context:
   root: Path
   legal_only: bool = True
+  words: tuple[str, ...] = ()
+  index: int = 0
+
+  def at(self, words: Iterable[str], index: int) -> "Context":
+    return Context(self.root, self.legal_only, tuple(words), index)
+
+  @property
+  def current_token(self) -> str:
+    if 0 <= self.index < len(self.words):
+      return self.words[self.index]
+    return ""
 
 
 @dataclass(frozen=True)
@@ -147,7 +158,7 @@ def parse_tokens(commands: dict, context: Context, tokens: Iterable[str]) -> tup
 
   node = commands
   for index, token in enumerate(words):
-    entries, values = next_entries(node, context)
+    entries, values = next_entries(node, context.at(words, index))
     entry = entries.get(token)
     if entry is None:
       if token in values:
@@ -181,18 +192,23 @@ def completion_items(
   completed = tokens[:-1]
 
   node = commands
-  for token in completed:
+  for index, token in enumerate(completed):
     if token == LAST_TERMINAL:
       return []
-    entries, values = next_entries(node, context)
+    entries, values = next_entries(node, context.at(tokens, index))
     entry = entries.get(token)
     if entry is None or token in values or isinstance(entry, str):
       return []
     node = entry
 
-  entries, values = next_entries(node, context)
+  entries, values = next_entries(node, context.at(tokens, len(completed)))
   result: list[Completion] = []
-  if include_terminal and TERMINAL in node and LAST_TERMINAL.startswith(prefix):
+  if (
+    include_terminal
+    and TERMINAL in node
+    and (entries or values)
+    and LAST_TERMINAL.startswith(prefix)
+  ):
     result.append(Completion(LAST_TERMINAL, node[TERMINAL]))
 
   for token, entry in entries.items():
