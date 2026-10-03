@@ -64,6 +64,10 @@ Examples include:
 Each linked worktree therefore has its own worktree-local namespace while
 sharing clone-common coordination state.
 
+The semantic current-work/re-entry record is defined in
+[CURRENT_WORK_STATE.md](CURRENT_WORK_STATE.md).  Its persistent semantic
+store/reader is owned by #172.
+
 ## 2. Git path resolution
 
 Implementations must derive paths from Git rather than assuming that
