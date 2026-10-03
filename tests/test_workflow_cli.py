@@ -177,10 +177,7 @@ class WorkflowCliTests(unittest.TestCase):
       save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
       completed = self.run_cli(root, "complete", "validate", "integration", "")
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      self.assertEqual(
-        set(completed.stdout.splitlines()),
-        {"<last-terminal>", "failed", "succeeded"},
-      )
+      self.assertEqual(completed.stdout.splitlines(), ["failed", "succeeded"])
 
 
 if __name__ == "__main__":
