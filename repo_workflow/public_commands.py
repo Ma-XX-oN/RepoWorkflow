@@ -82,6 +82,7 @@ def _workspace_value() -> dict:
 
 def _workspace_commands() -> dict:
   return {
+    "ready": "Show canonical issue readiness and blockers",
     "list": "List local workspaces",
     "create": {"_values": _issue_number},
     "info": {

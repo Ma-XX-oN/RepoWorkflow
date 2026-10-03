@@ -7,6 +7,7 @@ from pathlib import Path
 from .git import git
 from .workspace_store import WorkspaceClaimError, WorkspaceStore
 from .workspace_worktree import WorktreeBackend, WorktreeError
+from .workspace_readiness import readiness_json
 
 
 class WorkspaceCommandError(RuntimeError):
@@ -74,6 +75,10 @@ def _print(value: dict) -> None:
 def handle_workspace(root: Path, words: list[str]) -> int:
   store = WorkspaceStore(root)
   action = words[1]
+
+  if action == "ready":
+    print(json.dumps(readiness_json(root), sort_keys=True, separators=(",", ":")))
+    return 0
 
   if action == "list":
     for workspace in store.list_workspaces():
