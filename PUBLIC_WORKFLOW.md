@@ -294,7 +294,10 @@ One shared mutable active-issue stack is therefore not authoritative workflow
 state.  A local navigation/context stack may exist, but it cannot serialize or
 overwrite other agents' work.
 
-Issue #57 owns the exact durable/local schema.
+Issue #57 owns the exact durable/local schema.  The repository-neutral method
+for decomposing issues, extracting shared capabilities, defining leaf
+contracts, and deriving executable scheduling is maintained in
+[WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
 ## 7. Optional TDD workflow
 
