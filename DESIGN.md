@@ -404,6 +404,12 @@ When implementation begins:
 7. remove old standalone/duplicate workflows only after equivalence has been
    established.
 
+Authoritative source and documentation files have a practical hard ceiling of
+about 500 lines.  A file approaching that ceiling must be split by
+responsibility before substantive new material is added.  The split must retain
+clear authoritative ownership and cross-references rather than creating
+duplicate contracts.
+
 No generated-artifact, branch-policy, integration-validation, or other existing
 check should be removed merely because RepoWorkflow has a nominal replacement;
 its responsibility must first be mapped and verified in the new path.
