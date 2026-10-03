@@ -75,6 +75,40 @@ class WorkspaceStoreTests(unittest.TestCase):
     current = self.store.read_claim("RWF-89")
     self.assertEqual(current, claimed)
 
+  def test_same_worker_can_roll_session_and_revision_forward(self):
+    self.store.create("RWF-89", issue=89, work_identity="version")
+    claimed = self.store.update_claim(
+      "RWF-89", 0, "claimed", "agent-a", "chat-1"
+    )
+    resumed = self.store.update_claim(
+      "RWF-89",
+      claimed["revision"],
+      "claimed",
+      "agent-a",
+      "chat-2",
+    )
+
+    self.assertEqual(resumed["revision"], 2)
+    self.assertEqual(resumed["worker_id"], "agent-a")
+    self.assertEqual(resumed["session_id"], "chat-2")
+
+  def test_other_worker_cannot_roll_claim_session(self):
+    self.store.create("RWF-89", issue=89, work_identity="version")
+    claimed = self.store.update_claim(
+      "RWF-89", 0, "claimed", "agent-a", "chat-1"
+    )
+
+    with self.assertRaisesRegex(WorkspaceClaimError, "owned by agent-a"):
+      self.store.update_claim(
+        "RWF-89",
+        claimed["revision"],
+        "claimed",
+        "agent-b",
+        "chat-2",
+      )
+
+    self.assertEqual(self.store.read_claim("RWF-89"), claimed)
+
   def test_non_owner_cannot_release_claimed_workspace(self):
     self.store.create("RWF-89", issue=89, work_identity="version")
     self.store.update_claim(
