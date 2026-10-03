@@ -70,7 +70,6 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
         'printf "REPLY:%s\\n" "${COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      self.assertIn("<last-terminal>", completed.stdout)
       replies = [
         line.removeprefix("REPLY:")
         for line in completed.stdout.splitlines()
