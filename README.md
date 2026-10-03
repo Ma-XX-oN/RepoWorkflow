@@ -207,6 +207,10 @@ methodology.
   relationship schema, reconstruction rules, and executable readiness edges.
 - [STATE_LAYOUT.md](STATE_LAYOUT.md) defines durable, clone-common, and
   worktree-local state ownership and path invariants.
+- [STATE_CONCURRENCY.md](STATE_CONCURRENCY.md) defines durable mutation CAS,
+  writer provenance, and concurrency invariants.
+- [RUNTIME_IDENTITY.md](RUNTIME_IDENTITY.md) defines the provider-neutral
+  writer/session invocation boundary for mutation-capable transitions.
 - [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
   graph-testing, refinement procedure, and leaf/umbrella acceptance checks.
 - [WORKSPACE_MODEL.md](WORKSPACE_MODEL.md) defines repository-local workspace
