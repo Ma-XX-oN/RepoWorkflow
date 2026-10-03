@@ -122,16 +122,16 @@ class WorkspaceIntegrationTests(unittest.TestCase):
     original = self.backend._registered_worktrees
     calls = 0
 
-    def corrupt_after_create():
+    def fail_postcondition():
       nonlocal calls
       calls += 1
       values = original()
-      if calls >= 3 and path.exists():
-        git(path, "checkout", "--detach")
+      if calls == 2:
+        raise WorktreeError("injected post-provision failure")
       return values
 
-    self.backend._registered_worktrees = corrupt_after_create
-    with self.assertRaises(WorktreeError):
+    self.backend._registered_worktrees = fail_postcondition
+    with self.assertRaisesRegex(WorktreeError, "injected post-provision failure"):
       self.backend.provision(
         "RWF-143",
         self.base_ref,
