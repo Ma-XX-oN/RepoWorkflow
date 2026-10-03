@@ -116,8 +116,9 @@ then owns candidate bookkeeping. The caller does not manually refresh
 `.ci/run-ci-request`, reorder bookkeeping commits, or opt into terminal tagging.
 Before validation, `verify` rebinds the request after ordinary source commits
 when necessary. If the current development iteration is already consumed
-remotely and `setVersionCommand` is configured, RepoWorkflow advances to the
-next iteration and records the new request in one bookkeeping commit.
+remotely, RepoWorkflow invokes the repository-owned semantic version adapter
+with `task --increment CI-iteration`, verifies that only `R` advanced by one,
+and records the resulting version/request change in one bookkeeping commit.
 
 A completed development result always creates a local terminal tag:
 
@@ -140,7 +141,7 @@ not normal workflow bookkeeping.
 
 `.ci/run-ci-request` remains the exact-candidate binding used by distributed
 execution and lower-level commands. Its development version must match the
-repository's own version command and ordinary source changes must not occur after
+repository's own semantic version adapter and ordinary source changes must not occur after
 the request boundary. `verify` owns creating or refreshing that boundary during
 normal local authoritative execution.
 
