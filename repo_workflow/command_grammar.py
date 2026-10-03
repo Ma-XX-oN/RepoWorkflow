@@ -17,12 +17,14 @@ class CommandGrammarError(ValueError):
 @dataclass(frozen=True)
 class Context:
   root: Path
+  legal_only: bool = True
 
 
 @dataclass(frozen=True)
 class Completion:
   token: str
   description: str | None
+  bare_value: bool = False
 
 
 CommandEntry: TypeAlias = str | dict
@@ -60,8 +62,6 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
     if token == VALUES:
       _validate_value_source(entry, f"{label}[{VALUES!r}]")
       continue
-    if not token:
-      raise CommandGrammarError(f"{label} contains an invalid empty token")
     if token.startswith("_"):
       raise CommandGrammarError(f"{label} contains unsupported special key {token!r}")
     if token == LAST_TERMINAL:
@@ -83,8 +83,7 @@ def _validate_dynamic_result(value: object, *, label: str) -> DynamicResult:
     result: list[DynamicCommand] = []
     for index, item in enumerate(value):
       validate_node(item, label=f"{label}[{index}]")
-      forbidden = set(item) & {TERMINAL, VALUES}
-      if forbidden:
+      if set(item) & {TERMINAL, VALUES}:
         raise CommandGrammarError(
           f"{label}[{index}] must contain described next-command tokens only"
         )
@@ -95,7 +94,10 @@ def _validate_dynamic_result(value: object, *, label: str) -> DynamicResult:
   )
 
 
-def _dynamic_entries(node: dict, context: Context) -> tuple[dict[str, CommandEntry], set[str]]:
+def _resolved_values(
+  node: dict,
+  context: Context,
+) -> tuple[dict[str, CommandEntry], set[str]]:
   source = node.get(VALUES)
   if source is None:
     return {}, set()
@@ -105,6 +107,7 @@ def _dynamic_entries(node: dict, context: Context) -> tuple[dict[str, CommandEnt
     return {}, set()
   if all(isinstance(item, str) for item in value):
     return {}, set(value)
+
   entries: dict[str, CommandEntry] = {}
   for fragment in value:
     assert isinstance(fragment, dict)
@@ -115,7 +118,7 @@ def _dynamic_entries(node: dict, context: Context) -> tuple[dict[str, CommandEnt
   return entries, set()
 
 
-def _next_entries(
+def next_entries(
   node: dict,
   context: Context,
 ) -> tuple[dict[str, CommandEntry], set[str]]:
@@ -124,7 +127,7 @@ def _next_entries(
     for token, entry in node.items()
     if token not in {TERMINAL, VALUES}
   }
-  dynamic_entries, dynamic_values = _dynamic_entries(node, context)
+  dynamic_entries, dynamic_values = _resolved_values(node, context)
   overlap = set(entries) & set(dynamic_entries)
   if overlap:
     raise CommandGrammarError(
@@ -144,7 +147,7 @@ def parse_tokens(commands: dict, context: Context, tokens: Iterable[str]) -> tup
 
   node = commands
   for index, token in enumerate(words):
-    entries, values = _next_entries(node, context)
+    entries, values = next_entries(node, context)
     entry = entries.get(token)
     if entry is None:
       if token in values:
@@ -152,7 +155,6 @@ def parse_tokens(commands: dict, context: Context, tokens: Iterable[str]) -> tup
           raise CommandGrammarError(f"{token!r} is a terminal value")
         return words
       raise CommandGrammarError(f"invalid command token: {token}")
-
     if isinstance(entry, str):
       if index != len(words) - 1:
         raise CommandGrammarError(f"{token!r} is a terminal command")
@@ -182,29 +184,24 @@ def completion_items(
   for token in completed:
     if token == LAST_TERMINAL:
       return []
-    entries, values = _next_entries(node, context)
+    entries, values = next_entries(node, context)
     entry = entries.get(token)
-    if entry is None:
-      if token in values:
-        return []
-      return []
-    if isinstance(entry, str):
+    if entry is None or token in values or isinstance(entry, str):
       return []
     node = entry
 
-  entries, values = _next_entries(node, context)
+  entries, values = next_entries(node, context)
   result: list[Completion] = []
   if include_terminal and TERMINAL in node and LAST_TERMINAL.startswith(prefix):
     result.append(Completion(LAST_TERMINAL, node[TERMINAL]))
 
   for token, entry in entries.items():
-    if not token.startswith(prefix):
-      continue
-    description = entry if isinstance(entry, str) else entry.get(TERMINAL)
-    result.append(Completion(token, description))
+    if token.startswith(prefix):
+      description = entry if isinstance(entry, str) else entry.get(TERMINAL)
+      result.append(Completion(token, description))
   for token in values:
     if token.startswith(prefix):
-      result.append(Completion(token, None))
+      result.append(Completion(token, None, True))
   return sorted(result, key=lambda item: item.token)
 
 
@@ -212,7 +209,7 @@ def help_lines(commands: dict, context: Context, tokens: Iterable[str] = ()) -> 
   validate_node(commands)
   node = commands
   for token in tokens:
-    entries, values = _next_entries(node, context)
+    entries, values = next_entries(node, context)
     if token in values:
       return []
     entry = entries.get(token)
@@ -222,12 +219,12 @@ def help_lines(commands: dict, context: Context, tokens: Iterable[str] = ()) -> 
       return [f"{token}  {entry}"]
     node = entry
 
-  entries, values = _next_entries(node, context)
+  entries, values = next_entries(node, context)
   items = [
     Completion(token, entry if isinstance(entry, str) else entry.get(TERMINAL))
     for token, entry in entries.items()
   ]
-  items.extend(Completion(token, None) for token in values)
+  items.extend(Completion(token, None, True) for token in values)
   return [
     item.token if item.description is None else f"{item.token}  {item.description}"
     for item in sorted(items, key=lambda item: item.token)
