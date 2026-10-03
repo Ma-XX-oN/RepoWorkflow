@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
-from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
+from .state_store import (\n  JsonRecordStore,\n  StateStoreError,\n  WriterIdentity,\n  _acquire_lock,\n  _release_lock,\n)
 
 
 TRANSACTION_SCHEMA_VERSION = 1
@@ -80,10 +80,15 @@ class SemanticTransactionCoordinator:
       "read_set": [_reference_value(item) for item in reads],
       "write_set": [_write_value(item) for item in writes],
     }
+    lock = self.store.root / ".transaction-coordinator.lock"
+    _acquire_lock(lock)
     try:
+      self._ensure_no_prepared_conflict(transaction_id, reads, writes)
       return self.store.create(key, value, writer)
     except StateStoreError as error:
       raise TransactionError(str(error)) from error
+    finally:
+      _release_lock(lock)
 
   def read(self, transaction_id: str) -> dict:
     try:
@@ -163,6 +168,33 @@ class SemanticTransactionCoordinator:
       return self._abort_record(record, writer, "stale authoritative read set")
     return record
 
+  def _ensure_no_prepared_conflict(
+    self,
+    transaction_id: str,
+    reads: tuple[StateReference, ...],
+    writes: tuple[StateWrite, ...],
+  ) -> None:
+    for path in (self.store.root / TRANSACTION_KEY_PREFIX).glob("*.json"):
+      key = path.relative_to(self.store.root).with_suffix("").as_posix()
+      try:
+        record = self.store.read(key)
+      except StateStoreError as error:
+        raise TransactionError(str(error)) from error
+      value = record["value"]
+      existing_id = value.get("transaction_id")
+      if existing_id == transaction_id:
+        continue
+      _validate_transaction(value, existing_id)
+      if value["status"] != "prepared":
+        continue
+      existing_reads = _references(value["read_set"])
+      existing_writes = _writes(value["write_set"])
+      if _sets_conflict(reads, writes, existing_reads, existing_writes):
+        raise TransactionError(
+          "conflicting prepared transaction requires recovery first: "
+          f"{existing_id}"
+        )
+
   def _abort_record(
     self,
     record: dict,
@@ -186,9 +218,34 @@ class SemanticTransactionCoordinator:
 def _transaction_key(transaction_id: str) -> str:
   if not isinstance(transaction_id, str) or not transaction_id:
     raise TransactionError("transaction id must be non-empty text")
-  if any(character.isspace() for character in transaction_id):
-    raise TransactionError("transaction id must not contain whitespace")
+  allowed = set("abcdefghijklmnopqrstuvwxyz0123456789._-")
+  if transaction_id[0] not in set("abcdefghijklmnopqrstuvwxyz0123456789"):
+    raise TransactionError("transaction id must start with lowercase alphanumeric")
+  if any(character not in allowed for character in transaction_id):
+    raise TransactionError(
+      "transaction id must use lowercase alphanumeric, dot, underscore, or hyphen"
+    )
   return f"{TRANSACTION_KEY_PREFIX}/{transaction_id}"
+
+
+def _sets_conflict(
+  reads: tuple[StateReference, ...],
+  writes: tuple[StateWrite, ...],
+  existing_reads: tuple[StateReference, ...],
+  existing_writes: tuple[StateWrite, ...],
+) -> bool:
+  read_members = {(item.domain, item.key) for item in reads}
+  write_members = {(item.domain, item.key) for item in writes}
+  existing_read_members = {
+    (item.domain, item.key) for item in existing_reads
+  }
+  existing_write_members = {
+    (item.domain, item.key) for item in existing_writes
+  }
+  return bool(
+    write_members & (existing_read_members | existing_write_members)
+    or existing_write_members & read_members
+  )
 
 
 def _unique_members(items, kind: str) -> None:
