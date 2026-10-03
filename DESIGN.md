@@ -689,6 +689,51 @@ line/cursor context to the RWF completion engine and receives the candidates
 derived from the command grammar and current workflow state.  It must not
 duplicate RWF command or state policy.
 
+Parsing and completion use one shared command-path diagnostic model.  The
+diagnostic always preserves the literal command tokens the caller typed; it
+never invents a hypothetical completion merely to explain an error.  It finds
+the first token at which the typed path stops matching either the general
+grammar or the currently legal dynamic projection and underlines exactly that
+token in the rendered command.
+
+The failure classes are:
+
+- a token that does not exist in the general command grammar is an
+  `unrecognised command`;
+- a token sequence that exists in the general grammar but is not legal in the
+  current workflow state is a
+  `transition is not legal in the current state` error;
+- a partial token at a legal state-dependent dynamic command position for which
+  no legal candidate matches is a
+  `no completions available from the current state` error;
+- a partial token at a bare `list[str]` value position for which no value
+  matches is a generic `no completions available for` error.
+
+The last case is deliberately different because bare values are not workflow
+transitions.  This includes both literal `list[str]` declarations and
+callable `_values` providers whose resolved result is `list[str]`, such as
+test-group catalogues.  No state-transition explanation is rendered for those
+value-only positions.
+
+State-related diagnostics render one human-readable state line followed by the
+currently legal transitions exactly once:
+
+```text
+Legal transitions:
+  integration result pending
+  → validate integration failed
+```
+
+State names are display text such as `integration result pending`, not
+hyphenated internal identifiers.  If several possible downstream commands
+share the same first illegal token, the diagnostic reports that first failure
+once rather than emitting one error for every descendant.
+
+Manual command execution and shell completion must use this same analyser and
+produce equivalent diagnostics for the same typed path.  An illegal manually
+typed command must fail before mutation; completion must likewise never execute
+a workflow mutation while diagnosing or enumerating candidates.
+
 The intended Bash interaction is:
 
 - one Tab performs normal completion and displays/inserts candidate names;
