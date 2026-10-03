@@ -8,7 +8,7 @@ def _plan(context: Context):
   return derive_plan(discover_facts(context.root))
 
 
-def _integration_results(context: Context) -> list[dict]:
+def _integration_results(context: Context) -> dict:
   descriptions = {
     "succeeded": "Report integration tests succeeded",
     "failed": "Report integration tests failed",
@@ -22,7 +22,9 @@ def _integration_results(context: Context) -> list[dict]:
       for name in ("failed", "succeeded")
       if f"validate integration {name}" in allowed
     )
-  return [{name: descriptions[name]} for name in names]
+  return {
+    "completions": [{name: descriptions[name]} for name in names],
+  }
 
 
 def _integration_node() -> dict:
@@ -37,12 +39,14 @@ def _regression_node() -> dict:
   }
 
 
-def _validate_commands(context: Context) -> list[dict]:
+def _validate_commands(context: Context) -> dict:
   if not context.legal_only:
-    return [
-      {"regression": _regression_node()},
-      {"integration": _integration_node()},
-    ]
+    return {
+      "completions": [
+        {"regression": _regression_node()},
+        {"integration": _integration_node()},
+      ],
+    }
 
   transitions = _plan(context).transitions
   fragments: list[dict] = []
@@ -50,14 +54,14 @@ def _validate_commands(context: Context) -> list[dict]:
     fragments.append({"regression": _regression_node()})
   if any(item.startswith("validate integration ") for item in transitions):
     fragments.append({"integration": _integration_node()})
-  return fragments
+  return {"completions": fragments}
 
 
-def _issue_number(context: Context) -> list[str]:
+def _issue_number(context: Context) -> dict:
   token = context.current_token
   if token and token.isdecimal():
-    return [token]
-  return []
+    return {"completions": [token]}
+  return {"completions": []}
 
 
 COMMANDS = {
