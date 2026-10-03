@@ -12,8 +12,10 @@ behaviour before duplicate machinery is removed.
    that canonical URL so a consumer cannot silently substitute another engine.
 4. Add `.ci/repoworkflow.json`, `.ci/github.json`, and
    `.ci/branch-policy.json`.
-5. Provide one repository-owned version command and, when automatic iteration
-   advancement is required, a repository-owned version setter.
+5. Provide one repository-owned `repo-version` adapter. Its no-argument query
+   reports the canonical version without modifying repository state. Its
+   semantic task/integration/release operations own all consumer-specific
+   version edits; do not expose a generic literal-version setter to RepoWorkflow.
 6. Provide one authoritative validation command per genuinely distinct required
    environment/capability set.
 7. Move test-level serial/parallel fan-out behind those repository validation
@@ -34,7 +36,8 @@ behaviour before duplicate machinery is removed.
     filename in `.ci/github.json` `migrationWorkflows`. Undeclared additional
     workflows remain policy violations. Remove every migration entry and its
     legacy workflow immediately after equivalence is established.
-12. Establish `.ci/run-ci-request` using the exact development version.
+12. Establish `.ci/run-ci-request` using the exact development version. Task
+    versions use `X.Y.Z-issue.P.Q.R`; callers do not manually manage `Q` or `R`.
 13. Run the authoritative local path:
 
     ```text

@@ -11,7 +11,7 @@ class RepoFixture:
     self,
     root: Path,
     *,
-    version: str = "1.0.0-issue.1.1",
+    version: str = "1.0.0-issue.1.0.1",
     validation_body: str = "raise SystemExit(0)\n",
     platform: str = "any",
     capabilities: list[str] | None = None,
@@ -31,12 +31,28 @@ class RepoFixture:
     (root / "VERSION").write_text(version + "\n", encoding="utf-8")
     (root / "scripts" / "version.py").write_text(
       "from pathlib import Path\n"
+      "import re\n"
       "import sys\n"
       "path = Path(__file__).resolve().parents[1] / 'VERSION'\n"
-      "if len(sys.argv) == 1:\n"
-      "  print(path.read_text().strip())\n"
-      "elif len(sys.argv) == 3 and sys.argv[1] == '--set':\n"
-      "  path.write_text(sys.argv[2] + '\\n')\n"
+      "value = path.read_text().strip()\n"
+      "task = re.fullmatch(r'(\\d+\\.\\d+\\.\\d+)-issue\\.(\\d+)\\.(\\d+)\\.(\\d+)', value)\n"
+      "stable = re.fullmatch(r'(\\d+)\\.(\\d+)\\.(\\d+)', value)\n"
+      "args = sys.argv[1:]\n"
+      "if not args:\n"
+      "  print(value)\n"
+      "elif args == ['task', '--increment', 'CI-iteration'] and task:\n"
+      "  path.write_text(f'{task.group(1)}-issue.{task.group(2)}.{task.group(3)}.{int(task.group(4)) + 1}\\n')\n"
+      "elif args == ['task', '--increment', 'merge-integration-failed'] and task:\n"
+      "  path.write_text(f'{task.group(1)}-issue.{task.group(2)}.{int(task.group(3)) + 1}.1\\n')\n"
+      "elif len(args) == 3 and args[:2] == ['task', '--issue'] and stable:\n"
+      "  int(args[2])\n"
+      "  path.write_text(f'{value}-issue.{args[2]}.0.1\\n')\n"
+      "elif args == ['integrate', '--increment', 'patch'] and stable:\n"
+      "  path.write_text(f'{stable.group(1)}.{stable.group(2)}.{int(stable.group(3)) + 1}\\n')\n"
+      "elif args == ['integrate', '--increment', 'minor'] and stable:\n"
+      "  path.write_text(f'{stable.group(1)}.{int(stable.group(2)) + 1}.0\\n')\n"
+      "elif args == ['release-major'] and stable:\n"
+      "  path.write_text(f'{int(stable.group(1)) + 1}.0.0\\n')\n"
       "else:\n"
       "  raise SystemExit(2)\n",
       encoding="utf-8",
@@ -45,7 +61,6 @@ class RepoFixture:
     config = {
       "schema": 1,
       "versionCommand": [sys.executable, "scripts/version.py"],
-      "setVersionCommand": [sys.executable, "scripts/version.py", "--set"],
       "repository": {
         "integrationBranch": "main",
         "authoritativeRemote": "origin",

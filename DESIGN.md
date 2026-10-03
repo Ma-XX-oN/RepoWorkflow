@@ -83,12 +83,16 @@ JSON.
 
 The consumer owns how its own operations work, including:
 
-- reporting and internally validating its version;
+- reporting, internally validating, and semantically mutating its version state
+  through one repository-owned `repo-version` adapter;
 - authoritative validation for each required environment;
 - builds and packaging;
 - dependency/integration verification;
 - artifact generation and independent artifact verification;
 - project-specific prerequisite checks.
+
+RepoWorkflow owns when a version transition is legal.  The consumer adapter owns
+where version state lives and how version-bearing files are edited.
 
 ## 4. Universal CI request guard
 
@@ -100,8 +104,8 @@ of the following:
 
 1. `.ci/run-ci-request` exists.
 2. It contains a syntactically valid development version.
-3. The repository-owned version script succeeds.
-4. The version script reports exactly the requested version.
+3. The repository-owned version adapter succeeds.
+4. The version adapter reports exactly the requested version.
 5. The checkout being validated is the exact candidate commit associated with
    the run.
 6. The worktree/checkout satisfies the required cleanliness and repository
@@ -121,20 +125,59 @@ another explicit request, but it must pass the same universal guard.
 
 ## 5. Version contract
 
-RepoWorkflow must not know where a consumer stores its version.
+RepoWorkflow must not know where a consumer stores its version or construct a
+consumer's literal target version.
 
-Each consumer provides one authoritative version script.  That script may read
-one file or reconcile several version-bearing files.  Its contract is:
+Each consumer provides one repository-owned `repo-version` adapter.  With no
+arguments the adapter is a read-only query that may reconcile one or several
+version-bearing files.  Its query contract is:
 
 - success means the repository's version state is internally valid;
-- stdout reports exactly one canonical development version;
-- non-zero exit means version state cannot be accepted.
+- stdout reports exactly one canonical task or stable version;
+- non-zero exit means version state cannot be accepted;
+- the query does not modify the worktree, history, symbolic `HEAD`, or Git refs.
 
-This permits consumers to derive versions from package metadata, source
-headers, project files, plain VERSION files, or multiple synchronized sources
-without teaching RepoWorkflow those formats.
+Task versions use:
 
-RepoWorkflow compares only:
+```text
+X.Y.Z-issue-P.Q.R
+```
+
+where:
+
+- `P` is the issue number;
+- `Q` counts returns to development after failed merge/integration/acceptance;
+- `R` is the regression-validation iteration.
+
+RepoWorkflow invokes semantic adapter transitions rather than passing a complete
+literal version to a generic setter.  The adapter surface includes:
+
+```text
+repo-version
+repo-version task --issue <number>
+repo-version task --increment CI-iteration
+repo-version task --increment merge-integration-failed
+repo-version integrate --increment patch
+repo-version integrate --increment minor
+repo-version release-major
+```
+
+RepoWorkflow owns when these transitions occur and verifies their semantic
+result.  The adapter owns all consumer-specific storage and edit details.
+
+`task --increment CI-iteration` preserves the stable base, issue number, and
+integration-failure generation while advancing only `R` by one.
+`task --increment merge-integration-failed` advances `Q` by one and resets `R`
+to `1`.  Normal integration chooses only patch or minor intent; the adapter
+derives the literal stable candidate.  Major release is a separate explicit
+transition.
+
+Mutation operations may change repository-owned version-bearing files and
+version-dependent generated files, but they must not create commits, move
+`HEAD`, or mutate Git refs.  RepoWorkflow owns the surrounding workflow commit
+and validation bookkeeping.
+
+RepoWorkflow compares only authoritative semantic facts, including:
 
 ```text
 requested version == repository-reported canonical version
@@ -207,7 +250,7 @@ For a development version `X`:
 Terminal result tags are immutable.  Once either terminal tag exists for a
 version, that development iteration is consumed and cannot be rerun as a new
 candidate after source changes.  A subsequent source change requires the next
-issue iteration.
+regression-validation iteration.
 
 An infrastructure retry may re-evaluate the same unchanged candidate when no
 terminal result has been established.
@@ -284,7 +327,7 @@ hook.
 The exact schema remains subject to contract testing, but RepoWorkflow is
 expected to need repository-specific declarations for:
 
-- authoritative version script;
+- authoritative `repo-version` adapter entrypoint;
 - required environments/capabilities;
 - one validation script per environment;
 - branch topology and allowed dependencies;
@@ -300,7 +343,7 @@ Illustrative only:
 
 ```json
 {
-  "versionScript": "scripts/workflow-version",
+  "versionCommand": ["python", "scripts/repo-version.py"],
   "repository": {
     "integrationBranch": "main",
     "authoritativeRemote": "origin"
@@ -311,14 +354,14 @@ Illustrative only:
       "required": true,
       "platform": "windows",
       "capabilities": ["dotnet-10", "node-22", "desktop-ui"],
-      "validationScript": "scripts/validate-windows"
+      "validationCommand": ["python", "scripts/validate-windows.py"]
     }
   ],
   "artifacts": [
     {
       "id": "generated-output",
-      "generator": "scripts/generate-artifact",
-      "verifier": "scripts/verify-artifact",
+      "generatorCommand": ["python", "scripts/generate-artifact.py"],
+      "verifierCommand": ["python", "scripts/verify-artifact.py"],
       "outputs": ["path/to/generated.file"],
       "committed": true
     }

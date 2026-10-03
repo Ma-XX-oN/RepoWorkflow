@@ -10,8 +10,7 @@ Recommended development shape:
 ```json
 {
   "schema": 1,
-  "versionCommand": ["python", "scripts/workflow-version.py"],
-  "setVersionCommand": ["python", "scripts/workflow-version.py", "--set"],
+  "versionCommand": ["python", "scripts/repo-version.py"],
   "repository": {
     "integrationBranch": "main",
     "authoritativeRemote": "origin"
@@ -33,43 +32,65 @@ Unknown fields are rejected so configuration drift fails visibly.
 
 ### `versionCommand`
 
-The command is repository-owned. It must:
+`versionCommand` is the entrypoint for the repository-owned `repo-version`
+adapter. RepoWorkflow owns workflow transitions; the adapter owns all details of
+where the consumer stores its version and how version-bearing files are edited.
+
+With no arguments the adapter is a read-only query. It must:
 
 - exit zero only when the repository's version state is internally valid;
-- print exactly one canonical development version to stdout;
-- use the form `x.y.z-issue.<issue>.<iteration>`;
-- leave the candidate worktree and history unchanged.
+- print exactly one canonical version to stdout;
+- print task versions as `x.y.z-issue.<issue>.<generation>.<iteration>`;
+- print stable versions as `x.y.z`;
+- leave the worktree, commit history, symbolic `HEAD`, and local Git refs
+  unchanged.
 
-Lower-level distributed commands compare that value with `.ci/run-ci-request`.
-The normal local `verify` path prepares that request binding before validation.
-
-### `setVersionCommand`
-
-`setVersionCommand` is the repository-owned mutation counterpart to
-`versionCommand`. RepoWorkflow appends exactly one argument: the complete target
-development version.
-
-For example, this declaration:
-
-```json
-"setVersionCommand": ["python", "scripts/workflow-version.py", "--set"]
-```
-
-is invoked as:
+RepoWorkflow invokes mutation through semantic adapter operations rather than by
+supplying a literal target version. The adapter surface required by the guarded
+workflow is:
 
 ```text
-python scripts/workflow-version.py --set 1.2.3-issue.17.4
+repo-version
+repo-version task --issue <number>
+repo-version task --increment CI-iteration
+repo-version task --increment merge-integration-failed
+repo-version integrate --increment patch
+repo-version integrate --increment minor
+repo-version release-major
 ```
 
-The setter may modify the consumer's version-bearing worktree files, but it must
-not create commits, move `HEAD`, or mutate Git refs. RepoWorkflow re-runs
-`versionCommand` afterward and requires the exact requested version.
+The two task increment operations are workflow primitives, not normal user
+commands. RepoWorkflow owns when they occur:
 
-The setter is optional for repositories that never need RepoWorkflow to advance
-an already-consumed development iteration. It is required for the full
-one-command workflow: if the authoritative remote already contains either
-terminal tag for the current iteration, `verify` uses `setVersionCommand` to
-advance to the next iteration automatically.
+- a genuine regression FAIL owns `task --increment CI-iteration`;
+- a failed integration/acceptance result owns
+  `task --increment merge-integration-failed`.
+
+For task versions `x.y.z-issue.P.Q.R`:
+
+- `P` is the issue number;
+- `Q` counts returns to development after failed merge/integration/acceptance;
+- `R` is the regression-validation iteration.
+
+`task --increment CI-iteration` must preserve `x.y.z`, `P`, and `Q`, and advance
+`R` by exactly one. `task --increment merge-integration-failed` must preserve
+the stable base and issue number, advance `Q` by exactly one, and reset `R` to
+`1`.
+
+Integration callers choose only `patch` or `minor`; the adapter derives the
+literal target from the authoritative current parent. Major is available only
+through the separate `release-major` transition. RepoWorkflow must never learn
+consumer-specific version storage/edit details and must never pass a complete
+literal version to a generic setter.
+
+A mutation operation may change repository-owned version-bearing files and
+version-dependent generated files, but it must not create commits, move
+`HEAD`, or mutate Git refs. RepoWorkflow validates the resulting semantic
+transition before it commits workflow bookkeeping.
+
+Lower-level distributed commands compare the reported development version with
+`.ci/run-ci-request`. The normal local `verify` path prepares that request
+binding before validation.
 
 ### `repository`
 
@@ -80,7 +101,7 @@ A development candidate may not run on `integrationBranch`. RepoWorkflow rejects
 that state before authoritative development validation can begin. This prevents
 an issue-qualified development identity from being accepted and tagged after it
 has landed on the integration line. Stable publication is the separate path for
-the integration branch and requires the repository version command to report a
+the integration branch and requires the repository version adapter to report a
 plain stable `x.y.z` version.
 
 `authoritativeRemote` is the Git remote used for authoritative branch/tag facts.
@@ -155,9 +176,11 @@ continues.
 but does not require the caller to manually prepare RepoWorkflow bookkeeping.
 The command:
 
-1. reads the repository's development version;
+1. reads the repository's development version through the adapter;
 2. checks authoritative terminal-tag state;
-3. advances a consumed iteration through `setVersionCommand` when necessary;
+3. if the current task iteration is already consumed, invokes
+   `repo-version task --increment CI-iteration` and verifies exactly one
+   iteration advance;
 4. refreshes `.ci/run-ci-request` after ordinary source commits when necessary;
 5. commits only the bookkeeping/version changes it performed;
 6. validates that prepared candidate through the normal guard;
@@ -166,7 +189,8 @@ The command:
 
 INCOMPLETE produces no terminal tag. `--push` pushes generated bookkeeping or
 artifact commits and the terminal tag to `authoritativeRemote`. Candidate
-preparation is rolled back if the setter, bookkeeping commit, or guard fails.
+preparation is rolled back if the adapter transition, bookkeeping commit, or
+guard fails.
 
 ## `rwf config`
 

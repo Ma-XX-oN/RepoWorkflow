@@ -3,14 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
-import re
 
-from .git import current_branch, git, head_sha, repository_state
-from .process import run_command
+from .git import current_branch, git, head_sha
+from .version_adapter import (
+  DEVELOPMENT_VERSION_RE,
+  STABLE_VERSION_RE as ADAPTER_STABLE_VERSION_RE,
+  VersionAdapterError,
+  read_development_version,
+  read_stable_version,
+)
 
 
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+-issue\.\d+\.\d+$")
-STABLE_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+VERSION_RE = DEVELOPMENT_VERSION_RE
+STABLE_VERSION_RE = ADAPTER_STABLE_VERSION_RE
 
 
 class GuardError(RuntimeError):
@@ -36,45 +41,17 @@ def _request_version(root: Path) -> str:
 
 
 def _reported_version(root: Path, config: dict) -> str:
-  return _reported_version_matching(
-    root,
-    config,
-    VERSION_RE,
-    "development version",
-  )
+  try:
+    return read_development_version(root, config)
+  except VersionAdapterError as exc:
+    raise GuardError(str(exc)) from exc
 
 
 def _reported_stable_version(root: Path, config: dict) -> str:
-  return _reported_version_matching(
-    root,
-    config,
-    STABLE_VERSION_RE,
-    "stable version",
-  )
-
-
-def _reported_version_matching(
-  root: Path,
-  config: dict,
-  pattern: re.Pattern[str],
-  label: str,
-) -> str:
-  before = repository_state(root)
-  result = run_command(config["versionCommand"], root)
-  if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
-    raise GuardError(f"repository version command failed: {detail}")
-  lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-  if len(lines) != 1 or not pattern.fullmatch(lines[0]):
-    raise GuardError(f"version command must print exactly one valid {label}")
-  after = repository_state(root)
-  if after.commit != before.commit:
-    raise GuardError("repository version command modified candidate history")
-  if after.head_ref != before.head_ref:
-    raise GuardError("repository version command modified HEAD reference")
-  if after.refs != before.refs:
-    raise GuardError("repository version command modified local Git refs")
-  return lines[0]
+  try:
+    return read_stable_version(root, config)
+  except VersionAdapterError as exc:
+    raise GuardError(str(exc)) from exc
 
 
 def _candidate_branch(root: Path) -> str | None:
@@ -205,7 +182,7 @@ def validate_candidate(
   reported = _reported_version(root, config)
   _assert_clean_full_checkout(root)
   if head_sha(root) != initial_commit:
-    raise GuardError("repository version command modified candidate history")
+    raise GuardError("repository version adapter modified candidate history")
   if request != reported:
     raise GuardError(
       f"requested version {request} does not match repository version {reported}"
@@ -233,7 +210,7 @@ def validate_stable_candidate(
   version = _reported_stable_version(root, config)
   _assert_clean_full_checkout(root)
   if head_sha(root) != initial_commit:
-    raise GuardError("repository version command modified candidate history")
+    raise GuardError("repository version adapter modified candidate history")
   commit = head_sha(root)
   if expected_sha is not None and commit != expected_sha:
     raise GuardError(f"candidate commit {commit} does not match expected {expected_sha}")

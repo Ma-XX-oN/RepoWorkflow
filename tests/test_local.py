@@ -105,7 +105,7 @@ class LocalVerifyTests(unittest.TestCase):
       fx.tag_remote(f"v{fx.version}-CI-FAIL")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
-      next_version = "1.0.0-issue.1.2"
+      next_version = "1.0.0-issue.1.0.2"
       self.assertEqual((root / "VERSION").read_text().strip(), next_version)
       self.assertEqual((root / ".ci" / "run-ci-request").read_text().strip(), next_version)
       self.assertEqual(
@@ -209,20 +209,24 @@ class LocalVerifyTests(unittest.TestCase):
         "",
       )
 
-  def test_consumed_iteration_without_setter_rolls_back_preparation(self):
+  def test_invalid_ci_increment_rolls_back_preparation(self):
     td, root, fx = self.make_consumer()
     with td:
-      config_path = root / ".ci" / "repoworkflow.json"
-      config = json.loads(config_path.read_text())
-      del config["setVersionCommand"]
-      config_path.write_text(json.dumps(config, indent=2) + "\n")
-      (root / ".ci" / "run-ci-request").write_text(fx.version + "\n")
-      fx.commit("remove version setter")
+      version_script = root / "scripts" / "version.py"
+      original = version_script.read_text()
+      version_script.write_text(
+        original.replace(
+          "path.write_text(f'{task.group(1)}-issue.{task.group(2)}.{task.group(3)}.{int(task.group(4)) + 1}\\n')",
+          "path.write_text(f'{task.group(1)}-issue.{task.group(2)}.{int(task.group(3)) + 1}.1\\n')",
+        )
+      )
+      (root / ".ci" / "run-ci-request").write_text(fx.version + "\n\n")
+      fx.commit("break CI iteration transition")
       fx.push()
       fx.tag_remote(f"v{fx.version}-CI-FAIL")
       before = fx.head()
 
-      with self.assertRaisesRegex(GuardError, "setVersionCommand"):
+      with self.assertRaisesRegex(GuardError, "CI-iteration increment"):
         verify_local(root, engine_root=root / "RepoWorkflow")
       self.assertEqual(fx.head(), before)
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")

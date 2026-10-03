@@ -39,15 +39,21 @@ RepoWorkflow owns common lifecycle and invariant machinery:
 
 Each consumer owns repository-specific facts and operations:
 
-- one authoritative version read command;
-- an optional version setter command used when RepoWorkflow must advance a
-  consumed development iteration;
+- one authoritative `repo-version` adapter that reads and semantically mutates
+  repository version state;
+- all repository-specific version storage and edit details;
 - one authoritative validation command per genuinely distinct environment;
 - repository-specific tests, builds, packaging, and integration checks;
 - branch topology declarations;
 - required platform/capability declarations;
 - optional committed-artifact generator and independent verifier commands;
 - generated-output allow-lists.
+
+RepoWorkflow decides when a version transition is legal. The consumer adapter
+implements the transition without RepoWorkflow constructing literal target
+versions. Task versions use `X.Y.Z-issue.P.Q.R`, where `P` is the issue number,
+`Q` is the integration-failure generation, and `R` is the regression-validation
+iteration.
 
 ## Pinned local engine
 
@@ -116,8 +122,9 @@ then owns candidate bookkeeping. The caller does not manually refresh
 `.ci/run-ci-request`, reorder bookkeeping commits, or opt into terminal tagging.
 Before validation, `verify` rebinds the request after ordinary source commits
 when necessary. If the current development iteration is already consumed
-remotely and `setVersionCommand` is configured, RepoWorkflow advances to the
-next iteration and records the new request in one bookkeeping commit.
+remotely, RepoWorkflow invokes the consumer adapter's semantic
+`task --increment CI-iteration` transition, verifies that only `R` advanced by
+one, and records the resulting version/request change in one bookkeeping commit.
 
 A completed development result always creates a local terminal tag:
 
@@ -140,7 +147,7 @@ not normal workflow bookkeeping.
 
 `.ci/run-ci-request` remains the exact-candidate binding used by distributed
 execution and lower-level commands. Its development version must match the
-repository's own version command and ordinary source changes must not occur after
+repository's own version adapter and ordinary source changes must not occur after
 the request boundary. `verify` owns creating or refreshing that boundary during
 normal local authoritative execution.
 
