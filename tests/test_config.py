@@ -30,6 +30,18 @@ class ConfigTests(unittest.TestCase):
       self.assertTrue(config["environments"][0]["required"])
       self.assertEqual(config["environments"][0]["platform"], "any")
 
+  def test_info_command_is_validated_when_configured(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      value["infoCommand"] = ["python", "repo-info.py"]
+      self.write(root, value)
+      self.assertEqual(load_config(root)["infoCommand"], value["infoCommand"])
+      value["infoCommand"] = []
+      (root / ".ci" / "repoworkflow.json").write_text(json.dumps(value))
+      with self.assertRaisesRegex(ConfigError, "infoCommand"):
+        load_config(root)
+
   def test_obsolete_set_version_command_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)

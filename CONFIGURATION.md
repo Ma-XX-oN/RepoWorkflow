@@ -11,6 +11,7 @@ Recommended development shape:
 {
   "schema": 1,
   "versionCommand": ["python", "scripts/workflow-version.py"],
+  "infoCommand": ["python", "scripts/repo-info.py"],
   "repository": {
     "integrationBranch": "main",
     "authoritativeRemote": "origin"
@@ -64,7 +65,7 @@ Lower-level distributed commands compare the adapter's reported development
 version with `.ci/run-ci-request`.  The normal local `verify` path prepares
 that request binding before validation.
 
-### `repository`
+### `infoCommand`\n\nThe optional command selects the repository-owned implementation of the portable\nread-only `repo-info` contract in `REPO_INFO_CONTRACT.md`.  Core RWF appends\nonly the semantic operation arguments defined by that contract.  When a workflow\nrequires repository information and no command is configured, the operation\nfails explicitly.\n\nThe command must not modify the worktree, candidate history, symbolic `HEAD`, or\nlocal Git refs.  Successful output is validated against the provider-neutral\nJSON schema before it reaches workflow callers; malformed output and provider\nfailures are never converted into empty successful results.\n\n### `repository`
 
 `integrationBranch` is the repository's normal integration line. The value must
 also agree with `.ci/branch-policy.json`.
