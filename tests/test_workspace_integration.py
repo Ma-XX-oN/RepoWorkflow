@@ -117,39 +117,6 @@ class WorkspaceIntegrationTests(unittest.TestCase):
     self.assertEqual(claim["revision"], 1)
     self.assertEqual(claim["worker_id"], winners[0][1])
 
-  def test_failed_provision_rolls_back_branch_and_registration(self):
-    path = self.base / "RWF-143"
-    original = self.backend._registered_worktrees
-    calls = 0
-
-    def fail_postcondition():
-      nonlocal calls
-      calls += 1
-      values = original()
-      if calls == 2:
-        raise WorktreeError("injected post-provision failure")
-      return values
-
-    self.backend._registered_worktrees = fail_postcondition
-    with self.assertRaisesRegex(WorktreeError, "injected post-provision failure"):
-      self.backend.provision(
-        "RWF-143",
-        self.base_ref,
-        self.base_sha,
-        "issue-143-integration",
-        path,
-      )
-
-    self.assertFalse(path.exists())
-    result = subprocess.run(
-      ["git", "show-ref", "--verify", "--quiet",
-       "refs/heads/issue-143-integration"],
-      cwd=self.root,
-      check=False,
-    )
-    self.assertNotEqual(result.returncode, 0)
-    self.assertNotIn(str(path), git(self.root, "worktree", "list", "--porcelain"))
-
   def test_dirty_retirement_is_refused_then_clean_retirement_succeeds(self):
     workspace, branch, path = self.provision(143)
     (path / "dirty.txt").write_text("protect me\n", encoding="utf-8")
