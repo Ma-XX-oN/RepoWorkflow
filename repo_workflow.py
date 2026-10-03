@@ -62,6 +62,9 @@ from repo_workflow.results import (
   run_stable_environment,
 )
 from repo_workflow.version_adapter import VersionAdapterError
+from repo_workflow.workspace_cli import WorkspaceCommandError
+from repo_workflow.workspace_store import WorkspaceClaimError
+from repo_workflow.workspace_worktree import WorktreeError
 
 
 ENGINE_ROOT = Path(__file__).resolve().parent
@@ -394,6 +397,9 @@ def main(argv: list[str] | None = None) -> int:
     GitError,
     GuardError,
     VersionAdapterError,
+    WorkspaceClaimError,
+    WorkspaceCommandError,
+    WorktreeError,
     ValueError,
   ) as exc:
     print(f"RepoWorkflow error: {exc}", file=sys.stderr)

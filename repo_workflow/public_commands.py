@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .command_grammar import Context, validate_node
 from .workflow_state import derive_plan, discover_facts
+from .workspace_store import WorkspaceStore
 
 
 def _plan(context: Context):
@@ -64,7 +65,38 @@ def _issue_number(context: Context) -> dict:
   return {"completions": []}
 
 
+def _workspace_ids(context: Context) -> dict:
+  try:
+    values = [
+      workspace["workspace_id"]
+      for workspace in WorkspaceStore(context.root).list_workspaces()
+    ]
+  except Exception:
+    values = []
+  return {"completions": values}
+
+
+def _workspace_value() -> dict:
+  return {"_values": _workspace_ids}
+
+
+def _workspace_commands() -> dict:
+  return {
+    "list": "List local workspaces",
+    "create": {"_values": _issue_number},
+    "info": {
+      "": "Show the current workspace",
+      "_values": _workspace_ids,
+    },
+    "claim": _workspace_value(),
+    "release": _workspace_value(),
+    "resume": _workspace_value(),
+    "close": _workspace_value(),
+  }
+
+
 COMMANDS = {
+  "workspace": _workspace_commands(),
   "what-next": {
     "": "Show legal next workflow transitions",
     "--json": "Output workflow guidance as JSON",

@@ -17,6 +17,7 @@ from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
 from .workflow_transitions import validate_integration, validate_regression
+from .workspace_cli import handle_workspace
 
 
 def _contexts(root: Path):
@@ -86,6 +87,9 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   parse_tokens(COMMANDS, legal, words)
 
   command = words[0]
+  if command == "workspace":
+    return handle_workspace(root, words)
+
   if command == "what-next":
     if words == ["what-next", "--json"]:
       print(json.dumps(plan.to_json_value(), separators=(",", ":")))
