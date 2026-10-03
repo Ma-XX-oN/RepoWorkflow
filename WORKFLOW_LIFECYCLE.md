@@ -264,6 +264,37 @@ required ART and then its required AIT/MIT against that exact integrated SHA.
 Only that accepted integrated candidate may proceed toward protected server
 `main`.
 
+## 6.1 Issue grouping and dependency ordering
+
+Umbrella membership records that issues contribute to the same larger body of
+work.  It does not order those issues.
+
+All workflow ordering must be expressed through explicit direct issue
+dependencies.  An issue is blocked while any direct dependency remains
+incomplete.  Once all of its direct dependencies are satisfied, it is ready
+regardless of whether other siblings under the same umbrella remain active.
+
+If two issues appear to depend on one another only through some unstated common
+prerequisite, the work should be decomposed further.  The common prerequisite
+becomes an explicit issue and the consuming issues depend directly on it.
+
+The resulting dependency graph is intended to make execution order visible:
+
+```text
+ready
+  no unresolved direct dependencies
+
+blocked
+  one or more direct dependencies incomplete
+
+parallel-ready
+  multiple ready issues with no dependency path between them
+```
+
+RWF must not manufacture ordering from umbrella membership, branch ancestry,
+or local navigation history.  Branch base and integration target remain
+separate recorded relationships.
+
 ## 7. Local `main` and ephemeral `prelim-main-<GUID>`
 
 Local `main` is tracking state.  It should remain synchronized with the

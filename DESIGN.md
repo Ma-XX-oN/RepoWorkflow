@@ -239,6 +239,35 @@ branch names alone.  It should detect practical violations such as:
 The same checker must be invokable locally.  GitHub may run it automatically as
 a cheap preflight without starting expensive validation.
 
+### 8.1 Direct issue dependency graph
+
+Issue grouping and issue ordering are separate concerns.
+
+An umbrella groups issues that contribute to a common problem or goal.  It
+does not create an ordering relationship between its members.
+
+RepoWorkflow represents ordering only through explicit direct dependency
+edges.  If one issue genuinely requires an output from another, that
+requirement must be recorded directly.  RWF must not infer dependencies from
+shared umbrellas, branch ancestry, naming, or vague notions of weak/strong
+relationship.
+
+If an ordering relationship can only be described indirectly, that is evidence
+that the work has not been decomposed far enough.  Introduce the missing
+prerequisite task(s) until the dependency graph can express every ordering
+constraint through direct edges.
+
+This graph is also the scheduling graph:
+
+- an issue with no unresolved direct dependencies is ready;
+- an issue with unresolved direct dependencies is blocked;
+- multiple ready issues with no dependency path between them can proceed in
+  parallel.
+
+Branch base remains an independent Git-history fact.  An issue may be based on
+another branch without depending semantically on that issue, and a direct issue
+dependency does not by itself require a particular Git branch base.
+
 ## 9. Repository and GitHub Actions policy
 
 RepoWorkflow owns common enforcement that prevents automation from evolving
