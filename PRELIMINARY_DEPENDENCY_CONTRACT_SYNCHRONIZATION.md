@@ -192,3 +192,43 @@ These findings refine the trial in three ways:
 
 The pass remains intentionally shallow: it verifies direct dependency edges and
 escalates only when an edge exposes a concrete ambiguity or missing guarantee.
+
+## 10. Third application: #187 implementation and integration
+
+The #187 run applied the preliminary checks while implementing the semantic
+transaction coordinator created by the second application.
+
+The prerequisite review confirmed that #99, #100, and #101 supplied the
+required lower-level state and concurrency guarantees.  The completion-time
+consumer review then checked #187 directly against #64.  That comparison
+confirmed that #64's multi-domain issue-start transition requires the
+prepare/revalidate/commit/replay semantics implemented by #187; no additional
+consumer-contract gap was found.
+
+The run nevertheless exposed a separate integration drift.  While #187 was in
+progress, main advanced through #189 and its repository version became 0.1.49.
+The #187 branch still carried 0.1.48.  Merging the otherwise valid branch at
+that point would therefore have regressed the repository version.
+
+The branch was synchronized with current main and advanced to 0.1.50 before
+integration.  Validation then passed on Linux, macOS, and Windows, and
+post-merge validation and release also passed.
+
+This observation is useful to the trial for two reasons:
+
+1. the bounded prerequisite/direct-consumer checks remained useful without
+   requiring recursive downstream design; and
+2. dependency-contract compatibility alone is not sufficient at integration
+   time.  Mutable repository-wide invariants can drift while parallel lanes are
+   active and need a current-main integration check.
+
+The version regression was not rejected by the existing CI before the manual
+integration review found it.  Record this as a trial finding rather than an
+authoritative new workflow rule for now.  Further runs should determine whether
+the general requirement is a repository-wide invariant revalidation step, a
+specific version-progression gate, or both.
+
+No additional process rule is adopted from this single observation.  Continue
+collecting comparable findings from subsequent runs before deciding how the
+preliminary guidance and automated gates should change.
+
