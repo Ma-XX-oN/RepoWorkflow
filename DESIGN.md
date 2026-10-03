@@ -432,6 +432,9 @@ project's ~500-line ceiling:
   Rosetta translation contract.
 - [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md) defines the recursive command
   grammar, parsing/completion projection, and diagnostic contract.
+- [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
+  repository-neutral issue-decomposition, shared-capability, dependency, and
+  scheduling methodology used to construct maintainable work graphs.
 
 ## 14. Non-goals
 
