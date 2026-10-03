@@ -139,6 +139,53 @@ class SemanticTransactionCoordinatorTests(unittest.TestCase):
     with self.assertRaisesRegex(TransactionError, "cannot abort"):
       self.coordinator.abort("tx-187", self.writer, "late failure")
 
+  def test_conflicting_prepared_transaction_blocks_new_prepare(self):
+    self.coordinator.prepare("tx-187", self.reads, self.writes, self.writer)
+
+    conflicting_writes = (
+      StateWrite("repository", "version", {"version": "v1.2.4"}),
+    )
+    with self.assertRaisesRegex(TransactionError, "requires recovery first"):
+      self.coordinator.prepare(
+        "tx-188",
+        (StateReference("other", "input", 0),),
+        conflicting_writes,
+        self.writer,
+      )
+
+    with self.assertRaises(TransactionError):
+      self.coordinator.read("tx-188")
+
+  def test_nonconflicting_prepared_transactions_can_coexist(self):
+    self.coordinator.prepare("tx-187", self.reads, self.writes, self.writer)
+
+    second = self.coordinator.prepare(
+      "tx-188",
+      (StateReference("other", "input", 0),),
+      (StateWrite("other", "output", {"value": 1}),),
+      self.writer,
+    )
+
+    self.assertEqual(second["value"]["status"], "prepared")
+
+  def test_recovered_aborted_transaction_releases_conflict(self):
+    self.coordinator.prepare("tx-187", self.reads, self.writes, self.writer)
+    self.coordinator.recover(
+      "tx-187",
+      self.writer,
+      lambda _reads: False,
+      lambda _writes: self.fail("stale prepared state must not materialize"),
+    )
+
+    second = self.coordinator.prepare(
+      "tx-188",
+      (StateReference("other", "input", 0),),
+      (StateWrite("repository", "version", {"version": "v1.2.4"}),),
+      self.writer,
+    )
+
+    self.assertEqual(second["value"]["status"], "prepared")
+
   def test_duplicate_set_members_fail_before_preparation(self):
     duplicate_reads = self.reads + (self.reads[0],)
 
