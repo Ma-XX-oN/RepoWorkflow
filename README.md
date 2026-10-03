@@ -197,6 +197,9 @@ methodology.
 ## Documentation
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
+- [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) defines how size
+  limits trigger concise rewrites or responsibility-based splits without
+  losing authoritative semantics.
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral method for decomposing issues into testable interfaces,
   shared capability umbrellas, and executable dependency graphs.
