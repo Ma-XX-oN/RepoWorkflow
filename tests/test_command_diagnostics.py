@@ -35,7 +35,11 @@ class CommandDiagnosticTests(unittest.TestCase):
       render_failure(failure),
       "RepoWorkflow error: unrecognised command.\n"
       "  foo\n"
-      "  ^^^",
+      "  ^^^\n"
+      "\n"
+      "Legal transitions:\n"
+      "  regression required\n"
+      "  → validate regression",
     )
 
   def test_state_invalid_path_underlines_first_invalid_token(self):
