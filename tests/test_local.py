@@ -212,15 +212,20 @@ class LocalVerifyTests(unittest.TestCase):
   def test_consumed_iteration_with_failing_semantic_adapter_rolls_back(self):
     td, root, fx = self.make_consumer()
     with td:
-      version_script = root / "scripts" / "version.py"
-      original = version_script.read_text()
-      version_script.write_text(
-        original.replace(
-          "elif args == ['task', '--increment', 'CI-iteration'] and task:\\n",
-          "elif args == ['task', '--increment', 'CI-iteration'] and task:\\n"
-          "  raise SystemExit(2)\\n",
-        )
+      bad_adapter = root / "scripts" / "bad-version.py"
+      bad_adapter.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        "path = Path(__file__).resolve().parents[1] / 'VERSION'\n"
+        "if not sys.argv[1:]:\n"
+        "  print(path.read_text().strip())\n"
+        "else:\n"
+        "  raise SystemExit(2)\n"
       )
+      config_path = root / ".ci" / "repoworkflow.json"
+      config = json.loads(config_path.read_text())
+      config["versionCommand"] = [sys.executable, "scripts/bad-version.py"]
+      config_path.write_text(json.dumps(config, indent=2) + "\n")
       (root / ".ci" / "run-ci-request").write_text(fx.version + "\n")
       fx.commit("make semantic CI increment fail")
       fx.push()
