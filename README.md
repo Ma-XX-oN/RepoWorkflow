@@ -186,6 +186,11 @@ portable `repo-ci` boundary.
 ## Documentation
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
+- [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
+  repository-neutral method for decomposing issues into testable interfaces,
+  shared capability umbrellas, and executable dependency graphs.
+- [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
+  graph-testing, refinement procedure, and leaf/umbrella acceptance checks.
 - [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md) defines the intended human-facing
   `rwf` lifecycle, adapters, initialization, TDD, validation, and completion.
 - [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md) defines the recursive public command
