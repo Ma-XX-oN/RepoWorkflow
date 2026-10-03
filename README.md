@@ -37,17 +37,11 @@ RepoWorkflow owns common lifecycle and invariant machinery:
 - automatic terminal result tagging for authoritative local development verify;
 - serial/parallel orchestration helpers.
 
-Each consumer owns repository-specific facts and operations:
-
-- one authoritative version read command;
-- an optional version setter command used when RepoWorkflow must advance a
-  consumed development iteration;
-- one authoritative validation command per genuinely distinct environment;
-- repository-specific tests, builds, packaging, and integration checks;
-- branch topology declarations;
-- required platform/capability declarations;
-- optional committed-artifact generator and independent verifier commands;
-- generated-output allow-lists.
+Each consumer owns repository/provider-specific facts and operations through
+explicit adapters, including `repo-version`, `repo-info`, and `repo-ci`.
+Those adapters own semantic version application, issue/repository information,
+repository-specific validation, provider execution/transport, builds,
+packaging, artifacts, and declared platform/capability mechanics.
 
 ## Pinned local engine
 
@@ -164,43 +158,36 @@ cannot be established, execution is INCOMPLETE rather than a false PASS/FAIL.
 
 ## Entry points
 
-The normal consumer-side entry point is:
+The intended human-facing interface is the Git-like `rwf` command family:
 
 ```text
-python scripts/repoworkflow.py <command>
+rwf init
+rwf status
+rwf what-next
+rwf issue ...
+rwf tdd ...
+rwf validate ...
+rwf done ...
 ```
 
-After pin establishment, that launcher delegates unchanged arguments to:
+`repo-workflow` is an alias over the same state machine/grammar.
 
-```text
-python RepoWorkflow/repo_workflow.py <command>
-```
+The full public workflow is defined in
+[PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).  Public `rwf version`,
+`publish-validation`, and `verify-release` are not part of the intended
+normal interface; version transitions are delegated internally to
+`repo-version`.
 
-Important commands include `what-next`, `validate`, `version`, `preflight`,
-`verify`, `run`, `finalize`, `branch-policy`, `repository-policy`, and
-`materialize-artifacts`.  `repo-workflow` and `rwf` are equivalent aliases.
-`what-next` reports the legal transitions for the current workflow state;
-`validate regression` and `validate integration succeeded|failed` record the
-issue-#15 workflow transitions; and `version` forwards semantic version intent
-to the repository-owned adapter.  Bash completion is generated from the same
-recursive `COMMANDS` grammar and state projection rather than a separate shell
-command list.
-
-`verify` remains the full local authoritative validation path: it enforces
-repository and branch policy, prepares development bookkeeping,
-materializes/verifies declared committed artifacts, runs every locally
-addressable environment, aggregates results, and creates the terminal
-development result tag automatically.
-
-A repository's individual tests are not listed in RepoWorkflow configuration.
-Each environment exposes one repository-owned validation command, which may use
-RepoWorkflow's serial/parallel helpers or its own orchestration. Direct execution
-of that validation command is useful for debugging, but it is not the
-repository's authoritative result-recording workflow.
+Existing low-level validation/provider commands such as `preflight`, `run`,
+`finalize`, and `github-*` are implementation plumbing retained only as
+needed during migration.  Issue #55 moves provider-specific mechanics behind a
+portable `repo-ci` boundary.
 
 ## Documentation
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
+- [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md) defines the intended human-facing
+  `rwf` lifecycle, adapters, initialization, TDD, validation, and completion.
 - [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md) defines the recursive public command
   grammar, state-aware completion, and shared diagnostic contract.
 - [COMMAND_GRAMMAR_TESTS.md](COMMAND_GRAMMAR_TESTS.md) freezes the Stage-2 TDD

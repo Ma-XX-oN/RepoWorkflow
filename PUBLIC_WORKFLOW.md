@@ -1,0 +1,407 @@
+# RepoWorkflow Public Workflow
+
+Status: authoritative public-workflow synopsis for issue #51.
+
+This document defines the intended human-facing `rwf` workflow.  It supersedes
+older public-command proposals in closed issues #14/#15 while preserving useful
+lower-level implementation machinery behind internal/adapter boundaries.
+
+## 1. Public command surface
+
+```text
+rwf
+├── init
+│   ├── local-only
+│   ├── bash
+│   ├── zsh
+│   └── ...
+├── status
+├── what-next
+├── issue
+│   ├── info [N]
+│   ├── start N
+│   └── abort
+├── tdd
+│   ├── red group NAME
+│   └── green
+├── validate
+│   ├── regression [--fast] [--group NAME]
+│   └── integration [--automatic|--manual] [--group NAME]
+│       ├── succeeded
+│       └── failed
+└── done
+    ├── patch
+    ├── minor
+    └── major
+```
+
+`repo-workflow` and `rwf` are aliases over the same state machine and command
+grammar.
+
+The normal public surface does not include `rwf version`,
+`publish-validation`, `verify-release`, or CI/provider plumbing such as
+`preflight`, `run`, `finalize`, and `github-*`.  Required lower-level
+capabilities may remain temporarily available to machine callers while their
+adapter replacements are implemented.
+
+## 2. Help and completion
+
+The authored command grammar is the single source for parsing, completion,
+diagnostics, double-Tab descriptions, and `--help`.
+
+`--help` is valid after every valid command prefix.  It exposes the same
+semantic descriptions as double-Tab completion, with normal help formatting.
+
+First Tab performs ordinary completion or a contextual completion diagnostic.
+A second Tab at the same completion point renders descriptions/details.
+
+Dynamic `_values` providers use one explicit result contract:
+
+```python
+{
+  "completions": [...],
+  "on-tab": completion_handler,
+}
+```
+
+`on-tab` is optional; absence means the default completion handler.  Provider
+semantics must not depend on whether Python happened to return a string,
+`list[str]`, described fragments, or another shape.
+
+A custom `on-tab` handler is the extension point for shell/presentation
+behaviour and contextual diagnostics.  The semantic command grammar therefore
+does not hard-code Bash-specific insertion behaviour.
+
+Completion and diagnostic paths are read-only, preserve the literal typed
+input, and identify the first failing token.
+
+Issue #52 owns implementation of this contract.
+
+## 3. Repository initialization
+
+The canonical state directory is:
+
+```text
+.repoworkflow/
+```
+
+Normal initialization is:
+
+```text
+./RepoWorkflow/rwf init
+```
+
+It initializes the repository's RepoWorkflow state/integration.  If
+`.repoworkflow/` already exists, initialization aborts rather than silently
+acting idempotently.
+
+A local-only installation is:
+
+```text
+./RepoWorkflow/rwf init local-only
+```
+
+This is for repositories that are not ready or willing to adopt RepoWorkflow
+officially.  The complete RWF footprint remains clone-local and should be
+excluded through local Git mechanisms such as `.git/info/exclude`, not by
+editing committed `.gitignore`.
+
+After successful repository initialization, RWF explains the optional
+shell-specific stage, for example:
+
+```bash
+source <(rwf init bash)
+source <(rwf init zsh)
+```
+
+`rwf init bash`, `rwf init zsh`, etc. emit shell-specific initialization
+source.  Shell-specific command discovery/completion belongs there rather than
+in the platform-neutral Python workflow model.
+
+`--force` is not part of the intended init interface.
+
+Issue #27 owns implementation.
+
+## 4. Repository-owned adapters
+
+RepoWorkflow owns workflow semantics; consumer repositories own facts and
+provider-specific mechanics through explicit adapters.
+
+The intended adapter families are:
+
+```text
+repo-version
+repo-info
+repo-ci
+```
+
+### 4.1 repo-version
+
+RWF invokes semantic version operations internally.  Users do not normally
+invoke version transitions through `rwf`.
+
+Examples of internal semantic requests include:
+
+```text
+task --issue N
+task --increment CI-iteration
+task --increment merge-integration-failed
+integrate --increment patch
+integrate --increment minor
+release-major
+```
+
+The consumer adapter derives and applies literal versions.
+
+### 4.2 repo-info
+
+`repo-info` supplies repository/issue information without teaching core RWF
+GitHub/`gh` or another forge's API.
+
+It powers `rwf issue info`, issue-number/title completion, and issue
+validation at start time.
+
+Issue #53 owns this adapter and issue commands.
+
+### 4.3 repo-ci
+
+Repository/CI-provider mechanics belong behind a portable adapter boundary.
+RWF owns candidate identity, required test coverage, legal transitions,
+PASS/FAIL/INCOMPLETE semantics, evidence validity, and authorization/current
+base requirements.
+
+The adapter owns environment/runner provisioning, repository-specific
+validation execution, artifact transport/materialization, result transport, and
+provider event interpretation.
+
+GitHub Actions is one provider implementation, not the workflow model.
+
+Issue #55 owns this migration.
+
+## 5. Issue workflow
+
+```text
+rwf issue info
+rwf issue info N
+rwf issue start N
+rwf issue abort
+```
+
+`issue info` lists/reads repository issues through `repo-info`.
+
+Single Tab completes matching open issue numbers.  Double Tab lists matching
+issue numbers and titles.  A typed prefix filters the same source.
+
+`issue start N` establishes work on issue N.  It verifies the issue through
+`repo-info`, records who/what started it, invokes `repo-version` for the
+issue-qualified task state, creates/verifies the work branch, and records the
+explicit workflow relationships needed for later integration.
+
+The start path should display the resolved relationships, for example:
+
+```text
+Starting issue #101
+
+  umbrella:    #100  Parser refactor
+  branch base: #98   Token stream API
+  new branch:  issue-101-tokenizer-state
+```
+
+`issue abort` stops active work without pretending the issue completed and
+without discarding durable evidence/history.
+
+## 6. Umbrellas, dependencies, and multiple agents
+
+An umbrella issue is an explicitly stated, usually faux,
+dependency/grouping relationship.  It is not a shared execution stack.
+
+Several agents may concurrently work on different sibling issues beneath one
+umbrella.
+
+The durable model must distinguish:
+
+- umbrella/grouping relationship;
+- actual issue dependencies, which may vary in strength;
+- branch/dependency base;
+- integration target;
+- clone/agent-local current work context.
+
+A branch based on another issue does not imply umbrella parenthood.
+
+One shared mutable active-issue stack is therefore not authoritative workflow
+state.  A local navigation/context stack may exist, but it cannot serialize or
+overwrite other agents' work.
+
+Issue #57 owns the exact durable/local schema.
+
+## 7. Optional TDD workflow
+
+```text
+rwf tdd red group NAME
+rwf tdd green
+```
+
+For active issue N, TDD group names must already exist in the repository's test
+catalogue/Rosetta mapping and follow `issue-N-...`.
+
+`rwf tdd red group <TAB>` completes only groups for the active issue.  Normal
+completion may insert the shared `issue-N-` prefix when several groups match.
+
+A custom `on-tab` handler may provide specific actionable diagnostics when no
+group for the active issue exists or a different issue's group is selected.
+The diagnostic should identify the expected naming rule and the catalogue or
+configuration location that must be changed.
+
+Double Tab and `--help` explain command usage, naming rules, and catalogue
+location; they do not merely repeat a contextual runtime error.
+
+RED runs the selected group and records RED only when the documented RED
+expectations are satisfied.  GREEN runs the issue's required TDD groups that
+are not already satisfied by reusable unchanged evidence.
+
+Issue #54 owns this command family.
+
+## 8. Reusable validation evidence
+
+Workflow gates are based on whether every required test unit is satisfied for
+the current effective candidate/input fingerprint, not on whether one broad
+command happened to run.
+
+This applies to:
+
+- TDD groups;
+- ART groups;
+- `--fast` ART subsets;
+- complete ART;
+- AIT;
+- MIT/manual evidence;
+- integration groups/subsets.
+
+A broader successful run may satisfy narrower requirements.  Several narrower
+runs may collectively satisfy a broader gate.
+
+For example, unchanged PASS evidence from A/B through `--fast`, C through a
+group run, and D through another run may collectively satisfy complete ART when
+A+B+C+D are the required ART set.
+
+`--fast` alone does not imply complete ART merely because it passed.
+
+Relevant source/configuration/catalogue/capability changes invalidate affected
+evidence according to a deterministic fingerprint contract.
+
+Issue #16 owns durable evidence, reuse, invalidation, and local/hosted-provider
+equivalence.
+
+## 9. Validation commands
+
+Regression:
+
+```text
+rwf validate regression
+rwf validate regression --fast
+rwf validate regression --group NAME
+```
+
+Integration:
+
+```text
+rwf validate integration
+rwf validate integration --automatic
+rwf validate integration --manual
+rwf validate integration --group NAME
+rwf validate integration --group NAME --automatic
+rwf validate integration --group NAME --manual
+rwf validate integration succeeded
+rwf validate integration failed
+```
+
+A manual integration result may only resolve an actual pending manual test
+requirement.  Automated integration runners may record their own results.
+
+Partial validation contributes reusable evidence but does not bypass missing
+required coverage.
+
+## 10. Status and guidance
+
+`rwf status` answers where the current workflow stands: issue/context,
+branch/version identity, TDD/ART/AIT/MIT evidence, blockers, and relevant
+relationships.
+
+`rwf what-next` answers which state transitions are legal now.
+
+Both derive from the same state/evidence model used by completion.
+
+Issue #58 owns alignment of these commands and removal of obsolete public
+commands.
+
+## 11. Commit/push remains Git
+
+Normal source work remains normal Git work:
+
+```text
+git add ...
+git commit ...
+git push
+```
+
+RepoWorkflow does not replace ordinary source editing/commit commands unless a
+specific workflow invariant requires an owned operation.
+
+## 12. Completing work
+
+```text
+rwf done patch
+rwf done minor
+rwf done major
+```
+
+`done` means complete the current issue using the selected
+integration/release intent.
+
+Before completion, RWF verifies the required TDD, complete ART, AIT/MIT,
+candidate cleanliness/identity, current base, and authorization evidence.
+
+The integration target comes from explicit recorded workflow relationships,
+not from a local navigation stack or merely Git ancestry.
+
+Patch/minor/major are semantic intents.  RWF calls `repo-version` internally.
+
+Major completion may require stronger explicit authorization; the precise
+authorization representation/lifetime is part of the state-schema/integration
+design.
+
+Issue #56 owns the public `done` workflow.  Existing #17 owns prelim
+integration/reintegration/PRELIM mechanics and #18 owns protected-server
+enforcement.
+
+## 13. Existing lower-level work
+
+The revised public workflow reuses rather than discards existing lower-level
+mechanisms where they still satisfy the new architecture:
+
+- #5 — authoritative candidate bookkeeping and terminal tagging;
+- #16 — validation evidence and reuse;
+- #17 — prelim integration/reintegration/PRELIM tags;
+- #18 — protected server enforcement;
+- #19 — local Git guards;
+- #27 — initialization.
+
+Internal commands may remain temporarily for machine compatibility, but they
+must not define the normal human-facing workflow or force GitHub-specific
+semantics into the portable engine.
+
+## 14. Remaining design work
+
+The major unsettled details are tracked explicitly rather than hidden in this
+synopsis:
+
+- exact durable/shared versus clone-local `.repoworkflow/` schema (#57);
+- multi-agent active-work representation (#57);
+- dependency strength and relationship representation (#57);
+- authorization representation/lifetime (#56/#57);
+- exact `done patch|minor|major` integration transitions (#56);
+- test-evidence fingerprint/invalidation rules (#16);
+- portable `repo-ci` adapter contract (#55).
+
+These items must be documented and RED-tested before their production
+implementation.

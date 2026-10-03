@@ -28,175 +28,70 @@ The workflow must:
 
 ## 2. Responsibility boundaries
 
-RepoWorkflow is generic.  Consumer repositories retain repository-specific
-version semantics behind a repository-owned `repo-version` adapter.
+RepoWorkflow owns portable workflow semantics.  Consumer repositories retain
+repository/provider-specific mechanics behind explicit adapters.
 
-RepoWorkflow may expose user-facing forwarding commands under
-`repo-workflow version ...`, but it must not learn where a consumer stores a
-version or how that version is edited.
+The intended adapter families are:
 
-The three enforcement layers are:
+- `repo-version` for semantic version operations;
+- `repo-info` for issue/repository information;
+- `repo-ci` for repository/CI-provider execution and transport.
+
+GitHub Actions is one provider implementation, not the workflow model.
+
+The enforcement layers remain:
 
 1. RepoWorkflow state machine and repository-owned adapters;
 2. local Git guard hooks for early mistake prevention;
 3. server-side branch/tag rules for the hard remote boundary.
 
-The same RepoWorkflow engine and consumer validation scripts must drive local
-and hosted validation.
+The same semantic state/evidence rules apply locally and on hosted providers.
 
 ## 3. User-facing command model
 
-Normal commands are intended to be:
+The authoritative human-facing command synopsis is
+[PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
+
+The normal public surface is centered on:
 
 ```text
-repo-workflow what-next
-repo-workflow what-next --json
-
-repo-workflow config
-repo-workflow config get [KEY]
-repo-workflow config set KEY VALUE
-repo-workflow config unset KEY
-repo-workflow config --json
-
-repo-workflow pull-request
-repo-workflow pull-request --json
-
-repo-workflow validate regression
-repo-workflow validate regression --fast
-repo-workflow validate regression --group NAME
-repo-workflow validate integration
-repo-workflow validate integration --automatic
-repo-workflow validate integration --manual
-repo-workflow validate integration --group NAME
-repo-workflow validate integration succeeded
-repo-workflow validate integration failed
-
-repo-workflow publish-validation
-repo-workflow verify-release
-
-repo-workflow version
-repo-workflow version --json
-repo-workflow version task issue <number>
-repo-workflow version integrate increment patch
-repo-workflow version integrate increment minor
-repo-workflow version release-major
+rwf init
+rwf status
+rwf what-next
+rwf issue ...
+rwf tdd ...
+rwf validate ...
+rwf done ...
 ```
 
-`rwf` should be available as a concise advanced-user alias.
+Older proposals such as public `rwf version`, `publish-validation`, and
+`verify-release` are not part of the intended public interface.
+RepoWorkflow invokes `repo-version` internally when lifecycle transitions
+require semantic version changes.
 
-State transitions use positional words.  `--...` is reserved for real options,
-such as changing output representation with `--json`.
+Low-level CI/provider commands may remain temporarily for machine compatibility
+while #55 moves provider mechanics behind `repo-ci`; they do not define the
+normal human workflow.
 
-Low-level consumer operations such as advancing a CI iteration or an
-integration-failure generation remain available to RepoWorkflow through the
-repository adapter, but are not normal user-facing commands.
+## 4. Guidance, help, and completion
 
-Validation execution is explicit locally.  RWF does not infer that code is
-ready merely because files changed or implementation activity stopped.
+`rwf status` reports the current workflow/evidence state.
 
-`validate regression` runs the complete required ART suite for the current
-candidate.  `--fast` runs the repository-defined minimal fast/smoke ART set,
-and `--group NAME` runs one named ART subset.  Fast/group runs are diagnostic:
-they may record useful evidence, but they do not satisfy the complete ART gate
-or advance the workflow to integration testing.  Only a complete required ART
-PASS for the exact candidate satisfies that gate.
+`rwf what-next` reports legal next transitions and blocked reasons.
 
-`validate integration` orchestrates the complete required integration test
-set for the current candidate: all required AIT plus any required MIT.
-`--automatic` selects only AIT, `--manual` selects only MIT, and
-`--group NAME` selects a named integration subset.  Selected/partial runs are
-diagnostic and do not by themselves satisfy the complete integration gate.
-The complete gate becomes satisfied only when all required integration groups
-for the exact candidate have authoritative PASS evidence.
+Parsing, completion, double-Tab help, `--help`, and diagnostics derive from
+one authored command grammar.  The authoritative completion contract is
+[COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md).
 
-AIT can be executed and have its result recorded by an automated runner.  MIT
-cannot be executed automatically: when a full integration run reaches required
-MIT, RWF presents/orchestrates the manual test requirement and waits for the
-human result.  A server push may automatically run missing ART/AIT for the
-exact pushed candidate, but it cannot manufacture required MIT evidence.
+`--help` is valid after every valid command prefix and exposes the same
+semantic descriptions as double Tab.  First Tab performs ordinary completion
+or contextual diagnostics.
 
-## 4. `what-next` is the workflow guide rail
+Dynamic `_values` providers return one explicit completion specification with
+`completions` and optional `on-tab`; behaviour is not inferred from Python
+return-type shape.
 
-`repo-workflow what-next` inspects the current repository and workflow state
-and reports legal next transitions plus blocked operations and reasons.
-
-`repo-workflow what-next --json` exposes the same information in a stable
-machine-readable form.  Shell completion must derive from the same state
-machine rather than maintaining a second policy implementation.
-
-Completion and normal CLI help use the same Python-owned declarative
-command grammar as argument parsing.  The grammar attaches descriptions to
-static commands/options and may attach a dynamic value provider to an
-argument-bearing option.  The Bash adapter only renders that authoritative
-projection; it does not maintain another command list.
-
-Normal Tab completion shows candidate names.  A second Tab within one second at
-the same completion point shows descriptions for static commands/options.  A
-dynamic provider, such as the provider for `--group`, returns the catalogue
-group names directly; both single and double Tab show those names without a
-second, redundant description source.
-
-Invalid manual commands and invalid completion attempts use the same
-command-path diagnosis.  RWF preserves the literal tokens supplied by the
-caller and underlines the first token where the path diverges.  It does not
-invent a valid-looking completion to explain the failure.
-
-For a state-invalid command, for example:
-
-```text
-RepoWorkflow error: transition is not legal in the current state:
-  validate integration s
-           ^^^^^^^^^^^
-
-Legal transitions:
-  regression required
-  → validate regression
-```
-
-If the command prefix is legal but the current partial token has no legal
-state-dependent completion:
-
-```text
-RepoWorkflow error: no completions available from the current state:
-  validate integration s
-                       ^
-
-Legal transitions:
-  integration result pending
-  → validate integration failed
-```
-
-If the completion source is instead a bare value list, such as a test-group
-catalogue, no workflow transition is involved and no `Legal transitions:`
-block is shown:
-
-```text
-RepoWorkflow error: no completions available for:
-  validate regression --group z
-                              ^
-```
-
-A token that is absent from the general command grammar is reported as an
-unrecognised command, again preserving and underlining exactly what the user
-typed.  State names in diagnostics are human-readable phrases rather than
-hyphenated internal identifiers.
-
-For example, when an integration result is required:
-
-```text
-rwf validate integration <TAB>
-```
-
-may offer only:
-
-```text
-succeeded
-failed
-```
-
-When a task is accepted but merge authorization is absent, `what-next` must
-say that integration/merge is blocked rather than infer permission from GREEN
-CI, a completed issue, or a ready pull request.
+Completion/help/diagnostic paths are read-only.
 
 ## 5. Version namespaces
 
