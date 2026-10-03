@@ -227,7 +227,26 @@ environment rather than merely inspect generated text:
   transition positions;
 - quoting and spaces do not corrupt completion;
 - completion works after command aliases and partial tokens;
-- completion failure cannot execute a workflow mutation.
+- completion failure cannot execute a workflow mutation;
+- manual execution and completion use the same command-path analyser and report
+  the same first failure for equivalent input;
+- unknown grammar tokens are reported as unrecognised commands and the first
+  unknown token is underlined without rewriting the user's input;
+- known command paths that are illegal in the current workflow state underline
+  the first state-invalid token and show `Legal transitions:` exactly once;
+- state-dependent dynamic completion with no matching partial candidate reports
+  `no completions available from the current state` and shows the
+  human-readable current state plus legal transitions exactly once;
+- bare `list[str]` completion with no match reports generic
+  `no completions available for` and does not render workflow-state or legal
+  transition information;
+- a callable `_values` provider returning `list[str]` receives the same
+  bare-value diagnostic behaviour as a literal `list[str]`;
+- multiple possible descendants sharing the same first illegal token produce
+  one diagnostic for that first failure rather than duplicate downstream
+  errors;
+- state names rendered in diagnostics are normal human-readable phrases, not
+  hyphenated internal identifiers.
 
 ## 5. Stage 3 - validation audit and local/hosted equivalence
 
