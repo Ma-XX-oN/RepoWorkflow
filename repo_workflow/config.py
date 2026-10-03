@@ -116,12 +116,15 @@ def load_config(root: Path) -> dict[str, Any]:
   if not isinstance(data, dict) or data.get("schema") != 1:
     raise ConfigError("repoworkflow.json must declare schema 1")
   allowed_top = {
-    "schema", "versionCommand", "repository", "environments", "artifacts"
+    "schema", "versionCommand", "infoCommand", "repository", "environments", "artifacts"
   }
   unknown = sorted(set(data) - allowed_top)
   if unknown:
     raise ConfigError("configuration contains unsupported fields: " + ", ".join(unknown))
   version_command = _command(data.get("versionCommand"), "versionCommand")
+  info_command = data.get("infoCommand")
+  if info_command is not None:
+    info_command = _command(info_command, "infoCommand")
   repository = data.get("repository")
   if not isinstance(repository, dict):
     raise ConfigError("repository configuration is required")
@@ -161,6 +164,8 @@ def load_config(root: Path) -> dict[str, Any]:
       output_owners[normalized] = artifact["id"]
   result = dict(data)
   result["versionCommand"] = version_command
+  if info_command is not None:
+    result["infoCommand"] = info_command
   result["repository"] = dict(repository)
   result["environments"] = validated_envs
   result["artifacts"] = validated_artifacts
