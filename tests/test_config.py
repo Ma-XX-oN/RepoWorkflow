@@ -30,17 +30,14 @@ class ConfigTests(unittest.TestCase):
       self.assertTrue(config["environments"][0]["required"])
       self.assertEqual(config["environments"][0]["platform"], "any")
 
-  def test_set_version_command_is_optional_and_normalized(self):
+  def test_obsolete_set_version_command_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       value = self.base()
       value["setVersionCommand"] = ["python", "version.py", "--set"]
       self.write(root, value)
-      config = load_config(root)
-      self.assertEqual(
-        config["setVersionCommand"],
-        ["python", "version.py", "--set"],
-      )
+      with self.assertRaisesRegex(ConfigError, "unsupported fields"):
+        load_config(root)
 
   def test_duplicate_environment_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:

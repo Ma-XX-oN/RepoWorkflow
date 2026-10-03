@@ -44,6 +44,11 @@ from repo_workflow.guard import (
   validate_stable_candidate,
 )
 from repo_workflow.local import verify_local, verify_stable_local
+from repo_workflow.public_cli import (
+  handle_completion,
+  handle_public,
+  is_public_command,
+)
 from repo_workflow.repository_policy import (
   RepositoryPolicyError,
   check_repository_policy,
@@ -55,6 +60,7 @@ from repo_workflow.results import (
   run_environment,
   run_stable_environment,
 )
+from repo_workflow.version_adapter import VersionAdapterError
 
 
 ENGINE_ROOT = Path(__file__).resolve().parent
@@ -142,10 +148,49 @@ def build_parser() -> argparse.ArgumentParser:
   return parser
 
 
-def main() -> int:
-  args = build_parser().parse_args()
-  root = _root(args.root)
+def _subcommand_names(parser: argparse.ArgumentParser) -> set[str]:
+  for action in parser._actions:
+    if isinstance(action, argparse._SubParsersAction):
+      return set(action.choices)
+  return set()
+
+
+def _public_route(argv: list[str]) -> tuple[str, Path, list[str], bool] | None:
+  pre_parser = argparse.ArgumentParser(add_help=False)
+  pre_parser.add_argument("--root", default=".")
+  pre_args, words = pre_parser.parse_known_args(argv)
+  if not words or words[0] in {"-h", "--help"}:
+    return None
+
+  root = _root(pre_args.root)
+  if words[0] == "complete":
+    completion_words = words[1:]
+    describe = False
+    if completion_words and completion_words[0] == "--describe":
+      describe = True
+      completion_words = completion_words[1:]
+    if completion_words and completion_words[0] == "--":
+      completion_words = completion_words[1:]
+    return "complete", root, completion_words, describe
+
+  parser = build_parser()
+  if is_public_command(words[0]) or words[0] not in _subcommand_names(parser):
+    return "public", root, words, False
+  return None
+
+
+def main(argv: list[str] | None = None) -> int:
+  argv = list(sys.argv[1:] if argv is None else argv)
   try:
+    routed = _public_route(argv)
+    if routed is not None:
+      mode, root, words, describe = routed
+      if mode == "complete":
+        return handle_completion(root, words, describe=describe)
+      return handle_public(root, words, engine_root=ENGINE_ROOT)
+
+    args = build_parser().parse_args(argv)
+    root = _root(args.root)
     if args.command == "preflight":
       candidate = validate_candidate(
         root,
@@ -338,6 +383,7 @@ def main() -> int:
     ResultError,
     GitError,
     GuardError,
+    VersionAdapterError,
     ValueError,
   ) as exc:
     print(f"RepoWorkflow error: {exc}", file=sys.stderr)

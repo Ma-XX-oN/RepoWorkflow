@@ -31,7 +31,7 @@ class GuardIntegrationBranchTests(unittest.TestCase):
 
       candidate = validate_candidate(fixture.root, config)
 
-      self.assertEqual(candidate.version, "1.0.0-issue.1.1")
+      self.assertEqual(candidate.version, "1.0.0-issue.1.0.1")
       self.assertEqual(candidate.commit, fixture.head())
       self.assertEqual(candidate.remote, "origin")
 
