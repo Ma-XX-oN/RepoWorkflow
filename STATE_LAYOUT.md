@@ -136,6 +136,17 @@ The pure schema/model is defined in
 
 The persistent graph store/reader is owned by #145.
 
+## 5.1 Durable lifecycle placement
+
+Canonical issue lifecycle/history is durable repository state.
+
+Its semantic value and transition invariants are defined in
+[ISSUE_LIFECYCLE_STATE.md](ISSUE_LIFECYCLE_STATE.md).  The canonical persistent
+store/reader is owned by #164.
+
+Lifecycle truth must not be reconstructed from clone-local current-work or
+workspace records.
+
 ## 6. Atomicity boundary
 
 Durable mutation concurrency and writer identity are defined by
