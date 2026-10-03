@@ -277,7 +277,8 @@ The durable model must therefore distinguish:
 
 - owning umbrella/grouping relationship;
 - shared-capability umbrella attachment;
-- explicit direct issue-dependency edges;
+- explicit direct leaf-dependency edges;
+- explicit direct umbrella-dependency edges;
 - branch/dependency base;
 - integration target;
 - clone/agent-local current work context.
