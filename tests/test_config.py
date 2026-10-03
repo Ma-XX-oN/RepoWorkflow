@@ -38,7 +38,7 @@ class ConfigTests(unittest.TestCase):
       self.write(root, value)
       self.assertEqual(load_config(root)["infoCommand"], value["infoCommand"])
       value["infoCommand"] = []
-      self.write(root, value)
+      (root / ".ci" / "repoworkflow.json").write_text(json.dumps(value))
       with self.assertRaisesRegex(ConfigError, "infoCommand"):
         load_config(root)
 
