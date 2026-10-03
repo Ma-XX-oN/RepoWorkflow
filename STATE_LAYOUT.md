@@ -138,6 +138,9 @@ The persistent graph store/reader is owned by #145.
 
 ## 6. Atomicity boundary
 
+Durable mutation concurrency and writer identity are defined by
+[STATE_CONCURRENCY.md](STATE_CONCURRENCY.md).
+
 Moving state between scopes is not an implicit side effect.
 
 A workflow transition that updates both durable and local facts must define:
