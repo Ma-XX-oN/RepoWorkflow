@@ -1,257 +1,249 @@
-# Declarative Command Grammar and Bash Completion
+# Declarative Command Grammar and Completion
 
-Issue #15 uses one Python-owned command data structure as the authoritative
-description of the user-facing CLI grammar.  Argument parsing/validation,
-shell-completion candidates, completion help, and normal command help must be
-projections of that structure rather than independently maintained command
-lists.
+Status: authoritative command/completion contract for issues #51/#52.
 
-The authoritative human-authored form is a plain recursive Python dictionary.
-A separate validator/compiler checks that structure at module load/test time
-and may convert it into a richer runtime representation.  Human-facing command
-definitions should remain data-first rather than requiring verbose
-`CommandNode(...)` constructor syntax.
+RepoWorkflow uses one Python-owned recursive command structure as the source for
+argument validation, completion candidates, completion help, normal `--help`,
+and shared diagnostics.  Shell adapters render that structure; they do not
+maintain independent command policy.
 
-Conceptually, the recursive type is:
+## 1. Static command tree
+
+The human-authored form remains a plain recursive dictionary.
+
+Conceptually:
 
 ```python
 Description = str
-
 CommandEntry = Description | CommandNode
-
-DynamicCommand = dict[str, CommandEntry]
-
-DynamicResult = list[str] | list[DynamicCommand]
-
-ValueProvider = Callable[[Context], DynamicResult]
-
-ValueSource = list[str] | ValueProvider
-
-CommandNode = dict[str, CommandEntry | ValueSource]
+CommandNode = dict[str, CommandEntry | ValueProvider]
+ValueProvider = Callable[[Context], CompletionSpec]
 ```
 
-The loose type above is intentionally supplemented by structural invariants
-that Python's normal `dict` type cannot express directly:
+Structural rules:
 
-- `""` is optional and, when present, must map to a description string.  It
-  means the command represented by the current node is valid as-is.
-- `"_values"` is optional and, when present, must be either a static
-  `list[str]` or a callable taking the current `Context`.
-- every other key is a literal next command token and must map to either a
-  description string or another valid `CommandNode`.
-- ordinary command tokens always have descriptions.
-- bare strings returned by `_values` are reserved for externally described
-  values such as test-group names.  Their metadata remains in the authoritative
-  source that owns those values rather than being duplicated in the command
-  grammar.
-- a callable `_values` provider may instead return described command-tree
-  fragments.  This is the dynamic form used when current repository/workflow
-  state determines which command transitions are legal.
+- `""` is optional; when present it maps to the description for executing the
+  current node as-is.
+- `"_values"` is the only dynamic extension point.
+- every other key is a literal next command token and maps to a description or
+  another command node.
+- ordinary authored command tokens have descriptions.
+- `<last-terminal>` is presentation-only and never an authored or parseable
+  token.
+- unsupported special keys such as `_for-states` are invalid.
 
-For example:
+## 2. One dynamic provider result contract
+
+Every dynamic `_values` provider returns one explicit completion
+specification:
 
 ```python
-COMMANDS = {
-  "validate": {
-    "regression": {
-      "": "Run all regression tests",
-      "--fast": "Run fast smoke tests",
-      "--group": {
-        "": "Run a specific regression-test group",
-        "_values": get_regression_group_names,
-      },
-    },
-    "integration": {
-      "": "Start validating integration tests",
-      "_values": get_integration_next_commands,
-    },
-  },
-  "what-next": {
-    "": "Show legal next workflow transitions",
-    "--json": "Output workflow guidance as JSON",
-  },
+{
+  "completions": [...],
+  "on-tab": completion_handler,
 }
 ```
 
-A descriptionless value provider is appropriate for catalogue-owned identifiers:
+`on-tab` is optional.  Absence means the default handler.
+
+The provider contract must not assign semantics by Python return-type shape.
+A provider does not sometimes return `list[str]`, sometimes
+`list[dict]`, or a special single string with implied behaviour.
+
+`completions` may contain whatever validated completion-entry representation
+the grammar/compiler defines for:
+
+- catalogue-owned values;
+- described command fragments;
+- state-derived legal transitions.
+
+The distinction belongs to the completion entries/specification, not to the
+outer Python container type.
+
+A custom `on-tab` handler is the first-class escape hatch for exceptional
+completion presentation or insertion behaviour.  Shell-specific concepts such
+as whether a completion adds a trailing space belong in the handler/adapter,
+not in the semantic command grammar.
+
+## 3. Dynamic state projection
+
+There is no separate `_for-states` field.
+
+A provider receives `Context`, consults the authoritative state/repository
+model, and returns only the appropriate completion specification.
+
+Example:
 
 ```python
-def get_regression_group_names(context: Context) -> list[str]:
-  return get_test_catalogue(context).regression_group_names()
-```
-
-Those returned strings are valid next tokens, but the command grammar does not
-invent or duplicate descriptions for them.
-
-State-dependent command transitions use the same `_values` mechanism.  The
-provider inspects the current context/state and returns normal described command
-nodes:
-
-```python
-def get_integration_next_commands(
-  context: Context,
-) -> list[dict[str, str | dict]]:
+def get_integration_next(context: Context) -> CompletionSpec:
   state = get_workflow_state(context)
+  completions = []
 
   if state.manual_integration_pending:
-    return [
-      {
-        "succeeded":
-          "Report integration tests succeeded",
-      },
-      {
-        "failed":
-          "Report integration tests failed",
-      },
-    ]
+    completions.extend([
+      {"succeeded": "Report integration tests succeeded"},
+      {"failed": "Report integration tests failed"},
+    ])
 
-  if state.automatic_integration_pending:
-    return [
-      {
-        "--automatic":
-          "Run automated integration tests",
-      },
-      {
-        "--group": {
-          "": "Run a specific integration-test group",
-          "_values": get_integration_group_names,
-        },
-      },
-    ]
-
-  return []
+  return {"completions": completions}
 ```
 
-There is deliberately no separate `_for-states` field.  Static grammar is
-encoded directly in the tree.  Dynamic legality is obtained by calling
-`_values` with `Context`; that provider consults the authoritative state
-machine and exposes only the valid next command nodes/tokens.
+General-syntax diagnosis may evaluate a general projection while legal
+completion evaluates the current-state projection, but both come from the same
+authored command tree/providers.
 
-The validator/compiler must reject malformed command data at startup/test time.
-At minimum it must enforce the special-key rules above and recurse through both
-static nodes and any validated runtime node representation.  The implementation
-may use a `CommandNode` class internally after validation, but the
-authoritative definition remains the plain dictionary tree.
+## 4. Catalogue completion
 
-The empty-string terminal has a completion-only presentation.  It is not a
-literal shell token.  When the current node is executable as-is and also has
-valid continuations, completion may render the current-node action as
-`<last-terminal>`.  For example:
+Repository-owned catalogues remain authoritative for their identifiers and
+metadata.  The grammar does not duplicate those definitions.
 
-```text
-rwf validate integration <TAB>
+For example, issue-scoped TDD group completion may return:
 
-<last-terminal>  succeeded  failed
+```python
+{
+  "completions": [
+    "issue-173-parser",
+    "issue-173-version",
+  ],
+  "on-tab": issue_tdd_group_handler,
+}
 ```
 
-A second Tab within one second, with the same command line and completion
-context, may show:
+Ordinary shell completion may derive and insert the common prefix
+`issue-173-` when several candidates match, or the full name when only one
+matches.
+
+The custom handler may produce contextual diagnostics such as:
 
 ```text
-<last-terminal>    Start validating integration tests
-succeeded          Report integration tests succeeded
-failed             Report integration tests failed
+RepoWorkflow error: no TDD test group exists for issue 173.
+
+Expected a group named:
+  issue-173-...
+
+Test catalogue:
+  <repository-declared catalogue location>
 ```
 
-`<last-terminal>` must never be inserted into the command line or accepted by
-the parser.  It is only a display sentinel for the `""` entry.
+That runtime diagnosis is distinct from descriptive help.
 
-The Bash adapter is a presentation layer.  It supplies the current command
-line/cursor context to the RWF completion engine and receives the candidates
-derived from the command grammar and current workflow state.  It must not
-duplicate RWF command or state policy.
+## 5. First Tab, double Tab, and --help
 
-Parsing and completion use one shared command-path diagnostic model.  The
-diagnostic always preserves the literal command tokens the caller typed; it
-never invents a hypothetical completion merely to explain an error.  It finds
-the first token at which the typed path stops matching either the general
-grammar or the currently legal dynamic projection and underlines exactly that
-token in the rendered command.
+One Tab performs ordinary completion or a contextual completion diagnostic.
 
-The failure classes are:
+A second Tab within the same completion context displays descriptive help for
+that grammar position.  Changing line, cursor/current word, or completion
+context resets the double-Tab state.
 
-- a token that does not exist in the general command grammar is an
-  `unrecognised command`;
-- a token sequence that exists in the general grammar but is not legal in the
-  current workflow state is a
-  `transition is not legal in the current state` error;
-- a partial token at a legal state-dependent dynamic command position for which
-  no legal candidate matches is a
-  `no completions available from the current state` error;
-- a partial token at a bare `list[str]` value position for which no value
-  matches is a generic `no completions available for` error.
+`--help` is accepted after every valid command prefix and exposes the same
+semantic help as double Tab, formatted as ordinary command help.
 
-The last case is deliberately different because bare values are not workflow
-transitions.  This includes both literal `list[str]` declarations and
-callable `_values` providers whose resolved result is `list[str]`, such as
-test-group catalogues.  No state-transition explanation is rendered for those
-value-only positions.
-
-Workflow-command diagnostics for either an unrecognised command or a
-state-derived mismatch render one human-readable state line followed by the
-currently legal transitions exactly once.  Bare value-list misses are the
-exception because they are not workflow transitions:
+Therefore these two surfaces are equivalent in content:
 
 ```text
+rwf issue info <TAB><TAB>
+rwf issue info --help
+```
+
+For issue information, double Tab may show matching issue numbers and titles
+while single Tab inserts/completes issue numbers.
+
+Contextual first-Tab/runtime errors must be actionable.  `--help` should
+explain command usage/configuration rather than merely repeat the runtime error.
+
+## 6. Executable nodes and <last-terminal>
+
+When a node is executable as-is and also has continuations, completion may
+present its current-node action as:
+
+```text
+<last-terminal>
+```
+
+The sentinel is display-only.  It is never inserted into the command line and
+is rejected if typed manually.
+
+## 7. Shared diagnostics
+
+Parsing, manual execution, and completion use one command-path analyser.
+
+Diagnostics:
+
+- preserve literal typed input;
+- identify the first failing token/span;
+- never invent a hypothetical completion to explain an error;
+- distinguish unknown grammar from state-illegal transitions and
+  completion-specific failures;
+- remain read-only.
+
+State-related diagnostics include one human-readable state line and the legal
+transitions exactly once when that information is relevant.
+
+Example:
+
+```text
+RepoWorkflow error: transition is not legal in the current state:
+  validate integration s
+           ^^^^^^^^^^^
+
+Legal transitions:
+  regression required
+  → validate regression
+```
+
+A legal state-derived prefix whose partial token matches no current candidate
+may report:
+
+```text
+RepoWorkflow error: no completions available from the current state:
+  validate integration s
+                       ^
+
 Legal transitions:
   integration result pending
   → validate integration failed
 ```
 
-State names are display text such as `integration result pending`, not
-hyphenated internal identifiers.  If several possible downstream commands
-share the same first illegal token, the diagnostic reports that first failure
-once rather than emitting one error for every descendant.
+Catalogue/custom handlers may instead provide domain-specific diagnostics, such
+as the missing issue-scoped TDD group error in section 4.
 
-Manual command execution and shell completion must use this same analyser and
-produce equivalent diagnostics for the same typed path.  An illegal manually
-typed command must fail before mutation; completion must likewise never execute
-a workflow mutation while diagnosing or enumerating candidates.
+## 8. Shell adapters
 
-The intended Bash interaction is:
+Bash, zsh, and other supported shells are presentation adapters.
 
-- one Tab performs normal completion and displays/inserts candidate names;
-- a second Tab within one second, with the same command line, cursor position,
-  current word, and completion context, displays descriptions as additional
-  detail;
-- changing any of that context resets the double-Tab state;
-- described static or dynamic command nodes show their descriptions on the
-  second Tab;
-- descriptionless `list[str]` values, such as test-group names, remain names
-  only on both single and double Tab.
+They may implement shell-specific mechanics required by `on-tab`, but must not
+duplicate command legality, workflow state, catalogue policy, or diagnostics.
 
-For example:
+Shell initialization is emitted through commands such as:
 
 ```text
-rwf validate regression <TAB>
-<last-terminal>  --fast  --group
+rwf init bash
+rwf init zsh
 ```
 
-A second Tab within one second may show:
+The platform-neutral Python engine remains authoritative.
 
-```text
-<last-terminal>    Run all regression tests
---fast             Run fast smoke tests
---group            Run a specific regression-test group
-```
+## 9. Read-only completion invariant
 
-By contrast, dynamic group completion remains:
+Completion/help/diagnostic paths must not:
 
-```text
-rwf validate regression --group <TAB><TAB>
+- execute a workflow transition;
+- change version state;
+- create commits/tags/branches;
+- alter `.repoworkflow` durable state;
+- run destructive repository operations.
 
-issue-123-parser-empty-input
-issue-123-browser-reconnect
-```
+Tests must prove that failed and successful completion leave workflow/repository
+state unchanged.
 
-The group names come from the static test catalogue.  Their completion data is
-not duplicated in the command grammar.
+## 10. Implementation ownership
 
-A Bash prototype using a real pseudo-terminal established that Bash invokes the
-completion function on repeated Tab presses with the same completion context,
-that timing can be measured, and that the second invocation can print the
-detailed list while returning an empty `COMPREPLY` to suppress Bash's redundant
-plain list.  That path may produce the terminal bell; this is acceptable for
-the initial implementation and can be revisited if it proves distracting in
-normal use.
+Issue #52 owns migration from the current return-shape-coupled provider model to
+this explicit completion specification.
 
+Issue #54 owns issue-scoped TDD group completion/diagnostics.
+
+Issue #27 owns shell initialization/registration.
+
+The complete public command model is defined in
+[PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
