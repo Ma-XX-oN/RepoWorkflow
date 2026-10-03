@@ -9,6 +9,7 @@ from .command_grammar import (
   CommandGrammarError,
   Context,
   completion_items,
+  completion_response,
   parse_tokens,
 )
 from .config import load_config
@@ -136,6 +137,19 @@ def _completed_command_is_terminal(
   return True
 
 
+def _print_completion_items(items, *, describe: bool) -> None:
+  if describe:
+    width = max(len(item.token) for item in items)
+    for item in items:
+      if item.description is None:
+        print(item.token)
+      else:
+        print(f"{item.token:<{width}}  {item.description}")
+    return
+  for item in items:
+    print(item.token)
+
+
 def handle_completion(
   root: Path,
   words: list[str],
@@ -148,23 +162,20 @@ def handle_completion(
     completion=True,
   )
 
-  items = completion_items(
+  response = completion_response(
     COMMANDS,
     legal,
     words,
     include_terminal=True,
+    describe=describe,
   )
+  if response.error is not None:
+    print(response.error, file=sys.stderr)
+    return 2
+
+  items = list(response.items)
   if items:
-    if describe:
-      width = max(len(item.token) for item in items)
-      for item in items:
-        if item.description is None:
-          print(item.token)
-        else:
-          print(f"{item.token:<{width}}  {item.description}")
-    else:
-      for item in items:
-        print(item.token)
+    _print_completion_items(items, describe=describe)
     return 0
 
   if _completed_command_is_terminal(legal, words):
@@ -173,6 +184,11 @@ def handle_completion(
   if failure is not None:
     return _print_failure(failure)
   return 0
+
+
+def handle_help(root: Path, words: list[str]) -> int:
+  help_words = [*words, ""]
+  return handle_completion(root, help_words, describe=True)
 
 
 def is_public_command(word: str) -> bool:

@@ -43,15 +43,25 @@ class CommandGrammarTests(unittest.TestCase):
     with self.assertRaisesRegex(CommandGrammarError, LAST_TERMINAL):
       validate_node({LAST_TERMINAL: "Not a command"})
 
-  def test_literal_bare_values_validate(self):
-    validate_node({"group": {"": "Choose group", "_values": ["one", "two"]}})
-
-  def test_literal_bare_values_reject_bad_entries(self):
+  def test_literal_values_are_rejected(self):
     with self.assertRaises(CommandGrammarError):
-      validate_node({"group": {"_values": ["one", ""]}})
+      validate_node({"group": {"": "Choose group", "_values": ["one", "two"]}})
+
+  def test_provider_rejects_bad_bare_completion_entries(self):
+    commands = {
+      "group": {
+        "_values": lambda context: {"completions": ["one", ""]},
+      },
+    }
+    with self.assertRaises(CommandGrammarError):
+      completion_items(commands, self.context, ["group", ""])
 
   def test_callable_bare_values_parse(self):
-    commands = {"group": {"_values": lambda context: ["one", "two"]}}
+    commands = {
+      "group": {
+        "_values": lambda context: {"completions": ["one", "two"]},
+      },
+    }
     self.assertEqual(
       parse_tokens(commands, self.context, ["group", "one"]),
       ("group", "one"),
@@ -60,10 +70,12 @@ class CommandGrammarTests(unittest.TestCase):
   def test_callable_described_fragments_parse(self):
     commands = {
       "validate": {
-        "_values": lambda context: [
-          {"regression": "Run regression"},
-          {"integration": {"failed": "Report failure"}},
-        ],
+        "_values": lambda context: {
+          "completions": [
+            {"regression": "Run regression"},
+            {"integration": {"failed": "Report failure"}},
+          ],
+        },
       },
     }
     self.assertEqual(
@@ -71,13 +83,22 @@ class CommandGrammarTests(unittest.TestCase):
       ("validate", "integration", "failed"),
     )
 
-  def test_callable_mixed_result_is_rejected(self):
-    commands = {"x": {"_values": lambda context: ["one", {"two": "Two"}]}}
-    with self.assertRaises(CommandGrammarError):
-      completion_items(commands, self.context, ["x", ""])
+  def test_completion_spec_can_mix_bare_and_described_entries(self):
+    commands = {
+      "x": {
+        "_values": lambda context: {
+          "completions": ["one", {"two": "Two"}],
+        },
+      },
+    }
+    items = completion_items(commands, self.context, ["x", ""])
+    self.assertEqual(
+      [(item.token, item.description) for item in items],
+      [("one", None), ("two", "Two")],
+    )
 
   def test_dynamic_fragment_cannot_define_terminal_at_fragment_root(self):
-    commands = {"x": {"_values": lambda context: [{"": "bad"}]}}
+    commands = {"x": {"_values": lambda context: {"completions": [{"": "bad"}]}}}
     with self.assertRaises(CommandGrammarError):
       completion_items(commands, self.context, ["x", ""])
 
@@ -85,7 +106,7 @@ class CommandGrammarTests(unittest.TestCase):
     commands = {
       "x": {
         "one": "Static",
-        "_values": lambda context: [{"one": "Dynamic"}],
+        "_values": lambda context: {"completions": [{"one": "Dynamic"}]},
       },
     }
     with self.assertRaisesRegex(CommandGrammarError, "collides"):
@@ -94,10 +115,12 @@ class CommandGrammarTests(unittest.TestCase):
   def test_duplicate_dynamic_tokens_are_rejected(self):
     commands = {
       "x": {
-        "_values": lambda context: [
-          {"one": "First"},
-          {"one": "Second"},
-        ],
+        "_values": lambda context: {
+          "completions": [
+            {"one": "First"},
+            {"one": "Second"},
+          ],
+        },
       },
     }
     with self.assertRaisesRegex(CommandGrammarError, "collides"):
@@ -116,7 +139,7 @@ class CommandGrammarTests(unittest.TestCase):
       parse_tokens({"run": "Run it"}, self.context, ["run", "extra"])
 
   def test_bare_value_must_be_final(self):
-    commands = {"group": {"_values": ["one"]}}
+    commands = {"group": {"_values": lambda context: {"completions": ["one"]}}}
     with self.assertRaisesRegex(CommandGrammarError, "terminal value"):
       parse_tokens(commands, self.context, ["group", "one", "extra"])
 
@@ -138,14 +161,24 @@ class CommandGrammarTests(unittest.TestCase):
     self.assertFalse(items[0].bare_value)
 
   def test_dynamic_described_completion_keeps_description(self):
-    commands = {"x": {"_values": lambda context: [{"alpha": "Dynamic"}]}}
+    commands = {
+      "x": {
+        "_values": lambda context: {
+          "completions": [{"alpha": "Dynamic"}],
+        },
+      },
+    }
     items = completion_items(commands, self.context, ["x", ""])
     self.assertEqual([(item.token, item.description) for item in items], [
       ("alpha", "Dynamic"),
     ])
 
   def test_bare_values_have_no_synthetic_description(self):
-    commands = {"x": {"_values": lambda context: ["alpha"]}}
+    commands = {
+      "x": {
+        "_values": lambda context: {"completions": ["alpha"]},
+      },
+    }
     items = completion_items(commands, self.context, ["x", ""])
     self.assertEqual(items[0].description, None)
     self.assertTrue(items[0].bare_value)

@@ -46,6 +46,7 @@ from repo_workflow.guard import (
 from repo_workflow.local import verify_local, verify_stable_local
 from repo_workflow.public_cli import (
   handle_completion,
+  handle_help,
   handle_public,
   is_public_command,
 )
@@ -159,10 +160,13 @@ def _public_route(argv: list[str]) -> tuple[str, Path, list[str], bool] | None:
   pre_parser = argparse.ArgumentParser(add_help=False)
   pre_parser.add_argument("--root", default=".")
   pre_args, words = pre_parser.parse_known_args(argv)
-  if not words or words[0] in {"-h", "--help"}:
+  if not words:
     return None
 
   root = _root(pre_args.root)
+  if words[0] in {"-h", "--help"}:
+    return "help", root, [], False
+
   if words[0] == "complete":
     completion_words = words[1:]
     describe = False
@@ -174,7 +178,11 @@ def _public_route(argv: list[str]) -> tuple[str, Path, list[str], bool] | None:
     return "complete", root, completion_words, describe
 
   parser = build_parser()
-  if is_public_command(words[0]) or words[0] not in _subcommand_names(parser):
+  if is_public_command(words[0]):
+    if words[-1] in {"-h", "--help"}:
+      return "help", root, words[:-1], False
+    return "public", root, words, False
+  if words[0] not in _subcommand_names(parser):
     return "public", root, words, False
   return None
 
@@ -187,6 +195,8 @@ def main(argv: list[str] | None = None) -> int:
       mode, root, words, describe = routed
       if mode == "complete":
         return handle_completion(root, words, describe=describe)
+      if mode == "help":
+        return handle_help(root, words)
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
     args = build_parser().parse_args(argv)

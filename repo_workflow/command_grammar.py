@@ -8,6 +8,8 @@ from typing import Callable, Iterable, TypeAlias
 LAST_TERMINAL = "<last-terminal>"
 TERMINAL = ""
 VALUES = "_values"
+COMPLETIONS = "completions"
+ON_TAB = "on-tab"
 
 
 class CommandGrammarError(ValueError):
@@ -38,11 +40,68 @@ class Completion:
   bare_value: bool = False
 
 
+@dataclass(frozen=True)
+class CompletionResponse:
+  items: tuple[Completion, ...] = ()
+  error: str | None = None
+  append_space: bool = True
+
+
+@dataclass(frozen=True)
+class CompletionRequest:
+  context: Context
+  prefix: str
+  items: tuple[Completion, ...]
+  describe: bool = False
+
+  def default(self, *, append_space: bool = True) -> CompletionResponse:
+    return CompletionResponse(self.items, append_space=append_space)
+
+  def error(self, message: str) -> CompletionResponse:
+    return CompletionResponse(error=message)
+
+
+CompletionHandler: TypeAlias = Callable[[CompletionRequest], CompletionResponse]
 CommandEntry: TypeAlias = str | dict
 DynamicCommand: TypeAlias = dict[str, CommandEntry]
-DynamicResult: TypeAlias = list[str] | list[DynamicCommand]
-ValueProvider: TypeAlias = Callable[[Context], DynamicResult]
-ValueSource: TypeAlias = list[str] | ValueProvider
+CompletionEntry: TypeAlias = str | DynamicCommand
+ValueProvider: TypeAlias = Callable[[Context], dict]
+
+
+def default_on_tab(request: CompletionRequest) -> CompletionResponse:
+  return request.default()
+
+
+@dataclass(frozen=True)
+class ResolvedCompletionSpec:
+  entries: dict[str, CommandEntry]
+  values: frozenset[str]
+  on_tab: CompletionHandler
+  context: Context
+
+  def _items(self, prefix: str) -> tuple[Completion, ...]:
+    result: list[Completion] = []
+    for token, entry in self.entries.items():
+      if token.startswith(prefix):
+        description = entry if isinstance(entry, str) else entry.get(TERMINAL)
+        result.append(Completion(token, description))
+    for token in self.values:
+      if token.startswith(prefix):
+        result.append(Completion(token, None, True))
+    return tuple(sorted(result, key=lambda item: item.token))
+
+  def request(
+    self,
+    *,
+    prefix: str,
+    describe: bool,
+  ) -> CompletionRequest:
+    return CompletionRequest(
+      self.context,
+      prefix,
+      self._items(prefix),
+      describe,
+    )
 
 
 def _validate_description(value: object, label: str) -> None:
@@ -51,14 +110,8 @@ def _validate_description(value: object, label: str) -> None:
 
 
 def _validate_value_source(value: object, label: str) -> None:
-  if callable(value):
-    return
-  if not isinstance(value, list) or not all(
-    isinstance(item, str) and item for item in value
-  ):
-    raise CommandGrammarError(
-      f"{label} must be a list of non-empty strings or a callable"
-    )
+  if not callable(value):
+    raise CommandGrammarError(f"{label} must be a callable completion provider")
 
 
 def validate_node(node: object, *, label: str = "COMMANDS") -> None:
@@ -83,69 +136,105 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
       validate_node(entry, label=f"{label}[{token!r}]")
 
 
-def _validate_dynamic_result(value: object, *, label: str) -> DynamicResult:
+def _validate_completion_entries(
+  value: object,
+  *,
+  label: str,
+) -> tuple[dict[str, CommandEntry], frozenset[str]]:
   if not isinstance(value, list):
-    raise CommandGrammarError(f"{label} must return a list")
-  if not value:
-    return []
-  if all(isinstance(item, str) and item for item in value):
-    return list(value)
-  if all(isinstance(item, dict) for item in value):
-    result: list[DynamicCommand] = []
-    for index, item in enumerate(value):
-      validate_node(item, label=f"{label}[{index}]")
-      if set(item) & {TERMINAL, VALUES}:
-        raise CommandGrammarError(
-          f"{label}[{index}] must contain described next-command tokens only"
-        )
-      result.append(item)
-    return result
-  raise CommandGrammarError(
-    f"{label} must return either list[str] or list[dict[str, CommandEntry]]"
-  )
-
-
-def _resolved_values(
-  node: dict,
-  context: Context,
-) -> tuple[dict[str, CommandEntry], set[str]]:
-  source = node.get(VALUES)
-  if source is None:
-    return {}, set()
-  raw = source(context) if callable(source) else source
-  value = _validate_dynamic_result(raw, label="_values provider")
-  if not value:
-    return {}, set()
-  if all(isinstance(item, str) for item in value):
-    return {}, set(value)
+    raise CommandGrammarError(f"{label}[{COMPLETIONS!r}] must be a list")
 
   entries: dict[str, CommandEntry] = {}
-  for fragment in value:
-    assert isinstance(fragment, dict)
-    for token, entry in fragment.items():
-      if token in entries or token in node:
+  values: set[str] = set()
+  for index, item in enumerate(value):
+    item_label = f"{label}[{COMPLETIONS!r}][{index}]"
+    if isinstance(item, str):
+      if not item:
+        raise CommandGrammarError(f"{item_label} must not be empty")
+      if item in values or item in entries:
+        raise CommandGrammarError(f"dynamic command token collides with {item!r}")
+      values.add(item)
+      continue
+    if not isinstance(item, dict):
+      raise CommandGrammarError(
+        f"{item_label} must be a non-empty string or described command fragment"
+      )
+    validate_node(item, label=item_label)
+    if set(item) & {TERMINAL, VALUES}:
+      raise CommandGrammarError(
+        f"{item_label} must contain described next-command tokens only"
+      )
+    for token, entry in item.items():
+      if token in entries or token in values:
         raise CommandGrammarError(f"dynamic command token collides with {token!r}")
       entries[token] = entry
-  return entries, set()
+  return entries, frozenset(values)
+
+
+def _validate_completion_spec(
+  value: object,
+  *,
+  context: Context,
+  label: str = "_values provider",
+) -> ResolvedCompletionSpec:
+  if not isinstance(value, dict):
+    raise CommandGrammarError(
+      f"{label} must return a completion specification dictionary"
+    )
+  unknown = set(value) - {COMPLETIONS, ON_TAB}
+  if unknown:
+    names = ", ".join(repr(name) for name in sorted(unknown))
+    raise CommandGrammarError(f"{label} contains unsupported field(s): {names}")
+  if COMPLETIONS not in value:
+    raise CommandGrammarError(f"{label} must define {COMPLETIONS!r}")
+
+  entries, values = _validate_completion_entries(value[COMPLETIONS], label=label)
+  handler = value.get(ON_TAB, default_on_tab)
+  if not callable(handler):
+    raise CommandGrammarError(f"{label}[{ON_TAB!r}] must be callable")
+  return ResolvedCompletionSpec(entries, values, handler, context)
+
+
+def completion_spec(
+  node: dict,
+  context: Context,
+) -> ResolvedCompletionSpec:
+  source = node.get(VALUES)
+  if source is None:
+    return ResolvedCompletionSpec({}, frozenset(), default_on_tab, context)
+  _validate_value_source(source, VALUES)
+  return _validate_completion_spec(source(context), context=context)
+
+
+def _resolved_node(
+  node: dict,
+  context: Context,
+) -> tuple[
+  dict[str, CommandEntry],
+  frozenset[str],
+  ResolvedCompletionSpec,
+]:
+  entries = {
+    token: entry
+    for token, entry in node.items()
+    if token not in {TERMINAL, VALUES}
+  }
+  spec = completion_spec(node, context)
+  overlap = set(entries) & set(spec.entries)
+  if overlap:
+    raise CommandGrammarError(
+      "dynamic command token collides with static token: " + ", ".join(sorted(overlap))
+    )
+  entries.update(spec.entries)
+  return entries, spec.values, spec
 
 
 def next_entries(
   node: dict,
   context: Context,
 ) -> tuple[dict[str, CommandEntry], set[str]]:
-  entries = {
-    token: entry
-    for token, entry in node.items()
-    if token not in {TERMINAL, VALUES}
-  }
-  dynamic_entries, dynamic_values = _resolved_values(node, context)
-  overlap = set(entries) & set(dynamic_entries)
-  if overlap:
-    raise CommandGrammarError(
-      "dynamic command token collides with static token: " + ", ".join(sorted(overlap))
-    )
-  entries.update(dynamic_entries)
-  return entries, dynamic_values
+  entries, values, _ = _resolved_node(node, context)
+  return entries, set(values)
 
 
 def parse_tokens(commands: dict, context: Context, tokens: Iterable[str]) -> tuple[str, ...]:
@@ -177,13 +266,14 @@ def parse_tokens(commands: dict, context: Context, tokens: Iterable[str]) -> tup
   return words
 
 
-def completion_items(
+def completion_response(
   commands: dict,
   context: Context,
   words: Iterable[str],
   *,
   include_terminal: bool = False,
-) -> list[Completion]:
+  describe: bool = False,
+) -> CompletionResponse:
   validate_node(commands)
   tokens = list(words)
   if not tokens:
@@ -194,14 +284,17 @@ def completion_items(
   node = commands
   for index, token in enumerate(completed):
     if token == LAST_TERMINAL:
-      return []
+      return CompletionResponse()
     entries, values = next_entries(node, context.at(tokens, index))
     entry = entries.get(token)
     if entry is None or token in values or isinstance(entry, str):
-      return []
+      return CompletionResponse()
     node = entry
 
-  entries, values = next_entries(node, context.at(tokens, len(completed)))
+  entries, values, spec = _resolved_node(
+    node,
+    context.at(tokens, len(completed)),
+  )
   result: list[Completion] = []
   if (
     include_terminal
@@ -218,30 +311,50 @@ def completion_items(
   for token in values:
     if token.startswith(prefix):
       result.append(Completion(token, None, True))
-  return sorted(result, key=lambda item: item.token)
+
+  request = CompletionRequest(
+    context.at(tokens, len(completed)),
+    prefix,
+    tuple(sorted(result, key=lambda item: item.token)),
+    describe,
+  )
+  response = spec.on_tab(request)
+  if not isinstance(response, CompletionResponse):
+    raise CommandGrammarError("on-tab handler must return CompletionResponse")
+  return response
+
+
+def completion_items(
+  commands: dict,
+  context: Context,
+  words: Iterable[str],
+  *,
+  include_terminal: bool = False,
+  describe: bool = False,
+) -> list[Completion]:
+  response = completion_response(
+    commands,
+    context,
+    words,
+    include_terminal=include_terminal,
+    describe=describe,
+  )
+  return list(response.items)
 
 
 def help_lines(commands: dict, context: Context, tokens: Iterable[str] = ()) -> list[str]:
   validate_node(commands)
-  node = commands
-  for token in tokens:
-    entries, values = next_entries(node, context)
-    if token in values:
-      return []
-    entry = entries.get(token)
-    if entry is None:
-      raise CommandGrammarError(f"invalid command token: {token}")
-    if isinstance(entry, str):
-      return [f"{token}  {entry}"]
-    node = entry
-
-  entries, values = next_entries(node, context)
-  items = [
-    Completion(token, entry if isinstance(entry, str) else entry.get(TERMINAL))
-    for token, entry in entries.items()
-  ]
-  items.extend(Completion(token, None, True) for token in values)
+  words = list(tokens)
+  response = completion_response(
+    commands,
+    context,
+    [*words, ""],
+    include_terminal=True,
+    describe=True,
+  )
+  if response.error is not None:
+    return [response.error]
   return [
     item.token if item.description is None else f"{item.token}  {item.description}"
-    for item in sorted(items, key=lambda item: item.token)
+    for item in response.items
   ]

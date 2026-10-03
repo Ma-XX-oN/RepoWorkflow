@@ -101,6 +101,33 @@ environment rather than merely inspect generated text:
   errors;
 - state names rendered in diagnostics are normal human-readable phrases, not
   hyphenated internal identifiers.
+## Issue #52 completion refinement
+
+Issue #52 supersedes the issue-#15 cases that coupled dynamic-provider
+semantics to `list[str]` versus `list[dict]`.  Those numbered #15 cases are
+retained below as historical TDD evidence, not as the current provider
+contract.
+
+The #52 RED/GREEN matrix requires:
+
+- `_values` is a callable provider rather than a literal value list;
+- every provider returns
+  `{"completions": [...], "on-tab": handler?}`;
+- missing `completions` and unknown specification fields are rejected;
+- `on-tab`, when present, must be callable;
+- missing `on-tab` resolves to the default handler;
+- catalogue values and described command fragments may coexist inside one
+  `completions` list without changing the outer provider result shape;
+- an empty `completions` list is valid;
+- custom `on-tab` receives the filtered candidates and completion context;
+- custom `on-tab` may return a contextual error without mutation;
+- `--help` after every valid public command prefix uses the same semantic
+  projection as detailed/double-Tab completion;
+- root, executable-prefix, and dynamic-prefix help equivalence are exercised
+  through the real CLI;
+- aliases, no filename fallback, repeated-Tab descriptions, context reset,
+  literal-input diagnostics, and read-only completion remain required.
+
 ## Concrete issue #15 TDD matrix
 
 The cases below are fixed before implementation.  Tests may use helper
