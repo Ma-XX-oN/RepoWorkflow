@@ -41,6 +41,8 @@ class WorkspaceStoreTests(unittest.TestCase):
       "RWF-89",
       issue=89,
       work_identity="repo-version contract",
+      branch="issue-89-workspace",
+      worktree_path=self.root.parent / "RWF-89",
     )
 
     claim = self.store.read_claim("RWF-89")
@@ -50,8 +52,29 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertIsNone(claim["worker_id"])
     self.assertEqual(workspace["issue"], 89)
 
+  def test_workspace_persists_materialization_and_lists_deterministically(self):
+    self.store.create(
+      "RWF-90", issue=90, work_identity="second",
+      branch="issue-90-workspace", worktree_path=self.root.parent / "RWF-90",
+    )
+    self.store.create(
+      "RWF-89", issue=89, work_identity="first",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
+
+    values = self.store.list_workspaces()
+    self.assertEqual([value["workspace_id"] for value in values], ["RWF-89", "RWF-90"])
+    self.assertEqual(values[0]["branch"], "issue-89-workspace")
+    self.assertEqual(
+      values[0]["worktree_path"],
+      str((self.root.parent / "RWF-89").resolve()),
+    )
+
   def test_claim_uses_expected_revision_and_increments_once(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
     claimed = self.store.update_claim(
       "RWF-89",
       expected_revision=0,
@@ -76,7 +99,10 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertEqual(current, claimed)
 
   def test_same_worker_can_roll_session_and_revision_forward(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
     claimed = self.store.update_claim(
       "RWF-89", 0, "claimed", "agent-a", "chat-1"
     )
@@ -93,7 +119,10 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertEqual(resumed["session_id"], "chat-2")
 
   def test_other_worker_cannot_roll_claim_session(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
     claimed = self.store.update_claim(
       "RWF-89", 0, "claimed", "agent-a", "chat-1"
     )
@@ -110,7 +139,10 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertEqual(self.store.read_claim("RWF-89"), claimed)
 
   def test_non_owner_cannot_release_claimed_workspace(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
     self.store.update_claim(
       "RWF-89",
       expected_revision=0,
@@ -131,7 +163,10 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertEqual(self.store.read_claim("RWF-89")["revision"], 1)
 
   def test_owner_can_block_resume_and_release(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
     one = self.store.update_claim(
       "RWF-89", 0, "claimed", "agent-a", "chat-1"
     )
@@ -154,7 +189,10 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertIsNone(four["session_id"])
 
   def test_illegal_transition_leaves_prior_claim_unchanged(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
 
     with self.assertRaisesRegex(WorkspaceClaimError, "illegal claim transition"):
       self.store.update_claim(
@@ -168,7 +206,10 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertEqual(self.store.read_claim("RWF-89")["revision"], 0)
 
   def test_workspace_state_is_under_git_common_dir_not_worktree(self):
-    self.store.create("RWF-89", issue=89, work_identity="version")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="version",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
 
     common = Path(run_git(self.root, "rev-parse", "--git-common-dir"))
     if not common.is_absolute():
@@ -179,14 +220,20 @@ class WorkspaceStoreTests(unittest.TestCase):
     self.assertEqual(run_git(self.root, "status", "--porcelain"), "")
 
   def test_duplicate_workspace_creation_is_rejected_without_mutation(self):
-    self.store.create("RWF-89", issue=89, work_identity="first")
+    self.store.create(
+      "RWF-89", issue=89, work_identity="first",
+      branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+    )
     before = json.dumps(
       self.store.read_workspace("RWF-89"),
       sort_keys=True,
     )
 
     with self.assertRaisesRegex(WorkspaceClaimError, "already exists"):
-      self.store.create("RWF-89", issue=89, work_identity="second")
+      self.store.create(
+        "RWF-89", issue=89, work_identity="second",
+        branch="issue-89-workspace", worktree_path=self.root.parent / "RWF-89",
+      )
 
     after = json.dumps(
       self.store.read_workspace("RWF-89"),
