@@ -435,6 +435,8 @@ project's ~500-line ceiling:
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral issue-decomposition, shared-capability, dependency, and
   scheduling methodology used to construct maintainable work graphs.
+- [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
+  refinement and acceptance checks for those graphs.
 
 ## 14. Non-goals
 
