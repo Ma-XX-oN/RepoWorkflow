@@ -278,11 +278,17 @@ If an issue requires several distinct tasks to satisfy its outcome, those
 tasks should be split into child issues while the original issue remains their
 umbrella target.
 
-If two or more otherwise unrelated issues or umbrellas share an unstated
-common prerequisite, that prerequisite should become an independent issue
-rather than a child of one consumer.  Each consuming issue then depends
-directly on it.  If that prerequisite itself requires several tasks, it may
-become its own umbrella.
+If two or more otherwise unrelated issues or umbrellas share common
+prerequisite work, that work must not become a child of one consumer merely
+because it was discovered there.  A single prerequisite may remain independent.
+If the shared capability requires several tasks, those tasks should be
+consolidated under their own shared capability umbrella.
+
+Each consumer umbrella attaches to that shared capability umbrella.  The
+capability's child issues retain one owning umbrella only; they are not copied
+or multi-parented into each consumer.  Concrete workflow ordering still uses
+direct dependency edges from consuming leaves to the exact capability leaves
+they require.
 
 The resulting dependency graph is intended to make execution order visible:
 

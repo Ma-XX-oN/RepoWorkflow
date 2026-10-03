@@ -258,11 +258,19 @@ prerequisite task(s) until the dependency graph can express every ordering
 constraint through direct edges.
 
 When one issue decomposes into several tasks that collectively satisfy its
-outcome, the original issue remains their umbrella.  When decomposition instead
-discovers one reusable prerequisite shared by otherwise unrelated issues or
-umbrellas, that prerequisite is an independent issue with direct incoming
-dependency edges from each consumer; it does not belong under one consumer's
-umbrella merely because that consumer discovered it first.
+outcome, the original issue remains their owning umbrella.
+
+When decomposition instead discovers reusable prerequisite work shared by
+otherwise unrelated umbrellas, that work must not be assigned to one consumer
+merely because that consumer discovered it first.  A single shared prerequisite
+may remain an independent issue.  If the capability has several contract,
+dispatcher, provider, or implementation tasks, those tasks receive their own
+shared capability umbrella.  Consumer umbrellas attach to that capability
+umbrella while executable ordering remains expressed by direct dependencies on
+the specific leaf interfaces consumed.
+
+Owning umbrella membership, shared-capability attachment, and dependency are
+separate graph relations.
 
 This graph is also the scheduling graph:
 
