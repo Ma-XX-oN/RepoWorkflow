@@ -193,9 +193,11 @@ def _read_json(path: Path) -> dict:
 def _write_json_atomic(
   path: Path,
   value: dict,
-  replace: Callable[[Path, Path], None] = os.replace,
+  replace: Callable[[Path, Path], None] | None = None,
 ) -> None:
   path.parent.mkdir(parents=True, exist_ok=True)
+  if replace is None:
+    replace = os.replace
   descriptor, temporary = tempfile.mkstemp(
     prefix=f".{path.name}.",
     suffix=".tmp",
