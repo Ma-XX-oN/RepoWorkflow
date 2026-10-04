@@ -73,7 +73,7 @@ def start_issue(
   version_before = read_version(root, config)
   parent = relation.parent
   if parent is None:
-    raise IssueStartError(f"issue {issue_id} has no canonical branch base")
+    raise IssueStartError(f"issue {issue_id} has no canonical parent")
   base_sha = git(root, "rev-parse", parent).stdout.strip()
 
   transaction_id = _transaction_id(issue_id, identity.session_id)
