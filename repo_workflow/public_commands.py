@@ -97,7 +97,7 @@ def _workspace_commands() -> dict:
 
 
 COMMANDS = {
-  "workspace": _workspace_commands(),
+  "issue": {\n    "start": {\n      "_values": _issue_number,\n    },\n  },\n  "workspace": _workspace_commands(),
   "what-next": {
     "": "Show legal next workflow transitions",
     "--json": "Output workflow guidance as JSON",
