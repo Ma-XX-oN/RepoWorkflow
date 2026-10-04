@@ -158,7 +158,7 @@ class RelationshipGraphTests(unittest.TestCase):
       "unsupported relationship schema version",
     ):
       RelationshipGraph.from_json_value({
-        "schema_version": 2,
+        "schema_version": 99,
         "issues": {},
       })
 
