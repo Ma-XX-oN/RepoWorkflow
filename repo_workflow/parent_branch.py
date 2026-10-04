@@ -16,8 +16,14 @@ _BRANCH_RE = re.compile(r"^[^\s~^:?*\[\\]+(?:/[^\s~^:?*\[\\]+)*$")
 def recover_parent_branch(root: Path, work_branch: str) -> str:
   """Recover one parent from branch-bound identity history and local Git refs."""
   work = _branch_name(work_branch, "work branch")
+  work_ref = _work_ref(root, work)
   try:
-    commits = git(root, "rev-list", "--first-parent", work).stdout.splitlines()
+    commits = git(
+      root,
+      "rev-list",
+      "--first-parent",
+      work_ref,
+    ).stdout.splitlines()
   except GitError as error:
     raise ParentBranchError(f"work branch {work} is unavailable") from error
   matches: list[tuple[str, str]] = []
@@ -63,9 +69,26 @@ def recover_parent_branch(root: Path, work_branch: str) -> str:
   return parent
 
 
-def _parent_refs(root: Path, parent: str) -> tuple[str, ...]:
+def _work_ref(root: Path, work: str) -> str:
+  refs = _branch_refs(root, work)
+  if not refs:
+    raise ParentBranchError(
+      f"work branch {work} has no local or fetched ref"
+    )
+  tips = {
+    git(root, "rev-parse", ref).stdout.strip()
+    for ref in refs
+  }
+  if len(tips) != 1:
+    raise ParentBranchError(
+      f"work branch {work} has conflicting local/fetched refs"
+    )
+  return refs[0]
+
+
+def _branch_refs(root: Path, branch: str) -> tuple[str, ...]:
   refs: list[str] = []
-  local = f"refs/heads/{parent}"
+  local = f"refs/heads/{branch}"
   if git(root, "show-ref", "--verify", local, check=False).returncode == 0:
     refs.append(local)
   remote = git(
@@ -74,12 +97,16 @@ def _parent_refs(root: Path, parent: str) -> tuple[str, ...]:
     "--format=%(refname)",
     "refs/remotes",
   ).stdout.splitlines()
-  suffix = f"/{parent}"
+  suffix = f"/{branch}"
   refs.extend(
     ref for ref in remote
     if ref.startswith("refs/remotes/") and ref.endswith(suffix)
   )
   return tuple(sorted(set(refs)))
+
+
+def _parent_refs(root: Path, parent: str) -> tuple[str, ...]:
+  return _branch_refs(root, parent)
 
 
 def _trailers(message: str, key: str) -> list[str]:
