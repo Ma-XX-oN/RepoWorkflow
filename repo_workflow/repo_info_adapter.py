@@ -121,3 +121,22 @@ def list_open_issues(root: Path, config: dict) -> dict[str, Any]:
       )
     prior = number
   return value
+
+
+def issue_body(root: Path, config: dict, issue_number: int) -> dict[str, Any]:
+  requested = _positive_integer(issue_number, "requested issue number")
+  value = _exact_object(
+    _invoke(root, config, ["issue", "body", str(requested)]),
+    {"schema_version", "number", "body", "body_digest"},
+    "issue body result",
+  )
+  _schema(value, "issue body")
+  returned = _positive_integer(value["number"], "issue body number")
+  if returned != requested:
+    raise RepoInfoError("repository information adapter returned the wrong issue number")
+  if not isinstance(value["body"], str):
+    raise _fail("issue body")
+  from .ticket_write_adapter import body_digest
+  if value["body_digest"] != body_digest(value["body"]):
+    raise _fail("issue body digest")
+  return value
