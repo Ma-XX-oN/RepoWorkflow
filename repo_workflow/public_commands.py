@@ -41,11 +41,13 @@ def _regression_node() -> dict:
 
 
 def _validate_commands(context: Context) -> dict:
+  issue_tests = {"issue": {"_values": _issue_number}}
   if not context.legal_only:
     return {
       "completions": [
         {"regression": _regression_node()},
         {"integration": _integration_node()},
+        issue_tests,
       ],
     }
 
@@ -55,6 +57,7 @@ def _validate_commands(context: Context) -> dict:
     fragments.append({"regression": _regression_node()})
   if any(item.startswith("validate integration ") for item in transitions):
     fragments.append({"integration": _integration_node()})
+  fragments.append(issue_tests)
   return {"completions": fragments}
 
 
