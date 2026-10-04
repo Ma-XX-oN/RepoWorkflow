@@ -277,3 +277,47 @@ Every successful `rwf pause` creates exactly one new commit.  A clean pause uses
 an empty marker commit.  A non-clean pause uses that same commit to store all
 information needed to reconstruct the selected paused state, including staged
 versus unstaged state.  No auxiliary pause commits are permitted.
+
+## 11. Published implementation lanes
+
+These are the repository-visible parallel-work allocations for #225.
+
+### Lane A — parent topology
+
+```text
+#227 → #228
+```
+
+Freeze deterministic parent recovery, then migrate the relationship graph to the
+single-parent topology.
+
+Completion at publication: **0/2 = 0%**.
+
+### Lane B — offline ticket metadata
+
+```text
+#229
+```
+
+Persist synchronized issue titles for offline workflow operation.  #229 also
+feeds #214 dependency synchronization.
+
+Completion at publication: **0/1 = 0%**.
+
+### Convergence
+
+```text
+Lane A (#227 → #228) + Lane B (#229) + #64
+    ↓
+#230 start/start-lane
+    ├→ #231 one-commit pause → #232 resume
+    └→ #233 parent-directed done
+
+#230 + #232 + #98/#138/#142 → #234
+#230 + #231 + #232 + #233 + #234 → #235 → #225 complete
+```
+
+Lane assignments are coordination metadata, not replacement dependency truth.
+Workers must re-check issue blockers before advancing.  Lane A and Lane B may run
+concurrently.  Completion percentages are closed lane issues divided by total
+lane issues and must be recomputed when status changes.
