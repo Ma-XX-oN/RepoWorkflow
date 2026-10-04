@@ -22,8 +22,7 @@ def graph(dependencies=None):
         "shared_umbrellas": ["50"],
         "depends_on": dependencies,
         "umbrella_depends_on": ["40"],
-        "branch_base": "issue-7",
-        "integration_target": "main",
+        "parent": "issue-7",
       },
       **({
         "7": {
@@ -31,8 +30,7 @@ def graph(dependencies=None):
           "shared_umbrellas": [],
           "depends_on": [],
           "umbrella_depends_on": [],
-          "branch_base": "main",
-          "integration_target": "main",
+          "parent": "main",
         },
       } if "7" in dependencies else {}),
     },
@@ -62,8 +60,8 @@ class RelationshipStoreTests(unittest.TestCase):
     self.assertEqual(issue.shared_umbrellas, ("50",))
     self.assertEqual(issue.depends_on, ("7",))
     self.assertEqual(issue.umbrella_depends_on, ("40",))
-    self.assertEqual(issue.branch_base, "issue-7")
-    self.assertEqual(issue.integration_target, "main")
+    self.assertEqual(issue.parent, "issue-7")
+    self.assertEqual(issue.parent, "main")
 
   def test_direct_dependencies_are_deterministic(self):
     self.store.create(graph(["7"]), self.writer)
