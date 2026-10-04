@@ -115,6 +115,41 @@ class RelationshipStoreTests(unittest.TestCase):
 
     self.assertEqual(self.store.read(), current)
 
+  def _write_legacy(self, branch_base, integration_target):
+    path = self.repo / ".repoworkflow/state/relationships/graph.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+      '{"schema_version":1,"key":"relationships/graph","revision":0,'
+      '"previous_revision":null,"writer_id":"legacy","session_id":"legacy",'
+      '"value":{"schema_version":1,"issues":{"10":{'
+      '"umbrella":null,"shared_umbrellas":[],"depends_on":[],'
+      '"umbrella_depends_on":[],"branch_base":'
+      + repr(branch_base).replace("'", '"')
+      + ',"integration_target":'
+      + repr(integration_target).replace("'", '"')
+      + '}}}}\n',
+      encoding="utf-8",
+    )
+    return path
+
+  def test_equal_legacy_fields_migrate_atomically_without_git_recovery(self):
+    self._write_legacy("main", "main")
+
+    migrated = self.store.migrate_legacy(self.writer)
+
+    self.assertEqual(migrated.revision, 1)
+    self.assertEqual(migrated.graph.issue("10").parent, "main")
+    self.assertEqual(migrated.graph.schema_version, 2)
+
+  def test_conflicting_legacy_fields_without_identity_preserve_prior_state(self):
+    path = self._write_legacy("main", "other")
+    before = path.read_bytes()
+
+    with self.assertRaises(RelationshipStoreError):
+      self.store.migrate_legacy(self.writer)
+
+    self.assertEqual(path.read_bytes(), before)
+
 
 if __name__ == "__main__":
   unittest.main()
