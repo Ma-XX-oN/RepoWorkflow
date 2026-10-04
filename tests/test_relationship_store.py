@@ -15,7 +15,7 @@ def graph(dependencies=None):
   if dependencies is None:
     dependencies = []
   return RelationshipGraph.from_json_value({
-    "schema_version": 1,
+    "schema_version": 2,
     "issues": {
       "10": {
         "umbrella": "1",
@@ -61,7 +61,6 @@ class RelationshipStoreTests(unittest.TestCase):
     self.assertEqual(issue.depends_on, ("7",))
     self.assertEqual(issue.umbrella_depends_on, ("40",))
     self.assertEqual(issue.parent, "issue-7")
-    self.assertEqual(issue.parent, "main")
 
   def test_direct_dependencies_are_deterministic(self):
     self.store.create(graph(["7"]), self.writer)
@@ -85,7 +84,7 @@ class RelationshipStoreTests(unittest.TestCase):
     path = self.repo / ".repoworkflow/state/relationships/graph.json"
     path.parent.mkdir(parents=True)
     path.write_text(
-      '{"schema_version": 1, "key": "relationships/graph", '
+      '{"schema_version": 2, "key": "relationships/graph", '
       '"revision": 0, "previous_revision": null, '
       '"writer_id": "agent", "session_id": "session", '
       '"value": {"schema_version": 99, "issues": {}}}\n',
