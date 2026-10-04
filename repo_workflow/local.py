@@ -55,7 +55,7 @@ def _verify_local(
       candidate, _prepared = prepare_development_candidate(
         root,
         config,
-        push=push,
+        push=False,
       )
   except Exception:
     restore_repository_state(root, transaction_state)
@@ -75,7 +75,7 @@ def _verify_local(
         artifact_result,
         f"chore(workflow): materialize generated artifacts for {candidate.version}",
       )
-      if push and commit != before_state.commit:
+      if stable and push and commit != before_state.commit:
         git(root, "push", remote, f"HEAD:{branch}")
       candidate = (
         validate_stable_candidate(root, expected_sha=commit)
@@ -122,13 +122,25 @@ def verify_local(
   engine_root: Path,
   push: bool = False,
 ) -> str:
-  return _verify_local(
-    root,
-    engine_root=engine_root,
-    stable=False,
-    do_tag=True,
-    push=push,
-  )
+  root = root.resolve()
+  before = repository_state(root)
+  try:
+    outcome = _verify_local(
+      root,
+      engine_root=engine_root,
+      stable=False,
+      do_tag=True,
+      push=push,
+    )
+  except Exception:
+    restore_repository_state(root, before)
+    raise
+  if push:
+    config = load_config(root)
+    branch = current_branch(root)
+    remote = config["repository"]["authoritativeRemote"]
+    git(root, "push", remote, f"HEAD:{branch}")
+  return outcome
 
 
 def verify_stable_local(

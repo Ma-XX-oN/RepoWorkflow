@@ -280,5 +280,49 @@ class LocalVerifyTests(unittest.TestCase):
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
 
 
+  def test_unexpected_environment_failure_restores_original_state(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("fixed\n")
+      original = fx.commit("source ready before verify")
+      with patch(
+        "repo_workflow.local.run_environment",
+        side_effect=RuntimeError("injected infrastructure failure"),
+      ):
+        with self.assertRaisesRegex(RuntimeError, "injected infrastructure failure"):
+          verify_local(root, engine_root=root / "RepoWorkflow")
+      self.assertEqual(fx.head(), original)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{fx.version}*").stdout.strip(),
+        "",
+      )
+
+  def test_push_publishes_only_completed_candidate_branch_and_terminal_tag(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("fixed\n")
+      fx.commit("source ready before pushed verify")
+      self.assertEqual(
+        verify_local(root, engine_root=root / "RepoWorkflow", push=True),
+        "PASS",
+      )
+      branch = fx._run("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+      remote_head = fx._run(
+        "ls-remote",
+        "origin",
+        f"refs/heads/{branch}",
+      ).stdout.split()[0]
+      self.assertEqual(remote_head, fx.head())
+      remote_tag = fx._run(
+        "ls-remote",
+        "--tags",
+        "origin",
+        f"refs/tags/v{fx.version}",
+      ).stdout
+      self.assertIn(f"refs/tags/v{fx.version}", remote_tag)
+
+
+
 if __name__ == "__main__":
   unittest.main()
