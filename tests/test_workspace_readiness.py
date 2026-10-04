@@ -28,7 +28,7 @@ def graph():
     }
 
   return RelationshipGraph.from_json_value({
-    "schema_version": 1,
+    "schema_version": 2,
     "issues": {
       "1": issue([]),
       "2": issue(["1"]),
