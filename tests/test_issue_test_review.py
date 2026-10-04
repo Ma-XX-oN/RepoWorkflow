@@ -18,7 +18,13 @@ class IssueTestReviewUnitTests(unittest.TestCase):
 
   def test_public_review_grammar_includes_sync_views_accept_and_git_tail(self):
     context=Context(Path("."), legal_only=False)
-    for words in (["tests","sync"],["tests","view"],["tests","view","new"],["tests","view","old"],["tests","accept"],["tests","diff"],["tests","diff","--word-diff"]):
+    for words in (["tests","sync"],["tests","view"],["tests","view","new"],["tests","view","old"],["tests","accept","new"],["tests","accept","old"],["tests","diff"],["tests","diff","--word-diff"]):
       self.assertEqual(parse_tokens(COMMANDS,context,words),tuple(words))
+
+  def test_bare_accept_is_not_public_grammar(self):
+    context=Context(Path("."), legal_only=False)
+    from repo_workflow.command_grammar import CommandGrammarError
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(COMMANDS,context,["tests","accept"])
 
 if __name__ == "__main__": unittest.main()
