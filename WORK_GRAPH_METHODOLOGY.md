@@ -470,38 +470,8 @@ unnecessarily serialize its independently executable children.
 
 ## 13.1 Published lane display notation
 
-When a work graph is divided into named parallel lanes, lane names use uppercase
-letters and tree/list displays qualify each issue with its lane letter:
-
-```text
-A.56
-```
-
-means **Lane A, issue #56**.
-
-For example:
-
-```text
-A.227 → A.228 ─┐
-               ├→ #230
-B.229 ─────────┘
-```
-
-The notation is presentation/coordination syntax only:
-
-- `A` is the published lane identifier;
-- `56` is GitHub issue #56;
-- `A.56` does not create a new issue identifier or dependency relationship;
-- dependency storage and issue references continue to use issue number `#56`;
-- the same issue must not be presented as belonging to two concurrent published
-  lanes unless the lane model explicitly supports shared membership;
-- nodes outside the published lanes may remain `#N`, particularly convergence
-  nodes and existing external prerequisites;
-- published lane summaries include the percentage of lane issues already
-  complete.
-
-Lane letters are stable within a published lane plan.  Reordering presentation
-must not silently rename Lane A to Lane B or otherwise change lane identity.
+Published lane naming, issue qualification, stability, and completion-display
+rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
 ## 14. Use decomposition to expose architecture problems
 
@@ -524,10 +494,5 @@ issues.  Split only when a cleaner independently testable contract appears.
 
 ## 15. Testing and refinement companion
 
-The test consequences, practical decomposition procedure, and leaf/umbrella
-acceptance checklists are maintained in
+Verification procedures and acceptance checklists are defined in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
-
-The methodology in this document defines the graph model and decomposition
-principles.  The companion document defines how to verify that a proposed graph
-actually satisfies them.
