@@ -41,16 +41,26 @@ class RelationshipStore:
       raise RelationshipStoreError(str(error)) from error
     return RelationshipSnapshot(graph=graph, revision=record["revision"])
 
-  def migrate_legacy(self, writer: WriterIdentity) -> RelationshipSnapshot:
+  def migrate_legacy(
+    self,
+    writer: WriterIdentity,
+    work_branches: dict[str, str] | None = None,
+  ) -> RelationshipSnapshot:
     """Atomically replace one legacy v1 graph with canonical v2 parent state."""
     try:
       record = self.records.read(GRAPH_KEY)
       if record["value"].get("schema_version") != 1:
         return self.read()
-      graph = migrate_legacy_graph(
-        record["value"],
-        lambda issue: recover_parent_branch(self.root, f"issue-{issue}"),
-      )
+      mapping = {} if work_branches is None else work_branches
+      def recover(issue: str) -> str:
+        try:
+          branch = mapping[issue]
+        except KeyError as error:
+          raise RelationshipStoreError(
+            f"legacy issue {issue} requires explicit work-branch identity"
+          ) from error
+        return recover_parent_branch(self.root, branch)
+      graph = migrate_legacy_graph(record["value"], recover)
       replaced = self.records.replace(
         GRAPH_KEY,
         record["revision"],
