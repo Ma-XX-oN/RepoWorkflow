@@ -84,7 +84,7 @@ class RelationshipStoreTests(unittest.TestCase):
     path = self.repo / ".repoworkflow/state/relationships/graph.json"
     path.parent.mkdir(parents=True)
     path.write_text(
-      '{"schema_version": 2, "key": "relationships/graph", '
+      '{"schema_version": 1, "key": "relationships/graph", '
       '"revision": 0, "previous_revision": null, '
       '"writer_id": "agent", "session_id": "session", '
       '"value": {"schema_version": 99, "issues": {}}}\n',
