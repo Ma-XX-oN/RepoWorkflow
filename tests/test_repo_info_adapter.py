@@ -7,6 +7,7 @@ import unittest
 from repo_workflow.repo_info_adapter import (
   RepoInfoError,
   issue_info,
+  issue_body,
   list_open_issues,
   repository_info,
 )
@@ -118,6 +119,17 @@ class RepoInfoAdapterTests(unittest.TestCase):
       RepoFixture(root)
       with self.assertRaisesRegex(RepoInfoError, "not configured"):
         repository_info(root, {})
+
+
+  def test_issue_body_validates_exact_body_and_digest(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"; root.mkdir()
+      body = "hello\\n"
+      import hashlib
+      digest = hashlib.sha256(body.encode()).hexdigest()
+      payload = json.dumps({"schema_version": 1, "number": 9, "body": body, "body_digest": digest})
+      config = self.fixture(root, f"print({payload!r})\\n")
+      self.assertEqual(issue_body(root, config, 9)["body"], body)
 
 
 if __name__ == "__main__":
