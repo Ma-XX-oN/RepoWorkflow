@@ -232,3 +232,57 @@ No additional process rule is adopted from this single observation.  Continue
 collecting comparable findings from subsequent runs before deciding how the
 preliminary guidance and automated gates should change.
 
+
+
+## 11. Fourth application: Lane A (#186 -> #185 -> #64 -> #142)
+
+This trial applied the preliminary checks across a complete dependency lane rather
+than one isolated issue.
+
+The #186 prerequisite and direct-consumer checks found no additional contract
+gap.  The frozen #189 environment contract mapped cleanly to canonical
+`WriterIdentity` validation and remained sufficient for #185 and #64.
+
+The #185 implementation exposed an ordering detail inside an otherwise complete
+contract: identical relationship registration must be recognized as idempotent
+before requiring an expected revision for conflicting replacement.  Requiring
+the revision first would turn a harmless replay into a false conflict.  The
+implementation and tests were corrected before integration.
+
+The #64 pass required the #187 transaction contract to be applied to operations
+whose materialization spans repository version, Git branch state, durable
+lifecycle state, and worktree-local current-work state.  Because the transaction
+record commits before materialization, each materialization step had to tolerate
+replay after partial completion.  The resulting transition validates its
+authoritative read set before commit and treats already-materialized compatible
+state as success during replay.
+
+The direct-consumer check from #64 to #142 found a concrete integration
+constraint rather than a missing prerequisite: workspace creation cannot invent
+a separate `rwf-workspace-N` branch/base and then reuse canonical issue-start
+semantics without creating two branch models.  #142 therefore provisions the
+registered canonical branch base and `issue-N` branch, invokes #64 in that
+worktree, and publishes clone-local workspace state only after issue start
+succeeds.
+
+Two implementation failures were caught by full validation before integration:
+a generated command-grammar edit contained literal newline escape text, and the
+#142 test fixture initially emitted literal newline escape text into generated
+files.  Both were construction errors rather than contract failures and were
+corrected before merge.
+
+The lane also strengthened the earlier integration-drift finding.  Parallel
+workers repeatedly advanced `main` while lane branches were validating.
+Several branches independently selected what was, at branch time, the next
+stable repository version.  This produced repeated version collisions and
+repair commits (#196 and #201).  #64's post-merge validation itself passed, but
+its release job correctly refused publication because its checked-out commit
+was no longer authoritative `main` by the time release ran.  A later
+authoritative main commit carried the same version forward.
+
+This is stronger evidence that stable-version selection/publication is a
+concurrency problem, not merely a stale-branch check.  A current-main check
+before merge reduces one failure mode but cannot reserve a version against
+another lane that advances concurrently.  Continue treating this as a trial
+finding until the collected runs are evaluated; do not yet freeze a replacement
+version-allocation protocol from this observation alone.
