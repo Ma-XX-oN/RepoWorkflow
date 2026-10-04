@@ -6,6 +6,11 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.current_work_store import CurrentWorkStore
+from repo_workflow.lifecycle_store import LifecycleStore
+from repo_workflow.relationship_store import RelationshipStore
+from repo_workflow.relationships import IssueRelationships, RelationshipGraph
+from repo_workflow.state_store import WriterIdentity
 from tests.support import RepoFixture
 
 
@@ -17,9 +22,40 @@ class WorkspaceCliTests(unittest.TestCase):
     self.temp = tempfile.TemporaryDirectory()
     self.root = Path(self.temp.name) / "repo"
     self.root.mkdir()
-    self.fx = RepoFixture(self.root)
+    self.fx = RepoFixture(self.root, version="1.0.0")
+    info_script = self.root / "scripts" / "info.py"
+    info_script.write_text(
+      "import json\n"
+      "import sys\n"
+      "number = int(sys.argv[-1])\n"
+      "print(json.dumps({'schema_version': 1, 'number': number, "
+      "'title': 'Workspace issue', 'state': 'open'}))\n",
+      encoding="utf-8",
+    )
+    config_path = self.root / ".ci" / "repoworkflow.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["infoCommand"] = [sys.executable, "scripts/info.py"]
+    config_path.write_text(
+      json.dumps(config, indent=2) + "\n",
+      encoding="utf-8",
+    )
+    RelationshipStore(self.root).create(
+      RelationshipGraph(issues={
+        "140": IssueRelationships(
+          umbrella="135",
+          shared_umbrellas=(),
+          depends_on=(),
+          umbrella_depends_on=(),
+          branch_base="issue-1-test",
+          integration_target="main",
+        ),
+      }),
+      WriterIdentity("planner", "planning-session"),
+    )
+    self.fx.commit("register workspace issue")
     self.env = dict(os.environ)
     self.env["RWF_WORKER_ID"] = "agent-a"
+    self.env["RWF_WRITER_ID"] = "agent-a"
     self.env["RWF_SESSION_ID"] = "chat-1"
 
   def tearDown(self):
@@ -48,6 +84,11 @@ class WorkspaceCliTests(unittest.TestCase):
     self.assertEqual(value["claim"]["status"], "available")
     worktree = Path(value["worktree_path"])
     self.assertTrue(worktree.is_dir())
+    lifecycle = LifecycleStore(worktree).read(140)
+    self.assertEqual(lifecycle.lifecycle.state, "active")
+    current = CurrentWorkStore(worktree).read(validate_durable=True)
+    self.assertEqual(current.value.current.issue, "140")
+    self.assertEqual(value["branch"], "issue-140")
 
     listed = self.run_rwf("workspace", "list")
     self.assertEqual(listed.returncode, 0, listed.stderr)

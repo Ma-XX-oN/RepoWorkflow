@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 
 from .git import git
+from .issue_start import start_issue
+from .relationship_store import RelationshipStore
 from .workspace_store import WorkspaceClaimError, WorkspaceStore
 from .workspace_worktree import WorktreeBackend, WorktreeError
 from .workspace_readiness import readiness_json
@@ -31,18 +33,24 @@ def _workspace_id(issue: int) -> str:
 
 
 def _branch_name(issue: int) -> str:
-  return f"rwf-workspace-{issue}"
+  return f"issue-{issue}"
 
 
 def _worktree_path(root: Path, workspace_id: str) -> Path:
   return (root.resolve().parent / f"{root.resolve().name}-{workspace_id}").resolve()
 
 
-def _base(root: Path) -> tuple[str, str]:
-  branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-  if not branch or branch == "HEAD":
+def _base(root: Path, issue: int) -> tuple[str, str]:
+  try:
+    relation = RelationshipStore(root).issue(issue)
+  except Exception as error:
     raise WorkspaceCommandError(
-      "workspace creation requires a symbolic current branch as its base"
+      f"issue {issue} has no registered canonical relationships"
+    ) from error
+  branch = relation.branch_base
+  if branch is None:
+    raise WorkspaceCommandError(
+      f"issue {issue} has no canonical branch base"
     )
   sha = git(root, "rev-parse", "--verify", branch).stdout.strip()
   return branch, sha
@@ -97,7 +105,7 @@ def handle_workspace(root: Path, words: list[str]) -> int:
     workspace_id = _workspace_id(issue)
     branch = _branch_name(issue)
     path = _worktree_path(root, workspace_id)
-    base_ref, base_sha = _base(root)
+    base_ref, base_sha = _base(root, issue)
     backend = WorktreeBackend(root)
     backend.provision(
       workspace_id,
@@ -107,6 +115,7 @@ def handle_workspace(root: Path, words: list[str]) -> int:
       path,
     )
     try:
+      start_issue(path, issue)
       workspace = store.create(
         workspace_id,
         issue=issue,
