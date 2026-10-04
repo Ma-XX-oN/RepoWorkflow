@@ -61,15 +61,16 @@ issue-123-ticket-title
 lane-200-umbrella-ticket-title
 ```
 
-The optional addendum is an escape hatch for an alternative representation or
-implementation:
+The optional addendum is simply extra text appended after the normalized issue
+title:
 
 ```text
 issue-123-ticket-title-alternative
 lane-200-umbrella-ticket-title-experimental
 ```
 
-The addendum is part of branch identity but is not normally needed.
+The addendum has no workflow semantics.  It only appends user-supplied text to
+the branch name.
 
 ## 3. Network boundary
 
@@ -158,7 +159,10 @@ Semantics:
 
 The checkpoint representation must preserve staged versus unstaged state.
 
-For a clean worktree, pause creates an empty marker commit.
+Pause creates exactly one new commit.  For a clean worktree, that commit is an
+empty marker commit.  Otherwise, that same commit contains all information
+needed to reconstruct the selected paused state.  No auxiliary pause commits
+are created.
 
 ## 7. Resume
 
@@ -248,11 +252,10 @@ Git stores commit ancestry and refs but no permanent “parent branch” propert
 so recovery must be deterministic and must fail closed when topology is truly
 ambiguous.
 
-Likewise, portable pause is its own representation problem.  Preserving both
-index/staged and worktree/unstaged state requires distinct snapshots, as Git
-stash does; a single ordinary commit tree is insufficient.  The branch-tip
-pause object may therefore use a structured commit topology while remaining
-reachable through the normal work branch.
+Portable pause has one fixed topology rule: pause creates exactly one new commit
+at the branch tip.  That commit contains whatever encoding is required to
+reconstruct staged and unstaged state.  It must not create auxiliary pause
+commits.
 
 Branch resume identity is stable by issue number plus optional addendum.  The
 issue title contributes the human-readable branch name at creation time, but a
@@ -263,9 +266,14 @@ by arbitrarily preferring either field.  Migration applies the frozen parent
 recovery rule and succeeds only when one parent is unambiguous.
 
 
-### Same-umbrella lane identity
+### Addendum semantics
 
-#236 freezes which branches sharing an umbrella issue are required convergence
-siblings and which are explicit competing alternatives.  `done` must consume
-that identity contract; it must not merge branches merely because their names
-share an issue-number prefix.  #230 and #233 therefore both depend on #236.
+The optional addendum is branch-name text only.  It is not a workflow marker
+and must not affect convergence, dependencies, lifecycle, or attempt type.
+
+### One-commit pause invariant
+
+Every successful `rwf pause` creates exactly one new commit.  A clean pause uses
+an empty marker commit.  A non-clean pause uses that same commit to store all
+information needed to reconstruct the selected paused state, including staged
+versus unstaged state.  No auxiliary pause commits are permitted.
