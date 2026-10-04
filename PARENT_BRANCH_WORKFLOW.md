@@ -261,3 +261,11 @@ later ticket-title change does not rename or orphan an existing work branch.
 Old records whose `branch_base` and `integration_target` differ are not resolved
 by arbitrarily preferring either field.  Migration applies the frozen parent
 recovery rule and succeeds only when one parent is unambiguous.
+
+
+### Same-umbrella lane identity
+
+#236 freezes which branches sharing an umbrella issue are required convergence
+siblings and which are explicit competing alternatives.  `done` must consume
+that identity contract; it must not merge branches merely because their names
+share an issue-number prefix.  #230 and #233 therefore both depend on #236.
