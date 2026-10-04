@@ -183,6 +183,15 @@ A legacy record with no legal parent is accepted only where the relationship
 schema explicitly permits a root/null parent.  Null is never inferred merely
 because recovery failed.
 
+When differing legacy fields require Git-native recovery, the migration
+orchestrator must supply an explicit mapping from issue identity to canonical
+work-branch name.  Legacy relationship state does not contain that identity.
+The migration layer must not derive it from issue number/title, dependency or
+umbrella topology, current checkout, ancestry distance, or ref enumeration.
+Equal legacy fields need no work-branch mapping.  A differing record with no
+explicit mapping fails closed.  The mapping is migration input only and is not
+persisted as a second relationship fact.
+
 ## 7. Invariants
 
 - A work branch has exactly one semantic parent.
