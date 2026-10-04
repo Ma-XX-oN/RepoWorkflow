@@ -26,15 +26,17 @@ The first commit created specifically for an RWF work branch is an empty
 structured identity commit.  Its first parent is the exact parent tip from which
 the work branch was created.
 
-Its commit message contains exactly one structured trailer:
+Its commit message contains exactly one structured identity pair:
 
 ```text
-RWF-Parent: <canonical-branch-name>
+RWF-Branch: <canonical-work-branch-name>
+RWF-Parent: <canonical-parent-branch-name>
 ```
 
-`<canonical-branch-name>` is the normalized branch name without a ref prefix,
-for example `main` or `lane-200-umbrella-title`.  It is not an arbitrary ref
-name and is never a remote-tracking name such as `origin/main`.
+Both names are normalized branch names without ref prefixes.  They are never
+remote-tracking names such as `origin/main`.  Binding the marker to the work
+branch prevents an inherited marker from a nested parent branch from being
+mistaken for the current branch's identity.
 
 The identity commit is permanent logical branch history.  Pause checkpoints are
 separate temporary commits and do not replace or modify the identity marker.
@@ -49,8 +51,9 @@ When RWF first creates work branch `W` from current branch `P`:
 1. require `P` to be an unambiguous canonical local branch identity;
 2. resolve and retain the exact commit `P0` at the parent tip;
 3. create `W` at `P0`;
-4. create one empty parent-identity commit on `W` whose first parent is `P0`
-   and whose sole `RWF-Parent` trailer names `P`;
+4. create one empty parent-identity commit on `W` whose first parent is `P0`,
+   whose `RWF-Branch` trailer names `W`, and whose `RWF-Parent` trailer
+   names `P`;
 5. continue normal work from that identity commit.
 
 If the current checkout is detached, the parent branch name is ambiguous, the
@@ -67,11 +70,12 @@ Given work branch `W`, recovery is a validation operation, not a search for the
 
 ### 4.1 Locate identity evidence
 
-Walk `W`'s first-parent history and collect commits containing a valid
-`RWF-Parent` trailer that claim parent identity for `W`.
+Walk `W`'s first-parent history and collect structurally valid identity
+commits whose `RWF-Branch` value exactly equals canonical work branch `W`.
 
-Recovery succeeds only when exactly one applicable identity marker exists.
-Missing, malformed, or conflicting markers fail closed.
+Recovery succeeds only when exactly one matching identity marker exists.
+Inherited markers for ancestor work branches are ignored.  Missing, malformed,
+duplicate, or conflicting matching markers fail closed.
 
 Later branch points, merges, descendants, and sibling branches are not
 candidates for replacing this marker.
@@ -158,9 +162,9 @@ skips an intermediate lane/work branch in favour of an older ancestor.
 
 ### Ambiguous or corrupt state
 
-Conflicting identity markers, malformed parent names, unrelated rewritten parent
-refs, missing parent representations, or missing identity history all fail
-closed.  No lexical, timestamp, ancestry-distance, default-branch, umbrella, or
+Duplicate/conflicting matching identity markers, malformed branch/parent names,
+unrelated rewritten parent refs, missing parent representations, or missing
+identity history all fail closed.  No lexical, timestamp, ancestry-distance, default-branch, umbrella, or
 dependency tie-breaker is permitted.
 
 ## 6. Legacy migration boundary
@@ -219,7 +223,8 @@ Implementations of this contract must test:
 7. fetched work/parent remote-tracking refs in another clone;
 8. deleted local parent ref with a valid fetched remote representation;
 9. missing parent representation;
-10. conflicting/malformed identity markers;
+10. inherited nested markers plus duplicate/conflicting/malformed matching
+    identity markers;
 11. rewritten parent history that no longer contains the creation tip;
 12. ref enumeration in different orders producing the same result; and
 13. dependency/umbrella changes leaving parent identity unchanged.
