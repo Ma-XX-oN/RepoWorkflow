@@ -222,3 +222,42 @@ The completed migration must:
 7. Failed pause/resume/integration leaves a recoverable prior state.
 8. Shared-branch concurrency is resolved by integration and reverification, not
    normal force-push.
+
+
+## 10. Implementation decomposition
+
+Tracked by #225:
+
+```text
+#227 parent identity/recovery contract
+  └─→ #228 single-parent relationship migration
+        └─→ #230 canonical start-or-resume ←─ #229 offline title metadata
+              ├─→ #231 portable pause checkpoint ─→ #232 resume restoration
+              ├───────────────────────────────→ #233 parent-directed done
+              └───────────────────────────────→ #234 abort/workspace alignment
+
+#230 + #231 + #232 + #233 + #234 ─→ #235 grammar/docs migration
+
+#78 + #120 + #145 ─→ #229 ─→ #214 dependency-sync CLI
+#64 ────────────────────────→ #230
+#98 + #138 + #142 ─────────→ #234
+```
+
+The decomposition deliberately freezes parent recovery before schema migration.
+Git stores commit ancestry and refs but no permanent “parent branch” property,
+so recovery must be deterministic and must fail closed when topology is truly
+ambiguous.
+
+Likewise, portable pause is its own representation problem.  Preserving both
+index/staged and worktree/unstaged state requires distinct snapshots, as Git
+stash does; a single ordinary commit tree is insufficient.  The branch-tip
+pause object may therefore use a structured commit topology while remaining
+reachable through the normal work branch.
+
+Branch resume identity is stable by issue number plus optional addendum.  The
+issue title contributes the human-readable branch name at creation time, but a
+later ticket-title change does not rename or orphan an existing work branch.
+
+Old records whose `branch_base` and `integration_target` differ are not resolved
+by arbitrarily preferring either field.  Migration applies the frozen parent
+recovery rule and succeeds only when one parent is unambiguous.
