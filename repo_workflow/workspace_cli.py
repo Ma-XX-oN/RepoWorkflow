@@ -33,7 +33,7 @@ def _workspace_id(issue: int) -> str:
 
 
 def _branch_name(issue: int) -> str:
-  return f"rwf-workspace-{issue}"
+  return f"issue-{issue}"
 
 
 def _worktree_path(root: Path, workspace_id: str) -> Path:
