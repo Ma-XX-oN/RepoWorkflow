@@ -23,6 +23,7 @@ from .git import (
 from .guard import validate_candidate, validate_stable_candidate
 from .repository_policy import check_repository_policy
 from .results import (
+  assert_terminal_tag_available,
   finalize_results,
   finalize_stable_results,
   run_environment,
@@ -107,7 +108,7 @@ def _verify_local(
         root,
         results_dir,
         do_tag=do_tag,
-        push=push,
+        push=push if stable else False,
         expected_sha=candidate.commit,
       )
     except Exception:
@@ -129,17 +130,26 @@ def verify_local(
       root,
       engine_root=engine_root,
       stable=False,
-      do_tag=True,
+      do_tag=not push,
       push=push,
     )
+    if push and outcome != "INCOMPLETE":
+      config = load_config(root)
+      branch = current_branch(root)
+      remote = config["repository"]["authoritativeRemote"]
+      candidate = validate_candidate(root, config)
+      tag = (
+        f"v{candidate.version}"
+        if outcome == "PASS"
+        else f"v{candidate.version}-CI-FAIL"
+      )
+      assert_terminal_tag_available(root, candidate, tag, push=True)
+      git(root, "tag", "-a", tag, candidate.commit, "-m", tag)
+      # Publish the candidate branch and immutable terminal result as one remote transaction.
+      git(root, "push", "--atomic", remote, f"HEAD:{branch}", f"refs/tags/{tag}")
   except Exception:
     restore_repository_state(root, before)
     raise
-  if push:
-    config = load_config(root)
-    branch = current_branch(root)
-    remote = config["repository"]["authoritativeRemote"]
-    git(root, "push", remote, f"HEAD:{branch}")
   return outcome
 
 

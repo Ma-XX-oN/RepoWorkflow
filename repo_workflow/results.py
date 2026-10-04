@@ -303,7 +303,7 @@ def evaluate_results(
 
 
 
-def _assert_terminal_tag_available(
+def assert_terminal_tag_available(
   root: Path,
   candidate: Candidate,
   tag: str,
@@ -393,7 +393,7 @@ def finalize_results(
   if outcome == "INCOMPLETE":
     return outcome
   if do_tag and tag:
-    _assert_terminal_tag_available(
+    assert_terminal_tag_available(
       root,
       candidate,
       tag,
