@@ -11,6 +11,7 @@ from .relationships import (
   IssueRelationships,
   RelationshipGraph,
   RelationshipSchemaError,
+  SCHEMA_VERSION,
 )
 from .state_store import WriterIdentity
 
@@ -80,7 +81,7 @@ def _graph_with(
   issues[issue_id] = relationships
   try:
     return RelationshipGraph.from_json_value({
-      "schema_version": 1,
+      "schema_version": SCHEMA_VERSION,
       "issues": {
         key: value.to_json_value()
         for key, value in issues.items()
