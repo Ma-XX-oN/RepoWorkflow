@@ -117,7 +117,7 @@ def render_ticket_test_section(contract: IssueTestContract) -> str:
 def _parse_fences(section: str) -> tuple[IssueTest, ...]:
   if not section:
     return ()
-  pattern = re.compile(r"(?ms)^\\`\\`\\`([A-Za-z0-9_-]+)\\n(.*?)^\\`\\`\\`[ \\t]*$")
+  pattern = re.compile(r"(?ms)^```([A-Za-z0-9_-]+)\\n(.*?)^```[ \\t]*$")
   tests = []
   position = 0
   for match in pattern.finditer(section):
