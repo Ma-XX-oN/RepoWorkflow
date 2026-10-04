@@ -10,7 +10,7 @@ from repo_workflow.relationships import (
 class RelationshipGraphTests(unittest.TestCase):
   def test_round_trip_preserves_distinct_relationship_types(self):
     value = {
-      "schema_version": 1,
+      "schema_version": 2,
       "issues": {
         "10": {
           "umbrella": "1",
@@ -37,11 +37,10 @@ class RelationshipGraphTests(unittest.TestCase):
     self.assertEqual(issue.depends_on, ("7",))
     self.assertEqual(issue.umbrella_depends_on, ("40",))
     self.assertEqual(issue.parent, "issue-7")
-    self.assertEqual(issue.parent, "main")
 
   def test_umbrella_membership_and_attachment_do_not_block_readiness(self):
     graph = RelationshipGraph.from_json_value({
-      "schema_version": 1,
+      "schema_version": 2,
       "issues": {
         "10": {
           "umbrella": "1",
@@ -57,7 +56,7 @@ class RelationshipGraphTests(unittest.TestCase):
 
   def test_unresolved_direct_leaf_dependency_blocks_until_complete(self):
     graph = RelationshipGraph.from_json_value({
-      "schema_version": 1,
+      "schema_version": 2,
       "issues": {
         "10": {
           "umbrella": "1",
@@ -81,7 +80,7 @@ class RelationshipGraphTests(unittest.TestCase):
 
   def test_parent_never_becomes_dependency(self):
     graph = RelationshipGraph.from_json_value({
-      "schema_version": 1,
+      "schema_version": 2,
       "issues": {
         "10": {
           "umbrella": None,
@@ -101,7 +100,7 @@ class RelationshipGraphTests(unittest.TestCase):
       "direct dependency cycle",
     ):
       RelationshipGraph.from_json_value({
-        "schema_version": 1,
+        "schema_version": 2,
         "issues": {
           "1": {
             "umbrella": None,
@@ -126,7 +125,7 @@ class RelationshipGraphTests(unittest.TestCase):
       "unknown direct dependency",
     ):
       RelationshipGraph.from_json_value({
-        "schema_version": 1,
+        "schema_version": 2,
         "issues": {
           "10": {
             "umbrella": None,
@@ -141,7 +140,7 @@ class RelationshipGraphTests(unittest.TestCase):
   def test_self_relationships_are_rejected(self):
     with self.assertRaises(RelationshipSchemaError):
       RelationshipGraph.from_json_value({
-        "schema_version": 1,
+        "schema_version": 2,
         "issues": {
           "10": {
             "umbrella": "10",
