@@ -285,7 +285,7 @@ These are the repository-visible parallel-work allocations for #225.
 ### Lane A — parent topology
 
 ```text
-#227 → #228
+A.227 → A.228
 ```
 
 Freeze deterministic parent recovery, then migrate the relationship graph to the
@@ -296,7 +296,7 @@ Completion at publication: **0/2 = 0%**.
 ### Lane B — offline ticket metadata
 
 ```text
-#229
+B.229
 ```
 
 Persist synchronized issue titles for offline workflow operation.  #229 also
@@ -307,7 +307,7 @@ Completion at publication: **0/1 = 0%**.
 ### Convergence
 
 ```text
-Lane A (#227 → #228) + Lane B (#229) + #64
+Lane A (A.227 → A.228) + Lane B (B.229) + #64
     ↓
 #230 start/start-lane
     ├→ #231 one-commit pause → #232 resume
