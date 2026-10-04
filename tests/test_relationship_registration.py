@@ -12,14 +12,13 @@ from repo_workflow.relationships import IssueRelationships
 from repo_workflow.state_store import WriterIdentity
 
 
-def relations(*, depends_on=(), branch_base="main"):
+def relations(*, depends_on=(), parent="main"):
   return IssueRelationships(
     umbrella="1",
     shared_umbrellas=("50",),
     depends_on=tuple(depends_on),
     umbrella_depends_on=("40",),
-    branch_base=branch_base,
-    integration_target="main",
+    parent=parent,
   )
 
 
@@ -69,7 +68,7 @@ class RelationshipRegistrationTests(unittest.TestCase):
       register_issue_relationships(
         self.repo,
         7,
-        relations(branch_base="issue-6"),
+        relations(parent="issue-6"),
         self.writer,
       )
 
@@ -80,7 +79,7 @@ class RelationshipRegistrationTests(unittest.TestCase):
       relations(),
       self.writer,
     )
-    changed = relations(branch_base="issue-6")
+    changed = relations(parent="issue-6")
     second = register_issue_relationships(
       self.repo,
       7,
@@ -101,7 +100,7 @@ class RelationshipRegistrationTests(unittest.TestCase):
     register_issue_relationships(
       self.repo,
       7,
-      relations(branch_base="issue-6"),
+      relations(parent="issue-6"),
       self.writer,
       expected_revision=first.revision,
     )
@@ -112,12 +111,12 @@ class RelationshipRegistrationTests(unittest.TestCase):
       register_issue_relationships(
         self.repo,
         7,
-        relations(branch_base="issue-5"),
+        relations(parent="issue-5"),
         self.writer,
         expected_revision=first.revision,
       )
     self.assertEqual(
-      RelationshipStore(self.repo).issue(7).branch_base,
+      RelationshipStore(self.repo).issue(7).parent,
       "issue-6",
     )
 
