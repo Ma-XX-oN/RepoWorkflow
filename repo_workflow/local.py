@@ -138,9 +138,8 @@ def verify_local(
       remote = config["repository"]["authoritativeRemote"]
       version = validate_candidate(root, config).version
       tag = f"v{version}" if outcome == "PASS" else f"v{version}-CI-FAIL"
-      # Publish mutable/recoverable branch state before the immutable terminal result.
-      git(root, "push", remote, f"HEAD:{branch}")
-      git(root, "push", remote, f"refs/tags/{tag}")
+      # Publish the candidate branch and immutable terminal result as one remote transaction.
+      git(root, "push", "--atomic", remote, f"HEAD:{branch}", f"refs/tags/{tag}")
   except Exception:
     restore_repository_state(root, before)
     raise
