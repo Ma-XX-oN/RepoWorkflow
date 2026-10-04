@@ -80,7 +80,7 @@ def _graph_with(
   issues[issue_id] = relationships
   try:
     return RelationshipGraph.from_json_value({
-      "schema_version": 1,
+      "schema_version": 2,
       "issues": {
         key: value.to_json_value()
         for key, value in issues.items()

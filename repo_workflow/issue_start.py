@@ -71,10 +71,10 @@ def start_issue(
   current_store = CurrentWorkStore(root)
   current = current_store.read()
   version_before = read_version(root, config)
-  branch_base = relation.branch_base
-  if branch_base is None:
-    raise IssueStartError(f"issue {issue_id} has no canonical branch base")
-  base_sha = git(root, "rev-parse", branch_base).stdout.strip()
+  parent = relation.parent
+  if parent is None:
+    raise IssueStartError(f"issue {issue_id} has no canonical parent")
+  base_sha = git(root, "rev-parse", parent).stdout.strip()
 
   transaction_id = _transaction_id(issue_id, identity.session_id)
   coordinator = SemanticTransactionCoordinator(durable_store(root))
@@ -97,11 +97,11 @@ def start_issue(
       _presence(current.revision),
     ),
     StateReference("version", "canonical", 0, version_before),
-    StateReference("git", "branch-base", 0, base_sha),
+    StateReference("git", "parent", 0, base_sha),
   )
   writes = (
     StateWrite("version", "canonical", {"issue": issue_id}),
-    StateWrite("git", f"issue-{issue_id}", {"base": branch_base}),
+    StateWrite("git", f"issue-{issue_id}", {"base": parent}),
     StateWrite("lifecycle", issue_id, {"state": "active"}),
     StateWrite("current-work", "context", {"issue": issue_id}),
   )
@@ -121,7 +121,7 @@ def start_issue(
       root,
       config,
       issue_id,
-      branch_base,
+      parent,
       references,
     )
 
@@ -130,7 +130,7 @@ def start_issue(
       root,
       config,
       issue_id,
-      branch_base,
+      parent,
       relationships.revision,
       identity,
     )
@@ -156,7 +156,7 @@ def _materialize(
   root: Path,
   config: dict,
   issue_id: str,
-  branch_base: str,
+  parent: str,
   relationship_revision: int,
   identity,
 ) -> None:
@@ -174,18 +174,18 @@ def _materialize(
   branch = f"issue-{issue_id}"
   exists = git(root, "show-ref", "--verify", f"refs/heads/{branch}", check=False)
   if exists.returncode:
-    git(root, "branch", branch, branch_base)
+    git(root, "branch", branch, parent)
   ancestor = git(
     root,
     "merge-base",
     "--is-ancestor",
-    branch_base,
+    parent,
     branch,
     check=False,
   )
   if ancestor.returncode:
     raise IssueStartError(
-      f"existing branch {branch} is not based on canonical base {branch_base}"
+      f"existing branch {branch} is not based on canonical parent {parent}"
     )
   current_branch = git(root, "branch", "--show-current").stdout.strip()
   if current_branch != branch:
@@ -236,7 +236,7 @@ def _validate_reads(
   root: Path,
   config: dict,
   issue_id: str,
-  branch_base: str,
+  parent: str,
   references,
 ) -> bool:
   expected = {(item.domain, item.key): item for item in references}
@@ -259,8 +259,8 @@ def _validate_reads(
     return False
   if read_version(root, config) != expected[("version", "canonical")].identity:
     return False
-  base_sha = git(root, "rev-parse", branch_base).stdout.strip()
-  return base_sha == expected[("git", "branch-base")].identity
+  base_sha = git(root, "rev-parse", parent).stdout.strip()
+  return base_sha == expected[("git", "parent")].identity
 
 
 def _transaction_id(issue_id: str, session_id: str) -> str:

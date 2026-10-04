@@ -13,15 +13,14 @@ from tests.support import RepoFixture
 
 def graph():
   return RelationshipGraph.from_json_value({
-    "schema_version": 1,
+    "schema_version": 2,
     "issues": {
       "1": {
         "umbrella": None,
         "shared_umbrellas": [],
         "depends_on": [],
         "umbrella_depends_on": [],
-        "branch_base": "main",
-        "integration_target": "main",
+        "parent": "main",
       },
     },
   })

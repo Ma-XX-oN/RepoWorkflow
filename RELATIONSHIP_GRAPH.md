@@ -9,21 +9,20 @@ repository-neutral decomposition semantics.
 
 ## 1. Schema version
 
-The initial schema version is `1`.
+The canonical schema version is `2`.  Schema version `1` is legacy migration input only.
 
 A graph value has this shape:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "issues": {
     "10": {
       "umbrella": "1",
       "shared_umbrellas": ["50"],
       "depends_on": ["7"],
       "umbrella_depends_on": ["40"],
-      "branch_base": "issue-7",
-      "integration_target": "main"
+      "parent": "issue-7"
     }
   }
 }
@@ -34,7 +33,7 @@ strings without leading zeroes.
 
 ## 2. Relationship fields
 
-Every issue record contains all six relationship fields.
+Every issue record contains all five relationship fields.
 
 ### 2.1 `umbrella`
 
@@ -72,20 +71,13 @@ leaf dependencies.
 A leaf may still be executable while its owning umbrella has an unresolved
 umbrella dependency.
 
-### 2.5 `branch_base`
+### 2.5 `parent`
 
-The explicit Git branch/base relationship, or `null`.
+The one semantic Git parent/integration relationship, or `null` where a root
+record is explicitly legal.
 
-Branch base is a Git-history fact.
-
-It never creates an issue dependency implicitly.
-
-### 2.6 `integration_target`
-
-The explicit integration target, or `null`.
-
-Integration target is independent of ownership, direct dependency, and branch
-base.
+A work branch is created from this parent and completes into the same parent.
+Parent topology never creates an issue dependency implicitly.
 
 ## 3. Distinct relationship types
 
@@ -95,8 +87,7 @@ The schema intentionally stores these concepts independently:
 2. shared umbrella attachment;
 3. direct leaf dependency;
 4. direct umbrella dependency;
-5. branch base;
-6. integration target.
+5. parent branch/integration topology.
 
 No field may be reconstructed by guessing from another field.
 
@@ -105,7 +96,7 @@ In particular:
 - branch ancestry does not imply dependency;
 - umbrella membership does not imply dependency;
 - shared attachment does not imply dependency;
-- leaf dependency does not dictate branch base.
+- leaf dependency does not dictate parent topology.
 
 ## 4. Readiness
 
@@ -121,8 +112,7 @@ The following do not independently block leaf readiness:
 - `umbrella`;
 - `shared_umbrellas`;
 - `umbrella_depends_on`;
-- `branch_base`;
-- `integration_target`.
+- `parent`.
 
 A completed issue is not returned as a ready work candidate.
 
@@ -166,8 +156,7 @@ Given a valid serialized graph, reconstruction must preserve:
 - shared attachments;
 - direct leaf dependencies;
 - umbrella dependencies;
-- branch base;
-- integration target.
+- parent.
 
 Canonical output sorts issue identifiers and issue-reference arrays
 numerically for deterministic storage/diffing.
