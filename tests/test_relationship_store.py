@@ -140,6 +140,39 @@ class RelationshipStoreTests(unittest.TestCase):
     self.assertEqual(migrated.graph.issue("10").parent, "main")
     self.assertEqual(migrated.graph.schema_version, 2)
 
+  def test_conflicting_legacy_fields_migrate_with_explicit_recovered_branch(self):
+    self._write_legacy("wrong-base", "wrong-target")
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=self.repo, check=True)
+    subprocess.run(
+      ["git", "config", "user.email", "test@example.com"],
+      cwd=self.repo,
+      check=True,
+    )
+    (self.repo / "base").write_text("base")
+    subprocess.run(["git", "add", "base"], cwd=self.repo, check=True)
+    subprocess.run(["git", "commit", "-m", "base"], cwd=self.repo, check=True)
+    subprocess.run(["git", "branch", "-M", "main"], cwd=self.repo, check=True)
+    subprocess.run(
+      ["git", "checkout", "-b", "legacy-work", "main"],
+      cwd=self.repo,
+      check=True,
+    )
+    subprocess.run(
+      [
+        "git", "commit", "--allow-empty", "-m",
+        "identity\n\nRWF-Branch: legacy-work\nRWF-Parent: main",
+      ],
+      cwd=self.repo,
+      check=True,
+    )
+
+    migrated = self.store.migrate_legacy(
+      self.writer,
+      {"10": "legacy-work"},
+    )
+
+    self.assertEqual(migrated.graph.issue("10").parent, "main")
+
   def test_conflicting_legacy_fields_without_identity_preserve_prior_state(self):
     path = self._write_legacy("main", "other")
     before = path.read_bytes()
