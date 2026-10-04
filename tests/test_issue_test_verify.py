@@ -2,9 +2,12 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 import json
+import shutil
 import tempfile
 import unittest
 
+from repo_workflow.command_grammar import Context, parse_tokens
+from repo_workflow.public_commands import COMMANDS
 from repo_workflow.issue_test_contract import (
   IssueTest,
   IssueTestContract,
@@ -71,6 +74,28 @@ class IssueTestVerifyTests(unittest.TestCase):
     code, result = self.verify()
     self.assertEqual(code, 2)
     self.assertEqual(result["status"], "error")
+
+
+  def test_bash_file_requirement_is_red_then_green_through_durable_contract(self):
+    if shutil.which("bash") is None:
+      self.skipTest("Bash evaluator is unavailable")
+    self.write((IssueTest("bash", "test -f promised.txt\n"),))
+
+    red_code, red = self.verify()
+    self.assertEqual(red_code, 1)
+    self.assertEqual(red["status"], "red")
+
+    (self.root / "promised.txt").write_text("fulfilled\n", encoding="utf-8")
+    green_code, green = self.verify()
+    self.assertEqual(green_code, 0)
+    self.assertEqual(green["status"], "green")
+
+  def test_public_validate_issue_grammar_accepts_issue_number(self):
+    parse_tokens(
+      COMMANDS,
+      Context(self.root, legal_only=False),
+      ["validate", "issue", "261"],
+    )
 
 
 if __name__ == "__main__":
