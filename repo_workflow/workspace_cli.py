@@ -47,10 +47,10 @@ def _base(root: Path, issue: int) -> tuple[str, str]:
     raise WorkspaceCommandError(
       f"issue {issue} has no registered canonical relationships"
     ) from error
-  branch = relation.branch_base
+  branch = relation.parent
   if branch is None:
     raise WorkspaceCommandError(
-      f"issue {issue} has no canonical branch base"
+      f"issue {issue} has no canonical parent"
     )
   sha = git(root, "rev-parse", "--verify", branch).stdout.strip()
   return branch, sha
