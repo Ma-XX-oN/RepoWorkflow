@@ -13,6 +13,7 @@ from .command_grammar import (
   parse_tokens,
 )
 from .config import load_config
+from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
@@ -89,6 +90,11 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   command = words[0]
   if command == "workspace":
     return handle_workspace(root, words)
+
+  if command == "issue":
+    result = start_issue(root, words[2])
+    print(json.dumps(result.to_json_value(), separators=(",", ":")))
+    return 0
 
   if command == "what-next":
     if words == ["what-next", "--json"]:
