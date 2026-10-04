@@ -128,7 +128,8 @@ class RepoInfoAdapterTests(unittest.TestCase):
       import hashlib
       digest = hashlib.sha256(body.encode()).hexdigest()
       payload = json.dumps({"schema_version": 1, "number": 9, "body": body, "body_digest": digest})
-      config = self.fixture(root, f"print({payload!r})\\n")
+      script = "print(" + repr(payload) + ")\\n"
+      config = self.fixture(root, script)
       self.assertEqual(issue_body(root, config, 9)["body"], body)
 
 
