@@ -107,7 +107,7 @@ def _verify_local(
         root,
         results_dir,
         do_tag=do_tag,
-        push=push,
+        push=push if stable else False,
         expected_sha=candidate.commit,
       )
     except Exception:
@@ -132,14 +132,18 @@ def verify_local(
       do_tag=True,
       push=push,
     )
+    if push and outcome != "INCOMPLETE":
+      config = load_config(root)
+      branch = current_branch(root)
+      remote = config["repository"]["authoritativeRemote"]
+      version = validate_candidate(root, config).version
+      tag = f"v{version}" if outcome == "PASS" else f"v{version}-CI-FAIL"
+      # Publish mutable/recoverable branch state before the immutable terminal result.
+      git(root, "push", remote, f"HEAD:{branch}")
+      git(root, "push", remote, f"refs/tags/{tag}")
   except Exception:
     restore_repository_state(root, before)
     raise
-  if push:
-    config = load_config(root)
-    branch = current_branch(root)
-    remote = config["repository"]["authoritativeRemote"]
-    git(root, "push", remote, f"HEAD:{branch}")
   return outcome
 
 
