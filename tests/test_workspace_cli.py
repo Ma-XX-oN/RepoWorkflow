@@ -6,6 +6,8 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.current_work_store import CurrentWorkStore
+from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
@@ -82,6 +84,11 @@ class WorkspaceCliTests(unittest.TestCase):
     self.assertEqual(value["claim"]["status"], "available")
     worktree = Path(value["worktree_path"])
     self.assertTrue(worktree.is_dir())
+    lifecycle = LifecycleStore(worktree).read(140)
+    self.assertEqual(lifecycle.lifecycle.state, "active")
+    current = CurrentWorkStore(worktree).read(validate_durable=True)
+    self.assertEqual(current.value.current.issue, "140")
+    self.assertEqual(value["branch"], "issue-140")
 
     listed = self.run_rwf("workspace", "list")
     self.assertEqual(listed.returncode, 0, listed.stderr)
