@@ -7,7 +7,9 @@ from .relationships import (
   IssueRelationships,
   RelationshipGraph,
   RelationshipSchemaError,
+  migrate_legacy_graph,
 )
+from .parent_branch import ParentBranchError, recover_parent_branch
 from .state_store import StateStoreError, WriterIdentity, durable_store
 
 
@@ -28,7 +30,8 @@ class RelationshipStore:
   """Canonical durable direct relationship graph store and normalized reader."""
 
   def __init__(self, repository_root: Path):
-    self.records = durable_store(Path(repository_root).resolve())
+    self.root = Path(repository_root).resolve()
+    self.records = durable_store(self.root)
 
   def read(self) -> RelationshipSnapshot:
     try:
@@ -37,6 +40,26 @@ class RelationshipStore:
     except (StateStoreError, RelationshipSchemaError) as error:
       raise RelationshipStoreError(str(error)) from error
     return RelationshipSnapshot(graph=graph, revision=record["revision"])
+
+  def migrate_legacy(self, writer: WriterIdentity) -> RelationshipSnapshot:
+    """Atomically replace one legacy v1 graph with canonical v2 parent state."""
+    try:
+      record = self.records.read(GRAPH_KEY)
+      if record["value"].get("schema_version") != 1:
+        return self.read()
+      graph = migrate_legacy_graph(
+        record["value"],
+        lambda issue: recover_parent_branch(self.root, f"issue-{issue}"),
+      )
+      replaced = self.records.replace(
+        GRAPH_KEY,
+        record["revision"],
+        graph.to_json_value(),
+        writer,
+      )
+    except (StateStoreError, RelationshipSchemaError, ParentBranchError) as error:
+      raise RelationshipStoreError(str(error)) from error
+    return RelationshipSnapshot(graph=graph, revision=replaced["revision"])
 
   def create(
     self,
