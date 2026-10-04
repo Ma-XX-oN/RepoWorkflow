@@ -42,6 +42,14 @@ class ConfigTests(unittest.TestCase):
       with self.assertRaisesRegex(ConfigError, "infoCommand"):
         load_config(root)
 
+  def test_ticket_command_is_validated_when_configured(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      value["ticketCommand"] = ["python", "ticket.py"]
+      self.write(root, value)
+      self.assertEqual(load_config(root)["ticketCommand"], value["ticketCommand"])
+
   def test_obsolete_set_version_command_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
