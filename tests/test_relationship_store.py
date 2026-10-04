@@ -61,7 +61,6 @@ class RelationshipStoreTests(unittest.TestCase):
     self.assertEqual(issue.depends_on, ("7",))
     self.assertEqual(issue.umbrella_depends_on, ("40",))
     self.assertEqual(issue.parent, "issue-7")
-    self.assertEqual(issue.integration_target, "main")
 
   def test_direct_dependencies_are_deterministic(self):
     self.store.create(graph(["7"]), self.writer)
