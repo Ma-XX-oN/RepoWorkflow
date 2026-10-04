@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .git import git
+from .git import GitError, git
 
 
 class ParentBranchError(RuntimeError):
@@ -16,7 +16,10 @@ _BRANCH_RE = re.compile(r"^[^\s~^:?*\[\\]+(?:/[^\s~^:?*\[\\]+)*$")
 def recover_parent_branch(root: Path, work_branch: str) -> str:
   """Recover one parent from branch-bound identity history and local Git refs."""
   work = _branch_name(work_branch, "work branch")
-  commits = git(root, "rev-list", "--first-parent", work).stdout.splitlines()
+  try:
+    commits = git(root, "rev-list", "--first-parent", work).stdout.splitlines()
+  except GitError as error:
+    raise ParentBranchError(f"work branch {work} is unavailable") from error
   matches: list[tuple[str, str]] = []
   for commit in commits:
     message = git(root, "show", "-s", "--format=%B", commit).stdout
