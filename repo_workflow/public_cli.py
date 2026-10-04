@@ -15,6 +15,7 @@ from .command_grammar import (
 from .config import load_config
 from .issue_start import start_issue
 from .issue_test_verify import verify_issue_tests
+from .issue_test_review import accept_tests, git_review, sync_tests, view_tests
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
@@ -91,6 +92,21 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   command = words[0]
   if command == "workspace":
     return handle_workspace(root, words)
+
+  if command == "tests":
+    if words[1] == "sync":
+      status, message = sync_tests(root)
+      print(message)
+      return 2 if status == "review" else 0
+    if words[1] == "view":
+      which = words[2] if len(words) == 3 else "new"
+      print(view_tests(root, which))
+      return 0
+    if words[1] == "accept":
+      accepted = accept_tests(root)
+      print(f"Accepted executable tests for issue #{accepted.issue}.")
+      return 0
+    return git_review(root, words[1:])
 
   if command == "issue":
     result = start_issue(root, words[2])
