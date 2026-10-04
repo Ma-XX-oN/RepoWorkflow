@@ -6,6 +6,9 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.relationship_store import RelationshipStore
+from repo_workflow.relationships import IssueRelationships, RelationshipGraph
+from repo_workflow.state_store import WriterIdentity
 from tests.support import RepoFixture
 
 
@@ -17,9 +20,40 @@ class WorkspaceCliTests(unittest.TestCase):
     self.temp = tempfile.TemporaryDirectory()
     self.root = Path(self.temp.name) / "repo"
     self.root.mkdir()
-    self.fx = RepoFixture(self.root)
+    self.fx = RepoFixture(self.root, version="1.0.0")
+    info_script = self.root / "scripts" / "info.py"
+    info_script.write_text(
+      "import json\\n"
+      "import sys\\n"
+      "number = int(sys.argv[-1])\\n"
+      "print(json.dumps({'schema_version': 1, 'number': number, "
+      "'title': 'Workspace issue', 'state': 'open'}))\\n",
+      encoding="utf-8",
+    )
+    config_path = self.root / ".ci" / "repoworkflow.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["infoCommand"] = [sys.executable, "scripts/info.py"]
+    config_path.write_text(
+      json.dumps(config, indent=2) + "\\n",
+      encoding="utf-8",
+    )
+    RelationshipStore(self.root).create(
+      RelationshipGraph(issues={
+        "140": IssueRelationships(
+          umbrella="135",
+          shared_umbrellas=(),
+          depends_on=(),
+          umbrella_depends_on=(),
+          branch_base="issue-1-test",
+          integration_target="main",
+        ),
+      }),
+      WriterIdentity("planner", "planning-session"),
+    )
+    self.fx.commit("register workspace issue")
     self.env = dict(os.environ)
     self.env["RWF_WORKER_ID"] = "agent-a"
+    self.env["RWF_WRITER_ID"] = "agent-a"
     self.env["RWF_SESSION_ID"] = "chat-1"
 
   def tearDown(self):
