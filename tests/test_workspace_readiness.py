@@ -24,12 +24,11 @@ def graph():
       "shared_umbrellas": [],
       "depends_on": depends_on,
       "umbrella_depends_on": [],
-      "branch_base": "main",
-      "integration_target": "main",
+      "parent": "main",
     }
 
   return RelationshipGraph.from_json_value({
-    "schema_version": 1,
+    "schema_version": 2,
     "issues": {
       "1": issue([]),
       "2": issue(["1"]),
