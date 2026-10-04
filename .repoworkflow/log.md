@@ -1,9 +1,14 @@
 # RepoWorkflow Manual Workflow Audit Log
 
-## 2026-10-04 — Published Lane B.229
+> **APPEND-ONLY AUDIT LOG.** Add each workflow run as a new entry. Existing
+> entries are historical records and must not be overwritten, rewritten,
+> combined, or merged with later entries.
 
-Worker scope: published Lane B, issue #229, "Persist synchronized issue titles
-for offline workflow use".
+## Lane B — B.229
+
+Date: 2026-10-04
+
+Issue: #229, "Persist synchronized issue titles for offline workflow use".
 
 ### Experience
 
@@ -56,4 +61,3 @@ than merely conventional.
   separately after the semantic preflight.
 - The lane notation worked well as display identity because repository
   relationships continued to use GitHub issue numbers.
-
