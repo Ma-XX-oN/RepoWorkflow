@@ -13,6 +13,7 @@ from .command_grammar import (
   parse_tokens,
 )
 from .config import load_config
+from .current_work_store import CurrentWorkStore
 from .issue_start import start_issue
 from .issue_test_verify import verify_issue_tests
 from .issue_test_review import accept_tests, git_review, sync_tests, view_tests
@@ -103,9 +104,10 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       print(view_tests(root, which))
       return 0
     if words[1] == "accept":
-      accepted = accept_tests(root)
-      print(f"Accepted executable tests for issue #{accepted.issue}.")
-      return 0
+      accepted, gate = accept_tests(root, words[2])
+      issue = accepted.issue if accepted is not None else int(CurrentWorkStore(root).read().value.current.issue)
+      print(f"Selected {words[2]} executable tests for issue #{issue}; RED gate: {gate.state}.")
+      return 0 if gate.state == "implement" else 1
     return git_review(root, words[1:])
 
   if command == "issue":

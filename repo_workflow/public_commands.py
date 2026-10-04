@@ -113,7 +113,10 @@ COMMANDS = {
       "new": "View proposed executable tests",
       "old": "View trusted executable tests before proposal",
     },
-    "accept": "Accept exactly the pending reviewed executable tests",
+    "accept": {
+      "new": "Accept proposed executable tests and continue start",
+      "old": "Retain existing executable tests and continue start",
+    },
     "_variadic": {"min": 1, "description": "Review pending tests with Git"},
   },
   "what-next": {

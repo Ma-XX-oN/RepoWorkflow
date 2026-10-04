@@ -15,6 +15,8 @@ from .issue_test_sync import admit_ticket_tests, compare_ticket_tests
 from .repo_info_adapter import issue_body
 from .runtime_identity import runtime_writer_identity
 from .ticket_write_adapter import replace_issue_body
+from .start_red_gate import run_red_gate
+from .start_state import StartState, StartStateStore
 
 class IssueTestReviewError(RuntimeError):
   pass
@@ -55,13 +57,13 @@ def _write_review(root: Path, issue: int, old: IssueTestContract, new: IssueTest
   before=render_ticket_test_section(old); after=render_ticket_test_section(new)
   (directory/"before.md").write_text(before,encoding="utf-8")
   (directory/"after.md").write_text(after,encoding="utf-8")
-  (directory/"review.json").write_text(json.dumps({"schema_version":1,"issue":issue,"source_body_digest":source_digest,"before_digest":_digest(before),"after_digest":_digest(after)},sort_keys=True)+"\n",encoding="utf-8")
+  (directory/"review.json").write_text(json.dumps({"schema_version":1,"issue":issue,"before_digest":_digest(before),"after_digest":_digest(after)},sort_keys=True)+"\n",encoding="utf-8")
 
 def _pending(root: Path) -> tuple[dict, Path, Path]:
   directory=_review_dir(root); meta=directory/"review.json"; before=directory/"before.md"; after=directory/"after.md"
   try: value=json.loads(meta.read_text(encoding="utf-8")); old=before.read_text(encoding="utf-8"); new=after.read_text(encoding="utf-8")
   except (FileNotFoundError,json.JSONDecodeError) as error: raise IssueTestReviewError("no pending executable-test review; run rwf tests sync") from error
-  if set(value)!={"schema_version","issue","source_body_digest","before_digest","after_digest"} or value["schema_version"]!=1 or value["before_digest"]!=_digest(old) or value["after_digest"]!=_digest(new): raise IssueTestReviewError("pending executable-test review is invalid or modified")
+  if set(value)!={"schema_version","issue","before_digest","after_digest"} or value["schema_version"]!=1 or value["before_digest"]!=_digest(old) or value["after_digest"]!=_digest(new): raise IssueTestReviewError("pending executable-test review is invalid or modified")
   if value["issue"]!=_issue(root): raise IssueTestReviewError("pending executable-test review is for a different current issue")
   return value,before,after
 
@@ -78,7 +80,9 @@ def sync_tests(root: Path) -> tuple[str,str]:
   if ticket is None: raise IssueTestReviewError("ticket test comparison produced no proposal")
   old=repository or IssueTestContract(issue=issue,tests=(),trust="repository")
   _write_review(root,issue,old,ticket,info["body_digest"])
-  return "review", review_ticket_test_changes(old,ticket)
+  StartStateStore(root).write(StartState(issue,"start-preliminary"))
+  message=review_ticket_test_changes(old,ticket).rstrip()+"\n\nChoose exactly one:\n  rwf tests accept new\n  rwf tests accept old\n"
+  return "review", message
 
 def view_tests(root: Path, which: str="new") -> str:
   _,before,after=_pending(root)
@@ -86,15 +90,26 @@ def view_tests(root: Path, which: str="new") -> str:
   if which in {"new",""}: return after
   raise IssueTestReviewError("tests view accepts only old or new")
 
-def accept_tests(root: Path) -> IssueTestContract:
-  value,_,after=_pending(root); issue=value["issue"]; config=load_config(root); info=issue_body(root,config,issue)
-  if info["body_digest"]!=value["source_body_digest"]: raise IssueTestReviewError("ticket tests changed after review; run rwf tests sync and review again")
-  proposed=parse_ticket_test_section(issue,after)
-  if proposed is None: raise IssueTestReviewError("pending proposal has no executable tests")
-  admitted=admit_ticket_tests(proposed)
-  stored=IssueTestContractStore(root).write(admitted,runtime_writer_identity())
+def accept_tests(root: Path, choice: str):
+  if choice not in {"old","new"}: raise IssueTestReviewError("tests accept requires old or new")
+  value,before,after=_pending(root); issue=value["issue"]; config=load_config(root); info=issue_body(root,config,issue)
+  current=parse_ticket_test_section(issue,info["body"])
+  current_rendered=render_ticket_test_section(current) if current is not None else render_ticket_test_section(IssueTestContract(issue=issue,tests=(),trust="ticket-proposed"))
+  if _digest(current_rendered)!=value["after_digest"]:
+    raise IssueTestReviewError("ticket executable tests changed after review; run rwf tests sync and review again")
+  selected=before if choice=="old" else after
+  proposed=parse_ticket_test_section(issue,selected)
+  if proposed is None: raise IssueTestReviewError("selected review set is invalid")
+  if choice=="new":
+    stored=IssueTestContractStore(root).write(admit_ticket_tests(proposed),runtime_writer_identity())
+  else:
+    stored=_contract(root,issue)
+    if stored is None and proposed.tests:
+      raise IssueTestReviewError("old review set has no canonical repository contract")
   shutil.rmtree(_review_dir(root))
-  return stored
+  result=run_red_gate(root,issue)
+  return stored,result
+
 
 def git_review(root: Path, arguments: list[str]) -> int:
   if not arguments: raise IssueTestReviewError("a Git review command is required")
