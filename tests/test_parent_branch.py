@@ -79,5 +79,26 @@ class ParentBranchRecoveryTests(unittest.TestCase):
       recover_parent_branch(self.root, "issue-10")
 
 
+  def test_remote_only_work_and_parent_refs_recover_in_fetched_clone(self):
+    self.identity("issue-10", "main")
+    work = self.git("rev-parse", "issue-10")
+    parent = self.git("rev-parse", "main")
+    self.git("update-ref", "refs/remotes/origin/issue-10", work)
+    self.git("update-ref", "refs/remotes/origin/main", parent)
+    self.git("checkout", "--detach", work)
+    self.git("branch", "-D", "issue-10")
+    self.git("branch", "-D", "main")
+
+    self.assertEqual(recover_parent_branch(self.root, "issue-10"), "main")
+
+  def test_conflicting_same_name_work_refs_fail_closed(self):
+    self.identity("issue-10", "main")
+    parent = self.git("rev-parse", "main")
+    self.git("update-ref", "refs/remotes/origin/issue-10", parent)
+
+    with self.assertRaisesRegex(ParentBranchError, "conflicting"):
+      recover_parent_branch(self.root, "issue-10")
+
+
 if __name__ == "__main__":
   unittest.main()
