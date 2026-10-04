@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from repo_workflow.actions_policy import ActionsPolicyError
 from repo_workflow.guard import GuardError
+from repo_workflow.git import GitError, git as git_command
 from repo_workflow.results import ResultError
 from repo_workflow.local import verify_local
 from tests.support import RepoFixture
@@ -297,6 +298,68 @@ class LocalVerifyTests(unittest.TestCase):
         fx._run("tag", "--list", f"v{fx.version}*").stdout.strip(),
         "",
       )
+
+  def test_branch_publication_failure_cannot_publish_terminal_tag(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("fixed\n")
+      original = fx.commit("source ready before rejected publication")
+
+      def reject_branch_push(path, *args, **kwargs):
+        if args[:2] == ("push", "origin") and args[2].startswith("HEAD:"):
+          raise GitError("injected branch publication failure")
+        return git_command(path, *args, **kwargs)
+
+      with patch("repo_workflow.local.git", side_effect=reject_branch_push):
+        with self.assertRaisesRegex(GitError, "injected branch publication failure"):
+          verify_local(root, engine_root=root / "RepoWorkflow", push=True)
+
+      self.assertEqual(fx.head(), original)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+      self.assertEqual(
+        fx._run("ls-remote", "--tags", "origin", f"refs/tags/v{fx.version}*").stdout,
+        "",
+      )
+      self.assertEqual(fx._run("tag", "--list", f"v{fx.version}*").stdout, "")
+
+  def test_incomplete_push_publishes_neither_branch_change_nor_terminal_tag(self):
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = self.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n", platform=mismatch
+    )
+    with td:
+      remote_before = fx._run("rev-parse", "origin/main").stdout.strip()
+      self.assertEqual(
+        verify_local(root, engine_root=root / "RepoWorkflow", push=True),
+        "INCOMPLETE",
+      )
+      self.assertEqual(
+        fx._run("ls-remote", "origin", "refs/heads/main").stdout.split()[0],
+        remote_before,
+      )
+      self.assertEqual(
+        fx._run("ls-remote", "--tags", "origin", f"refs/tags/v{fx.version}*").stdout,
+        "",
+      )
+
+  def test_fail_push_publishes_candidate_before_terminal_fail_tag(self):
+    td, root, fx = self.make_consumer(validation_body="raise SystemExit(1)\n")
+    with td:
+      (root / "source.txt").write_text("fixed\n")
+      fx.commit("source ready before pushed failing verify")
+      self.assertEqual(
+        verify_local(root, engine_root=root / "RepoWorkflow", push=True),
+        "FAIL",
+      )
+      branch = fx._run("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+      remote_head = fx._run(
+        "ls-remote", "origin", f"refs/heads/{branch}"
+      ).stdout.split()[0]
+      self.assertEqual(remote_head, fx.head())
+      remote_tag = fx._run(
+        "ls-remote", "--tags", "origin", f"refs/tags/v{fx.version}-CI-FAIL"
+      ).stdout
+      self.assertIn(f"refs/tags/v{fx.version}-CI-FAIL", remote_tag)
 
   def test_push_publishes_only_completed_candidate_branch_and_terminal_tag(self):
     td, root, fx = self.make_consumer()
