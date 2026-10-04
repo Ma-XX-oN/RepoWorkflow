@@ -158,8 +158,7 @@ def prepare_development_candidate(
       version = read_development_version(root, config)
     except VersionAdapterError as exc:
       raise GuardError(str(exc)) from exc
-    consumed = _terminal_tag(root, remote, version)
-    if consumed is not None:
+    while _terminal_tag(root, remote, version) is not None:
       version = _advance_ci_iteration(root, config, version)
       prepared = True
 

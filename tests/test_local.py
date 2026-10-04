@@ -113,6 +113,24 @@ class LocalVerifyTests(unittest.TestCase):
         f"v{next_version}",
       )
 
+  def test_local_verify_skips_consecutive_consumed_iterations(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+      fx.tag_remote("v1.0.0-issue.1.0.2")
+
+      self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
+      next_version = "1.0.0-issue.1.0.3"
+      self.assertEqual((root / "VERSION").read_text().strip(), next_version)
+      self.assertEqual(
+        (root / ".ci" / "run-ci-request").read_text().strip(),
+        next_version,
+      )
+      self.assertEqual(
+        fx._run("tag", "--list", f"v{next_version}").stdout.strip(),
+        f"v{next_version}",
+      )
+
   def test_local_verify_tags_genuine_failure_automatically(self):
     td, root, fx = self.make_consumer(validation_body="raise SystemExit(1)\n")
     with td:
