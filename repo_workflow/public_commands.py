@@ -106,6 +106,16 @@ COMMANDS = {
     },
   },
   "workspace": _workspace_commands(),
+  "tests": {
+    "sync": "Synchronize executable tests for current work",
+    "view": {
+      "": "View proposed executable tests",
+      "new": "View proposed executable tests",
+      "old": "View trusted executable tests before proposal",
+    },
+    "accept": "Accept exactly the pending reviewed executable tests",
+    "_variadic": {"min": 1, "description": "Review pending tests with Git"},
+  },
   "what-next": {
     "": "Show legal next workflow transitions",
     "--json": "Output workflow guidance as JSON",
