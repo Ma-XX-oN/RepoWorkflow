@@ -20,8 +20,7 @@ def graph():
         "shared_umbrellas": [],
         "depends_on": [],
         "umbrella_depends_on": [],
-        "branch_base": "main",
-        "integration_target": "main",
+        "parent": "main",
       },
     },
   })
