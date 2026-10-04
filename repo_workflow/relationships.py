@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+LEGACY_SCHEMA_VERSION = 1
 
 
 class RelationshipSchemaError(ValueError):
@@ -16,8 +18,7 @@ class IssueRelationships:
   shared_umbrellas: tuple[str, ...]
   depends_on: tuple[str, ...]
   umbrella_depends_on: tuple[str, ...]
-  branch_base: str | None
-  integration_target: str | None
+  parent: str | None
 
   def to_json_value(self) -> dict:
     return {
@@ -25,8 +26,7 @@ class IssueRelationships:
       "shared_umbrellas": list(self.shared_umbrellas),
       "depends_on": list(self.depends_on),
       "umbrella_depends_on": list(self.umbrella_depends_on),
-      "branch_base": self.branch_base,
-      "integration_target": self.integration_target,
+      "parent": self.parent,
     }
 
 
@@ -77,6 +77,63 @@ class RelationshipGraph:
     }
 
 
+def migrate_legacy_graph(
+  value: dict,
+  recover_parent: Callable[[str], str],
+) -> RelationshipGraph:
+  """Convert schema v1 to v2 without preferring either conflicting legacy field."""
+  if not isinstance(value, dict) or value.get("schema_version") != LEGACY_SCHEMA_VERSION:
+    raise RelationshipSchemaError("legacy relationship graph must use schema version 1")
+  raw_issues = value.get("issues")
+  if not isinstance(raw_issues, dict):
+    raise RelationshipSchemaError("issues must be an object")
+
+  migrated: dict[str, dict] = {}
+  for raw_issue_id, raw in raw_issues.items():
+    issue_id = _issue_id(raw_issue_id)
+    if not isinstance(raw, dict):
+      raise RelationshipSchemaError(
+        f"issue {issue_id}: relationship record must be an object"
+      )
+    expected = {
+      "umbrella",
+      "shared_umbrellas",
+      "depends_on",
+      "umbrella_depends_on",
+      "branch_base",
+      "integration_target",
+    }
+    if set(raw) != expected:
+      raise RelationshipSchemaError(
+        f"issue {issue_id}: legacy relationship fields are invalid"
+      )
+    branch_base = _optional_text(raw["branch_base"], "branch_base")
+    integration_target = _optional_text(
+      raw["integration_target"],
+      "integration_target",
+    )
+    if branch_base == integration_target:
+      parent = branch_base
+    elif branch_base is None or integration_target is None:
+      parent = recover_parent(issue_id)
+    else:
+      parent = recover_parent(issue_id)
+    if parent is not None:
+      parent = _optional_text(parent, "parent")
+    migrated[issue_id] = {
+      "umbrella": raw["umbrella"],
+      "shared_umbrellas": raw["shared_umbrellas"],
+      "depends_on": raw["depends_on"],
+      "umbrella_depends_on": raw["umbrella_depends_on"],
+      "parent": parent,
+    }
+
+  return RelationshipGraph.from_json_value({
+    "schema_version": SCHEMA_VERSION,
+    "issues": migrated,
+  })
+
+
 def ready_issues(
   graph: RelationshipGraph,
   completed: set[str | int],
@@ -98,8 +155,7 @@ def _parse_issue(issue_id: str, raw: dict) -> IssueRelationships:
     "shared_umbrellas",
     "depends_on",
     "umbrella_depends_on",
-    "branch_base",
-    "integration_target",
+    "parent",
   }
   unknown = set(raw) - expected
   missing = expected - set(raw)
@@ -119,11 +175,7 @@ def _parse_issue(issue_id: str, raw: dict) -> IssueRelationships:
     raw["umbrella_depends_on"],
     "umbrella_depends_on",
   )
-  branch_base = _optional_text(raw["branch_base"], "branch_base")
-  integration_target = _optional_text(
-    raw["integration_target"],
-    "integration_target",
-  )
+  parent = _optional_text(raw["parent"], "parent")
 
   for kind, values in (
     ("umbrella", (() if umbrella is None else (umbrella,))),
@@ -141,8 +193,7 @@ def _parse_issue(issue_id: str, raw: dict) -> IssueRelationships:
     shared_umbrellas=shared,
     depends_on=dependencies,
     umbrella_depends_on=umbrella_dependencies,
-    branch_base=branch_base,
-    integration_target=integration_target,
+    parent=parent,
   )
 
 
