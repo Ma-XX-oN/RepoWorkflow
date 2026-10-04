@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from .relationship_store import RelationshipStore
+from .repo_info_adapter import RepoInfoError, issue_info
+from .state_store import StateStoreError, WriterIdentity, durable_store
+
+
+METADATA_KEY = "issues/metadata"
+SCHEMA_VERSION = 1
+
+
+class IssueMetadataError(RuntimeError):
+  """Raised when synchronized durable issue metadata is unavailable or invalid."""
+
+
+@dataclass(frozen=True)
+class IssueMetadata:
+  number: int
+  title: str
+
+
+@dataclass(frozen=True)
+class IssueMetadataSnapshot:
+  issues: dict[int, IssueMetadata]
+  revision: int
+
+
+class IssueMetadataStore:
+  """Provider-neutral durable issue metadata snapshot and offline reader."""
+
+  def __init__(self, repository_root: Path):
+    self.root = Path(repository_root).resolve()
+    self.records = durable_store(self.root)
+
+  def read(self) -> IssueMetadataSnapshot:
+    try:
+      record = self.records.read(METADATA_KEY)
+      issues = _parse_snapshot(record["value"])
+    except (StateStoreError, ValueError) as error:
+      raise IssueMetadataError(str(error)) from error
+    return IssueMetadataSnapshot(issues=issues, revision=record["revision"])
+
+  def issue(self, issue_number: int) -> IssueMetadata:
+    number = _positive_integer(issue_number, "issue number")
+    snapshot = self.read()
+    try:
+      return snapshot.issues[number]
+    except KeyError as error:
+      raise IssueMetadataError(
+        f"synchronized issue metadata is missing for issue {number}"
+      ) from error
+
+  def write(
+    self,
+    issues: dict[int, IssueMetadata],
+    writer: WriterIdentity,
+  ) -> IssueMetadataSnapshot:
+    value = _snapshot_value(issues)
+    path = self.root / ".repoworkflow" / "state" / "issues" / "metadata.json"
+    try:
+      if path.exists():
+        current = self.records.read(METADATA_KEY)
+        record = self.records.replace(
+          METADATA_KEY,
+          current["revision"],
+          value,
+          writer,
+        )
+      else:
+        record = self.records.create(METADATA_KEY, value, writer)
+    except StateStoreError as error:
+      raise IssueMetadataError(str(error)) from error
+    return IssueMetadataSnapshot(
+      issues=_parse_snapshot(record["value"]),
+      revision=record["revision"],
+    )
+
+
+def refresh_issue_metadata(
+  repository_root: Path,
+  config: dict,
+  writer: WriterIdentity,
+) -> IssueMetadataSnapshot:
+  """Refresh metadata for the complete canonical relationship-graph issue set."""
+  root = Path(repository_root).resolve()
+  graph = RelationshipStore(root).read().graph
+  refreshed: dict[int, IssueMetadata] = {}
+
+  try:
+    for issue_id in sorted(graph.issues, key=int):
+      number = int(issue_id)
+      value = issue_info(root, config, number)
+      refreshed[number] = IssueMetadata(
+        number=number,
+        title=value["title"],
+      )
+  except RepoInfoError as error:
+    raise IssueMetadataError(
+      f"issue metadata refresh failed: {error}"
+    ) from error
+
+  return IssueMetadataStore(root).write(refreshed, writer)
+
+
+def _parse_snapshot(value: dict) -> dict[int, IssueMetadata]:
+  if not isinstance(value, dict) or set(value) != {"schema_version", "issues"}:
+    raise ValueError("issue metadata snapshot has unsupported fields")
+  if value["schema_version"] != SCHEMA_VERSION:
+    raise ValueError("unsupported issue metadata schema version")
+  raw_issues = value["issues"]
+  if not isinstance(raw_issues, dict):
+    raise ValueError("issue metadata issues must be an object")
+
+  issues: dict[int, IssueMetadata] = {}
+  for raw_key, raw in raw_issues.items():
+    if not isinstance(raw_key, str) or not raw_key.isdigit():
+      raise ValueError("issue metadata key must be a positive decimal integer")
+    number = _positive_integer(int(raw_key), "issue metadata key")
+    if raw_key != str(number):
+      raise ValueError("issue metadata key must be canonical decimal text")
+    if not isinstance(raw, dict) or set(raw) != {"number", "title"}:
+      raise ValueError(f"issue metadata record {number} has unsupported fields")
+    returned = _positive_integer(raw["number"], "issue metadata number")
+    if returned != number:
+      raise ValueError(f"issue metadata record {number} has mismatched number")
+    title = raw["title"]
+    if not isinstance(title, str) or not title:
+      raise ValueError(f"issue metadata record {number} has empty title")
+    issues[number] = IssueMetadata(number=number, title=title)
+  return issues
+
+
+def _snapshot_value(issues: dict[int, IssueMetadata]) -> dict:
+  normalized: dict[int, IssueMetadata] = {}
+  for key, metadata in issues.items():
+    number = _positive_integer(key, "issue metadata key")
+    if not isinstance(metadata, IssueMetadata) or metadata.number != number:
+      raise IssueMetadataError(f"invalid issue metadata record for issue {number}")
+    if not isinstance(metadata.title, str) or not metadata.title:
+      raise IssueMetadataError(f"issue metadata title is empty for issue {number}")
+    normalized[number] = metadata
+  return {
+    "schema_version": SCHEMA_VERSION,
+    "issues": {
+      str(number): {
+        "number": number,
+        "title": normalized[number].title,
+      }
+      for number in sorted(normalized)
+    },
+  }
+
+
+def _positive_integer(value, label: str) -> int:
+  if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+    raise ValueError(f"{label} must be a positive integer")
+  return value

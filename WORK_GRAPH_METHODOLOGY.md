@@ -468,10 +468,10 @@ umbrella blocked
 A blocked umbrella may still contain ready leaves.  Umbrella blocking must not
 unnecessarily serialize its independently executable children.
 
-## 13.1 Published lane coordination
+## 13.1 Published lane display notation
 
-Published lane rules are maintained in [WORK_GRAPH_LANES.md](WORK_GRAPH_LANES.md).
-Lane presentation does not alter issue dependency truth or readiness semantics.
+Published lane naming, issue qualification, stability, and completion-display
+rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
 ## 14. Use decomposition to expose architecture problems
 
@@ -494,5 +494,5 @@ issues.  Split only when a cleaner independently testable contract appears.
 
 ## 15. Testing and refinement companion
 
-Testing, refinement, and acceptance checklists are maintained in
+Verification procedures and acceptance checklists are defined in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
