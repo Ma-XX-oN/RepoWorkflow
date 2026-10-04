@@ -470,9 +470,8 @@ unnecessarily serialize its independently executable children.
 
 ## 13.1 Published lane coordination
 
-Published lane notation and coordination rules are maintained in
-[WORK_GRAPH_LANES.md](WORK_GRAPH_LANES.md).  Lane presentation does not alter
-issue dependency truth or readiness semantics defined here.
+Published lane rules are maintained in [WORK_GRAPH_LANES.md](WORK_GRAPH_LANES.md).
+Lane presentation does not alter issue dependency truth or readiness semantics.
 
 ## 14. Use decomposition to expose architecture problems
 
@@ -495,10 +494,5 @@ issues.  Split only when a cleaner independently testable contract appears.
 
 ## 15. Testing and refinement companion
 
-The test consequences, practical decomposition procedure, and leaf/umbrella
-acceptance checklists are maintained in
+Testing, refinement, and acceptance checklists are maintained in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
-
-The methodology in this document defines the graph model and decomposition
-principles.  The companion document defines how to verify that a proposed graph
-actually satisfies them.
