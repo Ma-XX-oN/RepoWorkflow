@@ -25,18 +25,18 @@ class WorkspaceCliTests(unittest.TestCase):
     self.fx = RepoFixture(self.root, version="1.0.0")
     info_script = self.root / "scripts" / "info.py"
     info_script.write_text(
-      "import json\\n"
-      "import sys\\n"
-      "number = int(sys.argv[-1])\\n"
+      "import json\n"
+      "import sys\n"
+      "number = int(sys.argv[-1])\n"
       "print(json.dumps({'schema_version': 1, 'number': number, "
-      "'title': 'Workspace issue', 'state': 'open'}))\\n",
+      "'title': 'Workspace issue', 'state': 'open'}))\n",
       encoding="utf-8",
     )
     config_path = self.root / ".ci" / "repoworkflow.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["infoCommand"] = [sys.executable, "scripts/info.py"]
     config_path.write_text(
-      json.dumps(config, indent=2) + "\\n",
+      json.dumps(config, indent=2) + "\n",
       encoding="utf-8",
     )
     RelationshipStore(self.root).create(
