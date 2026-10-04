@@ -306,12 +306,12 @@ class LocalVerifyTests(unittest.TestCase):
       original = fx.commit("source ready before rejected publication")
 
       def reject_branch_push(path, *args, **kwargs):
-        if args[:2] == ("push", "origin") and args[2].startswith("HEAD:"):
-          raise GitError("injected branch publication failure")
+        if args[:3] == ("push", "--atomic", "origin"):
+          raise GitError("injected atomic publication failure")
         return git_command(path, *args, **kwargs)
 
       with patch("repo_workflow.local.git", side_effect=reject_branch_push):
-        with self.assertRaisesRegex(GitError, "injected branch publication failure"):
+        with self.assertRaisesRegex(GitError, "injected atomic publication failure"):
           verify_local(root, engine_root=root / "RepoWorkflow", push=True)
 
       self.assertEqual(fx.head(), original)
@@ -342,7 +342,7 @@ class LocalVerifyTests(unittest.TestCase):
         "",
       )
 
-  def test_fail_push_publishes_candidate_before_terminal_fail_tag(self):
+  def test_fail_push_atomically_publishes_candidate_and_terminal_fail_tag(self):
     td, root, fx = self.make_consumer(validation_body="raise SystemExit(1)\n")
     with td:
       (root / "source.txt").write_text("fixed\n")
