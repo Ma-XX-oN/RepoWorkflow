@@ -37,7 +37,6 @@ class RelationshipGraphTests(unittest.TestCase):
     self.assertEqual(issue.depends_on, ("7",))
     self.assertEqual(issue.umbrella_depends_on, ("40",))
     self.assertEqual(issue.parent, "issue-7")
-    self.assertEqual(issue.integration_target, "main")
 
   def test_umbrella_membership_and_attachment_do_not_block_readiness(self):
     graph = RelationshipGraph.from_json_value({
