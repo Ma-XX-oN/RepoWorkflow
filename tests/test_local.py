@@ -4,9 +4,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.actions_policy import ActionsPolicyError
 from repo_workflow.guard import GuardError
+from repo_workflow.results import ResultError
 from repo_workflow.local import verify_local
 from tests.support import RepoFixture
 
@@ -226,6 +228,28 @@ class LocalVerifyTests(unittest.TestCase):
         fx._run("tag", "--list", f"v{fx.version}*").stdout.strip(),
         "",
       )
+
+  def test_finalization_failure_rolls_back_prepared_candidate_transaction(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("fixed\n")
+      source_commit = fx.commit("fix source after request")
+      fx.push()
+
+      with patch(
+        "repo_workflow.local.finalize_results",
+        side_effect=ResultError("injected finalization failure"),
+      ):
+        with self.assertRaisesRegex(ResultError, "injected finalization failure"):
+          verify_local(root, engine_root=root / "RepoWorkflow")
+
+      self.assertEqual(fx.head(), source_commit)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+      self.assertEqual(
+        (root / ".ci" / "run-ci-request").read_text(),
+        fx.version + "\n\n",
+      )
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
 
   def test_consumed_iteration_with_failing_semantic_adapter_rolls_back(self):
     td, root, fx = self.make_consumer()

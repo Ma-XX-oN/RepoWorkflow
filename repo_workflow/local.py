@@ -40,21 +40,26 @@ def _verify_local(
 ) -> str:
   root = root.resolve()
   engine_root = engine_root.resolve()
-  check_repository_policy(root, engine_root)
-  config = load_config(root)
-  branch = current_branch(root)
-  if branch == "HEAD":
-    raise ValueError("local authoritative verification requires a named branch")
-  remote = config["repository"]["authoritativeRemote"]
-  check_branch_policy(root, branch, None, remote)
-  if stable:
-    candidate = validate_stable_candidate(root)
-  else:
-    candidate, _prepared = prepare_development_candidate(
-      root,
-      config,
-      push=push,
-    )
+  transaction_state = repository_state(root)
+  try:
+    check_repository_policy(root, engine_root)
+    config = load_config(root)
+    branch = current_branch(root)
+    if branch == "HEAD":
+      raise ValueError("local authoritative verification requires a named branch")
+    remote = config["repository"]["authoritativeRemote"]
+    check_branch_policy(root, branch, None, remote)
+    if stable:
+      candidate = validate_stable_candidate(root)
+    else:
+      candidate, _prepared = prepare_development_candidate(
+        root,
+        config,
+        push=push,
+      )
+  except Exception:
+    restore_repository_state(root, transaction_state)
+    raise
 
   with tempfile.TemporaryDirectory(prefix="repoworkflow-results-") as directory:
     results_dir = Path(directory)
@@ -97,13 +102,18 @@ def _verify_local(
         expected_sha=candidate.commit,
       )
     finalizer = finalize_stable_results if stable else finalize_results
-    return finalizer(
-      root,
-      results_dir,
-      do_tag=do_tag,
-      push=push,
-      expected_sha=candidate.commit,
-    )
+    try:
+      return finalizer(
+        root,
+        results_dir,
+        do_tag=do_tag,
+        push=push,
+        expected_sha=candidate.commit,
+      )
+    except Exception:
+      if not stable:
+        restore_repository_state(root, transaction_state)
+      raise
 
 
 def verify_local(
