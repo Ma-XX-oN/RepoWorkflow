@@ -18,8 +18,7 @@ def relations(*, depends_on=(), branch_base="main"):
     shared_umbrellas=("50",),
     depends_on=tuple(depends_on),
     umbrella_depends_on=("40",),
-    branch_base=branch_base,
-    integration_target="main",
+    parent=branch_base,
   )
 
 
@@ -117,7 +116,7 @@ class RelationshipRegistrationTests(unittest.TestCase):
         expected_revision=first.revision,
       )
     self.assertEqual(
-      RelationshipStore(self.repo).issue(7).branch_base,
+      RelationshipStore(self.repo).issue(7).parent,
       "issue-6",
     )
 
