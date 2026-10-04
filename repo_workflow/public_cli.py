@@ -14,6 +14,7 @@ from .command_grammar import (
 )
 from .config import load_config
 from .issue_start import start_issue
+from .issue_test_verify import verify_issue_tests
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
@@ -104,6 +105,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   if command == "validate":
+    if len(words) == 3 and words[1] == "issue":
+      return verify_issue_tests(root, int(words[2]))
     if words == ["validate", "regression"]:
       outcome = validate_regression(root, engine_root=engine_root)
       return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
