@@ -66,8 +66,35 @@ class FirstUseLanesTests(unittest.TestCase):
         189: [],
       }
     dependency_state = base / "dependencies.json"
+    metadata_state = base / "metadata.json"
     call_log = base / "dependency-calls.jsonl"
     call_log.write_text("", encoding="utf-8")
+    all_numbers = sorted({
+      number
+      for number, deps in dependencies.items()
+      for number in (number, *deps)
+    })
+    titles = {
+      206: "Root 206",
+      203: "Root 203",
+      201: "Leaf 201",
+      205: "Root 205",
+      208: "Leaf 208",
+      218: "Root 218",
+      217: "Leaf 217",
+      187: "Leaf A",
+      189: "Leaf B",
+    }
+    metadata_state.write_text(
+      json.dumps({
+        str(number): {
+          "title": titles.get(number, f"Issue {number}"),
+          "state": "OPEN",
+        }
+        for number in all_numbers
+      }),
+      encoding="utf-8",
+    )
     dependency_state.write_text(
       json.dumps({str(key): value for key, value in dependencies.items()}),
       encoding="utf-8",
@@ -92,11 +119,10 @@ class FirstUseLanesTests(unittest.TestCase):
       "{'nodes': nodes, 'totalCount': len(nodes)}}))\n"
       "elif args[:2] == ['issue', 'view']:\n"
       "  number = int(args[2])\n"
-      "  titles = {206: 'Root 206', 203: 'Root 203', 201: 'Leaf 201', "
-      "205: 'Root 205', 208: 'Leaf 208', 218: 'Root 218', "
-      "217: 'Leaf 217', 187: 'Leaf A', 189: 'Leaf B'}\n"
-      "  print(json.dumps({'number': number, 'title': titles[number], "
-      "'state': 'OPEN', 'url': "
+      "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
+      "  item = state[str(number)]\n"
+      "  print(json.dumps({'number': number, 'title': item['title'], "
+      "'state': item['state'], 'url': "
       "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
       "else:\n"
       "  print('unexpected gh arguments: ' + repr(args), file=sys.stderr)\n"
@@ -109,6 +135,7 @@ class FirstUseLanesTests(unittest.TestCase):
     env.pop("RWF_SESSION_ID", None)
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     env["RWF_TEST_DEPS"] = str(dependency_state)
+    env["RWF_TEST_META"] = str(metadata_state)
     env["RWF_TEST_CALLS"] = str(call_log)
     return env
 
@@ -238,6 +265,45 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("A.203", viewed.stdout)
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
+
+  def test_lane_list_refresh_updates_cached_issue_metadata(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      first = self.run_rwf(root, env, "lanes", "list")
+      self.assertIn("#203  Root 203", first.stdout)
+
+      metadata_path = Path(env["RWF_TEST_META"])
+      metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+      metadata["203"]["title"] = "Updated Root 203"
+      metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+      cached = self.run_rwf(root, env, "lanes", "list")
+      self.assertIn("#203  Root 203", cached.stdout)
+      self.assertNotIn("Updated Root 203", cached.stdout)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("#203  Updated Root 203", refreshed.stdout)
 
   def test_lane_list_and_view_are_offline_until_explicit_refresh(self):
     with tempfile.TemporaryDirectory() as td:
