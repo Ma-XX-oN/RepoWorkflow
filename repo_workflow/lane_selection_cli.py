@@ -25,6 +25,7 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
   if tail[0] == "add":
     if current.revision is None:
       raise ValueError("lane selection is missing")
+    ensure_relationship_graph(root, tuple(tail[1:]), writer)
     result = store.add(
       tuple(tail[1:]), writer, expected_revision=current.revision
     )
