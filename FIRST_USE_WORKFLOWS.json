@@ -292,7 +292,9 @@
         "provider_progress_and_diagnostics": "DL-15",
         "diagnostic_failure_record": "DL-15",
         "debug_projection": "DL-15",
-        "identity_preserving_routing": "DL-16"
+        "identity_preserving_routing": "DL-16",
+        "direct_edge_route_identity": "DL-16",
+        "bypass_track_rendering": "DL-16"
       },
       "stateful": true,
       "provider_boundary": true,
