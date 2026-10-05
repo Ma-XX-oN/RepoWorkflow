@@ -15,6 +15,7 @@ from .command_grammar import (
 from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
 from .issue_list import list_issues
+from .lane_selection_cli import handle_lane_selection
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
@@ -92,6 +93,9 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   command = words[0]
   if command == "workspace":
     return handle_workspace(root, words)
+
+  if command == "lanes":
+    return handle_lane_selection(root, words)
 
   if command == "issue":
     if words[1] == "select":

@@ -97,6 +97,14 @@ def _workspace_commands() -> dict:
 
 
 COMMANDS = {
+  "lanes": {
+    "select": {
+      "_variadic": {"min": 1, "description": "Issue roots"},
+      "add": {"_variadic": {"min": 1, "description": "Issue roots"}},
+      "remove": {"_variadic": {"min": 1, "description": "Issue roots"}},
+    },
+    "clear": "Clear local lane selection",
+  },
   "issue": {
     "select": {
       "dependency": {
