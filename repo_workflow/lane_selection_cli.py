@@ -24,24 +24,50 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
     raise ValueError("invalid lanes command")
   tail = words[2:]
   as_json = "--json" in tail
-  tail = [word for word in tail if word != "--json"]
+  refresh = "--refresh" in tail
+  tail = [
+    word for word in tail
+    if word not in {"--json", "--refresh"}
+  ]
   if not tail:
     raise ValueError("lane selection requires at least one root")
   if tail[0] == "add":
     if current.revision is None:
       raise ValueError("lane selection is missing")
-    ensure_relationship_graph(root, tuple(tail[1:]), writer)
+    ensure_relationship_graph(
+      root,
+      tuple(tail[1:]),
+      writer,
+      refresh=refresh,
+    )
     result = store.add(
       tuple(tail[1:]), writer, expected_revision=current.revision
     )
   elif tail[0] == "remove":
-    if current.revision is None:
+    if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
+    removed = {str(int(value)) for value in tail[1:]}
+    remaining = tuple(
+      value for value in current.value.roots
+      if value not in removed
+    )
+    if refresh and remaining:
+      ensure_relationship_graph(
+        root,
+        remaining,
+        writer,
+        refresh=True,
+      )
     result = store.remove(
       tuple(tail[1:]), writer, expected_revision=current.revision
     )
   else:
-    ensure_relationship_graph(root, tuple(tail), writer)
+    ensure_relationship_graph(
+      root,
+      tuple(tail),
+      writer,
+      refresh=refresh,
+    )
     result = store.select(
       tuple(tail), writer, expected_revision=current.revision
     )

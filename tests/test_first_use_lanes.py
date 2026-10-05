@@ -66,6 +66,8 @@ class FirstUseLanesTests(unittest.TestCase):
         189: [],
       }
     dependency_state = base / "dependencies.json"
+    call_log = base / "dependency-calls.jsonl"
+    call_log.write_text("", encoding="utf-8")
     dependency_state.write_text(
       json.dumps({str(key): value for key, value in dependencies.items()}),
       encoding="utf-8",
@@ -79,6 +81,8 @@ class FirstUseLanesTests(unittest.TestCase):
       "args = sys.argv[1:]\n"
       "if args[:2] == ['issue', 'view'] and 'blockedBy' in args:\n"
       "  number = int(args[2])\n"
+      "  with open(os.environ['RWF_TEST_CALLS'], 'a', encoding='utf-8') as log:\n"
+      "    log.write(json.dumps({'kind': 'dependency', 'issue': number}) + '\\n')\n"
       "  state = json.load(open(os.environ['RWF_TEST_DEPS'], encoding='utf-8'))\n"
       "  deps = state[str(number)]\n"
       "  nodes = [{'number': n, 'title': f'Issue {n}', "
@@ -105,7 +109,16 @@ class FirstUseLanesTests(unittest.TestCase):
     env.pop("RWF_SESSION_ID", None)
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     env["RWF_TEST_DEPS"] = str(dependency_state)
+    env["RWF_TEST_CALLS"] = str(call_log)
     return env
+
+  def dependency_calls(self, env: dict[str, str]) -> list[int]:
+    path = Path(env["RWF_TEST_CALLS"])
+    return [
+      json.loads(line)["issue"]
+      for line in path.read_text(encoding="utf-8").splitlines()
+      if line
+    ]
 
   def certify_migration(self, root: Path) -> None:
     source = (
@@ -291,6 +304,254 @@ class FirstUseLanesTests(unittest.TestCase):
         ["205", "208", "217", "218"],
       )
 
+  def test_cached_selection_reuses_relationships_and_add_reads_only_missing(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(self.dependency_calls(env), [203, 201])
+
+      repeated = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(repeated.returncode, 0, repeated.stderr)
+      self.assertEqual(self.dependency_calls(env), [203, 201])
+
+      added = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "add",
+        "206",
+        "--json",
+      )
+      self.assertEqual(added.returncode, 0, added.stderr)
+      self.assertEqual(self.dependency_calls(env), [203, 201, 206])
+
+      removed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "remove",
+        "206",
+        "--json",
+      )
+      self.assertEqual(removed.returncode, 0, removed.stderr)
+      self.assertEqual(self.dependency_calls(env), [203, 201, 206])
+
+      restarted = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(restarted.returncode, 0, restarted.stderr)
+      self.assertEqual(self.dependency_calls(env), [203, 201, 206])
+
+  def test_refresh_rereads_relevant_closure_only(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(self.dependency_calls(env), [203, 201])
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--refresh",
+        "--json",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertEqual(
+        self.dependency_calls(env),
+        [203, 201, 203, 201],
+      )
+      self.assertNotIn(206, self.dependency_calls(env))
+
+  def test_remove_refresh_excludes_removed_only_root_from_provider_scope(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      added = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "add",
+        "206",
+        "--json",
+      )
+      self.assertEqual(added.returncode, 0, added.stderr)
+      before = list(self.dependency_calls(env))
+
+      removed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "remove",
+        "206",
+        "--refresh",
+        "--json",
+      )
+      self.assertEqual(removed.returncode, 0, removed.stderr)
+      self.assertEqual(json.loads(removed.stdout)["roots"], ["203"])
+      self.assertEqual(
+        self.dependency_calls(env)[len(before):],
+        [203, 201],
+      )
+
+  def test_cached_selection_succeeds_when_dependency_provider_is_unavailable(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "raise SystemExit(91)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      cached = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(cached.returncode, 0, cached.stderr)
+      self.assertEqual(json.loads(cached.stdout)["closure"], ["201", "203"])
+
+  def test_refresh_provider_failure_preserves_graph_and_selection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      graph_path = (
+        root
+        / ".repoworkflow"
+        / "state"
+        / "relationships"
+        / "graph.json"
+      )
+      selection_path = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "lane-selection"
+        / "selection.json"
+      )
+      graph_before = graph_path.read_text(encoding="utf-8")
+      selection_before = selection_path.read_text(encoding="utf-8")
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(92)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--refresh",
+        "--json",
+      )
+      self.assertEqual(refreshed.returncode, 2)
+      self.assertIn("provider unavailable", refreshed.stderr)
+      self.assertEqual(
+        graph_path.read_text(encoding="utf-8"),
+        graph_before,
+      )
+      self.assertEqual(
+        selection_path.read_text(encoding="utf-8"),
+        selection_before,
+      )
+
   def test_existing_empty_canonical_issue_reconciles_after_provider_migration(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
@@ -310,7 +571,15 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.certify_migration(root)
 
-      second = self.run_rwf(root, env, "lanes", "select", "203", "--json")
+      second = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--refresh",
+        "--json",
+      )
       self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(json.loads(second.stdout)["closure"], ["201", "203"])
 
@@ -337,7 +606,15 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.certify_migration(root)
 
-      conflicted = self.run_rwf(root, env, "lanes", "select", "203", "--json")
+      conflicted = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--refresh",
+        "--json",
+      )
       self.assertEqual(conflicted.returncode, 2)
       self.assertIn("conflict with native ticket dependencies", conflicted.stderr)
 
