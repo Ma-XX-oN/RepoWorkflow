@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from .relationship_store import RelationshipStore
 from .repo_info_adapter import RepoInfoError, issue_info
@@ -99,6 +100,7 @@ def refresh_issue_metadata(
   config: dict,
   writer: WriterIdentity,
   issue_numbers: tuple[int, ...] | None = None,
+  provider_call: Callable[[int, Callable[[], dict]], dict] | None = None,
 ) -> IssueMetadataSnapshot:
   """Refresh complete graph metadata or one declared issue scope atomically."""
   root = Path(repository_root).resolve()
@@ -126,7 +128,8 @@ def refresh_issue_metadata(
   refreshed: dict[int, IssueMetadata] = {}
   try:
     for number in scope:
-      value = issue_info(root, config, number)
+      call = lambda number=number: issue_info(root, config, number)
+      value = call() if provider_call is None else provider_call(number, call)
       refreshed[number] = _metadata_from_provider(number, value)
   except (RepoInfoError, ValueError) as error:
     raise IssueMetadataError(
