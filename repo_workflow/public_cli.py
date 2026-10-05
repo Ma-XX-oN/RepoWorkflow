@@ -13,6 +13,7 @@ from .command_grammar import (
   parse_tokens,
 )
 from .config import load_config
+from .dependency_sync_cli import dependency_sync_command
 from .issue_list import list_issues
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -93,6 +94,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return handle_workspace(root, words)
 
   if command == "issue":
+    if words[1] == "select":
+      return dependency_sync_command(root, words[2:])
     if words[1] == "list":
       for line in list_issues(root, words[2:]):
         print(line)
