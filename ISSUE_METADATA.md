@@ -94,3 +94,29 @@ Tests cover complete multi-issue refresh, title changes, restart/readback,
 provider failure with prior-state preservation, malformed/empty metadata,
 missing local metadata, missing issue metadata, and offline reads with the
 provider adapter deliberately configured to fail if touched.
+
+
+## Incomplete v2 migration records
+
+Scoped refresh of a legacy schema-v1 snapshot must not force unrelated provider
+reads.  When a v1 snapshot is first rewritten as schema v2, untouched legacy
+entries are represented explicitly as:
+
+```json
+{
+  "number": 20,
+  "title": "Twenty",
+  "state": null,
+  "link": null
+}
+```
+
+The pair `state=null, link=null` is the only valid incomplete v2 shape.
+It preserves provider-derived title information without fabricating display
+state or links.  `issue(N)` may read such an entry; `display_issue(N)` must
+fail explicitly until that issue is refreshed.
+
+Mixed shapes such as a non-null state with null link, or null state with a
+non-null link, are invalid.  A later scoped refresh upgrades only the requested
+entries and leaves already complete or still-incomplete unrelated entries
+untouched.
