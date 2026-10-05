@@ -21,7 +21,7 @@ def relation(*deps: int) -> IssueRelationships:
 
 def _strip_ansi(value: str) -> str:
   import re
-  return re.sub(r"\x1b\\[[0-9;]*m", "", value)
+  return re.sub(r"\x1b\[[0-9;]*m", "", value)
 
 
 class LaneRenderTests(unittest.TestCase):
