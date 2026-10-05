@@ -2,7 +2,7 @@
 
 Status: repository-wide audit required by #303.
 
-This audit covers **all 187 GitHub issues** present when regenerated
+This audit covers **all 191 GitHub issues** present when regenerated
 through GitHub issue search (pull requests excluded).  Tickets are classified by
 their own title/scope first; cross-cutting historical umbrellas use explicit
 family overrides where a keyword-only classification would be misleading.
@@ -19,7 +19,7 @@ public boundary.
 | FU-BOOTSTRAP-HELP | covered | #299 / tests/test_bootstrap_cli.py |
 | FU-ISSUE-READ | covered | #298-#301 / #312 |
 | FU-INIT | pending | #27 |
-| FU-DEPS-LANES | gap | #305 partial-graph repair; #321 data migration |
+| FU-DEPS-LANES | covered | #305/#321/#327; real-provider evidence in `.repoworkflow/audit/` |
 | FU-SESSION | covered | #306 / tests/test_first_use_lanes.py |
 | FU-PUBLIC-ERRORS | covered | #307 / tests/test_bootstrap_cli.py |
 | FU-WORK | gap | #308 |
@@ -208,20 +208,25 @@ not complete and its first-use test is part of completion.
 | #300 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered |
 | #301 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #303 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
-| #304 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
+| #304 | closed | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
 | #305 | open | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
-| #306 | open | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
-| #307 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
+| #306 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
+| #307 | closed | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
 | #308 | open | public first-use owner | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #309 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #310 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #311 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
-| #312 | open | public first-use contributor | issue-query | FU-ISSUE-READ covered |
+| #312 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #313 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
 
-| #318 | closed | public first-use contributor | dependency-sync | FU-DEPS-LANES gap #321 |
-| #320 | open | internal policy/audit | audit/meta | acceptance/lifecycle/provider-fidelity gate |
-| #321 | open | public first-use owner | dependency-sync | FU-DEPS-LANES gap #321 |
+| #318 | closed | public first-use contributor | dependency-sync | FU-DEPS-LANES covered |
+| #320 | closed | internal policy/audit | audit/meta | acceptance/lifecycle/provider-fidelity gate |
+| #321 | open | public first-use owner | dependency-sync | closes after #327 certification merge |
+
+| #325 | closed | public first-use contributor | dependency-sync | reviewed migration manifest |
+| #326 | closed | public first-use contributor | dependency-sync | fail-closed migration apply/readback |
+| #327 | open | public first-use owner | lanes | real-provider certification GREEN; closes on certification merge |
+| #331 | closed | public first-use contributor | lanes | stale pre-migration graph reconciliation covered |
 
 ## Closure rule
 
