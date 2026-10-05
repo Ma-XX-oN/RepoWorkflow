@@ -125,13 +125,13 @@ class LaneRouteRenderTests(unittest.TestCase):
   def test_disconnected_connected_components_do_not_interfere(self):
     temp, root = self.fixture(
       {
-        "1": relation(),
-        "2": relation(1),
+        "21": relation(),
+        "22": relation(21),
         "30": relation(),
         "40": relation(30),
         "50": relation(40),
       },
-      (2, 50),
+      (22, 50),
     )
     self.addCleanup(temp.cleanup)
 
@@ -146,9 +146,9 @@ class LaneRouteRenderTests(unittest.TestCase):
         (item["source"], item["target"])
         for item in diagnostics.routed_edges
       },
-      {(1, 2), (30, 40), (40, 50)},
+      {(21, 22), (30, 40), (40, 50)},
     )
-    for issue in ("1", "2", "30", "40", "50"):
+    for issue in ("21", "22", "30", "40", "50"):
       self.assertEqual(rendered.count(f".{issue}"), 1)
 
 
