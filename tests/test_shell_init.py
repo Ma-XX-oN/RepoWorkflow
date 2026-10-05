@@ -757,7 +757,7 @@ class BashInitTests(unittest.TestCase):
             "import sys\n"
             f"label = {label!r}\n"
             "args = sys.argv[1:]\n"
-            "if args == ['complete', '--', 'la']:\n"
+            "if args[-3:] == ['complete', '--', 'la'] and args[:1] == ['--root']:\n"
             "  print(label.lower())\n"
             "else:\n"
             "  print(label + ':' + '|'.join(args))\n"
