@@ -495,4 +495,5 @@ issues.  Split only when a cleaner independently testable contract appears.
 ## 15. Testing and refinement companion
 
 Verification procedures and acceptance checklists are defined in
-[WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
+[WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md); public-workflow first-use
+ownership is governed by `FIRST_USE_WORKFLOWS.json` and `TEST_STRATEGY.md`.
