@@ -227,16 +227,12 @@ without discarding durable evidence/history.
 ## 6. Umbrellas, dependencies, and multiple agents
 
 Lane planning may begin directly from ticket-native dependency facts:
-
 ```text
 rwf lanes select <roots...>
 rwf lanes list
 rwf lanes view
 ```
-
-`lanes list` is inventory and `lanes view` is topology.  Lane operations use
-local state by default; see [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md) and
-[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
+`lanes list` is inventory; `lanes view` is topology; see [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md) and [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
 
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
