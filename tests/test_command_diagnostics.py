@@ -250,5 +250,80 @@ class CommandDiagnosticTests(unittest.TestCase):
     self.assertNotIn("integration-result-pending", rendered)
 
 
+  def test_variadic_tail_is_accepted_by_manual_diagnostics(self):
+    commands = {
+      "issue": {
+        "list": {
+          "_variadic": {"min": 1, "description": "Issue IDs"},
+        },
+      },
+    }
+    failure = analyse_failure(
+      commands,
+      ["issue", "list", "54", "9", "--links"],
+      self.general_context(),
+      self.legal_context(),
+      completion=False,
+      state_name="regression required",
+      legal_transitions=("validate regression",),
+    )
+    self.assertIsNone(failure)
+
+  def test_variadic_tail_completion_does_not_report_unknown_value(self):
+    commands = {
+      "issue": {
+        "list": {
+          "_variadic": {"min": 1, "description": "Issue IDs"},
+        },
+      },
+    }
+    failure = analyse_failure(
+      commands,
+      ["issue", "list", "54", ""],
+      self.general_context(),
+      self.legal_context(),
+      completion=True,
+      state_name="regression required",
+      legal_transitions=("validate regression",),
+    )
+    self.assertIsNone(failure)
+
+  def test_zero_minimum_variadic_node_is_executable(self):
+    commands = {
+      "x": {
+        "_variadic": {"min": 0, "description": "Arguments"},
+      },
+    }
+    failure = analyse_failure(
+      commands,
+      ["x"],
+      self.general_context(),
+      self.legal_context(),
+      completion=False,
+      state_name=None,
+      legal_transitions=(),
+    )
+    self.assertIsNone(failure)
+
+  def test_variadic_minimum_is_still_enforced(self):
+    commands = {
+      "issue": {
+        "list": {
+          "_variadic": {"min": 1, "description": "Issue IDs"},
+        },
+      },
+    }
+    failure = analyse_failure(
+      commands,
+      ["issue", "list"],
+      self.general_context(),
+      self.legal_context(),
+      completion=False,
+      state_name="regression required",
+      legal_transitions=("validate regression",),
+    )
+    self.assertEqual(failure.kind, FailureKind.UNRECOGNISED)
+
+
 if __name__ == "__main__":
   unittest.main()
