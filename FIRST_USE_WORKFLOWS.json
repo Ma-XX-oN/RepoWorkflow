@@ -191,7 +191,7 @@
         },
         {
           "id": "DL-9",
-          "requirement": "pre-existing canonical dependency state is reconciled against certified ticket dependencies: empty destination copies source and non-empty disagreement fails closed",
+          "requirement": "pre-existing canonical dependency state is reconciled against certified ticket dependencies only at an explicit refresh boundary: empty destination copies source and non-empty disagreement fails closed",
           "verification": [
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_existing_empty_canonical_issue_reconciles_after_provider_migration",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_existing_nonempty_dependency_conflict_fails_closed"
@@ -220,6 +220,16 @@
             "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_compact_graph_geometry",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
+        },
+        {
+          "id": "DL-13",
+          "requirement": "lane relationship acquisition is cache-first: repeated selection and remove perform zero dependency-provider reads for known closure; add reads only missing nodes; --refresh rereads only the relevant closure and provider failure preserves prior graph/selection",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_cached_selection_reuses_relationships_and_add_reads_only_missing",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_rereads_relevant_closure_only",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_cached_selection_succeeds_when_dependency_provider_is_unavailable",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_provider_failure_preserves_graph_and_selection"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -236,7 +246,11 @@
         "stale_pre_migration_state_reconciliation": "DL-9",
         "real_provider_certification": "DL-10",
         "graph_topology_and_alignment": "DL-11",
-        "compact_title_free_graph_cells": "DL-12"
+        "compact_title_free_graph_cells": "DL-12",
+        "cache_reuse_after_success": "DL-13",
+        "restart_cache_reuse": "DL-13",
+        "explicit_scoped_refresh": "DL-13",
+        "refresh_provider_failure_rollback": "DL-13"
       },
       "stateful": true,
       "provider_boundary": true,
