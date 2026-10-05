@@ -10,7 +10,6 @@ TERMINAL = ""
 VALUES = "_values"
 COMPLETIONS = "completions"
 ON_TAB = "on-tab"
-VARIADIC = "_variadic"
 
 
 class CommandGrammarError(ValueError):
@@ -127,13 +126,6 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
     if token == VALUES:
       _validate_value_source(entry, f"{label}[{VALUES!r}]")
       continue
-    if token == VARIADIC:
-      if not isinstance(entry, dict) or set(entry) != {"min", "description"}:
-        raise CommandGrammarError(f"{label}[{VARIADIC!r}] must define min and description")
-      if isinstance(entry["min"], bool) or not isinstance(entry["min"], int) or entry["min"] < 0:
-        raise CommandGrammarError(f"{label}[{VARIADIC!r}].min must be non-negative")
-      _validate_description(entry["description"], f"{label}[{VARIADIC!r}].description")
-      continue
     if token.startswith("_"):
       raise CommandGrammarError(f"{label} contains unsupported special key {token!r}")
     if token == LAST_TERMINAL:
@@ -225,7 +217,7 @@ def _resolved_node(
   entries = {
     token: entry
     for token, entry in node.items()
-    if token not in {TERMINAL, VALUES, VARIADIC}
+    if token not in {TERMINAL, VALUES}
   }
   spec = completion_spec(node, context)
   overlap = set(entries) & set(spec.entries)
@@ -258,12 +250,6 @@ def parse_tokens(commands: dict, context: Context, tokens: Iterable[str]) -> tup
     entries, values = next_entries(node, context.at(words, index))
     entry = entries.get(token)
     if entry is None:
-      variadic = node.get(VARIADIC)
-      if variadic is not None:
-        remaining = len(words) - index
-        if remaining < variadic["min"]:
-          raise CommandGrammarError("variadic command tail is incomplete")
-        return words
       if token in values:
         if index != len(words) - 1:
           raise CommandGrammarError(f"{token!r} is a terminal value")
