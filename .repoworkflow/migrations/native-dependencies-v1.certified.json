@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "migration_id": "repoworkflow-native-dependencies-v1",
+  "repository": "Ma-XX-oN/RepoWorkflow",
+  "manifest_sha256": "6b3d02ad9ba38af02540048d346c5becc6e11ddb81d5ce1feca21504d3c8217f",
+  "provider_readback_sha256": "7312c52a9d695f1a10468dc3dfd12fd887424acce65962f0d782a5b2e4c0a5d0"
+}
