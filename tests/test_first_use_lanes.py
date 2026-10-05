@@ -266,7 +266,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
 
-  def test_lane_list_refresh_updates_cached_issue_metadata(self):
+  def test_lane_list_refresh_is_metadata_only_and_source_accurate(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
       root = base / "repo"
@@ -283,17 +283,60 @@ class FirstUseLanesTests(unittest.TestCase):
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
-      first = self.run_rwf(root, env, "lanes", "list")
-      self.assertIn("#203  Root 203", first.stdout)
+
+      graph_path = (
+        root / ".repoworkflow/state/relationships/graph.json"
+      )
+      selection_path = (
+        root / ".git/repoworkflow/lane-selection/selection.json"
+      )
+      metadata_cache_path = (
+        root / ".repoworkflow/state/issues/metadata.json"
+      )
+      graph_before = graph_path.read_bytes()
+      selection_before = selection_path.read_bytes()
+
+      plain = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(plain.returncode, 0, plain.stderr)
+      self.assertIn("#203  Root 203", plain.stdout)
+
+      diagnostics_dir = (
+        root / ".git/repoworkflow/diagnostics/lanes"
+      )
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      plain_record = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertEqual(plain_record["provider_calls"], {})
+      self.assertEqual(plain_record["cache_hits"]["metadata"], 2)
+      self.assertNotIn("relationships", plain_record["cache_hits"])
 
       metadata_path = Path(env["RWF_TEST_META"])
       metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
       metadata["203"]["title"] = "Updated Root 203"
       metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
 
-      cached = self.run_rwf(root, env, "lanes", "list")
-      self.assertIn("#203  Root 203", cached.stdout)
-      self.assertNotIn("Updated Root 203", cached.stdout)
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "args = sys.argv[1:]\n"
+        "if 'blockedBy' in args:\n"
+        "  print('dependency provider must not be used', file=sys.stderr)\n"
+        "  raise SystemExit(96)\n"
+        "if args[:2] == ['issue', 'view']:\n"
+        "  number = int(args[2])\n"
+        "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
+        "  item = state[str(number)]\n"
+        "  print(json.dumps({'number': number, 'title': item['title'], "
+        "'state': item['state'], 'url': "
+        "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
+        "else:\n"
+        "  raise SystemExit(97)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
 
       refreshed = self.run_rwf(
         root,
@@ -304,6 +347,82 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
       self.assertIn("#203  Updated Root 203", refreshed.stdout)
+      self.assertIn("Refreshing metadata:", refreshed.stderr)
+      self.assertNotIn("Refreshing dependencies:", refreshed.stderr)
+      self.assertNotIn("dependency provider must not be used", refreshed.stderr)
+      self.assertEqual(graph_path.read_bytes(), graph_before)
+      self.assertEqual(selection_path.read_bytes(), selection_before)
+
+      cached = json.loads(metadata_cache_path.read_text(encoding="utf-8"))
+      self.assertEqual(
+        cached["value"]["issues"]["203"]["title"],
+        "Updated Root 203",
+      )
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      refresh_record = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertEqual(refresh_record["provider_calls"], {"metadata": 2})
+      self.assertNotIn("relationships", refresh_record["cache_hits"])
+      self.assertNotIn("relationships", refresh_record["cache_misses"])
+
+  def test_lane_list_refresh_metadata_failure_rolls_back_all_semantic_state(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      graph_path = root / ".repoworkflow/state/relationships/graph.json"
+      selection_path = (
+        root / ".git/repoworkflow/lane-selection/selection.json"
+      )
+      metadata_path = root / ".repoworkflow/state/issues/metadata.json"
+      before = {
+        "graph": graph_path.read_bytes(),
+        "selection": selection_path.read_bytes(),
+        "metadata": metadata_path.read_bytes(),
+      }
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "args = sys.argv[1:]\n"
+        "if 'blockedBy' in args:\n"
+        "  print('dependency provider must not be used', file=sys.stderr)\n"
+        "  raise SystemExit(96)\n"
+        "print('metadata unavailable', file=sys.stderr)\n"
+        "raise SystemExit(98)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 2)
+      self.assertIn("metadata unavailable", refreshed.stderr)
+      self.assertNotIn("dependency provider must not be used", refreshed.stderr)
+      self.assertEqual(graph_path.read_bytes(), before["graph"])
+      self.assertEqual(selection_path.read_bytes(), before["selection"])
+      self.assertEqual(metadata_path.read_bytes(), before["metadata"])
 
   def test_lane_list_and_view_are_offline_until_explicit_refresh(self):
     with tempfile.TemporaryDirectory() as td:
