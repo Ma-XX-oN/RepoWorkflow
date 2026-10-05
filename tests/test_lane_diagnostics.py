@@ -107,7 +107,22 @@ class LaneDiagnosticsTests(unittest.TestCase):
       self.assertEqual(len({path.name for path in paths}), 16)
       first = json.loads(paths[0].read_text(encoding="utf-8"))
       self.assertFalse(first["success"])
-      self.assertEqual(first["error"], "boom")
+      self.assertEqual(first["error"], "RuntimeError")
+
+  def test_failure_record_does_not_persist_raw_secret_bearing_error(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      diagnostics = LaneDiagnostics(root, ("lanes", "view", "--refresh"))
+      path = diagnostics.finish(
+        error=RuntimeError("provider leaked token ghp_super_secret"),
+      )
+      self.assertIsNotNone(path)
+      text_value = path.read_text(encoding="utf-8")
+      self.assertNotIn("ghp_super_secret", text_value)
+      record = json.loads(text_value)
+      self.assertEqual(record["error"], "RuntimeError")
 
   def test_diagnostic_write_failure_is_warning_not_command_failure(self):
     with tempfile.TemporaryDirectory() as td:
