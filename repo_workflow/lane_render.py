@@ -5,7 +5,7 @@ import sys
 
 from .lane_selection import LaneSelection, LaneSelectionStore
 from .relationship_store import RelationshipStore
-from .repo_info_adapter import issue_info, resolve_info_config
+from .issue_metadata import IssueMetadataStore
 from .state_store import StateStoreError, WriterIdentity, clone_local_store
 
 
@@ -70,7 +70,7 @@ def render_lanes(
       if selection.assignment[issue] == lane
     }
 
-  metadata = _metadata(root, tuple(sorted(visible, key=int)), links)
+  metadata = _metadata(root, tuple(sorted(visible, key=int)))
   return _render_graph(
     selection,
     graph,
@@ -388,15 +388,15 @@ def _line_char(bits: int) -> str:
   return mapping.get(bits, "─")
 
 
-def _metadata(root: Path, issues: tuple[str, ...], links: bool) -> dict[str, dict]:
-  config = resolve_info_config(root)
+def _metadata(root: Path, issues: tuple[str, ...]) -> dict[str, dict]:
+  store = IssueMetadataStore(root)
   result: dict[str, dict] = {}
   for issue in issues:
-    value = issue_info(root, config, int(issue))
+    value = store.display_issue(int(issue))
     result[issue] = {
-      "title": value["title"],
-      "closed": value["state"] == "closed",
-      "link": value["link"],
+      "title": value.title,
+      "closed": value.state == "closed",
+      "link": value.link,
     }
   return result
 
