@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+import time
 
 from .command_diagnostics import analyse_failure, render_failure
 from .command_grammar import (
@@ -17,10 +18,16 @@ from .dependency_sync_cli import dependency_sync_command
 from .issue_info_cli import show_issue_info
 from .invocation_identity import ensure_public_runtime_identity
 from .issue_list import list_issues
-from .lane_inspection import refresh_current_lane_selection
+from .lane_diagnostics import LaneDiagnostics
+from .lane_inspection import (
+  refresh_current_lane_metadata,
+  refresh_current_lane_selection,
+)
 from .lane_list import render_lane_list
+from .lane_selection import LaneSelectionStore
 from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
+from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -134,24 +141,14 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return handle_workspace(root, words)
 
   if command == "lanes":
-    if words[1] in {"list", "view"}:
-      tail = words[2:]
-      refresh = "--refresh" in tail
-      links = "--links" in tail
-      ignored = {"--refresh", "--links"}
-      lane = next((x for x in tail if x not in ignored), None)
-      if refresh:
-        refresh_current_lane_selection(root, runtime_writer_identity())
-      if words[1] == "list":
-        for line in render_lane_list(root, lane=lane, links=links):
-          print(line)
-      else:
-        if links:
-          raise ValueError("lanes view does not accept --links")
-        for line in render_lanes(root, lane=lane, titles=False):
-          print(line)
-      return 0
-    return handle_lane_selection(root, words)
+    diagnostics = LaneDiagnostics(root, tuple(words))
+    try:
+      result = _handle_lanes(root, words, diagnostics)
+    except Exception as error:
+      diagnostics.finish(error=error)
+      raise
+    diagnostics.finish()
+    return result
 
   if command == "settings":
     print(set_color_setting(root, words[2], runtime_writer_identity()))
@@ -210,6 +207,81 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   raise AssertionError("unreachable public command")
+
+
+def _handle_lanes(
+  root: Path,
+  words: list[str],
+  diagnostics: LaneDiagnostics,
+) -> int:
+  if words[1] in {"list", "view"}:
+    tail = words[2:]
+    refresh = "--refresh" in tail
+    links = "--links" in tail
+    debug = "--debug" in tail
+    ignored = {"--refresh", "--links", "--debug"}
+    lane = next((x for x in tail if x not in ignored), None)
+    if refresh:
+      if words[1] == "list":
+        refresh_current_lane_metadata(
+          root,
+          runtime_writer_identity(),
+          diagnostics=diagnostics,
+        )
+      else:
+        refresh_current_lane_selection(
+          root,
+          runtime_writer_identity(),
+          diagnostics=diagnostics,
+        )
+    else:
+      selection = LaneSelectionStore(root).read().value
+      if selection is not None:
+        diagnostics.hit("metadata", len(selection.closure))
+        if words[1] == "view":
+          diagnostics.hit("relationships", len(selection.closure))
+
+    started = time.perf_counter()
+    if words[1] == "list":
+      if debug:
+        raise ValueError("lanes list does not accept --debug")
+      for line in render_lane_list(root, lane=lane, links=links):
+        print(line)
+      diagnostics.phase("render", started)
+    else:
+      if links:
+        raise ValueError("lanes view does not accept --links")
+      for line in render_lanes(root, lane=lane, titles=False):
+        print(line)
+      diagnostics.phase("render", started)
+      _record_semantic_edges(root, diagnostics)
+      if debug:
+        print()
+        for line in diagnostics.debug_lines():
+          print(line)
+    return 0
+
+  result = handle_lane_selection(root, words, diagnostics=diagnostics)
+  _record_semantic_edges(root, diagnostics)
+  return result
+
+
+def _record_semantic_edges(
+  root: Path,
+  diagnostics: LaneDiagnostics,
+) -> None:
+  selection = LaneSelectionStore(root).read().value
+  if selection is None:
+    return
+  graph = RelationshipStore(root).read().graph
+  visible = set(selection.closure)
+  edges = [
+    (int(source), int(target))
+    for target in selection.closure
+    for source in graph.issue(target).depends_on
+    if source in visible
+  ]
+  diagnostics.set_semantic_edges(edges)
 
 
 def _completed_command_is_terminal(
