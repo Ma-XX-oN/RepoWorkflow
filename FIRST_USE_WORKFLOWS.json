@@ -170,6 +170,13 @@
           "id": "DL-6",
           "requirement": "RepoWorkflow's existing approved dependency graph is migrated/reconciled into the ticket-native bootstrap source before ticket bootstrap is considered authoritative",
           "deferred_issue": 321
+        },
+        {
+          "id": "DL-7",
+          "requirement": "select replaces roots; select add unions roots and acquires missing closure; select remove subtracts roots",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_select_add_remove_preserve_distinct_root_semantics"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -180,7 +187,8 @@
         "overlapping_existing_state": "DL-2",
         "provider_contract_fidelity": "DL-3",
         "provider_truncation_failure": "DL-4",
-        "read_after_write": "DL-5"
+        "read_after_write": "DL-5",
+        "selection_replace_add_remove": "DL-7"
       },
       "stateful": true,
       "provider_boundary": true,
