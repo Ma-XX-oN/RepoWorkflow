@@ -233,19 +233,10 @@ rwf lanes select <roots...>
 rwf lanes list
 ```
 
-Successful lane-selection mutations render the resulting dependency graph for
-human inspection.  Machine consumers can request the selection record
-explicitly:
-
-```text
-rwf lanes select <roots...> --json
-rwf lanes select add <roots...> --json
-rwf lanes select remove <roots...> --json
-```
-
-Graph presentation runs leaf to root.  Node identifiers use `lane.issue`,
-selected roots use `*`, closed issues use `✓`, and annotations align
-compactly within each visual graph column.
+Selection mutations and `lanes list` render the leaf-to-root dependency
+graph.  Machine consumers use explicit `--json`.  Node notation, alignment,
+connectors, links, and colour are defined in
+[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
 
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
