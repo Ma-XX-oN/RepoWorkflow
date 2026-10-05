@@ -2,18 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .config import load_config
-from .repo_info_adapter import issue_info
+from .repo_info_adapter import issue_info, list_open_issues, resolve_info_config
 
 
 def _arguments(arguments: list[str]) -> tuple[list[int], bool]:
   if not arguments:
-    raise ValueError("issue list requires at least one issue number")
+    return [], False
 
   links = arguments[-1] == "--links"
   values = arguments[:-1] if links else arguments
-  if not values:
-    raise ValueError("issue list requires at least one issue number")
   if "--links" in values:
     raise ValueError("--links must follow all issue numbers")
 
@@ -27,8 +24,15 @@ def _arguments(arguments: list[str]) -> tuple[list[int], bool]:
 
 def list_issues(root: Path, arguments: list[str]) -> list[str]:
   issues, links = _arguments(arguments)
-  config = load_config(root)
+  config = resolve_info_config(root)
   lines: list[str] = []
+
+  if not issues:
+    listed = list_open_issues(root, config)["issues"]
+    if not links:
+      return [f"#{item['number']}  {item['title']}" for item in listed]
+    issues = [int(item["number"]) for item in listed]
+
   for number in issues:
     value = issue_info(root, config, number)
     line = f"#{value['number']}  {value['title']}"
