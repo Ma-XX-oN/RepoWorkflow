@@ -25,7 +25,7 @@ def ensure_relationship_graph(
   roots: tuple[str | int, ...],
   writer: WriterIdentity,
 ) -> None:
-  """Ensure canonical graph coverage for the requested roots and dependencies."""
+  """Ensure/reconcile canonical graph coverage for requested ticket roots."""
   try:
     require_dependency_migration_certified(root)
   except DependencyMigrationCertificationError as error:
@@ -33,35 +33,58 @@ def ensure_relationship_graph(
 
   store = RelationshipStore(root)
   snapshot = _read_optional(store)
-  existing = {} if snapshot is None else dict(snapshot.graph.issues)
+  issues = {} if snapshot is None else dict(snapshot.graph.issues)
   requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
-
-  missing = [issue for issue in requested if issue not in existing]
-  if not missing:
-    return
-
   config = resolve_dependency_config(root)
-  issues = dict(existing)
-  pending = list(missing)
+  pending = list(requested)
+  visited: set[str] = set()
+  changed = snapshot is None
 
   while pending:
     issue = pending.pop(0)
-    if issue in issues:
+    if issue in visited:
       continue
-    dependencies = tuple(
+    visited.add(issue)
+
+    provider = tuple(
       str(value)
       for value in read_ticket_dependencies(root, config, int(issue))
     )
-    issues[issue] = IssueRelationships(
-      umbrella=None,
-      shared_umbrellas=(),
-      depends_on=dependencies,
-      umbrella_depends_on=(),
-      parent=None,
-    )
-    for dependency in dependencies:
-      if dependency not in issues and dependency not in pending:
+    current = issues.get(issue)
+
+    if current is None:
+      issues[issue] = IssueRelationships(
+        umbrella=None,
+        shared_umbrellas=(),
+        depends_on=provider,
+        umbrella_depends_on=(),
+        parent=None,
+      )
+      changed = True
+    elif not current.depends_on:
+      if provider:
+        issues[issue] = IssueRelationships(
+          umbrella=current.umbrella,
+          shared_umbrellas=current.shared_umbrellas,
+          depends_on=provider,
+          umbrella_depends_on=current.umbrella_depends_on,
+          parent=current.parent,
+        )
+        changed = True
+    elif current.depends_on != provider:
+      raise TicketDependencyError(
+        "canonical relationship dependencies conflict with native ticket "
+        f"dependencies for #{issue}: "
+        f"canonical={list(current.depends_on)!r}, provider={list(provider)!r}; "
+        "reconcile explicitly before lane selection"
+      )
+
+    for dependency in provider:
+      if dependency not in visited and dependency not in pending:
         pending.append(dependency)
+
+  if not changed:
+    return
 
   graph = RelationshipGraph.from_json_value({
     "schema_version": 2,
