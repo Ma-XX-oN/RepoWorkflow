@@ -17,6 +17,29 @@
       ],
       "tests": [
         "tests/test_bootstrap_cli.py"
+      ],
+      "acceptance": [
+        {
+          "id": "BH-1",
+          "requirement": "Static public-prefix help works without workflow configuration",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_every_static_public_prefix_help_is_configuration_independent"
+          ]
+        },
+        {
+          "id": "BH-2",
+          "requirement": "Invalid syntax is diagnosed before configuration discovery",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_invalid_syntax_is_reported_before_missing_configuration"
+          ]
+        },
+        {
+          "id": "BH-3",
+          "requirement": "Configuration-required execution requests configuration only after parsing",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_configuration_required_command_loads_config_after_parse"
+          ]
+        }
       ]
     },
     {
@@ -35,6 +58,29 @@
         "tests/test_bootstrap_cli.py",
         "tests/test_issue_info_cli.py",
         "tests/test_issue_list.py"
+      ],
+      "acceptance": [
+        {
+          "id": "IR-1",
+          "requirement": "issue list/info run through discovered provider without workflow configuration",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_read_only_queries_run_through_discovered_github_adapter"
+          ]
+        },
+        {
+          "id": "IR-2",
+          "requirement": "read-only issue commands do not require workflow configuration",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_read_only_issue_queries_do_not_require_workflow_configuration"
+          ]
+        },
+        {
+          "id": "IR-3",
+          "requirement": "pull-request numbers are distinguished from issue numbers",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_read_only_queries_run_through_discovered_github_adapter"
+          ]
+        }
       ]
     },
     {
@@ -67,7 +113,54 @@
       ],
       "tests": [
         "tests/test_first_use_lanes.py"
-      ]
+      ],
+      "acceptance": [
+        {
+          "id": "DL-1",
+          "requirement": "fresh checkout acquires dependency closure and supports multiple roots",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
+          ]
+        },
+        {
+          "id": "DL-2",
+          "requirement": "repeated selection extends an existing partial canonical graph with additional roots and overlapping state",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_repeated_selection_extends_existing_partial_graph"
+          ]
+        },
+        {
+          "id": "DL-3",
+          "requirement": "GitHub blockedBy provider fixture matches connection-shaped nodes/totalCount contract",
+          "verification": [
+            "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_read_normalizes_blocked_by_numbers"
+          ]
+        },
+        {
+          "id": "DL-4",
+          "requirement": "truncated provider dependency connections fail closed",
+          "verification": [
+            "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_truncated_blocked_by_connection_fails_closed"
+          ]
+        },
+        {
+          "id": "DL-5",
+          "requirement": "lane list renders state created by the same public first-use path",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
+          ]
+        }
+      ],
+      "lifecycle_dimensions": {
+        "empty_state": "DL-1",
+        "multiple_targets": "DL-1",
+        "repeated_invocation": "DL-2",
+        "additional_targets_after_success": "DL-2",
+        "overlapping_existing_state": "DL-2",
+        "provider_contract_fidelity": "DL-3",
+        "provider_truncation_failure": "DL-4",
+        "read_after_write": "DL-5"
+      }
     },
     {
       "id": "FU-SESSION",
@@ -81,6 +174,36 @@
       ],
       "tests": [
         "tests/test_first_use_lanes.py"
+      ],
+      "acceptance": [
+        {
+          "id": "SE-1",
+          "requirement": "ordinary mutating invocation provisions identity without manual exports",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
+          ]
+        },
+        {
+          "id": "SE-2",
+          "requirement": "read-only paths do not create runtime identity",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_read_only_lane_failure_does_not_create_runtime_identity"
+          ]
+        },
+        {
+          "id": "SE-3",
+          "requirement": "partial explicit identity fails without synthesizing the missing half",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_partial_explicit_identity_fails_without_synthesizing_other_half"
+          ]
+        },
+        {
+          "id": "SE-4",
+          "requirement": "explicit agent identity is preserved",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_explicit_agent_identity_is_preserved"
+          ]
+        }
       ]
     },
     {
@@ -95,6 +218,15 @@
       ],
       "tests": [
         "tests/test_bootstrap_cli.py"
+      ],
+      "acceptance": [
+        {
+          "id": "PE-1",
+          "requirement": "expected public precondition failures return actionable diagnostics without tracebacks",
+          "verification": [
+            "tests/test_bootstrap_cli.py::BootstrapCliTests.test_expected_public_precondition_failures_never_traceback"
+          ]
+        }
       ]
     },
     {
