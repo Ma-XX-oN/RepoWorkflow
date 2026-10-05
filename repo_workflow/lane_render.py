@@ -290,8 +290,8 @@ def _draw_edge(
 ) -> None:
   source_column, source_y = positions[source]
   target_column, target_y = positions[target]
-  label_end = column_start[source_column] + len(labels[source])
-  source_x = column_start[source_column] + column_width[source_column] + 1
+  label_last = column_start[source_column] + len(labels[source]) - 1
+  source_x = column_start[source_column] + column_width[source_column] + 2
   target_x = column_start[target_column] - 2
 
   if source_y == target_y and not _node_between(
@@ -300,10 +300,10 @@ def _draw_edge(
     positions,
     source_y,
   ):
-    _horizontal(bits, label_end + 1, column_start[target_column] - 1, source_y)
+    _horizontal(bits, label_last + 2, column_start[target_column] - 1, source_y)
     return
 
-  _horizontal(bits, label_end + 1, source_x, source_y)
+  _horizontal(bits, label_last + 2, source_x, source_y)
   track_y = source_y + 1 if source_y <= target_y else source_y - 1
   if track_y < 0:
     track_y = source_y + 1
@@ -338,6 +338,9 @@ _D = 8
 def _horizontal(bits: dict[tuple[int, int], int], x1: int, x2: int, y: int) -> None:
   if x2 < x1:
     x1, x2 = x2, x1
+  if x1 == x2:
+    bits[(x1, y)] = bits.get((x1, y), 0) | _L | _R
+    return
   for x in range(x1, x2 + 1):
     value = 0
     if x > x1:
@@ -350,6 +353,9 @@ def _horizontal(bits: dict[tuple[int, int], int], x1: int, x2: int, y: int) -> N
 def _vertical(bits: dict[tuple[int, int], int], x: int, y1: int, y2: int) -> None:
   if y2 < y1:
     y1, y2 = y2, y1
+  if y1 == y2:
+    bits[(x, y1)] = bits.get((x, y1), 0) | _U | _D
+    return
   for y in range(y1, y2 + 1):
     value = 0
     if y > y1:
