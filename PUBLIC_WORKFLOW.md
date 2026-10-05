@@ -24,6 +24,13 @@ rwf
 │   ├── select dependency from-tickets [--compare|--replace]
 │   ├── start N
 │   └── abort
+├── lanes
+│   ├── select <roots...> [--refresh] [--json]
+│   ├── select add <roots...> [--refresh] [--json]
+│   ├── select remove <roots...> [--refresh] [--json]
+│   ├── list [lane] [--links] [--refresh]
+│   ├── view [lane] [--refresh]
+│   └── clear
 ├── tdd
 │   ├── red group NAME
 │   └── green
