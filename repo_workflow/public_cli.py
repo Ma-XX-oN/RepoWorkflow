@@ -16,6 +16,8 @@ from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
 from .issue_list import list_issues
 from .lane_selection_cli import handle_lane_selection
+from .lane_render import render_lanes, set_color_setting
+from .runtime_identity import runtime_writer_identity
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
@@ -95,7 +97,18 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return handle_workspace(root, words)
 
   if command == "lanes":
+    if words[1] == "list":
+      tail = words[2:]
+      links = "--links" in tail
+      lane = next((x for x in tail if x != "--links"), None)
+      for line in render_lanes(root, lane=lane, links=links):
+        print(line)
+      return 0
     return handle_lane_selection(root, words)
+
+  if command == "settings":
+    print(set_color_setting(root, words[2], runtime_writer_identity()))
+    return 0
 
   if command == "issue":
     if words[1] == "select":
