@@ -527,6 +527,47 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(refreshed.returncode, 2)
       self.assertIn("provider unavailable", refreshed.stderr)
 
+  def test_lane_flag_combinations_are_accepted_by_public_grammar(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      viewed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+        "--debug",
+      )
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("DATA SOURCES", viewed.stdout)
+      self.assertIn("DIRECT EDGES", viewed.stdout)
+
+      listed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+        "--links",
+      )
+      self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertIn("https://", listed.stdout)
+
   def test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
