@@ -54,19 +54,23 @@ def ensure_lane_metadata(
     if diagnostics is None:
       refresh_issue_metadata(root, config, writer, scope)
     else:
-      for index, number in enumerate(scope, start=1):
-        diagnostics.provider(
+      positions = {
+        number: index
+        for index, number in enumerate(scope, start=1)
+      }
+      refresh_issue_metadata(
+        root,
+        config,
+        writer,
+        scope,
+        provider_call=lambda number, call: diagnostics.provider(
           "metadata",
           number,
-          lambda number=number: refresh_issue_metadata(
-            root,
-            config,
-            writer,
-            (number,),
-          ),
-          index=index,
+          call,
+          index=positions[number],
           total=len(scope),
-        )
+        ),
+      )
 
   return MetadataAcquisition(
     issues=normalized,
