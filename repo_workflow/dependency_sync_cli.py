@@ -30,8 +30,8 @@ def dependency_sync_command(root: Path, words: tuple[str, ...]) -> int:
   option = None if len(words) == 2 else words[2]
   if option not in {None, "--compare", "--replace"}:
     raise ValueError("invalid dependency synchronization option")
-  config = load_config(root)
   issue = _target(root)
+  config = load_config(root)
   if option == "--compare":
     c = _comparison(root, config, issue, direction)
     print(json.dumps({"issue":issue,"direction":direction,"status":c.status.value,"source":list(c.source),"destination":list(c.destination),"additions":list(c.additions),"removals":list(c.removals)}, separators=(",", ":")))
