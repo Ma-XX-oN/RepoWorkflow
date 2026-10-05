@@ -239,7 +239,7 @@ rwf lanes select <roots...>
 rwf lanes list
 rwf lanes view
 ```
-`lanes list` is inventory; `lanes view` is topology; see [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md) and [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
+`lanes list` is inventory; `lanes view` is topology; see [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md) and [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  Provider progress and `lanes view --debug` diagnostics are defined in [LANE_DIAGNOSTICS.md](LANE_DIAGNOSTICS.md).
 
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
