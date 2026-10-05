@@ -100,8 +100,8 @@ COMMANDS = {
   "issue": {
     "select": {
       "dependency": {
-        "to-tickets": {"_terminal": "Synchronize RWF dependencies to tickets", "--compare": "Compare without mutation", "--replace": "Replace conflicting ticket dependencies"},
-        "from-tickets": {"_terminal": "Synchronize ticket dependencies to RWF", "--compare": "Compare without mutation", "--replace": "Replace conflicting RWF dependencies"},
+        "to-tickets": {"": "Synchronize RWF dependencies to tickets", "--compare": "Compare without mutation", "--replace": "Replace conflicting ticket dependencies"},
+        "from-tickets": {"": "Synchronize ticket dependencies to RWF", "--compare": "Compare without mutation", "--replace": "Replace conflicting RWF dependencies"},
       },
     },
     "list": {
