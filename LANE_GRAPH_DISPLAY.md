@@ -62,3 +62,30 @@ Leaf-to-root chains and branch/convergence structures use Unicode box-drawing
 characters.  Issue titles and links are deliberately excluded from graph cells
 so metadata cannot inflate topology coordinates.
 Lane assignment is a node label and does not determine graph topology.
+
+
+## Edge identity and bypass tracks
+
+Every canonical direct dependency is rendered as one identifiable logical
+route.  The renderer chooses deterministic adjacent primary edges for the
+readable backbone.  Any remaining direct dependency uses its own bypass track,
+including direct edges that skip over an existing transitive path.
+
+For example, when all three direct facts exist:
+
+```text
+145 -> 185
+185 -> 216
+145 -> 216
+```
+
+the direct 145 -> 216 edge is shown separately from the primary
+145 -> 185 -> 216 path rather than merged into it.
+
+Routes may visibly share geometry only when they genuinely share the same
+source before branching or the same target after convergence.  An unrelated
+horizontal/vertical crossing is rendered as `╳`, meaning crossing without a
+dependency junction.
+
+The renderer never performs semantic transitive reduction.  `lanes view
+--debug` reports every direct edge and its assigned primary/bypass route.
