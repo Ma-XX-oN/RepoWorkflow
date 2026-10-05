@@ -131,8 +131,14 @@ COMMANDS = {
     },
     "list": {
       "": "List selected issues grouped by lane",
-      "--links": "List selected issues with links",
-      "--refresh": "Refresh selected lane data before listing",
+      "--links": {
+        "": "List selected issues with links",
+        "--refresh": "Refresh selected lane data and include links",
+      },
+      "--refresh": {
+        "": "Refresh selected lane data before listing",
+        "--links": "Refresh selected lane data and include links",
+      },
       "_variadic": {
         "min": 1,
         "description": "Lane and optional --links/--refresh",
@@ -140,8 +146,14 @@ COMMANDS = {
     },
     "view": {
       "": "Render selected dependency topology",
-      "--refresh": "Refresh selected lane data before rendering",
-      "--debug": "Show lane data sources, timings, and semantic edges",
+      "--refresh": {
+        "": "Refresh selected lane data before rendering",
+        "--debug": "Refresh and show lane diagnostics",
+      },
+      "--debug": {
+        "": "Show lane data sources, timings, and semantic edges",
+        "--refresh": "Refresh and show lane diagnostics",
+      },
       "_variadic": {
         "min": 1,
         "description": "Lane and optional --refresh/--debug",
