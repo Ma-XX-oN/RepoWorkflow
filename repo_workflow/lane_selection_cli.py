@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 from .lane_diagnostics import LaneDiagnostics
@@ -53,11 +54,14 @@ def handle_lane_selection(
       refresh=refresh,
       diagnostics=diagnostics,
     )
+    started = time.perf_counter()
     result = store.add(
       additions,
       writer,
       expected_revision=current.revision,
     )
+    if diagnostics is not None:
+      diagnostics.phase("decomposition", started)
   elif tail[0] == "remove":
     if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
@@ -75,11 +79,14 @@ def handle_lane_selection(
         refresh=refresh,
         diagnostics=diagnostics,
       )
+    started = time.perf_counter()
     result = store.remove(
       removals,
       writer,
       expected_revision=current.revision,
     )
+    if diagnostics is not None:
+      diagnostics.phase("decomposition", started)
   else:
     desired = tuple(tail)
     _prepare(
@@ -89,17 +96,23 @@ def handle_lane_selection(
       refresh=refresh,
       diagnostics=diagnostics,
     )
+    started = time.perf_counter()
     result = store.select(
       desired,
       writer,
       expected_revision=current.revision,
     )
+    if diagnostics is not None:
+      diagnostics.phase("decomposition", started)
 
   if as_json:
     print(json.dumps(result.value.to_json_value(), separators=(",", ":")))
   else:
+    started = time.perf_counter()
     for line in render_lanes(root, titles=False):
       print(line)
+    if diagnostics is not None:
+      diagnostics.phase("render", started)
   return 0
 
 
@@ -111,6 +124,7 @@ def _prepare(
   refresh: bool,
   diagnostics: LaneDiagnostics | None,
 ) -> None:
+  started = time.perf_counter()
   relationships = ensure_relationship_graph(
     root,
     roots,
@@ -118,6 +132,9 @@ def _prepare(
     refresh=refresh,
     diagnostics=diagnostics,
   )
+  if diagnostics is not None:
+    diagnostics.phase("relationships", started)
+  started = time.perf_counter()
   ensure_lane_metadata(
     root,
     tuple(relationships.issues),
@@ -125,3 +142,5 @@ def _prepare(
     refresh=refresh,
     diagnostics=diagnostics,
   )
+  if diagnostics is not None:
+    diagnostics.phase("metadata", started)
