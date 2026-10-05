@@ -1,0 +1,152 @@
+name: RepoWorkflow Lane Cache and Routing Certification
+
+on:
+  push:
+    branches:
+      - issue-346-lane-certification-v2
+    paths:
+      - .repoworkflow/migrations/run-lane-cache-certification-v2
+      - .github/workflows/lane-cache-routing-certification.yml
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  certify:
+    if: github.repository == 'Ma-XX-oN/RepoWorkflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Exercise shipped lane workflow against real GitHub data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          root = Path(".").resolve()
+          evidence = []
+
+          def run(*args, token=None):
+            env = dict(os.environ)
+            if token is not None:
+              env["GH_TOKEN"] = token
+            completed = subprocess.run(
+              ["./rwf", *args],
+              cwd=root,
+              env=env,
+              capture_output=True,
+              text=True,
+            )
+            item = {
+              "command": ["./rwf", *args],
+              "returncode": completed.returncode,
+              "stdout": completed.stdout,
+              "stderr": completed.stderr,
+            }
+            evidence.append(item)
+            if completed.returncode:
+              raise SystemExit(
+                f"command failed: {item['command']!r}\n{completed.stderr}"
+              )
+            return completed
+
+          first = run("lanes", "select", "218", "--json")
+          first_value = json.loads(first.stdout)
+          required = {"77", "78", "99", "100", "101", "127", "145",
+                      "185", "186", "189", "208", "216", "217", "218"}
+          if not required.issubset(set(first_value["closure"])):
+            raise SystemExit(
+              "real #218 closure missing required routing nodes: "
+              + repr(sorted(required - set(first_value["closure"])))
+            )
+          if "Refreshing dependencies:" not in first.stderr:
+            raise SystemExit("first acquisition did not expose dependency progress")
+          if "Refreshing metadata:" not in first.stderr:
+            raise SystemExit("first acquisition did not expose metadata progress")
+
+          listed = run("lanes", "list")
+          if "Lane " not in listed.stdout or "#218  " not in listed.stdout:
+            raise SystemExit("lanes list did not render grouped issue/title inventory")
+          if "─" in listed.stdout:
+            raise SystemExit("lanes list leaked graph connectors")
+
+          linked = run("lanes", "list", "--links")
+          if "https://github.com/Ma-XX-oN/RepoWorkflow/issues/218" not in linked.stdout:
+            raise SystemExit("lanes list --links did not use synchronized link")
+
+          local_view = run("lanes", "view", "--debug", token="invalid-local-only-token")
+          if "provider requests: 0" not in local_view.stdout:
+            raise SystemExit("local view unexpectedly contacted provider")
+          if "DIRECT EDGES" not in local_view.stdout or "ROUTES" not in local_view.stdout:
+            raise SystemExit("debug view omitted semantic/route diagnostics")
+          if "145 -> 216 bypass[" not in local_view.stdout:
+            raise SystemExit("direct #145 -> #216 bypass route not exposed")
+          if "145 -> 185" not in local_view.stdout or "185 -> 216" not in local_view.stdout:
+            raise SystemExit("parallel primary path around #145 -> #216 missing")
+          if "Issue 218" in local_view.stdout:
+            raise SystemExit("lane view leaked issue titles")
+
+          repeated = run("lanes", "select", "218", "--json", token="invalid-local-only-token")
+          if "Refreshing " in repeated.stderr:
+            raise SystemExit("repeated cached select performed provider work")
+
+          refreshed = run("lanes", "view", "--refresh", "--debug")
+          marker = "provider requests: "
+          source_line = next(
+            (line for line in refreshed.stdout.splitlines() if marker in line),
+            "",
+          )
+          if not source_line:
+            raise SystemExit("refresh debug output omitted provider count")
+          provider_requests = int(source_line.split(marker, 1)[1])
+          if provider_requests <= 0:
+            raise SystemExit("explicit refresh did not contact provider")
+          if "Refreshing dependencies:" not in refreshed.stderr:
+            raise SystemExit("refresh did not report dependency progress")
+
+          added = run("lanes", "select", "add", "206", "--json")
+          added_value = json.loads(added.stdout)
+          if set(added_value["roots"]) != {"206", "218"}:
+            raise SystemExit("select add root set mismatch")
+          removed = run("lanes", "select", "remove", "206", "--json",
+                        token="invalid-local-only-token")
+          removed_value = json.loads(removed.stdout)
+          if removed_value["roots"] != ["218"]:
+            raise SystemExit("select remove root set mismatch")
+          if "Refreshing " in removed.stderr:
+            raise SystemExit("select remove unexpectedly contacted provider")
+
+          Path("lane-certification-evidence.json").write_text(
+            json.dumps({
+              "schema_version": 1,
+              "issue": 346,
+              "head_sha": os.environ.get("GITHUB_SHA"),
+              "commands": evidence,
+            }, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+          )
+          print("RWF_LANE_CERTIFICATION=" + json.dumps({
+            "commands": len(evidence),
+            "refresh_provider_requests": provider_requests,
+          }, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lane-cache-routing-certification
+          path: lane-certification-evidence.json
