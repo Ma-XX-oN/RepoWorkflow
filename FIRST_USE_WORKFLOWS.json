@@ -211,6 +211,15 @@
             "tests/test_lane_render.py::LaneRenderTests.test_annotations_touch_identifier_and_decimal_align",
             "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract"
           ]
+        },
+        {
+          "id": "DL-12",
+          "requirement": "default human graph cells contain only annotations plus lane.issue; issue titles cannot affect graph widths, coordinates, or connector routing",
+          "verification": [
+            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract",
+            "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_compact_graph_geometry",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -226,7 +235,8 @@
         "uncertified_provider_authority": "DL-8",
         "stale_pre_migration_state_reconciliation": "DL-9",
         "real_provider_certification": "DL-10",
-        "graph_topology_and_alignment": "DL-11"
+        "graph_topology_and_alignment": "DL-11",
+        "compact_title_free_graph_cells": "DL-12"
       },
       "stateful": true,
       "provider_boundary": true,
