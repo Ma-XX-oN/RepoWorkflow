@@ -197,7 +197,8 @@
         "provider_truncation_failure": "DL-4",
         "read_after_write": "DL-5",
         "selection_replace_add_remove": "DL-7",
-        "uncertified_provider_authority": "DL-8"
+        "uncertified_provider_authority": "DL-8",
+        "stale_pre_migration_state_reconciliation": "DL-8"
       },
       "stateful": true,
       "provider_boundary": true,

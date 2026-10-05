@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -46,18 +48,39 @@ class FirstUseLanesTests(unittest.TestCase):
       check=True,
     )
 
-  def fake_github(self, base: Path) -> dict[str, str]:
+  def fake_github(
+    self,
+    base: Path,
+    dependencies: dict[int, list[int]] | None = None,
+  ) -> dict[str, str]:
+    if dependencies is None:
+      dependencies = {
+        206: [],
+        203: [201],
+        201: [],
+        205: [208],
+        208: [],
+        218: [217],
+        217: [],
+        187: [],
+        189: [],
+      }
+    dependency_state = base / "dependencies.json"
+    dependency_state.write_text(
+      json.dumps({str(key): value for key, value in dependencies.items()}),
+      encoding="utf-8",
+    )
     bin_dir = base / "bin"
     bin_dir.mkdir()
     gh = bin_dir / "gh"
     gh.write_text(
       "#!/usr/bin/env python3\n"
-      "import json, sys\n"
+      "import json, os, sys\n"
       "args = sys.argv[1:]\n"
       "if args[:2] == ['issue', 'view'] and 'blockedBy' in args:\n"
       "  number = int(args[2])\n"
-      "  deps = {206: [], 203: [201], 201: [], 205: [208], "
-      "208: [], 218: [217], 217: [], 187: [], 189: []}[number]\n"
+      "  state = json.load(open(os.environ['RWF_TEST_DEPS'], encoding='utf-8'))\n"
+      "  deps = state[str(number)]\n"
       "  nodes = [{'number': n, 'title': f'Issue {n}', "
       "'url': f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{n}', "
       "'state': 'OPEN'} for n in deps]\n"
@@ -81,7 +104,36 @@ class FirstUseLanesTests(unittest.TestCase):
     env.pop("RWF_WRITER_ID", None)
     env.pop("RWF_SESSION_ID", None)
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+    env["RWF_TEST_DEPS"] = str(dependency_state)
     return env
+
+  def certify_migration(self, root: Path) -> None:
+    source = (
+      ROOT
+      / ".repoworkflow"
+      / "migrations"
+      / "native-dependencies-v1.json"
+    )
+    target = (
+      root
+      / ".repoworkflow"
+      / "migrations"
+      / "native-dependencies-v1.json"
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, target)
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    certification = {
+      "schema_version": 1,
+      "migration_id": "repoworkflow-native-dependencies-v1",
+      "repository": "Ma-XX-oN/RepoWorkflow",
+      "manifest_sha256": digest,
+      "provider_readback_sha256": "0" * 64,
+    }
+    target.with_name("native-dependencies-v1.certified.json").write_text(
+      json.dumps(certification),
+      encoding="utf-8",
+    )
 
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
     return subprocess.run(
@@ -210,6 +262,61 @@ class FirstUseLanesTests(unittest.TestCase):
         json.loads(replaced.stdout)["closure"],
         ["205", "208", "217", "218"],
       )
+
+  def test_existing_empty_canonical_issue_reconciles_after_provider_migration(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base, {203: [], 201: []})
+
+      first = self.run_rwf(root, env, "lanes", "select", "203")
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(json.loads(first.stdout)["closure"], ["203"])
+
+      state_path = Path(env["RWF_TEST_DEPS"])
+      state_path.write_text(
+        json.dumps({"203": [201], "201": []}),
+        encoding="utf-8",
+      )
+      self.certify_migration(root)
+
+      second = self.run_rwf(root, env, "lanes", "select", "203")
+      self.assertEqual(second.returncode, 0, second.stderr)
+      self.assertEqual(json.loads(second.stdout)["closure"], ["201", "203"])
+
+      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
+      value = json.loads(graph.read_text(encoding="utf-8"))
+      self.assertEqual(value["value"]["issues"]["203"]["depends_on"], ["201"])
+      self.assertIn("201", value["value"]["issues"])
+
+  def test_existing_nonempty_dependency_conflict_fails_closed(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base, {203: [201], 201: [], 206: []})
+
+      first = self.run_rwf(root, env, "lanes", "select", "203")
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      state_path = Path(env["RWF_TEST_DEPS"])
+      state_path.write_text(
+        json.dumps({"203": [206], "206": []}),
+        encoding="utf-8",
+      )
+      self.certify_migration(root)
+
+      conflicted = self.run_rwf(root, env, "lanes", "select", "203")
+      self.assertEqual(conflicted.returncode, 2)
+      self.assertIn("conflict with native ticket dependencies", conflicted.stderr)
+
+      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
+      value = json.loads(graph.read_text(encoding="utf-8"))
+      self.assertEqual(value["value"]["issues"]["203"]["depends_on"], ["201"])
+      self.assertNotIn("206", value["value"]["issues"])
 
   def test_repository_manifest_blocks_bootstrap_until_migration_certified(self):
     with tempfile.TemporaryDirectory() as td:
