@@ -52,10 +52,12 @@ def issue_get(repository: str, issue: int) -> None:
     link = value["url"]
     if number <= 0 or not isinstance(title, str) or not title:
       raise ValueError("invalid issue identity")
-    if state not in {"open", "closed"}:
-      raise ValueError("invalid issue state")
     if not isinstance(link, str) or not link.startswith(("https://", "http://")):
       raise ValueError("invalid issue link")
+    if "/pull/" in link:
+      fail(f"#{number} is a pull request, not an issue")
+    if state not in {"open", "closed"}:
+      raise ValueError("invalid issue state")
   except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
     fail(f"GitHub issue response is malformed: {exc}")
   print(json.dumps({
