@@ -48,6 +48,69 @@ def verification_target_exists(target: str) -> bool:
   return f"def {method}(" in path.read_text(encoding="utf-8")
 
 
+def acceptance_traceability_errors(scenario: dict) -> list[str]:
+  errors: list[str] = []
+  acceptance = scenario.get("acceptance", [])
+  if not acceptance:
+    return [f"{scenario['id']} has no acceptance traceability matrix"]
+
+  ids = [item.get("id") for item in acceptance]
+  if len(ids) != len(set(ids)):
+    errors.append(f"{scenario['id']} has duplicate acceptance IDs")
+
+  for item in acceptance:
+    item_id = item.get("id")
+    requirement = item.get("requirement")
+    if not isinstance(requirement, str) or not requirement.strip():
+      errors.append(f"{scenario['id']} {item_id} has no requirement text")
+    verification = item.get("verification")
+    deferred = item.get("deferred_issue")
+    if bool(verification) == bool(deferred):
+      errors.append(
+        f"{scenario['id']} {item_id} must have exactly one of "
+        "verification/deferred_issue"
+      )
+      continue
+    if scenario["status"] == "covered" and not verification:
+      errors.append(f"covered scenario {scenario['id']} defers {item_id}")
+    if verification:
+      for target in verification:
+        if not verification_target_exists(target):
+          errors.append(f"missing executable verification target: {target}")
+    elif not isinstance(deferred, int) or deferred <= 0:
+      errors.append(f"{scenario['id']} {item_id} has invalid deferred issue")
+  return errors
+
+
+def lifecycle_traceability_errors(scenario: dict) -> list[str]:
+  if scenario["status"] != "covered" or not scenario.get("stateful"):
+    return []
+  acceptance_ids = {item["id"] for item in scenario.get("acceptance", [])}
+  dimensions = scenario.get("lifecycle_dimensions")
+  if not isinstance(dimensions, dict) or not dimensions:
+    return [f"{scenario['id']} lacks lifecycle dimensions"]
+  unknown = set(dimensions.values()) - acceptance_ids
+  if unknown:
+    return [
+      f"{scenario['id']} lifecycle dimensions reference unknown "
+      f"acceptance IDs: {sorted(unknown)!r}"
+    ]
+  return []
+
+
+def provider_contract_errors(scenario: dict) -> list[str]:
+  if scenario["status"] != "covered" or not scenario.get("provider_boundary"):
+    return []
+  targets = scenario.get("provider_contract_verification", [])
+  if not targets:
+    return [f"{scenario['id']} lacks provider contract verification"]
+  return [
+    f"missing provider contract verifier: {target}"
+    for target in targets
+    if not verification_target_exists(target)
+  ]
+
+
 class FirstUseWorkflowRegistryTests(unittest.TestCase):
   def registry(self) -> dict:
     return json.loads(REGISTRY.read_text(encoding="utf-8"))
@@ -119,78 +182,59 @@ class FirstUseWorkflowRegistryTests(unittest.TestCase):
   def test_covered_scenarios_trace_each_acceptance_requirement_to_tests(self):
     value = self.registry()
     for scenario in value["scenarios"]:
-      acceptance = scenario.get("acceptance", [])
-      self.assertTrue(
-        acceptance,
-        f"{scenario['id']} has no acceptance traceability matrix",
-      )
-      ids = [item.get("id") for item in acceptance]
-      self.assertEqual(
-        len(ids),
-        len(set(ids)),
-        f"{scenario['id']} has duplicate acceptance IDs",
-      )
-      for item in acceptance:
-        with self.subTest(scenario=scenario["id"], acceptance=item.get("id")):
-          self.assertIsInstance(item.get("requirement"), str)
-          self.assertTrue(item["requirement"].strip())
-          verification = item.get("verification")
-          deferred = item.get("deferred_issue")
-          self.assertNotEqual(
-            bool(verification),
-            bool(deferred),
-            "acceptance item must have exactly one of verification/deferred_issue",
-          )
-          if scenario["status"] == "covered":
-            self.assertTrue(
-              verification,
-              f"covered scenario {scenario['id']} defers {item['id']}",
-            )
-          if verification:
-            for target in verification:
-              self.assertTrue(
-                verification_target_exists(target),
-                f"missing executable verification target: {target}",
-              )
-          else:
-            self.assertIsInstance(deferred, int)
-            self.assertGreater(deferred, 0)
+      with self.subTest(scenario=scenario["id"]):
+        self.assertEqual(acceptance_traceability_errors(scenario), [])
 
   def test_covered_stateful_scenarios_trace_lifecycle_dimensions(self):
     value = self.registry()
     for scenario in value["scenarios"]:
-      if scenario["status"] != "covered" or not scenario.get("stateful"):
-        continue
-      acceptance_ids = {item["id"] for item in scenario["acceptance"]}
-      dimensions = scenario.get("lifecycle_dimensions")
-      self.assertIsInstance(
-        dimensions,
-        dict,
-        f"{scenario['id']} lacks lifecycle dimensions",
-      )
-      self.assertTrue(dimensions, f"{scenario['id']} has empty lifecycle dimensions")
-      unknown = set(dimensions.values()) - acceptance_ids
-      self.assertEqual(
-        unknown,
-        set(),
-        f"{scenario['id']} lifecycle dimensions reference unknown acceptance IDs",
-      )
+      with self.subTest(scenario=scenario["id"]):
+        self.assertEqual(lifecycle_traceability_errors(scenario), [])
 
   def test_covered_provider_scenarios_verify_external_contract_fidelity(self):
     value = self.registry()
     for scenario in value["scenarios"]:
-      if scenario["status"] != "covered" or not scenario.get("provider_boundary"):
-        continue
-      targets = scenario.get("provider_contract_verification", [])
-      self.assertTrue(
-        targets,
-        f"{scenario['id']} lacks provider contract verification",
-      )
-      for target in targets:
-        self.assertTrue(
-          verification_target_exists(target),
-          f"missing provider contract verifier: {target}",
-        )
+      with self.subTest(scenario=scenario["id"]):
+        self.assertEqual(provider_contract_errors(scenario), [])
+
+  def test_acceptance_gate_rejects_unmapped_covered_requirement(self):
+    scenario = {
+      "id": "FU-BROKEN",
+      "status": "covered",
+      "stateful": False,
+      "provider_boundary": False,
+      "acceptance": [{
+        "id": "BROKEN-1",
+        "requirement": "This criterion has no executable proof",
+        "deferred_issue": 999,
+      }],
+    }
+    errors = acceptance_traceability_errors(scenario)
+    self.assertTrue(any("covered scenario FU-BROKEN defers BROKEN-1" in x
+                        for x in errors))
+
+  def test_stateful_gate_rejects_initial_only_coverage(self):
+    scenario = {
+      "id": "FU-BROKEN-STATEFUL",
+      "status": "covered",
+      "stateful": True,
+      "provider_boundary": False,
+      "acceptance": [{
+        "id": "BS-1",
+        "requirement": "Initial invocation",
+        "verification": [
+          "tests/test_first_use_workflows.py::"
+          "FirstUseWorkflowRegistryTests."
+          "test_stateful_gate_rejects_initial_only_coverage"
+        ],
+      }],
+      "lifecycle_dimensions": {
+        "initial_state": "BS-1",
+        "second_invocation": "BS-MISSING",
+      },
+    }
+    errors = lifecycle_traceability_errors(scenario)
+    self.assertTrue(any("BS-MISSING" in x for x in errors))
 
   def test_audit_row_count_matches_registry_snapshot(self):
     value = self.registry()
