@@ -200,6 +200,8 @@ methodology.
 - [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) defines how size
   limits trigger concise rewrites or responsibility-based splits without
   losing authoritative semantics.
+- [TEST_ADEQUACY.md](TEST_ADEQUACY.md) defines the universal repository-neutral
+  test adequacy and verification gate applied to RepoWorkflow and consumers.
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral method for decomposing issues into testable interfaces,
   shared capability umbrellas, and executable dependency graphs.
