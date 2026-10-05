@@ -89,3 +89,37 @@ dependency junction.
 
 The renderer never performs semantic transitive reduction.  `lanes view
 --debug` reports every direct edge and its assigned primary/bypass route.
+
+
+## Direct-edge route identity
+
+Every canonical direct dependency is rendered as one identifiable logical
+route.  The renderer may choose one readable adjacent edge as a primary
+backbone segment.  Remaining direct edges use separate bypass tracks.
+
+For example, when both of these facts exist:
+
+```text
+145 -> 185 -> 216
+145 ----------> 216
+```
+
+the direct `145 -> 216` edge remains visibly separate from the transitive path.
+It is not merged into the `145 -> 185 -> 216` line.
+
+Likewise, long direct edges that skip several intermediate columns receive
+their own tracks.  Multiple bypasses use distinct track rows rather than
+sharing an unrelated bus.
+
+Visible route sharing is permitted only where logical edges genuinely share a
+source before branching or share a target after convergence.  If unrelated
+routes cross the same screen cell, the crossing is rendered as `╳`, not as a
+dependency junction.
+
+The renderer never performs semantic transitive reduction.  A direct edge that
+is also implied transitively remains visible because the canonical graph states
+that direct relationship explicitly.
+
+`rwf lanes view --debug` reports one route identity for every canonical direct
+edge in the visible graph, including whether the route is primary or a bypass
+track.
