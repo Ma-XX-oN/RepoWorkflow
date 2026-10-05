@@ -185,9 +185,15 @@ def _parse_snapshot(value: dict) -> dict[int, IssueMetadata]:
       issues[number] = IssueMetadata(number=number, title=title)
       continue
     state = raw["state"]
+    link = raw["link"]
+    if state is None and link is None:
+      issues[number] = IssueMetadata(
+        number=number,
+        title=title,
+      )
+      continue
     if state not in {"open", "closed"}:
       raise ValueError(f"issue metadata record {number} has invalid state")
-    link = raw["link"]
     if not isinstance(link, str) or not link:
       raise ValueError(f"issue metadata record {number} has empty link")
     issues[number] = IssueMetadata(
@@ -207,10 +213,13 @@ def _snapshot_value(issues: dict[int, IssueMetadata]) -> dict:
       raise IssueMetadataError(f"invalid issue metadata record for issue {number}")
     if not isinstance(metadata.title, str) or not metadata.title:
       raise IssueMetadataError(f"issue metadata title is empty for issue {number}")
+    if metadata.state is None and metadata.link is None:
+      normalized[number] = metadata
+      continue
     if metadata.state not in {"open", "closed"}:
-      raise IssueMetadataError(f"issue metadata state is incomplete for issue {number}")
+      raise IssueMetadataError(f"issue metadata state is invalid for issue {number}")
     if not isinstance(metadata.link, str) or not metadata.link:
-      raise IssueMetadataError(f"issue metadata link is incomplete for issue {number}")
+      raise IssueMetadataError(f"issue metadata link is invalid for issue {number}")
     normalized[number] = metadata
   return {
     "schema_version": SCHEMA_VERSION,
