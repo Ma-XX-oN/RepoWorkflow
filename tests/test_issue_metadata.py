@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.repo_info_adapter import RepoInfoError
 from repo_workflow.issue_metadata import (
   IssueMetadataError,
   IssueMetadataStore,
@@ -108,6 +109,127 @@ class IssueMetadataTests(unittest.TestCase):
       "display metadata is incomplete",
     ):
       store.display_issue(10)
+
+  def test_scoped_refresh_migrates_one_legacy_entry_without_rereading_others(self):
+    durable_store(self.root).create(
+      "issues/metadata",
+      {
+        "schema_version": 1,
+        "issues": {
+          "10": {"number": 10, "title": "Ten"},
+          "20": {"number": 20, "title": "Twenty"},
+        },
+      },
+      WriterIdentity("legacy", "legacy"),
+    )
+    calls: list[int] = []
+
+    def provider(_root, _config, number):
+      calls.append(number)
+      return {
+        "schema_version": 1,
+        "number": number,
+        "title": "Ten refreshed" if number == 10 else "Twenty refreshed",
+        "state": "open",
+        "link": f"https://example.invalid/issues/{number}",
+      }
+
+    with mock.patch(
+      "repo_workflow.issue_metadata.issue_info",
+      side_effect=provider,
+    ):
+      first = refresh_issue_metadata(
+        self.root,
+        {},
+        self.writer,
+        (10,),
+      )
+
+    self.assertEqual(calls, [10])
+    self.assertTrue(first.issues[10].display_complete)
+    self.assertFalse(first.issues[20].display_complete)
+    self.assertEqual(first.issues[20].title, "Twenty")
+
+    restarted = IssueMetadataStore(self.root)
+    self.assertEqual(restarted.issue(20).title, "Twenty")
+    with self.assertRaisesRegex(
+      IssueMetadataError,
+      "display metadata is incomplete",
+    ):
+      restarted.display_issue(20)
+
+    calls.clear()
+    with mock.patch(
+      "repo_workflow.issue_metadata.issue_info",
+      side_effect=provider,
+    ):
+      second = refresh_issue_metadata(
+        self.root,
+        {},
+        self.writer,
+        (20,),
+      )
+
+    self.assertEqual(calls, [20])
+    self.assertEqual(second.issues[10], first.issues[10])
+    self.assertTrue(second.issues[20].display_complete)
+
+  def test_schema_v2_rejects_mixed_incomplete_state_link_shapes(self):
+    store = durable_store(self.root)
+    invalid = (
+      {"state": None, "link": "https://example.invalid/issues/10"},
+      {"state": "open", "link": None},
+      {"state": "unknown", "link": None},
+    )
+    for index, partial in enumerate(invalid):
+      with self.subTest(partial=partial):
+        key = f"issues/metadata-{index}"
+        store.create(
+          key,
+          {
+            "schema_version": 2,
+            "issues": {
+              "10": {
+                "number": 10,
+                "title": "Ten",
+                **partial,
+              },
+            },
+          },
+          self.writer,
+        )
+        record = store.read(key)
+        with self.assertRaises(ValueError):
+          from repo_workflow.issue_metadata import _parse_snapshot
+          _parse_snapshot(record["value"])
+
+  def test_failed_scoped_legacy_refresh_preserves_v1_snapshot(self):
+    durable_store(self.root).create(
+      "issues/metadata",
+      {
+        "schema_version": 1,
+        "issues": {
+          "10": {"number": 10, "title": "Ten"},
+          "20": {"number": 20, "title": "Twenty"},
+        },
+      },
+      WriterIdentity("legacy", "legacy"),
+    )
+    before = IssueMetadataStore(self.root).read()
+
+    with mock.patch(
+      "repo_workflow.issue_metadata.issue_info",
+      side_effect=RepoInfoError("provider unavailable"),
+    ):
+      with self.assertRaisesRegex(IssueMetadataError, "provider unavailable"):
+        refresh_issue_metadata(
+          self.root,
+          {},
+          self.writer,
+          (10,),
+        )
+
+    self.assertEqual(IssueMetadataStore(self.root).read(), before)
 
   def test_scoped_refresh_preserves_other_complete_records(self):
     first = refresh_issue_metadata(
