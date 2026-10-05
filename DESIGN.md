@@ -474,10 +474,9 @@ requirements below:
 
 Authoritative source and documentation files have a practical hard ceiling of
 about 500 lines.  Size pressure is an architectural signal, not a content
-budget.  Concise rewrites are preferred when they preserve complete meaning and
-are equally clear or clearer; otherwise split by a real responsibility boundary
-without losing authoritative information.  The detailed documentation policy
-is in [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
+budget.  Prefer concise rewrites that preserve complete meaning; otherwise
+split by a real responsibility boundary without losing authoritative
+information.  See [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
 
 No generated-artifact, branch-policy, integration-validation, or other existing
 check should be removed merely because RepoWorkflow has a nominal replacement;

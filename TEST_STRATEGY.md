@@ -469,7 +469,6 @@ The repository-wide ticket audit is maintained in
 until its scenario is `covered`; lower-level GREEN tests cannot substitute for
 that gate.
 
-
 ## Acceptance traceability and stateful scenario completeness
 
 A GREEN first-use file is not sufficient evidence that a public workflow's
@@ -484,19 +483,17 @@ Every registered public first-use scenario must maintain an acceptance matrix in
 A scenario may be marked `covered` only when every acceptance requirement has
 executable verification.
 
-For stateful scenarios, the registry must also enumerate the lifecycle
-dimensions that materially apply.  Examples include initial empty state,
-repeated invocation, additional targets after success, overlapping existing
-state, read-after-write, stale/conflicting state, persistence across invocations,
-and provider failure.  Each declared dimension must point to an acceptance
-requirement with executable verification before the scenario is covered.
+For stateful scenarios, the registry must enumerate applicable lifecycle
+dimensions: initial empty state, repeated invocation, additional targets,
+overlapping state, read-after-write, stale/conflicting state, persistence, and
+provider failure.  Each dimension must point to an acceptance requirement with
+executable verification before the scenario is covered.
 
-For scenarios that fake an external provider boundary, covered status also
-requires an explicit provider-contract verification target.  Provider fixtures
-must model a validated real/provider contract shape rather than a reduced
-payload invented to satisfy the implementation.
+Covered scenarios that fake an external provider boundary also require an
+explicit provider-contract verification target.  Fixtures must model a
+validated real/provider contract shape, not a reduced implementation-shaped
+payload.
 
-These are closure gates, not documentation suggestions.  The registry tests
-must fail when acceptance verification is missing, a stateful lifecycle
-dimension references no verified requirement, or a covered provider scenario
-has no provider-contract verifier.
+These are closure gates.  Registry tests must fail for missing acceptance
+verification, unverified stateful lifecycle dimensions, or a covered provider
+scenario without a provider-contract verifier.
