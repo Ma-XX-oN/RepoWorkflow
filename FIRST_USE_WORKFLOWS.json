@@ -256,15 +256,16 @@
         },
         {
           "id": "DL-16",
-          "requirement": "every canonical direct dependency has exactly one deterministic routed edge; skip-edges use distinct bypass tracks and unrelated geometric crossings are rendered as non-junction crossings; debug maps semantic edges to route identities",
+          "requirement": "every visible canonical direct dependency has exactly one deterministic route identity; direct edges that bypass intermediate columns use distinct bypass tracks; unrelated route crossings are not rendered as dependency junctions; debug maps semantic direct edges to routed identities",
           "verification": [
-            "tests/test_lane_routes.py::LaneRouteTests.test_every_semantic_edge_has_exactly_one_route",
             "tests/test_lane_routes.py::LaneRouteTests.test_direct_bypass_has_distinct_route_identity",
+            "tests/test_lane_routes.py::LaneRouteTests.test_every_semantic_edge_has_exactly_one_route",
+            "tests/test_lane_routes.py::LaneRouteTests.test_fan_in_and_fan_out_keep_all_edge_identities",
+            "tests/test_lane_routes.py::LaneRouteTests.test_nested_long_bypasses_get_distinct_tracks",
             "tests/test_lane_routes.py::LaneRouteTests.test_unrelated_route_crossing_is_not_rendered_as_junction",
+            "tests/test_lane_routes.py::LaneRouteTests.test_same_source_or_target_may_form_visible_junction",
             "tests/test_lane_routes.py::LaneRouteTests.test_route_plan_is_deterministic",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_skip_edge_is_rendered_as_separate_bypass_track",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_fan_in_retains_parallel_path_shape",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_and_transitive_paths_remain_visibly_distinct"
+            "tests/test_lane_render.py::LaneRenderTests.test_direct_dependency_bypass_is_visually_separate_and_diagnostic"
           ]
         }
       ],
