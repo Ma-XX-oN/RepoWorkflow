@@ -5,8 +5,7 @@ from pathlib import Path
 
 from .issue_metadata import IssueMetadataStore
 from .lane_selection import LaneSelectionStore
-from .repo_info_adapter import issue_info
-from .config import load_config
+from .repo_info_adapter import issue_info, resolve_info_config
 from .state_store import StateStoreError, WriterIdentity, clone_local_store
 
 
@@ -104,7 +103,7 @@ def render_lanes(
 
 
 def _metadata(root: Path, issues: tuple[str, ...], links: bool) -> dict[str, dict]:
-  config = load_config(root)
+  config = resolve_info_config(root)
   result: dict[str, dict] = {}
   for issue in issues:
     value = issue_info(root, config, int(issue))
