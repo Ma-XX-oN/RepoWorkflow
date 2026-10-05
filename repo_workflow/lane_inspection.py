@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionSnapshot, LaneSelectionStore
 from .relationship_bootstrap import ensure_relationship_graph
@@ -11,6 +12,7 @@ from .state_store import WriterIdentity
 def refresh_current_lane_selection(
   root: Path,
   writer: WriterIdentity,
+  diagnostics: LaneDiagnostics | None = None,
 ) -> LaneSelectionSnapshot:
   store = LaneSelectionStore(root)
   current = store.read()
@@ -22,12 +24,14 @@ def refresh_current_lane_selection(
     current.value.roots,
     writer,
     refresh=True,
+    diagnostics=diagnostics,
   )
   ensure_lane_metadata(
     root,
     tuple(relationships.issues),
     writer,
     refresh=True,
+    diagnostics=diagnostics,
   )
   return store.select(
     current.value.roots,
