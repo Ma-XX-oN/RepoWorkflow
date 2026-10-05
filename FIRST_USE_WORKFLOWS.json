@@ -106,7 +106,7 @@
         "WorkspaceStore writes",
         "calling start_issue directly"
       ],
-      "gap_issue": 310
+      "gap_issue": 308
     },
     {
       "id": "FU-LIFECYCLE",
@@ -119,7 +119,7 @@
         "save_local_state",
         "direct workflow-state writes"
       ],
-      "gap_issue": 311
+      "gap_issue": 309
     },
     {
       "id": "FU-CONSUMER",
@@ -134,5 +134,22 @@
       ],
       "gap_issue": 313
     }
-  ]
+  ],
+  "audited_issue_count": 184,
+  "audited_through_issue": 313,
+  "public_prefixes": {
+    "init": "FU-INIT",
+    "lanes": "FU-DEPS-LANES",
+    "settings": "FU-SESSION",
+    "issue info": "FU-ISSUE-READ",
+    "issue list": "FU-ISSUE-READ",
+    "issue select dependency": "FU-DEPS-LANES",
+    "issue start": "FU-WORK",
+    "workspace": "FU-WORK",
+    "what-next": "FU-LIFECYCLE",
+    "validate": "FU-LIFECYCLE"
+  },
+  "exempt_prefixes": {
+    "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."
+  }
 }
