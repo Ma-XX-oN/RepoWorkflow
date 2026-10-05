@@ -10,6 +10,29 @@ from .relationship_bootstrap import ensure_relationship_graph
 from .state_store import WriterIdentity
 
 
+def refresh_current_lane_metadata(
+  root: Path,
+  writer: WriterIdentity,
+  diagnostics: LaneDiagnostics | None = None,
+) -> LaneSelectionSnapshot:
+  """Refresh display metadata only; never reread or mutate relationships."""
+  current = LaneSelectionStore(root).read()
+  if current.value is None:
+    raise ValueError("lane selection is missing")
+
+  started = time.perf_counter()
+  ensure_lane_metadata(
+    root,
+    tuple(current.value.closure),
+    writer,
+    refresh=True,
+    diagnostics=diagnostics,
+  )
+  if diagnostics is not None:
+    diagnostics.phase("metadata", started)
+  return current
+
+
 def refresh_current_lane_selection(
   root: Path,
   writer: WriterIdentity,
