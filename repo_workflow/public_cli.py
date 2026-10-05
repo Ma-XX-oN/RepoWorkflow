@@ -15,6 +15,7 @@ from .command_grammar import (
 from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
 from .issue_info_cli import show_issue_info
+from .invocation_identity import ensure_public_runtime_identity
 from .issue_list import list_issues
 from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
@@ -85,6 +86,23 @@ def _version_transition(words: list[str]) -> tuple[str, ...] | None:
   raise CommandGrammarError("invalid version transition")
 
 
+def _requires_public_runtime_identity(words: list[str]) -> bool:
+  command = words[0]
+  if command == "lanes":
+    return words[1] != "list"
+  if command == "settings":
+    return True
+  if command == "issue":
+    if words[1] == "start":
+      return True
+    if words[1] == "select":
+      return "--compare" not in words
+    return False
+  if command == "workspace":
+    return words[1] in {"create", "claim", "release", "resume", "close"}
+  return False
+
+
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   general, legal, facts, plan, state, failure = _diagnose(
     root,
@@ -96,6 +114,9 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
 
   parse_tokens(COMMANDS, general, words)
   parse_tokens(COMMANDS, legal, words)
+
+  if _requires_public_runtime_identity(words):
+    ensure_public_runtime_identity(root)
 
   command = words[0]
   if command == "init":
