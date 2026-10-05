@@ -240,6 +240,18 @@
             "tests/test_lane_list.py::LaneListTests.test_links_are_optional",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_and_view_are_offline_until_explicit_refresh"
           ]
+        },
+        {
+          "id": "DL-15",
+          "requirement": "provider-backed lane work emits progress only on stderr; every valid lane invocation records clone-local provider/cache/timing diagnostics; lanes view --debug reports the same invocation's data sources, timing, and canonical direct edges without forcing refresh",
+          "verification": [
+            "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_provider_progress_and_record_are_structured_without_payload",
+            "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_error_record_and_concurrent_records_are_distinct",
+            "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_diagnostic_write_failure_is_warning_not_command_failure",
+            "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_debug_projection_reports_sources_timing_and_edges",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_failed_lane_refresh_writes_failure_diagnostics"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -262,7 +274,9 @@
         "explicit_scoped_refresh": "DL-13",
         "refresh_provider_failure_rollback": "DL-13",
         "offline_lane_inspection": "DL-14",
-        "explicit_inspection_refresh": "DL-14"
+        "explicit_inspection_refresh": "DL-14",
+        "provider_progress_and_diagnostics": "DL-15",
+        "diagnostic_failure_isolation": "DL-15"
       },
       "stateful": true,
       "provider_boundary": true,
