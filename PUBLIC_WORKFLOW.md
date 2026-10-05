@@ -281,11 +281,9 @@ RepoWorkflow distinguishes four graph relationships:
 - **direct umbrella dependency**: one complete umbrella outcome cannot be
   complete until another complete umbrella outcome is complete.
 
-A direct umbrella dependency is a high-level roadmap relation, not a
-replacement for leaf dependencies.  Record it only when the whole prerequisite
-umbrella is required, not merely because one child consumes one child from
-another umbrella.  The umbrella-dependency graph should omit edges already
-implied transitively by other umbrella dependencies.
+A direct umbrella dependency is a roadmap relation, not a replacement for leaf
+dependencies.  Record it only when the whole prerequisite umbrella is required;
+omit umbrella edges already implied transitively.
 
 For example:
 
