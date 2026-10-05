@@ -19,6 +19,7 @@ rwf
 ├── what-next
 ├── issue
 │   ├── info [N]
+│   ├── list <ids...> [--links]
 │   ├── start N
 │   └── abort
 ├── tdd
@@ -183,11 +184,17 @@ Issue #55 owns this migration.
 ```text
 rwf issue info
 rwf issue info N
+rwf issue list 54 64 9
+rwf issue list 54 64 9 --links
 rwf issue start N
 rwf issue abort
 ```
 
 `issue info` lists/reads repository issues through `repo-info`.
+
+`issue list` displays the requested issue numbers and titles in supplied order.
+With `--links`, each line additionally includes the provider-neutral canonical
+issue link returned by `repo-info`; core RWF does not construct provider URLs.
 
 Single Tab completes matching open issue numbers.  Double Tab lists matching
 issue numbers and titles.  A typed prefix filters the same source.
