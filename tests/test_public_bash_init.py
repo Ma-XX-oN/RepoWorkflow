@@ -79,6 +79,26 @@ class PublicBashInitTests(unittest.TestCase):
       self.assertEqual(after, before)
       self.assertFalse((root / ".repoworkflow").exists())
 
+
+  def test_other_init_forms_remain_explicitly_unimplemented(self):
+    cases = [
+      ["init"],
+      ["init", "local-only"],
+      ["init", "zsh"],
+      ["init", "bash", "extra"],
+    ]
+    for words in cases:
+      with self.subTest(words=words):
+        completed = subprocess.run(
+          [sys.executable, str(CLI), "--root", str(ROOT), *words],
+          capture_output=True,
+          text=True,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertEqual(completed.stdout, "")
+        self.assertIn("init execution is not implemented yet", completed.stderr)
+
+
   def test_outside_repository_fails_actionably(self):
     with tempfile.TemporaryDirectory() as td:
       completed = self.run_cli(Path(td))
