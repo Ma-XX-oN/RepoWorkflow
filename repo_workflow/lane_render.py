@@ -77,6 +77,7 @@ def render_lanes(
     visible,
     metadata,
     links=links,
+    titles=titles,
     color=_color_enabled(root),
   )
 
@@ -88,6 +89,7 @@ def _render_graph(
   metadata: dict[str, dict],
   *,
   links: bool,
+  titles: bool,
   color: bool,
 ) -> tuple[str, ...]:
   if not visible:
