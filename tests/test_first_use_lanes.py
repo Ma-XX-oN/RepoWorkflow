@@ -407,7 +407,10 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("DIRECT EDGES", viewed.stdout)
       self.assertIn("201 -> 203", viewed.stdout)
 
-      records = sorted(diagnostics_dir.glob("lane-invocation--*.json"))
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
       self.assertEqual(len(records), 2)
       second = json.loads(records[-1].read_text(encoding="utf-8"))
       self.assertEqual(second["provider_calls"], {})
