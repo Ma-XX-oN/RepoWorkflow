@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .relationship_store import RelationshipStore, RelationshipStoreError
+from .relationship_store import (
+  RelationshipSnapshot,
+  RelationshipStore,
+  RelationshipStoreError,
+)
 from .relationships import IssueRelationships, RelationshipGraph
 from .state_store import WriterIdentity
 from .ticket_dependency_adapter import (
@@ -16,18 +20,19 @@ def ensure_relationship_graph(
   roots: tuple[str | int, ...],
   writer: WriterIdentity,
 ) -> None:
-  """Create the missing canonical dependency graph from ticket-native facts."""
+  """Ensure canonical graph coverage for the requested roots and dependencies."""
   store = RelationshipStore(root)
-  try:
-    store.read()
-    return
-  except RelationshipStoreError as error:
-    if "record is missing:" not in str(error):
-      raise
+  snapshot = _read_optional(store)
+  existing = {} if snapshot is None else dict(snapshot.graph.issues)
+  requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
 
-  pending = [str(int(value)) for value in roots]
+  missing = [issue for issue in requested if issue not in existing]
+  if not missing:
+    return
+
   config = resolve_dependency_config(root)
-  issues: dict[str, IssueRelationships] = {}
+  issues = dict(existing)
+  pending = list(missing)
 
   while pending:
     issue = pending.pop(0)
@@ -55,4 +60,17 @@ def ensure_relationship_graph(
       for issue, relation in issues.items()
     },
   })
-  store.create(graph, writer)
+
+  if snapshot is None:
+    store.create(graph, writer)
+  else:
+    store.replace(snapshot.revision, graph, writer)
+
+
+def _read_optional(store: RelationshipStore) -> RelationshipSnapshot | None:
+  try:
+    return store.read()
+  except RelationshipStoreError as error:
+    if "record is missing:" in str(error):
+      return None
+    raise

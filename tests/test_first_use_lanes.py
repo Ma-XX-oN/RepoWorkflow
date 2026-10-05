@@ -56,7 +56,8 @@ class FirstUseLanesTests(unittest.TestCase):
       "args = sys.argv[1:]\n"
       "if args[:2] == ['issue', 'view'] and 'blockedBy' in args:\n"
       "  number = int(args[2])\n"
-      "  deps = {206: [187, 189], 187: [], 189: []}[number]\n"
+      "  deps = {206: [], 203: [201], 201: [], 205: [208], "
+      "208: [], 218: [217], 217: [], 187: [], 189: []}[number]\n"
       "  nodes = [{'number': n, 'title': f'Issue {n}', "
       "'url': f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{n}', "
       "'state': 'OPEN'} for n in deps]\n"
@@ -64,7 +65,9 @@ class FirstUseLanesTests(unittest.TestCase):
       "{'nodes': nodes, 'totalCount': len(nodes)}}))\n"
       "elif args[:2] == ['issue', 'view']:\n"
       "  number = int(args[2])\n"
-      "  titles = {206: 'Root', 187: 'Leaf A', 189: 'Leaf B'}\n"
+      "  titles = {206: 'Root 206', 203: 'Root 203', 201: 'Leaf 201', "
+      "205: 'Root 205', 208: 'Leaf 208', 218: 'Root 218', "
+      "217: 'Leaf 217', 187: 'Leaf A', 189: 'Leaf B'}\n"
       "  print(json.dumps({'number': number, 'title': titles[number], "
       "'state': 'OPEN', 'url': "
       "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
@@ -97,22 +100,19 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      selected = self.run_rwf(root, env, "lanes", "select", "203", "206")
       self.assertEqual(selected.returncode, 0, selected.stderr)
       value = json.loads(selected.stdout)
-      self.assertEqual(value["roots"], ["206"])
-      self.assertEqual(value["closure"], ["187", "189", "206"])
-      self.assertEqual(
-        value["assignment"],
-        {"187": "A", "189": "B", "206": "A"},
-      )
+      self.assertEqual(value["roots"], ["203", "206"])
+      self.assertEqual(value["closure"], ["201", "203", "206"])
 
       graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
       self.assertTrue(graph.is_file())
       graph_value = json.loads(graph.read_text(encoding="utf-8"))
+      self.assertEqual(graph_value["revision"], 0)
       self.assertEqual(
-        graph_value["value"]["issues"]["206"]["depends_on"],
-        ["187", "189"],
+        graph_value["value"]["issues"]["203"]["depends_on"],
+        ["201"],
       )
 
       common = subprocess.run(
@@ -128,13 +128,54 @@ class FirstUseLanesTests(unittest.TestCase):
 
       listed = self.run_rwf(root, env, "lanes", "list")
       self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertIn("Root 203", listed.stdout)
+      self.assertIn("Root 206", listed.stdout)
+      self.assertIn("Leaf 201", listed.stdout)
+
+  def test_repeated_selection_extends_existing_partial_graph(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(root, env, "lanes", "select", "206")
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(json.loads(first.stdout)["closure"], ["206"])
+
+      second = self.run_rwf(root, env, "lanes", "select", "206", "203")
+      self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(
-        listed.stdout.splitlines(),
-        [
-          " A.187  Leaf A",
-          "*A.206  Root",
-          "B.189  Leaf B",
-        ],
+        json.loads(second.stdout)["closure"],
+        ["201", "203", "206"],
+      )
+
+      third = self.run_rwf(root, env, "lanes", "select", "205", "218")
+      self.assertEqual(third.returncode, 0, third.stderr)
+      self.assertEqual(
+        json.loads(third.stdout)["closure"],
+        ["205", "208", "217", "218"],
+      )
+
+      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
+      graph_value = json.loads(graph.read_text(encoding="utf-8"))
+      self.assertEqual(graph_value["revision"], 2)
+      self.assertEqual(
+        sorted(graph_value["value"]["issues"], key=int),
+        ["201", "203", "205", "206", "208", "217", "218"],
+      )
+      self.assertEqual(
+        graph_value["value"]["issues"]["203"]["depends_on"],
+        ["201"],
+      )
+      self.assertEqual(
+        graph_value["value"]["issues"]["205"]["depends_on"],
+        ["208"],
+      )
+      self.assertEqual(
+        graph_value["value"]["issues"]["218"]["depends_on"],
+        ["217"],
       )
 
   def test_read_only_lane_failure_does_not_create_runtime_identity(self):

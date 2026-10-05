@@ -463,3 +463,35 @@ The repository-wide ticket audit is maintained in
 `FIRST_USE_WORKFLOW_AUDIT.md`.  A public first-use owner issue is not complete
 until its scenario is `covered`; lower-level GREEN tests cannot substitute for
 that gate.
+
+
+## Acceptance traceability and stateful scenario completeness
+
+A GREEN first-use file is not sufficient evidence that a public workflow's
+documented contract is complete.
+
+Every registered public first-use scenario must maintain an acceptance matrix in
+`FIRST_USE_WORKFLOWS.json`.  Each requirement must map to exactly one of:
+
+- executable verification naming a concrete test method; or
+- an explicit open issue that owns deliberately deferred behaviour.
+
+A scenario may be marked `covered` only when every acceptance requirement has
+executable verification.
+
+For stateful scenarios, the registry must also enumerate the lifecycle
+dimensions that materially apply.  Examples include initial empty state,
+repeated invocation, additional targets after success, overlapping existing
+state, read-after-write, stale/conflicting state, persistence across invocations,
+and provider failure.  Each declared dimension must point to an acceptance
+requirement with executable verification before the scenario is covered.
+
+For scenarios that fake an external provider boundary, covered status also
+requires an explicit provider-contract verification target.  Provider fixtures
+must model a validated real/provider contract shape rather than a reduced
+payload invented to satisfy the implementation.
+
+These are closure gates, not documentation suggestions.  The registry tests
+must fail when acceptance verification is missing, a stateful lifecycle
+dimension references no verified requirement, or a covered provider scenario
+has no provider-contract verifier.

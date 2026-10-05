@@ -35,6 +35,19 @@ def executable_static_paths(
   return result
 
 
+def verification_target_exists(target: str) -> bool:
+  if "::" not in target:
+    return False
+  path_text, symbol = target.split("::", 1)
+  path = ROOT / path_text
+  if not path.is_file():
+    return False
+  if symbol == "FILE_LEVEL_COVERAGE":
+    return False
+  method = symbol.rsplit(".", 1)[-1]
+  return f"def {method}(" in path.read_text(encoding="utf-8")
+
+
 class FirstUseWorkflowRegistryTests(unittest.TestCase):
   def registry(self) -> dict:
     return json.loads(REGISTRY.read_text(encoding="utf-8"))
@@ -102,6 +115,82 @@ class FirstUseWorkflowRegistryTests(unittest.TestCase):
         else:
           self.assertIsInstance(scenario.get("gap_issue"), int)
           self.assertGreater(scenario["gap_issue"], 0)
+
+  def test_covered_scenarios_trace_each_acceptance_requirement_to_tests(self):
+    value = self.registry()
+    for scenario in value["scenarios"]:
+      acceptance = scenario.get("acceptance", [])
+      self.assertTrue(
+        acceptance,
+        f"{scenario['id']} has no acceptance traceability matrix",
+      )
+      ids = [item.get("id") for item in acceptance]
+      self.assertEqual(
+        len(ids),
+        len(set(ids)),
+        f"{scenario['id']} has duplicate acceptance IDs",
+      )
+      for item in acceptance:
+        with self.subTest(scenario=scenario["id"], acceptance=item.get("id")):
+          self.assertIsInstance(item.get("requirement"), str)
+          self.assertTrue(item["requirement"].strip())
+          verification = item.get("verification")
+          deferred = item.get("deferred_issue")
+          self.assertNotEqual(
+            bool(verification),
+            bool(deferred),
+            "acceptance item must have exactly one of verification/deferred_issue",
+          )
+          if scenario["status"] == "covered":
+            self.assertTrue(
+              verification,
+              f"covered scenario {scenario['id']} defers {item['id']}",
+            )
+          if verification:
+            for target in verification:
+              self.assertTrue(
+                verification_target_exists(target),
+                f"missing executable verification target: {target}",
+              )
+          else:
+            self.assertIsInstance(deferred, int)
+            self.assertGreater(deferred, 0)
+
+  def test_covered_stateful_scenarios_trace_lifecycle_dimensions(self):
+    value = self.registry()
+    for scenario in value["scenarios"]:
+      if scenario["status"] != "covered" or not scenario.get("stateful"):
+        continue
+      acceptance_ids = {item["id"] for item in scenario["acceptance"]}
+      dimensions = scenario.get("lifecycle_dimensions")
+      self.assertIsInstance(
+        dimensions,
+        dict,
+        f"{scenario['id']} lacks lifecycle dimensions",
+      )
+      self.assertTrue(dimensions, f"{scenario['id']} has empty lifecycle dimensions")
+      unknown = set(dimensions.values()) - acceptance_ids
+      self.assertEqual(
+        unknown,
+        set(),
+        f"{scenario['id']} lifecycle dimensions reference unknown acceptance IDs",
+      )
+
+  def test_covered_provider_scenarios_verify_external_contract_fidelity(self):
+    value = self.registry()
+    for scenario in value["scenarios"]:
+      if scenario["status"] != "covered" or not scenario.get("provider_boundary"):
+        continue
+      targets = scenario.get("provider_contract_verification", [])
+      self.assertTrue(
+        targets,
+        f"{scenario['id']} lacks provider contract verification",
+      )
+      for target in targets:
+        self.assertTrue(
+          verification_target_exists(target),
+          f"missing provider contract verifier: {target}",
+        )
 
   def test_audit_row_count_matches_registry_snapshot(self):
     value = self.registry()

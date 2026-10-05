@@ -2,7 +2,7 @@
 
 Status: repository-wide audit required by #303.
 
-This audit covers **all 184 GitHub issues** present when regenerated
+This audit covers **all 187 GitHub issues** present when regenerated
 through GitHub issue search (pull requests excluded).  Tickets are classified by
 their own title/scope first; cross-cutting historical umbrellas use explicit
 family overrides where a keyword-only classification would be misleading.
@@ -19,7 +19,7 @@ public boundary.
 | FU-BOOTSTRAP-HELP | covered | #299 / tests/test_bootstrap_cli.py |
 | FU-ISSUE-READ | covered | #298-#301 / #312 |
 | FU-INIT | pending | #27 |
-| FU-DEPS-LANES | covered | #305 / tests/test_first_use_lanes.py |
+| FU-DEPS-LANES | gap | #305 partial-graph repair; #321 data migration |
 | FU-SESSION | covered | #306 / tests/test_first_use_lanes.py |
 | FU-PUBLIC-ERRORS | covered | #307 / tests/test_bootstrap_cli.py |
 | FU-WORK | gap | #308 |
@@ -218,6 +218,10 @@ not complete and its first-use test is part of completion.
 | #311 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #312 | open | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #313 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
+
+| #318 | closed | public first-use contributor | dependency-sync | FU-DEPS-LANES gap #321 |
+| #320 | open | internal policy/audit | audit/meta | acceptance/lifecycle/provider-fidelity gate |
+| #321 | open | public first-use owner | dependency-sync | FU-DEPS-LANES gap #321 |
 
 ## Closure rule
 
