@@ -224,6 +224,11 @@ def _handle_lanes(
         runtime_writer_identity(),
         diagnostics=diagnostics,
       )
+    else:
+      selection = LaneSelectionStore(root).read().value
+      if selection is not None:
+        diagnostics.hit("relationships", len(selection.closure))
+        diagnostics.hit("metadata", len(selection.closure))
 
     started = time.perf_counter()
     if words[1] == "list":
