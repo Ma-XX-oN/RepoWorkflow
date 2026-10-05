@@ -162,6 +162,63 @@ class BootstrapCliTests(unittest.TestCase):
       )
       self.assertNotIn("invalid issue state", pull_request.stderr)
 
+  def test_expected_public_precondition_failures_never_traceback(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      identity = dict(os.environ)
+      identity["RWF_WRITER_ID"] = "human"
+      identity["RWF_SESSION_ID"] = "session"
+
+      cases = [
+        (
+          ("lanes", "select", "206"),
+          identity,
+          "canonical relationship graph is not initialized",
+        ),
+        (
+          ("lanes", "list"),
+          None,
+          "lane selection is missing",
+        ),
+        (
+          ("lanes", "clear"),
+          identity,
+          "lane selection is missing",
+        ),
+        (
+          ("workspace", "create", "140"),
+          None,
+          "has no registered canonical relationships",
+        ),
+        (
+          ("workspace", "info"),
+          None,
+          "workspace must be specified",
+        ),
+        (
+          ("settings", "color", "auto"),
+          None,
+          "missing required runtime identity input",
+        ),
+        (
+          ("issue", "select", "dependency", "from-tickets"),
+          None,
+          "current-work",
+        ),
+      ]
+      for words, env, message in cases:
+        with self.subTest(words=words):
+          completed = self.run_cli(root, *words, env=env)
+          self.assertEqual(completed.returncode, 2, completed.stderr)
+          self.assertTrue(
+            completed.stderr.startswith("RepoWorkflow error:"),
+            completed.stderr,
+          )
+          self.assertIn(message, completed.stderr)
+          self.assertNotIn("Traceback (most recent call last)", completed.stderr)
+
   def test_read_only_issue_queries_do_not_require_workflow_configuration(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .git import git
 from .lane_decomposition import LanePlan, decompose_lanes
-from .relationship_store import RelationshipStore
+from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
 
@@ -116,7 +116,7 @@ class LaneSelectionStore:
       "schema_version": SCHEMA_VERSION,
       "roots": [],
       "closure": [],
-      "graph_revision": RelationshipStore(self.root).read().revision,
+      "graph_revision": self._graph_revision(),
       "assignment": {},
     }
     try:
@@ -129,6 +129,16 @@ class LaneSelectionStore:
     except StateStoreError as error:
       raise LaneSelectionError(str(error)) from error
     return LaneSelectionSnapshot(None, record["revision"])
+
+  def _graph_revision(self) -> int:
+    try:
+      return RelationshipStore(self.root).read().revision
+    except RelationshipStoreError as error:
+      if "record is missing:" in str(error):
+        raise LaneSelectionError(
+          "canonical relationship graph is not initialized"
+        ) from error
+      raise LaneSelectionError(str(error)) from error
 
   def _expected(self, expected_revision: int) -> LaneSelectionSnapshot:
     current = self.read()
@@ -147,7 +157,14 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     expected_revision: int | None,
   ) -> LaneSelectionSnapshot:
-    graph = RelationshipStore(self.root).read()
+    try:
+      graph = RelationshipStore(self.root).read()
+    except RelationshipStoreError as error:
+      if "record is missing:" in str(error):
+        raise LaneSelectionError(
+          "canonical relationship graph is not initialized"
+        ) from error
+      raise LaneSelectionError(str(error)) from error
     plan = decompose_lanes(graph.graph, roots)
     value = _from_plan(plan, graph.revision)
     current = self.read()

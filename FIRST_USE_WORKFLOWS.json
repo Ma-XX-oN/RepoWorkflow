@@ -35,8 +35,7 @@
         "tests/test_bootstrap_cli.py",
         "tests/test_issue_info_cli.py",
         "tests/test_issue_list.py"
-      ],
-      "follow_up_issue": 312
+      ]
     },
     {
       "id": "FU-INIT",
@@ -82,7 +81,7 @@
     },
     {
       "id": "FU-PUBLIC-ERRORS",
-      "status": "gap",
+      "status": "covered",
       "scope": [
         "expected missing/precondition states through public commands"
       ],
@@ -90,7 +89,9 @@
       "prohibited_shortcuts": [
         "asserting only internal exception types"
       ],
-      "gap_issue": 307
+      "tests": [
+        "tests/test_bootstrap_cli.py"
+      ]
     },
     {
       "id": "FU-WORK",
