@@ -73,6 +73,7 @@ class PublicBashInitTests(unittest.TestCase):
       ).stdout
 
       self.assertEqual(completed.returncode, 0, completed.stderr)
+      self.assertEqual(completed.stderr, "")
       self.assertNotIn("repoworkflow.json", completed.stderr)
       self.assertIn(root.resolve().as_posix(), completed.stdout)
       self.assertNotIn(nested.resolve().as_posix(), completed.stdout)
