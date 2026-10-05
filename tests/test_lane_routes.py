@@ -122,6 +122,38 @@ class LaneRouteTests(unittest.TestCase):
       {("1", "2"), ("1", "3"), ("2", "4"), ("3", "4")},
     )
 
+  def test_nested_long_bypasses_get_distinct_tracks(self):
+    issues = ("77", "78", "99", "100")
+    dependencies = {
+      "77": (),
+      "78": ("77",),
+      "99": ("78",),
+      "100": ("77", "78", "99"),
+    }
+    depths = {"77": 0, "78": 1, "99": 2, "100": 3}
+    starts, widths, labels = self.layout(issues, depths)
+
+    plan = plan_routes(
+      self.selection(issues),
+      dependencies,
+      depths,
+      starts,
+      widths,
+      labels,
+    )
+    bypasses = [
+      route
+      for route in plan.routes
+      if route.kind.startswith("bypass[")
+    ]
+    self.assertEqual(
+      {(route.source, route.target) for route in bypasses},
+      {("77", "100"), ("78", "100")},
+    )
+    tracks = [route.track_y for route in bypasses]
+    self.assertEqual(len(tracks), len(set(tracks)))
+    self.assertTrue(all(track is not None for track in tracks))
+
   def test_unrelated_route_crossing_is_not_rendered_as_junction(self):
     self.assertEqual(
       render_route_cell({
