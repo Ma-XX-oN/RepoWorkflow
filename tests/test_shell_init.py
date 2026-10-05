@@ -685,6 +685,38 @@ class BashInitTests(unittest.TestCase):
     self.assertNotIn("old-repo", result.stdout)
     self.assertGreaterEqual(result.stdout.splitlines().count("lanes"), 2)
 
+
+  def test_activation_replaces_each_owned_alias_independently(self):
+    output = render_bash_init(ROOT, ROOT)
+    with tempfile.TemporaryDirectory() as td:
+      path = Path(td) / "init.bash"
+      path.write_text(output, encoding="utf-8")
+      for name in ("rwf", "repo-workflow"):
+        with self.subTest(name=name):
+          result = subprocess.run(
+            [
+              bash_executable(),
+              "-c",
+              (
+                'shopt -s expand_aliases; '
+                f'alias {name}="printf old"; '
+                'source "$1"; '
+                'type -t rwf; type -t repo-workflow'
+              ),
+              "bash",
+              bash_source_path(path),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+          )
+          self.assertEqual(result.returncode, 0, result.stderr)
+          self.assertEqual(
+            result.stdout.splitlines()[-2:],
+            ["function", "function"],
+          )
+
+
   def test_activation_and_completion_work_with_strict_shell_options(self):
     output = render_bash_init(ROOT, ROOT)
     with tempfile.TemporaryDirectory() as td:
