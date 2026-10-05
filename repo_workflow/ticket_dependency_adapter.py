@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 from .git import changed_files, repository_state
 from .process import run_command
+from .repo_info_adapter import _github_repository
 
 
 class TicketDependencyError(RuntimeError):
@@ -29,6 +31,56 @@ def _normalize_dependencies(value: Any) -> tuple[int, ...]:
       "ticket dependency adapter returned unsorted or duplicate dependencies"
     )
   return dependencies
+
+
+def resolve_dependency_config(
+  root: Path,
+  config: dict | None = None,
+) -> dict:
+  if config is None:
+    config_path = root / ".ci" / "repoworkflow.json"
+    if config_path.exists():
+      from .config import load_config
+      config = load_config(root)
+
+  if config is not None and config.get("dependencyCommand"):
+    return config
+
+  remotes = run_command(["git", "remote"], root)
+  if remotes.returncode:
+    raise TicketDependencyError(
+      "cannot discover ticket dependency provider from Git remotes"
+    )
+  repositories: set[str] = set()
+  for remote in remotes.stdout.splitlines():
+    name = remote.strip()
+    if not name:
+      continue
+    value = run_command(["git", "remote", "get-url", name], root)
+    if value.returncode:
+      raise TicketDependencyError(f"cannot read Git remote URL for {name}")
+    repository = _github_repository(value.stdout.strip())
+    if repository is not None:
+      repositories.add(repository)
+
+  if not repositories:
+    raise TicketDependencyError(
+      "ticket dependency adapter is not configured and no GitHub remote "
+      "could be discovered"
+    )
+  if len(repositories) != 1:
+    raise TicketDependencyError(
+      "ticket dependency provider discovery is ambiguous"
+    )
+
+  adapter = (
+    Path(__file__).resolve().parents[1]
+    / "scripts"
+    / "github-ticket-dependencies.py"
+  )
+  return {
+    "dependencyCommand": [sys.executable, str(adapter)],
+  }
 
 
 def _invoke(root: Path, config: dict, arguments: list[str]) -> Any:
