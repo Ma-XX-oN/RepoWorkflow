@@ -1,8 +1,14 @@
-#!/usr/bin/env python3
-from pathlib import Path
-import os
-import sys
+#!/bin/sh
+# RWF needs Python 3, but the executable name is platform-dependent.
+# Probe candidates rather than trusting command presence: on Windows, python3
+# may be a Microsoft Store app-execution alias that exists but is unusable.
+for RWF_PYTHON in python3 python; do
+  if command -v "$RWF_PYTHON" >/dev/null 2>&1 &&
+      "$RWF_PYTHON" -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' \
+        >/dev/null 2>&1; then
+    exec "$RWF_PYTHON" "$(dirname "$0")/repo_workflow.py" "$@"
+  fi
+done
 
-
-script = Path(__file__).resolve().with_name("repo_workflow.py")
-os.execv(sys.executable, [sys.executable, str(script), *sys.argv[1:]])
+echo "rwf: Python 3 is required; install Python 3 and ensure 'python3' or 'python' is on PATH." >&2
+exit 127
