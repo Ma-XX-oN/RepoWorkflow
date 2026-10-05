@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .lane_diagnostics import LaneDiagnostics
 from .issue_metadata import (
   IssueMetadataError,
   IssueMetadataStore,
@@ -24,6 +25,7 @@ def ensure_lane_metadata(
   writer: WriterIdentity,
   *,
   refresh: bool = False,
+  diagnostics: LaneDiagnostics | None = None,
 ) -> MetadataAcquisition:
   normalized = tuple(sorted({int(value) for value in issues}))
   try:
@@ -43,13 +45,28 @@ def ensure_lane_metadata(
       if number not in current or not current[number].display_complete
     )
 
+  if diagnostics is not None:
+    diagnostics.hit("metadata", len(normalized) - len(scope))
+    diagnostics.miss("metadata", len(scope))
+
   if scope:
-    refresh_issue_metadata(
-      root,
-      resolve_info_config(root),
-      writer,
-      scope,
-    )
+    config = resolve_info_config(root)
+    if diagnostics is None:
+      refresh_issue_metadata(root, config, writer, scope)
+    else:
+      for index, number in enumerate(scope, start=1):
+        diagnostics.provider(
+          "metadata",
+          number,
+          lambda number=number: refresh_issue_metadata(
+            root,
+            config,
+            writer,
+            (number,),
+          ),
+          index=index,
+          total=len(scope),
+        )
 
   return MetadataAcquisition(
     issues=normalized,
