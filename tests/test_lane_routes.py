@@ -95,6 +95,51 @@ class LaneRouteTests(unittest.TestCase):
     self.assertEqual(actual, expected)
     self.assertEqual(len(actual), len(set(actual)))
 
+  def test_single_semantic_edge_has_exactly_one_route(self):
+    issues = ("1", "2")
+    dependencies = {
+      "1": (),
+      "2": ("1",),
+    }
+    depths = {"1": 0, "2": 1}
+    starts, widths, labels = self.layout(issues, depths)
+
+    plan = plan_routes(
+      self.selection(issues),
+      dependencies,
+      depths,
+      starts,
+      widths,
+      labels,
+    )
+
+    self.assertEqual(
+      [(route.source, route.target) for route in plan.routes],
+      [("1", "2")],
+    )
+
+  def test_missing_dependency_source_fails_explicitly(self):
+    issues = ("1", "2")
+    dependencies = {
+      "1": (),
+      "2": ("999",),
+    }
+    depths = {"1": 0, "2": 1}
+    starts, widths, labels = self.layout(issues, depths)
+
+    with self.assertRaisesRegex(
+      AssertionError,
+      r"dependency source 999 for target 2 is not in the visible graph",
+    ):
+      plan_routes(
+        self.selection(issues),
+        dependencies,
+        depths,
+        starts,
+        widths,
+        labels,
+      )
+
   def test_fan_in_and_fan_out_keep_all_edge_identities(self):
     issues = ("1", "2", "3", "4")
     dependencies = {
