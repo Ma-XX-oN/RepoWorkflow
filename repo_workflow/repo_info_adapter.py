@@ -85,7 +85,7 @@ def issue_info(root: Path, config: dict, issue_number: int) -> dict[str, Any]:
   requested = _positive_integer(issue_number, "requested issue number")
   value = _exact_object(
     _invoke(root, config, ["issue", "get", str(requested)]),
-    {"schema_version", "number", "title", "state"},
+    {"schema_version", "number", "title", "state", "link"},
     "issue result",
   )
   _schema(value, "issue")
@@ -95,6 +95,9 @@ def issue_info(root: Path, config: dict, issue_number: int) -> dict[str, Any]:
       "repository information adapter returned the wrong issue number"
     )
   _nonempty_text(value["title"], "issue title")
+  link = _nonempty_text(value["link"], "issue link")
+  if not (link.startswith("https://") or link.startswith("http://")):
+    raise _fail("issue link")
   if not isinstance(value["state"], str) or value["state"] not in {"open", "closed"}:
     raise _fail("issue state")
   return value
