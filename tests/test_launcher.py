@@ -21,7 +21,7 @@ class LauncherTests(unittest.TestCase):
       env = os.environ.copy()
       env["PATH"] = f"{bindir}:/bin:/usr/bin"
       return subprocess.run(
-        ["/bin/sh", str(LAUNCHER), "--help"],
+        ["/bin/sh", str(LAUNCHER), "actions-policy", "--help"],
         cwd=ROOT,
         env=env,
         text=True,
@@ -35,7 +35,7 @@ class LauncherTests(unittest.TestCase):
       "exec /usr/bin/python3 \"$@\"",
     )
     self.assertEqual(result.returncode, 0, result.stderr)
-    self.assertIn("Usage:", result.stdout)
+    self.assertIn("usage:", result.stdout.lower())
 
   def test_rejects_non_python3_candidate_and_falls_back(self):
     result = self.run_launcher(
