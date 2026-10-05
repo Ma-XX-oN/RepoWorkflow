@@ -123,7 +123,10 @@ class IssueMetadataTests(unittest.TestCase):
     )
 
     self.assertEqual(second.revision, first.revision + 1)
-    self.assertEqual(second.issues[10].title, "Changed Ten")
+    self.assertEqual(
+      second.issues[10].title,
+      "Changed Ten",
+    )
     self.assertEqual(second.issues[20], first.issues[20])
 
   def test_scoped_refresh_rejects_issue_outside_canonical_graph(self):
