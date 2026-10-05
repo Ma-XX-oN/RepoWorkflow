@@ -234,12 +234,13 @@
         },
         {
           "id": "DL-14",
-          "requirement": "lanes list and lanes view read synchronized local metadata without provider access; explicit --refresh is the provider reread boundary",
+          "requirement": "lanes list/view consume synchronized local metadata without provider access after selection; list --refresh refreshes metadata only while view --refresh refreshes dependencies plus metadata",
           "verification": [
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_and_view_are_offline_until_explicit_refresh",
             "tests/test_lane_list.py::LaneListTests.test_list_groups_issues_by_lane_with_titles",
             "tests/test_lane_list.py::LaneListTests.test_links_are_optional",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_refresh_updates_cached_issue_metadata"
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_refresh_is_metadata_only_and_source_accurate",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_refresh_metadata_failure_rolls_back_all_semantic_state"
           ]
         },
         {
@@ -278,7 +279,9 @@
         "inspection_refresh_boundary": "DL-14",
         "provider_progress_and_diagnostics": "DL-15",
         "diagnostic_failure_record": "DL-15",
-        "debug_projection": "DL-15"
+        "debug_projection": "DL-15",
+        "list_metadata_only_refresh": "DL-14",
+        "list_refresh_failure_rollback": "DL-14"
       },
       "stateful": true,
       "provider_boundary": true,
