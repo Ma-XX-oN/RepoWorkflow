@@ -600,7 +600,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertGreaterEqual(len(records), 2)
       record = json.loads(records[-1].read_text(encoding="utf-8"))
       self.assertFalse(record["success"])
-      self.assertIn("provider unavailable", record["error"])
+      self.assertEqual(record["error"], "TicketDependencyError")
       self.assertGreaterEqual(record["provider_calls"]["dependencies"], 1)
 
   def test_repeated_selection_extends_existing_partial_graph(self):
