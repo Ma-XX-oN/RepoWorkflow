@@ -97,6 +97,12 @@ def _workspace_commands() -> dict:
 
 
 COMMANDS = {
+  "init": {
+    "": "Initialize RepoWorkflow in this repository",
+    "local-only": "Initialize clone-local RepoWorkflow state",
+    "bash": "Emit Bash shell initialization",
+    "zsh": "Emit Zsh shell initialization",
+  },
   "lanes": {
     "select": {
       "_variadic": {"min": 1, "description": "Issue roots"},
@@ -124,7 +130,13 @@ COMMANDS = {
         "from-tickets": {"": "Synchronize ticket dependencies to RWF", "--compare": "Compare without mutation", "--replace": "Replace conflicting RWF dependencies"},
       },
     },
+    "info": {
+      "": "List open issues",
+      "_values": _issue_number,
+    },
     "list": {
+      "": "List all open issues",
+      "--links": "List all open issues with links",
       "_variadic": {
         "min": 1,
         "description": "Issue IDs, optionally followed by --links",
