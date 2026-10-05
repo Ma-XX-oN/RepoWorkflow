@@ -193,12 +193,21 @@ class FirstUseLanesTests(unittest.TestCase):
 
       listed = self.run_rwf(root, env, "lanes", "list")
       self.assertEqual(listed.returncode, 0, listed.stderr)
-      self.assertIn("A.201", listed.stdout)
-      self.assertIn("A.203", listed.stdout)
-      self.assertIn("B.206", listed.stdout)
-      self.assertNotIn("Root 203", listed.stdout)
-      self.assertNotIn("Root 206", listed.stdout)
-      self.assertNotIn("Leaf 201", listed.stdout)
+      self.assertIn("Lane A", listed.stdout)
+      self.assertIn("#201  Leaf 201", listed.stdout)
+      self.assertIn("#203  Root 203", listed.stdout)
+      self.assertIn("Lane B", listed.stdout)
+      self.assertIn("#206  Root 206", listed.stdout)
+      self.assertNotIn("─", listed.stdout)
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A.203", viewed.stdout)
+      self.assertIn("B.206", viewed.stdout)
+      self.assertIn("─", viewed.stdout)
+      self.assertNotIn("Leaf 201", viewed.stdout)
+      self.assertNotIn("Root 203", viewed.stdout)
 
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
@@ -218,12 +227,17 @@ class FirstUseLanesTests(unittest.TestCase):
 
       listed = self.run_rwf(root, env, "lanes", "list")
       self.assertEqual(listed.returncode, 0, listed.stderr)
-      self.assertIn("A.201", listed.stdout)
-      self.assertIn("A.203", listed.stdout)
-      self.assertIn("B.206", listed.stdout)
-      self.assertNotIn("Leaf 201", listed.stdout)
-      self.assertNotIn("Root 203", listed.stdout)
-      self.assertNotIn("Root 206", listed.stdout)
+      self.assertIn("#201  Leaf 201", listed.stdout)
+      self.assertIn("#203  Root 203", listed.stdout)
+      self.assertIn("#206  Root 206", listed.stdout)
+      self.assertNotIn("─", listed.stdout)
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A.203", viewed.stdout)
+      self.assertNotIn("Leaf 201", viewed.stdout)
+      self.assertNotIn("Root 203", viewed.stdout)
 
   def test_repeated_selection_extends_existing_partial_graph(self):
     with tempfile.TemporaryDirectory() as td:
