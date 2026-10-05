@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 
+from repo_workflow.repo_info_adapter import RepoInfoError
 from repo_workflow.issue_metadata import (
   IssueMetadataError,
   IssueMetadataStore,
@@ -201,6 +202,34 @@ class IssueMetadataTests(unittest.TestCase):
         with self.assertRaises(ValueError):
           from repo_workflow.issue_metadata import _parse_snapshot
           _parse_snapshot(record["value"])
+
+  def test_failed_scoped_legacy_refresh_preserves_v1_snapshot(self):
+    durable_store(self.root).create(
+      "issues/metadata",
+      {
+        "schema_version": 1,
+        "issues": {
+          "10": {"number": 10, "title": "Ten"},
+          "20": {"number": 20, "title": "Twenty"},
+        },
+      },
+      WriterIdentity("legacy", "legacy"),
+    )
+    before = IssueMetadataStore(self.root).read()
+
+    with mock.patch(
+      "repo_workflow.issue_metadata.issue_info",
+      side_effect=RepoInfoError("provider unavailable"),
+    ):
+      with self.assertRaisesRegex(IssueMetadataError, "provider unavailable"):
+        refresh_issue_metadata(
+          self.root,
+          {},
+          self.writer,
+          (10,),
+        )
+
+    self.assertEqual(IssueMetadataStore(self.root).read(), before)
 
   def test_scoped_refresh_preserves_other_complete_records(self):
     first = refresh_issue_metadata(
