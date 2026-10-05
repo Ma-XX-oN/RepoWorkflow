@@ -127,11 +127,11 @@ class LaneRouteRenderTests(unittest.TestCase):
       {
         "1": relation(),
         "2": relation(1),
-        "10": relation(),
-        "11": relation(10),
-        "12": relation(11),
+        "30": relation(),
+        "40": relation(30),
+        "50": relation(40),
       },
-      (2, 12),
+      (2, 50),
     )
     self.addCleanup(temp.cleanup)
 
@@ -146,9 +146,9 @@ class LaneRouteRenderTests(unittest.TestCase):
         (item["source"], item["target"])
         for item in diagnostics.routed_edges
       },
-      {(1, 2), (10, 11), (11, 12)},
+      {(1, 2), (30, 40), (40, 50)},
     )
-    for issue in ("1", "2", "10", "11", "12"):
+    for issue in ("1", "2", "30", "40", "50"):
       self.assertEqual(rendered.count(f".{issue}"), 1)
 
 
