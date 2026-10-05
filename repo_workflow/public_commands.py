@@ -77,17 +77,24 @@ def _workspace_ids(context: Context) -> dict:
 
 
 def _workspace_value() -> dict:
-  return {"_values": _workspace_ids}
+  return {
+    "_values": _workspace_ids,
+    "_value_description": "Workspace ID",
+  }
 
 
 def _workspace_commands() -> dict:
   return {
     "ready": "Show canonical issue readiness and blockers",
     "list": "List local workspaces",
-    "create": {"_values": _issue_number},
+    "create": {
+      "_values": _issue_number,
+      "_value_description": "Issue number",
+    },
     "info": {
       "": "Show the current workspace",
       "_values": _workspace_ids,
+      "_value_description": "Workspace ID",
     },
     "claim": _workspace_value(),
     "release": _workspace_value(),
@@ -133,6 +140,7 @@ COMMANDS = {
     "info": {
       "": "List open issues",
       "_values": _issue_number,
+      "_value_description": "Issue number",
     },
     "list": {
       "": "List all open issues",
@@ -144,6 +152,7 @@ COMMANDS = {
     },
     "start": {
       "_values": _issue_number,
+      "_value_description": "Issue number",
     },
   },
   "workspace": _workspace_commands(),
@@ -160,6 +169,7 @@ COMMANDS = {
     "task": {
       "issue": {
         "_values": _issue_number,
+        "_value_description": "Issue number",
       },
     },
     "integrate": {
