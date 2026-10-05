@@ -23,6 +23,10 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
   if words[:2] != ["lanes", "select"]:
     raise ValueError("invalid lanes command")
   tail = words[2:]
+  as_json = "--json" in tail
+  tail = [word for word in tail if word != "--json"]
+  if not tail:
+    raise ValueError("lane selection requires at least one root")
   if tail[0] == "add":
     if current.revision is None:
       raise ValueError("lane selection is missing")
@@ -41,6 +45,9 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
     result = store.select(
       tuple(tail), writer, expected_revision=current.revision
     )
-  for line in render_lanes(root, titles=False):
-    print(line)
+  if as_json:
+    print(json.dumps(result.value.to_json_value(), separators=(",", ":")))
+  else:
+    for line in render_lanes(root, titles=False):
+      print(line)
   return 0
