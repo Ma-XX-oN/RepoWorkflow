@@ -59,8 +59,9 @@ class LaneSelectionStore:
       if "record is missing:" in str(error):
         return LaneSelectionSnapshot(None, None)
       raise LaneSelectionError(str(error)) from error
+    parsed = _selection(record["value"])
     return LaneSelectionSnapshot(
-      _selection(record["value"]),
+      None if not parsed.roots else parsed,
       record["revision"],
     )
 
@@ -111,11 +112,23 @@ class LaneSelectionStore:
     expected_revision: int,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
+    empty = {
+      "schema_version": SCHEMA_VERSION,
+      "roots": [],
+      "closure": [],
+      "graph_revision": RelationshipStore(self.root).read().revision,
+      "assignment": {},
+    }
     try:
-      self.records.delete(RECORD_KEY, expected_revision)
+      record = self.records.replace(
+        RECORD_KEY,
+        expected_revision,
+        empty,
+        WriterIdentity("rwf", "clear"),
+      )
     except StateStoreError as error:
       raise LaneSelectionError(str(error)) from error
-    return LaneSelectionSnapshot(None, None)
+    return LaneSelectionSnapshot(None, record["revision"])
 
   def _expected(self, expected_revision: int) -> LaneSelectionSnapshot:
     current = self.read()
