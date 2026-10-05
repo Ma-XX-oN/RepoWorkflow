@@ -80,10 +80,70 @@ class IssueMetadataTests(unittest.TestCase):
     )
 
     restarted = IssueMetadataStore(self.root)
-    self.assertEqual(restarted.issue(10).title, "Ten")
-    self.assertEqual(restarted.issue(20).title, "Twenty")
+    self.assertEqual(restarted.display_issue(10).title, "Ten")
+    self.assertEqual(restarted.display_issue(10).state, "open")
+    self.assertEqual(
+      restarted.display_issue(20).link,
+      "https://example.invalid/issues/20",
+    )
     value = restarted.read()
     self.assertEqual(set(value.issues), {10, 20})
+
+  def test_schema_v1_remains_title_readable_but_not_display_complete(self):
+    path = self.root / ".repoworkflow/state/issues/metadata.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+      json.dumps({
+        "schema_version": 1,
+        "revision": 0,
+        "writer_id": "legacy",
+        "session_id": "legacy",
+        "value": {
+          "schema_version": 1,
+          "issues": {
+            "10": {"number": 10, "title": "Ten"},
+          },
+        },
+      }),
+      encoding="utf-8",
+    )
+
+    store = IssueMetadataStore(self.root)
+    self.assertEqual(store.issue(10).title, "Ten")
+    with self.assertRaisesRegex(
+      IssueMetadataError,
+      "display metadata is incomplete",
+    ):
+      store.display_issue(10)
+
+  def test_scoped_refresh_preserves_other_complete_records(self):
+    first = refresh_issue_metadata(
+      self.root,
+      self.provider({10: "Ten", 20: "Twenty"}),
+      self.writer,
+    )
+    second = refresh_issue_metadata(
+      self.root,
+      self.provider({10: "Changed Ten", 20: "Ignored"}),
+      self.writer,
+      (10,),
+    )
+
+    self.assertEqual(second.revision, first.revision + 1)
+    self.assertEqual(second.display_issue(10).title if hasattr(second, "display_issue") else second.issues[10].title, "Changed Ten")
+    self.assertEqual(second.issues[20], first.issues[20])
+
+  def test_scoped_refresh_rejects_issue_outside_canonical_graph(self):
+    with self.assertRaisesRegex(
+      IssueMetadataError,
+      "outside canonical relationship graph",
+    ):
+      refresh_issue_metadata(
+        self.root,
+        self.provider({10: "Ten", 20: "Twenty", 99: "Ninety Nine"}),
+        self.writer,
+        (99,),
+      )
 
   def test_title_change_replaces_complete_snapshot(self):
     first = refresh_issue_metadata(
@@ -127,7 +187,10 @@ class IssueMetadataTests(unittest.TestCase):
       "repo_workflow.issue_metadata.issue_info",
       side_effect=AssertionError("provider touched during offline read"),
     ):
-      self.assertEqual(IssueMetadataStore(self.root).issue(20).title, "Twenty")
+      self.assertEqual(
+        IssueMetadataStore(self.root).display_issue(20).title,
+        "Twenty",
+      )
 
   def test_missing_local_metadata_fails_explicitly_without_provider(self):
     with mock.patch(
