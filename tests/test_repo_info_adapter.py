@@ -3,17 +3,85 @@ import json
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from repo_workflow.repo_info_adapter import (
   RepoInfoError,
+  _github_repository,
   issue_info,
   list_open_issues,
   repository_info,
+  resolve_info_config,
 )
 from tests.support import RepoFixture
 
 
 class RepoInfoAdapterTests(unittest.TestCase):
+
+  def test_github_remote_shapes_are_normalized(self):
+    self.assertEqual(
+      _github_repository("https://github.com/Ma-XX-oN/RepoWorkflow.git"),
+      "Ma-XX-oN/RepoWorkflow",
+    )
+    self.assertEqual(
+      _github_repository("git@github.com:Ma-XX-oN/RepoWorkflow.git"),
+      "Ma-XX-oN/RepoWorkflow",
+    )
+    self.assertIsNone(_github_repository("https://example.invalid/o/r.git"))
+
+  def test_configured_info_command_precedes_provider_discovery(self):
+    config = {"infoCommand": ["python", "repo-info.py"]}
+    with patch("repo_workflow.repo_info_adapter.run_command") as invoked:
+      self.assertIs(resolve_info_config(Path("."), config), config)
+      invoked.assert_not_called()
+
+  def test_github_remote_resolves_reusable_adapter_without_workflow_config(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      results = [
+        SimpleNamespace(returncode=0, stdout="origin\n", stderr=""),
+        SimpleNamespace(
+          returncode=0,
+          stdout="https://github.com/Ma-XX-oN/RepoWorkflow.git\n",
+          stderr="",
+        ),
+      ]
+      with patch(
+        "repo_workflow.repo_info_adapter.run_command",
+        side_effect=results,
+      ):
+        config = resolve_info_config(root)
+      command = config["infoCommand"]
+      self.assertEqual(command[-2:], ["--repository", "Ma-XX-oN/RepoWorkflow"])
+      self.assertTrue(command[1].endswith("adapters/repo-info-github.py"))
+
+  def test_provider_discovery_rejects_missing_and_ambiguous_github_remotes(self):
+    cases = [
+      (
+        [
+          SimpleNamespace(returncode=0, stdout="", stderr=""),
+        ],
+        "no GitHub remote",
+      ),
+      (
+        [
+          SimpleNamespace(returncode=0, stdout="one\ntwo\n", stderr=""),
+          SimpleNamespace(returncode=0, stdout="https://github.com/o/one.git\n", stderr=""),
+          SimpleNamespace(returncode=0, stdout="git@github.com:o/two.git\n", stderr=""),
+        ],
+        "ambiguous",
+      ),
+    ]
+    for results, message in cases:
+      with self.subTest(message=message), tempfile.TemporaryDirectory() as td:
+        with patch(
+          "repo_workflow.repo_info_adapter.run_command",
+          side_effect=results,
+        ):
+          with self.assertRaisesRegex(RepoInfoError, message):
+            resolve_info_config(Path(td))
+
   def fixture(self, root: Path, body: str) -> dict:
     RepoFixture(root)
     script = root / "scripts" / "info.py"

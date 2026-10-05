@@ -194,6 +194,60 @@ class CommandGrammarTests(unittest.TestCase):
     self.assertIn(LAST_TERMINAL, [item.token for item in items])
 
 
+  def test_help_projects_placeholder_for_dynamic_value_prefix(self):
+    commands = {
+      "issue": {
+        "_values": lambda context: {"completions": []},
+        "_value_description": "Issue number",
+      },
+    }
+    items = completion_items(
+      commands,
+      self.context,
+      ["issue", ""],
+      include_terminal=True,
+      describe=True,
+    )
+    self.assertEqual(
+      [(item.token, item.description) for item in items],
+      [("<value>", "Issue number")],
+    )
+
+  def test_normal_completion_does_not_invent_dynamic_value_placeholder(self):
+    commands = {
+      "issue": {
+        "_values": lambda context: {"completions": []},
+        "_value_description": "Issue number",
+      },
+    }
+    self.assertEqual(
+      completion_items(commands, self.context, ["issue", ""]),
+      [],
+    )
+
+  def test_executable_dynamic_value_help_has_terminal_and_placeholder(self):
+    commands = {
+      "issue": {
+        "": "List issues",
+        "_values": lambda context: {"completions": []},
+        "_value_description": "Issue number",
+      },
+    }
+    items = completion_items(
+      commands,
+      self.context,
+      ["issue", ""],
+      include_terminal=True,
+      describe=True,
+    )
+    self.assertEqual(
+      [(item.token, item.description) for item in items],
+      [
+        ("<last-terminal>", "List issues"),
+        ("<value>", "Issue number"),
+      ],
+    )
+
   def test_variadic_tail_preserves_one_or_many_arguments(self):
     commands = {"tests": {"_variadic": {"min": 1, "description": "Git review"}}}
     self.assertEqual(parse_tokens(commands, self.context, ["tests", "diff"]), ("tests", "diff"))

@@ -8,6 +8,7 @@ from typing import Callable, Iterable, TypeAlias
 LAST_TERMINAL = "<last-terminal>"
 TERMINAL = ""
 VALUES = "_values"
+VALUE_DESCRIPTION = "_value_description"
 COMPLETIONS = "completions"
 ON_TAB = "on-tab"
 VARIADIC = "_variadic"
@@ -127,6 +128,9 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
     if token == VALUES:
       _validate_value_source(entry, f"{label}[{VALUES!r}]")
       continue
+    if token == VALUE_DESCRIPTION:
+      _validate_description(entry, f"{label}[{VALUE_DESCRIPTION!r}]")
+      continue
     if token == VARIADIC:
       if not isinstance(entry, dict) or set(entry) != {"min", "description"}:
         raise CommandGrammarError(f"{label}[{VARIADIC!r}] must define min and description")
@@ -225,7 +229,7 @@ def _resolved_node(
   entries = {
     token: entry
     for token, entry in node.items()
-    if token not in {TERMINAL, VALUES, VARIADIC}
+    if token not in {TERMINAL, VALUES, VALUE_DESCRIPTION, VARIADIC}
   }
   spec = completion_spec(node, context)
   overlap = set(entries) & set(spec.entries)
@@ -316,10 +320,23 @@ def completion_response(
   if (
     include_terminal
     and TERMINAL in node
-    and (entries or values)
+    and (
+      entries
+      or values
+      or (VALUES in node and VALUE_DESCRIPTION in node)
+    )
     and LAST_TERMINAL.startswith(prefix)
   ):
     result.append(Completion(LAST_TERMINAL, node[TERMINAL]))
+
+  if (
+    include_terminal
+    and VALUES in node
+    and VALUE_DESCRIPTION in node
+    and not values
+    and "<value>".startswith(prefix)
+  ):
+    result.append(Completion("<value>", node[VALUE_DESCRIPTION], True))
 
   for token, entry in entries.items():
     if token.startswith(prefix):

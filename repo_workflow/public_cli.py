@@ -14,6 +14,7 @@ from .command_grammar import (
 )
 from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
+from .issue_info_cli import show_issue_info
 from .issue_list import list_issues
 from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
@@ -27,11 +28,15 @@ from .workspace_cli import handle_workspace
 
 
 def _contexts(root: Path):
+  general = Context(root, legal_only=False)
+  if not (root / ".ci" / "repoworkflow.json").exists():
+    return general, general, None, None, None
+
   facts = discover_facts(root)
   plan = derive_plan(facts)
   state = state_name(facts)
   return (
-    Context(root, legal_only=False),
+    general,
     Context(root, legal_only=True),
     facts,
     plan,
@@ -53,7 +58,7 @@ def _diagnose(
     legal,
     completion=completion,
     state_name=state,
-    legal_transitions=plan.transitions,
+    legal_transitions=() if plan is None else plan.transitions,
   )
   return general, legal, facts, plan, state, failure
 
@@ -93,6 +98,13 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   parse_tokens(COMMANDS, legal, words)
 
   command = words[0]
+  if command == "init":
+    print(
+      "RepoWorkflow error: rwf init execution is not implemented yet.",
+      file=sys.stderr,
+    )
+    return 2
+
   if command == "workspace":
     return handle_workspace(root, words)
 
@@ -113,6 +125,11 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   if command == "issue":
     if words[1] == "select":
       return dependency_sync_command(root, words[2:])
+    if words[1] == "info":
+      argument = words[2] if len(words) == 3 else None
+      for line in show_issue_info(root, argument):
+        print(line)
+      return 0
     if words[1] == "list":
       for line in list_issues(root, words[2:]):
         print(line)
@@ -122,6 +139,10 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   if command == "what-next":
+    if plan is None or state is None:
+      facts = discover_facts(root)
+      plan = derive_plan(facts)
+      state = state_name(facts)
     if words == ["what-next", "--json"]:
       print(json.dumps(plan.to_json_value(), separators=(",", ":")))
     else:

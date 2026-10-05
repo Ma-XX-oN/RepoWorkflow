@@ -1,0 +1,167 @@
+from pathlib import Path
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+from repo_workflow.public_commands import COMMANDS
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CLI = ROOT / "repo_workflow.py"
+
+
+def static_prefixes(node: dict, prefix: tuple[str, ...] = ()):
+  for token, value in node.items():
+    if not token or token.startswith("_"):
+      continue
+    current = (*prefix, token)
+    yield current
+    if isinstance(value, dict):
+      yield from static_prefixes(value, current)
+
+
+class BootstrapCliTests(unittest.TestCase):
+  def make_repo(self, root: Path) -> None:
+    subprocess.run(
+      ["git", "init", "-b", "main"],
+      cwd=root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+    subprocess.run(
+      ["git", "config", "user.name", "Test"],
+      cwd=root,
+      check=True,
+    )
+    subprocess.run(
+      ["git", "config", "user.email", "test@example.invalid"],
+      cwd=root,
+      check=True,
+    )
+    subprocess.run(
+      ["git", "commit", "--allow-empty", "-m", "initial"],
+      cwd=root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+
+  def run_cli(self, root: Path, *args: str, env=None):
+    return subprocess.run(
+      [sys.executable, str(CLI), "--root", str(root), *args],
+      capture_output=True,
+      text=True,
+      env=env,
+    )
+
+  def test_every_static_public_prefix_help_is_configuration_independent(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      prefixes = [(), *static_prefixes(COMMANDS)]
+      prefixes.append(("validate", "integration"))
+      for prefix in prefixes:
+        with self.subTest(prefix=prefix):
+          completed = self.run_cli(root, *prefix, "--help")
+          self.assertEqual(completed.returncode, 0, completed.stderr)
+          self.assertNotIn("repoworkflow.json", completed.stderr)
+          self.assertNotIn("missing RepoWorkflow configuration", completed.stderr)
+
+  def test_invalid_syntax_is_reported_before_missing_configuration(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      for args in [("frobnicate",), ("issue", "frobnicate")]:
+        with self.subTest(args=args):
+          completed = self.run_cli(root, *args)
+          self.assertEqual(completed.returncode, 2)
+          self.assertIn("unrecognised command", completed.stderr)
+          self.assertNotIn("repoworkflow.json", completed.stderr)
+
+  def test_configuration_required_command_loads_config_after_parse(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      completed = self.run_cli(root, "version")
+      self.assertEqual(completed.returncode, 2)
+      self.assertIn("missing RepoWorkflow configuration", completed.stderr)
+      self.assertNotIn("unrecognised command", completed.stderr)
+
+  def test_read_only_queries_run_through_discovered_github_adapter(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      subprocess.run(
+        [
+          "git",
+          "remote",
+          "add",
+          "origin",
+          "https://github.com/Ma-XX-oN/RepoWorkflow.git",
+        ],
+        cwd=root,
+        check=True,
+      )
+
+      bin_dir = base / "bin"
+      bin_dir.mkdir()
+      gh = bin_dir / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "args = sys.argv[1:]\n"
+        "if args[:2] == ['issue', 'list']:\n"
+        "  print(json.dumps([{'number': 297, 'title': 'Bootstrap help'}]))\n"
+        "elif args[:2] == ['issue', 'view']:\n"
+        "  number = int(args[2])\n"
+        "  print(json.dumps({'number': number, 'title': 'Bootstrap help', "
+        "'state': 'OPEN', 'url': "
+        "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
+        "else:\n"
+        "  print('unexpected gh arguments: ' + repr(args), file=sys.stderr)\n"
+        "  raise SystemExit(2)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+      env = dict(os.environ)
+      env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+
+      listed = self.run_cli(root, "issue", "list", env=env)
+      self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertEqual(listed.stdout.strip(), "#297  Bootstrap help")
+
+      info = self.run_cli(root, "issue", "info", "297", env=env)
+      self.assertEqual(info.returncode, 0, info.stderr)
+      self.assertEqual(
+        info.stdout.strip(),
+        "#297  Bootstrap help  open  "
+        "https://github.com/Ma-XX-oN/RepoWorkflow/issues/297",
+      )
+
+  def test_read_only_issue_queries_do_not_require_workflow_configuration(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      for args in [("issue", "list"), ("issue", "info", "297")]:
+        with self.subTest(args=args):
+          completed = self.run_cli(root, *args)
+          self.assertEqual(completed.returncode, 2)
+          self.assertIn("no GitHub remote could be discovered", completed.stderr)
+          self.assertNotIn("repoworkflow.json", completed.stderr)
+
+
+if __name__ == "__main__":
+  unittest.main()

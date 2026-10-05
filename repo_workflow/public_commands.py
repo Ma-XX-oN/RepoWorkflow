@@ -77,17 +77,24 @@ def _workspace_ids(context: Context) -> dict:
 
 
 def _workspace_value() -> dict:
-  return {"_values": _workspace_ids}
+  return {
+    "_values": _workspace_ids,
+    "_value_description": "Workspace ID",
+  }
 
 
 def _workspace_commands() -> dict:
   return {
     "ready": "Show canonical issue readiness and blockers",
     "list": "List local workspaces",
-    "create": {"_values": _issue_number},
+    "create": {
+      "_values": _issue_number,
+      "_value_description": "Issue number",
+    },
     "info": {
       "": "Show the current workspace",
       "_values": _workspace_ids,
+      "_value_description": "Workspace ID",
     },
     "claim": _workspace_value(),
     "release": _workspace_value(),
@@ -97,6 +104,12 @@ def _workspace_commands() -> dict:
 
 
 COMMANDS = {
+  "init": {
+    "": "Initialize RepoWorkflow in this repository",
+    "local-only": "Initialize clone-local RepoWorkflow state",
+    "bash": "Emit Bash shell initialization",
+    "zsh": "Emit Zsh shell initialization",
+  },
   "lanes": {
     "select": {
       "_variadic": {"min": 1, "description": "Issue roots"},
@@ -124,7 +137,14 @@ COMMANDS = {
         "from-tickets": {"": "Synchronize ticket dependencies to RWF", "--compare": "Compare without mutation", "--replace": "Replace conflicting RWF dependencies"},
       },
     },
+    "info": {
+      "": "List open issues",
+      "_values": _issue_number,
+      "_value_description": "Issue number",
+    },
     "list": {
+      "": "List all open issues",
+      "--links": "List all open issues with links",
       "_variadic": {
         "min": 1,
         "description": "Issue IDs, optionally followed by --links",
@@ -132,6 +152,7 @@ COMMANDS = {
     },
     "start": {
       "_values": _issue_number,
+      "_value_description": "Issue number",
     },
   },
   "workspace": _workspace_commands(),
@@ -148,6 +169,7 @@ COMMANDS = {
     "task": {
       "issue": {
         "_values": _issue_number,
+        "_value_description": "Issue number",
       },
     },
     "integrate": {
