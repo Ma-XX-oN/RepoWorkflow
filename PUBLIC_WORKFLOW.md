@@ -233,8 +233,10 @@ rwf lanes select <roots...>
 rwf lanes list
 ```
 
-Selection mutations and `lanes list` render the leaf-to-root graph; machine
-consumers use `--json`.  Display rules are in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
+Selection mutations and lane inspection use the local canonical graph by
+default; `--refresh` explicitly rereads the relevant provider closure.  Cache
+and refresh rules are in [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md).
+Display rules are in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
 validates it, and creates the canonical RWF graph before decomposition.
