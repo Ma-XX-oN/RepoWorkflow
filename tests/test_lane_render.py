@@ -19,6 +19,11 @@ def relation(*deps: int) -> IssueRelationships:
   return IssueRelationships(None, (), tuple(str(x) for x in deps), (), None)
 
 
+def _strip_ansi(value: str) -> str:
+  import re
+  return re.sub(r"\x1b\\[[0-9;]*m", "", value)
+
+
 class LaneRenderTests(unittest.TestCase):
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
@@ -53,11 +58,57 @@ class LaneRenderTests(unittest.TestCase):
   def test_annotations_touch_identifier_and_decimal_align(self, info, _config):
     info.side_effect = self.info
     lines = render_lanes(self.root)
-    self.assertEqual(lines, (
-      " ✓A.  9  Issue 9",
-      "*✓A.107  Issue 107",
-      "B.54  Issue 54",
-    ))
+    line_9 = next(line for line in lines if "A. 9" in line)
+    line_54 = next(line for line in lines if "B.54" in line)
+    self.assertEqual(line_9.index("."), line_54.index("."))
+    self.assertIn("✓A. 9", line_9)
+    self.assertIn(" B.54", line_54)
+    self.assertTrue(any("*✓A.107" in line for line in lines))
+    graph = "\n".join(lines)
+    self.assertIn("─", graph)
+    self.assertTrue(any(char in graph for char in "┬┐┴┘├┤┼"))
+
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
+  @patch("repo_workflow.lane_render.issue_info")
+  def test_independent_roots_match_compact_alignment_contract(self, info, _config):
+    graph_store = RelationshipStore(self.root)
+    graph = graph_store.read()
+    graph_store.replace(
+      graph.revision,
+      RelationshipGraph(issues={
+        "63": relation(),
+        "65": relation(),
+      }),
+      self.writer,
+    )
+    selection_store = LaneSelectionStore(self.root)
+    selection = selection_store.read()
+    selection_store.select(
+      (63, 65),
+      self.writer,
+      expected_revision=selection.revision,
+    )
+
+    def independent_info(_root, _config, number):
+      return {
+        "schema_version": 1,
+        "number": number,
+        "title": {
+          63: "Define portable repo-info read contract",
+          65: "Define provider-neutral repo-ci contract",
+        }[number],
+        "state": "closed" if number == 63 else "open",
+        "link": f"https://example.invalid/issues/{number}",
+      }
+
+    info.side_effect = independent_info
+    self.assertEqual(
+      render_lanes(self.root),
+      (
+        "*✓A.63  Define portable repo-info read contract",
+        " *B.65  Define provider-neutral repo-ci contract",
+      ),
+    )
 
   @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
@@ -80,6 +131,22 @@ class LaneRenderTests(unittest.TestCase):
     self.assertEqual(color_setting(self.root), "never")
     self.assertEqual(set_color_setting(self.root, "always", self.writer), "always")
     self.assertEqual(color_setting(self.root), "always")
+
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
+  @patch("repo_workflow.lane_render.issue_info")
+  def test_color_setting_controls_rendered_lane_tokens(self, info, _config):
+    info.side_effect = self.info
+    set_color_setting(self.root, "never", self.writer)
+    plain = render_lanes(self.root)
+    self.assertTrue(all("\x1b[" not in line for line in plain))
+
+    set_color_setting(self.root, "always", self.writer)
+    colored = render_lanes(self.root)
+    self.assertTrue(any("\x1b[" in line for line in colored))
+    self.assertEqual(
+      tuple(_strip_ansi(line) for line in colored),
+      plain,
+    )
 
   def test_invalid_color_fails(self):
     with self.assertRaisesRegex(Exception, "auto, always, or never"):
