@@ -719,7 +719,7 @@ class BashInitTests(unittest.TestCase):
       root.mkdir()
       launcher = self.make_consumer_repo(root)
       launcher.write_text(
-        "import json, sys\\nprint(json.dumps(sys.argv[1:]))\\n",
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\n",
         encoding="utf-8",
       )
       source = Path(td) / "init.bash"
@@ -754,13 +754,13 @@ class BashInitTests(unittest.TestCase):
         launcher = self.make_consumer_repo(root)
         launcher.write_text(
           (
-            "import sys\\n"
-            f"label = {label!r}\\n"
-            "args = sys.argv[1:]\\n"
-            "if args == [\'complete\', \'--\', \'la\']:\\n"
-            "  print(label.lower())\\n"
-            "else:\\n"
-            "  print(label + \':\' + \'|\'.join(args))\\n"
+            "import sys\n"
+            f"label = {label!r}\n"
+            "args = sys.argv[1:]\n"
+            "if args == ['complete', '--', 'la']:\n"
+            "  print(label.lower())\n"
+            "else:\n"
+            "  print(label + ':' + '|'.join(args))\n"
           ),
           encoding="utf-8",
         )
