@@ -103,6 +103,38 @@ class LauncherDiscoveryTests(unittest.TestCase):
         discover_repository_launcher(root)
 
 
+
+  def test_regular_repoworkflow_directory_is_not_accepted_as_gitlink(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      scripts = root / "scripts"
+      scripts.mkdir()
+      (scripts / "repoworkflow.py").write_text("", encoding="utf-8")
+      engine_dir = root / "RepoWorkflow"
+      engine_dir.mkdir()
+      (engine_dir / "README.md").write_text("not a submodule\n", encoding="utf-8")
+      subprocess.run(
+        ["git", "add", "scripts/repoworkflow.py", "RepoWorkflow/README.md"],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "lookalike engine directory"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      with self.assertRaisesRegex(
+        LauncherDiscoveryError,
+        "no repository-local RWF launcher",
+      ):
+        discover_repository_launcher(root)
+
+
   def test_pinned_consumer_without_stable_launcher_is_rejected(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
