@@ -28,12 +28,35 @@ def read(issue: int) -> tuple[int, ...]:
   try:
     value = json.loads(raw)
     blocked = value["blockedBy"]
-    numbers = tuple(sorted({int(item["number"]) for item in blocked}))
+    if not isinstance(blocked, dict) or set(blocked) != {"nodes", "totalCount"}:
+      raise ValueError("blockedBy must contain nodes and totalCount")
+    nodes = blocked["nodes"]
+    total = blocked["totalCount"]
+    if not isinstance(nodes, list):
+      raise ValueError("blockedBy.nodes must be an array")
+    if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+      raise ValueError("blockedBy.totalCount must be a non-negative integer")
+    if total != len(nodes):
+      raise ValueError(
+        "blockedBy relationship set is truncated: "
+        f"totalCount={total}, nodes={len(nodes)}"
+      )
+    numbers = []
+    for item in nodes:
+      if not isinstance(item, dict):
+        raise ValueError("blockedBy node must be an object")
+      number = item.get("number")
+      if isinstance(number, bool) or not isinstance(number, int):
+        raise ValueError("blockedBy node number must be an integer")
+      numbers.append(number)
+    normalized = tuple(sorted(set(numbers)))
+    if len(normalized) != len(numbers):
+      raise ValueError("blockedBy contains duplicate issue numbers")
   except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
     fail(f"GitHub dependency response is malformed: {exc}")
-  if any(number <= 0 for number in numbers) or issue in numbers:
+  if any(number <= 0 for number in normalized) or issue in normalized:
     fail("GitHub dependency response contains an invalid issue number")
-  return numbers
+  return normalized
 
 
 def emit(issue: int, dependencies: tuple[int, ...]) -> None:

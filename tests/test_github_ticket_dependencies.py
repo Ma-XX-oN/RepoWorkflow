@@ -38,7 +38,8 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       "  f.write(json.dumps(args) + '\\n')\n"
       "state = json.load(open(state_path, encoding='utf-8'))\n"
       "if args[:2] == ['issue', 'view']:\n"
-      "  print(json.dumps({'blockedBy': [{'number': n} for n in state['blockedBy']]}))\n"
+      "  nodes = [{'number': n, 'title': f'Issue {n}', 'url': f'https://example.invalid/issues/{n}', 'state': 'OPEN'} for n in state['blockedBy']]\n"
+      "  print(json.dumps({'blockedBy': {'nodes': nodes, 'totalCount': state.get('totalCount', len(nodes))}}))\n"
       "elif args[:2] == ['issue', 'edit']:\n"
       "  if '--remove-blocked-by' in args:\n"
       "    raw = args[args.index('--remove-blocked-by') + 1]\n"
@@ -100,6 +101,18 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       self.assertEqual(result.returncode, 0, result.stderr)
       calls = [json.loads(line) for line in log.read_text().splitlines()]
       self.assertFalse(any(call[:2] == ["issue", "edit"] for call in calls))
+
+  def test_truncated_blocked_by_connection_fails_closed(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      env, _ = self.fake_gh(root)
+      (root / "state.json").write_text(
+        json.dumps({"blockedBy": [2], "totalCount": 2}),
+        encoding="utf-8",
+      )
+      result = self.run_adapter(env, "dependency", "get", "64")
+      self.assertEqual(result.returncode, 2)
+      self.assertIn("relationship set is truncated", result.stderr)
 
   def test_provider_failure_is_nonzero(self):
     with tempfile.TemporaryDirectory() as td:
