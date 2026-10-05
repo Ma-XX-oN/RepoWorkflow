@@ -12,7 +12,7 @@ from repo_workflow.issue_metadata import (
 )
 from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import RelationshipGraph
-from repo_workflow.state_store import WriterIdentity
+from repo_workflow.state_store import WriterIdentity, durable_store
 from tests.support import RepoFixture
 
 
@@ -90,22 +90,15 @@ class IssueMetadataTests(unittest.TestCase):
     self.assertEqual(set(value.issues), {10, 20})
 
   def test_schema_v1_remains_title_readable_but_not_display_complete(self):
-    path = self.root / ".repoworkflow/state/issues/metadata.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-      json.dumps({
+    durable_store(self.root).create(
+      "issues/metadata",
+      {
         "schema_version": 1,
-        "revision": 0,
-        "writer_id": "legacy",
-        "session_id": "legacy",
-        "value": {
-          "schema_version": 1,
-          "issues": {
-            "10": {"number": 10, "title": "Ten"},
-          },
+        "issues": {
+          "10": {"number": 10, "title": "Ten"},
         },
-      }),
-      encoding="utf-8",
+      },
+      WriterIdentity("legacy", "legacy"),
     )
 
     store = IssueMetadataStore(self.root)
@@ -130,7 +123,7 @@ class IssueMetadataTests(unittest.TestCase):
     )
 
     self.assertEqual(second.revision, first.revision + 1)
-    self.assertEqual(second.display_issue(10).title if hasattr(second, "display_issue") else second.issues[10].title, "Changed Ten")
+    self.assertEqual(second.issues[10].title, "Changed Ten")
     self.assertEqual(second.issues[20], first.issues[20])
 
   def test_scoped_refresh_rejects_issue_outside_canonical_graph(self):
@@ -213,6 +206,53 @@ class IssueMetadataTests(unittest.TestCase):
     ):
       with self.assertRaisesRegex(IssueMetadataError, "missing for issue 99"):
         IssueMetadataStore(self.root).issue(99)
+
+  def test_provider_invalid_state_or_link_fails_without_mutation(self):
+    original = refresh_issue_metadata(
+      self.root,
+      self.provider({10: "Ten", 20: "Twenty"}),
+      self.writer,
+    )
+
+    with mock.patch(
+      "repo_workflow.issue_metadata.issue_info",
+      return_value={
+        "schema_version": 1,
+        "number": 10,
+        "title": "Ten",
+        "state": "unknown",
+        "link": "https://example.invalid/issues/10",
+      },
+    ):
+      with self.assertRaisesRegex(IssueMetadataError, "invalid state"):
+        refresh_issue_metadata(
+          self.root,
+          {},
+          self.writer,
+          (10,),
+        )
+
+    self.assertEqual(IssueMetadataStore(self.root).read(), original)
+
+    with mock.patch(
+      "repo_workflow.issue_metadata.issue_info",
+      return_value={
+        "schema_version": 1,
+        "number": 10,
+        "title": "Ten",
+        "state": "open",
+        "link": "",
+      },
+    ):
+      with self.assertRaisesRegex(IssueMetadataError, "empty link"):
+        refresh_issue_metadata(
+          self.root,
+          {},
+          self.writer,
+          (10,),
+        )
+
+    self.assertEqual(IssueMetadataStore(self.root).read(), original)
 
   def test_malformed_or_empty_title_snapshot_fails_closed(self):
     path = self.root / ".repoworkflow/state/issues/metadata.json"
