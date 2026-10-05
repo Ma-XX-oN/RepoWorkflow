@@ -123,3 +123,18 @@ that direct relationship explicitly.
 `rwf lanes view --debug` reports one route identity for every canonical direct
 edge in the visible graph, including whether the route is primary or a bypass
 track.
+
+
+### Route verification obligations
+
+Acceptance requires both specification-level rendering evidence and structural
+route completeness:
+
+- every canonical direct edge has exactly one route identity;
+- direct skip-edges use bypass tracks distinct from their transitive paths;
+- nested bypasses use distinct tracks;
+- unrelated geometric crossings are visibly crossings, not junctions;
+- same-source or same-target edges may share a legitimate junction;
+- repeated planning for identical semantic input is deterministic;
+- the human graph and `--debug` route identities describe the same direct
+  dependency set.
