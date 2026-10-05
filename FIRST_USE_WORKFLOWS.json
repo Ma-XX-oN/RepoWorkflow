@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "rule": "A supported public workflow is incomplete until an assembled first-use test starts from the minimum documented external state and reaches the workflow through the real public entrypoint without pre-creating internal state owned by that workflow.",
+  "scenarios": [
+    {
+      "id": "FU-BOOTSTRAP-HELP",
+      "status": "covered",
+      "scope": [
+        "rwf --help",
+        "all static public-prefix --help",
+        "syntax-before-config"
+      ],
+      "minimum_state": "real Git repository with a commit and no .ci/repoworkflow.json",
+      "prohibited_shortcuts": [
+        "creating workflow config",
+        "calling parser/helper directly"
+      ],
+      "tests": [
+        "tests/test_bootstrap_cli.py"
+      ]
+    },
+    {
+      "id": "FU-ISSUE-READ",
+      "status": "covered",
+      "scope": [
+        "rwf issue list",
+        "rwf issue info N"
+      ],
+      "minimum_state": "Git checkout with discoverable provider remote and no RWF workflow configuration",
+      "prohibited_shortcuts": [
+        "configured infoCommand for the assembled-path case",
+        "calling repo_info_adapter directly"
+      ],
+      "tests": [
+        "tests/test_bootstrap_cli.py",
+        "tests/test_issue_info_cli.py",
+        "tests/test_issue_list.py"
+      ],
+      "follow_up_issue": 312
+    },
+    {
+      "id": "FU-INIT",
+      "status": "pending",
+      "scope": [
+        "rwf init",
+        "rwf init local-only",
+        "rwf init bash/zsh"
+      ],
+      "minimum_state": "pre-adoption Git repository",
+      "prohibited_shortcuts": [
+        "precreating .repoworkflow",
+        "preinstalling managed hooks/shell output"
+      ],
+      "gap_issue": 27
+    },
+    {
+      "id": "FU-DEPS-LANES",
+      "status": "gap",
+      "scope": [
+        "native ticket dependencies -> canonical RWF graph -> rwf lanes select -> rwf lanes list"
+      ],
+      "minimum_state": "normal Git checkout/provider access with no relationship graph or lane-selection records",
+      "prohibited_shortcuts": [
+        "RelationshipStore.create",
+        "RelationshipGraph construction",
+        "LaneSelectionStore construction",
+        "mocking dependency stores in the assembled test"
+      ],
+      "gap_issue": 305
+    },
+    {
+      "id": "FU-SESSION",
+      "status": "gap",
+      "scope": [
+        "ordinary human/session invocation of mutating public commands"
+      ],
+      "minimum_state": "supported CLI/shell session without manually exported internal runtime identity",
+      "prohibited_shortcuts": [
+        "manual RWF_WRITER_ID/RWF_SESSION_ID in the human first-use scenario"
+      ],
+      "gap_issue": 306
+    },
+    {
+      "id": "FU-PUBLIC-ERRORS",
+      "status": "gap",
+      "scope": [
+        "expected missing/precondition states through public commands"
+      ],
+      "minimum_state": "registered first-use scenarios at each immediate missing-state boundary",
+      "prohibited_shortcuts": [
+        "asserting only internal exception types"
+      ],
+      "gap_issue": 307
+    },
+    {
+      "id": "FU-WORK",
+      "status": "gap",
+      "scope": [
+        "issue start / workspace creation / claim/resume lifecycle"
+      ],
+      "minimum_state": "documented adopted repository/session state with provider facts but no fabricated relationship/current-work/lifecycle/workspace records",
+      "prohibited_shortcuts": [
+        "RelationshipStore.create",
+        "CurrentWorkStore writes",
+        "LifecycleStore writes",
+        "WorkspaceStore writes",
+        "calling start_issue directly"
+      ],
+      "gap_issue": 310
+    },
+    {
+      "id": "FU-LIFECYCLE",
+      "status": "gap",
+      "scope": [
+        "what-next and currently supported validation transitions"
+      ],
+      "minimum_state": "documented adopted repository state reached through public issue/work setup",
+      "prohibited_shortcuts": [
+        "save_local_state",
+        "direct workflow-state writes"
+      ],
+      "gap_issue": 311
+    },
+    {
+      "id": "FU-CONSUMER",
+      "status": "gap",
+      "scope": [
+        "consumer adoption -> local pinned launcher -> hosted handoff"
+      ],
+      "minimum_state": "minimal pre-adoption consumer Git repository",
+      "prohibited_shortcuts": [
+        "testing only launcher Python function with mocked subprocess",
+        "precreating generated adoption files"
+      ],
+      "gap_issue": 313
+    }
+  ]
+}
