@@ -19,7 +19,10 @@ from .issue_info_cli import show_issue_info
 from .invocation_identity import ensure_public_runtime_identity
 from .issue_list import list_issues
 from .lane_diagnostics import LaneDiagnostics
-from .lane_inspection import refresh_current_lane_selection
+from .lane_inspection import (
+  refresh_current_lane_metadata,
+  refresh_current_lane_selection,
+)
 from .lane_list import render_lane_list
 from .lane_selection import LaneSelectionStore
 from .lane_selection_cli import handle_lane_selection
@@ -219,16 +222,24 @@ def _handle_lanes(
     ignored = {"--refresh", "--links", "--debug"}
     lane = next((x for x in tail if x not in ignored), None)
     if refresh:
-      refresh_current_lane_selection(
-        root,
-        runtime_writer_identity(),
-        diagnostics=diagnostics,
-      )
+      if words[1] == "list":
+        refresh_current_lane_metadata(
+          root,
+          runtime_writer_identity(),
+          diagnostics=diagnostics,
+        )
+      else:
+        refresh_current_lane_selection(
+          root,
+          runtime_writer_identity(),
+          diagnostics=diagnostics,
+        )
     else:
       selection = LaneSelectionStore(root).read().value
       if selection is not None:
-        diagnostics.hit("relationships", len(selection.closure))
         diagnostics.hit("metadata", len(selection.closure))
+        if words[1] == "view":
+          diagnostics.hit("relationships", len(selection.closure))
 
     started = time.perf_counter()
     if words[1] == "list":
