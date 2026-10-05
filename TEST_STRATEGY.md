@@ -396,3 +396,25 @@ Every new lifecycle invariant must identify its test level and stage.  Changes
 to `WORKFLOW_LIFECYCLE.md` that introduce testable behaviour must update this
 test strategy in the same work so implementation requirements and test
 requirements cannot drift apart.
+
+
+## Public CLI bootstrap matrix
+
+Every public command pathway that does not semantically require initialized
+workflow configuration must be exercised through the assembled CLI from a Git
+repository with no `.ci/repoworkflow.json`.
+
+The matrix must cover every statically authored command prefix automatically,
+plus dynamic prefixes that cannot be enumerated statically.  It must prove
+that:
+
+- `--help` works before workflow-configuration discovery;
+- unknown commands and invalid syntax report grammar diagnostics first;
+- configuration-required execution requests configuration only after syntax is
+  accepted;
+- read-only commands that have an independent repository/provider resolution
+  path do not acquire full workflow configuration merely to run.
+
+Adding a new public command requires an explicit bootstrap/configuration
+classification and corresponding black-box coverage.  Parser/unit tests or
+configured synthetic fixtures do not substitute for this assembled-path gate.
