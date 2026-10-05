@@ -24,7 +24,6 @@ The portable executable interface is:
 repo-info repository
 repo-info issue get ISSUE
 repo-info issue list-open
-repo-info issue body ISSUE
 ```
 
 Successful operations write exactly one JSON value to stdout and exit `0`.
@@ -74,17 +73,7 @@ The requested issue number must equal the returned `number`.
 
 A missing issue is an explicit failure, not a successful null/empty result.
 
-## 5. Issue-body result
-
-`repo-info issue body ISSUE` returns the exact current Markdown body plus its SHA-256 digest:
-
-```json
-{"schema_version":1,"number":64,"body":"...","body_digest":"..."}
-```
-
-The digest is over the UTF-8 bytes of `body` and is used as the optimistic precondition for the separate write-side ticket adapter.  Provider failure is never normalized to an empty body.
-
-## 6. Open-issue list result
+## 5. Open-issue list result
 
 `repo-info issue list-open` returns:
 
@@ -103,7 +92,7 @@ Duplicate issue numbers are invalid.
 An empty repository legitimately returns `"issues": []`.  Provider failure
 must never be normalized to that value.
 
-## 7. Consumer guarantees
+## 6. Consumer guarantees
 
 The contract deliberately exposes only provider facts required by current core
 consumers.
@@ -118,7 +107,7 @@ Those facts are owned by their RWF stores/contracts.
 #120 owns invocation/dispatch of this contract and must forward semantic
 requests without changing their meaning.
 
-## 8. Validation
+## 7. Validation
 
 The dispatcher/adapter implementation must prove at least:
 
@@ -132,7 +121,7 @@ The dispatcher/adapter implementation must prove at least:
 8. open-list output is deterministic and duplicate-free;
 9. core callers require no GitHub-specific fields.
 
-## 9. Evolution
+## 8. Evolution
 
 Additional provider facts may be added only when a core consumer demonstrates a
 semantic requirement for them.
