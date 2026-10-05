@@ -112,6 +112,80 @@ class LaneRenderTests(unittest.TestCase):
 
   @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
+  def test_three_column_chain_renders_leaf_to_root(self, info, _config):
+    graph_store = RelationshipStore(self.root)
+    current_graph = graph_store.read()
+    graph_store.replace(
+      current_graph.revision,
+      RelationshipGraph(issues={
+        "1": relation(),
+        "2": relation(1),
+        "3": relation(2),
+      }),
+      self.writer,
+    )
+    selection_store = LaneSelectionStore(self.root)
+    current_selection = selection_store.read()
+    selection_store.select(
+      (3,),
+      self.writer,
+      expected_revision=current_selection.revision,
+    )
+    info.side_effect = lambda _root, _config, number: {
+      "schema_version": 1,
+      "number": number,
+      "title": f"Issue {number}",
+      "state": "open",
+      "link": f"https://example.invalid/issues/{number}",
+    }
+
+    rendered = "\n".join(render_lanes(self.root))
+    self.assertLess(rendered.index("A.1"), rendered.index("A.2"))
+    self.assertLess(rendered.index("A.2"), rendered.index("*A.3"))
+    self.assertGreaterEqual(rendered.count("─"), 2)
+
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
+  @patch("repo_workflow.lane_render.issue_info")
+  def test_fan_out_uses_branch_connectors_without_duplicating_source(
+    self,
+    info,
+    _config,
+  ):
+    graph_store = RelationshipStore(self.root)
+    current_graph = graph_store.read()
+    graph_store.replace(
+      current_graph.revision,
+      RelationshipGraph(issues={
+        "1": relation(),
+        "2": relation(1),
+        "3": relation(1),
+      }),
+      self.writer,
+    )
+    selection_store = LaneSelectionStore(self.root)
+    current_selection = selection_store.read()
+    selection_store.select(
+      (2, 3),
+      self.writer,
+      expected_revision=current_selection.revision,
+    )
+    info.side_effect = lambda _root, _config, number: {
+      "schema_version": 1,
+      "number": number,
+      "title": f"Issue {number}",
+      "state": "open",
+      "link": f"https://example.invalid/issues/{number}",
+    }
+
+    lines = render_lanes(self.root)
+    rendered = "\n".join(lines)
+    self.assertEqual(rendered.count("A.1"), 1)
+    self.assertIn("*A.2", rendered)
+    self.assertIn("*A.3", rendered)
+    self.assertTrue(any(char in rendered for char in "┬┐┴┘├┤┼"))
+
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
+  @patch("repo_workflow.lane_render.issue_info")
   def test_links_are_optional(self, info, _config):
     info.side_effect = self.info
     self.assertTrue(all("https://" not in x for x in render_lanes(self.root)))
