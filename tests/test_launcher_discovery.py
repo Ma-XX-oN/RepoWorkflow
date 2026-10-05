@@ -104,6 +104,45 @@ class LauncherDiscoveryTests(unittest.TestCase):
 
 
 
+
+  def test_self_discovery_works_in_linked_worktree_from_nested_directory(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      primary = base / "primary"
+      primary.mkdir()
+      self.make_repo(primary)
+      (primary / "rwf").write_text("#!/bin/sh\n", encoding="utf-8")
+      (primary / "repo_workflow.py").write_text("", encoding="utf-8")
+      subprocess.run(
+        ["git", "add", "rwf", "repo_workflow.py"],
+        cwd=primary,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "add self launcher"],
+        cwd=primary,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      worktree = base / "linked"
+      subprocess.run(
+        ["git", "worktree", "add", "-b", "linked-test", str(worktree)],
+        cwd=primary,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      nested = worktree / "a" / "b"
+      nested.mkdir(parents=True)
+
+      found = discover_repository_launcher(nested)
+
+      self.assertEqual(found.repository_root, worktree.resolve())
+      self.assertEqual(found.launcher, (worktree / "rwf").resolve())
+      self.assertFalse(found.requires_python)
+
+
   def test_regular_repoworkflow_directory_is_not_accepted_as_gitlink(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
