@@ -98,6 +98,12 @@ def _workspace_commands() -> dict:
 
 COMMANDS = {
   "issue": {
+    "list": {
+      "_variadic": {
+        "min": 1,
+        "description": "Issue IDs, optionally followed by --links",
+      },
+    },
     "start": {
       "_values": _issue_number,
     },
