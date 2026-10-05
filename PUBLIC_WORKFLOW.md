@@ -239,8 +239,7 @@ dependency topology.  Both read synchronized local state by default.
 
 Lane operations use local state by default; `--refresh` rereads the relevant
 provider closure.  See [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md),
-[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md), and
-[LANE_DIAGNOSTICS.md](LANE_DIAGNOSTICS.md).
+[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md), and [LANE_DIAGNOSTICS.md](LANE_DIAGNOSTICS.md).
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
 validates it, and creates the canonical RWF graph before decomposition.
