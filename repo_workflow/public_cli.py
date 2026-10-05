@@ -58,7 +58,7 @@ def _diagnose(
     legal,
     completion=completion,
     state_name=state,
-    legal_transitions=plan.transitions,
+    legal_transitions=() if plan is None else plan.transitions,
   )
   return general, legal, facts, plan, state, failure
 
