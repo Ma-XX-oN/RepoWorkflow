@@ -72,7 +72,7 @@ class LaneDiagnostics:
 
   def finish(self, *, error: Exception | None = None) -> Path | None:
     if error is not None:
-      self.error = str(error)
+      self.error = type(error).__name__
     try:
       return self._write()
     except Exception as diagnostic_error:
