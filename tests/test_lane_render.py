@@ -186,6 +186,66 @@ class LaneRenderTests(unittest.TestCase):
     self.assertIn("*A.3", rendered)
     self.assertTrue(any(char in rendered for char in "┬┐┴┘├┤┼"))
 
+  def test_direct_dependency_bypass_is_visually_separate_and_diagnostic(self):
+    graph_store = RelationshipStore(self.root)
+    current_graph = graph_store.read()
+    graph_store.replace(
+      current_graph.revision,
+      RelationshipGraph(issues={
+        "145": relation(),
+        "185": relation(145),
+        "216": relation(145, 185),
+      }),
+      self.writer,
+    )
+    selection_store = LaneSelectionStore(self.root)
+    current_selection = selection_store.read()
+    selection_store.select(
+      (216,),
+      self.writer,
+      expected_revision=current_selection.revision,
+    )
+    self.write_metadata({
+      145: ("Issue 145", "closed"),
+      185: ("Issue 185", "closed"),
+      216: ("Issue 216", "open"),
+    })
+
+    class Diagnostics:
+      routed_edges = []
+
+    diagnostics = Diagnostics()
+    lines = render_lanes(self.root, diagnostics=diagnostics)
+    rendered = "\n".join(lines)
+
+    self.assertIn("A.145", rendered)
+    self.assertIn("A.185", rendered)
+    self.assertIn("*A.216", rendered)
+    self.assertGreaterEqual(len(lines), 2)
+    self.assertEqual(
+      {
+        (item["source"], item["target"])
+        for item in diagnostics.routed_edges
+      },
+      {(145, 185), (145, 216), (185, 216)},
+    )
+    bypass = next(
+      item
+      for item in diagnostics.routed_edges
+      if (item["source"], item["target"]) == (145, 216)
+    )
+    self.assertTrue(bypass["kind"].startswith("bypass["))
+    self.assertIn("track_y", bypass)
+    self.assertTrue(
+      any(
+        "A.145" not in line
+        and "A.185" not in line
+        and "A.216" not in line
+        and "─" in line
+        for line in lines
+      )
+    )
+
   def test_links_are_optional(self):
     self.assertTrue(all("https://" not in x for x in render_lanes(self.root)))
     linked = render_lanes(self.root, links=True)
