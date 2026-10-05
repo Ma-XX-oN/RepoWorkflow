@@ -162,9 +162,9 @@
         },
         {
           "id": "DL-5",
-          "requirement": "lane list renders state created by the same public first-use path",
+          "requirement": "lane list renders the dependency graph created by the same public first-use path, including topology and issue metadata",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
         },
         {
@@ -203,6 +203,14 @@
           "verification": [
             "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_lane_evidence_covers_required_stateful_cases"
           ]
+        },
+        {
+          "id": "DL-11",
+          "requirement": "graph presentation is leaf-to-root; annotation widths and lane.issue decimal positions align per visual graph column; independent selected roots reproduce the compact alignment contract",
+          "verification": [
+            "tests/test_lane_render.py::LaneRenderTests.test_annotations_touch_identifier_and_decimal_align",
+            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -217,7 +225,8 @@
         "selection_replace_add_remove": "DL-7",
         "uncertified_provider_authority": "DL-8",
         "stale_pre_migration_state_reconciliation": "DL-9",
-        "real_provider_certification": "DL-10"
+        "real_provider_certification": "DL-10",
+        "graph_topology_and_alignment": "DL-11"
       },
       "stateful": true,
       "provider_boundary": true,
