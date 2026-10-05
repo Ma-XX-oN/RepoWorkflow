@@ -193,12 +193,21 @@ class FirstUseLanesTests(unittest.TestCase):
 
       listed = self.run_rwf(root, env, "lanes", "list")
       self.assertEqual(listed.returncode, 0, listed.stderr)
-      self.assertIn("A.201", listed.stdout)
-      self.assertIn("A.203", listed.stdout)
-      self.assertIn("B.206", listed.stdout)
-      self.assertNotIn("Root 203", listed.stdout)
-      self.assertNotIn("Root 206", listed.stdout)
-      self.assertNotIn("Leaf 201", listed.stdout)
+      self.assertIn("Lane A", listed.stdout)
+      self.assertIn("#201  Leaf 201", listed.stdout)
+      self.assertIn("#203  Root 203", listed.stdout)
+      self.assertIn("Lane B", listed.stdout)
+      self.assertIn("#206  Root 206", listed.stdout)
+      self.assertNotIn("─", listed.stdout)
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A.203", viewed.stdout)
+      self.assertIn("B.206", viewed.stdout)
+      self.assertIn("─", viewed.stdout)
+      self.assertNotIn("Leaf 201", viewed.stdout)
+      self.assertNotIn("Root 203", viewed.stdout)
 
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
@@ -218,12 +227,65 @@ class FirstUseLanesTests(unittest.TestCase):
 
       listed = self.run_rwf(root, env, "lanes", "list")
       self.assertEqual(listed.returncode, 0, listed.stderr)
-      self.assertIn("A.201", listed.stdout)
-      self.assertIn("A.203", listed.stdout)
-      self.assertIn("B.206", listed.stdout)
-      self.assertNotIn("Leaf 201", listed.stdout)
-      self.assertNotIn("Root 203", listed.stdout)
-      self.assertNotIn("Root 206", listed.stdout)
+      self.assertIn("#201  Leaf 201", listed.stdout)
+      self.assertIn("#203  Root 203", listed.stdout)
+      self.assertIn("#206  Root 206", listed.stdout)
+      self.assertNotIn("─", listed.stdout)
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A.203", viewed.stdout)
+      self.assertNotIn("Leaf 201", viewed.stdout)
+      self.assertNotIn("Root 203", viewed.stdout)
+
+  def test_lane_list_and_view_are_offline_until_explicit_refresh(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(93)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      listed = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertIn("#201  Leaf 201", listed.stdout)
+      self.assertIn("#203  Root 203", listed.stdout)
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A.203", viewed.stdout)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 2)
+      self.assertIn("provider unavailable", refreshed.stderr)
 
   def test_repeated_selection_extends_existing_partial_graph(self):
     with tempfile.TemporaryDirectory() as td:
