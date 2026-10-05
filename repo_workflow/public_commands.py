@@ -112,9 +112,22 @@ COMMANDS = {
   },
   "lanes": {
     "select": {
-      "_variadic": {"min": 1, "description": "Issue roots"},
-      "add": {"_variadic": {"min": 1, "description": "Issue roots"}},
-      "remove": {"_variadic": {"min": 1, "description": "Issue roots"}},
+      "_variadic": {
+        "min": 1,
+        "description": "Issue roots, optionally followed by --json",
+      },
+      "add": {
+        "_variadic": {
+          "min": 1,
+          "description": "Issue roots, optionally followed by --json",
+        },
+      },
+      "remove": {
+        "_variadic": {
+          "min": 1,
+          "description": "Issue roots, optionally followed by --json",
+        },
+      },
     },
     "list": {
       "": "Render local lane selection",
