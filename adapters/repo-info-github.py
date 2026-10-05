@@ -25,17 +25,12 @@ def gh(repository: str, *arguments: str) -> str:
 
 
 def repository_info(repository: str) -> None:
-  raw = gh(repository, "repo", "view", "--json", "nameWithOwner")
-  try:
-    value = json.loads(raw)
-    name = value["nameWithOwner"]
-    if not isinstance(name, str) or not name:
-      raise ValueError("invalid repository identity")
-  except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-    fail(f"GitHub repository response is malformed: {exc}")
+  parts = repository.split("/")
+  if len(parts) != 2 or not all(parts):
+    fail("GitHub repository identity is malformed")
   print(json.dumps({
     "schema_version": 1,
-    "repository": name,
+    "repository": repository,
     "provider": "github",
   }, separators=(",", ":")))
 
