@@ -26,7 +26,7 @@ CACHE_ROUTING_AUDIT = (
   ROOT
   / ".repoworkflow"
   / "audit"
-  / "issue-346-lane-cache-routing-certification--run-37352056494.json"
+  / "issue-346-lane-cache-routing-certification--run-37352835432.json"
 )
 
 
@@ -67,7 +67,7 @@ class RealProviderLaneCertificationTests(unittest.TestCase):
     audit = json.loads(CACHE_ROUTING_AUDIT.read_text(encoding="utf-8"))
 
     self.assertEqual(audit["issue"], 346)
-    self.assertEqual(audit["workflow_run_id"], 37352056494)
+    self.assertEqual(audit["workflow_run_id"], 37352835432)
     self.assertEqual(audit["first_select"]["roots"], ["218"])
     self.assertIn("145", audit["first_select"]["closure"])
     self.assertIn("216", audit["first_select"]["closure"])
