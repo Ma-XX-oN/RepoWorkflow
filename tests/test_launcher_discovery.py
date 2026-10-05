@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import unittest
@@ -100,6 +101,124 @@ class LauncherDiscoveryTests(unittest.TestCase):
         "no repository-local RWF launcher",
       ):
         discover_repository_launcher(root)
+
+
+
+
+  def test_self_discovery_works_in_linked_worktree_from_nested_directory(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      primary = base / "primary"
+      primary.mkdir()
+      self.make_repo(primary)
+      (primary / "rwf").write_text("#!/bin/sh\n", encoding="utf-8")
+      (primary / "repo_workflow.py").write_text("", encoding="utf-8")
+      subprocess.run(
+        ["git", "add", "rwf", "repo_workflow.py"],
+        cwd=primary,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "add self launcher"],
+        cwd=primary,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      worktree = base / "linked"
+      subprocess.run(
+        ["git", "worktree", "add", "-b", "linked-test", str(worktree)],
+        cwd=primary,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      nested = worktree / "a" / "b"
+      nested.mkdir(parents=True)
+
+      found = discover_repository_launcher(nested)
+
+      self.assertEqual(found.repository_root, worktree.resolve())
+      self.assertEqual(found.launcher, (worktree / "rwf").resolve())
+      self.assertFalse(found.requires_python)
+
+
+  def test_regular_repoworkflow_directory_is_not_accepted_as_gitlink(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      scripts = root / "scripts"
+      scripts.mkdir()
+      (scripts / "repoworkflow.py").write_text("", encoding="utf-8")
+      engine_dir = root / "RepoWorkflow"
+      engine_dir.mkdir()
+      (engine_dir / "README.md").write_text("not a submodule\n", encoding="utf-8")
+      subprocess.run(
+        ["git", "add", "scripts/repoworkflow.py", "RepoWorkflow/README.md"],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "lookalike engine directory"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      with self.assertRaisesRegex(
+        LauncherDiscoveryError,
+        "no repository-local RWF launcher",
+      ):
+        discover_repository_launcher(root)
+
+
+  def test_pinned_consumer_without_stable_launcher_is_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      commit = self.make_repo(root)
+      subprocess.run(
+        [
+          "git", "update-index", "--add", "--cacheinfo",
+          f"160000,{commit},RepoWorkflow",
+        ],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "pin RepoWorkflow"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      with self.assertRaisesRegex(
+        LauncherDiscoveryError,
+        "no repository-local RWF launcher",
+      ):
+        discover_repository_launcher(root)
+
+
+  def test_missing_git_fails_actionably(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      old_path = os.environ.get("PATH")
+      try:
+        os.environ["PATH"] = ""
+        with self.assertRaisesRegex(
+          LauncherDiscoveryError,
+          "Git is required",
+        ):
+          discover_repository_launcher(root)
+      finally:
+        if old_path is None:
+          os.environ.pop("PATH", None)
+        else:
+          os.environ["PATH"] = old_path
+
 
   def test_outside_git_repository_fails_actionably(self):
     with tempfile.TemporaryDirectory() as td:

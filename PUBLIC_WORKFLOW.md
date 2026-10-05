@@ -112,12 +112,20 @@ excluded through local Git mechanisms such as `.git/info/exclude`, not by
 editing committed `.gitignore`.
 
 After successful repository initialization, RWF explains the optional
-shell-specific stage, for example:
+shell-specific stage.  Bash uses the portable form:
+
+```bash
+source /dev/stdin <<<"$(rwf init bash)"
+```
+
+On Bash 4+ the shorter process-substitution form is also supported:
 
 ```bash
 source <(rwf init bash)
-source <(rwf init zsh)
 ```
+
+Other shells use their documented shell-specific activation form, for example
+`rwf init zsh` once that adapter is implemented.
 
 `rwf init bash`, `rwf init zsh`, etc. emit shell-specific initialization
 source.  Shell-specific command discovery/completion belongs there rather than

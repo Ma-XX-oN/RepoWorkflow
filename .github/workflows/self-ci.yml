@@ -73,6 +73,39 @@ jobs:
       - name: Probe direct process argument limit
         run: python scripts/probe-argv-limits.py
 
+  bash-completion:
+    name: Bash completion PTY (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install PTY test driver
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python -m pip install pywinpty==3.0.5
+          else
+            python -m pip install pexpect==4.9.0
+          fi
+      - name: Run Bash activation contract tests
+        shell: bash
+        run: |
+          python -m unittest \
+            tests.test_launcher_discovery \
+            tests.test_shell_init \
+            tests.test_public_bash_init -v
+      - name: Drive real Tab completion through PTY
+        shell: bash
+        run: python tests/pty_bash_completion.py
+
   release:
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

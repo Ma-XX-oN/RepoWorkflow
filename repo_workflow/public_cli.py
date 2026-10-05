@@ -29,6 +29,7 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
+from .shell_init import render_bash_init
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
@@ -131,6 +132,9 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
 
   command = words[0]
   if command == "init":
+    if words == ["init", "bash"]:
+      print(render_bash_init(root, engine_root), end="", flush=True)
+      return 0
     print(
       "RepoWorkflow error: rwf init execution is not implemented yet.",
       file=sys.stderr,
