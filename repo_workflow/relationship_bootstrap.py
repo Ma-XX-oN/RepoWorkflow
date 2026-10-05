@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .dependency_migration_certification import (
+  DependencyMigrationCertificationError,
+  require_dependency_migration_certified,
+)
 from .relationship_store import (
   RelationshipSnapshot,
   RelationshipStore,
@@ -10,6 +14,7 @@ from .relationship_store import (
 from .relationships import IssueRelationships, RelationshipGraph
 from .state_store import WriterIdentity
 from .ticket_dependency_adapter import (
+  TicketDependencyError,
   read_ticket_dependencies,
   resolve_dependency_config,
 )
@@ -21,6 +26,11 @@ def ensure_relationship_graph(
   writer: WriterIdentity,
 ) -> None:
   """Ensure canonical graph coverage for the requested roots and dependencies."""
+  try:
+    require_dependency_migration_certified(root)
+  except DependencyMigrationCertificationError as error:
+    raise TicketDependencyError(str(error)) from error
+
   store = RelationshipStore(root)
   snapshot = _read_optional(store)
   existing = {} if snapshot is None else dict(snapshot.graph.issues)

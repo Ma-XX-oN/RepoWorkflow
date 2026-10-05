@@ -177,6 +177,14 @@
           "verification": [
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_select_add_remove_preserve_distinct_root_semantics"
           ]
+        },
+        {
+          "id": "DL-8",
+          "requirement": "A repository carrying a reviewed native-dependency migration manifest must fail closed before lane bootstrap until the provider migration is certified against that exact manifest",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_repository_manifest_blocks_bootstrap_until_migration_certified",
+            "tests/test_dependency_migration_certification.py::DependencyMigrationCertificationTests.test_certification_must_match_current_manifest_digest"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -188,7 +196,8 @@
         "provider_contract_fidelity": "DL-3",
         "provider_truncation_failure": "DL-4",
         "read_after_write": "DL-5",
-        "selection_replace_add_remove": "DL-7"
+        "selection_replace_add_remove": "DL-7",
+        "uncertified_provider_authority": "DL-8"
       },
       "stateful": true,
       "provider_boundary": true,

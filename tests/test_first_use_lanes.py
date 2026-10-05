@@ -211,6 +211,39 @@ class FirstUseLanesTests(unittest.TestCase):
         ["205", "208", "217", "218"],
       )
 
+  def test_repository_manifest_blocks_bootstrap_until_migration_certified(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+      migration = (
+        root
+        / ".repoworkflow"
+        / "migrations"
+        / "native-dependencies-v1.json"
+      )
+      migration.parent.mkdir(parents=True)
+      migration.write_text("{}\n", encoding="utf-8")
+
+      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      self.assertEqual(selected.returncode, 2)
+      self.assertIn(
+        "native ticket dependency migration is not certified",
+        selected.stderr,
+      )
+      self.assertNotIn("Traceback", selected.stderr)
+      self.assertFalse(
+        (
+          root
+          / ".repoworkflow"
+          / "state"
+          / "relationships"
+          / "graph.json"
+        ).exists()
+      )
+
   def test_read_only_lane_failure_does_not_create_runtime_identity(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
