@@ -133,6 +133,38 @@ class FirstUseLanesTests(unittest.TestCase):
         ],
       )
 
+  def test_read_only_lane_failure_does_not_create_runtime_identity(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      listed = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(listed.returncode, 2)
+      self.assertIn("lane selection is missing", listed.stderr)
+      self.assertFalse(
+        (root / ".git" / "repoworkflow" / "runtime-writer-id").exists()
+      )
+
+  def test_partial_explicit_identity_fails_without_synthesizing_other_half(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+      env["RWF_WRITER_ID"] = "agent-explicit"
+
+      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      self.assertEqual(selected.returncode, 2)
+      self.assertIn("RWF_SESSION_ID", selected.stderr)
+      self.assertFalse(
+        (root / ".git" / "repoworkflow" / "runtime-writer-id").exists()
+      )
+      self.assertFalse((root / ".repoworkflow").exists())
+
   def test_explicit_agent_identity_is_preserved(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
