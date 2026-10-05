@@ -404,6 +404,53 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertNotIn(206, self.dependency_calls(env))
 
+  def test_remove_refresh_excludes_removed_only_root_from_provider_scope(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      added = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "add",
+        "206",
+        "--json",
+      )
+      self.assertEqual(added.returncode, 0, added.stderr)
+      before = list(self.dependency_calls(env))
+
+      removed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "remove",
+        "206",
+        "--refresh",
+        "--json",
+      )
+      self.assertEqual(removed.returncode, 0, removed.stderr)
+      self.assertEqual(json.loads(removed.stdout)["roots"], ["203"])
+      self.assertEqual(
+        self.dependency_calls(env)[len(before):],
+        [203, 201],
+      )
+
   def test_cached_selection_succeeds_when_dependency_provider_is_unavailable(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
