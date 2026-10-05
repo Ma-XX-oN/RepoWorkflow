@@ -250,6 +250,8 @@
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_error_record_and_concurrent_records_are_distinct",
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_diagnostic_write_failure_is_warning_not_command_failure",
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_debug_projection_reports_sources_timing_and_edges",
+            "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_timing_accounting_is_internally_consistent",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_diagnostic_record_survives_fresh_process_readback",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_failed_lane_refresh_writes_failure_diagnostics"
           ]
@@ -262,9 +264,13 @@
             "tests/test_lane_routes.py::LaneRouteTests.test_direct_bypass_has_distinct_route_identity",
             "tests/test_lane_routes.py::LaneRouteTests.test_unrelated_route_crossing_is_not_rendered_as_junction",
             "tests/test_lane_routes.py::LaneRouteTests.test_route_plan_is_deterministic",
+            "tests/test_lane_routes.py::LaneRouteTests.test_single_semantic_edge_has_exactly_one_route",
+            "tests/test_lane_routes.py::LaneRouteTests.test_missing_dependency_source_fails_explicitly",
             "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_skip_edge_is_rendered_as_separate_bypass_track",
             "tests/test_lane_route_render.py::LaneRouteRenderTests.test_fan_in_retains_parallel_path_shape",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_and_transitive_paths_remain_visibly_distinct"
+            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_nested_direct_bypasses_have_distinct_golden_tracks",
+            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_disconnected_connected_components_do_not_interfere",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_route_render_and_diagnostics_are_stable_across_processes"
           ]
         },
         {
@@ -299,9 +305,15 @@
         "inspection_refresh_boundary": "DL-14",
         "provider_progress_and_diagnostics": "DL-15",
         "diagnostic_failure_record": "DL-15",
+        "diagnostic_timing_consistency": "DL-15",
+        "diagnostic_restart_readback": "DL-15",
         "debug_projection": "DL-15",
         "identity_preserving_routing": "DL-16",
         "direct_edge_route_identity": "DL-16",
+        "single_edge_cardinality": "DL-16",
+        "invalid_route_input_failure": "DL-16",
+        "disconnected_connected_components": "DL-16",
+        "route_restart_determinism": "DL-16",
         "bypass_track_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17"

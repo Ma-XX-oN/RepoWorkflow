@@ -6,6 +6,7 @@ import os
 import shutil
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -235,6 +236,100 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("─", viewed.stdout)
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
+
+  def test_diagnostic_record_survives_fresh_process_readback(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(root, env, "lanes", "select", "203", "--json")
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      diagnostics_dir = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "diagnostics"
+        / "lanes"
+      )
+      records = list(diagnostics_dir.glob("lane-invocation--*.json"))
+      self.assertEqual(len(records), 1)
+      record_path = records[0]
+
+      readback = subprocess.run(
+        [
+          sys.executable,
+          "-c",
+          (
+            "import json,sys;"
+            "value=json.load(open(sys.argv[1],encoding='utf-8'));"
+            "print(json.dumps({"
+            "'schema_version':value['schema_version'],"
+            "'invocation_id':value['invocation_id'],"
+            "'repository_head':value['repository_head'],"
+            "'command':value['command'],"
+            "'success':value['success']"
+            "},sort_keys=True))"
+          ),
+          str(record_path),
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      value = json.loads(readback.stdout)
+      self.assertEqual(value["schema_version"], 1)
+      self.assertRegex(
+        value["invocation_id"],
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-"
+        r"[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      )
+      self.assertRegex(value["repository_head"], r"^[0-9a-f]{40}$")
+      self.assertEqual(
+        value["command"],
+        ["lanes", "select", "203", "--json"],
+      )
+      self.assertTrue(value["success"])
+
+  def test_route_render_and_diagnostics_are_stable_across_processes(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          77: [],
+          78: [77],
+          99: [78],
+          100: [77, 78, 99],
+        },
+      )
+
+      selected = self.run_rwf(root, env, "lanes", "select", "100", "--json")
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      first = self.run_rwf(root, env, "lanes", "view")
+      second = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(second.returncode, 0, second.stderr)
+      self.assertEqual(first.stdout, second.stdout)
+
+      first_debug = self.run_rwf(root, env, "lanes", "view", "--debug")
+      second_debug = self.run_rwf(root, env, "lanes", "view", "--debug")
+      self.assertEqual(first_debug.returncode, 0, first_debug.stderr)
+      self.assertEqual(second_debug.returncode, 0, second_debug.stderr)
+      self.assertIn("\nROUTES\n", first_debug.stdout)
+      self.assertIn("\nROUTES\n", second_debug.stdout)
+      self.assertEqual(
+        first_debug.stdout.split("\nROUTES\n", 1)[1],
+        second_debug.stdout.split("\nROUTES\n", 1)[1],
+      )
 
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:

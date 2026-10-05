@@ -46,6 +46,12 @@ def plan_routes(
   column_width: dict[int, int],
   labels: dict[str, str],
 ) -> RoutePlan:
+  for target, sources in dependencies.items():
+    for source in sources:
+      assert source in dependencies, (
+        f"dependency source {source} for target {target} "
+        "is not in the visible graph"
+      )
   positions, primary = _place_nodes(selection, dependencies, depths)
   routes: list[EdgeRoute] = []
 

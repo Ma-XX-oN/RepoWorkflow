@@ -84,26 +84,72 @@ class LaneRouteRenderTests(unittest.TestCase):
     self.assertIn("└", rendered)
     self.assertIn("┘", rendered)
 
-  def test_direct_and_transitive_paths_remain_visibly_distinct(self):
+  def test_nested_direct_bypasses_have_distinct_golden_tracks(self):
     temp, root = self.fixture(
       {
         "77": relation(),
         "78": relation(77),
         "99": relation(78),
-        "100": relation(77, 99),
+        "100": relation(77, 78, 99),
       },
       (100,),
     )
     self.addCleanup(temp.cleanup)
 
-    lines = render_lanes(root)
-    rendered = "\n".join(lines)
-    self.assertIn("A.77", rendered)
-    self.assertIn("A.78", rendered)
-    self.assertIn("A.99", rendered)
-    self.assertIn("*A.100", rendered)
-    self.assertGreaterEqual(len(lines), 3)
-    self.assertTrue(any("└" in line for line in lines[1:]))
+    class Diagnostics:
+      routed_edges = []
+
+    diagnostics = Diagnostics()
+    lines = render_lanes(root, diagnostics=diagnostics)
+    self.assertEqual(
+      lines,
+      (
+        "A.77 ─┬──A.78 ─┬──A.99 ──┬─*A.100",
+        "      │        │         │",
+        "      └────────┼─────────┤",
+        "               │         │",
+        "               └─────────┘",
+      ),
+    )
+    bypasses = {
+      (item["source"], item["target"]): item
+      for item in diagnostics.routed_edges
+      if item["kind"].startswith("bypass[")
+    }
+    self.assertEqual(set(bypasses), {(77, 100), (78, 100)})
+    self.assertNotEqual(
+      bypasses[(77, 100)]["track_y"],
+      bypasses[(78, 100)]["track_y"],
+    )
+
+  def test_disconnected_connected_components_do_not_interfere(self):
+    temp, root = self.fixture(
+      {
+        "21": relation(),
+        "22": relation(21),
+        "30": relation(),
+        "40": relation(30),
+        "50": relation(40),
+      },
+      (22, 50),
+    )
+    self.addCleanup(temp.cleanup)
+
+    class Diagnostics:
+      routed_edges = []
+
+    diagnostics = Diagnostics()
+    rendered = "\n".join(render_lanes(root, diagnostics=diagnostics))
+    self.assertNotIn("╳", rendered)
+    self.assertEqual(
+      {
+        (item["source"], item["target"])
+        for item in diagnostics.routed_edges
+      },
+      {(21, 22), (30, 40), (40, 50)},
+    )
+    for issue in ("21", "22", "30", "40", "50"):
+      self.assertEqual(rendered.count(f".{issue}"), 1)
 
 
 if __name__ == "__main__":
