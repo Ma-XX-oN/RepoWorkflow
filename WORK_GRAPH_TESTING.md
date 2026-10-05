@@ -6,6 +6,9 @@ Status: authoritative repository-neutral companion to
 This document defines how to test and refine a work graph after applying the
 decomposition and relationship model.  It is repository-independent.
 
+All leaf and umbrella acceptance also remains subject to the universal test
+adequacy and verification gate in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
+
 ## 1. Testing consequences
 
 Good decomposition should make tests nearly derivable from the issue contract.
