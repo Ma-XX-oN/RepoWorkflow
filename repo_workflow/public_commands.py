@@ -41,13 +41,11 @@ def _regression_node() -> dict:
 
 
 def _validate_commands(context: Context) -> dict:
-  issue_tests = {"issue": {"_values": _issue_number}}
   if not context.legal_only:
     return {
       "completions": [
         {"regression": _regression_node()},
         {"integration": _integration_node()},
-        issue_tests,
       ],
     }
 
@@ -57,7 +55,6 @@ def _validate_commands(context: Context) -> dict:
     fragments.append({"regression": _regression_node()})
   if any(item.startswith("validate integration ") for item in transitions):
     fragments.append({"integration": _integration_node()})
-  fragments.append(issue_tests)
   return {"completions": fragments}
 
 
@@ -106,19 +103,6 @@ COMMANDS = {
     },
   },
   "workspace": _workspace_commands(),
-  "tests": {
-    "sync": "Synchronize executable tests for current work",
-    "view": {
-      "": "View proposed executable tests",
-      "new": "View proposed executable tests",
-      "old": "View trusted executable tests before proposal",
-    },
-    "accept": {
-      "new": "Accept proposed executable tests and continue start",
-      "old": "Retain existing executable tests and continue start",
-    },
-    "_variadic": {"min": 1, "description": "Review pending tests with Git"},
-  },
   "what-next": {
     "": "Show legal next workflow transitions",
     "--json": "Output workflow guidance as JSON",
