@@ -253,6 +253,19 @@
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_failed_lane_refresh_writes_failure_diagnostics"
           ]
+        },
+        {
+          "id": "DL-16",
+          "requirement": "every canonical direct dependency has exactly one deterministic routed edge; skip-edges use distinct bypass tracks and unrelated geometric crossings are rendered as non-junction crossings; debug maps semantic edges to route identities",
+          "verification": [
+            "tests/test_lane_routes.py::LaneRouteTests.test_every_semantic_edge_has_exactly_one_route",
+            "tests/test_lane_routes.py::LaneRouteTests.test_direct_bypass_has_distinct_route_identity",
+            "tests/test_lane_routes.py::LaneRouteTests.test_unrelated_route_crossing_is_not_rendered_as_junction",
+            "tests/test_lane_routes.py::LaneRouteTests.test_route_plan_is_deterministic",
+            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_skip_edge_is_rendered_as_separate_bypass_track",
+            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_fan_in_retains_parallel_path_shape",
+            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_and_transitive_paths_remain_visibly_distinct"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -278,7 +291,8 @@
         "inspection_refresh_boundary": "DL-14",
         "provider_progress_and_diagnostics": "DL-15",
         "diagnostic_failure_record": "DL-15",
-        "debug_projection": "DL-15"
+        "debug_projection": "DL-15",
+        "identity_preserving_routing": "DL-16"
       },
       "stateful": true,
       "provider_boundary": true,
