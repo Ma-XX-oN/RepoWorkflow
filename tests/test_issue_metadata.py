@@ -66,6 +66,7 @@ class IssueMetadataTests(unittest.TestCase):
       "  'number': number,\n"
       "  'title': titles[number],\n"
       "  'state': 'open',\n"
+      "  'link': f'https://example.invalid/issues/{number}',\n"
       "}))\n",
       encoding="utf-8",
     )
