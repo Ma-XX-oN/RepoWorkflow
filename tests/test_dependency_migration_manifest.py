@@ -82,6 +82,9 @@ class DependencyMigrationManifestTests(unittest.TestCase):
   def test_rejects_cycle(self):
     value = self.value()
     value["issues"]["208"]["blocked_by"] = [205]
+    value["issues"]["208"]["provenance"] = [
+      "test:synthetic-reviewed-cycle"
+    ]
     with self.assertRaisesRegex(
       DependencyMigrationManifestError,
       "contains cycle",
