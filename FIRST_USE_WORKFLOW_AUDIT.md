@@ -17,11 +17,11 @@ public boundary.
 | Scenario | Status | Owner / repair |
 | --- | --- | --- |
 | FU-BOOTSTRAP-HELP | covered | #299 / tests/test_bootstrap_cli.py |
-| FU-ISSUE-READ | covered | #298-#301; follow-up #312 |
+| FU-ISSUE-READ | covered | #298-#301 / #312 |
 | FU-INIT | pending | #27 |
 | FU-DEPS-LANES | gap | #305 |
 | FU-SESSION | gap | #306 |
-| FU-PUBLIC-ERRORS | gap | #307 |
+| FU-PUBLIC-ERRORS | covered | #307 / tests/test_bootstrap_cli.py |
 | FU-WORK | gap | #308 |
 | FU-LIFECYCLE | gap | #309 |
 | FU-CONSUMER | gap | #313 |
@@ -52,13 +52,13 @@ not complete and its first-use test is part of completion.
 | #30 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #51 | open | public first-use contributor | public-workflow | covered only by its registered child scenarios; open children retain gaps |
 | #52 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #53 | open | public first-use owner | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #53 | open | public first-use owner | issue-query | FU-ISSUE-READ covered |
 | #54 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #55 | open | public first-use contributor | ci-provider | FU-CONSUMER gap #313 |
 | #56 | open | public first-use owner | integration-topology | pending until supported public integration/done path exists |
 | #57 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #58 | open | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
-| #63 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #63 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #64 | closed | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
 | #65 | open | public first-use contributor | ci-provider | FU-CONSUMER gap #313 |
 | #66 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
@@ -85,7 +85,7 @@ not complete and its first-use test is part of completion.
 | #87 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #88 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #89 | closed | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
-| #90 | open | public first-use owner | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #90 | open | public first-use owner | issue-query | FU-ISSUE-READ covered |
 | #91 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
 | #92 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
 | #93 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
@@ -115,8 +115,8 @@ not complete and its first-use test is part of completion.
 | #117 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; identity #306 |
 | #118 | closed | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #119 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
-| #120 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
-| #121 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #120 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered |
+| #121 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered |
 | #122 | open | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #123 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #124 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
@@ -171,7 +171,7 @@ not complete and its first-use test is part of completion.
 | #225 | open | public first-use contributor | integration-topology | pending until supported public integration/done path exists |
 | #227 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #228 | closed | public first-use owner | integration-topology | pending until supported public integration/done path exists |
-| #229 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #229 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #230 | open | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
 | #231 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #232 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
@@ -199,14 +199,14 @@ not complete and its first-use test is part of completion.
 | #274 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #276 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #278 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
-| #280 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #280 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered |
 | #282 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #295 | closed | public first-use owner | initialization | FU-INIT pending #27; consumer path #313 |
 | #297 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #298 | closed | public first-use owner | public-workflow | covered only by its registered child scenarios; open children retain gaps |
 | #299 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #300 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
-| #301 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #300 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered |
+| #301 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #303 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
 | #304 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
 | #305 | open | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
@@ -216,7 +216,7 @@ not complete and its first-use test is part of completion.
 | #309 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #310 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #311 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
-| #312 | open | public first-use contributor | issue-query | FU-ISSUE-READ covered; PR/type mismatch repair #312 |
+| #312 | open | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #313 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
 
 ## Closure rule
