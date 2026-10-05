@@ -52,7 +52,7 @@ def render_lanes(
   *,
   lane: str | None = None,
   links: bool = False,
-  titles: bool = True,
+  titles: bool = False,
 ) -> tuple[str, ...]:
   selection = LaneSelectionStore(root).read().value
   if selection is None:
