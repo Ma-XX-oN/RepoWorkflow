@@ -19,7 +19,7 @@ rwf
 ├── what-next
 ├── issue
 │   ├── info [N]
-│   ├── list <ids...> [--links]
+│   ├── list [<ids...>] [--links]
 │   ├── select dependency to-tickets [--compare|--replace]
 │   ├── select dependency from-tickets [--compare|--replace]
 │   ├── start N
@@ -76,7 +76,9 @@ behaviour and contextual diagnostics.  The semantic command grammar therefore
 does not hard-code Bash-specific insertion behaviour.
 
 Completion and diagnostic paths are read-only, preserve the literal typed
-input, and identify the first failing token.
+input, and identify the first failing token.  Static parsing, help, and syntax
+diagnostics run before workflow-configuration discovery so an uninitialized
+checkout can still explain its public command surface.
 
 Issue #52 owns implementation of this contract.
 
@@ -186,6 +188,8 @@ Issue #55 owns this migration.
 ```text
 rwf issue info
 rwf issue info N
+rwf issue list
+rwf issue list --links
 rwf issue list 54 64 9
 rwf issue list 54 64 9 --links
 rwf issue start N
@@ -194,9 +198,10 @@ rwf issue abort
 
 `issue info` lists/reads repository issues through `repo-info`.
 
-`issue list` displays the requested issue numbers and titles in supplied order.
-With `--links`, each line additionally includes the provider-neutral canonical
-issue link returned by `repo-info`; core RWF does not construct provider URLs.
+`issue list` with no IDs lists all open issues.  With explicit IDs, it
+displays the requested issue numbers and titles in supplied order.  `--links`
+additionally includes the provider-neutral canonical issue link returned by
+`repo-info`; core RWF does not construct provider URLs.
 
 Single Tab completes matching open issue numbers.  Double Tab lists matching
 issue numbers and titles.  A typed prefix filters the same source.
