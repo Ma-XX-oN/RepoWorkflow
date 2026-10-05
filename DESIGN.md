@@ -437,6 +437,8 @@ project's ~500-line ceiling:
   scheduling methodology used to construct maintainable work graphs.
 - [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
   refinement and acceptance checks for those graphs.
+- [TEST_ADEQUACY.md](TEST_ADEQUACY.md) defines the universal repository-neutral
+  test adequacy and verification gate applied to all coding work and consumers.
 
 ## 14. Non-goals
 
@@ -456,7 +458,9 @@ RepoWorkflow must not:
 Implementation starts only after this design has been reviewed against the
 existing consumers.
 
-When implementation begins:
+When implementation begins, the work must satisfy the universal gate in
+[TEST_ADEQUACY.md](TEST_ADEQUACY.md) in addition to the project-specific
+requirements below:
 
 1. establish a specific RED contract test for each invariant;
 2. implement the smallest shared mechanism that satisfies the documented
