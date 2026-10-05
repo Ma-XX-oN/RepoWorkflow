@@ -233,11 +233,8 @@ rwf lanes select <roots...>
 rwf lanes list
 ```
 
-Selection mutations and `lanes list` render the leaf-to-root dependency
-graph.  Machine consumers use explicit `--json`.  Node notation, alignment,
-connectors, links, and colour are defined in
-[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
-
+Selection mutations and `lanes list` render the leaf-to-root graph; machine
+consumers use `--json`.  Display rules are in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
 validates it, and creates the canonical RWF graph before decomposition.
