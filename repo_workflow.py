@@ -50,6 +50,7 @@ from repo_workflow.public_cli import (
   handle_public,
   is_public_command,
 )
+from repo_workflow.repo_info_adapter import RepoInfoError
 from repo_workflow.repository_policy import (
   RepositoryPolicyError,
   check_repository_policy,
@@ -393,6 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     ClassificationError,
     ConfigError,
     RepositoryPolicyError,
+    RepoInfoError,
     ResultError,
     GitError,
     GuardError,
