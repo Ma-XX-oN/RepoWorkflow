@@ -105,10 +105,40 @@ class LaneRenderTests(unittest.TestCase):
     self.assertEqual(
       render_lanes(self.root),
       (
-        "*✓A.63  Define portable repo-info read contract",
-        " *B.65  Define provider-neutral repo-ci contract",
+        "*✓A.63",
+        " *B.65",
       ),
     )
+
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
+  @patch("repo_workflow.lane_render.issue_info")
+  def test_titles_do_not_change_compact_graph_geometry(self, info, _config):
+    def short_info(_root, _config, number):
+      return {
+        "schema_version": 1,
+        "number": number,
+        "title": f"Issue {number}",
+        "state": "closed" if number in {9, 107} else "open",
+        "link": f"https://example.invalid/issues/{number}",
+      }
+
+    def long_info(_root, _config, number):
+      return {
+        "schema_version": 1,
+        "number": number,
+        "title": (
+          "Extremely long issue title that must not affect graph topology "
+          f"for issue {number}"
+        ),
+        "state": "closed" if number in {9, 107} else "open",
+        "link": f"https://example.invalid/issues/{number}",
+      }
+
+    info.side_effect = short_info
+    short = render_lanes(self.root)
+    info.side_effect = long_info
+    long = render_lanes(self.root)
+    self.assertEqual(long, short)
 
   @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
@@ -196,7 +226,7 @@ class LaneRenderTests(unittest.TestCase):
   @patch("repo_workflow.lane_render.issue_info")
   def test_single_lane_filter_preserves_column_width_rules(self, info, _config):
     info.side_effect = self.info
-    self.assertEqual(render_lanes(self.root, lane="B"), ("B.54  Issue 54",))
+    self.assertEqual(render_lanes(self.root, lane="B"), ("B.54",))
 
   def test_color_setting_defaults_and_persists(self):
     self.assertEqual(color_setting(self.root), "auto")
