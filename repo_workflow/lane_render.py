@@ -70,10 +70,7 @@ def render_lanes(
       if selection.assignment[issue] == lane
     }
 
-  metadata = _metadata(root, tuple(sorted(visible, key=int)), links) if titles else {
-    issue: {"title": "", "closed": False, "link": ""}
-    for issue in visible
-  }
+  metadata = _metadata(root, tuple(sorted(visible, key=int)), links)
   return _render_graph(
     selection,
     graph,
