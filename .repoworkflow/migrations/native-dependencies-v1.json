@@ -1,0 +1,1482 @@
+{
+  "schema_version": 1,
+  "migration_id": "repoworkflow-native-dependencies-v1",
+  "repository": "Ma-XX-oN/RepoWorkflow",
+  "semantics": "blocked_by contains reviewed direct executable issue dependencies only; umbrella ownership, shared attachments, umbrella dependencies, parent topology, transitive prerequisites, experimental work, and superseded work are not synthesized as native direct edges.",
+  "source_snapshot": {
+    "issue_count": 190,
+    "reviewed_issue_count": 171,
+    "generated_from": "GitHub issue contracts plus reviewed explicit overrides",
+    "reviewed_through_issue": 327
+  },
+  "excluded_issues": [
+    {
+      "issue": 28,
+      "reason": "placeholder"
+    },
+    {
+      "issue": 29,
+      "reason": "placeholder"
+    },
+    {
+      "issue": 30,
+      "reason": "placeholder"
+    },
+    {
+      "issue": 232,
+      "reason": "superseded"
+    },
+    {
+      "issue": 252,
+      "reason": "experimental"
+    },
+    {
+      "issue": 253,
+      "reason": "experimental"
+    },
+    {
+      "issue": 254,
+      "reason": "experimental"
+    },
+    {
+      "issue": 255,
+      "reason": "experimental"
+    },
+    {
+      "issue": 256,
+      "reason": "experimental"
+    },
+    {
+      "issue": 261,
+      "reason": "experimental"
+    },
+    {
+      "issue": 263,
+      "reason": "experimental"
+    },
+    {
+      "issue": 264,
+      "reason": "experimental"
+    },
+    {
+      "issue": 265,
+      "reason": "experimental"
+    },
+    {
+      "issue": 266,
+      "reason": "experimental"
+    },
+    {
+      "issue": 269,
+      "reason": "experimental"
+    },
+    {
+      "issue": 272,
+      "reason": "experimental"
+    },
+    {
+      "issue": 274,
+      "reason": "experimental"
+    },
+    {
+      "issue": 276,
+      "reason": "experimental"
+    },
+    {
+      "issue": 278,
+      "reason": "quarantined"
+    }
+  ],
+  "unresolved": [],
+  "issues": {
+    "1": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "2": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "5": {
+      "blocked_by": [
+        89
+      ],
+      "provenance": [
+        "issue:5:direct-dependencies"
+      ]
+    },
+    "7": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "8": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "11": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "14": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "15": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "16": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "17": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "18": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "19": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "27": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "51": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "52": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "53": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "54": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "55": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "56": {
+      "blocked_by": [
+        64,
+        69,
+        83,
+        84,
+        86
+      ],
+      "provenance": [
+        "issue:56:direct-dependencies"
+      ]
+    },
+    "57": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "58": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "63": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "64": {
+      "blocked_by": [
+        101,
+        117,
+        118,
+        120,
+        145,
+        164,
+        185,
+        186,
+        187
+      ],
+      "provenance": [
+        "issue:64:direct-blockers"
+      ]
+    },
+    "65": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "66": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "67": {
+      "blocked_by": [
+        91,
+        92,
+        93,
+        94
+      ],
+      "provenance": [
+        "issue:67:direct-blockers"
+      ]
+    },
+    "68": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "69": {
+      "blocked_by": [
+        95,
+        101
+      ],
+      "provenance": [
+        "issue:69:direct-blockers"
+      ]
+    },
+    "70": {
+      "blocked_by": [
+        69,
+        95
+      ],
+      "provenance": [
+        "issue:70:direct-blockers"
+      ]
+    },
+    "71": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "72": {
+      "blocked_by": [
+        69,
+        101,
+        117,
+        145,
+        164
+      ],
+      "provenance": [
+        "issue:72:direct-blockers"
+      ]
+    },
+    "73": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "74": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "75": {
+      "blocked_by": [
+        64
+      ],
+      "provenance": [
+        "issue:75:direct-blocker"
+      ]
+    },
+    "76": {
+      "blocked_by": [
+        69,
+        116
+      ],
+      "provenance": [
+        "issue:76:direct-blockers"
+      ]
+    },
+    "77": {
+      "blocked_by": [
+        127
+      ],
+      "provenance": [
+        "issue:77:direct-blocker"
+      ]
+    },
+    "78": {
+      "blocked_by": [
+        77
+      ],
+      "provenance": [
+        "issue:78:direct-blocker"
+      ]
+    },
+    "79": {
+      "blocked_by": [
+        78,
+        100
+      ],
+      "provenance": [
+        "issue:79:direct-blockers"
+      ]
+    },
+    "80": {
+      "blocked_by": [
+        99
+      ],
+      "provenance": [
+        "issue:80:direct-blocker"
+      ]
+    },
+    "81": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "82": {
+      "blocked_by": [
+        101,
+        118
+      ],
+      "provenance": [
+        "issue:82:direct-blockers"
+      ]
+    },
+    "83": {
+      "blocked_by": [
+        82
+      ],
+      "provenance": [
+        "issue:83:direct-blocker"
+      ]
+    },
+    "84": {
+      "blocked_by": [
+        102,
+        119
+      ],
+      "provenance": [
+        "issue:84:direct-blockers"
+      ]
+    },
+    "85": {
+      "blocked_by": [
+        97,
+        104,
+        110
+      ],
+      "provenance": [
+        "issue:85:direct-blockers"
+      ]
+    },
+    "86": {
+      "blocked_by": [
+        80,
+        85,
+        118
+      ],
+      "provenance": [
+        "issue:86:direct-blockers"
+      ]
+    },
+    "87": {
+      "blocked_by": [
+        101,
+        117,
+        118
+      ],
+      "provenance": [
+        "issue:87:direct-blockers"
+      ]
+    },
+    "88": {
+      "blocked_by": [
+        87
+      ],
+      "provenance": [
+        "issue:88:direct-blocker"
+      ]
+    },
+    "89": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "90": {
+      "blocked_by": [
+        120,
+        121,
+        299,
+        301
+      ],
+      "provenance": [
+        "issue:90:direct-blockers"
+      ]
+    },
+    "91": {
+      "blocked_by": [
+        65
+      ],
+      "provenance": [
+        "issue:91:direct-blocker"
+      ]
+    },
+    "92": {
+      "blocked_by": [
+        65
+      ],
+      "provenance": [
+        "issue:92:direct-blocker"
+      ]
+    },
+    "93": {
+      "blocked_by": [
+        65
+      ],
+      "provenance": [
+        "issue:93:direct-blocker"
+      ]
+    },
+    "94": {
+      "blocked_by": [
+        65
+      ],
+      "provenance": [
+        "issue:94:direct-blocker"
+      ]
+    },
+    "95": {
+      "blocked_by": [
+        68
+      ],
+      "provenance": [
+        "issue:95:direct-blocker"
+      ]
+    },
+    "96": {
+      "blocked_by": [
+        73
+      ],
+      "provenance": [
+        "issue:96:direct-blocker"
+      ]
+    },
+    "97": {
+      "blocked_by": [
+        81
+      ],
+      "provenance": [
+        "issue:97:direct-blocker"
+      ]
+    },
+    "98": {
+      "blocked_by": [
+        101,
+        117,
+        164
+      ],
+      "provenance": [
+        "issue:98:direct-blockers"
+      ]
+    },
+    "99": {
+      "blocked_by": [
+        78
+      ],
+      "provenance": [
+        "issue:99:direct-blocker"
+      ]
+    },
+    "100": {
+      "blocked_by": [
+        99
+      ],
+      "provenance": [
+        "issue:100:direct-blocker"
+      ]
+    },
+    "101": {
+      "blocked_by": [
+        99,
+        100
+      ],
+      "provenance": [
+        "issue:101:direct-blockers"
+      ]
+    },
+    "102": {
+      "blocked_by": [
+        69,
+        82,
+        118
+      ],
+      "provenance": [
+        "issue:102:direct-blockers"
+      ]
+    },
+    "103": {
+      "blocked_by": [
+        84,
+        85
+      ],
+      "provenance": [
+        "issue:103:direct-blockers"
+      ]
+    },
+    "104": {
+      "blocked_by": [
+        69,
+        119
+      ],
+      "provenance": [
+        "issue:104:direct-blockers"
+      ]
+    },
+    "105": {
+      "blocked_by": [
+        118
+      ],
+      "provenance": [
+        "issue:105:direct-blocker"
+      ]
+    },
+    "106": {
+      "blocked_by": [
+        118
+      ],
+      "provenance": [
+        "issue:106:direct-blocker"
+      ]
+    },
+    "107": {
+      "blocked_by": [
+        105,
+        106
+      ],
+      "provenance": [
+        "issue:107:direct-blockers"
+      ]
+    },
+    "108": {
+      "blocked_by": [
+        64,
+        69,
+        80,
+        104,
+        117
+      ],
+      "provenance": [
+        "issue:108:direct-blockers"
+      ]
+    },
+    "109": {
+      "blocked_by": [
+        83,
+        86,
+        103,
+        108,
+        118
+      ],
+      "provenance": [
+        "issue:109:direct-blockers"
+      ]
+    },
+    "110": {
+      "blocked_by": [
+        67,
+        70
+      ],
+      "provenance": [
+        "issue:110:direct-blockers"
+      ]
+    },
+    "111": {
+      "blocked_by": [
+        72
+      ],
+      "provenance": [
+        "issue:111:direct-blocker"
+      ]
+    },
+    "112": {
+      "blocked_by": [
+        72
+      ],
+      "provenance": [
+        "issue:112:direct-blocker"
+      ]
+    },
+    "113": {
+      "blocked_by": [
+        78
+      ],
+      "provenance": [
+        "issue:113:direct-blocker"
+      ]
+    },
+    "114": {
+      "blocked_by": [
+        88,
+        113
+      ],
+      "provenance": [
+        "issue:114:direct-blockers"
+      ]
+    },
+    "115": {
+      "blocked_by": [
+        113
+      ],
+      "provenance": [
+        "issue:115:direct-blocker"
+      ]
+    },
+    "116": {
+      "blocked_by": [
+        75,
+        101
+      ],
+      "provenance": [
+        "issue:116:direct-blockers"
+      ]
+    },
+    "117": {
+      "blocked_by": [
+        78,
+        79
+      ],
+      "provenance": [
+        "issue:117:direct-blockers"
+      ]
+    },
+    "118": {
+      "blocked_by": [
+        89
+      ],
+      "provenance": [
+        "issue:118:direct-blocker"
+      ]
+    },
+    "119": {
+      "blocked_by": [
+        81
+      ],
+      "provenance": [
+        "issue:119:direct-blocker"
+      ]
+    },
+    "120": {
+      "blocked_by": [
+        63
+      ],
+      "provenance": [
+        "issue:120:direct-blocker"
+      ]
+    },
+    "121": {
+      "blocked_by": [
+        63
+      ],
+      "provenance": [
+        "issue:121:direct-blocker"
+      ]
+    },
+    "122": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "123": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "124": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "125": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "127": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "129": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "131": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "133": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "135": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "136": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "137": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "138": {
+      "blocked_by": [
+        78,
+        136
+      ],
+      "provenance": [
+        "issue:138:direct-blockers"
+      ]
+    },
+    "139": {
+      "blocked_by": [
+        137
+      ],
+      "provenance": [
+        "issue:139:direct-blocker"
+      ]
+    },
+    "140": {
+      "blocked_by": [
+        138,
+        139
+      ],
+      "provenance": [
+        "issue:140:direct-blockers"
+      ]
+    },
+    "141": {
+      "blocked_by": [
+        77
+      ],
+      "provenance": [
+        "issue:141:direct-blocker"
+      ]
+    },
+    "142": {
+      "blocked_by": [
+        64,
+        140
+      ],
+      "provenance": [
+        "issue:142:direct-blockers"
+      ]
+    },
+    "143": {
+      "blocked_by": [
+        138,
+        139,
+        140
+      ],
+      "provenance": [
+        "issue:143:direct-blockers"
+      ]
+    },
+    "144": {
+      "blocked_by": [
+        141,
+        145,
+        164,
+        169
+      ],
+      "provenance": [
+        "issue:144:direct-blockers"
+      ]
+    },
+    "145": {
+      "blocked_by": [
+        77,
+        101
+      ],
+      "provenance": [
+        "issue:145:direct-blockers"
+      ]
+    },
+    "153": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "155": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "159": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "163": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "164": {
+      "blocked_by": [
+        79,
+        101
+      ],
+      "provenance": [
+        "issue:164:direct-blockers"
+      ]
+    },
+    "169": {
+      "blocked_by": [
+        79,
+        141
+      ],
+      "provenance": [
+        "issue:169:direct-blockers"
+      ]
+    },
+    "172": {
+      "blocked_by": [
+        101,
+        117
+      ],
+      "provenance": [
+        "issue:172:reviewed-contract"
+      ]
+    },
+    "185": {
+      "blocked_by": [
+        77,
+        145,
+        186
+      ],
+      "provenance": [
+        "issue:185:reviewed-contract"
+      ]
+    },
+    "186": {
+      "blocked_by": [
+        189
+      ],
+      "provenance": [
+        "issue:186:reviewed-contract"
+      ]
+    },
+    "187": {
+      "blocked_by": [
+        99,
+        100,
+        101
+      ],
+      "provenance": [
+        "issue:187:reviewed-contract"
+      ]
+    },
+    "189": {
+      "blocked_by": [
+        99
+      ],
+      "provenance": [
+        "issue:189:reviewed-contract"
+      ]
+    },
+    "196": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "201": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "205": {
+      "blocked_by": [
+        208
+      ],
+      "provenance": [
+        "issue:205:reviewed-contract"
+      ]
+    },
+    "206": {
+      "blocked_by": [
+        107
+      ],
+      "provenance": [
+        "issue:206:reviewed-contract"
+      ]
+    },
+    "208": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "209": {
+      "blocked_by": [
+        63,
+        145,
+        185
+      ],
+      "provenance": [
+        "issue:209:reviewed-contract"
+      ]
+    },
+    "210": {
+      "blocked_by": [
+        209
+      ],
+      "provenance": [
+        "issue:210:reviewed-contract"
+      ]
+    },
+    "211": {
+      "blocked_by": [
+        145,
+        185,
+        209
+      ],
+      "provenance": [
+        "issue:211:reviewed-contract"
+      ]
+    },
+    "212": {
+      "blocked_by": [
+        145,
+        185,
+        210,
+        211
+      ],
+      "provenance": [
+        "issue:212:reviewed-contract"
+      ]
+    },
+    "213": {
+      "blocked_by": [
+        185,
+        210,
+        211
+      ],
+      "provenance": [
+        "issue:213:reviewed-contract"
+      ]
+    },
+    "214": {
+      "blocked_by": [
+        172,
+        212,
+        213,
+        229
+      ],
+      "provenance": [
+        "issue:214:reviewed-contract"
+      ]
+    },
+    "215": {
+      "blocked_by": [
+        120,
+        280,
+        282
+      ],
+      "provenance": [
+        "issue:215:reviewed-contract"
+      ]
+    },
+    "216": {
+      "blocked_by": [
+        145,
+        185,
+        208
+      ],
+      "provenance": [
+        "issue:216:reviewed-contract"
+      ]
+    },
+    "217": {
+      "blocked_by": [
+        216
+      ],
+      "provenance": [
+        "issue:217:reviewed-contract"
+      ]
+    },
+    "218": {
+      "blocked_by": [
+        217
+      ],
+      "provenance": [
+        "issue:218:reviewed-contract"
+      ]
+    },
+    "219": {
+      "blocked_by": [
+        120,
+        217
+      ],
+      "provenance": [
+        "issue:219:reviewed-contract"
+      ]
+    },
+    "220": {
+      "blocked_by": [
+        101,
+        217
+      ],
+      "provenance": [
+        "issue:220:reviewed-contract"
+      ]
+    },
+    "221": {
+      "blocked_by": [
+        145,
+        217,
+        220,
+        224
+      ],
+      "provenance": [
+        "issue:221:reviewed-contract"
+      ]
+    },
+    "222": {
+      "blocked_by": [
+        120,
+        217,
+        219,
+        220
+      ],
+      "provenance": [
+        "issue:222:reviewed-contract"
+      ]
+    },
+    "223": {
+      "blocked_by": [
+        142,
+        221,
+        222,
+        224
+      ],
+      "provenance": [
+        "issue:223:reviewed-contract"
+      ]
+    },
+    "224": {
+      "blocked_by": [
+        99,
+        100,
+        101,
+        186,
+        220
+      ],
+      "provenance": [
+        "issue:224:reviewed-contract"
+      ]
+    },
+    "225": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "227": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "228": {
+      "blocked_by": [
+        77,
+        145,
+        185,
+        227,
+        240,
+        242,
+        246
+      ],
+      "provenance": [
+        "issue:228:explicit-direct-section-reviewed"
+      ]
+    },
+    "229": {
+      "blocked_by": [
+        78,
+        120,
+        145
+      ],
+      "provenance": [
+        "issue:229:direct-blockers"
+      ]
+    },
+    "230": {
+      "blocked_by": [
+        64,
+        227,
+        228,
+        229,
+        240
+      ],
+      "provenance": [
+        "issue:230:direct-blockers"
+      ]
+    },
+    "231": {
+      "blocked_by": [
+        230
+      ],
+      "provenance": [
+        "issue:231:direct-blockers"
+      ]
+    },
+    "233": {
+      "blocked_by": [
+        227,
+        228,
+        230,
+        240
+      ],
+      "provenance": [
+        "issue:233:direct-blockers"
+      ]
+    },
+    "234": {
+      "blocked_by": [
+        98,
+        138,
+        142,
+        230,
+        231
+      ],
+      "provenance": [
+        "issue:234:explicit-direct-section-reviewed"
+      ]
+    },
+    "235": {
+      "blocked_by": [
+        230,
+        231,
+        233,
+        234
+      ],
+      "provenance": [
+        "issue:235:direct-blockers"
+      ]
+    },
+    "236": {
+      "blocked_by": [
+        227
+      ],
+      "provenance": [
+        "issue:236:direct-blockers"
+      ]
+    },
+    "240": {
+      "blocked_by": [
+        227
+      ],
+      "provenance": [
+        "issue:240:reviewed-contract"
+      ]
+    },
+    "242": {
+      "blocked_by": [
+        227,
+        240
+      ],
+      "provenance": [
+        "issue:242:reviewed-contract"
+      ]
+    },
+    "246": {
+      "blocked_by": [
+        227,
+        240
+      ],
+      "provenance": [
+        "issue:246:reviewed-contract"
+      ]
+    },
+    "249": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "250": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "280": {
+      "blocked_by": [
+        63,
+        120
+      ],
+      "provenance": [
+        "issue:280:reviewed-contract"
+      ]
+    },
+    "282": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "295": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "297": {
+      "blocked_by": [
+        299
+      ],
+      "provenance": [
+        "issue:297:reviewed-contract"
+      ]
+    },
+    "298": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "299": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "300": {
+      "blocked_by": [
+        299
+      ],
+      "provenance": [
+        "issue:300:reviewed-contract"
+      ]
+    },
+    "301": {
+      "blocked_by": [
+        63,
+        120,
+        121,
+        299
+      ],
+      "provenance": [
+        "issue:301:reviewed-contract"
+      ]
+    },
+    "303": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "304": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "305": {
+      "blocked_by": [
+        205,
+        304
+      ],
+      "provenance": [
+        "issue:305:reviewed-contract"
+      ]
+    },
+    "306": {
+      "blocked_by": [
+        189,
+        304
+      ],
+      "provenance": [
+        "issue:306:reviewed-contract"
+      ]
+    },
+    "307": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "308": {
+      "blocked_by": [
+        304,
+        305,
+        306
+      ],
+      "provenance": [
+        "issue:308:reviewed-contract"
+      ]
+    },
+    "309": {
+      "blocked_by": [
+        304,
+        308
+      ],
+      "provenance": [
+        "issue:309:reviewed-contract"
+      ]
+    },
+    "310": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "311": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "312": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "313": {
+      "blocked_by": [
+        7,
+        27,
+        304
+      ],
+      "provenance": [
+        "issue:313:reviewed-contract"
+      ]
+    },
+    "318": {
+      "blocked_by": [
+        305,
+        306
+      ],
+      "provenance": [
+        "issue:318:reviewed-contract"
+      ]
+    },
+    "320": {
+      "blocked_by": [
+        303,
+        304,
+        305,
+        318
+      ],
+      "provenance": [
+        "issue:320:reviewed-contract"
+      ]
+    },
+    "321": {
+      "blocked_by": [
+        208,
+        305,
+        320
+      ],
+      "provenance": [
+        "issue:321:reviewed-contract"
+      ]
+    },
+    "325": {
+      "blocked_by": [],
+      "provenance": [
+        "reviewed:no-direct-edge"
+      ]
+    },
+    "326": {
+      "blocked_by": [
+        325
+      ],
+      "provenance": [
+        "issue:326:reviewed-contract"
+      ]
+    },
+    "327": {
+      "blocked_by": [
+        305,
+        326
+      ],
+      "provenance": [
+        "issue:327:reviewed-contract"
+      ]
+    }
+  }
+}
