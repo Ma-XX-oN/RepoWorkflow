@@ -178,6 +178,39 @@ class FirstUseLanesTests(unittest.TestCase):
         ["217"],
       )
 
+  def test_select_add_remove_preserve_distinct_root_semantics(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(json.loads(selected.stdout)["roots"], ["206"])
+
+      added = self.run_rwf(root, env, "lanes", "select", "add", "203")
+      self.assertEqual(added.returncode, 0, added.stderr)
+      self.assertEqual(json.loads(added.stdout)["roots"], ["203", "206"])
+      self.assertEqual(
+        json.loads(added.stdout)["closure"],
+        ["201", "203", "206"],
+      )
+
+      removed = self.run_rwf(root, env, "lanes", "select", "remove", "206")
+      self.assertEqual(removed.returncode, 0, removed.stderr)
+      self.assertEqual(json.loads(removed.stdout)["roots"], ["203"])
+      self.assertEqual(json.loads(removed.stdout)["closure"], ["201", "203"])
+
+      replaced = self.run_rwf(root, env, "lanes", "select", "205", "218")
+      self.assertEqual(replaced.returncode, 0, replaced.stderr)
+      self.assertEqual(json.loads(replaced.stdout)["roots"], ["205", "218"])
+      self.assertEqual(
+        json.loads(replaced.stdout)["closure"],
+        ["205", "208", "217", "218"],
+      )
+
   def test_read_only_lane_failure_does_not_create_runtime_identity(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
