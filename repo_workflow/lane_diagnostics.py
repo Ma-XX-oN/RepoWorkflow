@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 import json
+import os
 import sys
+import tempfile
 import time
 import uuid
 
-from .git import git
+from .git import GitError, git, head_sha
 
 
 @dataclass
@@ -15,6 +18,9 @@ class LaneDiagnostics:
   root: Path
   command: tuple[str, ...]
   started: float = field(default_factory=time.perf_counter)
+  started_utc: str = field(
+    default_factory=lambda: datetime.now(timezone.utc).isoformat()
+  )
   provider_counts: dict[str, int] = field(default_factory=dict)
   provider_seconds: dict[str, float] = field(default_factory=dict)
   cache_hits: dict[str, int] = field(default_factory=dict)
@@ -61,9 +67,23 @@ class LaneDiagnostics:
       time.perf_counter() - started
     )
 
-  def finish(self, *, error: Exception | None = None) -> Path:
+  def set_semantic_edges(self, edges: list[tuple[int, int]]) -> None:
+    self.semantic_edges = sorted(set(edges))
+
+  def finish(self, *, error: Exception | None = None) -> Path | None:
     if error is not None:
       self.error = str(error)
+    try:
+      return self._write()
+    except Exception as diagnostic_error:
+      print(
+        "RepoWorkflow warning: could not write lane invocation diagnostics: "
+        f"{diagnostic_error}",
+        file=sys.stderr,
+      )
+      return None
+
+  def _write(self) -> Path:
     total = time.perf_counter() - self.started
     common = Path(
       git(self.root, "rev-parse", "--git-common-dir").stdout.strip()
@@ -72,10 +92,17 @@ class LaneDiagnostics:
       common = (self.root / common).resolve()
     directory = common / "repoworkflow" / "diagnostics" / "lanes"
     directory.mkdir(parents=True, exist_ok=True)
-    identifier = uuid.uuid4()
+    identifier = str(uuid.uuid4())
     path = directory / f"lane-invocation--{identifier}.json"
+    try:
+      commit = head_sha(self.root)
+    except GitError:
+      commit = None
     value = {
       "schema_version": 1,
+      "invocation_id": identifier,
+      "started_utc": self.started_utc,
+      "repository_head": commit,
       "command": list(self.command),
       "elapsed_seconds": total,
       "provider_calls": dict(sorted(self.provider_counts.items())),
@@ -85,9 +112,27 @@ class LaneDiagnostics:
       "phase_seconds": dict(sorted(self.phase_seconds.items())),
       "semantic_edges": [list(edge) for edge in self.semantic_edges],
       "routed_edges": self.routed_edges,
+      "success": self.error is None,
       "error": self.error,
     }
-    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+    descriptor, temporary = tempfile.mkstemp(
+      prefix=f".{path.name}.",
+      suffix=".tmp",
+      dir=directory,
+    )
+    temporary_path = Path(temporary)
+    try:
+      with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        json.dump(value, handle, indent=2, sort_keys=True, allow_nan=False)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+      os.replace(temporary_path, path)
+    finally:
+      try:
+        temporary_path.unlink()
+      except FileNotFoundError:
+        pass
     return path
 
   def debug_lines(self) -> tuple[str, ...]:
