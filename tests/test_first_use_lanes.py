@@ -353,6 +353,134 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(refreshed.returncode, 2)
       self.assertIn("provider unavailable", refreshed.stderr)
 
+  def test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertIn("Refreshing dependencies: #203", selected.stderr)
+      self.assertIn("Refreshing dependencies: #201", selected.stderr)
+      self.assertIn("Refreshing metadata: 1/2", selected.stderr)
+      self.assertIn("Refreshing metadata: 2/2", selected.stderr)
+
+      diagnostics_dir = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "diagnostics"
+        / "lanes"
+      )
+      records = sorted(diagnostics_dir.glob("lane-invocation--*.json"))
+      self.assertEqual(len(records), 1)
+      first = json.loads(records[0].read_text(encoding="utf-8"))
+      self.assertEqual(first["provider_calls"]["dependencies"], 2)
+      self.assertEqual(first["provider_calls"]["metadata"], 2)
+      self.assertEqual(first["cache_misses"]["relationships"], 2)
+      self.assertEqual(first["cache_misses"]["metadata"], 2)
+      self.assertTrue(first["success"])
+
+      viewed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--debug",
+      )
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertNotIn("Refreshing ", viewed.stderr)
+      self.assertIn("DATA SOURCES", viewed.stdout)
+      self.assertIn("provider requests: 0", viewed.stdout)
+      self.assertIn("metadata: cache hits=2 misses=0", viewed.stdout)
+      self.assertIn("relationships: cache hits=2 misses=0", viewed.stdout)
+      self.assertIn("DIRECT EDGES", viewed.stdout)
+      self.assertIn("201 -> 203", viewed.stdout)
+
+      records = sorted(diagnostics_dir.glob("lane-invocation--*.json"))
+      self.assertEqual(len(records), 2)
+      second = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertEqual(second["provider_calls"], {})
+      self.assertEqual(second["cache_hits"]["metadata"], 2)
+      self.assertEqual(second["cache_hits"]["relationships"], 2)
+      self.assertEqual(second["semantic_edges"], [[201, 203]])
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("Refreshing dependencies:", refreshed.stderr)
+      self.assertIn("Refreshing metadata:", refreshed.stderr)
+
+  def test_failed_lane_refresh_writes_failure_diagnostics(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(94)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      failed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(failed.returncode, 2)
+      self.assertIn("provider unavailable", failed.stderr)
+
+      diagnostics_dir = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "diagnostics"
+        / "lanes"
+      )
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      self.assertGreaterEqual(len(records), 2)
+      record = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertFalse(record["success"])
+      self.assertIn("provider unavailable", record["error"])
+      self.assertGreaterEqual(record["provider_calls"]["dependencies"], 1)
+
   def test_repeated_selection_extends_existing_partial_graph(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
