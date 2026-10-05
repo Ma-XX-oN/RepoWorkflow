@@ -1,0 +1,331 @@
+name: RepoWorkflow Lane Workflow Certification v2
+
+on:
+  push:
+    branches:
+      - issue-346-lane-workflow-certification
+    paths:
+      - .repoworkflow/migrations/run-lane-workflow-certification-v2
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  certify:
+    if: github.repository == 'Ma-XX-oN/RepoWorkflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Require complete real-provider dependency readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/migrate-native-dependencies.py \
+            --report provider-readback-v2.json \
+            > provider-readback-v2.stdout
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("provider-readback-v2.json").read_text())
+          expected = {
+            "MATCH": len(report["issues"]),
+            "DESTINATION_EMPTY": 0,
+            "CONFLICT": 0,
+          }
+          if report["counts"] != expected:
+            raise SystemExit(
+              "provider readback mismatch: "
+              + json.dumps(report["counts"], sort_keys=True)
+            )
+          print("RWF_PROVIDER_COUNTS=" + json.dumps(
+            report["counts"], sort_keys=True, separators=(",", ":")
+          ))
+          PY
+
+      - name: Certify cache refresh list view diagnostics and routing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          root = Path(".").resolve()
+          manifest = json.loads(
+            (root / ".repoworkflow" / "migrations"
+             / "native-dependencies-v1.json").read_text()
+          )
+          graph = {
+            int(issue): tuple(item["blocked_by"])
+            for issue, item in manifest["issues"].items()
+          }
+
+          def closure(roots):
+            seen = set()
+            pending = list(roots)
+            while pending:
+              issue = pending.pop(0)
+              if issue in seen:
+                continue
+              seen.add(issue)
+              pending.extend(graph[issue])
+            return sorted(seen)
+
+          diagnostics_dir = (
+            root / ".git" / "repoworkflow" / "diagnostics" / "lanes"
+          )
+          evidence = []
+
+          def diagnostic_paths():
+            if not diagnostics_dir.exists():
+              return set()
+            return set(diagnostics_dir.glob("lane-invocation--*.json"))
+
+          def run(*args, env=None):
+            before = diagnostic_paths()
+            command = ["./rwf", *args]
+            completed = subprocess.run(
+              command,
+              cwd=root,
+              env=env,
+              capture_output=True,
+              text=True,
+            )
+            after = diagnostic_paths()
+            created = after - before
+            if len(created) != 1:
+              raise SystemExit(
+                f"expected one diagnostic for {command!r}, got "
+                f"{len(created)}"
+              )
+            diagnostic_path = next(iter(created))
+            diagnostic = json.loads(diagnostic_path.read_text())
+            item = {
+              "command": command,
+              "returncode": completed.returncode,
+              "stdout": completed.stdout.strip(),
+              "stderr": completed.stderr.strip(),
+              "diagnostic": diagnostic,
+            }
+            evidence.append(item)
+            if completed.returncode:
+              raise SystemExit(
+                f"command failed: {command!r}\n{completed.stderr}"
+              )
+            return completed, diagnostic
+
+          root218 = 218
+          expected218 = closure([root218])
+
+          selected, selected_diag = run(
+            "lanes", "select", str(root218), "--json"
+          )
+          selected_value = json.loads(selected.stdout)
+          if list(map(int, selected_value["closure"])) != expected218:
+            raise SystemExit("initial #218 closure disagrees with manifest")
+          if selected_diag["provider_calls"].get("dependencies", 0) <= 0:
+            raise SystemExit("initial selection did not read dependencies")
+          if selected_diag["provider_calls"].get("metadata", 0) <= 0:
+            raise SystemExit("initial selection did not read metadata")
+          if "Refreshing dependencies:" not in selected.stderr:
+            raise SystemExit("dependency progress missing from stderr")
+          if "Refreshing metadata:" not in selected.stderr:
+            raise SystemExit("metadata progress missing from stderr")
+
+          listed, listed_diag = run("lanes", "list")
+          if listed_diag["provider_calls"]:
+            raise SystemExit("plain lanes list unexpectedly used provider")
+          if "Lane " not in listed.stdout or "#218" not in listed.stdout:
+            raise SystemExit("lane inventory is missing grouped issue/title data")
+          if "─" in listed.stdout:
+            raise SystemExit("lane inventory unexpectedly contains graph edges")
+
+          linked, linked_diag = run("lanes", "list", "--links")
+          if linked_diag["provider_calls"]:
+            raise SystemExit("linked lane list unexpectedly used provider")
+          if "https://github.com/Ma-XX-oN/RepoWorkflow/issues/" not in linked.stdout:
+            raise SystemExit("lanes list --links omitted issue links")
+
+          viewed, viewed_diag = run("lanes", "view", "--debug")
+          if viewed_diag["provider_calls"]:
+            raise SystemExit("plain lanes view unexpectedly used provider")
+          if "DATA SOURCES" not in viewed.stdout:
+            raise SystemExit("debug data-source projection missing")
+          if "DIRECT EDGES" not in viewed.stdout or "ROUTES" not in viewed.stdout:
+            raise SystemExit("debug edge/route projection missing")
+          if "145 -> 216" not in viewed.stdout:
+            raise SystemExit("real direct edge 145 -> 216 missing from debug")
+          route145216 = next(
+            (
+              route
+              for route in viewed_diag["routed_edges"]
+              if route["source"] == 145 and route["target"] == 216
+            ),
+            None,
+          )
+          if route145216 is None:
+            raise SystemExit("routed edge 145 -> 216 missing")
+          if not route145216["kind"].startswith("bypass["):
+            raise SystemExit(
+              "real direct 145 -> 216 edge is not a bypass: "
+              + repr(route145216)
+            )
+          if not any(
+            route["source"] == 145 and route["target"] == 185
+            for route in viewed_diag["routed_edges"]
+          ):
+            raise SystemExit("real edge 145 -> 185 missing")
+          if not any(
+            route["source"] == 185 and route["target"] == 216
+            for route in viewed_diag["routed_edges"]
+          ):
+            raise SystemExit("real edge 185 -> 216 missing")
+
+          graph_path = (
+            root / ".repoworkflow" / "state" / "relationships" / "graph.json"
+          )
+          selection_path = (
+            root / ".git" / "repoworkflow" / "lane-selection"
+            / "selection.json"
+          )
+          graph_before = graph_path.read_bytes()
+          selection_before = selection_path.read_bytes()
+
+          refreshed_list, refreshed_list_diag = run(
+            "lanes", "list", "--refresh"
+          )
+          if set(refreshed_list_diag["provider_calls"]) != {"metadata"}:
+            raise SystemExit(
+              "lanes list --refresh must be metadata-only: "
+              + repr(refreshed_list_diag["provider_calls"])
+            )
+          if refreshed_list_diag["provider_calls"]["metadata"] != len(expected218):
+            raise SystemExit("metadata refresh scope disagrees with selection")
+          if graph_path.read_bytes() != graph_before:
+            raise SystemExit("lanes list --refresh mutated relationship graph")
+          if selection_path.read_bytes() != selection_before:
+            raise SystemExit("lanes list --refresh mutated lane selection")
+          if "Refreshing dependencies:" in refreshed_list.stderr:
+            raise SystemExit("list refresh emitted dependency progress")
+
+          refreshed_view, refreshed_view_diag = run(
+            "lanes", "view", "--refresh"
+          )
+          if refreshed_view_diag["provider_calls"].get(
+            "dependencies"
+          ) != len(expected218):
+            raise SystemExit("view refresh dependency scope mismatch")
+          if refreshed_view_diag["provider_calls"].get(
+            "metadata"
+          ) != len(expected218):
+            raise SystemExit("view refresh metadata scope mismatch")
+          if "Refreshing dependencies:" not in refreshed_view.stderr:
+            raise SystemExit("view refresh dependency progress missing")
+
+          before_add_calls = len(evidence)
+          added, added_diag = run(
+            "lanes", "select", "add", "206", "--json"
+          )
+          expected206 = set(closure([206]))
+          new206 = sorted(expected206 - set(expected218))
+          if added_diag["provider_calls"].get("dependencies") != len(new206):
+            raise SystemExit(
+              "select add dependency reads did not limit to missing nodes: "
+              + repr(added_diag["provider_calls"])
+            )
+          if added_diag["provider_calls"].get("metadata") != len(new206):
+            raise SystemExit(
+              "select add metadata reads did not limit to missing nodes"
+            )
+
+          removed, removed_diag = run(
+            "lanes", "select", "remove", "206", "--json"
+          )
+          if removed_diag["provider_calls"]:
+            raise SystemExit("select remove unexpectedly used provider")
+          removed_value = json.loads(removed.stdout)
+          if list(map(int, removed_value["roots"])) != [218]:
+            raise SystemExit("select remove failed to restore root 218")
+
+          with tempfile.TemporaryDirectory() as td:
+            fake = Path(td) / "gh"
+            fake.write_text(
+              "#!/bin/sh\n"
+              "echo provider-unavailable >&2\n"
+              "exit 97\n"
+            )
+            fake.chmod(0o755)
+            offline_env = dict(os.environ)
+            offline_env["PATH"] = str(fake.parent) + os.pathsep + os.environ["PATH"]
+            offline_list, offline_list_diag = run(
+              "lanes", "list", env=offline_env
+            )
+            offline_view, offline_view_diag = run(
+              "lanes", "view", env=offline_env
+            )
+            if offline_list_diag["provider_calls"]:
+              raise SystemExit("offline list unexpectedly used provider")
+            if offline_view_diag["provider_calls"]:
+              raise SystemExit("offline view unexpectedly used provider")
+            if "provider-unavailable" in (
+              offline_list.stderr + offline_view.stderr
+            ):
+              raise SystemExit("offline inspection touched fake provider")
+
+          evidence_path = Path("lane-workflow-certification-v2.json")
+          evidence_path.write_text(
+            json.dumps(
+              {
+                "schema_version": 1,
+                "repository": "Ma-XX-oN/RepoWorkflow",
+                "manifest_issue_count": len(graph),
+                "root": root218,
+                "root_closure": expected218,
+                "real_bypass": route145216,
+                "evidence": evidence,
+              },
+              indent=2,
+              sort_keys=True,
+            ) + "\n"
+          )
+          digest = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+          print("RWF_LANE_WORKFLOW_CERTIFICATION_SHA256=" + digest)
+          print(
+            "RWF_LANE_WORKFLOW_CERTIFICATION_JSON="
+            + json.dumps(
+              {
+                "commands": len(evidence),
+                "root_closure_count": len(expected218),
+                "real_bypass": route145216,
+              },
+              sort_keys=True,
+              separators=(",", ":"),
+            )
+          )
+          PY
+
+      - name: Upload certification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-workflow-certification-v2
+          path: |
+            lane-workflow-certification-v2.json
+            provider-readback-v2.json
