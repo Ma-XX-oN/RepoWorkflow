@@ -46,8 +46,11 @@ def _repository_root(start: Path) -> Path:
 
 
 def _has_repoworkflow_gitlink(root: Path) -> bool:
-  result = _run_git(root, "rev-parse", "--verify", "HEAD:RepoWorkflow")
-  return result.returncode == 0 and bool(result.stdout.strip())
+  result = _run_git(root, "ls-tree", "HEAD", "--", "RepoWorkflow")
+  if result.returncode:
+    return False
+  fields = result.stdout.strip().split(None, 3)
+  return len(fields) >= 3 and fields[0] == "160000" and fields[1] == "commit"
 
 
 def discover_repository_launcher(start: Path) -> RepositoryLauncher:
