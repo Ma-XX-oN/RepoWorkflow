@@ -38,6 +38,19 @@ During refresh:
 For `select remove ... --refresh`, the removed root is excluded from refresh
 unless it remains reachable from another selected root.
 
+Inspection refresh is command-scoped:
+
+- `lanes list --refresh` refreshes issue metadata/status/link for the current
+  selected closure only.  It performs no dependency-provider reads and cannot
+  change the canonical graph, roots, closure, or lane assignment.
+- `lanes view --refresh` refreshes relevant dependency facts plus display
+  metadata, then recomputes the current selection from refreshed canonical
+  relationships.
+
+A metadata-only list refresh remains valid when the dependency provider is
+unavailable.  Metadata refresh failure preserves the prior metadata, graph, and
+selection.
+
 ## 3. Missing local data
 
 A missing requested node is not treated as stale or empty.  RWF queries the
