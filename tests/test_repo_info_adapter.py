@@ -31,7 +31,7 @@ class RepoInfoAdapterTests(unittest.TestCase):
         "if args == ['repository']:\n"
         "  print(json.dumps({'schema_version': 1, 'repository': 'o/r', 'provider': 'test'}))\n"
         "elif args == ['issue', 'get', '64']:\n"
-        "  print(json.dumps({'schema_version': 1, 'number': 64, 'title': 'Start', 'state': 'open'}))\n"
+        "  print(json.dumps({'schema_version': 1, 'number': 64, 'title': 'Start', 'state': 'open', 'link': 'https://example.invalid/issues/64'}))\n"
         "elif args == ['issue', 'list-open']:\n"
         "  print(json.dumps({'schema_version': 1, 'issues': [{'number': 2, 'title': 'B'}, {'number': 64, 'title': 'Start'}]}))\n"
         "else:\n"
@@ -39,6 +39,10 @@ class RepoInfoAdapterTests(unittest.TestCase):
       )
       self.assertEqual(repository_info(root, config)["repository"], "o/r")
       self.assertEqual(issue_info(root, config, 64)["state"], "open")
+      self.assertEqual(
+        issue_info(root, config, 64)["link"],
+        "https://example.invalid/issues/64",
+      )
       self.assertEqual(
         [item["number"] for item in list_open_issues(root, config)["issues"]],
         [2, 64],
@@ -70,9 +74,11 @@ class RepoInfoAdapterTests(unittest.TestCase):
   def test_malformed_schema_fields_and_issue_identity_fail(self):
     cases = [
       ("print('not-json')\n", "malformed JSON"),
-      ("print('{\"schema_version\": 2, \"number\": 64, \"title\": \"x\", \"state\": \"open\"}')\n", "unsupported"),
-      ("print('{\"schema_version\": 1, \"number\": 64, \"title\": \"x\", \"state\": \"open\", \"raw\": {}}')\n", "invalid issue result"),
-      ("print('{\"schema_version\": 1, \"number\": 65, \"title\": \"x\", \"state\": \"open\"}')\n", "wrong issue number"),
+      ("print('{\"schema_version\": 2, \"number\": 64, \"title\": \"x\", \"state\": \"open\", \"link\": \"https://example.invalid/issues/64\"}')\n", "unsupported"),
+      ("print('{\"schema_version\": 1, \"number\": 64, \"title\": \"x\", \"state\": \"open\", \"link\": \"https://example.invalid/issues/64\", \"raw\": {}}')\n", "invalid issue result"),
+      ("print('{\"schema_version\": 1, \"number\": 65, \"title\": \"x\", \"state\": \"open\", \"link\": \"https://example.invalid/issues/65\"}')\n", "wrong issue number"),
+      ("print('{\"schema_version\": 1, \"number\": 64, \"title\": \"x\", \"state\": \"open\"}')\n", "invalid issue result"),
+      ("print('{\"schema_version\": 1, \"number\": 64, \"title\": \"x\", \"state\": \"open\", \"link\": \"issue-64\"}')\n", "invalid issue link"),
     ]
     for body, message in cases:
       with self.subTest(message=message), tempfile.TemporaryDirectory() as td:
