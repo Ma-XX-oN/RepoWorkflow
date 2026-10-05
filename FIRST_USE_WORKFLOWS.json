@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "rule": "A supported public workflow is incomplete until an assembled first-use test starts from the minimum documented external state and reaches the workflow through the real public entrypoint without pre-creating internal state owned by that workflow.",
+  "schema_version": 2,
+  "rule": "A supported public workflow is incomplete until each acceptance requirement is traceable to executable verification, stateful lifecycle dimensions are covered where applicable, and provider-boundary fixtures have explicit contract fidelity verification.",
   "scenarios": [
     {
       "id": "FU-BOOTSTRAP-HELP",
@@ -40,7 +40,9 @@
             "tests/test_bootstrap_cli.py::BootstrapCliTests.test_configuration_required_command_loads_config_after_parse"
           ]
         }
-      ]
+      ],
+      "stateful": false,
+      "provider_boundary": false
     },
     {
       "id": "FU-ISSUE-READ",
@@ -81,6 +83,11 @@
             "tests/test_bootstrap_cli.py::BootstrapCliTests.test_read_only_queries_run_through_discovered_github_adapter"
           ]
         }
+      ],
+      "stateful": false,
+      "provider_boundary": true,
+      "provider_contract_verification": [
+        "tests/test_bootstrap_cli.py::BootstrapCliTests.test_read_only_queries_run_through_discovered_github_adapter"
       ]
     },
     {
@@ -96,7 +103,16 @@
         "precreating .repoworkflow",
         "preinstalling managed hooks/shell output"
       ],
-      "gap_issue": 27
+      "gap_issue": 27,
+      "stateful": true,
+      "provider_boundary": false,
+      "acceptance": [
+        {
+          "id": "FU-INIT-PENDING-1",
+          "requirement": "Complete the documented first-use workflow contract for this scenario",
+          "deferred_issue": 27
+        }
+      ]
     },
     {
       "id": "FU-DEPS-LANES",
@@ -160,7 +176,13 @@
         "provider_contract_fidelity": "DL-3",
         "provider_truncation_failure": "DL-4",
         "read_after_write": "DL-5"
-      }
+      },
+      "stateful": true,
+      "provider_boundary": true,
+      "provider_contract_verification": [
+        "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_read_normalizes_blocked_by_numbers",
+        "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_truncated_blocked_by_connection_fails_closed"
+      ]
     },
     {
       "id": "FU-SESSION",
@@ -204,7 +226,15 @@
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_explicit_agent_identity_is_preserved"
           ]
         }
-      ]
+      ],
+      "stateful": true,
+      "provider_boundary": false,
+      "lifecycle_dimensions": {
+        "implicit_identity_on_mutation": "SE-1",
+        "read_only_no_identity_side_effect": "SE-2",
+        "partial_explicit_identity_failure": "SE-3",
+        "explicit_identity_preservation": "SE-4"
+      }
     },
     {
       "id": "FU-PUBLIC-ERRORS",
@@ -227,7 +257,9 @@
             "tests/test_bootstrap_cli.py::BootstrapCliTests.test_expected_public_precondition_failures_never_traceback"
           ]
         }
-      ]
+      ],
+      "stateful": false,
+      "provider_boundary": false
     },
     {
       "id": "FU-WORK",
@@ -243,7 +275,16 @@
         "WorkspaceStore writes",
         "calling start_issue directly"
       ],
-      "gap_issue": 308
+      "gap_issue": 308,
+      "stateful": true,
+      "provider_boundary": true,
+      "acceptance": [
+        {
+          "id": "FU-WORK-PENDING-1",
+          "requirement": "Complete the documented first-use workflow contract for this scenario",
+          "deferred_issue": 308
+        }
+      ]
     },
     {
       "id": "FU-LIFECYCLE",
@@ -256,7 +297,16 @@
         "save_local_state",
         "direct workflow-state writes"
       ],
-      "gap_issue": 309
+      "gap_issue": 309,
+      "stateful": true,
+      "provider_boundary": false,
+      "acceptance": [
+        {
+          "id": "FU-LIFECYCLE-PENDING-1",
+          "requirement": "Complete the documented first-use workflow contract for this scenario",
+          "deferred_issue": 309
+        }
+      ]
     },
     {
       "id": "FU-CONSUMER",
@@ -269,7 +319,16 @@
         "testing only launcher Python function with mocked subprocess",
         "precreating generated adoption files"
       ],
-      "gap_issue": 313
+      "gap_issue": 313,
+      "stateful": true,
+      "provider_boundary": true,
+      "acceptance": [
+        {
+          "id": "FU-CONSUMER-PENDING-1",
+          "requirement": "Complete the documented first-use workflow contract for this scenario",
+          "deferred_issue": 313
+        }
+      ]
     }
   ],
   "audited_issue_count": 184,
