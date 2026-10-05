@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionStore
 from .lane_render import render_lanes
@@ -10,7 +11,11 @@ from .relationship_bootstrap import ensure_relationship_graph
 from .runtime_identity import runtime_writer_identity
 
 
-def handle_lane_selection(root: Path, words: list[str]) -> int:
+def handle_lane_selection(
+  root: Path,
+  words: list[str],
+  diagnostics: LaneDiagnostics | None = None,
+) -> int:
   store = LaneSelectionStore(root)
   current = store.read()
   writer = runtime_writer_identity()
@@ -41,7 +46,13 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
       set(current.value.roots) | {str(int(value)) for value in additions},
       key=int,
     ))
-    _prepare(root, desired, writer, refresh=refresh)
+    _prepare(
+      root,
+      desired,
+      writer,
+      refresh=refresh,
+      diagnostics=diagnostics,
+    )
     result = store.add(
       additions,
       writer,
@@ -57,7 +68,13 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
       if value not in removed
     )
     if desired:
-      _prepare(root, desired, writer, refresh=refresh)
+      _prepare(
+        root,
+        desired,
+        writer,
+        refresh=refresh,
+        diagnostics=diagnostics,
+      )
     result = store.remove(
       removals,
       writer,
@@ -65,7 +82,13 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
     )
   else:
     desired = tuple(tail)
-    _prepare(root, desired, writer, refresh=refresh)
+    _prepare(
+      root,
+      desired,
+      writer,
+      refresh=refresh,
+      diagnostics=diagnostics,
+    )
     result = store.select(
       desired,
       writer,
@@ -86,16 +109,19 @@ def _prepare(
   writer,
   *,
   refresh: bool,
+  diagnostics: LaneDiagnostics | None,
 ) -> None:
   relationships = ensure_relationship_graph(
     root,
     roots,
     writer,
     refresh=refresh,
+    diagnostics=diagnostics,
   )
   ensure_lane_metadata(
     root,
     tuple(relationships.issues),
     writer,
     refresh=refresh,
+    diagnostics=diagnostics,
   )
