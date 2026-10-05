@@ -17,6 +17,8 @@ from .dependency_sync_cli import dependency_sync_command
 from .issue_info_cli import show_issue_info
 from .invocation_identity import ensure_public_runtime_identity
 from .issue_list import list_issues
+from .lane_inspection import refresh_current_lane_selection
+from .lane_list import render_lane_list
 from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .runtime_identity import runtime_writer_identity
@@ -89,7 +91,9 @@ def _version_transition(words: list[str]) -> tuple[str, ...] | None:
 def _requires_public_runtime_identity(words: list[str]) -> bool:
   command = words[0]
   if command == "lanes":
-    return words[1] != "list"
+    if words[1] in {"list", "view"}:
+      return "--refresh" in words
+    return True
   if command == "settings":
     return True
   if command == "issue":
@@ -130,12 +134,22 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return handle_workspace(root, words)
 
   if command == "lanes":
-    if words[1] == "list":
+    if words[1] in {"list", "view"}:
       tail = words[2:]
+      refresh = "--refresh" in tail
       links = "--links" in tail
-      lane = next((x for x in tail if x != "--links"), None)
-      for line in render_lanes(root, lane=lane, links=links):
-        print(line)
+      ignored = {"--refresh", "--links"}
+      lane = next((x for x in tail if x not in ignored), None)
+      if refresh:
+        refresh_current_lane_selection(root, runtime_writer_identity())
+      if words[1] == "list":
+        for line in render_lane_list(root, lane=lane, links=links):
+          print(line)
+      else:
+        if links:
+          raise ValueError("lanes view does not accept --links")
+        for line in render_lanes(root, lane=lane, titles=False):
+          print(line)
       return 0
     return handle_lane_selection(root, words)
 

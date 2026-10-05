@@ -131,11 +131,11 @@ jobs:
           select(120, 121)     # shared prerequisite / fan-out
           select(64, 107)      # multiple roots with overlapping closure
           select(205)          # open root with closed direct dependency
-          listed = run("lanes", "list").stdout.splitlines()
+          listed = run("lanes", "view").stdout.splitlines()
           closed_line = next((line for line in listed if ".208" in line), "")
           if "✓" not in closed_line:
             raise SystemExit(
-              "closed dependency #208 is not marked closed in lanes list: "
+              "closed dependency #208 is not marked closed in lanes view: "
               + repr(closed_line)
             )
 

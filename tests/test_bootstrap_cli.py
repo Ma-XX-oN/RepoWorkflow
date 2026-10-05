@@ -183,6 +183,11 @@ class BootstrapCliTests(unittest.TestCase):
           "lane selection is missing",
         ),
         (
+          ("lanes", "view"),
+          None,
+          "lane selection is missing",
+        ),
+        (
           ("lanes", "clear"),
           identity,
           "lane selection is missing",

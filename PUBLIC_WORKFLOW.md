@@ -231,7 +231,11 @@ Lane planning may begin directly from ticket-native dependency facts:
 ```text
 rwf lanes select <roots...>
 rwf lanes list
+rwf lanes view
 ```
+
+`lanes list` is the grouped issue/title inventory; `lanes view` is the compact
+dependency topology.  Both read synchronized local state by default.
 
 Lane operations use local canonical state by default; `--refresh` rereads the
 relevant provider closure; see [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md) and [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
@@ -246,9 +250,8 @@ Sibling issues beneath one umbrella may have no ordering relationship at all.
 Several agents may therefore work on those siblings concurrently.
 
 RepoWorkflow models only explicit **direct issue dependencies** for ordering.
-If issue #102 cannot proceed until #101 produces a required result, #102
-directly depends on #101.  If #101 and #102 are merely related because both
-contribute to umbrella #100, neither depends on the other.
+If #102 cannot proceed until #101 produces a required result, #102 depends
+directly on #101.  Mere contribution to umbrella #100 creates no dependency.
 
 An apparent indirect dependency is a decomposition signal rather than a
 workflow relationship to preserve.  Work should be broken down until every
@@ -262,12 +265,10 @@ During decomposition, prerequisite work may be discovered that is useful to
 multiple otherwise unrelated issues or umbrellas.  It does not become a child
 of whichever consumer discovered it first.
 
-A single shared prerequisite may remain an independent issue.  If the shared
-capability itself requires several interface or implementation tasks, those
-tasks belong under their own **shared capability umbrella**.  Consumer
-umbrellas attach to that shared capability umbrella rather than duplicating or
-multi-parenting its child issues.  Executable ordering still uses explicit
-direct dependency edges to the specific leaf interfaces each consumer needs.
+A shared prerequisite may remain independent.  If it needs several tasks,
+those tasks belong under a **shared capability umbrella**.  Consumers attach
+to that umbrella rather than duplicating/multi-parenting children; executable
+ordering still uses explicit direct leaf dependencies.
 
 RepoWorkflow distinguishes four graph relationships:
 
@@ -280,11 +281,9 @@ RepoWorkflow distinguishes four graph relationships:
 - **direct umbrella dependency**: one complete umbrella outcome cannot be
   complete until another complete umbrella outcome is complete.
 
-A direct umbrella dependency is a high-level roadmap relation, not a
-replacement for leaf dependencies.  Record it only when the whole prerequisite
-umbrella is required, not merely because one child consumes one child from
-another umbrella.  The umbrella-dependency graph should omit edges already
-implied transitively by other umbrella dependencies.
+A direct umbrella dependency is a roadmap relation, not a replacement for leaf
+dependencies.  Record it only when the whole prerequisite umbrella is required;
+omit umbrella edges already implied transitively.
 
 For example:
 

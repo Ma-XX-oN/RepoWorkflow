@@ -118,7 +118,7 @@
       "id": "FU-DEPS-LANES",
       "status": "covered",
       "scope": [
-        "native ticket dependencies -> canonical RWF graph -> rwf lanes select -> rwf lanes list"
+        "native ticket dependencies -> canonical RWF graph -> rwf lanes select -> rwf lanes list/view"
       ],
       "minimum_state": "normal Git checkout/provider access with no relationship graph or lane-selection records",
       "prohibited_shortcuts": [
@@ -162,8 +162,9 @@
         },
         {
           "id": "DL-5",
-          "requirement": "lane list renders the dependency graph created by the same public first-use path, including topology and issue metadata",
+          "requirement": "lane list presents grouped issue/title inventory while lane view renders the same selection as title-free dependency topology",
           "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
         },
@@ -230,6 +231,15 @@
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_cached_selection_succeeds_when_dependency_provider_is_unavailable",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_provider_failure_preserves_graph_and_selection"
           ]
+        },
+        {
+          "id": "DL-14",
+          "requirement": "lanes list and lanes view read synchronized local metadata without provider access; explicit --refresh is the provider reread boundary",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_and_view_are_offline_until_explicit_refresh",
+            "tests/test_lane_list.py::LaneListTests.test_list_groups_issues_by_lane_with_titles",
+            "tests/test_lane_list.py::LaneListTests.test_links_are_optional"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -250,7 +260,9 @@
         "cache_reuse_after_success": "DL-13",
         "restart_cache_reuse": "DL-13",
         "explicit_scoped_refresh": "DL-13",
-        "refresh_provider_failure_rollback": "DL-13"
+        "refresh_provider_failure_rollback": "DL-13",
+        "offline_list_view_after_sync": "DL-14",
+        "inspection_refresh_boundary": "DL-14"
       },
       "stateful": true,
       "provider_boundary": true,
