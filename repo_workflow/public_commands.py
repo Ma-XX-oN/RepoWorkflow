@@ -103,7 +103,19 @@ COMMANDS = {
       "add": {"_variadic": {"min": 1, "description": "Issue roots"}},
       "remove": {"_variadic": {"min": 1, "description": "Issue roots"}},
     },
+    "list": {
+      "": "Render local lane selection",
+      "--links": "Render local lane selection with issue links",
+      "_variadic": {"min": 1, "description": "Lane and optional --links"},
+    },
     "clear": "Clear local lane selection",
+  },
+  "settings": {
+    "color": {
+      "auto": "Use color when output is a terminal",
+      "always": "Always use color",
+      "never": "Never use color",
+    },
   },
   "issue": {
     "select": {
