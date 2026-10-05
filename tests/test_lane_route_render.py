@@ -60,9 +60,9 @@ class LaneRouteRenderTests(unittest.TestCase):
     self.assertEqual(
       lines,
       (
-        "A.145 ─┬──A.185 ─────┬─*A.216",
-        "       │              │",
-        "       └──────────────┘",
+        "A.145 ─┬──A.185 ──┬─*A.216",
+        "       │          │",
+        "       └──────────┘",
       ),
     )
 
