@@ -109,7 +109,9 @@ jobs:
             return completed
 
           def select(*roots):
-            completed = run("lanes", "select", *map(str, roots))
+            completed = run(
+              "lanes", "select", *map(str, roots), "--json"
+            )
             value = json.loads(completed.stdout)
             expected_roots = sorted(set(roots))
             expected_closure = closure(expected_roots)
@@ -138,7 +140,7 @@ jobs:
             )
 
           select(205)
-          added = run("lanes", "select", "add", "218")
+          added = run("lanes", "select", "add", "218", "--json")
           added_value = json.loads(added.stdout)
           if list(map(int, added_value["roots"])) != [205, 218]:
             raise SystemExit(
@@ -148,7 +150,7 @@ jobs:
           if list(map(int, added_value["closure"])) != closure([205, 218]):
             raise SystemExit("select add closure disagrees with manifest")
 
-          removed = run("lanes", "select", "remove", "205")
+          removed = run("lanes", "select", "remove", "205", "--json")
           removed_value = json.loads(removed.stdout)
           if list(map(int, removed_value["roots"])) != [218]:
             raise SystemExit(

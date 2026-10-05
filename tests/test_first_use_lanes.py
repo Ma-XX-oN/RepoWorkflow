@@ -152,7 +152,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(root, env, "lanes", "select", "203", "206")
+      selected = self.run_rwf(root, env, "lanes", "select", "203", "206", "--json")
       self.assertEqual(selected.returncode, 0, selected.stderr)
       value = json.loads(selected.stdout)
       self.assertEqual(value["roots"], ["203", "206"])
@@ -184,6 +184,28 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("Root 206", listed.stdout)
       self.assertIn("Leaf 201", listed.stdout)
 
+  def test_human_select_renders_graph_and_list_uses_same_selection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(root, env, "lanes", "select", "203", "206")
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertNotIn('"schema_version"', selected.stdout)
+      self.assertIn("─", selected.stdout)
+      self.assertIn("*", selected.stdout)
+      self.assertIn("A.201", selected.stdout)
+      self.assertIn("A.203", selected.stdout)
+
+      listed = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertIn("Leaf 201", listed.stdout)
+      self.assertIn("Root 203", listed.stdout)
+      self.assertIn("Root 206", listed.stdout)
+
   def test_repeated_selection_extends_existing_partial_graph(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
@@ -192,18 +214,18 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      first = self.run_rwf(root, env, "lanes", "select", "206")
+      first = self.run_rwf(root, env, "lanes", "select", "206", "--json")
       self.assertEqual(first.returncode, 0, first.stderr)
       self.assertEqual(json.loads(first.stdout)["closure"], ["206"])
 
-      second = self.run_rwf(root, env, "lanes", "select", "206", "203")
+      second = self.run_rwf(root, env, "lanes", "select", "206", "203", "--json")
       self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(
         json.loads(second.stdout)["closure"],
         ["201", "203", "206"],
       )
 
-      third = self.run_rwf(root, env, "lanes", "select", "205", "218")
+      third = self.run_rwf(root, env, "lanes", "select", "205", "218", "--json")
       self.assertEqual(third.returncode, 0, third.stderr)
       self.assertEqual(
         json.loads(third.stdout)["closure"],
@@ -238,11 +260,11 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      selected = self.run_rwf(root, env, "lanes", "select", "206", "--json")
       self.assertEqual(selected.returncode, 0, selected.stderr)
       self.assertEqual(json.loads(selected.stdout)["roots"], ["206"])
 
-      added = self.run_rwf(root, env, "lanes", "select", "add", "203")
+      added = self.run_rwf(root, env, "lanes", "select", "add", "203", "--json")
       self.assertEqual(added.returncode, 0, added.stderr)
       self.assertEqual(json.loads(added.stdout)["roots"], ["203", "206"])
       self.assertEqual(
@@ -250,12 +272,12 @@ class FirstUseLanesTests(unittest.TestCase):
         ["201", "203", "206"],
       )
 
-      removed = self.run_rwf(root, env, "lanes", "select", "remove", "206")
+      removed = self.run_rwf(root, env, "lanes", "select", "remove", "206", "--json")
       self.assertEqual(removed.returncode, 0, removed.stderr)
       self.assertEqual(json.loads(removed.stdout)["roots"], ["203"])
       self.assertEqual(json.loads(removed.stdout)["closure"], ["201", "203"])
 
-      replaced = self.run_rwf(root, env, "lanes", "select", "205", "218")
+      replaced = self.run_rwf(root, env, "lanes", "select", "205", "218", "--json")
       self.assertEqual(replaced.returncode, 0, replaced.stderr)
       self.assertEqual(json.loads(replaced.stdout)["roots"], ["205", "218"])
       self.assertEqual(
@@ -271,7 +293,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base, {203: [], 201: []})
 
-      first = self.run_rwf(root, env, "lanes", "select", "203")
+      first = self.run_rwf(root, env, "lanes", "select", "203", "--json")
       self.assertEqual(first.returncode, 0, first.stderr)
       self.assertEqual(json.loads(first.stdout)["closure"], ["203"])
 
@@ -282,7 +304,7 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.certify_migration(root)
 
-      second = self.run_rwf(root, env, "lanes", "select", "203")
+      second = self.run_rwf(root, env, "lanes", "select", "203", "--json")
       self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(json.loads(second.stdout)["closure"], ["201", "203"])
 
@@ -299,7 +321,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base, {203: [201], 201: [], 206: []})
 
-      first = self.run_rwf(root, env, "lanes", "select", "203")
+      first = self.run_rwf(root, env, "lanes", "select", "203", "--json")
       self.assertEqual(first.returncode, 0, first.stderr)
 
       state_path = Path(env["RWF_TEST_DEPS"])
@@ -309,7 +331,7 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.certify_migration(root)
 
-      conflicted = self.run_rwf(root, env, "lanes", "select", "203")
+      conflicted = self.run_rwf(root, env, "lanes", "select", "203", "--json")
       self.assertEqual(conflicted.returncode, 2)
       self.assertIn("conflict with native ticket dependencies", conflicted.stderr)
 
@@ -334,7 +356,7 @@ class FirstUseLanesTests(unittest.TestCase):
       migration.parent.mkdir(parents=True)
       migration.write_text("{}\n", encoding="utf-8")
 
-      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      selected = self.run_rwf(root, env, "lanes", "select", "206", "--json")
       self.assertEqual(selected.returncode, 2)
       self.assertIn(
         "native ticket dependency migration is not certified",
@@ -375,7 +397,7 @@ class FirstUseLanesTests(unittest.TestCase):
       env = self.fake_github(base)
       env["RWF_WRITER_ID"] = "agent-explicit"
 
-      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      selected = self.run_rwf(root, env, "lanes", "select", "206", "--json")
       self.assertEqual(selected.returncode, 2)
       self.assertIn("RWF_SESSION_ID", selected.stderr)
       self.assertFalse(
@@ -393,7 +415,7 @@ class FirstUseLanesTests(unittest.TestCase):
       env["RWF_WRITER_ID"] = "agent-explicit"
       env["RWF_SESSION_ID"] = "session-explicit"
 
-      selected = self.run_rwf(root, env, "lanes", "select", "206")
+      selected = self.run_rwf(root, env, "lanes", "select", "206", "--json")
       self.assertEqual(selected.returncode, 0, selected.stderr)
 
       selection_path = (
