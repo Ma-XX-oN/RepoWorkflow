@@ -404,6 +404,107 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertNotIn(206, self.dependency_calls(env))
 
+  def test_cached_selection_succeeds_when_dependency_provider_is_unavailable(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "raise SystemExit(91)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      cached = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(cached.returncode, 0, cached.stderr)
+      self.assertEqual(json.loads(cached.stdout)["closure"], ["201", "203"])
+
+  def test_refresh_provider_failure_preserves_graph_and_selection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      graph_path = (
+        root
+        / ".repoworkflow"
+        / "state"
+        / "relationships"
+        / "graph.json"
+      )
+      selection_path = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "lane-selection"
+        / "selection.json"
+      )
+      graph_before = graph_path.read_text(encoding="utf-8")
+      selection_before = selection_path.read_text(encoding="utf-8")
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(92)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--refresh",
+        "--json",
+      )
+      self.assertEqual(refreshed.returncode, 2)
+      self.assertIn("provider unavailable", refreshed.stderr)
+      self.assertEqual(
+        graph_path.read_text(encoding="utf-8"),
+        graph_before,
+      )
+      self.assertEqual(
+        selection_path.read_text(encoding="utf-8"),
+        selection_before,
+      )
+
   def test_existing_empty_canonical_issue_reconciles_after_provider_migration(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
