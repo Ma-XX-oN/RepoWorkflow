@@ -13,6 +13,7 @@ from .command_grammar import (
   parse_tokens,
 )
 from .config import load_config
+from .issue_list import list_issues
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
@@ -92,6 +93,10 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return handle_workspace(root, words)
 
   if command == "issue":
+    if words[1] == "list":
+      for line in list_issues(root, words[2:]):
+        print(line)
+      return 0
     result = start_issue(root, words[2])
     print(json.dumps(result.to_json_value(), separators=(",", ":")))
     return 0
