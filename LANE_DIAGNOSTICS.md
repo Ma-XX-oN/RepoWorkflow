@@ -109,3 +109,11 @@ Tests must independently prove:
   matching the canonical state used by the command.
 
 All applicable TEST_ADEQUACY.md requirements apply.
+
+
+## Failure privacy
+
+Durable diagnostics record the exception class for a failed invocation, not raw
+exception text.  The normal command stderr remains the actionable user-facing
+error channel.  This prevents provider stderr, payload fragments, tokens, or
+other secrets from being copied into diagnostic records.
