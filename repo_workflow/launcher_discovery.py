@@ -18,12 +18,17 @@ class RepositoryLauncher:
 
 
 def _run_git(start: Path, *args: str) -> subprocess.CompletedProcess[str]:
-  return subprocess.run(
-    ["git", "-C", os.fspath(start), *args],
-    capture_output=True,
-    text=True,
-    check=False,
-  )
+  try:
+    return subprocess.run(
+      ["git", "-C", os.fspath(start), *args],
+      capture_output=True,
+      text=True,
+      check=False,
+    )
+  except FileNotFoundError as error:
+    raise LauncherDiscoveryError(
+      "Git is required for repository-local RWF discovery"
+    ) from error
 
 
 def _repository_root(start: Path) -> Path:
