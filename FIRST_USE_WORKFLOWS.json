@@ -266,6 +266,14 @@
             "tests/test_lane_route_render.py::LaneRouteRenderTests.test_fan_in_retains_parallel_path_shape",
             "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_and_transitive_paths_remain_visibly_distinct"
           ]
+        },
+        {
+          "id": "DL-17",
+          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and direct bypass routes agree with canonical direct dependencies",
+          "verification": [
+            "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_cache_and_routing_certification",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -294,7 +302,9 @@
         "debug_projection": "DL-15",
         "identity_preserving_routing": "DL-16",
         "direct_edge_route_identity": "DL-16",
-        "bypass_track_rendering": "DL-16"
+        "bypass_track_rendering": "DL-16",
+        "real_provider_cache_routing_certification": "DL-17",
+        "combined_inspection_flags": "DL-17"
       },
       "stateful": true,
       "provider_boundary": true,
