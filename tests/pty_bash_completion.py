@@ -226,6 +226,23 @@ def main() -> int:
     clear_line(terminal)
     sync_command(terminal, ":")
 
+    fallback = ROOT / "zzzz-rwf-pty-fallback"
+    fallback.write_text("sentinel\n", encoding="utf-8")
+    try:
+      terminal.send("rwf zzzz")
+      terminal.send("\t")
+      terminal.expect(COMPLETION_SYNC)
+      terminal.send('; printf "%s\\n" "$RWF_PTY_SYNC"')
+      send_line(terminal, "")
+      output = terminal.expect(SYNC)
+      expect_prompt(terminal)
+      if fallback.name in output:
+        raise AssertionError(
+          f"completion fell back to filename expansion: {output!r}"
+        )
+    finally:
+      fallback.unlink(missing_ok=True)
+
     sync_command(
       terminal,
       '. /dev/stdin <<<"$(./rwf init bash)"',
