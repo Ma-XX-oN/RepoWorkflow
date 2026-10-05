@@ -4,7 +4,8 @@
 # may be a Microsoft Store app-execution alias that exists but is unusable.
 for RWF_PYTHON in python3 python; do
   if command -v "$RWF_PYTHON" >/dev/null 2>&1 &&
-      "$RWF_PYTHON" -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)'         >/dev/null 2>&1; then
+      "$RWF_PYTHON" -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' \
+        >/dev/null 2>&1; then
     exec "$RWF_PYTHON" "$(dirname "$0")/repo_workflow.py" "$@"
   fi
 done
