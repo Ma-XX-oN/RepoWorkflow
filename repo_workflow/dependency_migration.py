@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 
@@ -134,6 +135,26 @@ def report_value(
     "counts": counts,
     "issues": [item.to_json_value() for item in diffs],
   }
+
+
+def provider_readback_digest(value: dict) -> str:
+  canonical = json.dumps(
+    {
+      "migration_id": value["migration_id"],
+      "repository": value["repository"],
+      "issues": [
+        {
+          "issue": item["issue"],
+          "provider": item["provider"],
+          "status": item["status"],
+        }
+        for item in value["issues"]
+      ],
+    },
+    sort_keys=True,
+    separators=(",", ":"),
+  ).encode("utf-8")
+  return hashlib.sha256(canonical).hexdigest()
 
 
 def write_report(path: Path, value: dict) -> None:
