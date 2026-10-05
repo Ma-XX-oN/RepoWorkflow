@@ -424,6 +424,61 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(selection_path.read_bytes(), before["selection"])
       self.assertEqual(metadata_path.read_bytes(), before["metadata"])
 
+  def test_lane_list_refresh_updates_cached_issue_metadata(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      dependency_calls_before = list(self.dependency_calls(env))
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "args = sys.argv[1:]\n"
+        "if args[:2] != ['issue', 'view'] or 'blockedBy' in args:\n"
+        "  print('unexpected gh arguments: ' + repr(args), file=sys.stderr)\n"
+        "  raise SystemExit(2)\n"
+        "number = int(args[2])\n"
+        "titles = {201: 'Leaf 201 refreshed', 203: 'Root 203 refreshed'}\n"
+        "print(json.dumps({\n"
+        "  'number': number,\n"
+        "  'title': titles[number],\n"
+        "  'state': 'OPEN',\n"
+        "  'url': f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}',\n"
+        "}))\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("#201  Leaf 201 refreshed", refreshed.stdout)
+      self.assertIn("#203  Root 203 refreshed", refreshed.stdout)
+      self.assertEqual(self.dependency_calls(env), dependency_calls_before)
+
+      offline = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(offline.returncode, 0, offline.stderr)
+      self.assertIn("#203  Root 203 refreshed", offline.stdout)
+
   def test_lane_list_and_view_are_offline_until_explicit_refresh(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
