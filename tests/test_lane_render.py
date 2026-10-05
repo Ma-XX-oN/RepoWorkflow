@@ -1,8 +1,8 @@
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
 
+from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
 from repo_workflow.lane_render import (
   color_setting,
   render_lanes,
@@ -40,23 +40,30 @@ class LaneRenderTests(unittest.TestCase):
       self.writer,
     )
     LaneSelectionStore(self.root).select((107,), self.writer)
+    self.write_metadata({
+      9: ("Issue 9", "closed"),
+      54: ("Issue 54", "open"),
+      107: ("Issue 107", "closed"),
+    })
 
   def tearDown(self):
     self.temp.cleanup()
 
-  def info(self, _root, _config, number):
-    return {
-      "schema_version": 1,
-      "number": number,
-      "title": f"Issue {number}",
-      "state": "closed" if number in {9, 107} else "open",
-      "link": f"https://example.invalid/issues/{number}",
-    }
+  def write_metadata(self, values: dict[int, tuple[str, str]]) -> None:
+    IssueMetadataStore(self.root).write(
+      {
+        number: IssueMetadata(
+          number=number,
+          title=title,
+          state=state,
+          link=f"https://example.invalid/issues/{number}",
+        )
+        for number, (title, state) in values.items()
+      },
+      self.writer,
+    )
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_annotations_touch_identifier_and_decimal_align(self, info, _config):
-    info.side_effect = self.info
+  def test_annotations_touch_identifier_and_decimal_align(self):
     lines = render_lanes(self.root)
     line_9 = next(line for line in lines if "A. 9" in line)
     line_54 = next(line for line in lines if "B.54" in line)
@@ -68,9 +75,7 @@ class LaneRenderTests(unittest.TestCase):
     self.assertIn("─", graph)
     self.assertTrue(any(char in graph for char in "┬┐┴┘├┤┼"))
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_independent_roots_match_compact_alignment_contract(self, info, _config):
+  def test_independent_roots_match_compact_alignment_contract(self):
     graph_store = RelationshipStore(self.root)
     graph = graph_store.read()
     graph_store.replace(
@@ -88,20 +93,11 @@ class LaneRenderTests(unittest.TestCase):
       self.writer,
       expected_revision=selection.revision,
     )
+    self.write_metadata({
+      63: ("Define portable repo-info read contract", "closed"),
+      65: ("Define provider-neutral repo-ci contract", "open"),
+    })
 
-    def independent_info(_root, _config, number):
-      return {
-        "schema_version": 1,
-        "number": number,
-        "title": {
-          63: "Define portable repo-info read contract",
-          65: "Define provider-neutral repo-ci contract",
-        }[number],
-        "state": "closed" if number == 63 else "open",
-        "link": f"https://example.invalid/issues/{number}",
-      }
-
-    info.side_effect = independent_info
     self.assertEqual(
       render_lanes(self.root),
       (
@@ -110,39 +106,25 @@ class LaneRenderTests(unittest.TestCase):
       ),
     )
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_titles_do_not_change_compact_graph_geometry(self, info, _config):
-    def short_info(_root, _config, number):
-      return {
-        "schema_version": 1,
-        "number": number,
-        "title": f"Issue {number}",
-        "state": "closed" if number in {9, 107} else "open",
-        "link": f"https://example.invalid/issues/{number}",
-      }
-
-    def long_info(_root, _config, number):
-      return {
-        "schema_version": 1,
-        "number": number,
-        "title": (
-          "Extremely long issue title that must not affect graph topology "
-          f"for issue {number}"
-        ),
-        "state": "closed" if number in {9, 107} else "open",
-        "link": f"https://example.invalid/issues/{number}",
-      }
-
-    info.side_effect = short_info
+  def test_titles_do_not_change_compact_graph_geometry(self):
     short = render_lanes(self.root)
-    info.side_effect = long_info
-    long = render_lanes(self.root)
-    self.assertEqual(long, short)
+    self.write_metadata({
+      9: (
+        "Extremely long issue title that must not affect graph topology for 9",
+        "closed",
+      ),
+      54: (
+        "Extremely long issue title that must not affect graph topology for 54",
+        "open",
+      ),
+      107: (
+        "Extremely long issue title that must not affect graph topology for 107",
+        "closed",
+      ),
+    })
+    self.assertEqual(render_lanes(self.root), short)
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_three_column_chain_renders_leaf_to_root(self, info, _config):
+  def test_three_column_chain_renders_leaf_to_root(self):
     graph_store = RelationshipStore(self.root)
     current_graph = graph_store.read()
     graph_store.replace(
@@ -161,26 +143,18 @@ class LaneRenderTests(unittest.TestCase):
       self.writer,
       expected_revision=current_selection.revision,
     )
-    info.side_effect = lambda _root, _config, number: {
-      "schema_version": 1,
-      "number": number,
-      "title": f"Issue {number}",
-      "state": "open",
-      "link": f"https://example.invalid/issues/{number}",
-    }
+    self.write_metadata({
+      1: ("Issue 1", "open"),
+      2: ("Issue 2", "open"),
+      3: ("Issue 3", "open"),
+    })
 
     rendered = "\n".join(render_lanes(self.root))
     self.assertLess(rendered.index("A.1"), rendered.index("A.2"))
     self.assertLess(rendered.index("A.2"), rendered.index("*A.3"))
     self.assertGreaterEqual(rendered.count("─"), 2)
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_fan_out_uses_branch_connectors_without_duplicating_source(
-    self,
-    info,
-    _config,
-  ):
+  def test_fan_out_uses_branch_connectors_without_duplicating_source(self):
     graph_store = RelationshipStore(self.root)
     current_graph = graph_store.read()
     graph_store.replace(
@@ -199,13 +173,11 @@ class LaneRenderTests(unittest.TestCase):
       self.writer,
       expected_revision=current_selection.revision,
     )
-    info.side_effect = lambda _root, _config, number: {
-      "schema_version": 1,
-      "number": number,
-      "title": f"Issue {number}",
-      "state": "open",
-      "link": f"https://example.invalid/issues/{number}",
-    }
+    self.write_metadata({
+      1: ("Issue 1", "open"),
+      2: ("Issue 2", "open"),
+      3: ("Issue 3", "open"),
+    })
 
     lines = render_lanes(self.root)
     rendered = "\n".join(lines)
@@ -214,18 +186,12 @@ class LaneRenderTests(unittest.TestCase):
     self.assertIn("*A.3", rendered)
     self.assertTrue(any(char in rendered for char in "┬┐┴┘├┤┼"))
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_links_are_optional(self, info, _config):
-    info.side_effect = self.info
+  def test_links_are_optional(self):
     self.assertTrue(all("https://" not in x for x in render_lanes(self.root)))
     linked = render_lanes(self.root, links=True)
     self.assertEqual(sum(line.count("https://") for line in linked), 3)
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_single_lane_filter_preserves_column_width_rules(self, info, _config):
-    info.side_effect = self.info
+  def test_single_lane_filter_preserves_column_width_rules(self):
     self.assertEqual(render_lanes(self.root, lane="B"), ("B.54",))
 
   def test_color_setting_defaults_and_persists(self):
@@ -235,10 +201,7 @@ class LaneRenderTests(unittest.TestCase):
     self.assertEqual(set_color_setting(self.root, "always", self.writer), "always")
     self.assertEqual(color_setting(self.root), "always")
 
-  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
-  @patch("repo_workflow.lane_render.issue_info")
-  def test_color_setting_controls_rendered_lane_tokens(self, info, _config):
-    info.side_effect = self.info
+  def test_color_setting_controls_rendered_lane_tokens(self):
     set_color_setting(self.root, "never", self.writer)
     plain = render_lanes(self.root)
     self.assertTrue(all("\x1b[" not in line for line in plain))
