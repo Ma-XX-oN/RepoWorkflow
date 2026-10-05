@@ -3,7 +3,7 @@ name: RepoWorkflow Lane Cache and Routing Certification
 on:
   push:
     branches:
-      - issue-346-lane-certification-v2
+      - issue-346-lane-certification-v3
     paths:
       - .repoworkflow/migrations/run-lane-cache-certification-v2
       - .github/workflows/lane-cache-routing-certification.yml
