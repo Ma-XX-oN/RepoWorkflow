@@ -125,7 +125,12 @@ class BootstrapCliTests(unittest.TestCase):
         "  print(json.dumps([{'number': 297, 'title': 'Bootstrap help'}]))\n"
         "elif args[:2] == ['issue', 'view']:\n"
         "  number = int(args[2])\n"
-        "  print(json.dumps({'number': number, 'title': 'Bootstrap help', "
+        "  if number == 207:\n"
+        "    print(json.dumps({'number': number, 'title': 'Merged PR', "
+        "'state': 'MERGED', 'url': "
+        "f'https://github.com/Ma-XX-oN/RepoWorkflow/pull/{number}'}))\n"
+        "  else:\n"
+        "    print(json.dumps({'number': number, 'title': 'Bootstrap help', "
         "'state': 'OPEN', 'url': "
         "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
         "else:\n"
@@ -148,6 +153,14 @@ class BootstrapCliTests(unittest.TestCase):
         "#297  Bootstrap help  open  "
         "https://github.com/Ma-XX-oN/RepoWorkflow/issues/297",
       )
+
+      pull_request = self.run_cli(root, "issue", "info", "207", env=env)
+      self.assertEqual(pull_request.returncode, 2)
+      self.assertIn(
+        "#207 is a pull request, not an issue",
+        pull_request.stderr,
+      )
+      self.assertNotIn("invalid issue state", pull_request.stderr)
 
   def test_read_only_issue_queries_do_not_require_workflow_configuration(self):
     with tempfile.TemporaryDirectory() as td:
