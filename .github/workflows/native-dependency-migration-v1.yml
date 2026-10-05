@@ -1,0 +1,82 @@
+name: RepoWorkflow Native Dependency Migration v1
+
+on:
+  push:
+    branches:
+      - migration/native-dependencies-v1
+    paths:
+      - .repoworkflow/migrations/run-native-dependencies-v1
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  migrate:
+    if: github.repository == 'Ma-XX-oN/RepoWorkflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Dry-run complete native dependency migration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/migrate-native-dependencies.py             --report migration-dry-run.json             > migration-dry-run.stdout
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("migration-dry-run.json").read_text())
+          print("dry-run counts:", json.dumps(report["counts"], sort_keys=True))
+          conflicts = report["counts"]["CONFLICT"]
+          if conflicts:
+            raise SystemExit(
+              f"dry-run found {conflicts} conflicting native dependency sets"
+            )
+          PY
+
+      - name: Apply migration and verify full readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/migrate-native-dependencies.py             --apply             --report migration-readback.json             > migration-apply.stdout
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from repo_workflow.dependency_migration import provider_readback_digest
+          from repo_workflow.dependency_migration_certification import (
+            certification_value,
+          )
+
+          report = json.loads(Path("migration-readback.json").read_text())
+          print("readback counts:", json.dumps(report["counts"], sort_keys=True))
+          if report["counts"] != {
+            "MATCH": len(report["issues"]),
+            "DESTINATION_EMPTY": 0,
+            "CONFLICT": 0,
+          }:
+            raise SystemExit("post-apply readback is not an exact full match")
+
+          digest = provider_readback_digest(report)
+          certification = certification_value(Path("."), digest)
+          encoded = json.dumps(
+            certification,
+            sort_keys=True,
+            separators=(",", ":"),
+          )
+          print("RWF_PROVIDER_READBACK_SHA256=" + digest)
+          print("RWF_CERTIFICATION_JSON=" + encoded)
+          PY
