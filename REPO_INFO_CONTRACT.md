@@ -58,7 +58,8 @@ by core workflow semantics.
   "schema_version": 1,
   "number": 64,
   "title": "Implement rwf issue start transition",
-  "state": "open"
+  "state": "open",
+  "link": "https://example.invalid/issues/64"
 }
 ```
 
@@ -67,7 +68,8 @@ Required fields are exactly:
 - `schema_version`: integer `1`;
 - `number`: positive integer;
 - `title`: non-empty text;
-- `state`: `open` or `closed`.
+- `state`: `open` or `closed`;
+- `link`: non-empty canonical `http://` or `https://` browser URL for the issue.
 
 The requested issue number must equal the returned `number`.
 
@@ -98,7 +100,9 @@ The contract deliberately exposes only provider facts required by current core
 consumers.
 
 For #64 issue-start, `issue get` is sufficient to prove that the requested
-issue exists and that its provider state is currently open.
+issue exists and that its provider state is currently open.  The normalized
+`link` is provider-neutral presentation data for consumers such as issue/lane
+list rendering; core RWF must not construct provider-specific issue URLs.
 
 Canonical RWF dependency relationships, lifecycle state, readiness, current
 work, validation evidence, and version state do not come from this adapter.
@@ -119,7 +123,8 @@ The dispatcher/adapter implementation must prove at least:
 6. missing issue remains failure;
 7. an empty successful open list remains distinguishable from provider failure;
 8. open-list output is deterministic and duplicate-free;
-9. core callers require no GitHub-specific fields.
+9. issue links are canonical browser URLs and malformed/missing links fail;
+10. core callers require no GitHub-specific fields.
 
 ## 8. Evolution
 
