@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "record_type": "lane-cache-routing-real-provider-certification",
+  "issue": 346,
+  "repository": "Ma-XX-oN/RepoWorkflow",
+  "workflow_run_id": 37352056494,
+  "head_sha": "f540c5ed049849eb3d08704a0db12b5974524ec5",
+  "artifact": {
+    "id": 11363680077,
+    "digest": "sha256:9e98afacb5b6030193fb1a0398f05ee781294e7af9c841ea8a849d73dcde0a58",
+    "name": "lane-cache-routing-certification"
+  },
+  "first_select": {
+    "roots": [
+      "218"
+    ],
+    "closure": [
+      "77",
+      "78",
+      "99",
+      "100",
+      "101",
+      "127",
+      "145",
+      "185",
+      "186",
+      "189",
+      "208",
+      "216",
+      "217",
+      "218"
+    ],
+    "dependency_progress": true,
+    "metadata_progress": true
+  },
+  "local_inspection": {
+    "provider_requests": 0,
+    "list_has_titles": true,
+    "list_has_graph_connectors": false,
+    "links_include_issue_218": true,
+    "invalid_token_local_view_succeeded": true
+  },
+  "routing": {
+    "direct_edges": [
+      [
+        77,
+        78
+      ],
+      [
+        77,
+        145
+      ],
+      [
+        77,
+        185
+      ],
+      [
+        78,
+        99
+      ],
+      [
+        99,
+        100
+      ],
+      [
+        99,
+        101
+      ],
+      [
+        99,
+        189
+      ],
+      [
+        100,
+        101
+      ],
+      [
+        101,
+        145
+      ],
+      [
+        127,
+        77
+      ],
+      [
+        145,
+        185
+      ],
+      [
+        145,
+        216
+      ],
+      [
+        185,
+        216
+      ],
+      [
+        186,
+        185
+      ],
+      [
+        189,
+        186
+      ],
+      [
+        208,
+        216
+      ],
+      [
+        216,
+        217
+      ],
+      [
+        217,
+        218
+      ]
+    ],
+    "routes": [
+      {
+        "source": 127,
+        "target": 77,
+        "kind": "primary"
+      },
+      {
+        "source": 77,
+        "target": 78,
+        "kind": "primary"
+      },
+      {
+        "source": 78,
+        "target": 99,
+        "kind": "primary"
+      },
+      {
+        "source": 99,
+        "target": 100,
+        "kind": "primary"
+      },
+      {
+        "source": 99,
+        "target": 101,
+        "kind": "bypass[4]"
+      },
+      {
+        "source": 100,
+        "target": 101,
+        "kind": "primary"
+      },
+      {
+        "source": 77,
+        "target": 145,
+        "kind": "bypass[6]"
+      },
+      {
+        "source": 101,
+        "target": 145,
+        "kind": "primary"
+      },
+      {
+        "source": 77,
+        "target": 185,
+        "kind": "bypass[8]"
+      },
+      {
+        "source": 145,
+        "target": 185,
+        "kind": "primary"
+      },
+      {
+        "source": 186,
+        "target": 185,
+        "kind": "bypass[10]"
+      },
+      {
+        "source": 189,
+        "target": 186,
+        "kind": "primary"
+      },
+      {
+        "source": 99,
+        "target": 189,
+        "kind": "bypass[12]"
+      },
+      {
+        "source": 145,
+        "target": 216,
+        "kind": "bypass[14]"
+      },
+      {
+        "source": 185,
+        "target": 216,
+        "kind": "primary"
+      },
+      {
+        "source": 208,
+        "target": 216,
+        "kind": "bypass[16]"
+      },
+      {
+        "source": 216,
+        "target": 217,
+        "kind": "primary"
+      },
+      {
+        "source": 217,
+        "target": 218,
+        "kind": "primary"
+      }
+    ]
+  },
+  "explicit_refresh": {
+    "provider_requests": 28,
+    "dependency_progress": true,
+    "metadata_progress": true
+  },
+  "selection_lifecycle": {
+    "added_roots": [
+      "206",
+      "218"
+    ],
+    "removed_roots": [
+      "218"
+    ],
+    "remove_provider_requests": 0
+  }
+}
