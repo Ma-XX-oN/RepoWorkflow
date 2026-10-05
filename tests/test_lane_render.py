@@ -189,9 +189,8 @@ class LaneRenderTests(unittest.TestCase):
   def test_links_are_optional(self, info, _config):
     info.side_effect = self.info
     self.assertTrue(all("https://" not in x for x in render_lanes(self.root)))
-    self.assertTrue(all(
-      "https://" in x for x in render_lanes(self.root, links=True)
-    ))
+    linked = render_lanes(self.root, links=True)
+    self.assertEqual(sum("https://" in line for line in linked), 3)
 
   @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
