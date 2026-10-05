@@ -54,6 +54,7 @@ from repo_workflow.current_work_store import CurrentWorkError
 from repo_workflow.dependency_sync import DependencySyncConflict
 from repo_workflow.issue_metadata import IssueMetadataError
 from repo_workflow.lane_selection import LaneSelectionError
+from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.ticket_dependency_adapter import TicketDependencyError
@@ -403,6 +404,7 @@ def main(argv: list[str] | None = None) -> int:
     DependencySyncConflict,
     IssueMetadataError,
     LaneSelectionError,
+    LaneRenderError,
     RepositoryPolicyError,
     RuntimeIdentityError,
     TicketDependencyError,
