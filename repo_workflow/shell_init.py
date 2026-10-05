@@ -70,7 +70,8 @@ def render_bash_init(root: Path, engine_root: Path) -> str:
   completion = completion_path.read_text(encoding="utf-8").rstrip("\n")
   lines = [
     "# RepoWorkflow Bash initialization.",
-    "unalias rwf repo-workflow 2>/dev/null || true",
+    "unalias rwf 2>/dev/null || true",
+    "unalias repo-workflow 2>/dev/null || true",
     f"REPO_WORKFLOW_ROOT={_argument_literal(discovery.repository_root)}",
     "REPO_WORKFLOW_COMMAND=rwf",
     "",
