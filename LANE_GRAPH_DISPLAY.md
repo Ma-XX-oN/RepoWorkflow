@@ -10,11 +10,16 @@ Lane selection is immediately inspectable:
 rwf lanes select <roots...>
 rwf lanes select add <roots...>
 rwf lanes select remove <roots...>
-rwf lanes list
+rwf lanes view
 ```
 
-Successful selection mutations and `lanes list` render the selected dependency
+Successful selection mutations and `lanes view` render the selected dependency
 graph.  Graph direction is leaf to root.
+
+`rwf lanes list [lane] [--links]` is deliberately not a graph.  It is the
+lane-membership inventory, analogous to `rwf issue list`: issues are grouped
+by lane and displayed as `#N  title`, with the synchronized canonical link
+appended only when `--links` is requested.
 
 The machine-readable selection record remains available explicitly:
 
@@ -42,9 +47,8 @@ For example:
  *B.65
 ```
 
-Normal graph cells do not include issue titles.  Titles are available through
-`rwf issue list` / `rwf issue info`; `--links` is an explicit optional
-graph expansion.
+Normal graph cells do not include issue titles.  Titles and optional links are
+available through `rwf lanes list` and the issue list/info commands.
 
 Changing annotations must not change dependency topology.  Colour is
 supplementary and follows the persistent global `auto|always|never` setting.
@@ -55,6 +59,6 @@ Canonical direct dependencies determine graph connectors.  Rendering never
 creates, removes, or infers dependency edges.
 
 Leaf-to-root chains and branch/convergence structures use Unicode box-drawing
-characters.  Optional links are display metadata; issue titles are deliberately
-excluded from graph cells so metadata cannot inflate topology coordinates.
+characters.  Issue titles and links are deliberately excluded from graph cells
+so metadata cannot inflate topology coordinates.
 Lane assignment is a node label and does not determine graph topology.
