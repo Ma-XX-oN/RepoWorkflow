@@ -125,14 +125,26 @@ COMMANDS = {
       "remove": {
         "_variadic": {
           "min": 1,
-          "description": "Issue roots, optionally followed by --json",
+          "description": "Issue roots, optionally followed by --refresh/--json",
         },
       },
     },
     "list": {
-      "": "Render local lane selection",
-      "--links": "Render local lane selection with issue links",
-      "_variadic": {"min": 1, "description": "Lane and optional --links"},
+      "": "List selected issues grouped by lane",
+      "--links": "List selected issues with links",
+      "--refresh": "Refresh selected lane data before listing",
+      "_variadic": {
+        "min": 1,
+        "description": "Lane and optional --links/--refresh",
+      },
+    },
+    "view": {
+      "": "Render selected dependency topology",
+      "--refresh": "Refresh selected lane data before rendering",
+      "_variadic": {
+        "min": 1,
+        "description": "Lane and optional --refresh",
+      },
     },
     "clear": "Clear local lane selection",
   },
