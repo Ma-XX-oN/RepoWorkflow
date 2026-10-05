@@ -116,7 +116,7 @@
     },
     {
       "id": "FU-DEPS-LANES",
-      "status": "gap",
+      "status": "covered",
       "scope": [
         "native ticket dependencies -> canonical RWF graph -> rwf lanes select -> rwf lanes list"
       ],
@@ -128,7 +128,8 @@
         "mocking dependency stores in the assembled test"
       ],
       "tests": [
-        "tests/test_first_use_lanes.py"
+        "tests/test_first_use_lanes.py",
+        "tests/test_real_provider_lane_certification.py"
       ],
       "acceptance": [
         {
@@ -169,7 +170,9 @@
         {
           "id": "DL-6",
           "requirement": "RepoWorkflow's existing approved dependency graph is migrated/reconciled into the ticket-native bootstrap source before ticket bootstrap is considered authoritative",
-          "deferred_issue": 321
+          "verification": [
+            "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_committed_certification_matches_manifest_and_full_provider_readback"
+          ]
         },
         {
           "id": "DL-7",
@@ -185,6 +188,21 @@
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_repository_manifest_blocks_bootstrap_until_migration_certified",
             "tests/test_dependency_migration_certification.py::DependencyMigrationCertificationTests.test_certification_must_match_current_manifest_digest"
           ]
+        },
+        {
+          "id": "DL-9",
+          "requirement": "pre-existing canonical dependency state is reconciled against certified ticket dependencies: empty destination copies source and non-empty disagreement fails closed",
+          "verification": [
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_existing_empty_canonical_issue_reconciles_after_provider_migration",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_existing_nonempty_dependency_conflict_fails_closed"
+          ]
+        },
+        {
+          "id": "DL-10",
+          "requirement": "real GitHub provider certification proves independent roots, fan-in, fan-out, overlapping closure, closed dependency, and select/add/remove semantics against the reviewed manifest",
+          "verification": [
+            "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_lane_evidence_covers_required_stateful_cases"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -198,15 +216,16 @@
         "read_after_write": "DL-5",
         "selection_replace_add_remove": "DL-7",
         "uncertified_provider_authority": "DL-8",
-        "stale_pre_migration_state_reconciliation": "DL-8"
+        "stale_pre_migration_state_reconciliation": "DL-9",
+        "real_provider_certification": "DL-10"
       },
       "stateful": true,
       "provider_boundary": true,
       "provider_contract_verification": [
         "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_read_normalizes_blocked_by_numbers",
-        "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_truncated_blocked_by_connection_fails_closed"
-      ],
-      "gap_issue": 321
+        "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_truncated_blocked_by_connection_fails_closed",
+        "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_committed_certification_matches_manifest_and_full_provider_readback"
+      ]
     },
     {
       "id": "FU-SESSION",
@@ -355,8 +374,8 @@
       ]
     }
   ],
-  "audited_issue_count": 187,
-  "audited_through_issue": 321,
+  "audited_issue_count": 191,
+  "audited_through_issue": 331,
   "public_prefixes": {
     "init": "FU-INIT",
     "lanes": "FU-DEPS-LANES",

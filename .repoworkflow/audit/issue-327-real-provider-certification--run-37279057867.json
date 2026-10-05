@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "record_type": "real-provider-lane-certification",
+  "issue": 327,
+  "repository": "Ma-XX-oN/RepoWorkflow",
+  "migration": {
+    "workflow_run_id": 37267429932,
+    "head_sha": "7b1115a505e26cc50391a6d6f9265e505dc600db",
+    "dry_run_counts": {
+      "MATCH": 61,
+      "DESTINATION_EMPTY": 110,
+      "CONFLICT": 0
+    },
+    "post_apply_counts": {
+      "MATCH": 171,
+      "DESTINATION_EMPTY": 0,
+      "CONFLICT": 0
+    },
+    "manifest_sha256": "6b3d02ad9ba38af02540048d346c5becc6e11ddb81d5ce1feca21504d3c8217f",
+    "provider_readback_sha256": "7312c52a9d695f1a10468dc3dfd12fd887424acce65962f0d782a5b2e4c0a5d0"
+  },
+  "certification": {
+    "workflow_run_id": 37279057867,
+    "head_sha": "069390dedaee1943e203d78b9a360ea851bcfdb5",
+    "provider_counts": {
+      "MATCH": 171,
+      "DESTINATION_EMPTY": 0,
+      "CONFLICT": 0
+    },
+    "commands": [
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "63",
+          "65"
+        ],
+        "returncode": 0,
+        "roots": [
+          "63",
+          "65"
+        ],
+        "closure": [
+          "63",
+          "65"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "107"
+        ],
+        "returncode": 0,
+        "roots": [
+          "107"
+        ],
+        "closure": [
+          "89",
+          "105",
+          "106",
+          "107",
+          "118"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "120",
+          "121"
+        ],
+        "returncode": 0,
+        "roots": [
+          "120",
+          "121"
+        ],
+        "closure": [
+          "63",
+          "120",
+          "121"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "64",
+          "107"
+        ],
+        "returncode": 0,
+        "roots": [
+          "64",
+          "107"
+        ],
+        "closure": [
+          "63",
+          "64",
+          "77",
+          "78",
+          "79",
+          "89",
+          "99",
+          "100",
+          "101",
+          "105",
+          "106",
+          "107",
+          "117",
+          "118",
+          "120",
+          "127",
+          "145",
+          "164",
+          "185",
+          "186",
+          "187",
+          "189"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "205"
+        ],
+        "returncode": 0,
+        "roots": [
+          "205"
+        ],
+        "closure": [
+          "205",
+          "208"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "list"
+        ],
+        "returncode": 0,
+        "stdout": "*A.205  Register parallel lanes and reject conflicting issue ownership before assignment\n✓A.208  Synchronize RWF dependency graph with native ticket dependencies"
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "205"
+        ],
+        "returncode": 0,
+        "roots": [
+          "205"
+        ],
+        "closure": [
+          "205",
+          "208"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "add",
+          "218"
+        ],
+        "returncode": 0,
+        "roots": [
+          "205",
+          "218"
+        ],
+        "closure": [
+          "77",
+          "78",
+          "99",
+          "100",
+          "101",
+          "127",
+          "145",
+          "185",
+          "186",
+          "189",
+          "205",
+          "208",
+          "216",
+          "217",
+          "218"
+        ]
+      },
+      {
+        "command": [
+          "./rwf",
+          "lanes",
+          "select",
+          "remove",
+          "205"
+        ],
+        "returncode": 0,
+        "roots": [
+          "218"
+        ],
+        "closure": [
+          "77",
+          "78",
+          "99",
+          "100",
+          "101",
+          "127",
+          "145",
+          "185",
+          "186",
+          "189",
+          "208",
+          "216",
+          "217",
+          "218"
+        ]
+      }
+    ]
+  }
+}

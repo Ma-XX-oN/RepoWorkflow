@@ -1,0 +1,165 @@
+name: RepoWorkflow Real Native Dependency Lane Certification v1
+
+on:
+  push:
+    branches:
+      - issue-327-real-provider-certification
+    paths:
+      - .repoworkflow/migrations/run-lane-certification-v1
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  certify:
+    if: github.repository == 'Ma-XX-oN/RepoWorkflow'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Require complete real-provider migration readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/migrate-native-dependencies.py \
+            --report provider-readback.json \
+            > provider-readback.stdout
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("provider-readback.json").read_text())
+          expected = {
+            "MATCH": len(report["issues"]),
+            "DESTINATION_EMPTY": 0,
+            "CONFLICT": 0,
+          }
+          if report["counts"] != expected:
+            raise SystemExit(
+              "provider readback mismatch: "
+              + json.dumps(report["counts"], sort_keys=True)
+            )
+          print("RWF_PROVIDER_COUNTS=" + json.dumps(
+            report["counts"], sort_keys=True, separators=(",", ":")
+          ))
+          PY
+
+      - name: Certify shipped lane workflow against real native dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+
+          root = Path(".").resolve()
+          manifest = json.loads(
+            (root / ".repoworkflow" / "migrations"
+             / "native-dependencies-v1.json").read_text()
+          )
+          graph = {
+            int(issue): tuple(item["blocked_by"])
+            for issue, item in manifest["issues"].items()
+          }
+
+          def closure(roots):
+            seen = set()
+            pending = list(roots)
+            while pending:
+              issue = pending.pop(0)
+              if issue in seen:
+                continue
+              seen.add(issue)
+              pending.extend(graph[issue])
+            return sorted(seen)
+
+          evidence = []
+
+          def run(*args):
+            command = ["./rwf", *args]
+            completed = subprocess.run(
+              command,
+              cwd=root,
+              capture_output=True,
+              text=True,
+            )
+            evidence.append({
+              "command": command,
+              "returncode": completed.returncode,
+              "stdout": completed.stdout.strip(),
+              "stderr": completed.stderr.strip(),
+            })
+            if completed.returncode:
+              raise SystemExit(
+                f"command failed: {command!r}\n{completed.stderr}"
+              )
+            return completed
+
+          def select(*roots):
+            completed = run("lanes", "select", *map(str, roots))
+            value = json.loads(completed.stdout)
+            expected_roots = sorted(set(roots))
+            expected_closure = closure(expected_roots)
+            if list(map(int, value["roots"])) != expected_roots:
+              raise SystemExit(
+                f"root mismatch for {roots}: {value['roots']!r}"
+              )
+            if list(map(int, value["closure"])) != expected_closure:
+              raise SystemExit(
+                f"closure mismatch for {roots}: "
+                f"actual={value['closure']!r}, expected={expected_closure!r}"
+              )
+            return value
+
+          select(63, 65)       # independent roots
+          select(107)          # convergence / fan-in
+          select(120, 121)     # shared prerequisite / fan-out
+          select(64, 107)      # multiple roots with overlapping closure
+          select(205)          # open root with closed direct dependency
+          listed = run("lanes", "list").stdout.splitlines()
+          closed_line = next((line for line in listed if ".208" in line), "")
+          if "✓" not in closed_line:
+            raise SystemExit(
+              "closed dependency #208 is not marked closed in lanes list: "
+              + repr(closed_line)
+            )
+
+          select(205)
+          added = run("lanes", "select", "add", "218")
+          added_value = json.loads(added.stdout)
+          if list(map(int, added_value["roots"])) != [205, 218]:
+            raise SystemExit(
+              "select add did not preserve/add roots: "
+              + repr(added_value["roots"])
+            )
+          if list(map(int, added_value["closure"])) != closure([205, 218]):
+            raise SystemExit("select add closure disagrees with manifest")
+
+          removed = run("lanes", "select", "remove", "205")
+          removed_value = json.loads(removed.stdout)
+          if list(map(int, removed_value["roots"])) != [218]:
+            raise SystemExit(
+              "select remove did not subtract root: "
+              + repr(removed_value["roots"])
+            )
+          if list(map(int, removed_value["closure"])) != closure([218]):
+            raise SystemExit("select remove closure disagrees with manifest")
+
+          print(
+            "RWF_LANE_CERTIFICATION_JSON="
+            + json.dumps(evidence, sort_keys=True, separators=(",", ":"))
+          )
+          PY
