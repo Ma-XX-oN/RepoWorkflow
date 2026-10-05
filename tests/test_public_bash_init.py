@@ -100,6 +100,23 @@ class PublicBashInitTests(unittest.TestCase):
         self.assertIn("init execution is not implemented yet", completed.stderr)
 
 
+
+  def test_missing_git_fails_through_public_cli_without_traceback(self):
+    env = dict(os.environ)
+    env["PATH"] = ""
+    completed = subprocess.run(
+      [sys.executable, str(CLI), "--root", str(ROOT), "init", "bash"],
+      capture_output=True,
+      text=True,
+      env=env,
+    )
+
+    self.assertEqual(completed.returncode, 2)
+    self.assertEqual(completed.stdout, "")
+    self.assertIn("Git is required", completed.stderr)
+    self.assertNotIn("Traceback (most recent call last)", completed.stderr)
+
+
   def test_outside_repository_fails_actionably(self):
     with tempfile.TemporaryDirectory() as td:
       completed = self.run_cli(Path(td))
