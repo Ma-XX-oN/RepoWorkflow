@@ -66,8 +66,35 @@ class FirstUseLanesTests(unittest.TestCase):
         189: [],
       }
     dependency_state = base / "dependencies.json"
+    metadata_state = base / "metadata.json"
     call_log = base / "dependency-calls.jsonl"
     call_log.write_text("", encoding="utf-8")
+    all_numbers = sorted({
+      number
+      for number, deps in dependencies.items()
+      for number in (number, *deps)
+    })
+    titles = {
+      206: "Root 206",
+      203: "Root 203",
+      201: "Leaf 201",
+      205: "Root 205",
+      208: "Leaf 208",
+      218: "Root 218",
+      217: "Leaf 217",
+      187: "Leaf A",
+      189: "Leaf B",
+    }
+    metadata_state.write_text(
+      json.dumps({
+        str(number): {
+          "title": titles.get(number, f"Issue {number}"),
+          "state": "OPEN",
+        }
+        for number in all_numbers
+      }),
+      encoding="utf-8",
+    )
     dependency_state.write_text(
       json.dumps({str(key): value for key, value in dependencies.items()}),
       encoding="utf-8",
@@ -92,11 +119,10 @@ class FirstUseLanesTests(unittest.TestCase):
       "{'nodes': nodes, 'totalCount': len(nodes)}}))\n"
       "elif args[:2] == ['issue', 'view']:\n"
       "  number = int(args[2])\n"
-      "  titles = {206: 'Root 206', 203: 'Root 203', 201: 'Leaf 201', "
-      "205: 'Root 205', 208: 'Leaf 208', 218: 'Root 218', "
-      "217: 'Leaf 217', 187: 'Leaf A', 189: 'Leaf B'}\n"
-      "  print(json.dumps({'number': number, 'title': titles[number], "
-      "'state': 'OPEN', 'url': "
+      "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
+      "  item = state[str(number)]\n"
+      "  print(json.dumps({'number': number, 'title': item['title'], "
+      "'state': item['state'], 'url': "
       "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
       "else:\n"
       "  print('unexpected gh arguments: ' + repr(args), file=sys.stderr)\n"
@@ -109,6 +135,7 @@ class FirstUseLanesTests(unittest.TestCase):
     env.pop("RWF_SESSION_ID", None)
     env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     env["RWF_TEST_DEPS"] = str(dependency_state)
+    env["RWF_TEST_META"] = str(metadata_state)
     env["RWF_TEST_CALLS"] = str(call_log)
     return env
 
@@ -239,6 +266,219 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
 
+  def test_lane_list_refresh_is_metadata_only_and_source_accurate(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      graph_path = (
+        root / ".repoworkflow/state/relationships/graph.json"
+      )
+      selection_path = (
+        root / ".git/repoworkflow/lane-selection/selection.json"
+      )
+      metadata_cache_path = (
+        root / ".repoworkflow/state/issues/metadata.json"
+      )
+      graph_before = graph_path.read_bytes()
+      selection_before = selection_path.read_bytes()
+
+      plain = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(plain.returncode, 0, plain.stderr)
+      self.assertIn("#203  Root 203", plain.stdout)
+
+      diagnostics_dir = (
+        root / ".git/repoworkflow/diagnostics/lanes"
+      )
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      plain_record = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertEqual(plain_record["provider_calls"], {})
+      self.assertEqual(plain_record["cache_hits"]["metadata"], 2)
+      self.assertNotIn("relationships", plain_record["cache_hits"])
+
+      metadata_path = Path(env["RWF_TEST_META"])
+      metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+      metadata["203"]["title"] = "Updated Root 203"
+      metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "args = sys.argv[1:]\n"
+        "if 'blockedBy' in args:\n"
+        "  print('dependency provider must not be used', file=sys.stderr)\n"
+        "  raise SystemExit(96)\n"
+        "if args[:2] == ['issue', 'view']:\n"
+        "  number = int(args[2])\n"
+        "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
+        "  item = state[str(number)]\n"
+        "  print(json.dumps({'number': number, 'title': item['title'], "
+        "'state': item['state'], 'url': "
+        "f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}'}))\n"
+        "else:\n"
+        "  raise SystemExit(97)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("#203  Updated Root 203", refreshed.stdout)
+      self.assertIn("Refreshing metadata:", refreshed.stderr)
+      self.assertNotIn("Refreshing dependencies:", refreshed.stderr)
+      self.assertNotIn("dependency provider must not be used", refreshed.stderr)
+      self.assertEqual(graph_path.read_bytes(), graph_before)
+      self.assertEqual(selection_path.read_bytes(), selection_before)
+
+      cached = json.loads(metadata_cache_path.read_text(encoding="utf-8"))
+      self.assertEqual(
+        cached["value"]["issues"]["203"]["title"],
+        "Updated Root 203",
+      )
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      refresh_record = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertEqual(refresh_record["provider_calls"], {"metadata": 2})
+      self.assertNotIn("relationships", refresh_record["cache_hits"])
+      self.assertNotIn("relationships", refresh_record["cache_misses"])
+
+  def test_lane_list_refresh_metadata_failure_rolls_back_all_semantic_state(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      graph_path = root / ".repoworkflow/state/relationships/graph.json"
+      selection_path = (
+        root / ".git/repoworkflow/lane-selection/selection.json"
+      )
+      metadata_path = root / ".repoworkflow/state/issues/metadata.json"
+      before = {
+        "graph": graph_path.read_bytes(),
+        "selection": selection_path.read_bytes(),
+        "metadata": metadata_path.read_bytes(),
+      }
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "args = sys.argv[1:]\n"
+        "if 'blockedBy' in args:\n"
+        "  print('dependency provider must not be used', file=sys.stderr)\n"
+        "  raise SystemExit(96)\n"
+        "print('metadata unavailable', file=sys.stderr)\n"
+        "raise SystemExit(98)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 2)
+      self.assertIn("metadata unavailable", refreshed.stderr)
+      self.assertNotIn("dependency provider must not be used", refreshed.stderr)
+      self.assertEqual(graph_path.read_bytes(), before["graph"])
+      self.assertEqual(selection_path.read_bytes(), before["selection"])
+      self.assertEqual(metadata_path.read_bytes(), before["metadata"])
+
+  def test_lane_list_refresh_updates_cached_issue_metadata(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      dependency_calls_before = list(self.dependency_calls(env))
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "args = sys.argv[1:]\n"
+        "if args[:2] != ['issue', 'view'] or 'blockedBy' in args:\n"
+        "  print('unexpected gh arguments: ' + repr(args), file=sys.stderr)\n"
+        "  raise SystemExit(2)\n"
+        "number = int(args[2])\n"
+        "titles = {201: 'Leaf 201 refreshed', 203: 'Root 203 refreshed'}\n"
+        "print(json.dumps({\n"
+        "  'number': number,\n"
+        "  'title': titles[number],\n"
+        "  'state': 'OPEN',\n"
+        "  'url': f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{number}',\n"
+        "}))\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "list",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("#201  Leaf 201 refreshed", refreshed.stdout)
+      self.assertIn("#203  Root 203 refreshed", refreshed.stdout)
+      self.assertEqual(self.dependency_calls(env), dependency_calls_before)
+
+      offline = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(offline.returncode, 0, offline.stderr)
+      self.assertIn("#203  Root 203 refreshed", offline.stdout)
+
   def test_lane_list_and_view_are_offline_until_explicit_refresh(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
@@ -286,6 +526,137 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(refreshed.returncode, 2)
       self.assertIn("provider unavailable", refreshed.stderr)
+
+  def test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertIn("Refreshing dependencies: #203", selected.stderr)
+      self.assertIn("Refreshing dependencies: #201", selected.stderr)
+      self.assertIn("Refreshing metadata: 1/2", selected.stderr)
+      self.assertIn("Refreshing metadata: 2/2", selected.stderr)
+
+      diagnostics_dir = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "diagnostics"
+        / "lanes"
+      )
+      records = sorted(diagnostics_dir.glob("lane-invocation--*.json"))
+      self.assertEqual(len(records), 1)
+      first = json.loads(records[0].read_text(encoding="utf-8"))
+      self.assertEqual(first["provider_calls"]["dependencies"], 2)
+      self.assertEqual(first["provider_calls"]["metadata"], 2)
+      self.assertEqual(first["cache_misses"]["relationships"], 2)
+      self.assertEqual(first["cache_misses"]["metadata"], 2)
+      self.assertTrue(first["success"])
+
+      viewed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--debug",
+      )
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertNotIn("Refreshing ", viewed.stderr)
+      self.assertIn("DATA SOURCES", viewed.stdout)
+      self.assertIn("provider requests: 0", viewed.stdout)
+      self.assertIn("metadata: cache hits=2 misses=0", viewed.stdout)
+      self.assertIn("relationships: cache hits=2 misses=0", viewed.stdout)
+      self.assertIn("DIRECT EDGES", viewed.stdout)
+      self.assertIn("201 -> 203", viewed.stdout)
+
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      self.assertEqual(len(records), 2)
+      second = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertEqual(second["provider_calls"], {})
+      self.assertEqual(second["cache_hits"]["metadata"], 2)
+      self.assertEqual(second["cache_hits"]["relationships"], 2)
+      self.assertEqual(second["semantic_edges"], [[201, 203]])
+
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("Refreshing dependencies:", refreshed.stderr)
+      self.assertIn("Refreshing metadata:", refreshed.stderr)
+
+  def test_failed_lane_refresh_writes_failure_diagnostics(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(94)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      failed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(failed.returncode, 2)
+      self.assertIn("provider unavailable", failed.stderr)
+
+      diagnostics_dir = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "diagnostics"
+        / "lanes"
+      )
+      records = sorted(
+        diagnostics_dir.glob("lane-invocation--*.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+      )
+      self.assertGreaterEqual(len(records), 2)
+      record = json.loads(records[-1].read_text(encoding="utf-8"))
+      self.assertFalse(record["success"])
+      self.assertEqual(record["error"], "TicketDependencyError")
+      self.assertGreaterEqual(record["provider_calls"]["dependencies"], 1)
 
   def test_repeated_selection_extends_existing_partial_graph(self):
     with tempfile.TemporaryDirectory() as td:

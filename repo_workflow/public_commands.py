@@ -141,9 +141,10 @@ COMMANDS = {
     "view": {
       "": "Render selected dependency topology",
       "--refresh": "Refresh selected lane data before rendering",
+      "--debug": "Show lane data sources, timings, and semantic edges",
       "_variadic": {
         "min": 1,
-        "description": "Lane and optional --refresh",
+        "description": "Lane and optional --refresh/--debug",
       },
     },
     "clear": "Clear local lane selection",

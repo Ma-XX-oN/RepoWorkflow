@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .lane_diagnostics import LaneDiagnostics
 from .dependency_migration_certification import (
   DependencyMigrationCertificationError,
   require_dependency_migration_certified,
@@ -33,6 +34,7 @@ def ensure_relationship_graph(
   writer: WriterIdentity,
   *,
   refresh: bool = False,
+  diagnostics: LaneDiagnostics | None = None,
 ) -> RelationshipAcquisition:
   """Ensure canonical graph coverage using local state unless refresh/missing."""
   try:
@@ -59,11 +61,20 @@ def ensure_relationship_graph(
     current = issues.get(issue)
     provider: tuple[str, ...] | None = None
     if refresh or current is None:
-      provider_reads.append(int(issue))
-      provider = tuple(
-        str(value)
-        for value in read_ticket_dependencies(root, config, int(issue))
-      )
+      number = int(issue)
+      provider_reads.append(number)
+      if diagnostics is not None:
+        diagnostics.miss("relationships")
+        raw = diagnostics.provider(
+          "dependencies",
+          number,
+          lambda: read_ticket_dependencies(root, config, number),
+        )
+      else:
+        raw = read_ticket_dependencies(root, config, number)
+      provider = tuple(str(value) for value in raw)
+    elif diagnostics is not None:
+      diagnostics.hit("relationships")
 
     if current is None:
       assert provider is not None
