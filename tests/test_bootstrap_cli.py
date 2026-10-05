@@ -31,6 +31,23 @@ class BootstrapCliTests(unittest.TestCase):
       capture_output=True,
       text=True,
     )
+    subprocess.run(
+      ["git", "config", "user.name", "Test"],
+      cwd=root,
+      check=True,
+    )
+    subprocess.run(
+      ["git", "config", "user.email", "test@example.invalid"],
+      cwd=root,
+      check=True,
+    )
+    subprocess.run(
+      ["git", "commit", "--allow-empty", "-m", "initial"],
+      cwd=root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
 
   def run_cli(self, root: Path, *args: str, env=None):
     return subprocess.run(
