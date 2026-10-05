@@ -4,6 +4,11 @@ A repository adopts RepoWorkflow only after its existing validation and
 publication responsibilities have been inventoried. Migration must preserve
 behaviour before duplicate machinery is removed.
 
+Throughout adoption and subsequent development, repository-specific validation
+must satisfy [TEST_ADEQUACY.md](TEST_ADEQUACY.md).  The consumer owns its test
+commands and fixtures; RepoWorkflow owns the portable adequacy policy used to
+decide whether that evidence is sufficient.
+
 1. Establish an issue-versioned migration branch.
 2. Inventory every existing CI, policy, integration, artifact, and tagging
    responsibility.
