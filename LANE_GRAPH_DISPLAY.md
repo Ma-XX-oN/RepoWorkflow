@@ -38,9 +38,13 @@ Within each visual graph column:
 For example:
 
 ```text
-*✓A.63  Define portable repo-info read contract
- *B.65  Define provider-neutral repo-ci contract
+*✓A.63
+ *B.65
 ```
+
+Normal graph cells do not include issue titles.  Titles are available through
+`rwf issue list` / `rwf issue info`; `--links` is an explicit optional
+graph expansion.
 
 Changing annotations must not change dependency topology.  Colour is
 supplementary and follows the persistent global `auto|always|never` setting.
@@ -51,5 +55,6 @@ Canonical direct dependencies determine graph connectors.  Rendering never
 creates, removes, or infers dependency edges.
 
 Leaf-to-root chains and branch/convergence structures use Unicode box-drawing
-characters.  Titles and optional links remain display metadata; lane assignment
-is a node label and does not determine graph topology.
+characters.  Optional links are display metadata; issue titles are deliberately
+excluded from graph cells so metadata cannot inflate topology coordinates.
+Lane assignment is a node label and does not determine graph topology.
