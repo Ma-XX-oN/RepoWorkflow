@@ -9,6 +9,10 @@ The lifecycle specification is authoritative for behaviour.  Tests must be
 added with the implementation stage that introduces the behaviour; a stage is
 not complete merely because its implementation exists.
 
+This RepoWorkflow-specific strategy instantiates the universal repository-neutral
+adequacy policy in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).  These concrete stage
+requirements do not replace that gate; both apply.
+
 ## 1. Test principles
 
 RepoWorkflow must test policy at several levels:
@@ -370,7 +374,8 @@ critical invariant.
 
 ## 10. Stage completion gates
 
-An implementation stage is complete only when:
+An implementation stage is complete only when the universal adequacy gate in
+[TEST_ADEQUACY.md](TEST_ADEQUACY.md) is satisfied and:
 
 - its documented positive and negative tests exist;
 - all tests for that stage pass;
