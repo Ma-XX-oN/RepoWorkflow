@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import unittest
@@ -100,6 +101,53 @@ class LauncherDiscoveryTests(unittest.TestCase):
         "no repository-local RWF launcher",
       ):
         discover_repository_launcher(root)
+
+
+  def test_pinned_consumer_without_stable_launcher_is_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      commit = self.make_repo(root)
+      subprocess.run(
+        [
+          "git", "update-index", "--add", "--cacheinfo",
+          f"160000,{commit},RepoWorkflow",
+        ],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "pin RepoWorkflow"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      with self.assertRaisesRegex(
+        LauncherDiscoveryError,
+        "no repository-local RWF launcher",
+      ):
+        discover_repository_launcher(root)
+
+
+  def test_missing_git_fails_actionably(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      old_path = os.environ.get("PATH")
+      try:
+        os.environ["PATH"] = ""
+        with self.assertRaisesRegex(
+          LauncherDiscoveryError,
+          "Git is required",
+        ):
+          discover_repository_launcher(root)
+      finally:
+        if old_path is None:
+          os.environ.pop("PATH", None)
+        else:
+          os.environ["PATH"] = old_path
+
 
   def test_outside_git_repository_fails_actionably(self):
     with tempfile.TemporaryDirectory() as td:
