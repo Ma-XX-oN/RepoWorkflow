@@ -203,17 +203,17 @@ def _render_graph(
       canvas[y][x + offset] = char
     token_spans.append((y, x, x + len(tokens[issue]), selection.assignment[issue]))
 
-  rendered = ["".join(row).rstrip() for row in canvas]
-  kept = [index for index, line in enumerate(rendered) if line]
+  raw_lines = ["".join(row).rstrip() for row in canvas]
+  kept = [index for index, line in enumerate(raw_lines) if line]
   if not kept:
     return ()
-  rendered = rendered[min(kept):max(kept) + 1]
+  row_map = {old: new for new, old in enumerate(kept)}
+  rendered = [raw_lines[index] for index in kept]
 
   if color:
-    base_y = min(kept)
     by_row: dict[int, list[tuple[int, int, str]]] = {}
     for y, start, end, lane_name in token_spans:
-      by_row.setdefault(y - base_y, []).append((start, end, lane_name))
+      by_row.setdefault(row_map[y], []).append((start, end, lane_name))
     for y, spans in by_row.items():
       line = rendered[y]
       for start, end, lane_name in sorted(spans, reverse=True):
@@ -290,6 +290,7 @@ def _draw_edge(
 ) -> None:
   source_column, source_y = positions[source]
   target_column, target_y = positions[target]
+  label_end = column_start[source_column] + len(labels[source])
   source_x = column_start[source_column] + column_width[source_column] + 1
   target_x = column_start[target_column] - 2
 
@@ -299,9 +300,10 @@ def _draw_edge(
     positions,
     source_y,
   ):
-    _horizontal(bits, source_x, target_x, source_y)
+    _horizontal(bits, label_end + 1, column_start[target_column] - 1, source_y)
     return
 
+  _horizontal(bits, label_end + 1, source_x, source_y)
   track_y = source_y + 1 if source_y <= target_y else source_y - 1
   if track_y < 0:
     track_y = source_y + 1
