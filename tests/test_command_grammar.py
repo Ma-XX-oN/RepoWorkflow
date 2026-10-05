@@ -194,5 +194,30 @@ class CommandGrammarTests(unittest.TestCase):
     self.assertIn(LAST_TERMINAL, [item.token for item in items])
 
 
+  def test_variadic_tail_preserves_one_or_many_arguments(self):
+    commands = {"tests": {"_variadic": {"min": 1, "description": "Git review"}}}
+    self.assertEqual(parse_tokens(commands, self.context, ["tests", "diff"]), ("tests", "diff"))
+    self.assertEqual(parse_tokens(commands, self.context, ["tests", "diff", "--word-diff"]), ("tests", "diff", "--word-diff"))
+
+  def test_zero_minimum_variadic_tail_accepts_no_arguments(self):
+    commands = {"tests": {"_variadic": {"min": 0, "description": "Arguments"}}}
+    self.assertEqual(parse_tokens(commands, self.context, ["tests"]), ("tests",))
+
+  def test_variadic_tail_requires_declared_minimum(self):
+    commands = {"tests": {"_variadic": {"min": 1, "description": "Git review"}}}
+    with self.assertRaisesRegex(CommandGrammarError, "incomplete"):
+      parse_tokens(commands, self.context, ["tests"])
+
+  def test_static_child_wins_before_variadic_tail(self):
+    commands = {"tests": {"view": "View", "_variadic": {"min": 1, "description": "Git review"}}}
+    self.assertEqual(parse_tokens(commands, self.context, ["tests", "view"]), ("tests", "view"))
+    with self.assertRaisesRegex(CommandGrammarError, "terminal command"):
+      parse_tokens(commands, self.context, ["tests", "view", "extra"])
+
+  def test_variadic_tail_does_not_invent_completions(self):
+    commands = {"tests": {"view": "View", "_variadic": {"min": 1, "description": "Git review"}}}
+    self.assertEqual([x.token for x in completion_items(commands, self.context, ["tests", ""])], ["view"])
+
+
 if __name__ == "__main__":
   unittest.main()
