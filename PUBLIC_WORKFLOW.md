@@ -20,6 +20,8 @@ rwf
 ├── issue
 │   ├── info [N]
 │   ├── list <ids...> [--links]
+│   ├── select dependency to-tickets [--compare|--replace]
+│   ├── select dependency from-tickets [--compare|--replace]
 │   ├── start N
 │   └── abort
 ├── tdd
