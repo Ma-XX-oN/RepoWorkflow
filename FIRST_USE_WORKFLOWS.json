@@ -54,7 +54,7 @@
     },
     {
       "id": "FU-DEPS-LANES",
-      "status": "gap",
+      "status": "covered",
       "scope": [
         "native ticket dependencies -> canonical RWF graph -> rwf lanes select -> rwf lanes list"
       ],
@@ -65,11 +65,13 @@
         "LaneSelectionStore construction",
         "mocking dependency stores in the assembled test"
       ],
-      "gap_issue": 305
+      "tests": [
+        "tests/test_first_use_lanes.py"
+      ]
     },
     {
       "id": "FU-SESSION",
-      "status": "gap",
+      "status": "covered",
       "scope": [
         "ordinary human/session invocation of mutating public commands"
       ],
@@ -77,7 +79,9 @@
       "prohibited_shortcuts": [
         "manual RWF_WRITER_ID/RWF_SESSION_ID in the human first-use scenario"
       ],
-      "gap_issue": 306
+      "tests": [
+        "tests/test_first_use_lanes.py"
+      ]
     },
     {
       "id": "FU-PUBLIC-ERRORS",

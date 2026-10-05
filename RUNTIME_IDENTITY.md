@@ -25,13 +25,24 @@ environment variables:
   separate executions by that writer;
 - `RWF_SESSION_ID` — identity for one logical execution/session.
 
-The environment is the sole production invocation source.  There are no CLI
+The environment is the sole semantic-transition input.  There are no CLI
 identity flags, repository/worktree configuration keys, provider fields, or
-fallback inference sources.
+fallback inference sources in semantic/core RWF.
 
-This keeps identity outside repository state and provider-specific payloads
-while allowing shells, agents, CI runners, and orchestrators to establish the
-same provider-neutral execution context before invoking `rwf`.
+For ordinary public CLI invocations, the public invocation layer may provision
+the pair when and only when both variables are absent:
+
+- writer identity is a generated opaque identifier persisted in clone-local Git
+  common state under `.git/repoworkflow/` (or the equivalent Git common dir);
+- session identity is a newly generated opaque identifier for that CLI
+  execution.
+
+This provisioning happens only for mutation-capable public commands, after
+syntax acceptance.  Read-only/help paths do not create identity state.
+
+Explicitly supplied environment values remain authoritative.  If exactly one
+of the pair is supplied, invocation fails closed rather than synthesizing the
+other.
 
 ## 3. Source and precedence
 
@@ -40,12 +51,16 @@ There is no precedence chain.
 For a mutation-capable semantic transition, RWF reads the two variables from
 the environment inherited by that process.  Both must be present and valid.
 
-RWF must not fill, override, or derive either value from branch name, worktree
-path, commit author, operating-system user, process ID, ticket/provider
-payload, authentication material, or repository/worktree configuration.
+Semantic/core RWF must not fill, override, or derive either value from branch
+name, worktree path, commit author, operating-system user, process ID,
+ticket/provider payload, authentication material, or repository/worktree
+configuration.
 
-An explicitly supplied environment value is never silently replaced by an
-inferred value.
+The public invocation layer's generated clone-local writer identifier is
+provenance, not an inference about the human account or provider identity.  It
+must not contain credentials or claim a GitHub/Git identity.
+
+An explicitly supplied environment value is never silently replaced.
 
 ## 4. Validation boundary
 
@@ -91,7 +106,9 @@ Process restart alone does not decide whether a session is new.  The invoking
 orchestrator decides whether it is resuming the same logical execution or
 starting another one and supplies the corresponding explicit session value.
 
-RWF does not generate either identity.
+Semantic/core RWF does not generate either identity.  The ordinary public
+invocation layer may generate the clone-local/default identities described in
+section 2 before entering the semantic boundary.
 
 ## 7. Failure behaviour
 

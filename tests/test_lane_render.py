@@ -48,7 +48,7 @@ class LaneRenderTests(unittest.TestCase):
       "link": f"https://example.invalid/issues/{number}",
     }
 
-  @patch("repo_workflow.lane_render.load_config", return_value={})
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
   def test_annotations_touch_identifier_and_decimal_align(self, info, _config):
     info.side_effect = self.info
@@ -59,7 +59,7 @@ class LaneRenderTests(unittest.TestCase):
       "B.54  Issue 54",
     ))
 
-  @patch("repo_workflow.lane_render.load_config", return_value={})
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
   def test_links_are_optional(self, info, _config):
     info.side_effect = self.info
@@ -68,7 +68,7 @@ class LaneRenderTests(unittest.TestCase):
       "https://" in x for x in render_lanes(self.root, links=True)
     ))
 
-  @patch("repo_workflow.lane_render.load_config", return_value={})
+  @patch("repo_workflow.lane_render.resolve_info_config", return_value={})
   @patch("repo_workflow.lane_render.issue_info")
   def test_single_lane_filter_preserves_column_width_rules(self, info, _config):
     info.side_effect = self.info

@@ -175,7 +175,7 @@ class BootstrapCliTests(unittest.TestCase):
         (
           ("lanes", "select", "206"),
           identity,
-          "canonical relationship graph is not initialized",
+          "no GitHub remote could be discovered",
         ),
         (
           ("lanes", "list"),
@@ -196,11 +196,6 @@ class BootstrapCliTests(unittest.TestCase):
           ("workspace", "info"),
           None,
           "workspace must be specified",
-        ),
-        (
-          ("settings", "color", "auto"),
-          None,
-          "missing required runtime identity input",
         ),
         (
           ("issue", "select", "dependency", "from-tickets"),

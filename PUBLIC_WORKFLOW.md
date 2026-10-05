@@ -226,6 +226,17 @@ without discarding durable evidence/history.
 
 ## 6. Umbrellas, dependencies, and multiple agents
 
+Lane planning may begin directly from ticket-native dependency facts:
+
+```text
+rwf lanes select <roots...>
+rwf lanes list
+```
+
+When no canonical relationship graph exists yet, the first selection acquires
+the complete dependency closure through the repository dependency adapter,
+validates it, and creates the canonical RWF graph before decomposition.
+
 An umbrella issue groups work that contributes to one larger problem or goal.
 It is not itself a dependency edge and it is not a shared execution stack.
 

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from .lane_selection import LaneSelectionStore
+from .relationship_bootstrap import ensure_relationship_graph
 from .runtime_identity import runtime_writer_identity
 
 
@@ -34,6 +35,7 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
       tuple(tail[1:]), writer, expected_revision=current.revision
     )
   else:
+    ensure_relationship_graph(root, tuple(tail), writer)
     result = store.select(
       tuple(tail), writer, expected_revision=current.revision
     )

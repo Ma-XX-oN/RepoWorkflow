@@ -19,8 +19,8 @@ public boundary.
 | FU-BOOTSTRAP-HELP | covered | #299 / tests/test_bootstrap_cli.py |
 | FU-ISSUE-READ | covered | #298-#301 / #312 |
 | FU-INIT | pending | #27 |
-| FU-DEPS-LANES | gap | #305 |
-| FU-SESSION | gap | #306 |
+| FU-DEPS-LANES | covered | #305 / tests/test_first_use_lanes.py |
+| FU-SESSION | covered | #306 / tests/test_first_use_lanes.py |
 | FU-PUBLIC-ERRORS | covered | #307 / tests/test_bootstrap_cli.py |
 | FU-WORK | gap | #308 |
 | FU-LIFECYCLE | gap | #309 |
@@ -59,7 +59,7 @@ not complete and its first-use test is part of completion.
 | #57 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #58 | open | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #63 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
-| #64 | closed | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
+| #64 | closed | public first-use owner | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #65 | open | public first-use contributor | ci-provider | FU-CONSUMER gap #313 |
 | #66 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
 | #67 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
@@ -67,7 +67,7 @@ not complete and its first-use test is part of completion.
 | #69 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #70 | open | public first-use contributor | ci-provider | FU-CONSUMER gap #313 |
 | #71 | open | public first-use contributor | public-workflow | covered only by its registered child scenarios; open children retain gaps |
-| #72 | open | public first-use contributor | issue-start/session | FU-WORK gap #308; identity #306 |
+| #72 | open | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #73 | open | public first-use owner | initialization | FU-INIT pending #27; consumer path #313 |
 | #74 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #75 | open | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
@@ -93,8 +93,8 @@ not complete and its first-use test is part of completion.
 | #95 | open | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #96 | open | public first-use owner | initialization | FU-INIT pending #27; consumer path #313 |
 | #97 | open | public first-use owner | ci-provider | FU-CONSUMER gap #313 |
-| #98 | open | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
-| #99 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; identity #306 |
+| #98 | open | public first-use owner | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
+| #99 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #100 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #101 | closed | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #102 | open | public first-use contributor | integration-topology | pending until supported public integration/done path exists |
@@ -112,7 +112,7 @@ not complete and its first-use test is part of completion.
 | #114 | open | public first-use owner | initialization | FU-INIT pending #27; consumer path #313 |
 | #115 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #116 | open | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
-| #117 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; identity #306 |
+| #117 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #118 | closed | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #119 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #120 | closed | public first-use owner | issue-query | FU-ISSUE-READ covered |
@@ -125,65 +125,65 @@ not complete and its first-use test is part of completion.
 | #129 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #131 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #133 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #135 | open | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #136 | closed | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #137 | closed | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #138 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
-| #139 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
-| #140 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
-| #141 | closed | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #142 | closed | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #143 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
-| #144 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
+| #135 | open | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #136 | closed | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #137 | closed | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #138 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #139 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #140 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #141 | closed | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #142 | closed | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #143 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #144 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
 | #145 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #153 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #155 | closed | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #159 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
+| #155 | closed | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #159 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
 | #163 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #164 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #169 | closed | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
-| #172 | closed | public first-use owner | workspace | FU-WORK gap #308; identity #306 |
+| #169 | closed | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
+| #172 | closed | public first-use owner | workspace | FU-WORK gap #308; runtime identity covered by #306 |
 | #185 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #186 | closed | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
+| #186 | closed | public first-use owner | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #187 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #189 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; identity #306 |
+| #189 | closed | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #196 | closed | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #201 | closed | public first-use contributor | lifecycle-validation | FU-LIFECYCLE gap #309 |
-| #205 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
+| #205 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
 | #206 | closed | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
-| #208 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
-| #209 | closed | public first-use contributor | dependency-sync | FU-DEPS-LANES gap #305 |
-| #210 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
-| #211 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
-| #212 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
-| #213 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
-| #214 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
+| #208 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #209 | closed | public first-use contributor | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #210 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #211 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #212 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #213 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #214 | closed | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
 | #215 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #216 | closed | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #217 | closed | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #218 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #219 | closed | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #220 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #221 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #222 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #223 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #224 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
+| #216 | closed | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #217 | closed | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #218 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #219 | closed | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #220 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #221 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #222 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #223 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #224 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
 | #225 | open | public first-use contributor | integration-topology | pending until supported public integration/done path exists |
 | #227 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #228 | closed | public first-use owner | integration-topology | pending until supported public integration/done path exists |
 | #229 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
-| #230 | open | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
+| #230 | open | public first-use owner | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #231 | open | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #232 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
-| #233 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #234 | open | public first-use contributor | workspace | FU-WORK gap #308; identity #306 |
+| #233 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #234 | open | public first-use contributor | workspace | FU-WORK gap #308; runtime identity covered by #306 |
 | #235 | open | public first-use owner | public-workflow | covered only by its registered child scenarios; open children retain gaps |
-| #236 | closed | public first-use contributor | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
+| #236 | closed | public first-use contributor | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
 | #240 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #242 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
 | #246 | closed | internal-only | internal/core | internal-only; covered through public consumer + focused tests |
-| #249 | open | public first-use owner | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
-| #250 | closed | public first-use contributor | lanes | FU-DEPS-LANES gap #305; identity #306; diagnostics #307 |
+| #249 | open | public first-use owner | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
+| #250 | closed | public first-use contributor | lanes | FU-DEPS-LANES covered by #305/#306; diagnostics covered by #307 |
 | #252 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #253 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #254 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
@@ -209,10 +209,10 @@ not complete and its first-use test is part of completion.
 | #301 | closed | public first-use contributor | issue-query | FU-ISSUE-READ covered |
 | #303 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
 | #304 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
-| #305 | open | public first-use owner | dependency-sync | FU-DEPS-LANES gap #305 |
-| #306 | open | public first-use contributor | issue-start/session | FU-WORK gap #308; identity #306 |
+| #305 | open | public first-use owner | dependency-sync | FU-DEPS-LANES covered by #305/#306 |
+| #306 | open | public first-use contributor | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #307 | open | internal policy/audit | audit/meta | governed by #303/#304 registry and audit gate |
-| #308 | open | public first-use owner | issue-start/session | FU-WORK gap #308; identity #306 |
+| #308 | open | public first-use owner | issue-start/session | FU-WORK gap #308; runtime identity covered by #306 |
 | #309 | open | public first-use owner | lifecycle-validation | FU-LIFECYCLE gap #309 |
 | #310 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
 | #311 | closed | experimental/obsolete/duplicate | experimental/obsolete | exempt from supported first-use coverage |
