@@ -467,6 +467,71 @@ class BashInitTests(unittest.TestCase):
     self.assertGreaterEqual(result.stdout.splitlines().count("lanes"), 2)
 
 
+
+  def test_self_wrapper_preserves_sensitive_path_argv_and_exit_status(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "self space (x)'quote"
+      root.mkdir()
+      subprocess.run(
+        ["git", "init", "-b", "main"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+      subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "initial"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      launcher = root / "rwf"
+      launcher.write_text(
+        (
+          "#!/bin/sh\n"
+          "for arg in \"$@\"; do printf 'ARG:%s\\n' \"$arg\"; done\n"
+          "exit 23\n"
+        ),
+        encoding="utf-8",
+      )
+      launcher.chmod(0o755)
+      (root / "repo_workflow.py").write_text("", encoding="utf-8")
+      source = Path(td) / "init.bash"
+      source.write_text(render_bash_init(root, ROOT), encoding="utf-8")
+
+      for name in ("rwf", "repo-workflow"):
+        with self.subTest(name=name):
+          result = subprocess.run(
+            [
+              bash_executable(),
+              "-c",
+              f'source "$1"; {name} alpha "two words"',
+              "bash",
+              bash_source_path(source),
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+          )
+          self.assertEqual(result.returncode, 23, result.stderr)
+          self.assertEqual(
+            result.stdout.splitlines(),
+            [
+              "ARG:--root",
+              f"ARG:{root.resolve().as_posix()}",
+              "ARG:alpha",
+              "ARG:two words",
+            ],
+          )
+
+
   def test_repo_workflow_alias_executes_same_consumer_launcher(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "consumer"
