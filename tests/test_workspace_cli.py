@@ -29,7 +29,7 @@ class WorkspaceCliTests(unittest.TestCase):
       "import sys\n"
       "number = int(sys.argv[-1])\n"
       "print(json.dumps({'schema_version': 1, 'number': number, "
-      "'title': 'Workspace issue', 'state': 'open'}))\n",
+      "'title': 'Workspace issue', 'state': 'open', 'link': f'https://example.invalid/issues/{number}'}))\n",
       encoding="utf-8",
     )
     config_path = self.root / ".ci" / "repoworkflow.json"
