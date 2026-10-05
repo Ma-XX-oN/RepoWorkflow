@@ -496,3 +496,31 @@ issues.  Split only when a cleaner independently testable contract appears.
 
 Verification procedures and acceptance checklists are defined in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
+
+
+## First-use ownership during decomposition
+
+When a work item introduces or changes a public command, launcher, shell/adoption
+path, provider-facing workflow, or documented human/agent lifecycle, the
+leaf-to-root contract pass must identify its **first-use owner** before
+implementation begins.
+
+For that owner, record:
+
+1. the minimum documented starting state;
+2. the exact public command/event sequence a real caller performs;
+3. which internal records/environment/configuration the product path owns
+   creating and therefore the test must not pre-create;
+4. the assembled first-use scenario in `FIRST_USE_WORKFLOWS.json`; and
+5. the black-box test that proves the scenario.
+
+Internal prerequisite leaves keep focused tests, but their parent public
+workflow cannot be declared complete merely because those leaves are GREEN.
+The assembled first-use scenario is a postcondition of the public owner.
+
+If the public feature is intentionally not yet supported, record it as
+`pending` with an open owner rather than creating a synthetic fixture that
+makes the incomplete workflow appear usable.
+
+The repository-wide historical classification is maintained in
+`FIRST_USE_WORKFLOW_AUDIT.md`.
