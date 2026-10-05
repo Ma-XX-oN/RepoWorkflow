@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
 
-from .command_grammar import Context, TERMINAL, next_entries
+from .command_grammar import Context, TERMINAL, VARIADIC, next_entries
 
 
 class FailureKind(str, Enum):
@@ -79,6 +79,21 @@ def analyse_failure(
 
     general_known = general_entry is not None or token in general_values
     legal_known = legal_entry is not None or token in legal_values
+    general_variadic = general_node.get(VARIADIC)
+    legal_variadic = legal_node.get(VARIADIC)
+    remaining = exact_count - index
+
+    if not general_known and general_variadic is not None:
+      if remaining >= general_variadic["min"]:
+        if legal_variadic is not None and remaining >= legal_variadic["min"]:
+          return None
+        return CommandFailure(
+          FailureKind.STATE_INVALID,
+          tokens,
+          index,
+          state_name,
+          transitions,
+        )
 
     if not general_known:
       return CommandFailure(
@@ -122,7 +137,19 @@ def analyse_failure(
       return None
 
   if not completion:
-    if isinstance(general_node, dict) and TERMINAL not in general_node:
+    general_zero_variadic = (
+      isinstance(general_node, dict)
+      and general_node.get(VARIADIC, {}).get("min") == 0
+    )
+    legal_zero_variadic = (
+      isinstance(legal_node, dict)
+      and legal_node.get(VARIADIC, {}).get("min") == 0
+    )
+    if (
+      isinstance(general_node, dict)
+      and TERMINAL not in general_node
+      and not general_zero_variadic
+    ):
       return CommandFailure(
         FailureKind.UNRECOGNISED,
         tokens,
@@ -130,7 +157,11 @@ def analyse_failure(
         state_name,
         transitions,
       )
-    if isinstance(legal_node, dict) and TERMINAL not in legal_node:
+    if (
+      isinstance(legal_node, dict)
+      and TERMINAL not in legal_node
+      and not legal_zero_variadic
+    ):
       return CommandFailure(
         FailureKind.STATE_INVALID,
         tokens,
@@ -142,6 +173,16 @@ def analyse_failure(
 
   partial = tokens[-1]
   index = last_index
+  if isinstance(general_node, dict) and VARIADIC in general_node:
+    if isinstance(legal_node, dict) and VARIADIC in legal_node:
+      return None
+    return CommandFailure(
+      FailureKind.STATE_NO_COMPLETION,
+      tokens,
+      index,
+      state_name,
+      transitions,
+    )
   general_entries, general_values = next_entries(
     general_node,
     general_context.at(tokens, index),
