@@ -109,7 +109,11 @@ def handle_lane_selection(
     print(json.dumps(result.value.to_json_value(), separators=(",", ":")))
   else:
     started = time.perf_counter()
-    for line in render_lanes(root, titles=False):
+    for line in render_lanes(
+      root,
+      titles=False,
+      diagnostics=diagnostics,
+    ):
       print(line)
     if diagnostics is not None:
       diagnostics.phase("render", started)
