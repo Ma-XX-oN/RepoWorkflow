@@ -231,7 +231,11 @@ Lane planning may begin directly from ticket-native dependency facts:
 ```text
 rwf lanes select <roots...>
 rwf lanes list
+rwf lanes view
 ```
+
+`lanes list` is the grouped issue/title inventory; `lanes view` is the compact
+dependency topology.  Both read synchronized local state by default.
 
 Lane operations use local canonical state by default; `--refresh` rereads the
 relevant provider closure; see [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md) and [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
