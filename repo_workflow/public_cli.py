@@ -240,7 +240,7 @@ def _handle_lanes(
     else:
       if links:
         raise ValueError("lanes view does not accept --links")
-      for line in render_lanes(root, lane=lane, titles=False):
+      for line in render_lanes(root, lane=lane, diagnostics=diagnostics):
         print(line)
       diagnostics.phase("render", started)
       _record_semantic_edges(root, diagnostics)
