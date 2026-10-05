@@ -231,12 +231,17 @@ Lane planning may begin directly from ticket-native dependency facts:
 ```text
 rwf lanes select <roots...>
 rwf lanes list
+rwf lanes view
 ```
 
-Selection mutations and lane inspection use the local canonical graph by
-default; `--refresh` explicitly rereads the relevant provider closure.  Cache
-and refresh rules are in [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md).
-Display rules are in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
+`lanes list` is the lane-membership inventory with issue titles and optional
+links.  `lanes view` is the compact dependency topology.  Selection mutations
+also render the topology after success.
+
+Lane inspection uses synchronized local state by default; `--refresh`
+explicitly rereads the relevant provider closure.  Cache and refresh rules are
+in [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md).  Display rules are in
+[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).
 When no canonical relationship graph exists yet, the first selection acquires
 the complete dependency closure through the repository dependency adapter,
 validates it, and creates the canonical RWF graph before decomposition.
