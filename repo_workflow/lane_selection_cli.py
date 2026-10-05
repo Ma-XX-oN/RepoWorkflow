@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionStore
 from .lane_render import render_lanes
 from .relationship_bootstrap import ensure_relationship_graph
@@ -16,7 +17,7 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
   if words == ["lanes", "clear"]:
     if current.revision is None:
       raise ValueError("lane selection is missing")
-    result = store.clear(expected_revision=current.revision)
+    store.clear(expected_revision=current.revision)
     print(json.dumps({"selection": None}, separators=(",", ":")))
     return 0
 
@@ -31,49 +32,70 @@ def handle_lane_selection(root: Path, words: list[str]) -> int:
   ]
   if not tail:
     raise ValueError("lane selection requires at least one root")
+
   if tail[0] == "add":
-    if current.revision is None:
+    if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
-    ensure_relationship_graph(
-      root,
-      tuple(tail[1:]),
-      writer,
-      refresh=refresh,
-    )
+    additions = tuple(tail[1:])
+    desired = tuple(sorted(
+      set(current.value.roots) | {str(int(value)) for value in additions},
+      key=int,
+    ))
+    _prepare(root, desired, writer, refresh=refresh)
     result = store.add(
-      tuple(tail[1:]), writer, expected_revision=current.revision
+      additions,
+      writer,
+      expected_revision=current.revision,
     )
   elif tail[0] == "remove":
     if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
-    removed = {str(int(value)) for value in tail[1:]}
-    remaining = tuple(
+    removals = tuple(tail[1:])
+    removed = {str(int(value)) for value in removals}
+    desired = tuple(
       value for value in current.value.roots
       if value not in removed
     )
-    if refresh and remaining:
-      ensure_relationship_graph(
-        root,
-        remaining,
-        writer,
-        refresh=True,
-      )
+    if desired:
+      _prepare(root, desired, writer, refresh=refresh)
     result = store.remove(
-      tuple(tail[1:]), writer, expected_revision=current.revision
+      removals,
+      writer,
+      expected_revision=current.revision,
     )
   else:
-    ensure_relationship_graph(
-      root,
-      tuple(tail),
-      writer,
-      refresh=refresh,
-    )
+    desired = tuple(tail)
+    _prepare(root, desired, writer, refresh=refresh)
     result = store.select(
-      tuple(tail), writer, expected_revision=current.revision
+      desired,
+      writer,
+      expected_revision=current.revision,
     )
+
   if as_json:
     print(json.dumps(result.value.to_json_value(), separators=(",", ":")))
   else:
     for line in render_lanes(root, titles=False):
       print(line)
   return 0
+
+
+def _prepare(
+  root: Path,
+  roots: tuple[str | int, ...],
+  writer,
+  *,
+  refresh: bool,
+) -> None:
+  relationships = ensure_relationship_graph(
+    root,
+    roots,
+    writer,
+    refresh=refresh,
+  )
+  ensure_lane_metadata(
+    root,
+    tuple(relationships.issues),
+    writer,
+    refresh=refresh,
+  )
