@@ -6,6 +6,8 @@ from .graph_geometry import (
   route_long,
   validate_routes,
 )
+from .graph_long_routes import choose_long_route_row
+from .graph_ordering import group_key, group_ranks, place_nodes
 from .graph_render_model import (
   AlignedColumn,
   FormatEntry,
@@ -32,9 +34,9 @@ def build_layout(graph: Graph) -> LayoutPlan:
   if not validated.node_group:
     return LayoutPlan(0, -1, {}, {}, (), graph.default_edge_colour)
 
-  group_rank = _group_ranks(graph.siblings)
-  placements, column_nodes, max_node_row = _place_nodes(
-    graph.siblings,
+  group_rank = group_ranks(graph.siblings)
+  placements, column_nodes, max_node_row = place_nodes(
+    validated,
     group_rank,
   )
   columns = _format_columns(validated, column_nodes)
@@ -51,14 +53,14 @@ def build_layout(graph: Graph) -> LayoutPlan:
 
   cells: dict[tuple[int, int], list[Contribution]] = {}
   routes: list[RouteRecord] = []
-  long_index = 0
+  used_long_rows: dict[int, list[SemanticEdge]] = {}
   bundled_edges: set[tuple[str, str]] = set()
 
   for relation in sorted(
     bundle_relations,
     key=lambda item: (
-      _group_key(item[0]),
-      _group_key(item[1]),
+      group_key(item[0]),
+      group_key(item[1]),
     ),
   ):
     source_group, target_group = relation
@@ -116,8 +118,13 @@ def build_layout(graph: Graph) -> LayoutPlan:
       )
       continue
 
-    track_y = max_node_row + 2 + long_index * 2
-    long_index += 1
+    track_y = choose_long_route_row(
+      edge,
+      placements,
+      max_node_row,
+      used_long_rows,
+    )
+    used_long_rows.setdefault(track_y, []).append(edge)
     hidden = tuple(
       HiddenContinuation(
         semantic_source=edge.source,
@@ -179,89 +186,6 @@ def build_layout(graph: Graph) -> LayoutPlan:
     routes=ordered_routes,
     default_colour=graph.default_edge_colour,
   )
-
-
-def _group_key(group: GraphSiblings) -> tuple[str, ...]:
-  return tuple(sorted(group.nodes))
-
-
-def _group_ranks(
-  groups: tuple[GraphSiblings, ...],
-) -> dict[GraphSiblings, int]:
-  incoming: dict[GraphSiblings, set[GraphSiblings]] = {
-    group: set() for group in groups
-  }
-  for group in groups:
-    for target in group.to_nodes:
-      incoming[target].add(group)
-
-  indegree = {group: len(incoming[group]) for group in groups}
-  ready = sorted(
-    (group for group in groups if indegree[group] == 0),
-    key=_group_key,
-  )
-  ranks = {group: 0 for group in ready}
-  seen: list[GraphSiblings] = []
-  while ready:
-    group = ready.pop(0)
-    seen.append(group)
-    for target in sorted(group.to_nodes, key=_group_key):
-      ranks[target] = max(
-        ranks.get(target, 0),
-        ranks[group] + 1,
-      )
-      indegree[target] -= 1
-      if indegree[target] == 0:
-        ready.append(target)
-        ready.sort(key=_group_key)
-  if len(seen) != len(groups):
-    raise ValueError(
-      "validated graph unexpectedly contains a cycle"
-    )
-  return ranks
-
-
-def _place_nodes(
-  groups: tuple[GraphSiblings, ...],
-  ranks: dict[GraphSiblings, int],
-) -> tuple[
-  dict[str, Placement],
-  dict[int, tuple[str, ...]],
-  int,
-]:
-  by_column: dict[int, list[GraphSiblings]] = {}
-  connected = {
-    group
-    for group in groups
-    if group.to_nodes
-  }
-  for group in groups:
-    for target in group.to_nodes:
-      connected.add(target)
-    by_column.setdefault(ranks[group], []).append(group)
-
-  placements: dict[str, Placement] = {}
-  column_nodes: dict[int, tuple[str, ...]] = {}
-  max_row = 0
-  for column in sorted(by_column):
-    row = 0
-    ordered_nodes: list[str] = []
-    ordered_groups = sorted(by_column[column], key=_group_key)
-    previous = None
-    for group in ordered_groups:
-      if (
-        previous is not None
-        and (previous in connected or group in connected)
-      ):
-        row += 1
-      for node in sorted(group.nodes):
-        placements[node] = Placement(column, row)
-        ordered_nodes.append(node)
-        max_row = max(max_row, row)
-        row += 1
-      previous = group
-    column_nodes[column] = tuple(ordered_nodes)
-  return placements, column_nodes, max_row
 
 
 def _format_columns(
@@ -360,7 +284,7 @@ def _bundle_item_key(
   source: GraphSiblings,
   target: GraphSiblings,
 ) -> tuple:
-  return "bundle", _group_key(source), _group_key(target)
+  return "bundle", group_key(source), group_key(target)
 
 
 def _boundary_items(
@@ -403,9 +327,35 @@ def _boundary_items(
     for placement in placements.values()
   )
   return {
-    boundary: tuple(sorted(values.get(boundary, set())))
+    boundary: tuple(
+      sorted(
+        values.get(boundary, set()),
+        key=lambda item: _boundary_item_order(
+          item,
+          placements,
+        ),
+      )
+    )
     for boundary in range(max_column)
   }
+
+
+def _boundary_item_order(
+  item: tuple,
+  placements: dict[str, Placement],
+) -> tuple[int, tuple]:
+  if item[0] != "edge":
+    return 1, item
+  source = placements[item[1]]
+  target = placements[item[2]]
+  delta = target.row - source.row
+  if delta < 0:
+    direction = 0
+  elif delta > 0:
+    direction = 2
+  else:
+    direction = 1
+  return direction, item
 
 
 def _column_geometry(

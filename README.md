@@ -22,6 +22,20 @@ Project/
 └── tests/
 ```
 
+## Runtime dependencies
+
+Install the supported Python runtime dependencies after cloning or updating
+RepoWorkflow:
+
+```text
+python -m pip install -r requirements.txt
+```
+
+The terminal styling adapter uses the declared capability-aware backend.
+`rwf settings color always` fails explicitly when that backend is unavailable;
+it never silently degrades to uncoloured output.  `color auto` may remain
+unstyled when styling is unavailable or inappropriate for the output stream.
+
 ## Responsibilities
 
 RepoWorkflow owns common lifecycle and invariant machinery:

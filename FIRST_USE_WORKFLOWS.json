@@ -276,6 +276,18 @@
             "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_cache_and_routing_certification",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar"
           ]
+        },
+        {
+          "id": "DL-18",
+          "requirement": "renderer quality refinement preserves exact semantics while avoiding needless long-edge excursions, separating opposing vertical directions where possible, keeping the real #107 shape compact, improving the real #218 shape over legacy private long tracks, and making forced terminal colour fail explicitly when its supported backend is unavailable",
+          "verification": [
+            "tests/test_graph_quality.py::GraphQualityTests.test_long_edge_avoids_needless_below_graph_dip",
+            "tests/test_graph_quality.py::GraphQualityTests.test_multi_overlap_avoids_adjacent_opposing_verticals",
+            "tests/test_graph_quality.py::GraphQualityTests.test_real_107_shape_remains_compact",
+            "tests/test_graph_quality.py::GraphQualityTests.test_real_218_shape_improves_legacy_long_edge_excursion",
+            "tests/test_terminal_style.py::TerminalStyleTests.test_always_mode_fails_if_supported_backend_is_missing",
+            "tests/test_terminal_style.py::TerminalStyleTests.test_auto_mode_remains_plain_if_backend_is_missing"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -306,7 +318,9 @@
         "direct_edge_route_identity": "DL-16",
         "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
-        "combined_inspection_flags": "DL-17"
+        "combined_inspection_flags": "DL-17",
+        "route_quality_refinement": "DL-18",
+        "forced_colour_backend_contract": "DL-18"
       },
       "stateful": true,
       "provider_boundary": true,

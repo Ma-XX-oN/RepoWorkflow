@@ -1,13 +1,18 @@
 name: RepoWorkflow Lane Cache and Routing Certification
+# Renderer-quality certification revision 3.
 
 on:
   push:
     branches:
       - issue-346-lane-certification-v3
       - issue-382-constrained-graph-renderer
+      - issue-390-renderer-quality
     paths:
       - .repoworkflow/migrations/run-lane-cache-certification-v2
       - .github/workflows/lane-cache-routing-certification.yml
+      - requirements.txt
+      - repo_workflow/graph_*.py
+      - repo_workflow/terminal_style.py
 
 permissions:
   contents: read
@@ -26,6 +31,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+
+      - name: Install RepoWorkflow runtime dependencies
+        run: python -m pip install -r requirements.txt
 
       - name: Exercise shipped lane workflow against real GitHub data
         env:
@@ -89,6 +97,11 @@ jobs:
           linked = run("lanes", "list", "--links")
           if "https://github.com/Ma-XX-oN/RepoWorkflow/issues/218" not in linked.stdout:
             raise SystemExit("lanes list --links did not use synchronized link")
+
+          run("settings", "color", "always")
+          colored_view = run("lanes", "view", token="invalid-local-only-token")
+          if "\x1b[" not in colored_view.stdout:
+            raise SystemExit("forced colour view emitted no terminal styling")
 
           local_view = run("lanes", "view", "--debug", token="invalid-local-only-token")
           if "provider requests: 0" not in local_view.stdout:

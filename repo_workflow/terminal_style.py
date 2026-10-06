@@ -35,10 +35,22 @@ _PALETTE = (
 )
 
 
+class TerminalStyleError(ValueError):
+  pass
+
+
 class TerminalStyler:
   def __init__(self, mode: str, *, stream=None):
     if mode not in {"auto", "always", "never"}:
-      raise ValueError("terminal colour mode must be auto, always, or never")
+      raise TerminalStyleError(
+        "terminal colour mode must be auto, always, or never"
+      )
+    if mode == "always" and Console is None:
+      raise TerminalStyleError(
+        "terminal colour backend is unavailable; install RepoWorkflow "
+        "runtime dependencies with: python -m pip install -r "
+        "requirements.txt"
+      )
     self.mode = mode
     self.stream = sys.stdout if stream is None else stream
     self._console = self._make_console()
