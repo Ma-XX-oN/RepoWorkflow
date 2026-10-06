@@ -527,6 +527,42 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(refreshed.returncode, 2)
       self.assertIn("provider unavailable", refreshed.stderr)
 
+  def test_lane_view_is_deterministic_across_fresh_processes(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(93)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      first = self.run_rwf(root, env, "lanes", "view")
+      second = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(second.returncode, 0, second.stderr)
+      self.assertEqual(first.stdout, second.stdout)
+      self.assertNotIn("provider unavailable", first.stderr)
+      self.assertNotIn("provider unavailable", second.stderr)
+
   def test_lane_flag_combinations_are_accepted_by_public_grammar(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
