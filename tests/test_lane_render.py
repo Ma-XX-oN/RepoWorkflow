@@ -66,11 +66,11 @@ class LaneRenderTests(unittest.TestCase):
 
   def test_status_annotations_touch_identifier_and_lane_letters_align(self):
     lines = render_lanes(self.root)
-    line_9 = next(line for line in lines if "A  9" in line)
-    line_54 = next(line for line in lines if "B 54" in line)
+    line_9 = next(line for line in lines if "A 9" in line)
+    line_54 = next(line for line in lines if "B54" in line)
     self.assertEqual(line_9.index("A"), line_54.index("B"))
-    self.assertIn("✓A  9", line_9)
-    self.assertIn(" B 54", line_54)
+    self.assertIn("✓A 9", line_9)
+    self.assertIn(" B54", line_54)
     self.assertTrue(any("*✓A107" in line for line in lines))
     graph = "\n".join(lines)
     self.assertIn("─", graph)
