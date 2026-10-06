@@ -182,7 +182,7 @@ class LaneRenderTests(unittest.TestCase):
     self.assertIn("*A.2", rendered)
     self.assertIn("*B.3", rendered)
 
-  def test_long_dependency_is_diagnostic_with_hidden_column(self):
+  def test_redundant_long_dependency_is_not_displayed(self):
     graph_store = RelationshipStore(self.root)
     current_graph = graph_store.read()
     graph_store.replace(
@@ -216,13 +216,12 @@ class LaneRenderTests(unittest.TestCase):
     )
     for value in ("A.145", "A.185", "*A.216"):
       self.assertIn(value, rendered)
-    route = next(
-      item
+    routes = {
+      (item["source"], item["target"])
       for item in diagnostics.routed_edges
-      if (item["source"], item["target"]) == (145, 216)
-    )
-    self.assertEqual(route["kind"], "long")
-    self.assertEqual(route["hidden_columns"], [1])
+    }
+    self.assertEqual(routes, {(145, 185), (185, 216)})
+    self.assertNotIn((145, 216), routes)
 
   def test_graph_rejects_titles_and_links(self):
     with self.assertRaisesRegex(LaneRenderError, "lanes list"):

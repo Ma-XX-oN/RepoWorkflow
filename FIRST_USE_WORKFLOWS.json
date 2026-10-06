@@ -256,7 +256,7 @@
         },
         {
           "id": "DL-16",
-          "requirement": "every canonical direct dependency has exactly one deterministic route in the constrained sibling-group DAG renderer; long edges retain semantic endpoint identity through hidden continuation columns; unrelated crossings never create semantic junctions; debug maps semantic edges to route identities",
+          "requirement": "every dependency supplied to the constrained sibling-group DAG renderer has exactly one deterministic route; long edges retain semantic endpoint identity through hidden continuation columns; unrelated crossings never create semantic junctions; debug maps displayed semantic edges to route identities",
           "verification": [
             "tests/test_graph_render_model.py::GraphRenderModelTests.test_accepts_constrained_sibling_dag",
             "tests/test_graph_render.py::GraphRenderTests.test_long_edge_records_hidden_semantic_endpoints",
@@ -265,13 +265,13 @@
             "tests/test_graph_render.py::GraphRenderTests.test_multi_overlap_preserves_lane_and_default_edge_colours",
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_multi_overlap_geometry_preserves_exact_edge_set",
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_long_edge_variants_preserve_connected_routes",
-            "tests/test_lane_render.py::LaneRenderTests.test_long_dependency_is_diagnostic_with_hidden_column",
+            "tests/test_lane_render.py::LaneRenderTests.test_redundant_long_dependency_is_not_displayed",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_view_is_deterministic_across_fresh_processes"
           ]
         },
         {
           "id": "DL-17",
-          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and constrained renderer routes agree with canonical direct dependencies",
+          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and displayed renderer routes preserve canonical dependency reachability",
           "verification": [
             "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_cache_and_routing_certification",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar"
@@ -279,7 +279,7 @@
         },
         {
           "id": "DL-18",
-          "requirement": "renderer quality refinement preserves exact semantics while avoiding needless long-edge excursions, separating opposing vertical directions where possible, keeping the real #107 shape compact, improving the real #218 shape over legacy private long tracks, and making forced terminal colour fail explicitly when its supported backend is unavailable",
+          "requirement": "renderer quality refinement preserves the supplied display semantics while avoiding needless long-edge excursions, separating opposing vertical directions where possible, keeping the real #107 shape compact, improving the real #218 shape over legacy private long tracks, and making forced terminal colour fail explicitly when its supported backend is unavailable",
           "verification": [
             "tests/test_graph_quality.py::GraphQualityTests.test_long_edge_avoids_needless_below_graph_dip",
             "tests/test_graph_quality.py::GraphQualityTests.test_multi_overlap_avoids_adjacent_opposing_verticals",
@@ -287,6 +287,18 @@
             "tests/test_graph_quality.py::GraphQualityTests.test_real_218_shape_improves_legacy_long_edge_excursion",
             "tests/test_terminal_style.py::TerminalStyleTests.test_always_mode_fails_if_supported_backend_is_missing",
             "tests/test_terminal_style.py::TerminalStyleTests.test_auto_mode_remains_plain_if_backend_is_missing"
+          ]
+        },
+        {
+          "id": "DL-19",
+          "requirement": "RepoWorkflow lane display may omit a canonical direct dependency only when another displayed path preserves the same prerequisite reachability; the canonical relationship store is unchanged; the real #218 projection removes redundant display shortcuts while retaining independent branches such as #208 -> #216; final displayed routing remains deterministic and visually continuous",
+          "verification": [
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_projection_removes_only_redundant_direct_edges",
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_reduced_projection_preserves_reachability",
+            "tests/test_lane_render.py::LaneRenderTests.test_redundant_long_dependency_is_not_displayed",
+            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_reduced_routes_are_minimal_reachability_edges",
+            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_final_glyphs_cover_all_routed_geometry",
+            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_has_no_adjacent_duplicate_arrow_columns"
           ]
         }
       ],
@@ -320,7 +332,9 @@
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17",
         "route_quality_refinement": "DL-18",
-        "forced_colour_backend_contract": "DL-18"
+        "forced_colour_backend_contract": "DL-18",
+        "reachability_preserving_display_reduction": "DL-19",
+        "rendered_route_continuity": "DL-19"
       },
       "stateful": true,
       "provider_boundary": true,

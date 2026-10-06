@@ -77,9 +77,17 @@ It supplies:
 It does not supply graph columns, hidden continuation nodes, route tracks,
 crossings, or Unicode glyphs.
 
+Before sibling grouping, the adapter performs deterministic transitive
+reduction of the visible dependency DAG for display only.  A canonical direct
+dependency may be omitted from the display when another displayed directed
+path connects the same source and target.  This preserves prerequisite
+reachability exactly while removing redundant shortcut connectors.
+
+The canonical relationship store is never modified by display reduction.
+
 Sibling grouping is permitted only when the grouped issues have identical
-visible incoming and outgoing semantic relationships.  Grouping therefore
-cannot create or erase a dependency.
+incoming and outgoing relationships in the reduced display graph.  Grouping
+therefore cannot change display reachability.
 
 ## Lane completeness
 
@@ -94,7 +102,7 @@ semantic issue merely to make a lane renderable.
 
 Node data text uses its lane colour.
 
-For each canonical direct dependency:
+For each retained display dependency:
 
 - if both semantic endpoint issues belong to the same lane, the dependency uses
   that lane colour;
@@ -109,12 +117,17 @@ or another terminal control syntax.
 
 ## Topology
 
-Canonical direct dependencies determine graph connectors.  Rendering never
-creates, removes, infers, or transitively reduces dependency edges.
+Canonical direct dependencies determine prerequisite reachability.  The
+RepoWorkflow adapter transitively reduces the visible DAG before passing it to
+the generic renderer.  The reduction removes only display shortcuts whose
+reachability is already represented by another path.
 
-Long direct dependencies are represented with hidden continuation nodes in each
-skipped graph column.  Hidden nodes are layout-only and never appear as issue
-nodes or lane members.
+The generic renderer itself does not infer or remove relationships: it renders
+the reduced graph supplied by the adapter exactly.
+
+Long retained display dependencies are represented with hidden continuation
+nodes in each skipped graph column.  Hidden nodes are layout-only and never
+appear as issue nodes or lane members.
 
 After normalization every layout edge crosses one adjacent column boundary.
 
@@ -126,8 +139,9 @@ junction.  Horizontal geometry is visually dominant at such a crossing.
 
 ## Diagnostics
 
-`rwf lanes view --debug` reports one route identity for every canonical direct
-dependency.
+`rwf lanes view --debug` reports one route identity for every retained display
+dependency.  Canonical relationship data remains available from the
+relationship store and provider-facing diagnostics.
 
 Adjacent relationships report an adjacent or bundled route.  A relationship
 that spans visual columns reports a long route together with its hidden

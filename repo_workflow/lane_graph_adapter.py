@@ -55,13 +55,17 @@ def project_lane_graph(
     issue: _raw_label(selection, issue, metadata)
     for issue in sorted(visible, key=int)
   }
-  outgoing = {issue: set() for issue in visible}
-  incoming = {issue: set() for issue in visible}
+  full_outgoing = {issue: set() for issue in visible}
   for target in visible:
     for source in relationship_graph.issue(target).depends_on:
       if source not in visible:
         continue
-      outgoing[source].add(target)
+      full_outgoing[source].add(target)
+
+  outgoing = _transitive_reduction(full_outgoing)
+  incoming = {issue: set() for issue in visible}
+  for source, targets in outgoing.items():
+    for target in targets:
       incoming[target].add(source)
 
   buckets: dict[tuple, list[str]] = {}
@@ -198,6 +202,54 @@ def _pad_left(
   if padding < 0:
     raise LaneGraphProjectionError("display width function is inconsistent")
   return " " * padding + value
+
+
+def _transitive_reduction(
+  outgoing: dict[str, set[str]],
+) -> dict[str, set[str]]:
+  reduced = {
+    source: set(targets)
+    for source, targets in outgoing.items()
+  }
+  for source in sorted(outgoing, key=int):
+    for target in sorted(outgoing[source], key=int):
+      if _has_alternate_path(
+        source,
+        target,
+        outgoing,
+      ):
+        reduced[source].discard(target)
+  return reduced
+
+
+def _has_alternate_path(
+  source: str,
+  target: str,
+  outgoing: dict[str, set[str]],
+) -> bool:
+  pending = [
+    node
+    for node in sorted(outgoing[source], key=int, reverse=True)
+    if node != target
+  ]
+  seen: set[str] = set()
+  while pending:
+    node = pending.pop()
+    if node == target:
+      return True
+    if node in seen:
+      continue
+    seen.add(node)
+    pending.extend(
+      candidate
+      for candidate in sorted(
+        outgoing[node],
+        key=int,
+        reverse=True,
+      )
+      if candidate not in seen
+    )
+  return False
 
 
 def _lane_path(
