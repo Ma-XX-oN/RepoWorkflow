@@ -2,7 +2,8 @@
 
 Status: authoritative project-neutral contract for the terminal graph renderer.
 
-This document defines a deliberately constrained directed-acyclic-graph renderer.
+This document defines a deliberately constrained directed-acyclic-graph
+renderer.
 It is not a general graph-drawing API.  Callers must project their domain data
 into this structure before rendering.
 
