@@ -73,6 +73,22 @@ jobs:
       - name: Probe direct process argument limit
         run: python scripts/probe-argv-limits.py
 
+  graph-renderer-platform:
+    name: Probe graph renderer (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Probe constrained graph renderer
+        run: python scripts/probe-graph-renderer.py
+
   release:
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
