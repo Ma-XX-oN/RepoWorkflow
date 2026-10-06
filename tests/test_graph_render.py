@@ -108,7 +108,7 @@ class GraphRenderTests(unittest.TestCase):
     self.assertIn("┬", text)
     rendered = "\n".join(result.lines)
     self.assertIn("<red>", rendered)
-    self.assertNotIn("<grey>", rendered)
+    self.assertIn("<grey>", rendered)
     self.assertEqual(
       {(route.source, route.target) for route in result.routes},
       {("A", "X"), ("C", "X")},
@@ -142,7 +142,9 @@ class GraphRenderTests(unittest.TestCase):
       ],
       [("A", "P", 1)],
     )
-    self.assertIn("<red>", "\n".join(result.lines))
+    rendered = "\n".join(result.lines)
+    self.assertIn("<red>", rendered)
+    self.assertNotIn("<grey>", rendered)
 
   def test_directional_cousin_routes_emit_vertical_arrows(self):
     x = GraphSiblings(("X",))
