@@ -44,7 +44,9 @@ def decompose_lanes(
     if issue in completed_ids or issue in closure:
       return
     if issue in visiting:
-      raise RelationshipSchemaError(f"direct dependency cycle includes issue {issue}")
+      raise RelationshipSchemaError(
+        f"direct dependency cycle includes issue {issue}"
+      )
     visiting.add(issue)
     relation = graph.issue(issue)
     for dependency in relation.depends_on:
@@ -58,7 +60,8 @@ def decompose_lanes(
   if not closure:
     return LanePlan(selected_ids, (), ())
 
-  # Deterministic topological order: dependencies before dependants, numeric tie-break.
+  # Deterministic topological order: dependencies before dependants, with a
+  # numeric tie-break.
   indegree = {issue: 0 for issue in closure}
   dependants = {issue: [] for issue in closure}
   for issue in closure:
