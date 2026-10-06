@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
-
-from repo_workflow.ticket_merge import configure_ticket_merge_driver
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+  sys.path.insert(0, str(ROOT))
+
+from repo_workflow.ticket_merge import configure_ticket_merge_driver
 
 
 def run(root: Path, *args: str) -> str:
