@@ -279,7 +279,7 @@ container titles elsewhere in the ticket set.
 
 If several implementation tickets contribute to a larger Initiative, Epic, or
 Feature, the provider issue body may document that decomposition. RWF does not
-store a separate child/umbrella ownership graph.
+store a separate container-ownership graph.
 
 Shared prerequisites remain ordinary dependency targets. Consumers depend
 directly on the concrete tickets whose outputs they require.
@@ -323,7 +323,7 @@ For one local integration attempt:
 2. create ephemeral `prelim-main-<GUID>` from the current authoritative
    server `main` tip;
 3. associate that GUID-bearing branch with its integration workflow record;
-4. merge the accepted task or umbrella result into `prelim-main-<GUID>`;
+4. merge the accepted executable or container result into `prelim-main-<GUID>`;
 5. keep integration-specific conflict resolution, generated artifacts, and
    proposed stable version on `prelim-main-<GUID>`;
 6. choose release intent with either:

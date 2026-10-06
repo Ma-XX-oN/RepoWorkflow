@@ -194,7 +194,6 @@ durable state version exists in a particular repository revision.
 It cannot by itself infer:
 
 - issue dependency;
-- umbrella ownership;
 - authorization;
 - worker ownership;
 - active issue;
