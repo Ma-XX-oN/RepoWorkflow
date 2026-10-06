@@ -23,7 +23,8 @@ graph.  Graph direction is leaf to root.
 `rwf lanes list [lane] [--links]` is deliberately not a graph.  It is the
 lane-membership inventory, analogous to `rwf issue list`: issues are grouped
 by lane and displayed as `#N  title`, with the synchronized canonical link
-appended only when `--links` is requested.
+appended only when `--links` is requested.  Each non-empty lane group uses
+that lane's terminal colour when colour output is enabled.
 
 The machine-readable selection record remains available explicitly:
 
@@ -37,23 +38,30 @@ rwf lanes select remove <roots...> --json
 
 RepoWorkflow maps each issue to one raw graph-node string.
 
-Nodes use `lane.issue`.  Explicit roots are marked `*`; closed issues are
-marked `✓`; combined annotation order is `*✓`.
+Node IDs use `[type:]laneissue` with no separator between lane and issue.
+The optional synchronized-title annotations are `I:` for `Initiative:`,
+`E:` for `Epic:`, and `F:` for `Feature:`.  Explicit roots are marked
+`*`; closed issues are marked `✓`; combined status order is `*✓`.
 
 The RepoWorkflow column formatter:
 
-- reserves only the annotation width required by that column;
-- right-aligns annotations directly against the data text;
-- aligns identifiers on the `.`;
-- passes only the `lane.issue` data text through the lane colour function;
-- leaves annotation styling independent.
+- reserves only the status width required by that visual graph column;
+- reserves a two-cell type slot only when that same column contains a typed
+  node;
+- right-aligns status annotations directly against the node ID;
+- aligns lane letters within each visual graph column;
+- passes the optional type annotation plus lane/issue ID through the lane
+  colour function;
+- leaves status annotation styling independent.
 
-For example:
+For example, a mixed typed/untyped column may contain:
 
 ```text
-*✓A.63
- *B.65
+*✓E:A63
+    B65
 ```
+
+A column containing only ordinary tickets reserves no type slot.
 
 Normal graph nodes do not include issue titles or links.  Those remain available
 through `rwf lanes list` and the issue list/info commands.
