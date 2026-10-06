@@ -2,6 +2,10 @@
 
 Status: authoritative public display companion to #205/#219.
 
+The generic renderer contract is defined in
+[GRAPH_RENDERER.md](GRAPH_RENDERER.md).  This document defines the
+RepoWorkflow-specific projection and public presentation.
+
 ## Human output
 
 Lane selection is immediately inspectable:
@@ -29,16 +33,16 @@ rwf lanes select add <roots...> --json
 rwf lanes select remove <roots...> --json
 ```
 
-## Node notation
+## Node notation and formatting
 
-Nodes use `lane.issue`.  Explicit roots are marked `*`; closed issues are
-marked `✓`; combined annotation order is `*✓`.
+RepoWorkflow projects each visible issue to one raw node string using
+`lane.issue`.  Explicit roots are marked `*`; closed issues are marked `✓`;
+combined annotation order is `*✓`.
 
-Within each visual graph column:
-
-- reserve only the annotation width actually required by that column;
-- right-align annotations directly against `lane.issue`;
-- align identifiers on the `.` regardless of annotation/lane/issue width.
+The raw string, including annotations, is passed to the generic renderer.  The
+RepoWorkflow column formatter may decompose that string into annotation and data
+text.  It aligns nodes in one column to one terminal-cell width and applies the
+lane colour function only to the data text.
 
 For example:
 
@@ -47,79 +51,101 @@ For example:
  *B.65
 ```
 
-Normal graph cells do not include issue titles.  Titles and optional links are
-available through `rwf lanes list` and the issue list/info commands.
+Normal graph nodes do not include issue titles or links.  Those are available
+through `rwf lanes list` and issue list/info commands.
 
-Changing annotations must not change dependency topology.  Colour is
-supplementary and follows the persistent global `auto|always|never` setting.
+The generic renderer does not inspect terminal viewport width and does not
+truncate or wrap the graph.  The complete graph is emitted left to right.  A
+pager such as `less -RS` may be used for horizontal navigation.
 
-## Topology
+## Lane path invariant
 
-Canonical direct dependencies determine graph connectors.  Rendering never
-creates, removes, or infers dependency edges.
+Every selected issue belongs to exactly one lane.
 
-Leaf-to-root chains and branch/convergence structures use Unicode box-drawing
-characters.  Issue titles and links are deliberately excluded from graph cells
-so metadata cannot inflate topology coordinates.
-Lane assignment is a node label and does not determine graph topology.
+Each lane is a complete directed path through the selected dependency graph.
+When one path branches, at most one branch may continue the existing lane; the
+other branch starts another lane.  At convergence, the converged node belongs
+to exactly one predecessor lane.
 
+The decomposition is deterministic.  Lane membership never duplicates a node.
 
-## Edge identity and bypass tracks
+## Topology projection
 
-Every canonical direct dependency is rendered as one identifiable logical
-route.  The renderer chooses deterministic adjacent primary edges for the
-readable backbone.  Any remaining direct dependency uses its own bypass track,
-including direct edges that skip over an existing transitive path.
+RepoWorkflow projects the selected dependency graph into the constrained
+`GraphSiblings` model.
 
-For example, when all three direct facts exist:
+A sibling group may contain several nodes only when grouping them preserves
+their complete external relationship structure.  The adapter must not group
+nodes merely for visual convenience.
+
+Canonical direct dependencies remain authoritative.  Rendering never performs
+semantic transitive reduction and never invents a dependency.
+
+Long direct dependencies may span several visual columns.  The generic
+renderer inserts hidden continuation nodes for skipped columns.  Those nodes are
+layout-only and retain the original semantic source and target.
+
+## Lane and edge colour
+
+Colour functions are produced outside the generic graph renderer by the
+terminal styling boundary.  The renderer treats them as opaque functions and
+does not assume ANSI or another terminal escape format.
+
+Every visible node uses its lane colour.
+
+For an edge:
+
+- if its two semantic endpoint nodes belong to the same lane, use that lane
+  colour;
+- otherwise use the supplied default edge colour.
+
+The rule continues to use the original semantic endpoints when a long edge is
+split through hidden continuation nodes.
+
+For example, if lanes are:
 
 ```text
-145 -> 185
-185 -> 216
-145 -> 216
+[A, X]
+[B, Z]
+[C, Y]
+[D]
 ```
 
-the direct 145 -> 216 edge is shown separately from the primary
-145 -> 185 -> 216 path rather than merged into it.
-
-Routes may visibly share geometry only when they genuinely share the same
-source before branching or the same target after convergence.  An unrelated
-horizontal/vertical crossing is rendered as `╳`, meaning crossing without a
-dependency junction.
-
-The renderer never performs semantic transitive reduction.  `lanes view
---debug` reports every direct edge and its assigned primary/bypass route.
-
-
-## Direct-edge route identity
-
-Every canonical direct dependency is rendered as one identifiable logical
-route.  The renderer may choose one readable adjacent edge as a primary
-backbone segment.  Remaining direct edges use separate bypass tracks.
-
-For example, when both of these facts exist:
+and dependencies include:
 
 ```text
-145 -> 185 -> 216
-145 ----------> 216
+A -> X
+B -> X
+B -> Y
+C -> Y
+B -> Z
+D -> Z
 ```
 
-the direct `145 -> 216` edge remains visibly separate from the transitive path.
-It is not merged into the `145 -> 185 -> 216` line.
+then `A -> X`, `B -> Z`, and `C -> Y` use lane colours.  The other three
+edges use the default edge colour.
 
-Likewise, long direct edges that skip several intermediate columns receive
-their own tracks.  Multiple bypasses use distinct track rows rather than
-sharing an unrelated bus.
+## Routing semantics
 
-Visible route sharing is permitted only where logical edges genuinely share a
-source before branching or share a target after convergence.  If unrelated
-routes cross the same screen cell, the crossing is rendered as `╳`, not as a
-dependency junction.
+All connections between one pair of adjacent columns are treated as one routing
+problem.  The renderer may choose deterministic ordering, tracks, bends, and
+crossings but may not change semantic connectivity.
 
-The renderer never performs semantic transitive reduction.  A direct edge that
-is also implied transitively remains visible because the canonical graph states
-that direct relationship explicitly.
+Sibling expansion is a canonical representation, not a competing routing
+algorithm.  Cousin groups retain independent routing space when their outgoing
+tracks differ.
 
-`rwf lanes view --debug` reports one route identity for every canonical direct
-edge in the visible graph, including whether the route is primary or a bypass
-track.
+Unrelated paths may cross without becoming a junction.  The logical layout is
+validated independently before terminal text is emitted.
+
+Every canonical direct dependency is retained as one semantic route identity.
+`rwf lanes view --debug` reports those route identities, including long-edge
+continuation information.
+
+## Unsupported layout
+
+If the constrained renderer cannot produce a semantically valid supported
+layout, it must fail explicitly rather than emit an ambiguous graph.
+
+RepoWorkflow may then fall back to a safe component/subgraph or relationship
+listing.  Ambiguous pretty output is never an acceptable fallback.
