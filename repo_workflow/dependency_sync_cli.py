@@ -9,8 +9,10 @@ from .dependency_comparison import (
   compare_dependencies,
 )
 from .dependency_sync import DependencySyncConflict, read_ticket_sync_state
+from .issue_metadata import refresh_issue_metadata
 from .relationship_store import RelationshipStore
 from .relationships import IssueRelationships, RelationshipGraph
+from .repo_info_adapter import resolve_info_config
 from .runtime_identity import runtime_writer_identity
 from .ticket_dependency_adapter import (
   read_ticket_dependencies,
