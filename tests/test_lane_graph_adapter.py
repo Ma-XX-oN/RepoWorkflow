@@ -208,8 +208,8 @@ class LaneGraphAdapterTests(unittest.TestCase):
       return seen
 
     self.assertEqual(reachable("A1"), {"A2", "A3", "*A4"})
-    self.assertEqual(reachable("A2"), {"A.3", "*A4"})
-    self.assertEqual(reachable("A.3"), {"*A4"})
+    self.assertEqual(reachable("A2"), {"A3", "*A4"})
+    self.assertEqual(reachable("A3"), {"*A4"})
 
   def test_formatter_colours_data_but_not_status_annotations(self):
     formatter = make_lane_formatter(len)
