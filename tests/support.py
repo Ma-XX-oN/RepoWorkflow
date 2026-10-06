@@ -20,7 +20,7 @@ class RepoFixture:
     self.root = root
     self.remote = root.parent / f"{root.name}-remote.git"
     self.version = version
-    self._run("init", "-b", "issue-1-test")
+    self._run("init", "-b", "main")
     self._run("config", "user.name", "Test")
     self._run("config", "user.email", "test@example.invalid")
     subprocess.run(["git", "init", "--bare", str(self.remote)], check=True,
@@ -79,10 +79,10 @@ class RepoFixture:
     )
     (root / ".ci" / "run-ci-request").write_text(version + "\n", encoding="utf-8")
     (root / ".ci" / "branch-policy.json").write_text(json.dumps({
-      "schema": 1,
+      "schema": 2,
       "integrationBranch": "main",
       "branches": {
-        "issue-1-test": {"parent": "main", "allowedDependencies": []}
+        "issue-1-test": {"allowedDependencies": []}
       },
       "patterns": [],
     }, indent=2) + "\n", encoding="utf-8")
@@ -91,10 +91,21 @@ class RepoFixture:
       "prepareRunner": "ubuntu-latest",
       "runners": {"local": "ubuntu-latest"},
     }, indent=2) + "\n", encoding="utf-8")
-    self.commit("candidate")
-    self._run("branch", "main")
+    self.commit("base")
+    self._run("push", "-u", "origin", "main")
+    self._run("switch", "-c", "issue-1-test")
+    self._run(
+      "commit",
+      "--allow-empty",
+      "-m",
+      (
+        "RepoWorkflow branch identity\n\n"
+        "RWF-Branch: issue-1-test\n"
+        "RWF-Parent: main"
+      ),
+    )
+    self._run("commit", "--allow-empty", "-m", "candidate")
     self._run("push", "-u", "origin", "issue-1-test")
-    self._run("push", "origin", "main")
 
   def _run(self, *args: str, check: bool = True):
     return subprocess.run(
