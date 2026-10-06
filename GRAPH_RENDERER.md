@@ -330,9 +330,17 @@ functions differ.
 RepoWorkflow maps current relationship and lane-selection state into this
 generic contract.
 
+The adapter may simplify its domain graph before invoking the renderer.  The
+RepoWorkflow lane display performs deterministic transitive reduction of the
+visible dependency DAG: a direct display edge may be omitted only when another
+displayed path preserves the same prerequisite reachability.  This is a domain
+projection rule, not a generic renderer transformation.  Canonical repository
+relationships remain unchanged.
+
 The adapter owns:
 
 - construction of raw node strings;
+- reachability-preserving display reduction;
 - lossless `GraphSiblings` grouping;
 - ordered complete lane paths;
 - lane colour functions;
