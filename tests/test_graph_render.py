@@ -44,6 +44,50 @@ class GraphRenderTests(unittest.TestCase):
     self.assertEqual(result.lines, ())
     self.assertEqual(result.routes, ())
 
+  def test_single_node_sibling_group_renders_once(self):
+    x = GraphSiblings(("X",))
+    a = GraphSiblings(("A",), (x,))
+    result = render_graph(
+      Graph(
+        (a, x),
+        (Lane(("A", "X"), RED),),
+        GREY,
+        formatter,
+      )
+    )
+    rendered = "\n".join(plain(result.lines))
+    self.assertEqual(rendered.count("A"), 1)
+    self.assertEqual(rendered.count("X"), 1)
+
+  def test_many_siblings_remain_compact_and_share_target(self):
+    x = GraphSiblings(("X",))
+    siblings = GraphSiblings(("A", "B", "C", "D"), (x,))
+    result = render_graph(
+      Graph(
+        (siblings, x),
+        (
+          Lane(("A", "X"), RED),
+          Lane(("B",), BLUE),
+          Lane(("C",), GREEN),
+          Lane(("D",), marker("yellow")),
+        ),
+        GREY,
+        formatter,
+      )
+    )
+    rendered = "\n".join(plain(result.lines))
+    for node in ("A", "B", "C", "D", "X"):
+      self.assertEqual(rendered.count(node), 1)
+    self.assertEqual(
+      {(route.source, route.target) for route in result.routes},
+      {
+        ("A", "X"),
+        ("B", "X"),
+        ("C", "X"),
+        ("D", "X"),
+      },
+    )
+
   def test_siblings_remain_compact_and_share_target(self):
     x = GraphSiblings(("X",))
     siblings = GraphSiblings(("C", "A"), (x,))
@@ -202,15 +246,20 @@ class GraphRenderTests(unittest.TestCase):
   def test_input_order_does_not_change_output(self):
     p = GraphSiblings(("P",))
     x = GraphSiblings(("X",), (p,))
-    a = GraphSiblings(("A",), (x,))
+    a = GraphSiblings(("A",), (x, p))
     b = GraphSiblings(("B",), (p,))
     lane_a = Lane(("A", "X", "P"), RED)
     lane_b = Lane(("B",), BLUE)
     first = render_graph(
       Graph((a, b, x, p), (lane_a, lane_b), GREY, formatter)
     )
+
+    p2 = GraphSiblings(("P",))
+    x2 = GraphSiblings(("X",), (p2,))
+    a2 = GraphSiblings(("A",), (p2, x2))
+    b2 = GraphSiblings(("B",), (p2,))
     second = render_graph(
-      Graph((p, x, b, a), (lane_b, lane_a), GREY, formatter)
+      Graph((p2, x2, b2, a2), (lane_b, lane_a), GREY, formatter)
     )
     self.assertEqual(first.lines, second.lines)
     self.assertEqual(first.routes, second.routes)
