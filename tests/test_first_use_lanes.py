@@ -235,7 +235,7 @@ class FirstUseLanesTests(unittest.TestCase):
 
       viewed = self.run_rwf(root, env, "lanes", "view")
       self.assertEqual(viewed.returncode, 0, viewed.stderr)
-      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A201", viewed.stdout)
       self.assertIn("A.203", viewed.stdout)
       self.assertIn("B.206", viewed.stdout)
       self.assertIn("─", viewed.stdout)
@@ -255,7 +255,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn('"schema_version"', selected.stdout)
       self.assertIn("─", selected.stdout)
       self.assertIn("*", selected.stdout)
-      self.assertIn("A.201", selected.stdout)
+      self.assertIn("A201", selected.stdout)
       self.assertIn("A.203", selected.stdout)
 
       listed = self.run_rwf(root, env, "lanes", "list")
@@ -267,7 +267,7 @@ class FirstUseLanesTests(unittest.TestCase):
 
       viewed = self.run_rwf(root, env, "lanes", "view")
       self.assertEqual(viewed.returncode, 0, viewed.stderr)
-      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A201", viewed.stdout)
       self.assertIn("A.203", viewed.stdout)
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
@@ -519,7 +519,7 @@ class FirstUseLanesTests(unittest.TestCase):
 
       viewed = self.run_rwf(root, env, "lanes", "view")
       self.assertEqual(viewed.returncode, 0, viewed.stderr)
-      self.assertIn("A.201", viewed.stdout)
+      self.assertIn("A201", viewed.stdout)
       self.assertIn("A.203", viewed.stdout)
 
       refreshed = self.run_rwf(
