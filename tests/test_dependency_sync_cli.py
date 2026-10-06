@@ -101,5 +101,123 @@ class DependencySyncCliTests(unittest.TestCase):
     )
 
 
+  @patch("repo_workflow.dependency_sync_cli.runtime_writer_identity")
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_from_tickets_replace_title_preserves_local_dependencies(
+    self,
+    read,
+    store,
+    _config,
+    writer,
+  ):
+    snap = snapshot()
+    store.return_value.read.return_value = snap
+    read.return_value = ("Renamed on server", (2,))
+    writer.return_value = Mock()
+    self.assertEqual(
+      dependency_sync_command(
+        Path("."),
+        ("64", "dependency", "from-tickets", "--replace-title"),
+      ),
+      0,
+    )
+    replacement = store.return_value.replace.call_args.args[1]
+    self.assertEqual(replacement.issue(64).title, "Renamed on server")
+    self.assertEqual(replacement.issue(64).depends_on, ("2", "9"))
+
+  @patch("repo_workflow.dependency_sync_cli.runtime_writer_identity")
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_from_tickets_replace_dependencies_also_accepts_server_title(
+    self,
+    read,
+    store,
+    _config,
+    writer,
+  ):
+    snap = snapshot()
+    store.return_value.read.return_value = snap
+    read.return_value = ("Renamed on server", (2,))
+    writer.return_value = Mock()
+    self.assertEqual(
+      dependency_sync_command(
+        Path("."),
+        ("64", "dependency", "from-tickets", "--replace-dependencies"),
+      ),
+      0,
+    )
+    replacement = store.return_value.replace.call_args.args[1]
+    self.assertEqual(replacement.issue(64).title, "Renamed on server")
+    self.assertEqual(replacement.issue(64).depends_on, ("2",))
+
+  @patch("repo_workflow.dependency_sync_cli.runtime_writer_identity")
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_from_tickets_replace_updates_title_and_dependencies_atomically(
+    self,
+    read,
+    store,
+    _config,
+    writer,
+  ):
+    snap = snapshot()
+    store.return_value.read.return_value = snap
+    read.side_effect = [
+      ("Server 64", (2,)),
+      ("Server 65", (9,)),
+    ]
+    writer.return_value = Mock()
+    self.assertEqual(
+      dependency_sync_command(
+        Path("."),
+        ("64", "65", "dependency", "from-tickets", "--replace"),
+      ),
+      0,
+    )
+    self.assertEqual(store.return_value.replace.call_count, 1)
+    replacement = store.return_value.replace.call_args.args[1]
+    self.assertEqual(replacement.issue(64).title, "Server 64")
+    self.assertEqual(replacement.issue(64).depends_on, ("2",))
+    self.assertEqual(replacement.issue(65).title, "Server 65")
+    self.assertEqual(replacement.issue(65).depends_on, ("9",))
+
+  @patch("repo_workflow.dependency_sync_cli.replace_ticket_dependencies")
+  @patch("repo_workflow.dependency_sync_cli.resolve_dependency_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_to_tickets_rolls_back_earlier_issue_when_later_mutation_fails(
+    self,
+    read,
+    store,
+    _config,
+    _dep_config,
+    replace,
+  ):
+    store.return_value.read.return_value = snapshot()
+    read.side_effect = [
+      ("Sixty Four", ()),
+      ("Sixty Five", (9,)),
+      ("Sixty Four", (2, 9)),
+    ]
+    replace.side_effect = [
+      (2, 9),
+      RuntimeError("provider mutation failed"),
+      (),
+    ]
+    with self.assertRaisesRegex(RuntimeError, "provider mutation failed"):
+      dependency_sync_command(
+        Path("."),
+        ("64", "65", "dependency", "to-tickets", "--replace"),
+      )
+    self.assertEqual(replace.call_count, 3)
+    self.assertEqual(replace.call_args_list[-1].args[3], ())
+
+
+
 if __name__ == "__main__":
   unittest.main()
