@@ -20,8 +20,9 @@ rwf
 ├── issue
 │   ├── info [N]
 │   ├── list [<ids...>] [--links]
-│   ├── select dependency to-tickets [--compare|--replace]
-│   ├── select dependency from-tickets [--compare|--replace]
+│   ├── <ISSUE...> dependency to-tickets [--compare|--replace]
+│   ├── <ISSUE...> dependency from-tickets
+│   │   [--compare|--replace|--replace-title|--replace-dependencies]
 │   ├── start N
 │   └── abort
 ├── tdd
@@ -192,41 +193,34 @@ rwf issue list
 rwf issue list --links
 rwf issue list 54 64 9
 rwf issue list 54 64 9 --links
+rwf issue 54 dependency from-tickets
+rwf issue 54 64 9 dependency from-tickets
+rwf issue 54 64 9 dependency to-tickets
 rwf issue start N
 rwf issue abort
 ```
 
-`issue info` lists/reads repository issues through `repo-info`.
+`issue info` and `issue list` read repository issues through `repo-info`.
+Explicit dependency synchronization accepts one or more ticket numbers and
+synchronizes title and direct dependencies together as defined by
+[TICKET_STATE.md](TICKET_STATE.md).
 
-`issue list` with no IDs lists all open issues.  With explicit IDs, it
-displays the requested issue numbers and titles in supplied order.  `--links`
-additionally includes the provider-neutral canonical issue link returned by
-`repo-info`; core RWF does not construct provider URLs.
+The ticket server is always authoritative for titles. `to-tickets` requires
+an exact title match before mutating provider dependencies.
 
-Single Tab completes matching open issue numbers.  Double Tab lists matching
-issue numbers and titles.  A typed prefix filters the same source.
+Ticket creators use `Initiative:`, `Epic:`, and `Feature:` prefixes when
+they improve navigation. These prefixes are descriptive only and have no RWF
+workflow semantics.
 
-`issue start N` establishes work on issue N.  It verifies the issue through
-`repo-info`, records who/what started it, invokes `repo-version` for the
-issue-qualified task state, creates/verifies the work branch, and records the
-explicit workflow relationships needed for later integration.
-
-The start path should display the resolved relationships, for example:
-
-```text
-Starting issue #101
-
-  umbrella:    #100  Parser refactor
-  branch base: #98   Token stream API
-  new branch:  issue-101-tokenizer-state
-```
+`issue start N` establishes work on issue N. Branch-parent identity is
+recorded in Git history; it is not stored in ticket relationship state.
 
 `issue abort` stops active work without pretending the issue completed and
 without discarding durable evidence/history.
 
-## 6. Umbrellas, dependencies, and multiple agents
+## 6. Dependencies, lanes, and multiple agents
 
-Lane planning may begin directly from ticket-native dependency facts:
+Lane planning uses only explicit direct ticket dependencies:
 
 ```text
 rwf lanes select <roots...>
@@ -234,96 +228,29 @@ rwf lanes list
 rwf lanes view
 ```
 
-`lanes list` is the grouped issue/title inventory; `lanes view` is the compact
-dependency topology.  Both read synchronized local state by default.
+The durable synchronized ticket state contains issue number, exact title, and
+direct dependencies. Repeated lane operations use that local state. A missing
+ticket is acquired from the configured provider, including title and direct
+dependencies. `--refresh` explicitly rereads the relevant provider closure.
 
-Lane operations use local state by default; `--refresh` rereads the relevant
-provider closure.  See [LANE_CACHE_REFRESH.md](LANE_CACHE_REFRESH.md),
-[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md), and [LANE_DIAGNOSTICS.md](LANE_DIAGNOSTICS.md).
-When no canonical relationship graph exists yet, the first selection acquires
-the complete dependency closure through the repository dependency adapter,
-validates it, and creates the canonical RWF graph before decomposition.
+RepoWorkflow does not store separate umbrella, shared-umbrella,
+umbrella-dependency, or branch-parent fields in the ticket graph.
 
-An umbrella issue groups work that contributes to one larger problem or goal.
-It is not itself a dependency edge and it is not a shared execution stack.
+Initiative/Epic/Feature tickets are human-facing containers. Their prefixes do
+not create ownership or scheduling relationships. Executable ordering is
+represented only by direct dependency edges.
 
-Sibling issues beneath one umbrella may have no ordering relationship at all.
-Several agents may therefore work on those siblings concurrently.
-
-RepoWorkflow models only explicit **direct issue dependencies** for ordering.
 If #102 cannot proceed until #101 produces a required result, #102 depends
-directly on #101.  Mere contribution to umbrella #100 creates no dependency.
+directly on #101. If several tickets have no dependency path between them, they
+may proceed concurrently.
 
-An apparent indirect dependency is a decomposition signal rather than a
-workflow relationship to preserve.  Work should be broken down until every
-real ordering constraint can be represented by direct dependency edges.
+Branch ancestry is independent of dependency topology. A branch parent is
+recorded and recovered from Git history under
+[PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md).
 
-Decompose an issue when more than one task is required to satisfy that issue's
-outcome.  The original issue remains the umbrella for those child tasks because
-their completion collectively satisfies the original target.
-
-During decomposition, prerequisite work may be discovered that is useful to
-multiple otherwise unrelated issues or umbrellas.  It does not become a child
-of whichever consumer discovered it first.
-
-A shared prerequisite may remain independent.  If it needs several tasks,
-those tasks belong under a **shared capability umbrella**.  Consumers attach
-to that umbrella rather than duplicating/multi-parenting children; executable
-ordering still uses explicit direct leaf dependencies.
-
-RepoWorkflow distinguishes four graph relationships:
-
-- **child ownership**: a leaf or sub-umbrella contributes to one owning
-  umbrella outcome;
-- **shared-capability attachment**: a consumer umbrella uses a reusable
-  subsystem owned by another umbrella; attachment alone creates no ordering;
-- **direct leaf dependency**: one executable task requires another exact task
-  interface or transition first;
-- **direct umbrella dependency**: one complete umbrella outcome cannot be
-  complete until another complete umbrella outcome is complete.
-
-A direct umbrella dependency is a roadmap relation, not a replacement for leaf
-dependencies.  Record it only when the whole prerequisite umbrella is required;
-omit umbrella edges already implied transitively.
-
-For example:
-
-```text
-#104  Define parser API
-├── #101 Tokenizer     depends on #104
-├── #102 Diagnostics   depends on #104
-└── #103 Benchmarks    depends on #104
-```
-
-Before #104 completes, #101/#102/#103 are blocked.  After #104 completes,
-those three issues are independently ready and may run in parallel.  If #105
-depends on both #101 and #102, it remains blocked until both direct
-dependencies complete.
-
-The durable model must therefore distinguish:
-
-- owning umbrella/grouping relationship;
-- shared-capability umbrella attachment;
-- explicit direct leaf-dependency edges;
-- explicit direct umbrella-dependency edges;
-- branch/dependency base;
-- integration target;
-- clone/agent-local current work context.
-
-A branch based on another issue does not imply an issue dependency, and neither
-branch ancestry nor umbrella membership may be used to infer dependency edges.
-
-This direct dependency graph provides scheduling information as well as safety:
-RWF can determine which issues are ready now, which are blocked, and which
-ready issues can be worked in parallel.
-
-One shared mutable active-issue stack is therefore not authoritative workflow
-state.  A local navigation/context stack may exist, but it cannot serialize or
-overwrite other agents' work.
-
-Issue #57 owns the exact durable/local schema.  The repository-neutral method
-for decomposing issues, extracting shared capabilities, defining leaf
-contracts, and deriving executable scheduling is maintained in
+The synchronized state, synchronization directions, conflict rules, and
+ticket-creation workflow are defined by [TICKET_STATE.md](TICKET_STATE.md).
+Repository-neutral decomposition guidance remains in
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
 ## 7. Optional TDD workflow
