@@ -13,6 +13,45 @@ class ParentBranchError(RuntimeError):
 _BRANCH_RE = re.compile(r"^[^\s~^:?*\[\\]+(?:/[^\s~^:?*\[\\]+)*$")
 
 
+
+def create_parent_identity(
+  root: Path,
+  work_branch: str,
+  parent_branch: str,
+) -> str:
+  """Record the branch's creation parent once in ordinary Git history."""
+  work = _branch_name(work_branch, "work branch")
+  parent = _branch_name(parent_branch, "parent branch")
+  current = git(root, "branch", "--show-current").stdout.strip()
+  if current != work:
+    raise ParentBranchError(
+      f"work branch {work} must be checked out to record parent identity"
+    )
+  if work == parent:
+    raise ParentBranchError("work branch cannot be its own parent")
+  if _trailers_in_history(root, work):
+    raise ParentBranchError(f"parent identity already exists for {work}")
+  git(
+    root,
+    "commit",
+    "--allow-empty",
+    "-m",
+    (
+      "RepoWorkflow branch identity\n\n"
+      f"RWF-Branch: {work}\n"
+      f"RWF-Parent: {parent}"
+    ),
+  )
+  return git(root, "rev-parse", "HEAD").stdout.strip()
+
+
+def _trailers_in_history(root: Path, work: str) -> bool:
+  for commit in git(root, "rev-list", "--first-parent", work).stdout.splitlines():
+    message = git(root, "show", "-s", "--format=%B", commit).stdout
+    if work in _trailers(message, "RWF-Branch"):
+      return True
+  return False
+
 def recover_parent_branch(root: Path, work_branch: str) -> str:
   """Recover one parent from branch-bound identity history and local Git refs."""
   work = _branch_name(work_branch, "work branch")
