@@ -223,7 +223,14 @@ def _place_nodes(
   int,
 ]:
   by_column: dict[int, list[GraphSiblings]] = {}
+  connected = {
+    group
+    for group in groups
+    if group.to_nodes
+  }
   for group in groups:
+    for target in group.to_nodes:
+      connected.add(target)
     by_column.setdefault(ranks[group], []).append(group)
 
   placements: dict[str, Placement] = {}
@@ -233,14 +240,19 @@ def _place_nodes(
     row = 0
     ordered_nodes: list[str] = []
     ordered_groups = sorted(by_column[column], key=_group_key)
-    for index, group in enumerate(ordered_groups):
-      if index:
+    previous = None
+    for group in ordered_groups:
+      if (
+        previous is not None
+        and (previous in connected or group in connected)
+      ):
         row += 1
       for node in sorted(group.nodes):
         placements[node] = Placement(column, row)
         ordered_nodes.append(node)
         max_row = max(max_row, row)
         row += 1
+      previous = group
     column_nodes[column] = tuple(ordered_nodes)
   return placements, column_nodes, max_row
 
