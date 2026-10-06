@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .git import git
 from .issue_start import start_issue
-from .relationship_store import RelationshipStore
+from .parent_branch import create_parent_identity
 from .workspace_store import WorkspaceClaimError, WorkspaceStore
 from .workspace_worktree import WorktreeBackend, WorktreeError
 from .workspace_readiness import readiness_json
@@ -41,16 +41,11 @@ def _worktree_path(root: Path, workspace_id: str) -> Path:
 
 
 def _base(root: Path, issue: int) -> tuple[str, str]:
-  try:
-    relation = RelationshipStore(root).issue(issue)
-  except Exception as error:
+  del issue
+  branch = git(root, "branch", "--show-current").stdout.strip()
+  if not branch:
     raise WorkspaceCommandError(
-      f"issue {issue} has no registered canonical relationships"
-    ) from error
-  branch = relation.parent
-  if branch is None:
-    raise WorkspaceCommandError(
-      f"issue {issue} has no canonical parent"
+      "cannot create a workspace from a detached HEAD"
     )
   sha = git(root, "rev-parse", "--verify", branch).stdout.strip()
   return branch, sha
@@ -115,6 +110,7 @@ def handle_workspace(root: Path, words: list[str]) -> int:
       path,
     )
     try:
+      create_parent_identity(path, branch, base_ref)
       start_issue(path, issue)
       workspace = store.create(
         workspace_id,
