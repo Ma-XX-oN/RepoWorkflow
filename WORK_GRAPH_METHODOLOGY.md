@@ -434,7 +434,7 @@ During issue refinement, treat the following as diagnostic signals:
 - several unrelated umbrellas depend on the same loose leaves;
 - cleanup happens long after creation but lives in the same leaf;
 - an "active issue" is represented as one shared mutable global value;
-- an umbrella dependency exists only because one child consumes one child;
+- a high-level dependency exists only because one implementation ticket consumes another;
 - dependency descriptions repeatedly use "sort of", "through", or "indirectly".
 
 These are reasons to inspect boundaries, not automatic reasons to create more
