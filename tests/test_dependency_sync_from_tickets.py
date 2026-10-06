@@ -16,13 +16,7 @@ from tests.support import RepoFixture
 
 
 def relation(*dependencies: int, parent: str | None = None) -> IssueRelationships:
-  return IssueRelationships(
-    umbrella=None,
-    shared_umbrellas=(),
-    depends_on=tuple(str(value) for value in dependencies),
-    umbrella_depends_on=(),
-    parent=parent,
-  )
+  return IssueRelationships("Issue", tuple(str(value) for value in dependencies))
 
 
 class FromTicketDependencySyncTests(unittest.TestCase):
