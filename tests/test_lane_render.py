@@ -179,7 +179,7 @@ class LaneRenderTests(unittest.TestCase):
 
     rendered = "\n".join(render_lanes(self.root))
     self.assertEqual(rendered.count("A1"), 1)
-    self.assertIn("*A.2", rendered)
+    self.assertIn("*A2", rendered)
     self.assertIn("*B3", rendered)
 
   def test_redundant_long_dependency_is_not_displayed(self):
