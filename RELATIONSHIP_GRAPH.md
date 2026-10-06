@@ -42,12 +42,10 @@ requires C's interface.
 
 ## What is not part of this graph
 
-RepoWorkflow does not store separate relationship fields for:
+RepoWorkflow does not store a second relationship graph for container
+ownership, membership, or attachment.
 
-- umbrella ownership;
-- shared umbrella attachment;
-- umbrella dependency;
-- branch parent/integration target.
+Branch parent/integration target is also not part of the ticket graph.
 
 Human-facing Initiative/Epic/Feature classification is expressed only in ticket
 titles and has no graph semantics.
