@@ -236,5 +236,10 @@ def _group_key(group: GraphSiblings) -> tuple[str, ...]:
   return tuple(sorted(group.nodes))
 
 
-def _lane_key(value: str) -> tuple[int, ...]:
-  return tuple(ord(char) - ord("A") for char in value)
+def _lane_key(value: str) -> int:
+  result = 0
+  for char in value:
+    if not ("A" <= char <= "Z"):
+      raise LaneGraphProjectionError(f"invalid lane name: {value!r}")
+    result = result * 26 + ord(char) - ord("A") + 1
+  return result
