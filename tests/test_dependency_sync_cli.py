@@ -185,6 +185,42 @@ class DependencySyncCliTests(unittest.TestCase):
     self.assertEqual(replacement.issue(65).title, "Server 65")
     self.assertEqual(replacement.issue(65).depends_on, ("9",))
 
+  @patch("repo_workflow.dependency_sync_cli.refresh_issue_metadata")
+  @patch("repo_workflow.dependency_sync_cli.resolve_info_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.runtime_writer_identity")
+  @patch("repo_workflow.dependency_sync_cli.replace_ticket_dependencies")
+  @patch("repo_workflow.dependency_sync_cli.resolve_dependency_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_to_tickets_success_refreshes_metadata_after_verified_readback(
+    self,
+    read,
+    store,
+    _config,
+    _dep_config,
+    replace,
+    writer,
+    _info_config,
+    refresh,
+  ):
+    store.return_value.read.return_value = snapshot()
+    read.side_effect = [
+      ("Sixty Four", ()),
+      ("Sixty Four", (2, 9)),
+    ]
+    replace.return_value = (2, 9)
+    writer.return_value = Mock()
+    self.assertEqual(
+      dependency_sync_command(
+        Path("."),
+        ("64", "dependency", "to-tickets"),
+      ),
+      0,
+    )
+    replace.assert_called_once()
+    refresh.assert_called_once()
+
   @patch("repo_workflow.dependency_sync_cli.replace_ticket_dependencies")
   @patch("repo_workflow.dependency_sync_cli.resolve_dependency_config", return_value={})
   @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
