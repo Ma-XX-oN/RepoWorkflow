@@ -126,6 +126,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   parse_tokens(COMMANDS, general, words)
   parse_tokens(COMMANDS, legal, words)
 
+  configure_ticket_merge_driver(root, engine_root)
+
   if _requires_public_runtime_identity(words):
     ensure_public_runtime_identity(root)
 
