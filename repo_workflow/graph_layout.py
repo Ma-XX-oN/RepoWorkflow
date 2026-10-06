@@ -6,6 +6,7 @@ from .graph_geometry import (
   route_long,
   validate_routes,
 )
+from .graph_quality import long_route_row_score
 from .graph_render_model import (
   AlignedColumn,
   FormatEntry,
@@ -34,7 +35,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
 
   group_rank = _group_ranks(graph.siblings)
   placements, column_nodes, max_node_row = _place_nodes(
-    graph.siblings,
+    validated,
     group_rank,
   )
   columns = _format_columns(validated, column_nodes)
@@ -51,7 +52,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
 
   cells: dict[tuple[int, int], list[Contribution]] = {}
   routes: list[RouteRecord] = []
-  long_index = 0
+  used_long_rows: set[int] = set()
   bundled_edges: set[tuple[str, str]] = set()
 
   for relation in sorted(
@@ -116,8 +117,13 @@ def build_layout(graph: Graph) -> LayoutPlan:
       )
       continue
 
-    track_y = max_node_row + 2 + long_index * 2
-    long_index += 1
+    track_y = _choose_long_route_row(
+      edge,
+      placements,
+      max_node_row,
+      used_long_rows,
+    )
+    used_long_rows.add(track_y)
     hidden = tuple(
       HiddenContinuation(
         semantic_source=edge.source,
@@ -222,13 +228,14 @@ def _group_ranks(
 
 
 def _place_nodes(
-  groups: tuple[GraphSiblings, ...],
+  validated: ValidatedGraph,
   ranks: dict[GraphSiblings, int],
 ) -> tuple[
   dict[str, Placement],
   dict[int, tuple[str, ...]],
   int,
 ]:
+  groups = validated.graph.siblings
   by_column: dict[int, list[GraphSiblings]] = {}
   connected = {
     group
@@ -240,13 +247,27 @@ def _place_nodes(
       connected.add(target)
     by_column.setdefault(ranks[group], []).append(group)
 
+  lane_predecessor: dict[str, str] = {}
+  for lane in validated.graph.lanes:
+    for source, target in zip(lane.nodes, lane.nodes[1:]):
+      lane_predecessor[target] = source
+
   placements: dict[str, Placement] = {}
   column_nodes: dict[int, tuple[str, ...]] = {}
   max_row = 0
   for column in sorted(by_column):
+    ordered_groups = sorted(by_column[column], key=_group_key)
+    if placements:
+      ordered_groups = _improve_group_order(
+        ordered_groups,
+        placements,
+        validated,
+        lane_predecessor,
+        connected,
+      )
+
     row = 0
     ordered_nodes: list[str] = []
-    ordered_groups = sorted(by_column[column], key=_group_key)
     previous = None
     for group in ordered_groups:
       if (
@@ -262,6 +283,151 @@ def _place_nodes(
       previous = group
     column_nodes[column] = tuple(ordered_nodes)
   return placements, column_nodes, max_row
+
+
+def _improve_group_order(
+  groups: list[GraphSiblings],
+  placements: dict[str, Placement],
+  validated: ValidatedGraph,
+  lane_predecessor: dict[str, str],
+  connected: set[GraphSiblings],
+) -> list[GraphSiblings]:
+  ordered = sorted(
+    groups,
+    key=lambda group: (
+      _group_anchor(
+        group,
+        placements,
+        validated,
+        lane_predecessor,
+      ),
+      _group_key(group),
+    ),
+  )
+  if len(ordered) < 2:
+    return ordered
+
+  limit = len(ordered) * len(ordered)
+  for _ in range(limit):
+    changed = False
+    before = _group_order_cost(
+      ordered,
+      placements,
+      validated,
+      connected,
+    )
+    for index in range(len(ordered) - 1):
+      candidate = list(ordered)
+      candidate[index], candidate[index + 1] = (
+        candidate[index + 1],
+        candidate[index],
+      )
+      score = _group_order_cost(
+        candidate,
+        placements,
+        validated,
+        connected,
+      )
+      if score < before:
+        ordered = candidate
+        changed = True
+        break
+    if not changed:
+      break
+  return ordered
+
+
+def _group_anchor(
+  group: GraphSiblings,
+  placements: dict[str, Placement],
+  validated: ValidatedGraph,
+  lane_predecessor: dict[str, str],
+) -> tuple[int, float]:
+  lane_rows = [
+    placements[predecessor].row
+    for node in group.nodes
+    for predecessor in [lane_predecessor.get(node)]
+    if predecessor in placements
+  ]
+  if lane_rows:
+    return 0, sum(lane_rows) / len(lane_rows)
+
+  incoming_rows = [
+    placements[source].row
+    for node in group.nodes
+    for source in validated.incoming[node]
+    if source in placements
+  ]
+  if incoming_rows:
+    return 1, sum(incoming_rows) / len(incoming_rows)
+  return 2, float("inf")
+
+
+def _group_order_cost(
+  groups: list[GraphSiblings],
+  placements: dict[str, Placement],
+  validated: ValidatedGraph,
+  connected: set[GraphSiblings],
+) -> tuple[int, tuple[tuple[str, ...], ...]]:
+  rows: dict[str, int] = {}
+  row = 0
+  previous = None
+  for group in groups:
+    if (
+      previous is not None
+      and (previous in connected or group in connected)
+    ):
+      row += 1
+    for node in sorted(group.nodes):
+      rows[node] = row
+      row += 1
+    previous = group
+
+  distance = 0
+  for target, target_row in rows.items():
+    for source in validated.incoming[target]:
+      if source in placements:
+        distance += abs(placements[source].row - target_row)
+
+  return distance, tuple(_group_key(group) for group in groups)
+
+
+def _choose_long_route_row(
+  edge: SemanticEdge,
+  placements: dict[str, Placement],
+  max_node_row: int,
+  used_rows: set[int],
+) -> int:
+  source = placements[edge.source]
+  target = placements[edge.target]
+  occupied = {
+    placement.row
+    for placement in placements.values()
+    if source.column < placement.column < target.column
+  }
+  candidates = {
+    source.row,
+    target.row,
+    *range(max_node_row + 1),
+  }
+  available = [
+    row
+    for row in candidates
+    if row not in occupied and row not in used_rows
+  ]
+  if not available:
+    row = max_node_row + 1
+    while row in used_rows:
+      row += 1
+    return row
+  return min(
+    available,
+    key=lambda row: long_route_row_score(
+      source.row,
+      target.row,
+      row,
+    ),
+  )
 
 
 def _format_columns(
