@@ -48,6 +48,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Install RepoWorkflow runtime dependencies
+        run: python -m pip install -r requirements.txt
       - name: Run authoritative RepoWorkflow validation
         run: python scripts/validate.py
       - name: Require validation to leave repository clean
@@ -87,6 +89,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Install RepoWorkflow runtime dependencies
+        run: python -m pip install -r requirements.txt
       - name: Probe constrained graph renderer
         run: python scripts/probe-graph-renderer.py
 
