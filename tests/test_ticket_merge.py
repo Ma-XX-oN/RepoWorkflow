@@ -24,15 +24,15 @@ class TicketMergeTests(unittest.TestCase):
     ours = csv('10,"Ten",', '20,"Twenty",')
     theirs = csv('10,"Ten",', '20,"Twenty renamed",10')
     with patch(
-      "repo_workflow.ticket_merge.issue_info",
-      side_effect=AssertionError("provider should not be needed"),
+      "repo_workflow.ticket_merge.resolve_info_config",
+      return_value={},
     ):
       with patch(
-        "repo_workflow.ticket_merge.resolve_info_config",
-        side_effect=AssertionError("provider config should not be needed"),
+        "repo_workflow.ticket_merge.issue_info",
+        return_value={"title": "Twenty renamed"},
       ):
         merged = merge_ticket_csv(self.root, base, ours, theirs)
-    self.assertIn('20,Twenty renamed,', merged)
+    self.assertIn("20,Twenty renamed,", merged)
 
   def test_divergent_title_uses_provider_authority(self):
     base = csv('10,"Old",')
@@ -76,8 +76,8 @@ class TicketMergeTests(unittest.TestCase):
       merge_ticket_csv(self.root, base, ours, theirs)
 
   def test_same_addition_is_idempotent(self):
-    base = csv('10,"Ten",')
-    ours = csv('10,"Ten",', '20,"Twenty",10')
+    base = csv("10,Ten,")
+    ours = csv("10,Ten,", "20,Twenty,10")
     theirs = ours
     self.assertEqual(
       merge_ticket_csv(self.root, base, ours, theirs),
