@@ -40,6 +40,7 @@ class BranchPolicyTests(unittest.TestCase):
     return td, root
 
   def write_policy(self, root: Path, *, branches=None, patterns=None):
+    (root / ".ci").mkdir(exist_ok=True)
     (root / ".ci" / "branch-policy.json").write_text(json.dumps({
       "schema": 2,
       "integrationBranch": "main",
