@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
+import shlex
+import subprocess
+import sys
 
 from .relationship_store import _parse_csv, _render_csv
 from .relationships import IssueRelationships, RelationshipGraph
@@ -10,6 +14,38 @@ from .repo_info_adapter import issue_info, resolve_info_config
 
 class TicketMergeError(RuntimeError):
   """Raised when synchronized ticket state cannot be merged safely."""
+
+
+def configure_ticket_merge_driver(root: Path, engine_root: Path) -> None:
+  """Install the repository-local Git merge driver used by tickets.csv."""
+  repository = Path(root).resolve()
+  script = Path(engine_root).resolve() / "scripts" / "merge-ticket-state.py"
+  if not script.is_file():
+    raise TicketMergeError(f"ticket merge driver is missing: {script}")
+  driver = " ".join((
+    shlex.quote(os.fspath(Path(sys.executable).resolve())),
+    shlex.quote(os.fspath(script)),
+    "%O",
+    "%A",
+    "%B",
+  ))
+  commands = (
+    ("merge.rwf-tickets.name", "RepoWorkflow synchronized ticket merge"),
+    ("merge.rwf-tickets.driver", driver),
+  )
+  for key, value in commands:
+    result = subprocess.run(
+      ["git", "-C", os.fspath(repository), "config", "--local", key, value],
+      capture_output=True,
+      text=True,
+      check=False,
+    )
+    if result.returncode:
+      detail = (result.stderr or result.stdout).strip()
+      raise TicketMergeError(
+        f"cannot configure ticket merge driver {key}"
+        + (f": {detail}" if detail else "")
+      )
 
 
 @dataclass(frozen=True)
