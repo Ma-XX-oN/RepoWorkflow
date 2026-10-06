@@ -64,6 +64,9 @@ def edge_item_key(edge: SemanticEdge) -> tuple:
 def validate_routes(
   validated: ValidatedGraph,
   placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  cells: dict[tuple[int, int], list[Contribution]],
   routes: tuple[RouteRecord, ...],
 ) -> None:
   expected = {
@@ -71,11 +74,48 @@ def validate_routes(
     for source, targets in validated.adjacency.items()
     for target in targets
   }
-  actual = {(route.source, route.target) for route in routes}
-  if actual != expected or len(routes) != len(expected):
+
+  route_edges = {(route.source, route.target) for route in routes}
+  if route_edges != expected or len(routes) != len(expected):
     raise GraphLayoutError(
       "logical routes do not match semantic relationships"
     )
+
+  routed_cells: dict[tuple[str, str], set[tuple[int, int]]] = {}
+  for point, contributions in cells.items():
+    for contribution in contributions:
+      key = contribution.edge.key
+      if key not in expected:
+        raise GraphLayoutError(
+          "routed geometry contains an unknown semantic edge"
+        )
+      routed_cells.setdefault(key, set()).add(point)
+
+  if set(routed_cells) != expected:
+    raise GraphLayoutError(
+      "routed geometry does not cover every semantic edge"
+    )
+
+  for source, target in sorted(expected):
+    points = routed_cells[(source, target)]
+    source_place = placements[source]
+    target_place = placements[target]
+    source_anchor = (
+      starts[source_place.column] + columns[source_place.column].width,
+      source_place.row,
+    )
+    target_anchor = (
+      starts[target_place.column] - 1,
+      target_place.row,
+    )
+    if source_anchor not in points or target_anchor not in points:
+      raise GraphLayoutError(
+        "semantic edge route does not reach both endpoint anchors"
+      )
+    if not _is_connected(points):
+      raise GraphLayoutError(
+        "semantic edge route is not geometrically connected"
+      )
 
   for route in routes:
     source_column = placements[route.source].column
@@ -93,6 +133,27 @@ def validate_routes(
           "hidden continuation lost semantic endpoints"
         )
 
+
+def _is_connected(points: set[tuple[int, int]]) -> bool:
+  if not points:
+    return False
+  pending = {next(iter(points))}
+  visited: set[tuple[int, int]] = set()
+  while pending:
+    point = pending.pop()
+    if point in visited:
+      continue
+    visited.add(point)
+    x, y = point
+    for neighbour in (
+      (x - 1, y),
+      (x + 1, y),
+      (x, y - 1),
+      (x, y + 1),
+    ):
+      if neighbour in points and neighbour not in visited:
+        pending.add(neighbour)
+  return visited == points
 
 def _add(
   cells: dict[tuple[int, int], list[Contribution]],
