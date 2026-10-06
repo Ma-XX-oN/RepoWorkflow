@@ -106,7 +106,7 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
   if command == "issue":
     if words[1] == "start":
       return True
-    if words[1] == "select":
+    if words[1].isdecimal() and "dependency" in words:
       return "--compare" not in words
     return False
   if command == "workspace":
@@ -155,8 +155,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   if command == "issue":
-    if words[1] == "select":
-      return dependency_sync_command(root, words[2:])
+    if words[1].isdecimal():
+      return dependency_sync_command(root, tuple(words[1:]))
     if words[1] == "info":
       argument = words[2] if len(words) == 3 else None
       for line in show_issue_info(root, argument):
