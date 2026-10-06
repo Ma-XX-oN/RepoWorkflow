@@ -1,0 +1,146 @@
+from __future__ import annotations
+
+from .graph_render_model import ValidatedGraph
+from .graph_render_types import (
+  _D,
+  _L,
+  _R,
+  _U,
+  Column,
+  Contribution,
+  GraphLayoutError,
+  Placement,
+  RouteRecord,
+  SemanticEdge,
+)
+
+
+def route_adjacent(
+  cells: dict[tuple[int, int], list[Contribution]],
+  edge: SemanticEdge,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  track_x: int,
+  *,
+  bundle: tuple[int, int] | None = None,
+) -> None:
+  source = placements[edge.source]
+  target = placements[edge.target]
+  source_x = starts[source.column] + columns[source.column].width
+  target_x = starts[target.column] - 1
+  _horizontal(cells, edge, source_x, track_x, source.row, bundle)
+  _vertical(cells, edge, track_x, source.row, target.row, bundle)
+  _horizontal(cells, edge, track_x, target_x, target.row, bundle)
+
+
+def route_long(
+  cells: dict[tuple[int, int], list[Contribution]],
+  edge: SemanticEdge,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  tracks: dict[tuple[int, tuple], int],
+  track_y: int,
+) -> None:
+  source = placements[edge.source]
+  target = placements[edge.target]
+  item = edge_item_key(edge)
+  source_track = tracks[(source.column, item)]
+  target_track = tracks[(target.column - 1, item)]
+  source_x = starts[source.column] + columns[source.column].width
+  target_x = starts[target.column] - 1
+  _horizontal(cells, edge, source_x, source_track, source.row, None)
+  _vertical(cells, edge, source_track, source.row, track_y, None)
+  _horizontal(cells, edge, source_track, target_track, track_y, None)
+  _vertical(cells, edge, target_track, track_y, target.row, None)
+  _horizontal(cells, edge, target_track, target_x, target.row, None)
+
+
+def edge_item_key(edge: SemanticEdge) -> tuple:
+  return "edge", edge.source, edge.target
+
+
+def validate_routes(
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  routes: tuple[RouteRecord, ...],
+) -> None:
+  expected = {
+    (source, target)
+    for source, targets in validated.adjacency.items()
+    for target in targets
+  }
+  actual = {(route.source, route.target) for route in routes}
+  if actual != expected or len(routes) != len(expected):
+    raise GraphLayoutError(
+      "logical routes do not match semantic relationships"
+    )
+
+  for route in routes:
+    source_column = placements[route.source].column
+    target_column = placements[route.target].column
+    expected_columns = tuple(range(source_column + 1, target_column))
+    actual_columns = tuple(item.column for item in route.hidden)
+    if actual_columns != expected_columns:
+      raise GraphLayoutError("hidden continuation columns are incomplete")
+    for item in route.hidden:
+      if (
+        item.semantic_source != route.source
+        or item.semantic_target != route.target
+      ):
+        raise GraphLayoutError(
+          "hidden continuation lost semantic endpoints"
+        )
+
+
+def _add(
+  cells: dict[tuple[int, int], list[Contribution]],
+  point: tuple[int, int],
+  edge: SemanticEdge,
+  bits: int,
+  bundle: tuple[int, int] | None,
+) -> None:
+  cells.setdefault(point, []).append(
+    Contribution(edge, bits, bundle)
+  )
+
+
+def _horizontal(
+  cells: dict[tuple[int, int], list[Contribution]],
+  edge: SemanticEdge,
+  x1: int,
+  x2: int,
+  y: int,
+  bundle: tuple[int, int] | None,
+) -> None:
+  if x2 < x1:
+    x1, x2 = x2, x1
+  for x in range(x1, x2 + 1):
+    bits = 0
+    if x > x1:
+      bits |= _L
+    if x < x2:
+      bits |= _R
+    if bits:
+      _add(cells, (x, y), edge, bits, bundle)
+
+
+def _vertical(
+  cells: dict[tuple[int, int], list[Contribution]],
+  edge: SemanticEdge,
+  x: int,
+  y1: int,
+  y2: int,
+  bundle: tuple[int, int] | None,
+) -> None:
+  if y2 < y1:
+    y1, y2 = y2, y1
+  for y in range(y1, y2 + 1):
+    bits = 0
+    if y > y1:
+      bits |= _U
+    if y < y2:
+      bits |= _D
+    if bits:
+      _add(cells, (x, y), edge, bits, bundle)
