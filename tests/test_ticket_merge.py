@@ -3,7 +3,11 @@ from unittest.mock import patch
 import tempfile
 import unittest
 
-from repo_workflow.ticket_merge import TicketMergeError, merge_ticket_csv
+from repo_workflow.ticket_merge import (
+  TicketMergeError,
+  configure_ticket_merge_driver,
+  merge_ticket_csv,
+)
 
 
 def csv(*rows: str) -> str:
@@ -18,6 +22,37 @@ class TicketMergeTests(unittest.TestCase):
 
   def tearDown(self):
     self.temp.cleanup()
+
+  def test_configure_installs_local_git_driver(self):
+    import subprocess
+    subprocess.run(
+      ["git", "init"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+    engine = Path(__file__).resolve().parents[1]
+    configure_ticket_merge_driver(self.root, engine)
+    name = subprocess.run(
+      ["git", "config", "--local", "--get", "merge.rwf-tickets.name"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    ).stdout.strip()
+    driver = subprocess.run(
+      ["git", "config", "--local", "--get", "merge.rwf-tickets.driver"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    ).stdout.strip()
+    self.assertEqual(name, "RepoWorkflow synchronized ticket merge")
+    self.assertIn("merge-ticket-state.py", driver)
+    self.assertIn("%O", driver)
+    self.assertIn("%A", driver)
+    self.assertIn("%B", driver)
 
   def test_non_overlapping_changes_merge_without_provider(self):
     base = csv('10,"Ten",', '20,"Twenty",10')
