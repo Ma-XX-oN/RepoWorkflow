@@ -34,13 +34,7 @@ class IssueStartTests(unittest.TestCase):
     self._write_adapters()
     RelationshipStore(self.repo).create(
       RelationshipGraph(issues={
-        "7": IssueRelationships(
-          umbrella="1",
-          shared_umbrellas=(),
-          depends_on=(),
-          umbrella_depends_on=(),
-          parent="main",
-        ),
+        "7": IssueRelationships("Issue 7", ()),
       }),
       WriterIdentity("planner", "planning-session"),
     )
