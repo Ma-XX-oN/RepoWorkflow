@@ -5,8 +5,13 @@ from pathlib import Path
 import subprocess
 import sys
 
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from repo_workflow.relationship_store import (
+  RelationshipStore,
+  RelationshipStoreError,
+)
 
 
 def run(*args: str) -> int:
@@ -14,6 +19,12 @@ def run(*args: str) -> int:
 
 
 def main() -> int:
+  try:
+    RelationshipStore(ROOT).read()
+  except RelationshipStoreError as error:
+    print(f"repository ticket state is invalid: {error}", file=sys.stderr)
+    return 1
+
   compile_rc = run(
     "-m", "compileall", "-q", "repo_workflow", "repo_workflow.py", "helpers", "tests"
   )
