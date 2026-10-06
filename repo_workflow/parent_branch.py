@@ -109,20 +109,49 @@ def recover_parent_branch(root: Path, work_branch: str) -> str:
 
 
 def _work_ref(root: Path, work: str) -> str:
-  refs = _branch_refs(root, work)
+  local = f"refs/heads/{work}"
+  if git(root, "show-ref", "--verify", local, check=False).returncode == 0:
+    return local
+
+  refs = tuple(
+    ref
+    for ref in _branch_refs(root, work)
+    if ref.startswith("refs/remotes/")
+  )
   if not refs:
     raise ParentBranchError(
       f"work branch {work} has no local or fetched ref"
     )
-  tips = {
-    git(root, "rev-parse", ref).stdout.strip()
+
+  identities = {
+    _parent_identity(root, ref, work)
     for ref in refs
   }
-  if len(tips) != 1:
+  if len(identities) != 1:
     raise ParentBranchError(
-      f"work branch {work} has conflicting local/fetched refs"
+      f"work branch {work} has conflicting fetched parent identities"
     )
   return refs[0]
+
+
+def _parent_identity(
+  root: Path,
+  ref: str,
+  work: str,
+) -> tuple[str, str]:
+  matches: list[tuple[str, str]] = []
+  for commit in git(root, "rev-list", "--first-parent", ref).stdout.splitlines():
+    message = git(root, "show", "-s", "--format=%B", commit).stdout
+    branches = _trailers(message, "RWF-Branch")
+    parents = _trailers(message, "RWF-Parent")
+    if branches == [work] and len(parents) == 1:
+      matches.append((commit, parents[0]))
+  if len(matches) != 1:
+    raise ParentBranchError(
+      f"expected exactly one parent identity marker for {work}; "
+      f"found {len(matches)} in {ref}"
+    )
+  return matches[0]
 
 
 def _branch_refs(root: Path, branch: str) -> tuple[str, ...]:
