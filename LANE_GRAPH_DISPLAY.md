@@ -2,9 +2,9 @@
 
 Status: authoritative public display companion to #205/#219.
 
-The generic renderer contract is defined in
-[GRAPH_RENDERER.md](GRAPH_RENDERER.md).  This document defines the
-RepoWorkflow-specific projection and public presentation.
+Generic graph structure, validation, routing, formatting, colour propagation,
+and fallback behaviour are defined in
+[GRAPH_RENDERER.md](GRAPH_RENDERER.md).
 
 ## Human output
 
@@ -33,16 +33,20 @@ rwf lanes select add <roots...> --json
 rwf lanes select remove <roots...> --json
 ```
 
-## Node notation and formatting
+## Node notation
 
-RepoWorkflow projects each visible issue to one raw node string using
-`lane.issue`.  Explicit roots are marked `*`; closed issues are marked `✓`;
-combined annotation order is `*✓`.
+RepoWorkflow maps each issue to one raw graph-node string.
 
-The raw string, including annotations, is passed to the generic renderer.  The
-RepoWorkflow column formatter may decompose that string into annotation and data
-text.  It aligns nodes in one column to one terminal-cell width and applies the
-lane colour function only to the data text.
+Nodes use `lane.issue`.  Explicit roots are marked `*`; closed issues are
+marked `✓`; combined annotation order is `*✓`.
+
+The RepoWorkflow column formatter:
+
+- reserves only the annotation width required by that column;
+- right-aligns annotations directly against the data text;
+- aligns identifiers on the `.`;
+- passes only the `lane.issue` data text through the lane colour function;
+- leaves annotation styling independent.
 
 For example:
 
@@ -51,101 +55,99 @@ For example:
  *B.65
 ```
 
-Normal graph nodes do not include issue titles or links.  Those are available
-through `rwf lanes list` and issue list/info commands.
+Normal graph nodes do not include issue titles or links.  Those remain available
+through `rwf lanes list` and the issue list/info commands.
 
-The generic renderer does not inspect terminal viewport width and does not
-truncate or wrap the graph.  The complete graph is emitted left to right.  A
-pager such as `less -RS` may be used for horizontal navigation.
+Changing annotations must not change dependency topology.
 
-## Lane path invariant
+## RepoWorkflow projection
 
-Every selected issue belongs to exactly one lane.
+The lane display adapter projects synchronized RepoWorkflow state into the
+constrained generic renderer.
 
-Each lane is a complete directed path through the selected dependency graph.
-When one path branches, at most one branch may continue the existing lane; the
-other branch starts another lane.  At convergence, the converged node belongs
-to exactly one predecessor lane.
+It supplies:
 
-The decomposition is deterministic.  Lane membership never duplicates a node.
+- globally unique raw node strings;
+- lossless `GraphSiblings` groups;
+- complete ordered lane paths;
+- one colour function for every lane;
+- one default edge-colour function;
+- the RepoWorkflow column formatter.
 
-## Topology projection
+It does not supply graph columns, hidden continuation nodes, route tracks,
+crossings, or Unicode glyphs.
 
-RepoWorkflow projects the selected dependency graph into the constrained
-`GraphSiblings` model.
+Sibling grouping is permitted only when the grouped issues have identical
+visible incoming and outgoing semantic relationships.  Grouping therefore
+cannot create or erase a dependency.
 
-A sibling group may contain several nodes only when grouping them preserves
-their complete external relationship structure.  The adapter must not group
-nodes merely for visual convenience.
+## Lane completeness
 
-Canonical direct dependencies remain authoritative.  Rendering never performs
-semantic transitive reduction and never invents a dependency.
+Every visible issue belongs to exactly one selected lane.
 
-Long direct dependencies may span several visual columns.  The generic
-renderer inserts hidden continuation nodes for skipped columns.  Those nodes are
-layout-only and retain the original semantic source and target.
+Within the projected graph, the issues assigned to one lane must form a complete
+directed path.  The adapter reconstructs dependency order and rejects a lane
+whose consecutive nodes are not directly related.  It never inserts a missing
+semantic issue merely to make a lane renderable.
 
-## Lane and edge colour
+## Edge colour
 
-Colour functions are produced outside the generic graph renderer by the
-terminal styling boundary.  The renderer treats them as opaque functions and
-does not assume ANSI or another terminal escape format.
+Node data text uses its lane colour.
 
-Every visible node uses its lane colour.
+For each canonical direct dependency:
 
-For an edge:
+- if both semantic endpoint issues belong to the same lane, the dependency uses
+  that lane colour;
+- otherwise it uses the default edge colour.
 
-- if its two semantic endpoint nodes belong to the same lane, use that lane
-  colour;
-- otherwise use the supplied default edge colour.
+A direct edge that spans several visual columns keeps the same colour across
+all hidden continuation segments because those segments retain the original
+semantic endpoints.
 
-The rule continues to use the original semantic endpoints when a long edge is
-split through hidden continuation nodes.
+The graph engine treats colour functions as opaque.  It does not assume ANSI
+or another terminal control syntax.
 
-For example, if lanes are:
+## Topology
+
+Canonical direct dependencies determine graph connectors.  Rendering never
+creates, removes, infers, or transitively reduces dependency edges.
+
+Long direct dependencies are represented with hidden continuation nodes in each
+skipped graph column.  Hidden nodes are layout-only and never appear as issue
+nodes or lane members.
+
+After normalization every layout edge crosses one adjacent column boundary.
+
+Sibling groups remain compact.  Distinct groups retain separate routing space
+when their tracks cannot be shared losslessly.
+
+Unrelated horizontal and vertical routes may cross without becoming a semantic
+junction.  Horizontal geometry is visually dominant at such a crossing.
+
+## Diagnostics
+
+`rwf lanes view --debug` reports one route identity for every canonical direct
+dependency.
+
+Adjacent relationships report an adjacent or bundled route.  A relationship
+that spans visual columns reports a long route together with its hidden
+continuation columns.
+
+Diagnostics describe the renderer's logical route identity.  They do not make
+route placement or track numbers part of the public semantic contract.
+
+## Width and paging
+
+The initial graph renderer always emits the complete graph from left to right.
+
+It does not inspect terminal viewport width, wrap the graph, truncate columns,
+or provide an interactive horizontal viewport.
+
+A terminal user may use a pager such as:
 
 ```text
-[A, X]
-[B, Z]
-[C, Y]
-[D]
+rwf lanes view | less -RS
 ```
 
-and dependencies include:
-
-```text
-A -> X
-B -> X
-B -> Y
-C -> Y
-B -> Z
-D -> Z
-```
-
-then `A -> X`, `B -> Z`, and `C -> Y` use lane colours.  The other three
-edges use the default edge colour.
-
-## Routing semantics
-
-All connections between one pair of adjacent columns are treated as one routing
-problem.  The renderer may choose deterministic ordering, tracks, bends, and
-crossings but may not change semantic connectivity.
-
-Sibling expansion is a canonical representation, not a competing routing
-algorithm.  Cousin groups retain independent routing space when their outgoing
-tracks differ.
-
-Unrelated paths may cross without becoming a junction.  The logical layout is
-validated independently before terminal text is emitted.
-
-Every canonical direct dependency is retained as one semantic route identity.
-`rwf lanes view --debug` reports those route identities, including long-edge
-continuation information.
-
-## Unsupported layout
-
-If the constrained renderer cannot produce a semantically valid supported
-layout, it must fail explicitly rather than emit an ambiguous graph.
-
-RepoWorkflow may then fall back to a safe component/subgraph or relationship
-listing.  Ambiguous pretty output is never an acceptable fallback.
+Horizontal scrolling is therefore a presentation concern outside the graph
+engine.
