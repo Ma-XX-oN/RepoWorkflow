@@ -6,7 +6,8 @@ from .graph_geometry import (
   route_long,
   validate_routes,
 )
-from .graph_quality import long_route_row_score
+from .graph_long_routes import choose_long_route_row
+from .graph_ordering import group_key, group_ranks, place_nodes
 from .graph_render_model import (
   AlignedColumn,
   FormatEntry,
@@ -33,8 +34,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
   if not validated.node_group:
     return LayoutPlan(0, -1, {}, {}, (), graph.default_edge_colour)
 
-  group_rank = _group_ranks(graph.siblings)
-  placements, column_nodes, max_node_row = _place_nodes(
+  group_rank = group_ranks(graph.siblings)
+  placements, column_nodes, max_node_row = place_nodes(
     validated,
     group_rank,
   )
@@ -58,8 +59,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
   for relation in sorted(
     bundle_relations,
     key=lambda item: (
-      _group_key(item[0]),
-      _group_key(item[1]),
+      group_key(item[0]),
+      group_key(item[1]),
     ),
   ):
     source_group, target_group = relation
@@ -117,7 +118,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
       )
       continue
 
-    track_y = _choose_long_route_row(
+    track_y = choose_long_route_row(
       edge,
       placements,
       max_node_row,
@@ -184,268 +185,6 @@ def build_layout(graph: Graph) -> LayoutPlan:
     cells=cells,
     routes=ordered_routes,
     default_colour=graph.default_edge_colour,
-  )
-
-
-def _group_key(group: GraphSiblings) -> tuple[str, ...]:
-  return tuple(sorted(group.nodes))
-
-
-def _group_ranks(
-  groups: tuple[GraphSiblings, ...],
-) -> dict[GraphSiblings, int]:
-  incoming: dict[GraphSiblings, set[GraphSiblings]] = {
-    group: set() for group in groups
-  }
-  for group in groups:
-    for target in group.to_nodes:
-      incoming[target].add(group)
-
-  indegree = {group: len(incoming[group]) for group in groups}
-  ready = sorted(
-    (group for group in groups if indegree[group] == 0),
-    key=_group_key,
-  )
-  ranks = {group: 0 for group in ready}
-  seen: list[GraphSiblings] = []
-  while ready:
-    group = ready.pop(0)
-    seen.append(group)
-    for target in sorted(group.to_nodes, key=_group_key):
-      ranks[target] = max(
-        ranks.get(target, 0),
-        ranks[group] + 1,
-      )
-      indegree[target] -= 1
-      if indegree[target] == 0:
-        ready.append(target)
-        ready.sort(key=_group_key)
-  if len(seen) != len(groups):
-    raise ValueError(
-      "validated graph unexpectedly contains a cycle"
-    )
-  return ranks
-
-
-def _place_nodes(
-  validated: ValidatedGraph,
-  ranks: dict[GraphSiblings, int],
-) -> tuple[
-  dict[str, Placement],
-  dict[int, tuple[str, ...]],
-  int,
-]:
-  groups = validated.graph.siblings
-  by_column: dict[int, list[GraphSiblings]] = {}
-  connected = {
-    group
-    for group in groups
-    if group.to_nodes
-  }
-  for group in groups:
-    for target in group.to_nodes:
-      connected.add(target)
-    by_column.setdefault(ranks[group], []).append(group)
-
-  lane_predecessor: dict[str, str] = {}
-  for lane in validated.graph.lanes:
-    for source, target in zip(lane.nodes, lane.nodes[1:]):
-      lane_predecessor[target] = source
-
-  placements: dict[str, Placement] = {}
-  column_nodes: dict[int, tuple[str, ...]] = {}
-  max_row = 0
-  for column in sorted(by_column):
-    ordered_groups = sorted(by_column[column], key=_group_key)
-    if placements:
-      ordered_groups = _improve_group_order(
-        ordered_groups,
-        placements,
-        validated,
-        lane_predecessor,
-        connected,
-      )
-
-    row = 0
-    ordered_nodes: list[str] = []
-    previous = None
-    for group in ordered_groups:
-      if (
-        previous is not None
-        and (previous in connected or group in connected)
-      ):
-        row += 1
-      for node in sorted(group.nodes):
-        placements[node] = Placement(column, row)
-        ordered_nodes.append(node)
-        max_row = max(max_row, row)
-        row += 1
-      previous = group
-    column_nodes[column] = tuple(ordered_nodes)
-  return placements, column_nodes, max_row
-
-
-def _improve_group_order(
-  groups: list[GraphSiblings],
-  placements: dict[str, Placement],
-  validated: ValidatedGraph,
-  lane_predecessor: dict[str, str],
-  connected: set[GraphSiblings],
-) -> list[GraphSiblings]:
-  ordered = sorted(
-    groups,
-    key=lambda group: (
-      _group_anchor(
-        group,
-        placements,
-        validated,
-        lane_predecessor,
-      ),
-      _group_key(group),
-    ),
-  )
-  if len(ordered) < 2:
-    return ordered
-
-  limit = len(ordered) * len(ordered)
-  for _ in range(limit):
-    changed = False
-    before = _group_order_cost(
-      ordered,
-      placements,
-      validated,
-      connected,
-    )
-    for index in range(len(ordered) - 1):
-      candidate = list(ordered)
-      candidate[index], candidate[index + 1] = (
-        candidate[index + 1],
-        candidate[index],
-      )
-      score = _group_order_cost(
-        candidate,
-        placements,
-        validated,
-        connected,
-      )
-      if score < before:
-        ordered = candidate
-        changed = True
-        break
-    if not changed:
-      break
-  return ordered
-
-
-def _group_anchor(
-  group: GraphSiblings,
-  placements: dict[str, Placement],
-  validated: ValidatedGraph,
-  lane_predecessor: dict[str, str],
-) -> tuple[int, float]:
-  lane_rows = [
-    placements[predecessor].row
-    for node in group.nodes
-    for predecessor in [lane_predecessor.get(node)]
-    if predecessor in placements
-  ]
-  if lane_rows:
-    return 0, sum(lane_rows) / len(lane_rows)
-
-  incoming_rows = [
-    placements[source].row
-    for node in group.nodes
-    for source in validated.incoming[node]
-    if source in placements
-  ]
-  if incoming_rows:
-    return 1, sum(incoming_rows) / len(incoming_rows)
-  return 2, float("inf")
-
-
-def _group_order_cost(
-  groups: list[GraphSiblings],
-  placements: dict[str, Placement],
-  validated: ValidatedGraph,
-  connected: set[GraphSiblings],
-) -> tuple[int, tuple[tuple[str, ...], ...]]:
-  rows: dict[str, int] = {}
-  row = 0
-  previous = None
-  for group in groups:
-    if (
-      previous is not None
-      and (previous in connected or group in connected)
-    ):
-      row += 1
-    for node in sorted(group.nodes):
-      rows[node] = row
-      row += 1
-    previous = group
-
-  distance = 0
-  for target, target_row in rows.items():
-    for source in validated.incoming[target]:
-      if source in placements:
-        distance += abs(placements[source].row - target_row)
-
-  return distance, tuple(_group_key(group) for group in groups)
-
-
-def _choose_long_route_row(
-  edge: SemanticEdge,
-  placements: dict[str, Placement],
-  max_node_row: int,
-  used_rows: dict[int, list[SemanticEdge]],
-) -> int:
-  source = placements[edge.source]
-  target = placements[edge.target]
-  occupied = {
-    placement.row
-    for placement in placements.values()
-    if source.column < placement.column < target.column
-  }
-  candidates = {
-    source.row,
-    target.row,
-    *range(max_node_row + 1),
-  }
-  available = [
-    row
-    for row in candidates
-    if (
-      row not in occupied
-      and _long_row_is_compatible(edge, used_rows.get(row, []))
-    )
-  ]
-  if not available:
-    row = max_node_row + 1
-    while not _long_row_is_compatible(
-      edge,
-      used_rows.get(row, []),
-    ):
-      row += 1
-    return row
-  return min(
-    available,
-    key=lambda row: long_route_row_score(
-      source.row,
-      target.row,
-      row,
-    ),
-  )
-
-
-def _long_row_is_compatible(
-  edge: SemanticEdge,
-  existing: list[SemanticEdge],
-) -> bool:
-  if not existing:
-    return True
-  edges = [*existing, edge]
-  return (
-    len({item.source for item in edges}) == 1
-    or len({item.target for item in edges}) == 1
   )
 
 
@@ -545,7 +284,7 @@ def _bundle_item_key(
   source: GraphSiblings,
   target: GraphSiblings,
 ) -> tuple:
-  return "bundle", _group_key(source), _group_key(target)
+  return "bundle", group_key(source), group_key(target)
 
 
 def _boundary_items(
