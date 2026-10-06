@@ -18,26 +18,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def graph():
-  def issue(depends_on):
+  def issue(number, depends_on):
     return {
-      "umbrella": None,
-      "shared_umbrellas": [],
+      "title": f"Issue {number}",
       "depends_on": depends_on,
-      "umbrella_depends_on": [],
-      "parent": "main",
     }
 
   return RelationshipGraph.from_json_value({
-    "schema_version": 2,
+    "schema_version": 3,
     "issues": {
-      "1": issue([]),
-      "2": issue(["1"]),
-      "3": issue([]),
-      "4": issue([]),
-      "5": issue([]),
-      "6": issue(["1"]),
+      "1": issue(1, []),
+      "2": issue(2, ["1"]),
+      "3": issue(3, []),
+      "4": issue(4, []),
+      "5": issue(5, []),
+      "6": issue(6, ["1"]),
     },
   })
+
 
 
 class WorkspaceReadinessTests(unittest.TestCase):
@@ -58,7 +56,7 @@ class WorkspaceReadinessTests(unittest.TestCase):
       issue,
       name,
       "candidate",
-      0,
+      RelationshipStore(self.repo).read().revision,
       self.writer,
       revision,
     )
@@ -92,7 +90,7 @@ class WorkspaceReadinessTests(unittest.TestCase):
     self.assertEqual(results["2"].blockers, ("1",))
     self.assertEqual(results["6"].blockers, ("1",))
 
-  def test_non_dependency_relationships_do_not_block(self):
+  def test_title_classification_does_not_block(self):
     result = {item.issue: item for item in workspace_readiness(self.repo)}["1"]
 
     self.assertEqual(result.status, "ready")
