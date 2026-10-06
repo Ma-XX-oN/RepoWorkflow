@@ -1,0 +1,1796 @@
+{
+  "schema_version": 2,
+  "purpose": "Reviewed canonical RepoWorkflow direct-dependency audit used to verify .repoworkflow/tickets.csv.",
+  "semantics": {
+    "dependency": "Direct prerequisite or explicit outcome-completion result required by the current issue contract.",
+    "container_prefixes": "Initiative:/Epic:/Feature: are descriptive only and never create an edge by themselves.",
+    "transitive_reduction": "Redundant transitive prerequisites are omitted.",
+    "superseded": "Superseded/experimental/quarantined issues remain excluded unless required as a current dependency target."
+  },
+  "sources": {
+    "reviewed_baseline": ".repoworkflow/migrations/native-dependencies-v1.json",
+    "baseline_reviewed_through_issue": 327,
+    "current_contract_review_through_issue": 432
+  },
+  "findings": {
+    "prior_canonical_ticket_rows": 22,
+    "reviewed_ticket_rows": 233,
+    "stale_edges_removed": [
+      {
+        "issue": 305,
+        "dependency": 205,
+        "reason": "Closed #305 consumed concrete lane capabilities, not incomplete #205 outcome."
+      },
+      {
+        "issue": 320,
+        "dependency": 303,
+        "reason": "Closed #320 consumed concrete audit/coverage capabilities, not incomplete #303 outcome."
+      },
+      {
+        "issue": 313,
+        "dependency": 27,
+        "reason": "Replaced with concrete #114/#115 prerequisites so #27 may depend on #313 as its first-use completion gate without a cycle."
+      }
+    ],
+    "explicit_repairs": [
+      {
+        "issue": 342,
+        "added_dependency": 321,
+        "reason": "Current issue preconditions explicitly require provider migration/readback certification."
+      },
+      {
+        "issue": 403,
+        "added_dependency": 408,
+        "reason": "Epic completion requires terminal certification."
+      },
+      {
+        "issue": 409,
+        "added_dependency": 413,
+        "reason": "Epic completion requires terminal certification."
+      },
+      {
+        "issue": 415,
+        "added_dependency": 422,
+        "reason": "Epic completion requires the certified combined ticket-state outcome."
+      }
+    ]
+  },
+  "issues": {
+    "1": {
+      "title": "Define RepoWorkflow architecture and repository contract",
+      "state": "closed",
+      "dependencies": []
+    },
+    "2": {
+      "title": "Reject development versions on integration branch",
+      "state": "closed",
+      "dependencies": []
+    },
+    "5": {
+      "title": "Feature: Make authoritative local verification own candidate bookkeeping and terminal tagging",
+      "state": "open",
+      "dependencies": [
+        107
+      ]
+    },
+    "7": {
+      "title": "Use pinned local engine directly and centralize hosted workflow handoff",
+      "state": "closed",
+      "dependencies": []
+    },
+    "8": {
+      "title": "Use pinned local engine directly and centralize hosted workflow handoff",
+      "state": "closed",
+      "dependencies": []
+    },
+    "11": {
+      "title": "Make local validation diagnostics actionable and enforce declared capabilities",
+      "state": "closed",
+      "dependencies": []
+    },
+    "14": {
+      "title": "Initiative: Define guarded task-to-release workflow state machine",
+      "state": "closed",
+      "dependencies": []
+    },
+    "15": {
+      "title": "Implement workflow state machine, what-next, CLI forwarding, and completion",
+      "state": "closed",
+      "dependencies": []
+    },
+    "16": {
+      "title": "Epic: Add append-only validation audit trail and local/hosted validation reuse",
+      "state": "open",
+      "dependencies": [
+        110
+      ]
+    },
+    "17": {
+      "title": "Epic: Implement prelim-main integration cycle, reintegration, and PRELIM tags",
+      "state": "open",
+      "dependencies": [
+        83,
+        103
+      ]
+    },
+    "18": {
+      "title": "Epic: Add GitHub/server enforcement for protected main and stable tags",
+      "state": "open",
+      "dependencies": [
+        86
+      ]
+    },
+    "19": {
+      "title": "Epic: Add local Git guard hooks backed by RepoWorkflow policy",
+      "state": "open",
+      "dependencies": [
+        88
+      ]
+    },
+    "27": {
+      "title": "Epic: Add `rwf init` for hooks, Bash completion, and local command discovery",
+      "state": "open",
+      "dependencies": [
+        96,
+        306,
+        313
+      ]
+    },
+    "51": {
+      "title": "Initiative: Revise RepoWorkflow public workflow, adapters, and multi-agent state model",
+      "state": "open",
+      "dependencies": [
+        5,
+        27,
+        52,
+        53,
+        54,
+        56,
+        58,
+        135
+      ]
+    },
+    "52": {
+      "title": "Make command completion providers return explicit completion specifications",
+      "state": "closed",
+      "dependencies": []
+    },
+    "53": {
+      "title": "Feature: Add repo-info adapter and issue info/start/abort workflow",
+      "state": "open",
+      "dependencies": [
+        64,
+        90,
+        98
+      ]
+    },
+    "54": {
+      "title": "Epic: Add TDD red/green commands and issue-scoped test-group completion",
+      "state": "open",
+      "dependencies": [
+        76
+      ]
+    },
+    "55": {
+      "title": "Epic: Introduce portable repo-ci adapter and retire GitHub-specific core plumbing",
+      "state": "open",
+      "dependencies": [
+        67
+      ]
+    },
+    "56": {
+      "title": "Feature: Define and implement done patch/minor/major completion workflow",
+      "state": "open",
+      "dependencies": [
+        109
+      ]
+    },
+    "57": {
+      "title": "Epic: Define .repoworkflow durable/local schema for multi-agent workflow state",
+      "state": "open",
+      "dependencies": [
+        80,
+        117,
+        145
+      ]
+    },
+    "58": {
+      "title": "Epic: Revise status/what-next and remove public version/proposed release commands",
+      "state": "open",
+      "dependencies": [
+        71,
+        111,
+        112
+      ]
+    },
+    "63": {
+      "title": "Define portable repo-info read contract",
+      "state": "closed",
+      "dependencies": []
+    },
+    "64": {
+      "title": "Implement rwf issue start transition",
+      "state": "closed",
+      "dependencies": [
+        101,
+        117,
+        118,
+        120,
+        145,
+        164,
+        185,
+        186,
+        187
+      ]
+    },
+    "65": {
+      "title": "Define provider-neutral repo-ci contract",
+      "state": "open",
+      "dependencies": []
+    },
+    "66": {
+      "title": "Feature: Implement reusable repo-ci-github adapter",
+      "state": "open",
+      "dependencies": [
+        92,
+        93,
+        94
+      ]
+    },
+    "67": {
+      "title": "Migrate legacy GitHub CI plumbing behind repo-ci-github",
+      "state": "open",
+      "dependencies": [
+        91,
+        92,
+        93,
+        94
+      ]
+    },
+    "68": {
+      "title": "Define validation evidence fingerprint and identity contract",
+      "state": "open",
+      "dependencies": []
+    },
+    "69": {
+      "title": "Implement durable validation evidence storage",
+      "state": "open",
+      "dependencies": [
+        95,
+        101
+      ]
+    },
+    "70": {
+      "title": "Import and classify reusable local evidence for hosted execution",
+      "state": "open",
+      "dependencies": [
+        69,
+        95
+      ]
+    },
+    "71": {
+      "title": "Remove obsolete human-facing workflow commands from public grammar",
+      "state": "open",
+      "dependencies": []
+    },
+    "72": {
+      "title": "Build canonical read-only workflow state projection",
+      "state": "open",
+      "dependencies": [
+        69,
+        101,
+        117,
+        145,
+        164
+      ]
+    },
+    "73": {
+      "title": "Implement repository-local RWF launcher discovery",
+      "state": "closed",
+      "dependencies": []
+    },
+    "74": {
+      "title": "Feature: Repository initialization",
+      "state": "open",
+      "dependencies": [
+        114,
+        115
+      ]
+    },
+    "75": {
+      "title": "Resolve and validate current-issue TDD RED group",
+      "state": "open",
+      "dependencies": [
+        64
+      ]
+    },
+    "76": {
+      "title": "Implement evidence-aware TDD GREEN workflow",
+      "state": "open",
+      "dependencies": [
+        69,
+        116
+      ]
+    },
+    "77": {
+      "title": "Define direct relationship graph schema and invariants",
+      "state": "closed",
+      "dependencies": [
+        127
+      ]
+    },
+    "78": {
+      "title": "Define durable versus clone-local state ownership and layout",
+      "state": "closed",
+      "dependencies": [
+        77
+      ]
+    },
+    "79": {
+      "title": "Define durable issue lifecycle record schema",
+      "state": "closed",
+      "dependencies": [
+        78,
+        100
+      ]
+    },
+    "80": {
+      "title": "Define authorization evidence schema and lifetime",
+      "state": "open",
+      "dependencies": [
+        99
+      ]
+    },
+    "81": {
+      "title": "Define portable repository-host mutation contract",
+      "state": "open",
+      "dependencies": []
+    },
+    "82": {
+      "title": "Construct preliminary integration attempt and candidate",
+      "state": "open",
+      "dependencies": [
+        101,
+        118
+      ]
+    },
+    "83": {
+      "title": "Implement stale prelim reintegration and mandatory revalidation",
+      "state": "open",
+      "dependencies": [
+        82
+      ]
+    },
+    "84": {
+      "title": "Implement provider-neutral integration ticket/PR flow",
+      "state": "open",
+      "dependencies": [
+        102,
+        119
+      ]
+    },
+    "85": {
+      "title": "Implement GitHub protected-main enforcement",
+      "state": "open",
+      "dependencies": [
+        97,
+        104,
+        110
+      ]
+    },
+    "86": {
+      "title": "Implement protected stable-tag finalization",
+      "state": "open",
+      "dependencies": [
+        80,
+        85,
+        118
+      ]
+    },
+    "87": {
+      "title": "Implement workflow-aware local Git guard policy API",
+      "state": "open",
+      "dependencies": [
+        101,
+        117,
+        118
+      ]
+    },
+    "88": {
+      "title": "Implement managed local Git hook shims",
+      "state": "open",
+      "dependencies": [
+        87
+      ]
+    },
+    "89": {
+      "title": "Define repo-version semantic adapter contract",
+      "state": "closed",
+      "dependencies": []
+    },
+    "90": {
+      "title": "Implement rwf issue info presentation and completion",
+      "state": "open",
+      "dependencies": [
+        120,
+        121,
+        299,
+        301
+      ]
+    },
+    "91": {
+      "title": "Implement repo-ci adapter dispatcher/forwarder",
+      "state": "open",
+      "dependencies": [
+        65
+      ]
+    },
+    "92": {
+      "title": "Implement repo-ci-github event and runner mapping",
+      "state": "open",
+      "dependencies": [
+        65
+      ]
+    },
+    "93": {
+      "title": "Implement repo-ci-github artifact and result transport",
+      "state": "open",
+      "dependencies": [
+        65
+      ]
+    },
+    "94": {
+      "title": "Implement repo-ci-github workflow policy operations",
+      "state": "open",
+      "dependencies": [
+        65
+      ]
+    },
+    "95": {
+      "title": "Define validation coverage applicability and invalidation rules",
+      "state": "open",
+      "dependencies": [
+        68
+      ]
+    },
+    "96": {
+      "title": "Feature: Implement shell activation and completion initialization",
+      "state": "open",
+      "dependencies": [
+        73
+      ]
+    },
+    "97": {
+      "title": "Implement GitHub repository-host mutation adapter",
+      "state": "open",
+      "dependencies": [
+        81
+      ]
+    },
+    "98": {
+      "title": "Implement rwf issue abort transition",
+      "state": "open",
+      "dependencies": [
+        101,
+        117,
+        164
+      ]
+    },
+    "99": {
+      "title": "Define concurrent state mutation and writer-identity invariants",
+      "state": "closed",
+      "dependencies": [
+        78
+      ]
+    },
+    "100": {
+      "title": "Define stale-state reconstruction and recovery invariants",
+      "state": "closed",
+      "dependencies": [
+        99
+      ]
+    },
+    "101": {
+      "title": "Implement .repoworkflow state-store primitives",
+      "state": "closed",
+      "dependencies": [
+        99,
+        100
+      ]
+    },
+    "102": {
+      "title": "Validate prelim candidate and record immutable PRELIM identity",
+      "state": "open",
+      "dependencies": [
+        69,
+        82,
+        118
+      ]
+    },
+    "103": {
+      "title": "Retire prelim attempt after verified server integration",
+      "state": "open",
+      "dependencies": [
+        84,
+        85
+      ]
+    },
+    "104": {
+      "title": "Enforce exact-candidate and current-base integration gate",
+      "state": "open",
+      "dependencies": [
+        69,
+        119
+      ]
+    },
+    "105": {
+      "title": "Prepare authoritative verification candidate transaction",
+      "state": "closed",
+      "dependencies": [
+        118
+      ]
+    },
+    "106": {
+      "title": "Finalize authoritative verification terminal result",
+      "state": "closed",
+      "dependencies": [
+        118
+      ]
+    },
+    "107": {
+      "title": "Orchestrate one-command authoritative verify workflow",
+      "state": "closed",
+      "dependencies": [
+        105,
+        106
+      ]
+    },
+    "108": {
+      "title": "Compute done readiness and integration plan",
+      "state": "open",
+      "dependencies": [
+        64,
+        69,
+        80,
+        104,
+        117
+      ]
+    },
+    "109": {
+      "title": "Execute approved done integration plan",
+      "state": "open",
+      "dependencies": [
+        83,
+        86,
+        103,
+        108,
+        118
+      ]
+    },
+    "110": {
+      "title": "Plan and execute only missing hosted/provider validation",
+      "state": "open",
+      "dependencies": [
+        67,
+        70
+      ]
+    },
+    "111": {
+      "title": "Render rwf status from canonical workflow projection",
+      "state": "open",
+      "dependencies": [
+        72
+      ]
+    },
+    "112": {
+      "title": "Project legal next transitions for rwf what-next",
+      "state": "open",
+      "dependencies": [
+        72
+      ]
+    },
+    "113": {
+      "title": "Implement base .repoworkflow initialization transaction",
+      "state": "open",
+      "dependencies": [
+        78
+      ]
+    },
+    "114": {
+      "title": "Implement normal repository adoption initialization",
+      "state": "open",
+      "dependencies": [
+        88,
+        113
+      ]
+    },
+    "115": {
+      "title": "Implement local-only RepoWorkflow initialization mode",
+      "state": "open",
+      "dependencies": [
+        113
+      ]
+    },
+    "116": {
+      "title": "Execute and record TDD RED transition",
+      "state": "open",
+      "dependencies": [
+        75,
+        101
+      ]
+    },
+    "117": {
+      "title": "Define clone-local current-work and re-entry record schema",
+      "state": "closed",
+      "dependencies": [
+        78,
+        79
+      ]
+    },
+    "118": {
+      "title": "Implement RWF repo-version adapter invocation and transaction wrapper",
+      "state": "closed",
+      "dependencies": [
+        89
+      ]
+    },
+    "119": {
+      "title": "Implement repository-host adapter dispatcher/invocation layer",
+      "state": "open",
+      "dependencies": [
+        81
+      ]
+    },
+    "120": {
+      "title": "Implement repo-info adapter dispatcher/invocation layer",
+      "state": "closed",
+      "dependencies": [
+        63
+      ]
+    },
+    "121": {
+      "title": "Implement reusable adapters/repo-info-github",
+      "state": "closed",
+      "dependencies": [
+        63
+      ]
+    },
+    "122": {
+      "title": "Feature: Provide shared repo-version capability",
+      "state": "open",
+      "dependencies": [
+        118
+      ]
+    },
+    "123": {
+      "title": "Feature: Provide shared repository-host operations capability",
+      "state": "open",
+      "dependencies": [
+        97,
+        119
+      ]
+    },
+    "124": {
+      "title": "Provide portable repo-version adapter subsystem",
+      "state": "closed",
+      "dependencies": []
+    },
+    "125": {
+      "title": "Provide portable repository-host operations subsystem",
+      "state": "closed",
+      "dependencies": []
+    },
+    "127": {
+      "title": "Document shared-umbrella attachments and umbrella dependency semantics",
+      "state": "closed",
+      "dependencies": []
+    },
+    "129": {
+      "title": "Document general issue decomposition and executable work-graph methodology",
+      "state": "closed",
+      "dependencies": []
+    },
+    "131": {
+      "title": "Clarify WorkStack as a cross-repository consumer of RWF methodology",
+      "state": "closed",
+      "dependencies": []
+    },
+    "133": {
+      "title": "Make documentation size limits require semantic-preserving splits",
+      "state": "closed",
+      "dependencies": []
+    },
+    "135": {
+      "title": "Feature: Provide repository-local parallel workspace orchestration",
+      "state": "open",
+      "dependencies": [
+        143,
+        144,
+        308
+      ]
+    },
+    "136": {
+      "title": "Define local workspace identity, lifecycle, and claim contract",
+      "state": "closed",
+      "dependencies": []
+    },
+    "137": {
+      "title": "Define Git worktree provisioning and retirement contract",
+      "state": "closed",
+      "dependencies": []
+    },
+    "138": {
+      "title": "Implement clone-local workspace store and CAS claims",
+      "state": "closed",
+      "dependencies": [
+        78,
+        136
+      ]
+    },
+    "139": {
+      "title": "Implement Git worktree workspace backend",
+      "state": "closed",
+      "dependencies": [
+        137
+      ]
+    },
+    "140": {
+      "title": "Implement core rwf workspace command family",
+      "state": "closed",
+      "dependencies": [
+        138,
+        139
+      ]
+    },
+    "141": {
+      "title": "Define workspace-ready projection from the RWF issue graph",
+      "state": "closed",
+      "dependencies": [
+        77
+      ]
+    },
+    "142": {
+      "title": "Integrate workspace creation with canonical issue-start semantics",
+      "state": "closed",
+      "dependencies": [
+        64,
+        140
+      ]
+    },
+    "143": {
+      "title": "Add real Git worktree and concurrent-claim integration suite",
+      "state": "closed",
+      "dependencies": [
+        138,
+        139,
+        140
+      ]
+    },
+    "144": {
+      "title": "Implement rwf workspace ready from canonical relationship state",
+      "state": "closed",
+      "dependencies": [
+        141,
+        145,
+        164,
+        169
+      ]
+    },
+    "145": {
+      "title": "Implement canonical direct relationship graph store and reader",
+      "state": "closed",
+      "dependencies": [
+        77,
+        101
+      ]
+    },
+    "153": {
+      "title": "Allow same-worker claim session rollover",
+      "state": "closed",
+      "dependencies": []
+    },
+    "155": {
+      "title": "Store workspace branch and worktree materialization references",
+      "state": "closed",
+      "dependencies": []
+    },
+    "159": {
+      "title": "Add deterministic post-create failure seam for worktree rollback testing",
+      "state": "closed",
+      "dependencies": []
+    },
+    "163": {
+      "title": "Trial leaf-to-root contract synchronization during dependency planning",
+      "state": "closed",
+      "dependencies": []
+    },
+    "164": {
+      "title": "Implement canonical durable issue lifecycle store and reader",
+      "state": "closed",
+      "dependencies": [
+        79,
+        101
+      ]
+    },
+    "169": {
+      "title": "Clarify workspace readiness across durable lifecycle states",
+      "state": "closed",
+      "dependencies": [
+        79,
+        141
+      ]
+    },
+    "172": {
+      "title": "Implement worktree-local current-work store and reader",
+      "state": "closed",
+      "dependencies": [
+        101,
+        117
+      ]
+    },
+    "185": {
+      "title": "Implement canonical relationship registration transition",
+      "state": "closed",
+      "dependencies": [
+        77,
+        145,
+        186
+      ]
+    },
+    "186": {
+      "title": "Implement runtime writer/session identity input",
+      "state": "closed",
+      "dependencies": [
+        189
+      ]
+    },
+    "187": {
+      "title": "Implement recoverable semantic transition transaction coordinator",
+      "state": "closed",
+      "dependencies": [
+        99,
+        100,
+        101
+      ]
+    },
+    "189": {
+      "title": "Freeze runtime writer/session identity invocation contract",
+      "state": "closed",
+      "dependencies": [
+        99
+      ]
+    },
+    "196": {
+      "title": "Repair concurrent merge version collision after #105/#185",
+      "state": "closed",
+      "dependencies": []
+    },
+    "201": {
+      "title": "Repair repeated concurrent-main stable-version reuse after #64/#200",
+      "state": "closed",
+      "dependencies": []
+    },
+    "205": {
+      "title": "Epic: Register parallel lanes and reject conflicting issue ownership before assignment",
+      "state": "open",
+      "dependencies": [
+        215,
+        218,
+        223,
+        305,
+        306,
+        307
+      ]
+    },
+    "206": {
+      "title": "Make authoritative verify remote publication transactional",
+      "state": "closed",
+      "dependencies": [
+        107
+      ]
+    },
+    "208": {
+      "title": "Epic: Synchronize RWF dependency graph with native ticket dependencies",
+      "state": "closed",
+      "dependencies": [
+        214
+      ]
+    },
+    "209": {
+      "title": "Freeze native ticket dependency adapter contract",
+      "state": "closed",
+      "dependencies": [
+        63,
+        145,
+        185
+      ]
+    },
+    "210": {
+      "title": "Implement GitHub native dependency adapter",
+      "state": "closed",
+      "dependencies": [
+        209
+      ]
+    },
+    "211": {
+      "title": "Implement semantic dependency comparison",
+      "state": "closed",
+      "dependencies": [
+        145,
+        185,
+        209
+      ]
+    },
+    "212": {
+      "title": "Implement RWF-to-ticket dependency synchronization",
+      "state": "closed",
+      "dependencies": [
+        145,
+        185,
+        210,
+        211
+      ]
+    },
+    "213": {
+      "title": "Implement ticket-to-RWF dependency synchronization",
+      "state": "closed",
+      "dependencies": [
+        185,
+        210,
+        211
+      ]
+    },
+    "214": {
+      "title": "Expose dependency synchronization CLI",
+      "state": "closed",
+      "dependencies": [
+        172,
+        212,
+        213,
+        229
+      ]
+    },
+    "215": {
+      "title": "Implement issue-list query and display",
+      "state": "closed",
+      "dependencies": [
+        120,
+        280,
+        282
+      ]
+    },
+    "216": {
+      "title": "Implement deterministic single-owner lane decomposition",
+      "state": "closed",
+      "dependencies": [
+        145,
+        185,
+        208
+      ]
+    },
+    "217": {
+      "title": "Implement local lane selection state and atomic editing",
+      "state": "closed",
+      "dependencies": [
+        216
+      ]
+    },
+    "218": {
+      "title": "Implement graph-aware lane move",
+      "state": "open",
+      "dependencies": [
+        217
+      ]
+    },
+    "219": {
+      "title": "Implement lane graph rendering and persistent colour setting",
+      "state": "closed",
+      "dependencies": [
+        120,
+        217
+      ]
+    },
+    "220": {
+      "title": "Implement revisioned published lane-plan store",
+      "state": "open",
+      "dependencies": [
+        101,
+        217
+      ]
+    },
+    "221": {
+      "title": "Implement authoritative lane-plan publication",
+      "state": "open",
+      "dependencies": [
+        145,
+        217,
+        220,
+        224
+      ]
+    },
+    "222": {
+      "title": "Expose published lane-plan selection and listing",
+      "state": "open",
+      "dependencies": [
+        120,
+        217,
+        219,
+        220
+      ]
+    },
+    "223": {
+      "title": "Make agent/workspace assignment consume published lane ownership",
+      "state": "open",
+      "dependencies": [
+        142,
+        221,
+        222,
+        224
+      ]
+    },
+    "224": {
+      "title": "Implement durable published lane ownership claims",
+      "state": "open",
+      "dependencies": [
+        99,
+        100,
+        101,
+        186,
+        220
+      ]
+    },
+    "225": {
+      "title": "Epic: Adopt parent-branch start/pause/done workflow model",
+      "state": "open",
+      "dependencies": [
+        235,
+        418
+      ]
+    },
+    "227": {
+      "title": "Define parent-branch identity and recovery contract",
+      "state": "closed",
+      "dependencies": []
+    },
+    "228": {
+      "title": "Migrate relationship graph to single parent topology",
+      "state": "closed",
+      "dependencies": [
+        77,
+        145,
+        185,
+        227,
+        240,
+        242,
+        246
+      ]
+    },
+    "229": {
+      "title": "Persist synchronized issue titles for offline workflow use",
+      "state": "closed",
+      "dependencies": [
+        78,
+        120,
+        145
+      ]
+    },
+    "230": {
+      "title": "Implement canonical work-branch naming and start-or-resume",
+      "state": "open",
+      "dependencies": [
+        64,
+        227,
+        228,
+        229,
+        240
+      ]
+    },
+    "231": {
+      "title": "Define and implement portable pause checkpoint representation",
+      "state": "open",
+      "dependencies": [
+        230
+      ]
+    },
+    "233": {
+      "title": "Implement parent-directed done and shared-lane convergence",
+      "state": "open",
+      "dependencies": [
+        227,
+        228,
+        230,
+        240
+      ]
+    },
+    "234": {
+      "title": "Align abort and workspace lifecycle with start/pause/done",
+      "state": "open",
+      "dependencies": [
+        98,
+        138,
+        142,
+        230,
+        231
+      ]
+    },
+    "235": {
+      "title": "Migrate public command grammar and documentation to work lifecycle",
+      "state": "open",
+      "dependencies": [
+        230,
+        231,
+        233,
+        234
+      ]
+    },
+    "236": {
+      "title": "Define same-umbrella lane identity and convergence membership",
+      "state": "closed",
+      "dependencies": [
+        227
+      ]
+    },
+    "240": {
+      "title": "Bind parent identity marker to work-branch identity",
+      "state": "closed",
+      "dependencies": [
+        227
+      ]
+    },
+    "242": {
+      "title": "Define legacy work-branch identity input for parent migration",
+      "state": "closed",
+      "dependencies": [
+        227,
+        240
+      ]
+    },
+    "246": {
+      "title": "Recover parent from fetched remote-only work branch",
+      "state": "closed",
+      "dependencies": [
+        227,
+        240
+      ]
+    },
+    "249": {
+      "title": "Make published lanes detect concurrent completion and pre-merge release failures",
+      "state": "open",
+      "dependencies": []
+    },
+    "250": {
+      "title": "Store published-lane workflow audits as immutable per-run records",
+      "state": "closed",
+      "dependencies": []
+    },
+    "280": {
+      "title": "Expose provider-neutral issue links through repo-info",
+      "state": "closed",
+      "dependencies": [
+        63,
+        120
+      ]
+    },
+    "282": {
+      "title": "Support generic variadic positional tails in public command grammar",
+      "state": "closed",
+      "dependencies": []
+    },
+    "295": {
+      "title": "Make rwf launcher portable when only python is available",
+      "state": "closed",
+      "dependencies": []
+    },
+    "297": {
+      "title": "Make public grammar/help/diagnostics bootstrap-safe before repository initialization",
+      "state": "closed",
+      "dependencies": [
+        299
+      ]
+    },
+    "298": {
+      "title": "Epic: Make public RWF bootstrap-safe and complete read-only issue queries",
+      "state": "closed",
+      "dependencies": []
+    },
+    "299": {
+      "title": "Add black-box bootstrap matrix for every configuration-independent public CLI path",
+      "state": "closed",
+      "dependencies": []
+    },
+    "300": {
+      "title": "Make bare rwf issue list list all open issues",
+      "state": "closed",
+      "dependencies": [
+        299
+      ]
+    },
+    "301": {
+      "title": "Resolve read-only repo-info without workflow configuration when repository provider is discoverable",
+      "state": "closed",
+      "dependencies": [
+        63,
+        120,
+        121,
+        299
+      ]
+    },
+    "303": {
+      "title": "Epic: Audit every ticket against actual first-use workflow coverage",
+      "state": "open",
+      "dependencies": [
+        309,
+        313
+      ]
+    },
+    "304": {
+      "title": "Add repository-enforced first-use workflow scenario registry and CI gate",
+      "state": "closed",
+      "dependencies": []
+    },
+    "305": {
+      "title": "Feature: Make dependency graph acquisition → lanes select/list work on first use",
+      "state": "closed",
+      "dependencies": [
+        208,
+        217,
+        219,
+        304
+      ]
+    },
+    "306": {
+      "title": "Establish usable runtime writer/session identity for ordinary public CLI sessions",
+      "state": "closed",
+      "dependencies": [
+        189,
+        304
+      ]
+    },
+    "307": {
+      "title": "Convert expected public-state failures to actionable CLI diagnostics without tracebacks",
+      "state": "closed",
+      "dependencies": []
+    },
+    "308": {
+      "title": "Add first-use black-box workflow for issue start and workspace creation",
+      "state": "open",
+      "dependencies": [
+        142,
+        304,
+        305,
+        306,
+        307
+      ]
+    },
+    "309": {
+      "title": "Add first-use black-box lifecycle for what-next and validation transitions",
+      "state": "open",
+      "dependencies": [
+        304,
+        308
+      ]
+    },
+    "310": {
+      "title": "Add first-use black-box workflow for issue start and workspace creation",
+      "state": "closed",
+      "dependencies": []
+    },
+    "311": {
+      "title": "Add first-use black-box lifecycle for what-next and validation transitions",
+      "state": "closed",
+      "dependencies": []
+    },
+    "312": {
+      "title": "Diagnose pull-request numbers explicitly in issue-info adapter",
+      "state": "closed",
+      "dependencies": []
+    },
+    "313": {
+      "title": "Add first-use consumer adoption and local/hosted handoff scenario",
+      "state": "open",
+      "dependencies": [
+        7,
+        114,
+        115,
+        304
+      ]
+    },
+    "318": {
+      "title": "Parse real gh blockedBy connection shape in dependency adapter",
+      "state": "closed",
+      "dependencies": [
+        305,
+        306
+      ]
+    },
+    "320": {
+      "title": "Enforce acceptance-criterion traceability and stateful workflow coverage before closure",
+      "state": "closed",
+      "dependencies": [
+        304,
+        305,
+        318
+      ]
+    },
+    "321": {
+      "title": "Feature: Migrate existing RepoWorkflow dependency graph into native ticket dependencies before ticket bootstrap",
+      "state": "closed",
+      "dependencies": [
+        208,
+        305,
+        320
+      ]
+    },
+    "325": {
+      "title": "Build reviewed canonical dependency migration manifest from RepoWorkflow issue contracts",
+      "state": "closed",
+      "dependencies": []
+    },
+    "326": {
+      "title": "Implement fail-closed dependency migration apply and full provider readback",
+      "state": "closed",
+      "dependencies": [
+        325
+      ]
+    },
+    "327": {
+      "title": "Apply RepoWorkflow dependency migration and certify lanes against real native ticket graph",
+      "state": "closed",
+      "dependencies": [
+        305,
+        326
+      ]
+    },
+    "331": {
+      "title": "Reconcile existing canonical lane graph against ticket dependencies during selection",
+      "state": "closed",
+      "dependencies": [
+        208,
+        321
+      ]
+    },
+    "335": {
+      "title": "Document universal test adequacy and verification gate",
+      "state": "closed",
+      "dependencies": []
+    },
+    "338": {
+      "title": "Restore authoritative document source-size invariant after test-adequacy wiring",
+      "state": "closed",
+      "dependencies": [
+        335
+      ]
+    },
+    "340": {
+      "title": "Epic: Refine lane inspection, cache-first refresh, observability, and graph routing",
+      "state": "closed",
+      "dependencies": [
+        346
+      ]
+    },
+    "341": {
+      "title": "Extend synchronized issue metadata for offline lane inspection",
+      "state": "closed",
+      "dependencies": [
+        120,
+        145,
+        229
+      ]
+    },
+    "342": {
+      "title": "Implement cache-first lane relationship acquisition and scoped --refresh",
+      "state": "closed",
+      "dependencies": [
+        145,
+        208,
+        321,
+        341
+      ]
+    },
+    "343": {
+      "title": "Split lane inventory listing from topology view",
+      "state": "closed",
+      "dependencies": [
+        217,
+        219,
+        341,
+        342,
+        349
+      ]
+    },
+    "344": {
+      "title": "Add lane provider progress and durable invocation diagnostics",
+      "state": "closed",
+      "dependencies": [
+        341,
+        342,
+        363
+      ]
+    },
+    "345": {
+      "title": "Preserve direct-edge identity with bypass tracks in lane graph view",
+      "state": "closed",
+      "dependencies": [
+        219,
+        343,
+        344
+      ]
+    },
+    "346": {
+      "title": "Certify lane cache, refresh, list/view, observability, and routing end to end",
+      "state": "closed",
+      "dependencies": [
+        341,
+        342,
+        343,
+        344,
+        345
+      ]
+    },
+    "349": {
+      "title": "Allow scoped issue-metadata refresh to migrate legacy v1 snapshots incrementally",
+      "state": "closed",
+      "dependencies": [
+        341,
+        342
+      ]
+    },
+    "350": {
+      "title": "Implement Bash `rwf init bash` activation and completion source",
+      "state": "open",
+      "dependencies": [
+        73
+      ]
+    },
+    "359": {
+      "title": "Promote #343 lane list/view candidate to stable 0.1.98",
+      "state": "closed",
+      "dependencies": [
+        343
+      ]
+    },
+    "363": {
+      "title": "Keep lanes list refresh metadata-only and diagnostics source-accurate",
+      "state": "closed",
+      "dependencies": [
+        341,
+        342,
+        343
+      ]
+    },
+    "365": {
+      "title": "Promote #344 observability candidate to stable 0.1.100",
+      "state": "closed",
+      "dependencies": [
+        344,
+        363
+      ]
+    },
+    "371": {
+      "title": "Close lane test-adequacy gaps for diagnostics and route restart/failure coverage",
+      "state": "open",
+      "dependencies": [
+        346
+      ]
+    },
+    "373": {
+      "title": "Document collaborative design-review discipline",
+      "state": "closed",
+      "dependencies": []
+    },
+    "375": {
+      "title": "Generalize collaborative design review contract to all projects",
+      "state": "open",
+      "dependencies": [
+        380
+      ]
+    },
+    "376": {
+      "title": "Generalize collaborative design review contract",
+      "state": "closed",
+      "dependencies": [
+        373
+      ]
+    },
+    "378": {
+      "title": "Restore test adequacy reference in collaborative design review",
+      "state": "closed",
+      "dependencies": [
+        376
+      ]
+    },
+    "380": {
+      "title": "Refine test adequacy reference wording",
+      "state": "closed",
+      "dependencies": [
+        378
+      ]
+    },
+    "382": {
+      "title": "Redesign lane graph rendering around constrained sibling-group DAG",
+      "state": "closed",
+      "dependencies": [
+        388
+      ]
+    },
+    "383": {
+      "title": "Specify constrained graph renderer contract and invariants",
+      "state": "closed",
+      "dependencies": []
+    },
+    "384": {
+      "title": "Implement constrained graph model and fail-fast validation",
+      "state": "closed",
+      "dependencies": [
+        383
+      ]
+    },
+    "385": {
+      "title": "Implement column formatter and terminal display-width boundary",
+      "state": "closed",
+      "dependencies": [
+        383
+      ]
+    },
+    "386": {
+      "title": "Implement sibling-group DAG layout, hidden continuation, and routing",
+      "state": "closed",
+      "dependencies": [
+        384
+      ]
+    },
+    "387": {
+      "title": "Implement lane colouring and RepoWorkflow graph adapter",
+      "state": "closed",
+      "dependencies": [
+        384,
+        385,
+        386
+      ]
+    },
+    "388": {
+      "title": "Certify constrained renderer semantics, determinism, and integration",
+      "state": "closed",
+      "dependencies": [
+        383,
+        384,
+        385,
+        386,
+        387
+      ]
+    },
+    "390": {
+      "title": "Improve constrained renderer colour/runtime and route quality",
+      "state": "closed",
+      "dependencies": [
+        396
+      ]
+    },
+    "391": {
+      "title": "Make terminal colour backend an explicit supported runtime",
+      "state": "closed",
+      "dependencies": []
+    },
+    "392": {
+      "title": "Define renderer route-quality metrics and deterministic comparison",
+      "state": "closed",
+      "dependencies": []
+    },
+    "393": {
+      "title": "Eliminate unnecessary long-edge excursions with bounded candidates",
+      "state": "closed",
+      "dependencies": [
+        392
+      ]
+    },
+    "394": {
+      "title": "Prefer safe track reuse and avoid opposing adjacent verticals",
+      "state": "closed",
+      "dependencies": [
+        392,
+        393
+      ]
+    },
+    "395": {
+      "title": "Add bounded node/group ordering improvement for route quality",
+      "state": "closed",
+      "dependencies": [
+        392,
+        393,
+        394
+      ]
+    },
+    "396": {
+      "title": "Certify renderer quality on real #107 and #218 dependency graphs",
+      "state": "closed",
+      "dependencies": [
+        391,
+        392,
+        393,
+        394,
+        395
+      ]
+    },
+    "398": {
+      "title": "Simplify lane display by preserving dependency reachability",
+      "state": "closed",
+      "dependencies": [
+        401
+      ]
+    },
+    "399": {
+      "title": "Add reachability-preserving transitive reduction to lane projection",
+      "state": "closed",
+      "dependencies": []
+    },
+    "400": {
+      "title": "Validate rendered glyph continuity after lane graph simplification",
+      "state": "closed",
+      "dependencies": [
+        399
+      ]
+    },
+    "401": {
+      "title": "Certify simplified real #218 lane graph",
+      "state": "closed",
+      "dependencies": [
+        399,
+        400
+      ]
+    },
+    "403": {
+      "title": "Epic: Formalize repo-info typed object classification and error contract",
+      "state": "open",
+      "dependencies": [
+        408
+      ]
+    },
+    "404": {
+      "title": "Specify repo-info v2 result, object-kind, and error schema",
+      "state": "open",
+      "dependencies": []
+    },
+    "405": {
+      "title": "Implement GitHub repo-info issue object classification",
+      "state": "open",
+      "dependencies": [
+        404
+      ]
+    },
+    "406": {
+      "title": "Preserve typed repo-info failures through core RWF layers",
+      "state": "open",
+      "dependencies": [
+        405
+      ]
+    },
+    "407": {
+      "title": "Validate issue roots before dependency and metadata refresh",
+      "state": "open",
+      "dependencies": [
+        406
+      ]
+    },
+    "408": {
+      "title": "Certify repo-info classification and mistyped issue smoke cases",
+      "state": "open",
+      "dependencies": [
+        407
+      ]
+    },
+    "409": {
+      "title": "Epic: Restore lane selection move workflow and correct select grammar/help",
+      "state": "open",
+      "dependencies": [
+        413
+      ]
+    },
+    "410": {
+      "title": "Specify lane-move syntax, semantics, and invariants",
+      "state": "open",
+      "dependencies": []
+    },
+    "411": {
+      "title": "Implement lane-move mutation with path-preserving validation",
+      "state": "open",
+      "dependencies": [
+        410
+      ]
+    },
+    "412": {
+      "title": "Fix lanes select grammar, help, completion, and invalid-token diagnostics",
+      "state": "open",
+      "dependencies": [
+        410
+      ]
+    },
+    "413": {
+      "title": "Certify lane move and command-diagnostic workflow",
+      "state": "open",
+      "dependencies": [
+        411,
+        412
+      ]
+    },
+    "415": {
+      "title": "Epic: Simplify synchronized ticket state and dependency workflow",
+      "state": "closed",
+      "dependencies": [
+        422
+      ]
+    },
+    "416": {
+      "title": "Feature: Define synchronized ticket-state schema and sync authority",
+      "state": "closed",
+      "dependencies": []
+    },
+    "417": {
+      "title": "Implement compact CSV synchronized ticket-state store and legacy migration",
+      "state": "closed",
+      "dependencies": [
+        416
+      ]
+    },
+    "418": {
+      "title": "Remove obsolete relationship fields and use Git history as sole branch-parent authority",
+      "state": "closed",
+      "dependencies": [
+        417
+      ]
+    },
+    "419": {
+      "title": "Feature: Synchronize titles and dependencies for one or many explicit issues",
+      "state": "closed",
+      "dependencies": [
+        416,
+        417
+      ]
+    },
+    "420": {
+      "title": "Feature: Add provider-aware semantic merge for synchronized ticket CSV",
+      "state": "closed",
+      "dependencies": [
+        416,
+        417
+      ]
+    },
+    "421": {
+      "title": "Document ticket title prefixes and ticket-creation graph workflow",
+      "state": "closed",
+      "dependencies": [
+        416
+      ]
+    },
+    "422": {
+      "title": "Certify synchronized ticket-state migration, merge, and sync workflows",
+      "state": "closed",
+      "dependencies": [
+        417,
+        418,
+        419,
+        420,
+        421
+      ]
+    },
+    "426": {
+      "title": "Remove remaining obsolete umbrella terminology from authoritative docs",
+      "state": "closed",
+      "dependencies": []
+    },
+    "428": {
+      "title": "Validate committed ticket state before authoritative validation",
+      "state": "closed",
+      "dependencies": []
+    },
+    "430": {
+      "title": "Annotate lane node types and colour lane-list groups",
+      "state": "closed",
+      "dependencies": []
+    },
+    "432": {
+      "title": "Restore complete reviewed dependency graph in synchronized ticket state",
+      "state": "open",
+      "dependencies": []
+    }
+  }
+}
