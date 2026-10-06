@@ -1,23 +1,234 @@
 issue,title,dependencies
-403,"Epic: Formalize repo-info typed object classification and error contract",408
+1,Define RepoWorkflow architecture and repository contract,
+2,Reject development versions on integration branch,
+5,Feature: Make authoritative local verification own candidate bookkeeping and terminal tagging,107
+7,Use pinned local engine directly and centralize hosted workflow handoff,
+8,Use pinned local engine directly and centralize hosted workflow handoff,
+11,Make local validation diagnostics actionable and enforce declared capabilities,
+14,Initiative: Define guarded task-to-release workflow state machine,
+15,"Implement workflow state machine, what-next, CLI forwarding, and completion",
+16,Epic: Add append-only validation audit trail and local/hosted validation reuse,110
+17,"Epic: Implement prelim-main integration cycle, reintegration, and PRELIM tags",83;103
+18,Epic: Add GitHub/server enforcement for protected main and stable tags,86
+19,Epic: Add local Git guard hooks backed by RepoWorkflow policy,88
+27,"Epic: Add `rwf init` for hooks, Bash completion, and local command discovery",74;96
+51,"Initiative: Revise RepoWorkflow public workflow, adapters, and multi-agent state model",5;16;17;18;19;27;52;53;54;55;56;57;58;122;123;135
+52,Make command completion providers return explicit completion specifications,
+53,Feature: Add repo-info adapter and issue info/start/abort workflow,64;90;98;121
+54,Epic: Add TDD red/green commands and issue-scoped test-group completion,76
+55,Epic: Introduce portable repo-ci adapter and retire GitHub-specific core plumbing,67
+56,Feature: Define and implement done patch/minor/major completion workflow,109
+57,Epic: Define .repoworkflow durable/local schema for multi-agent workflow state,80;117;145
+58,Epic: Revise status/what-next and remove public version/proposed release commands,71;111;112
+63,Define portable repo-info read contract,
+64,Implement rwf issue start transition,101;117;118;120;145;164;185;186;187
+65,Define provider-neutral repo-ci contract,
+66,Feature: Implement reusable repo-ci-github adapter,92;93;94
+67,Migrate legacy GitHub CI plumbing behind repo-ci-github,91;92;93;94
+68,Define validation evidence fingerprint and identity contract,
+69,Implement durable validation evidence storage,95;101
+70,Import and classify reusable local evidence for hosted execution,69;95
+71,Remove obsolete human-facing workflow commands from public grammar,
+72,Build canonical read-only workflow state projection,69;101;117;145;164
+73,Implement repository-local RWF launcher discovery,
+74,Feature: Repository initialization,114;115
+75,Resolve and validate current-issue TDD RED group,64
+76,Implement evidence-aware TDD GREEN workflow,69;116
+77,Define direct relationship graph schema and invariants,127
+78,Define durable versus clone-local state ownership and layout,77
+79,Define durable issue lifecycle record schema,78;100
+80,Define authorization evidence schema and lifetime,99
+81,Define portable repository-host mutation contract,
+82,Construct preliminary integration attempt and candidate,101;118
+83,Implement stale prelim reintegration and mandatory revalidation,82
+84,Implement provider-neutral integration ticket/PR flow,102;119
+85,Implement GitHub protected-main enforcement,97;104;110
+86,Implement protected stable-tag finalization,80;85;118
+87,Implement workflow-aware local Git guard policy API,101;117;118
+88,Implement managed local Git hook shims,87
+89,Define repo-version semantic adapter contract,
+90,Implement rwf issue info presentation and completion,120;121;299;301
+91,Implement repo-ci adapter dispatcher/forwarder,65
+92,Implement repo-ci-github event and runner mapping,65
+93,Implement repo-ci-github artifact and result transport,65
+94,Implement repo-ci-github workflow policy operations,65
+95,Define validation coverage applicability and invalidation rules,68
+96,Feature: Implement shell activation and completion initialization,306;313;350
+97,Implement GitHub repository-host mutation adapter,81
+98,Implement rwf issue abort transition,101;117;164
+99,Define concurrent state mutation and writer-identity invariants,78
+100,Define stale-state reconstruction and recovery invariants,99
+101,Implement .repoworkflow state-store primitives,99;100
+102,Validate prelim candidate and record immutable PRELIM identity,69;82;118
+103,Retire prelim attempt after verified server integration,84;85
+104,Enforce exact-candidate and current-base integration gate,69;119
+105,Prepare authoritative verification candidate transaction,118
+106,Finalize authoritative verification terminal result,118
+107,Orchestrate one-command authoritative verify workflow,105;106
+108,Compute done readiness and integration plan,64;69;80;104;117
+109,Execute approved done integration plan,83;86;103;108;118
+110,Plan and execute only missing hosted/provider validation,67;70
+111,Render rwf status from canonical workflow projection,72
+112,Project legal next transitions for rwf what-next,72
+113,Implement base .repoworkflow initialization transaction,78
+114,Implement normal repository adoption initialization,88;113
+115,Implement local-only RepoWorkflow initialization mode,113
+116,Execute and record TDD RED transition,75;101
+117,Define clone-local current-work and re-entry record schema,78;79
+118,Implement RWF repo-version adapter invocation and transaction wrapper,89
+119,Implement repository-host adapter dispatcher/invocation layer,81
+120,Implement repo-info adapter dispatcher/invocation layer,63
+121,Implement reusable adapters/repo-info-github,63
+122,Feature: Provide shared repo-version capability,118
+123,Feature: Provide shared repository-host operations capability,97;119
+124,Provide portable repo-version adapter subsystem,
+125,Provide portable repository-host operations subsystem,
+127,Document shared-umbrella attachments and umbrella dependency semantics,
+129,Document general issue decomposition and executable work-graph methodology,
+131,Clarify WorkStack as a cross-repository consumer of RWF methodology,
+133,Make documentation size limits require semantic-preserving splits,
+135,Feature: Provide repository-local parallel workspace orchestration,142;143;144;306;307;308
+136,"Define local workspace identity, lifecycle, and claim contract",
+137,Define Git worktree provisioning and retirement contract,
+138,Implement clone-local workspace store and CAS claims,78;136
+139,Implement Git worktree workspace backend,137
+140,Implement core rwf workspace command family,138;139
+141,Define workspace-ready projection from the RWF issue graph,77
+142,Integrate workspace creation with canonical issue-start semantics,64;140
+143,Add real Git worktree and concurrent-claim integration suite,138;139;140
+144,Implement rwf workspace ready from canonical relationship state,141;145;164;169
+145,Implement canonical direct relationship graph store and reader,77;101
+153,Allow same-worker claim session rollover,
+155,Store workspace branch and worktree materialization references,
+159,Add deterministic post-create failure seam for worktree rollback testing,
+163,Trial leaf-to-root contract synchronization during dependency planning,
+164,Implement canonical durable issue lifecycle store and reader,79;101
+169,Clarify workspace readiness across durable lifecycle states,79;141
+172,Implement worktree-local current-work store and reader,101;117
+185,Implement canonical relationship registration transition,77;145;186
+186,Implement runtime writer/session identity input,189
+187,Implement recoverable semantic transition transaction coordinator,99;100;101
+189,Freeze runtime writer/session identity invocation contract,99
+196,Repair concurrent merge version collision after #105/#185,
+201,Repair repeated concurrent-main stable-version reuse after #64/#200,
+205,Epic: Register parallel lanes and reject conflicting issue ownership before assignment,208;215;218;223;305;306;307
+206,Make authoritative verify remote publication transactional,107
+208,Epic: Synchronize RWF dependency graph with native ticket dependencies,
+209,Freeze native ticket dependency adapter contract,63;145;185
+210,Implement GitHub native dependency adapter,209
+211,Implement semantic dependency comparison,145;185;209
+212,Implement RWF-to-ticket dependency synchronization,145;185;210;211
+213,Implement ticket-to-RWF dependency synchronization,185;210;211
+214,Expose dependency synchronization CLI,172;212;213;229
+215,Implement issue-list query and display,120;280;282
+216,Implement deterministic single-owner lane decomposition,145;185;208
+217,Implement local lane selection state and atomic editing,216
+218,Implement graph-aware lane move,217
+219,Implement lane graph rendering and persistent colour setting,120;217
+220,Implement revisioned published lane-plan store,101;217
+221,Implement authoritative lane-plan publication,145;217;220;224
+222,Expose published lane-plan selection and listing,120;217;219;220
+223,Make agent/workspace assignment consume published lane ownership,142;221;222;224
+224,Implement durable published lane ownership claims,99;100;101;186;220
+225,Epic: Adopt parent-branch start/pause/done workflow model,235
+227,Define parent-branch identity and recovery contract,
+228,Migrate relationship graph to single parent topology,77;145;185;227;240;242;246
+229,Persist synchronized issue titles for offline workflow use,78;120;145
+230,Implement canonical work-branch naming and start-or-resume,64;227;229;240
+231,Define and implement portable pause checkpoint representation,230
+233,Implement parent-directed done and shared-lane convergence,227;230;240
+234,Align abort and workspace lifecycle with start/pause/done,98;138;142;230;231
+235,Migrate public command grammar and documentation to work lifecycle,230;231;233;234
+236,Define same-umbrella lane identity and convergence membership,227
+240,Bind parent identity marker to work-branch identity,227
+242,Define legacy work-branch identity input for parent migration,227;240
+246,Recover parent from fetched remote-only work branch,227;240
+249,Make published lanes detect concurrent completion and pre-merge release failures,
+250,Store published-lane workflow audits as immutable per-run records,
+280,Expose provider-neutral issue links through repo-info,63;120
+282,Support generic variadic positional tails in public command grammar,
+295,Make rwf launcher portable when only python is available,
+297,Make public grammar/help/diagnostics bootstrap-safe before repository initialization,299
+298,Epic: Make public RWF bootstrap-safe and complete read-only issue queries,
+299,Add black-box bootstrap matrix for every configuration-independent public CLI path,
+300,Make bare rwf issue list list all open issues,299
+301,Resolve read-only repo-info without workflow configuration when repository provider is discoverable,63;120;121;299
+303,Epic: Audit every ticket against actual first-use workflow coverage,307;309;312;313;320
+304,Add repository-enforced first-use workflow scenario registry and CI gate,
+305,Feature: Make dependency graph acquisition → lanes select/list work on first use,208;217;219;304
+306,Establish usable runtime writer/session identity for ordinary public CLI sessions,189;304
+307,Convert expected public-state failures to actionable CLI diagnostics without tracebacks,
+308,Add first-use black-box workflow for issue start and workspace creation,304;305;306
+309,Add first-use black-box lifecycle for what-next and validation transitions,304;308
+310,Add first-use black-box workflow for issue start and workspace creation,
+311,Add first-use black-box lifecycle for what-next and validation transitions,
+312,Diagnose pull-request numbers explicitly in issue-info adapter,
+313,Add first-use consumer adoption and local/hosted handoff scenario,7;73;114;115;304
+318,Parse real gh blockedBy connection shape in dependency adapter,305;306
+320,Enforce acceptance-criterion traceability and stateful workflow coverage before closure,304;305;318
+321,Feature: Migrate existing RepoWorkflow dependency graph into native ticket dependencies before ticket bootstrap,208;305;320;327
+325,Build reviewed canonical dependency migration manifest from RepoWorkflow issue contracts,
+326,Implement fail-closed dependency migration apply and full provider readback,325
+327,Apply RepoWorkflow dependency migration and certify lanes against real native ticket graph,305;326
+331,Reconcile existing canonical lane graph against ticket dependencies during selection,208;321
+335,Document universal test adequacy and verification gate,
+338,Restore authoritative document source-size invariant after test-adequacy wiring,335
+340,"Epic: Refine lane inspection, cache-first refresh, observability, and graph routing",145;208;217;219;229;346
+341,Extend synchronized issue metadata for offline lane inspection,120;145;229
+342,Implement cache-first lane relationship acquisition and scoped --refresh,145;208;321;341
+343,Split lane inventory listing from topology view,217;219;341;342;349;359
+344,Add lane provider progress and durable invocation diagnostics,341;342;363
+345,Preserve direct-edge identity with bypass tracks in lane graph view,219;343;344
+346,"Certify lane cache, refresh, list/view, observability, and routing end to end",341;342;343;344;345
+349,Allow scoped issue-metadata refresh to migrate legacy v1 snapshots incrementally,341;342
+350,Implement Bash `rwf init bash` activation and completion source,73
+359,Promote #343 lane list/view candidate to stable 0.1.98,
+363,Keep lanes list refresh metadata-only and diagnostics source-accurate,341;342;343
+365,Promote #344 observability candidate to stable 0.1.100,
+371,Close lane test-adequacy gaps for diagnostics and route restart/failure coverage,340;344;345
+373,Document collaborative design-review discipline,
+375,Generalize collaborative design review contract to all projects,373
+376,Generalize collaborative design review contract,373
+378,Restore test adequacy reference in collaborative design review,376
+380,Refine test adequacy reference wording,378
+382,Redesign lane graph rendering around constrained sibling-group DAG,388
+383,Specify constrained graph renderer contract and invariants,
+384,Implement constrained graph model and fail-fast validation,383
+385,Implement column formatter and terminal display-width boundary,383
+386,"Implement sibling-group DAG layout, hidden continuation, and routing",384
+387,Implement lane colouring and RepoWorkflow graph adapter,384;385;386
+388,"Certify constrained renderer semantics, determinism, and integration",383;384;385;386;387
+390,Improve constrained renderer colour/runtime and route quality,396
+391,Make terminal colour backend an explicit supported runtime,
+392,Define renderer route-quality metrics and deterministic comparison,
+393,Eliminate unnecessary long-edge excursions with bounded candidates,392
+394,Prefer safe track reuse and avoid opposing adjacent verticals,392;393
+395,Add bounded node/group ordering improvement for route quality,392;393;394
+396,Certify renderer quality on real #107 and #218 dependency graphs,391;392;393;394;395
+398,Simplify lane display by preserving dependency reachability,400;401
+399,Add reachability-preserving transitive reduction to lane projection,
+400,Validate rendered glyph continuity after lane graph simplification,399
+401,Certify simplified real #218 lane graph,399
+403,Epic: Formalize repo-info typed object classification and error contract,408
 404,"Specify repo-info v2 result, object-kind, and error schema",
-405,"Implement GitHub repo-info issue object classification",404
-406,"Preserve typed repo-info failures through core RWF layers",405
-407,"Validate issue roots before dependency and metadata refresh",406
-408,"Certify repo-info classification and mistyped issue smoke cases",407
-409,"Epic: Restore lane selection move workflow and correct select grammar/help",413
+405,Implement GitHub repo-info issue object classification,404
+406,Preserve typed repo-info failures through core RWF layers,404;405
+407,Validate issue roots before dependency and metadata refresh,406
+408,Certify repo-info classification and mistyped issue smoke cases,404;405;406;407
+409,Epic: Restore lane selection move workflow and correct select grammar/help,413
 410,"Specify lane-move syntax, semantics, and invariants",
-411,"Implement lane-move mutation with path-preserving validation",410
+411,Implement lane-move mutation with path-preserving validation,410
 412,"Fix lanes select grammar, help, completion, and invalid-token diagnostics",410
-413,"Certify lane move and command-diagnostic workflow",411;412
-415,"Epic: Simplify synchronized ticket state and dependency workflow",
-416,"Feature: Define synchronized ticket-state schema and sync authority",
-417,"Implement compact CSV synchronized ticket-state store and legacy migration",416
-418,"Remove obsolete relationship fields and use Git history as sole branch-parent authority",417
-419,"Feature: Synchronize titles and dependencies for one or many explicit issues",416;417
-420,"Feature: Add provider-aware semantic merge for synchronized ticket CSV",416;417
-421,"Document ticket title prefixes and ticket-creation graph workflow",416
+413,Certify lane move and command-diagnostic workflow,410;411;412
+415,Epic: Simplify synchronized ticket state and dependency workflow,422
+416,Feature: Define synchronized ticket-state schema and sync authority,
+417,Implement compact CSV synchronized ticket-state store and legacy migration,416
+418,Remove obsolete relationship fields and use Git history as sole branch-parent authority,417
+419,Feature: Synchronize titles and dependencies for one or many explicit issues,416;417
+420,Feature: Add provider-aware semantic merge for synchronized ticket CSV,416;417
+421,Document ticket title prefixes and ticket-creation graph workflow,416
 422,"Certify synchronized ticket-state migration, merge, and sync workflows",417;418;419;420;421
-426,"Remove remaining obsolete umbrella terminology from authoritative docs",
-428,"Validate committed ticket state before authoritative validation",
-430,"Annotate lane node types and colour lane-list groups",
+426,Remove remaining obsolete umbrella terminology from authoritative docs,
+428,Validate committed ticket state before authoritative validation,
+430,Annotate lane node types and colour lane-list groups,
+432,Restore complete reviewed dependency graph in synchronized ticket state,
