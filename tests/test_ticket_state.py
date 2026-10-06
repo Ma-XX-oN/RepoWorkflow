@@ -41,7 +41,7 @@ class TicketStateTests(unittest.TestCase):
       text,
       (
         "issue,title,dependencies\n"
-        '10,"Feature: Ten",\n'
+        '10,Feature: Ten,\n'
         '20,"Twenty, with comma",10\n'
       ),
     )
