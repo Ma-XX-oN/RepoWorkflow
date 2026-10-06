@@ -1,5 +1,5 @@
 name: RepoWorkflow Lane Cache and Routing Certification
-# Renderer-quality certification revision 3.
+# Reachability-preserving display certification revision 4.
 
 on:
   push:
@@ -7,12 +7,14 @@ on:
       - issue-346-lane-certification-v3
       - issue-382-constrained-graph-renderer
       - issue-390-renderer-quality
+      - issue-398-simplify-lane-display
     paths:
       - .repoworkflow/migrations/run-lane-cache-certification-v2
       - .github/workflows/lane-cache-routing-certification.yml
       - requirements.txt
       - repo_workflow/graph_*.py
       - repo_workflow/terminal_style.py
+      - repo_workflow/lane_graph_adapter.py
 
 permissions:
   contents: read
@@ -108,10 +110,18 @@ jobs:
             raise SystemExit("local view unexpectedly contacted provider")
           if "DIRECT EDGES" not in local_view.stdout or "ROUTES" not in local_view.stdout:
             raise SystemExit("debug view omitted semantic/route diagnostics")
-          if "145 -> 216 long" not in local_view.stdout:
-            raise SystemExit("direct #145 -> #216 long route not exposed")
-          if "145 -> 185" not in local_view.stdout or "185 -> 216" not in local_view.stdout:
-            raise SystemExit("parallel primary path around #145 -> #216 missing")
+          routes_text = local_view.stdout.split("ROUTES", 1)[1]
+          if "145 -> 216" in routes_text:
+            raise SystemExit("redundant #145 -> #216 display route was retained")
+          for required_route in (
+            "145 -> 185",
+            "185 -> 216",
+            "208 -> 216",
+          ):
+            if required_route not in routes_text:
+              raise SystemExit(
+                "required reduced display route missing: " + required_route
+              )
           if "Issue 218" in local_view.stdout:
             raise SystemExit("lane view leaked issue titles")
 
