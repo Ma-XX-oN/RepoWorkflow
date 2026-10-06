@@ -92,23 +92,39 @@ class IssueMetadataStore:
     issues: dict[int, IssueMetadata],
     writer: WriterIdentity,
   ) -> IssueMetadataSnapshot:
-    graph = RelationshipStore(self.root).read().graph
+    store = RelationshipStore(self.root)
+    snapshot = store.read()
+    relations = dict(snapshot.graph.issues)
     display: dict[int, tuple[str | None, str | None]] = {}
     for number, metadata in issues.items():
       number = _positive_integer(number, "issue metadata key")
-      relation = graph.issues.get(str(number))
+      relation = relations.get(str(number))
       if relation is None:
         raise IssueMetadataError(
           f"cannot store display metadata outside canonical ticket state: {number}"
         )
-      if metadata.title != relation.title:
+      if not isinstance(metadata.title, str) or not metadata.title:
         raise IssueMetadataError(
-          f"display metadata title differs from canonical title for issue {number}"
+          f"issue metadata title is empty for issue {number}"
         )
       _validate_display(metadata.state, metadata.link, number)
+      relations[str(number)] = IssueRelationships(
+        title=metadata.title,
+        depends_on=relation.depends_on,
+      )
       display[number] = (metadata.state, metadata.link)
-    record = self._write_display(display, writer)
-    return self.read() if record is not None else self.read()
+
+    graph = RelationshipGraph.from_json_value({
+      "schema_version": 3,
+      "issues": {
+        issue: relation.to_json_value()
+        for issue, relation in relations.items()
+      },
+    })
+    if graph != snapshot.graph:
+      store.replace(snapshot.revision, graph, writer)
+    self._write_display(display, writer)
+    return self.read()
 
   def _write_display(
     self,
