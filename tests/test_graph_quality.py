@@ -78,7 +78,15 @@ class GraphQualityTests(unittest.TestCase):
     self.assertTrue(
       all(low <= item.row <= high for item in route.hidden)
     )
-    self.assertLessEqual(layout.max_y, high)
+    edge_rows = {
+      point[1]
+      for point, contributions in layout.cells.items()
+      for contribution in contributions
+      if contribution.edge.key == ("B", "P")
+    }
+    self.assertTrue(edge_rows)
+    self.assertGreaterEqual(min(edge_rows), low)
+    self.assertLessEqual(max(edge_rows), high)
 
   def test_multi_overlap_avoids_adjacent_opposing_verticals(self):
     graph = make_graph(
