@@ -119,9 +119,20 @@ def _work_ref(root: Path, work: str) -> str:
 
   if local in refs:
     local_tip = git(root, "rev-parse", local).stdout.strip()
+    local_identity = _parent_identity(root, local, work)
     for ref in refs:
       if ref == local:
         continue
+      try:
+        remote_identity = _parent_identity(root, ref, work)
+      except ParentBranchError as error:
+        raise ParentBranchError(
+          f"work branch {work} has conflicting local/fetched refs"
+        ) from error
+      if remote_identity != local_identity:
+        raise ParentBranchError(
+          f"work branch {work} has conflicting local/fetched refs"
+        )
       tip = git(root, "rev-parse", ref).stdout.strip()
       forward = git(
         root,
