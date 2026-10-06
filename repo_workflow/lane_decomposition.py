@@ -82,20 +82,29 @@ def decompose_lanes(
   owners: dict[str, int] = {}
   lane_issues: list[list[str]] = []
   for issue in order:
-    predecessors = [
-      dependency
-      for dependency in graph.issue(issue).depends_on
-      if dependency in closure
+    predecessors = sorted(
+      (
+        dependency
+        for dependency in graph.issue(issue).depends_on
+        if dependency in closure
+      ),
+      key=int,
+    )
+    extendable = [
+      predecessor
+      for predecessor in predecessors
+      if lane_issues[owners[predecessor]][-1] == predecessor
     ]
-    if not predecessors:
+    if extendable:
+      # A lane is a path, so only its current tail may be extended.  At a
+      # convergence choose the smallest eligible predecessor deterministically.
+      chosen = min(extendable, key=int)
+      lane_index = owners[chosen]
+    else:
+      # Roots and additional branches begin new lanes.  This prevents one lane
+      # from containing siblings that do not form a direct path.
       lane_index = len(lane_issues)
       lane_issues.append([])
-    else:
-      # Convergence belongs to exactly one predecessor lane.  Pick the lane
-      # whose owned predecessor has the smallest issue ID; this is stable and
-      # independent of dict/input ordering.
-      chosen = min(predecessors, key=int)
-      lane_index = owners[chosen]
     owners[issue] = lane_index
     lane_issues[lane_index].append(issue)
 
