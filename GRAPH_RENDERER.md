@@ -76,9 +76,10 @@ Hard invariants:
 - the resulting group graph is a DAG.
 
 A relationship from source group S to target group T represents the complete
-relationship between the nodes represented by S and T.  A domain adapter may
-group nodes only when doing so is lossless.  It must not use grouping merely to
-make a graph prettier.
+cross-product relationship: every node in S connects to every node in T.  A
+domain adapter may group nodes only when that cross-product is the exact
+semantic relationship and grouping is therefore lossless.  It must not use
+grouping merely to make a graph prettier.
 
 ## 4. Direction
 
