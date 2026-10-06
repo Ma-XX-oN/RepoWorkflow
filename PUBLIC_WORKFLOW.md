@@ -416,7 +416,7 @@ synopsis:
 
 - exact durable/shared versus clone-local `.repoworkflow/` schema (#57);
 - multi-agent active-work representation (#57);
-- direct dependency and umbrella/grouping representation (#57);
+- synchronized ticket-state and direct-dependency representation (#57);
 - authorization representation/lifetime (#56/#57);
 - exact `done patch|minor|major` integration transitions (#56);
 - test-evidence fingerprint/invalidation rules (#16);
