@@ -5,16 +5,17 @@ from pathlib import Path
 from typing import Callable
 
 from .relationship_store import RelationshipStore
+from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import RepoInfoError, issue_info
 from .state_store import StateStoreError, WriterIdentity, durable_store
 
 
 METADATA_KEY = "issues/metadata"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class IssueMetadataError(RuntimeError):
-  """Raised when synchronized durable issue metadata is unavailable or invalid."""
+  """Raised when synchronized issue display metadata is invalid."""
 
 
 @dataclass(frozen=True)
@@ -32,23 +33,40 @@ class IssueMetadata:
 @dataclass(frozen=True)
 class IssueMetadataSnapshot:
   issues: dict[int, IssueMetadata]
-  revision: int
+  revision: int | None
 
 
 class IssueMetadataStore:
-  """Provider-neutral durable issue metadata snapshot and offline reader."""
+  """Display metadata layered over canonical title/dependency ticket state."""
 
   def __init__(self, repository_root: Path):
     self.root = Path(repository_root).resolve()
     self.records = durable_store(self.root)
 
   def read(self) -> IssueMetadataSnapshot:
+    graph = RelationshipStore(self.root).read().graph
     try:
       record = self.records.read(METADATA_KEY)
-      issues = _parse_snapshot(record["value"])
-    except (StateStoreError, ValueError) as error:
+      display = _parse_display_snapshot(record["value"])
+      revision = record["revision"]
+    except StateStoreError as error:
+      if "record is missing:" not in str(error):
+        raise IssueMetadataError(str(error)) from error
+      display = {}
+      revision = None
+    except ValueError as error:
       raise IssueMetadataError(str(error)) from error
-    return IssueMetadataSnapshot(issues=issues, revision=record["revision"])
+
+    issues = {
+      int(issue): IssueMetadata(
+        number=int(issue),
+        title=relation.title,
+        state=display.get(int(issue), (None, None))[0],
+        link=display.get(int(issue), (None, None))[1],
+      )
+      for issue, relation in graph.issues.items()
+    }
+    return IssueMetadataSnapshot(issues=issues, revision=revision)
 
   def issue(self, issue_number: int) -> IssueMetadata:
     number = _positive_integer(issue_number, "issue number")
@@ -65,7 +83,7 @@ class IssueMetadataStore:
     if not metadata.display_complete:
       raise IssueMetadataError(
         f"synchronized display metadata is incomplete for issue {metadata.number}; "
-        "refresh issue metadata before lane inspection"
+        "refresh issue metadata before requesting links/state"
       )
     return metadata
 
@@ -74,25 +92,55 @@ class IssueMetadataStore:
     issues: dict[int, IssueMetadata],
     writer: WriterIdentity,
   ) -> IssueMetadataSnapshot:
-    value = _snapshot_value(issues)
-    path = self.root / ".repoworkflow" / "state" / "issues" / "metadata.json"
-    try:
-      if path.exists():
-        current = self.records.read(METADATA_KEY)
-        record = self.records.replace(
-          METADATA_KEY,
-          current["revision"],
-          value,
-          writer,
+    graph = RelationshipStore(self.root).read().graph
+    display: dict[int, tuple[str | None, str | None]] = {}
+    for number, metadata in issues.items():
+      number = _positive_integer(number, "issue metadata key")
+      relation = graph.issues.get(str(number))
+      if relation is None:
+        raise IssueMetadataError(
+          f"cannot store display metadata outside canonical ticket state: {number}"
         )
-      else:
-        record = self.records.create(METADATA_KEY, value, writer)
+      if metadata.title != relation.title:
+        raise IssueMetadataError(
+          f"display metadata title differs from canonical title for issue {number}"
+        )
+      _validate_display(metadata.state, metadata.link, number)
+      display[number] = (metadata.state, metadata.link)
+    record = self._write_display(display, writer)
+    return self.read() if record is not None else self.read()
+
+  def _write_display(
+    self,
+    display: dict[int, tuple[str | None, str | None]],
+    writer: WriterIdentity,
+  ) -> dict:
+    value = {
+      "schema_version": SCHEMA_VERSION,
+      "issues": {
+        str(number): {
+          "number": number,
+          "state": display[number][0],
+          "link": display[number][1],
+        }
+        for number in sorted(display)
+      },
+    }
+    try:
+      try:
+        current = self.records.read(METADATA_KEY)
+      except StateStoreError as error:
+        if "record is missing:" not in str(error):
+          raise
+        return self.records.create(METADATA_KEY, value, writer)
+      return self.records.replace(
+        METADATA_KEY,
+        current["revision"],
+        value,
+        writer,
+      )
     except StateStoreError as error:
       raise IssueMetadataError(str(error)) from error
-    return IssueMetadataSnapshot(
-      issues=_parse_snapshot(record["value"]),
-      revision=record["revision"],
-    )
 
 
 def refresh_issue_metadata(
@@ -102,28 +150,25 @@ def refresh_issue_metadata(
   issue_numbers: tuple[int, ...] | None = None,
   provider_call: Callable[[int, Callable[[], dict]], dict] | None = None,
 ) -> IssueMetadataSnapshot:
-  """Refresh complete graph metadata or one declared issue scope atomically."""
+  """Refresh server-authoritative titles plus optional display state/link."""
   root = Path(repository_root).resolve()
-  graph = RelationshipStore(root).read().graph
+  relationship_store = RelationshipStore(root)
+  snapshot = relationship_store.read()
+  graph = snapshot.graph
 
   if issue_numbers is None:
     scope = tuple(int(issue_id) for issue_id in sorted(graph.issues, key=int))
-    base: dict[int, IssueMetadata] = {}
   else:
-    scope = tuple(sorted({_positive_integer(value, "issue number") for value in issue_numbers}))
+    scope = tuple(sorted({
+      _positive_integer(value, "issue number")
+      for value in issue_numbers
+    }))
     unknown = [number for number in scope if str(number) not in graph.issues]
     if unknown:
       raise IssueMetadataError(
-        "cannot refresh metadata outside canonical relationship graph: "
+        "cannot refresh metadata outside canonical ticket state: "
         + ", ".join(str(number) for number in unknown)
       )
-    try:
-      base = dict(IssueMetadataStore(root).read().issues)
-    except IssueMetadataError as error:
-      if "record is missing:" in str(error):
-        base = {}
-      else:
-        raise
 
   refreshed: dict[int, IssueMetadata] = {}
   try:
@@ -136,8 +181,61 @@ def refresh_issue_metadata(
       f"issue metadata refresh failed: {error}"
     ) from error
 
-  base.update(refreshed)
-  return IssueMetadataStore(root).write(base, writer)
+  current_metadata = IssueMetadataStore(root).read()
+  updated_relations = dict(graph.issues)
+  for number, metadata in refreshed.items():
+    current = updated_relations[str(number)]
+    updated_relations[str(number)] = IssueRelationships(
+      title=metadata.title,
+      depends_on=current.depends_on,
+    )
+
+  replacement = RelationshipGraph.from_json_value({
+    "schema_version": 3,
+    "issues": {
+      issue: relation.to_json_value()
+      for issue, relation in updated_relations.items()
+    },
+  })
+
+  changed_titles = replacement != graph
+  if changed_titles:
+    updated_relationships = relationship_store.replace(
+      snapshot.revision,
+      replacement,
+      writer,
+    )
+  else:
+    updated_relationships = snapshot
+
+  display = {
+    number: (metadata.state, metadata.link)
+    for number, metadata in current_metadata.issues.items()
+    if metadata.display_complete
+  }
+  display.update({
+    number: (metadata.state, metadata.link)
+    for number, metadata in refreshed.items()
+  })
+
+  try:
+    IssueMetadataStore(root)._write_display(display, writer)
+  except Exception:
+    if changed_titles:
+      try:
+        relationship_store.replace(
+          updated_relationships.revision,
+          graph,
+          writer,
+        )
+      except Exception as rollback:
+        raise IssueMetadataError(
+          "display metadata refresh failed and canonical title rollback failed: "
+          f"{rollback}"
+        )
+    raise
+
+  return IssueMetadataStore(root).read()
 
 
 def _metadata_from_provider(number: int, value: dict) -> IssueMetadata:
@@ -150,92 +248,51 @@ def _metadata_from_provider(number: int, value: dict) -> IssueMetadata:
   if not isinstance(title, str) or not title:
     raise ValueError(f"provider issue {number} has empty title")
   state = value.get("state")
-  if state not in {"open", "closed"}:
-    raise ValueError(f"provider issue {number} has invalid state")
   link = value.get("link")
-  if not isinstance(link, str) or not link:
-    raise ValueError(f"provider issue {number} has empty link")
+  _validate_display(state, link, number)
   return IssueMetadata(number=number, title=title, state=state, link=link)
 
 
-def _parse_snapshot(value: dict) -> dict[int, IssueMetadata]:
-  if not isinstance(value, dict) or set(value) != {"schema_version", "issues"}:
-    raise ValueError("issue metadata snapshot has unsupported fields")
-  version = value["schema_version"]
-  if version not in {1, SCHEMA_VERSION}:
+def _parse_display_snapshot(
+  value: dict,
+) -> dict[int, tuple[str | None, str | None]]:
+  if not isinstance(value, dict):
+    raise ValueError("issue metadata snapshot must be an object")
+  version = value.get("schema_version")
+  if version not in {1, 2, SCHEMA_VERSION}:
     raise ValueError("unsupported issue metadata schema version")
-  raw_issues = value["issues"]
+  raw_issues = value.get("issues")
   if not isinstance(raw_issues, dict):
     raise ValueError("issue metadata issues must be an object")
 
-  issues: dict[int, IssueMetadata] = {}
+  result: dict[int, tuple[str | None, str | None]] = {}
   for raw_key, raw in raw_issues.items():
     if not isinstance(raw_key, str) or not raw_key.isdigit():
       raise ValueError("issue metadata key must be a positive decimal integer")
     number = _positive_integer(int(raw_key), "issue metadata key")
-    if raw_key != str(number):
-      raise ValueError("issue metadata key must be canonical decimal text")
-    required = {"number", "title"} if version == 1 else {"number", "title", "state", "link"}
-    if not isinstance(raw, dict) or set(raw) != required:
-      raise ValueError(f"issue metadata record {number} has unsupported fields")
-    returned = _positive_integer(raw["number"], "issue metadata number")
-    if returned != number:
-      raise ValueError(f"issue metadata record {number} has mismatched number")
-    title = raw["title"]
-    if not isinstance(title, str) or not title:
-      raise ValueError(f"issue metadata record {number} has empty title")
+    if raw_key != str(number) or not isinstance(raw, dict):
+      raise ValueError(f"issue metadata record {number} is invalid")
     if version == 1:
-      issues[number] = IssueMetadata(number=number, title=title)
+      result[number] = (None, None)
       continue
-    state = raw["state"]
-    link = raw["link"]
-    if state is None and link is None:
-      issues[number] = IssueMetadata(
-        number=number,
-        title=title,
-      )
-      continue
-    if state not in {"open", "closed"}:
-      raise ValueError(f"issue metadata record {number} has invalid state")
-    if not isinstance(link, str) or not link:
-      raise ValueError(f"issue metadata record {number} has empty link")
-    issues[number] = IssueMetadata(
-      number=number,
-      title=title,
-      state=state,
-      link=link,
-    )
-  return issues
+    state = raw.get("state")
+    link = raw.get("link")
+    _validate_display(state, link, number)
+    result[number] = (state, link)
+  return result
 
 
-def _snapshot_value(issues: dict[int, IssueMetadata]) -> dict:
-  normalized: dict[int, IssueMetadata] = {}
-  for key, metadata in issues.items():
-    number = _positive_integer(key, "issue metadata key")
-    if not isinstance(metadata, IssueMetadata) or metadata.number != number:
-      raise IssueMetadataError(f"invalid issue metadata record for issue {number}")
-    if not isinstance(metadata.title, str) or not metadata.title:
-      raise IssueMetadataError(f"issue metadata title is empty for issue {number}")
-    if metadata.state is None and metadata.link is None:
-      normalized[number] = metadata
-      continue
-    if metadata.state not in {"open", "closed"}:
-      raise IssueMetadataError(f"issue metadata state is invalid for issue {number}")
-    if not isinstance(metadata.link, str) or not metadata.link:
-      raise IssueMetadataError(f"issue metadata link is invalid for issue {number}")
-    normalized[number] = metadata
-  return {
-    "schema_version": SCHEMA_VERSION,
-    "issues": {
-      str(number): {
-        "number": number,
-        "title": normalized[number].title,
-        "state": normalized[number].state,
-        "link": normalized[number].link,
-      }
-      for number in sorted(normalized)
-    },
-  }
+def _validate_display(
+  state: str | None,
+  link: str | None,
+  number: int,
+) -> None:
+  if state is None and link is None:
+    return
+  if state not in {"open", "closed"}:
+    raise ValueError(f"provider issue {number} has invalid state")
+  if not isinstance(link, str) or not link:
+    raise ValueError(f"provider issue {number} has empty link")
 
 
 def _positive_integer(value, label: str) -> int:
