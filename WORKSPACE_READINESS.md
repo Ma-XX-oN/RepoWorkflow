@@ -47,8 +47,7 @@ For the same canonical graph and issue state, blocker output is deterministic.
 
 Two issues with no dependency path between them are independently ready.
 
-A shared prerequisite attached to multiple umbrellas blocks each consumer only
-when an explicit direct dependency edge from that consumer requires it.
+A shared prerequisite blocks a consumer only when an explicit direct dependency edge from that consumer requires it.
 
 ## 5. Direct edges are authoritative
 
