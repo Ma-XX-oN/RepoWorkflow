@@ -180,7 +180,7 @@ class LaneRenderTests(unittest.TestCase):
     rendered = "\n".join(render_lanes(self.root))
     self.assertEqual(rendered.count("A.1"), 1)
     self.assertIn("*A.2", rendered)
-    self.assertIn("*A.3", rendered)
+    self.assertIn("*B.3", rendered)
 
   def test_long_dependency_is_diagnostic_with_hidden_column(self):
     graph_store = RelationshipStore(self.root)
