@@ -143,7 +143,14 @@ def build_layout(graph: Graph) -> LayoutPlan:
   ordered_routes = tuple(
     sorted(routes, key=lambda route: (route.source, route.target))
   )
-  validate_routes(validated, placements, ordered_routes)
+  validate_routes(
+    validated,
+    placements,
+    columns,
+    column_start,
+    cells,
+    ordered_routes,
+  )
 
   max_y = max(
     [max_node_row]
