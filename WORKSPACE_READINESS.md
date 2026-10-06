@@ -1,77 +1,75 @@
 # Workspace Readiness Projection
 
 Status: authoritative semantic contract for deriving workspace eligibility from
-the RWF issue graph.
-
-This document defines the projection consumed by `rwf workspace ready` and by
-workspace-creation eligibility checks.  It defines semantics only; storage and
-command implementation are separate concerns.
+the RWF ticket dependency graph.
 
 ## 1. Inputs and authority
 
 Readiness is derived from canonical direct ticket dependencies and current
-durable issue state.
+durable issue lifecycle state.
 
 For one candidate issue, the projection reads:
 
-- the candidate's lifecycle/terminal state;
+- the candidate lifecycle state;
 - its direct dependencies;
-- the current state of each direct dependency.
+- the current lifecycle state of each direct dependency.
 
-Ticket title prefixes, Git branch parent/history, workspace existence, and
-local claim state are not dependency edges.
+Ticket title prefixes, ticket-body grouping, Git branch parent/history,
+workspace existence, and local claim state are not dependency edges.
 
 The projection consumes normalized RWF ticket/state interfaces. It does not
 parse ticket prose or infer relationships from Git history.
 
 ## 2. Ready
 
-An open issue is ready when every direct leaf dependency is resolved.
+An issue is ready when its lifecycle permits entry and every direct dependency
+is satisfied.
 
-An issue with no direct leaf dependencies is therefore ready.
+An issue with no direct dependencies is therefore ready when its lifecycle
+permits entry.
 
-Resolved means the canonical durable issue state says the dependency has
-reached the workflow condition that satisfies its dependency edge.  The
-projection does not substitute local workspace state for that durable fact.
+Dependency satisfaction comes from canonical durable lifecycle state. Local
+workspace state cannot substitute for that durable fact.
 
 ## 3. Blocked
 
-An open issue is blocked when at least one direct leaf dependency is unresolved.
+An issue is blocked when its lifecycle permits entry but at least one direct
+dependency is unresolved.
 
-The result must identify the unresolved direct blockers.  It must not replace
-them with transitive ancestors or an umbrella that merely contains them.
+The result identifies the exact unresolved direct dependencies. It does not
+replace them with transitive prerequisites or descriptive container tickets.
 
-For the same canonical graph and issue state, blocker output is deterministic.
+For the same canonical ticket graph and lifecycle state, blocker output is
+deterministic.
 
-## 4. Independent siblings
+## 4. Independent work
 
-Two issues with no dependency path between them are independently ready.
+Two issues with no dependency path between them are independently ready when
+their own direct dependencies are satisfied.
 
-A shared prerequisite blocks a consumer only when an explicit direct dependency edge from that consumer requires it.
+A shared prerequisite affects a consumer only through an explicit direct
+dependency edge from that consumer.
 
 ## 5. Direct edges are authoritative
 
 Scheduling uses direct dependency edges.
 
-If A depends on B and B depends on C, A's direct blocker is B.  C explains why
+If A depends on B and B depends on C, A's direct blocker is B. C explains why
 B is blocked but does not become an inferred direct A -> C edge.
 
-This preserves the graph as authored and prevents the readiness layer from
-silently changing decomposition semantics.
+The readiness layer never changes decomposition semantics by manufacturing
+additional dependencies.
 
-## 6. Non-dependency relationships
+## 6. Non-dependency facts
 
 The following never block readiness by themselves:
 
-- child ownership by an umbrella;
-- shared umbrella attachment;
-- branch base;
-- integration target;
-- branch ancestry;
-- another ready sibling having an active workspace.
+- descriptive ticket title prefixes;
+- ticket-body grouping prose;
+- Git branch parent or ancestry;
+- another ready issue having an active workspace.
 
-These relationships remain queryable for their own purposes but are not
-coerced into dependency ordering.
+These facts are not coerced into dependency ordering.
 
 ## 7. Workspace creation
 
@@ -80,39 +78,34 @@ coerced into dependency ordering.
 A normal start-capable workspace creation path uses this same projection before
 starting issue work.
 
-Provision-only behaviour is separate.  If a command explicitly supports
-creating local workspace context before an issue is ready, it must not present
-that issue as ready and must not perform canonical issue-start semantics.
+If a command explicitly supports provisioning local context before an issue is
+ready, it must not present that issue as ready and must not perform canonical
+issue-start semantics.
 
-## 8. Terminal candidates
+## 8. Lifecycle classification
 
-A terminal issue is not returned as ready for new work.
+Lifecycle classification precedes dependency classification:
 
-Its terminal state can satisfy dependency edges from other issues according to
-the canonical durable workflow-state contract.
-
-Readiness therefore distinguishes durable lifecycle before dependency
-eligibility:
-
-- ready: lifecycle is `unstarted` or `aborted`, and all direct dependencies
-  are resolved;
-- blocked: lifecycle is `unstarted` or `aborted`, with one or more unresolved
-  direct dependencies;
-- active: lifecycle is `active`; work is already in progress and is not a new
-  allocation candidate;
-- accepted: lifecycle is `accepted`; task acceptance is complete but durable
-  completion/integration has not occurred, so it is not a new allocation
+- `ready`: lifecycle is `unstarted` or `aborted`, and all direct
+  dependencies are satisfied;
+- `blocked`: lifecycle is `unstarted` or `aborted`, with one or more
+  unresolved direct dependencies;
+- `active`: work is already in progress and is not a new allocation
   candidate;
-- terminal: lifecycle is `completed`; it is not eligible for new work and its
-  dependency edge is satisfied.
+- `accepted`: task acceptance is complete but durable completion/integration
+  has not occurred, so it is not a new allocation candidate;
+- `terminal`: lifecycle is `completed`; it is not eligible for new work and
+  its dependency edge is satisfied.
 
-`aborted` is eligible for re-entry when its direct dependencies are resolved.
-The durable lifecycle state does not recreate or imply a local worker claim.
+An aborted issue is eligible for re-entry when its direct dependencies are
+satisfied.
+
+A local worker claim is not reconstructed from durable lifecycle state.
 
 ## 9. Determinism and diagnostics
 
-For identical canonical relationship and issue-state inputs, the projection
-returns identical classifications and blocker identities.
+For identical canonical ticket and lifecycle inputs, the projection returns
+identical classifications and blocker identities.
 
 A non-ready result must be actionable:
 
@@ -124,11 +117,10 @@ A non-ready result must be actionable:
 - unavailable canonical state is an explicit error, not an assumed ready
   result.
 
-Lifecycle classification precedes dependency classification.  An `active`,
-`accepted`, or `completed` issue is not reported as dependency-blocked merely
-because its graph still contains an unresolved edge.  Such a contradiction is a
-workflow-state diagnostic for the owning transition rather than an invitation
-to allocate the issue again.
+An active, accepted, or completed issue is not reported as dependency-blocked
+merely because contradictory dependency state exists. Such a contradiction is
+a workflow-state diagnostic rather than an invitation to allocate the issue
+again.
 
 The projection fails closed when required authoritative state cannot be read.
 
@@ -136,20 +128,17 @@ The projection fails closed when required authoritative state cannot be read.
 
 Implementation must prove at least:
 
-1. an open leaf with no dependencies is ready;
-2. an open leaf with one unresolved direct dependency is blocked;
-3. resolving that dependency makes the leaf ready;
-4. independent siblings under one umbrella can both be ready;
-5. shared umbrella attachment alone creates no blocker;
-6. branch base and Git ancestry create no blocker;
+1. an unstarted issue with no dependencies is ready;
+2. one unresolved direct dependency makes it blocked;
+3. resolving that dependency makes it ready;
+4. independent issues with no dependency path can both be ready;
+5. descriptive title/grouping information alone creates no blocker;
+6. Git branch parent and ancestry create no blocker;
 7. transitive dependencies are not rewritten as direct edges;
-8. blocker output contains the exact unresolved direct dependencies;
-9. `active` and `accepted` issues are not returned as ready;
-10. an `aborted` issue with resolved dependencies is eligible for re-entry;
-11. a `completed` issue is terminal, not ready, and satisfies dependency
-    edges;
-12. lifecycle classification is not replaced by clone-local claim state;
-13. missing authoritative relationship/state input fails explicitly.
+8. blocker output contains exact unresolved direct dependencies;
+9. active and accepted issues are not returned as ready;
+10. an aborted issue with satisfied dependencies is eligible for re-entry;
+11. a completed issue is terminal and satisfies dependency edges;
+12. unavailable or malformed canonical state fails closed.
 
-The implementation owned by #144 must preserve this contract rather than
-embedding provider-specific scheduling rules.
+TEST_ADEQUACY.md applies.
