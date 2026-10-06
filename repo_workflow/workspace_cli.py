@@ -127,7 +127,8 @@ def handle_workspace(root: Path, words: list[str]) -> int:
         worktree_path=path,
       )
     except Exception:
-      backend.retire(workspace_id, path, branch, delete_branch=True)
+      backend.retire(workspace_id, path, branch, delete_branch=False)
+      git(root, "branch", "-D", branch, check=False)
       raise
     _print(_combined(store, workspace["workspace_id"]))
     return 0
