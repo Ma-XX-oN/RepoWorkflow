@@ -8,24 +8,25 @@ When a work graph is divided into named parallel lanes, lane names use uppercase
 letters and tree/list displays qualify each issue with its lane letter:
 
 ```text
-A.56
+A56
 ```
 
-means **Lane A, issue #56**.
+means **Lane A, issue #56**.  A descriptive ticket type may be prefixed,
+for example `E:A56` for an Epic.
 
 For example:
 
 ```text
-A.227 → A.228 ─┐
+A227 → A228 ─┐
                ├→ #230
-B.229 ─────────┘
+B229 ─────────┘
 ```
 
 The notation is presentation/coordination syntax only:
 
 - `A` is the published lane identifier;
 - `56` is GitHub issue #56;
-- `A.56` does not create a new issue identifier or dependency relationship;
+- `A56` does not create a new issue identifier or dependency relationship;
 - dependency storage and issue references continue to use issue number `#56`;
 - the same issue must not be presented as belonging to two concurrent published
   lanes unless the lane model explicitly supports shared membership;
