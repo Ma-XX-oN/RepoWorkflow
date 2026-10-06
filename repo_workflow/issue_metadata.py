@@ -159,6 +159,36 @@ class IssueMetadataStore:
       raise IssueMetadataError(str(error)) from error
 
 
+
+def cache_issue_display_metadata(
+  repository_root: Path,
+  values: dict[int, dict],
+  writer: WriterIdentity,
+) -> IssueMetadataSnapshot:
+  """Publish already-fetched provider display values without another read."""
+  root = Path(repository_root).resolve()
+  store = IssueMetadataStore(root)
+  current = store.read()
+  display = {
+    number: (metadata.state, metadata.link)
+    for number, metadata in current.issues.items()
+    if metadata.display_complete
+  }
+  for number, value in values.items():
+    metadata = _metadata_from_provider(number, value)
+    canonical = current.issues.get(number)
+    if canonical is None:
+      raise IssueMetadataError(
+        f"cannot cache display metadata outside canonical ticket state: {number}"
+      )
+    if canonical.title != metadata.title:
+      raise IssueMetadataError(
+        f"provider title differs from canonical ticket title for issue {number}"
+      )
+    display[number] = (metadata.state, metadata.link)
+  store._write_display(display, writer)
+  return store.read()
+
 def refresh_issue_metadata(
   repository_root: Path,
   config: dict,
