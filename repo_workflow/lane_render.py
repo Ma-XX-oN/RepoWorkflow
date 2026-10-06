@@ -5,7 +5,10 @@ from pathlib import Path
 from .graph_render import GraphLayoutError, render_graph
 from .graph_render_model import GraphInputError
 from .issue_metadata import IssueMetadataStore
-from .lane_graph_adapter import LaneGraphProjectionError, project_lane_graph
+from .lane_graph_adapter import (
+  LaneGraphProjectionError,
+  project_lane_graph,
+)
 from .lane_selection import LaneSelectionStore
 from .relationship_store import RelationshipStore
 from .state_store import StateStoreError, WriterIdentity, clone_local_store
@@ -59,7 +62,7 @@ def render_lanes(
 ) -> tuple[str, ...]:
   if links or titles:
     raise LaneRenderError(
-      "lane graph does not include titles or links; use rwf lanes list"
+      "graph view does not render titles or links; use lanes list"
     )
 
   selection = LaneSelectionStore(root).read().value
@@ -69,24 +72,20 @@ def render_lanes(
 
   visible = set(selection.closure)
   if lane is not None:
-    lane = lane.upper()
-    if lane not in set(selection.assignment.values()):
-      raise LaneRenderError(f"unknown selected lane: {lane}")
+    requested = lane.upper()
+    if requested not in set(selection.assignment.values()):
+      raise LaneRenderError(f"unknown selected lane: {requested}")
     visible = {
       issue
       for issue in selection.closure
-      if selection.assignment[issue] == lane
+      if selection.assignment[issue] == requested
     }
 
   metadata = _metadata(root, tuple(sorted(visible, key=int)))
   styler = TerminalStyler(color_setting(root))
-  lane_names = {
-    selection.assignment[issue]
-    for issue in visible
-  }
   lane_colours = {
     lane_name: styler.lane_colour(lane_name)
-    for lane_name in lane_names
+    for lane_name in set(selection.assignment.values())
   }
 
   try:
@@ -104,30 +103,23 @@ def render_lanes(
     raise LaneRenderError(str(error)) from error
 
   if diagnostics is not None:
-    issue_for_text = {
-      text: issue
+    issue_by_text = {
+      text: int(issue)
       for issue, text in projection.issue_text.items()
     }
     diagnostics.routed_edges = [
-      _route_diagnostic(route, issue_for_text)
+      _diagnostic(route.diagnostic(), issue_by_text)
       for route in result.routes
     ]
 
   return result.lines
 
 
-def _route_diagnostic(route, issue_for_text: dict[str, str]) -> dict:
-  value = {
-    "source": int(issue_for_text[route.source]),
-    "target": int(issue_for_text[route.target]),
-    "kind": route.kind,
-  }
-  if route.hidden:
-    value["hidden_columns"] = [
-      continuation.column
-      for continuation in route.hidden
-    ]
-  return value
+def _diagnostic(value: dict, issue_by_text: dict[str, int]) -> dict:
+  result = dict(value)
+  result["source"] = issue_by_text[value["source"]]
+  result["target"] = issue_by_text[value["target"]]
+  return result
 
 
 def _metadata(root: Path, issues: tuple[str, ...]) -> dict[str, dict]:
