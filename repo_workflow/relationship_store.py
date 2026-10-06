@@ -1,23 +1,35 @@
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
+import hashlib
+import io
+import json
+import os
 from pathlib import Path
+import tempfile
+import time
 
 from .relationships import (
   IssueRelationships,
   RelationshipGraph,
   RelationshipSchemaError,
-  migrate_legacy_graph,
+  project_legacy_graph,
 )
-from .parent_branch import ParentBranchError, recover_parent_branch
-from .state_store import StateStoreError, WriterIdentity, durable_store
+from .state_store import WriterIdentity
 
 
-GRAPH_KEY = "relationships/graph"
+TICKET_STATE_PATH = Path(".repoworkflow") / "tickets.csv"
+LEGACY_GRAPH_PATH = (
+  Path(".repoworkflow") / "state" / "relationships" / "graph.json"
+)
+LEGACY_METADATA_PATH = (
+  Path(".repoworkflow") / "state" / "issues" / "metadata.json"
+)
 
 
 class RelationshipStoreError(RuntimeError):
-  """Raised when canonical durable relationship state is invalid/conflicted."""
+  """Raised when canonical synchronized ticket state is invalid/conflicted."""
 
 
 @dataclass(frozen=True)
@@ -27,49 +39,33 @@ class RelationshipSnapshot:
 
 
 class RelationshipStore:
-  """Canonical durable direct relationship graph store and normalized reader."""
+  """Durable synchronized ticket store backed by one canonical CSV file."""
 
   def __init__(self, repository_root: Path):
     self.root = Path(repository_root).resolve()
-    self.records = durable_store(self.root)
+    self.path = self.root / TICKET_STATE_PATH
 
   def read(self) -> RelationshipSnapshot:
-    try:
-      record = self.records.read(GRAPH_KEY)
-      graph = RelationshipGraph.from_json_value(record["value"])
-    except (StateStoreError, RelationshipSchemaError) as error:
-      raise RelationshipStoreError(str(error)) from error
-    return RelationshipSnapshot(graph=graph, revision=record["revision"])
+    if self.path.exists():
+      try:
+        text = self.path.read_text(encoding="utf-8")
+        graph = _parse_csv(text)
+      except (OSError, UnicodeError, RelationshipSchemaError) as error:
+        raise RelationshipStoreError(str(error)) from error
+      return RelationshipSnapshot(graph, _revision(text))
+
+    return self._read_legacy()
 
   def migrate_legacy(
     self,
     writer: WriterIdentity,
     work_branches: dict[str, str] | None = None,
   ) -> RelationshipSnapshot:
-    """Atomically replace one legacy v1 graph with canonical v2 parent state."""
-    try:
-      record = self.records.read(GRAPH_KEY)
-      if record["value"].get("schema_version") != 1:
-        return self.read()
-      mapping = {} if work_branches is None else work_branches
-      def recover(issue: str) -> str:
-        try:
-          branch = mapping[issue]
-        except KeyError as error:
-          raise RelationshipStoreError(
-            f"legacy issue {issue} requires explicit work-branch identity"
-          ) from error
-        return recover_parent_branch(self.root, branch)
-      graph = migrate_legacy_graph(record["value"], recover)
-      replaced = self.records.replace(
-        GRAPH_KEY,
-        record["revision"],
-        graph.to_json_value(),
-        writer,
-      )
-    except (StateStoreError, RelationshipSchemaError, ParentBranchError) as error:
-      raise RelationshipStoreError(str(error)) from error
-    return RelationshipSnapshot(graph=graph, revision=replaced["revision"])
+    del work_branches
+    if self.path.exists():
+      return self.read()
+    snapshot = self._read_legacy()
+    return self._write_new(snapshot.graph, writer)
 
   def create(
     self,
@@ -77,15 +73,9 @@ class RelationshipStore:
     writer: WriterIdentity,
   ) -> RelationshipSnapshot:
     graph = _validated_graph(graph)
-    try:
-      record = self.records.create(
-        GRAPH_KEY,
-        graph.to_json_value(),
-        writer,
-      )
-    except StateStoreError as error:
-      raise RelationshipStoreError(str(error)) from error
-    return RelationshipSnapshot(graph=graph, revision=record["revision"])
+    if self.path.exists() or (self.root / LEGACY_GRAPH_PATH).exists():
+      raise RelationshipStoreError("canonical ticket state already exists")
+    return self._write_new(graph, writer)
 
   def replace(
     self,
@@ -94,16 +84,14 @@ class RelationshipStore:
     writer: WriterIdentity,
   ) -> RelationshipSnapshot:
     graph = _validated_graph(graph)
-    try:
-      record = self.records.replace(
-        GRAPH_KEY,
-        expected_revision,
-        graph.to_json_value(),
-        writer,
+    _writer(writer)
+    current = self.read()
+    if current.revision != expected_revision:
+      raise RelationshipStoreError(
+        "stale ticket-state revision: "
+        f"expected {expected_revision}, current {current.revision}"
       )
-    except StateStoreError as error:
-      raise RelationshipStoreError(str(error)) from error
-    return RelationshipSnapshot(graph=graph, revision=record["revision"])
+    return self._write(graph, expected_revision)
 
   def issue(self, issue: str | int) -> IssueRelationships:
     try:
@@ -114,6 +102,112 @@ class RelationshipStore:
   def direct_dependencies(self, issue: str | int) -> tuple[str, ...]:
     return self.issue(issue).depends_on
 
+  def _write_new(
+    self,
+    graph: RelationshipGraph,
+    writer: WriterIdentity,
+  ) -> RelationshipSnapshot:
+    _writer(writer)
+    lock = _lock_path(self.path)
+    _acquire_lock(lock)
+    try:
+      if self.path.exists():
+        raise RelationshipStoreError("canonical ticket state already exists")
+      text = _render_csv(graph)
+      _write_text_atomic(self.path, text)
+      return RelationshipSnapshot(graph, _revision(text))
+    finally:
+      _release_lock(lock)
+
+  def _write(
+    self,
+    graph: RelationshipGraph,
+    expected_revision: int,
+  ) -> RelationshipSnapshot:
+    lock = _lock_path(self.path)
+    _acquire_lock(lock)
+    try:
+      if self.path.exists():
+        current_text = self.path.read_text(encoding="utf-8")
+        current_revision = _revision(current_text)
+      else:
+        current_revision = self._read_legacy().revision
+      if current_revision != expected_revision:
+        raise RelationshipStoreError(
+          "stale ticket-state revision: "
+          f"expected {expected_revision}, current {current_revision}"
+        )
+      text = _render_csv(graph)
+      _write_text_atomic(self.path, text)
+      return RelationshipSnapshot(graph, _revision(text))
+    finally:
+      _release_lock(lock)
+
+  def _read_legacy(self) -> RelationshipSnapshot:
+    graph_path = self.root / LEGACY_GRAPH_PATH
+    try:
+      graph_record = json.loads(graph_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+      raise RelationshipStoreError(
+        f"record is missing: {self.path}"
+      ) from error
+    except (json.JSONDecodeError, OSError) as error:
+      raise RelationshipStoreError(
+        f"legacy relationship state is invalid: {graph_path}"
+      ) from error
+
+    try:
+      if not isinstance(graph_record, dict):
+        raise ValueError("legacy relationship record must be an object")
+      value = graph_record["value"]
+      revision = graph_record["revision"]
+      if isinstance(revision, bool) or not isinstance(revision, int):
+        raise ValueError("legacy relationship revision is invalid")
+      titles = _legacy_titles(self.root)
+      graph = project_legacy_graph(value, titles)
+    except (KeyError, ValueError, RelationshipSchemaError) as error:
+      raise RelationshipStoreError(str(error)) from error
+    return RelationshipSnapshot(graph, revision)
+
+
+def _legacy_titles(root: Path) -> dict[str, str]:
+  path = root / LEGACY_METADATA_PATH
+  try:
+    record = json.loads(path.read_text(encoding="utf-8"))
+  except FileNotFoundError as error:
+    raise RelationshipStoreError(
+      "legacy synchronized titles are missing; refresh ticket metadata "
+      "before migrating canonical ticket state"
+    ) from error
+  except (json.JSONDecodeError, OSError) as error:
+    raise RelationshipStoreError(
+      f"legacy issue metadata is invalid: {path}"
+    ) from error
+
+  try:
+    value = record["value"]
+    raw = value["issues"]
+  except (KeyError, TypeError) as error:
+    raise RelationshipStoreError(
+      "legacy issue metadata has an invalid shape"
+    ) from error
+  if not isinstance(raw, dict):
+    raise RelationshipStoreError("legacy issue metadata issues must be an object")
+
+  titles: dict[str, str] = {}
+  for key, item in raw.items():
+    if not isinstance(item, dict):
+      raise RelationshipStoreError(
+        f"legacy issue metadata record {key} is invalid"
+      )
+    title = item.get("title")
+    if not isinstance(title, str) or not title:
+      raise RelationshipStoreError(
+        f"legacy issue metadata title is missing for issue {key}"
+      )
+    titles[str(int(key))] = title
+  return titles
+
 
 def _validated_graph(graph: RelationshipGraph) -> RelationshipGraph:
   if not isinstance(graph, RelationshipGraph):
@@ -122,3 +216,124 @@ def _validated_graph(graph: RelationshipGraph) -> RelationshipGraph:
     return RelationshipGraph.from_json_value(graph.to_json_value())
   except RelationshipSchemaError as error:
     raise RelationshipStoreError(str(error)) from error
+
+
+def _render_csv(graph: RelationshipGraph) -> str:
+  graph = _validated_graph(graph)
+  output = io.StringIO(newline="")
+  writer = csv.writer(output, lineterminator="\n")
+  writer.writerow(("issue", "title", "dependencies"))
+  for issue in sorted(graph.issues, key=int):
+    relation = graph.issues[issue]
+    writer.writerow((
+      issue,
+      relation.title,
+      ";".join(relation.depends_on),
+    ))
+  return output.getvalue()
+
+
+def _parse_csv(text: str) -> RelationshipGraph:
+  try:
+    rows = list(csv.reader(io.StringIO(text, newline="")))
+  except csv.Error as error:
+    raise RelationshipSchemaError(f"invalid ticket CSV: {error}") from error
+  if not rows or rows[0] != ["issue", "title", "dependencies"]:
+    raise RelationshipSchemaError(
+      "ticket CSV header must be issue,title,dependencies"
+    )
+
+  issues: dict[str, IssueRelationships] = {}
+  prior = 0
+  for index, row in enumerate(rows[1:], start=2):
+    if len(row) != 3:
+      raise RelationshipSchemaError(
+        f"ticket CSV row {index} must contain exactly three fields"
+      )
+    raw_issue, title, raw_dependencies = row
+    if not raw_issue.isdigit() or int(raw_issue) < 1:
+      raise RelationshipSchemaError(
+        f"ticket CSV row {index} has invalid issue number"
+      )
+    issue = str(int(raw_issue))
+    if issue != raw_issue or int(issue) <= prior:
+      raise RelationshipSchemaError(
+        "ticket CSV issue numbers must be unique and strictly increasing"
+      )
+    prior = int(issue)
+    if not title:
+      raise RelationshipSchemaError(
+        f"ticket CSV issue {issue} has an empty title"
+      )
+    dependencies = (
+      []
+      if raw_dependencies == ""
+      else raw_dependencies.split(";")
+    )
+    issues[issue] = IssueRelationships(
+      title=title,
+      depends_on=tuple(dependencies),
+    )
+
+  return RelationshipGraph.from_json_value({
+    "schema_version": 3,
+    "issues": {
+      issue: relation.to_json_value()
+      for issue, relation in issues.items()
+    },
+  })
+
+
+def _revision(text: str) -> int:
+  digest = hashlib.sha256(text.encode("utf-8")).digest()
+  return int.from_bytes(digest[:8], "big")
+
+
+def _writer(writer: WriterIdentity) -> None:
+  if not isinstance(writer, WriterIdentity):
+    raise RelationshipStoreError("writer must be a WriterIdentity")
+
+
+def _lock_path(path: Path) -> Path:
+  return path.with_name(f".{path.name}.lock")
+
+
+def _acquire_lock(path: Path, timeout: float = 5.0) -> None:
+  path.parent.mkdir(parents=True, exist_ok=True)
+  deadline = time.monotonic() + timeout
+  while True:
+    try:
+      path.mkdir()
+      return
+    except FileExistsError:
+      if time.monotonic() >= deadline:
+        raise RelationshipStoreError(f"ticket-state lock is busy: {path}")
+      time.sleep(0.01)
+
+
+def _release_lock(path: Path) -> None:
+  try:
+    path.rmdir()
+  except FileNotFoundError:
+    pass
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+  path.parent.mkdir(parents=True, exist_ok=True)
+  descriptor, temporary = tempfile.mkstemp(
+    prefix=f".{path.name}.",
+    suffix=".tmp",
+    dir=path.parent,
+  )
+  temporary_path = Path(temporary)
+  try:
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
+      handle.write(text)
+      handle.flush()
+      os.fsync(handle.fileno())
+    os.replace(temporary_path, path)
+  finally:
+    try:
+      temporary_path.unlink()
+    except FileNotFoundError:
+      pass
