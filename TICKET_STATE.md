@@ -165,7 +165,27 @@ temporary paths. The merge implementation itself is repository-portable; the
 Git configuration is clone-local because Git does not load merge-driver
 commands from committed attributes.
 
-## 9. Verification
+## 9. Git merge-driver activation
+
+The repository marks the synchronized file with:
+
+```text
+/.repoworkflow/tickets.csv merge=rwf-tickets
+```
+
+Normal `rwf` use configures the repository-local Git driver named
+`rwf-tickets` to invoke the current RepoWorkflow engine's
+`scripts/merge-ticket-state.py` with Git's base/ours/theirs files.
+
+The driver command is clone-local configuration. It is not committed with a
+machine-specific Python path.
+
+A repository using the synchronized ticket file must configure the driver
+before relying on automatic semantic merges. RepoWorkflow does this during
+normal public command execution; repository initialization should establish the
+same configuration before handing the repository to users/agents.
+
+## 10. Verification
 
 TEST_ADEQUACY.md applies. Verification must independently cover parsing,
 canonical serialization, migration, restart/readback, synchronization
