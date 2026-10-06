@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - issue-346-lane-certification-v3
+      - issue-382-constrained-graph-renderer
     paths:
       - .repoworkflow/migrations/run-lane-cache-certification-v2
       - .github/workflows/lane-cache-routing-certification.yml
@@ -94,8 +95,8 @@ jobs:
             raise SystemExit("local view unexpectedly contacted provider")
           if "DIRECT EDGES" not in local_view.stdout or "ROUTES" not in local_view.stdout:
             raise SystemExit("debug view omitted semantic/route diagnostics")
-          if "145 -> 216 bypass[" not in local_view.stdout:
-            raise SystemExit("direct #145 -> #216 bypass route not exposed")
+          if "145 -> 216 long" not in local_view.stdout:
+            raise SystemExit("direct #145 -> #216 long route not exposed")
           if "145 -> 185" not in local_view.stdout or "185 -> 216" not in local_view.stdout:
             raise SystemExit("parallel primary path around #145 -> #216 missing")
           if "Issue 218" in local_view.stdout:

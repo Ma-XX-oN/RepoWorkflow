@@ -210,15 +210,15 @@
           "requirement": "graph presentation is leaf-to-root; annotation widths and lane.issue decimal positions align per visual graph column; independent selected roots reproduce the compact alignment contract",
           "verification": [
             "tests/test_lane_render.py::LaneRenderTests.test_annotations_touch_identifier_and_decimal_align",
-            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract"
+            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_are_each_rendered_once"
           ]
         },
         {
           "id": "DL-12",
           "requirement": "default human graph cells contain only annotations plus lane.issue; issue titles cannot affect graph widths, coordinates, or connector routing",
           "verification": [
-            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract",
-            "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_compact_graph_geometry",
+            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_are_each_rendered_once",
+            "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_graph_geometry",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
         },
@@ -256,20 +256,22 @@
         },
         {
           "id": "DL-16",
-          "requirement": "every canonical direct dependency has exactly one deterministic routed edge; skip-edges use distinct bypass tracks and unrelated geometric crossings are rendered as non-junction crossings; debug maps semantic edges to route identities",
+          "requirement": "every canonical direct dependency has exactly one deterministic route in the constrained sibling-group DAG renderer; long edges retain semantic endpoint identity through hidden continuation columns; unrelated crossings never create semantic junctions; debug maps semantic edges to route identities",
           "verification": [
-            "tests/test_lane_routes.py::LaneRouteTests.test_every_semantic_edge_has_exactly_one_route",
-            "tests/test_lane_routes.py::LaneRouteTests.test_direct_bypass_has_distinct_route_identity",
-            "tests/test_lane_routes.py::LaneRouteTests.test_unrelated_route_crossing_is_not_rendered_as_junction",
-            "tests/test_lane_routes.py::LaneRouteTests.test_route_plan_is_deterministic",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_skip_edge_is_rendered_as_separate_bypass_track",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_fan_in_retains_parallel_path_shape",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_and_transitive_paths_remain_visibly_distinct"
+            "tests/test_graph_render_model.py::GraphRenderModelTests.test_accepts_constrained_sibling_dag",
+            "tests/test_graph_render.py::GraphRenderTests.test_long_edge_records_hidden_semantic_endpoints",
+            "tests/test_graph_render.py::GraphRenderTests.test_input_order_does_not_change_output",
+            "tests/test_graph_render.py::GraphRenderTests.test_directional_cousin_routes_emit_vertical_arrows",
+            "tests/test_graph_render.py::GraphRenderTests.test_multi_overlap_preserves_lane_and_default_edge_colours",
+            "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_multi_overlap_geometry_preserves_exact_edge_set",
+            "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_long_edge_variants_preserve_connected_routes",
+            "tests/test_lane_render.py::LaneRenderTests.test_long_dependency_is_diagnostic_with_hidden_column",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_view_is_deterministic_across_fresh_processes"
           ]
         },
         {
           "id": "DL-17",
-          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and direct bypass routes agree with canonical direct dependencies",
+          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and constrained renderer routes agree with canonical direct dependencies",
           "verification": [
             "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_cache_and_routing_certification",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar"
@@ -302,7 +304,7 @@
         "debug_projection": "DL-15",
         "identity_preserving_routing": "DL-16",
         "direct_edge_route_identity": "DL-16",
-        "bypass_track_rendering": "DL-16",
+        "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17"
       },

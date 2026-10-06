@@ -39,6 +39,13 @@ class LaneDecompositionTests(unittest.TestCase):
       ("A", ("1",)), ("B", ("2",)), ("C", ("3",)),
     ])
 
+  def test_branch_starts_new_lane_so_each_lane_is_a_path(self):
+    value = graph({1: (), 2: (1,), 3: (1,)})
+    plan = decompose_lanes(value, [2, 3])
+    self.assertEqual([(x.name, x.issues) for x in plan.lanes], [
+      ("A", ("1", "2")), ("B", ("3",)),
+    ])
+
   def test_convergence_has_single_deterministic_owner(self):
     value = graph({105: (), 106: (), 107: (105, 106)})
     plan = decompose_lanes(value, [107])
