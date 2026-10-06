@@ -100,9 +100,10 @@ def _add(
   edge: SemanticEdge,
   bits: int,
   bundle: tuple[int, int] | None,
+  vertical_direction: int = 0,
 ) -> None:
   cells.setdefault(point, []).append(
-    Contribution(edge, bits, bundle)
+    Contribution(edge, bits, bundle, vertical_direction)
   )
 
 
@@ -134,13 +135,24 @@ def _vertical(
   y2: int,
   bundle: tuple[int, int] | None,
 ) -> None:
-  if y2 < y1:
-    y1, y2 = y2, y1
-  for y in range(y1, y2 + 1):
+  direction = 0
+  if y2 > y1:
+    direction = 1
+  elif y2 < y1:
+    direction = -1
+  low, high = sorted((y1, y2))
+  for y in range(low, high + 1):
     bits = 0
-    if y > y1:
+    if y > low:
       bits |= _U
-    if y < y2:
+    if y < high:
       bits |= _D
     if bits:
-      _add(cells, (x, y), edge, bits, bundle)
+      _add(
+        cells,
+        (x, y),
+        edge,
+        bits,
+        bundle,
+        direction,
+      )
