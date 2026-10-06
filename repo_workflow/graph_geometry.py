@@ -117,6 +117,15 @@ def validate_routes(
         "semantic edge route is not geometrically connected"
       )
 
+  _validate_rendered_reachability(
+    validated,
+    placements,
+    columns,
+    starts,
+    cells,
+    routed_cells,
+  )
+
   for route in routes:
     source_column = placements[route.source].column
     target_column = placements[route.target].column
@@ -132,6 +141,161 @@ def validate_routes(
         raise GraphLayoutError(
           "hidden continuation lost semantic endpoints"
         )
+
+
+def _validate_rendered_reachability(
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  cells: dict[tuple[int, int], list[Contribution]],
+  routed_cells: dict[tuple[str, str], set[tuple[int, int]]],
+) -> None:
+  paths: dict[tuple[str, str], tuple[tuple[int, int], ...]] = {}
+  indices: dict[
+    tuple[str, str],
+    dict[tuple[int, int], int],
+  ] = {}
+  for edge, points in routed_cells.items():
+    source, target = edge
+    source_place = placements[source]
+    target_place = placements[target]
+    source_anchor = (
+      starts[source_place.column] + columns[source_place.column].width,
+      source_place.row,
+    )
+    target_anchor = (
+      starts[target_place.column] - 1,
+      target_place.row,
+    )
+    path = _simple_path(points, source_anchor, target_anchor)
+    paths[edge] = path
+    indices[edge] = {
+      point: index
+      for index, point in enumerate(path)
+    }
+
+  switches: dict[
+    tuple[int, int],
+    set[tuple[str, str]],
+  ] = {}
+  for point, contributions in cells.items():
+    edge_map = {
+      contribution.edge.key: contribution
+      for contribution in contributions
+    }
+    if len(edge_map) < 2:
+      continue
+    values = list(edge_map.values())
+    same_source = len({
+      item.edge.source
+      for item in values
+    }) == 1
+    same_target = len({
+      item.edge.target
+      for item in values
+    }) == 1
+    bundles = {
+      item.bundle
+      for item in values
+    }
+    same_bundle = len(bundles) == 1 and None not in bundles
+    if same_source or same_target or same_bundle:
+      switches[point] = set(edge_map)
+
+  expected_by_source = {
+    source: set(targets)
+    for source, targets in validated.adjacency.items()
+  }
+  for source, expected_targets in expected_by_source.items():
+    if not expected_targets:
+      continue
+    pending: list[
+      tuple[tuple[str, str], tuple[int, int]]
+    ] = []
+    for target in sorted(expected_targets):
+      edge = source, target
+      pending.append((edge, paths[edge][0]))
+
+    visited: set[
+      tuple[tuple[str, str], tuple[int, int]]
+    ] = set()
+    reached: set[str] = set()
+    while pending:
+      edge, point = pending.pop()
+      state = edge, point
+      if state in visited:
+        continue
+      visited.add(state)
+
+      path = paths[edge]
+      index = indices[edge][point]
+      if index == len(path) - 1:
+        reached.add(edge[1])
+      else:
+        pending.append((edge, path[index + 1]))
+
+      for other in switches.get(point, set()):
+        if other == edge or point not in indices[other]:
+          continue
+        pending.append((other, point))
+
+    if reached != expected_targets:
+      raise GraphLayoutError(
+        "rendered directed geometry changes semantic reachability "
+        f"for {source!r}: expected {sorted(expected_targets)!r}, "
+        f"got {sorted(reached)!r}"
+      )
+
+
+def _simple_path(
+  points: set[tuple[int, int]],
+  source: tuple[int, int],
+  target: tuple[int, int],
+) -> tuple[tuple[int, int], ...]:
+  neighbours: dict[
+    tuple[int, int],
+    list[tuple[int, int]],
+  ] = {}
+  for x, y in points:
+    neighbours[(x, y)] = [
+      point
+      for point in (
+        (x - 1, y),
+        (x + 1, y),
+        (x, y - 1),
+        (x, y + 1),
+      )
+      if point in points
+    ]
+  if any(len(values) > 2 for values in neighbours.values()):
+    raise GraphLayoutError(
+      "one semantic edge route branches or self-intersects"
+    )
+
+  path = [source]
+  previous = None
+  current = source
+  while current != target:
+    choices = [
+      point
+      for point in neighbours[current]
+      if point != previous
+    ]
+    if len(choices) != 1:
+      raise GraphLayoutError(
+        "semantic edge route is not one simple path"
+      )
+    previous, current = current, choices[0]
+    path.append(current)
+    if len(path) > len(points):
+      raise GraphLayoutError("semantic edge route contains a loop")
+
+  if len(path) != len(points):
+    raise GraphLayoutError(
+      "semantic edge route contains geometry outside its endpoint path"
+    )
+  return tuple(path)
 
 
 def _is_connected(points: set[tuple[int, int]]) -> bool:
