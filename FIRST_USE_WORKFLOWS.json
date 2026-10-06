@@ -210,15 +210,15 @@
           "requirement": "graph presentation is leaf-to-root; annotation widths and lane.issue decimal positions align per visual graph column; independent selected roots reproduce the compact alignment contract",
           "verification": [
             "tests/test_lane_render.py::LaneRenderTests.test_annotations_touch_identifier_and_decimal_align",
-            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract"
+            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_are_each_rendered_once"
           ]
         },
         {
           "id": "DL-12",
           "requirement": "default human graph cells contain only annotations plus lane.issue; issue titles cannot affect graph widths, coordinates, or connector routing",
           "verification": [
-            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_match_compact_alignment_contract",
-            "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_compact_graph_geometry",
+            "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_are_each_rendered_once",
+            "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_graph_geometry",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
         },
