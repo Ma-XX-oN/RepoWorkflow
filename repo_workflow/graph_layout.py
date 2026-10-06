@@ -18,6 +18,10 @@ from .graph_render_model import (
   validate_graph,
 )
 from .graph_render_types import (
+  _D,
+  _L,
+  _R,
+  _U,
   Column,
   Contribution,
   HiddenContinuation,
@@ -224,10 +228,10 @@ def _long_route_crossings(
       for old_item in old_items:
         if _edges_can_join(new_item.edge, old_item.edge):
           continue
-        new_horizontal = bool(new_item.bits & 3)
-        new_vertical = bool(new_item.bits & 12)
-        old_horizontal = bool(old_item.bits & 3)
-        old_vertical = bool(old_item.bits & 12)
+        new_horizontal = bool(new_item.bits & (_L | _R))
+        new_vertical = bool(new_item.bits & (_U | _D))
+        old_horizontal = bool(old_item.bits & (_L | _R))
+        old_vertical = bool(old_item.bits & (_U | _D))
         if (
           (new_horizontal and old_vertical)
           or (new_vertical and old_horizontal)
