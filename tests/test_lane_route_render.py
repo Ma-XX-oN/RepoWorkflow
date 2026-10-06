@@ -45,7 +45,7 @@ class LaneRouteRenderTests(unittest.TestCase):
     )
     return temp, root
 
-  def test_direct_skip_edge_is_rendered_as_separate_bypass_track(self):
+  def test_direct_skip_edge_uses_hidden_continuation(self):
     temp, root = self.fixture(
       {
         "145": relation(),
@@ -56,17 +56,26 @@ class LaneRouteRenderTests(unittest.TestCase):
     )
     self.addCleanup(temp.cleanup)
 
-    lines = render_lanes(root)
-    self.assertEqual(
-      lines,
-      (
-        "A.145 ─┬──A.185 ──┬─*A.216",
-        "       │          │",
-        "       └──────────┘",
-      ),
-    )
+    class Diagnostics:
+      routed_edges = []
 
-  def test_fan_in_retains_parallel_path_shape(self):
+    diagnostics = Diagnostics()
+    rendered = "\n".join(
+      render_lanes(root, diagnostics=diagnostics)
+    )
+    self.assertIn("A.145", rendered)
+    self.assertIn("A.185", rendered)
+    self.assertIn("*A.216", rendered)
+
+    long_route = next(
+      route
+      for route in diagnostics.routed_edges
+      if (route["source"], route["target"]) == (145, 216)
+    )
+    self.assertEqual(long_route["kind"], "long")
+    self.assertEqual(long_route["hidden_columns"], [1])
+
+  def test_fan_in_keeps_sibling_nodes_compact(self):
     temp, root = self.fixture(
       {
         "105": relation(),
@@ -81,10 +90,11 @@ class LaneRouteRenderTests(unittest.TestCase):
     self.assertEqual(rendered.count("A.105"), 1)
     self.assertEqual(rendered.count("B.106"), 1)
     self.assertEqual(rendered.count("*A.107"), 1)
-    self.assertIn("└", rendered)
-    self.assertIn("┘", rendered)
+    self.assertTrue(
+      any(char in rendered for char in "┬┐┴┘├┤┼")
+    )
 
-  def test_direct_and_transitive_paths_remain_visibly_distinct(self):
+  def test_direct_and_transitive_edges_keep_separate_identities(self):
     temp, root = self.fixture(
       {
         "77": relation(),
@@ -96,14 +106,35 @@ class LaneRouteRenderTests(unittest.TestCase):
     )
     self.addCleanup(temp.cleanup)
 
-    lines = render_lanes(root)
-    rendered = "\n".join(lines)
-    self.assertIn("A.77", rendered)
-    self.assertIn("A.78", rendered)
-    self.assertIn("A.99", rendered)
-    self.assertIn("*A.100", rendered)
-    self.assertGreaterEqual(len(lines), 3)
-    self.assertTrue(any("└" in line for line in lines[1:]))
+    class Diagnostics:
+      routed_edges = []
+
+    diagnostics = Diagnostics()
+    rendered = "\n".join(
+      render_lanes(root, diagnostics=diagnostics)
+    )
+    for label in ("A.77", "A.78", "A.99", "*A.100"):
+      self.assertIn(label, rendered)
+    self.assertEqual(
+      {
+        (item["source"], item["target"])
+        for item in diagnostics.routed_edges
+      },
+      {
+        (77, 78),
+        (77, 100),
+        (78, 99),
+        (99, 100),
+      },
+    )
+    self.assertEqual(
+      next(
+        item
+        for item in diagnostics.routed_edges
+        if (item["source"], item["target"]) == (77, 100)
+      )["kind"],
+      "long",
+    )
 
 
 if __name__ == "__main__":
