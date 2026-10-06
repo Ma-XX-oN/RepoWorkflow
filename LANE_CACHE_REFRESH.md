@@ -5,12 +5,12 @@ inspection.
 
 ## 1. Local-first default
 
-The canonical RWF relationship graph is the operational dependency source
+The canonical synchronized ticket state is the operational dependency source
 between synchronization boundaries.
 
 Without `--refresh`, lane selection traverses known canonical nodes locally.
 The ticket dependency provider is queried only when a requested node or a
-dependency reached from a known node is absent from the canonical graph.
+dependency reached from a known node is absent from synchronized ticket state.
 
 Repeated selection of the same known closure therefore performs no dependency
 provider reads.
@@ -33,7 +33,7 @@ During refresh:
 - differing non-empty sets fail closed and require explicit dependency
   synchronization/reconciliation;
 - provider failure aborts before lane-selection mutation;
-- the prior canonical graph and selection remain valid after failure.
+- the prior synchronized ticket state and selection remain valid after failure.
 
 For `select remove ... --refresh`, the removed root is excluded from refresh
 unless it remains reachable from another selected root.
@@ -54,7 +54,7 @@ boundaries or when local dependency data is genuinely absent.
 
 Provider failure is never interpreted as an empty dependency set.
 
-Runtime never infers dependency edges from issue prose, umbrella membership,
+Runtime never infers dependency edges from title prefixes, ticket-body grouping,
 or Git ancestry.
 
 ## 5. Verification obligations
@@ -69,7 +69,7 @@ prove at the public CLI boundary:
 - restart preserves cache reuse;
 - cached selection succeeds when the provider is unavailable;
 - `--refresh` rereads only the relevant closure;
-- refresh conflict/provider failure leaves graph and selection unchanged;
+- refresh conflict/provider failure leaves ticket state and selection unchanged;
 - remove-refresh excludes removed-only nodes;
 - provider fixtures conform to the independently verified adapter contract.
 

@@ -118,7 +118,7 @@
       "id": "FU-DEPS-LANES",
       "status": "covered",
       "scope": [
-        "native ticket dependencies -> canonical RWF graph -> rwf lanes select -> rwf lanes list/view"
+        "ticket title/dependencies <-> canonical RWF ticket state -> lane planning and explicit synchronization"
       ],
       "minimum_state": "normal Git checkout/provider access with no relationship graph or lane-selection records",
       "prohibited_shortcuts": [
@@ -300,6 +300,16 @@
             "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_final_glyphs_cover_all_routed_geometry",
             "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_has_no_adjacent_duplicate_arrow_columns"
           ]
+        },
+        {
+          "id": "DL-20",
+          "requirement": "explicit one-or-many issue dependency synchronization reads title and direct dependencies together; compare is read-only and to-tickets preflights all title identities before mutation",
+          "verification": [
+            "tests/test_dependency_sync_cli.py::DependencySyncCliTests.test_compare_is_multi_issue_and_read_only",
+            "tests/test_dependency_sync_cli.py::DependencySyncCliTests.test_multi_issue_to_tickets_preflights_before_any_mutation",
+            "tests/test_dependency_sync_to_tickets.py::ToTicketDependencySyncTests.test_title_mismatch_blocks_before_dependency_mutation",
+            "tests/test_dependency_sync_from_tickets.py::FromTicketDependencySyncTests.test_replace_updates_title_and_dependencies"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -334,7 +344,8 @@
         "route_quality_refinement": "DL-18",
         "forced_colour_backend_contract": "DL-18",
         "reachability_preserving_display_reduction": "DL-19",
-        "rendered_route_continuity": "DL-19"
+        "rendered_route_continuity": "DL-19",
+        "explicit_multi_issue_sync": "DL-20"
       },
       "stateful": true,
       "provider_boundary": true,
@@ -499,11 +510,11 @@
     "settings": "FU-SESSION",
     "issue info": "FU-ISSUE-READ",
     "issue list": "FU-ISSUE-READ",
-    "issue select dependency": "FU-DEPS-LANES",
     "issue start": "FU-WORK",
     "workspace": "FU-WORK",
     "what-next": "FU-LIFECYCLE",
-    "validate": "FU-LIFECYCLE"
+    "validate": "FU-LIFECYCLE",
+    "issue": "FU-DEPS-LANES"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."

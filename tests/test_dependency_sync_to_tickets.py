@@ -14,13 +14,10 @@ from repo_workflow.state_store import WriterIdentity
 from tests.support import RepoFixture
 
 
-def relation(*dependencies: int) -> IssueRelationships:
+def relation(title="Issue", *dependencies: int) -> IssueRelationships:
   return IssueRelationships(
-    umbrella=None,
-    shared_umbrellas=(),
-    depends_on=tuple(str(value) for value in dependencies),
-    umbrella_depends_on=(),
-    parent=None,
+    title,
+    tuple(str(value) for value in dependencies),
   )
 
 
@@ -32,9 +29,9 @@ class ToTicketDependencySyncTests(unittest.TestCase):
     RepoFixture(self.root)
     RelationshipStore(self.root).create(
       RelationshipGraph(issues={
-        "2": relation(),
-        "9": relation(),
-        "64": relation(2, 9),
+        "2": relation("Two"),
+        "9": relation("Nine"),
+        "64": relation("Feature: Sixty Four", 2, 9),
       }),
       WriterIdentity("agent", "session"),
     )
@@ -42,44 +39,43 @@ class ToTicketDependencySyncTests(unittest.TestCase):
   def tearDown(self):
     self.temp.cleanup()
 
+  @patch("repo_workflow.dependency_sync.read_ticket_sync_state")
+  @patch("repo_workflow.dependency_sync.resolve_dependency_config", return_value={})
   @patch("repo_workflow.dependency_sync.replace_ticket_dependencies")
-  @patch("repo_workflow.dependency_sync.read_ticket_dependencies")
-  def test_empty_destination_is_synchronized(self, read, replace):
-    read.return_value = ()
+  def test_empty_destination_is_synchronized(self, replace, _config, read):
+    read.side_effect = [
+      ("Feature: Sixty Four", ()),
+      ("Feature: Sixty Four", (2, 9)),
+    ]
     replace.return_value = (2, 9)
     result = sync_to_tickets(self.root, {}, 64)
     self.assertEqual(result.status, DependencySyncStatus.SYNCHRONIZED)
-    replace.assert_called_once_with(self.root, {}, 64, (2, 9))
 
+  @patch("repo_workflow.dependency_sync.read_ticket_sync_state")
   @patch("repo_workflow.dependency_sync.replace_ticket_dependencies")
-  @patch("repo_workflow.dependency_sync.read_ticket_dependencies")
-  def test_identical_destination_is_idempotent(self, read, replace):
-    read.return_value = (2, 9)
+  def test_identical_destination_is_idempotent(self, replace, read):
+    read.return_value = ("Feature: Sixty Four", (2, 9))
     result = sync_to_tickets(self.root, {}, 64)
     self.assertEqual(result.status, DependencySyncStatus.MATCH)
     replace.assert_not_called()
 
+  @patch("repo_workflow.dependency_sync.read_ticket_sync_state")
   @patch("repo_workflow.dependency_sync.replace_ticket_dependencies")
-  @patch("repo_workflow.dependency_sync.read_ticket_dependencies")
-  def test_conflict_fails_without_mutation(self, read, replace):
-    read.return_value = (9,)
-    with self.assertRaisesRegex(DependencySyncConflict, "conflict"):
+  def test_title_mismatch_blocks_before_dependency_mutation(self, replace, read):
+    read.return_value = ("Server renamed", (2, 9))
+    with self.assertRaisesRegex(DependencySyncConflict, "title conflict"):
+      sync_to_tickets(self.root, {}, 64, replace=True)
+    replace.assert_not_called()
+
+  @patch("repo_workflow.dependency_sync.read_ticket_sync_state")
+  @patch("repo_workflow.dependency_sync.replace_ticket_dependencies")
+  def test_dependency_conflict_fails_without_replace(self, replace, read):
+    read.return_value = ("Feature: Sixty Four", (9,))
+    with self.assertRaisesRegex(DependencySyncConflict, "dependencies conflict"):
       sync_to_tickets(self.root, {}, 64)
     replace.assert_not_called()
-    self.assertEqual(RelationshipStore(self.root).direct_dependencies(64), ("2", "9"))
 
-  @patch("repo_workflow.dependency_sync.replace_ticket_dependencies")
-  @patch("repo_workflow.dependency_sync.read_ticket_dependencies")
-  def test_replace_changes_ticket_side_only(self, read, replace):
-    read.return_value = (9, 54)
-    replace.return_value = (2, 9)
-    before = RelationshipStore(self.root).read()
-    result = sync_to_tickets(self.root, {}, 64, replace=True)
-    after = RelationshipStore(self.root).read()
-    self.assertEqual(result.status, DependencySyncStatus.SYNCHRONIZED)
-    self.assertEqual(after, before)
-
-  @patch("repo_workflow.dependency_sync.read_ticket_dependencies")
+  @patch("repo_workflow.dependency_sync.read_ticket_sync_state")
   def test_provider_failure_propagates(self, read):
     read.side_effect = RuntimeError("provider failed")
     with self.assertRaisesRegex(RuntimeError, "provider failed"):

@@ -12,7 +12,7 @@ from tests.support import RepoFixture
 
 
 def relation(*deps: int) -> IssueRelationships:
-  return IssueRelationships(None, (), tuple(str(x) for x in deps), (), None)
+  return IssueRelationships("Issue", tuple(str(x) for x in deps))
 
 
 class LaneListTests(unittest.TestCase):

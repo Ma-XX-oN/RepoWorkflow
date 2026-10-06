@@ -61,7 +61,7 @@ class RepositoryPolicyTests(unittest.TestCase):
     (consumer / ".ci").mkdir()
     (consumer / ".ci" / "run-ci-request").write_text("1.0.0-issue.1.1\n")
     (consumer / ".ci" / "branch-policy.json").write_text(json.dumps({
-      "schema": 1, "integrationBranch": "main", "branches": {}, "patterns": []
+      "schema": 2, "integrationBranch": "main", "branches": {}, "patterns": []
     }))
     (consumer / ".ci" / "github.json").write_text(json.dumps({
       "schema": 1, "prepareRunner": "ubuntu-latest", "runners": {"local": "ubuntu-latest"}

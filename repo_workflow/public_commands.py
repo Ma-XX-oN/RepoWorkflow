@@ -65,6 +65,42 @@ def _issue_number(context: Context) -> dict:
   return {"completions": []}
 
 
+def _dependency_direction_node() -> dict:
+  return {
+    "to-tickets": {
+      "": "Synchronize RWF title/dependencies to tickets",
+      "--compare": "Compare title/dependencies without mutation",
+      "--replace": "Replace conflicting ticket dependencies",
+    },
+    "from-tickets": {
+      "": "Synchronize ticket title/dependencies to RWF",
+      "--compare": "Compare title/dependencies without mutation",
+      "--replace": "Replace conflicting local title/dependencies",
+      "--replace-title": "Replace provider-authoritative title only",
+      "--replace-dependencies": "Replace local dependencies only",
+    },
+  }
+
+
+def _issue_sync_target_node() -> dict:
+  return {
+    "dependency": _dependency_direction_node(),
+    "_values": _issue_sync_target,
+    "_value_description": "Additional issue number",
+  }
+
+
+def _issue_sync_target(context: Context) -> dict:
+  token = context.current_token
+  if token and token.isdecimal() and int(token) > 0:
+    return {
+      "completions": [
+        {token: _issue_sync_target_node()},
+      ],
+    }
+  return {"completions": []}
+
+
 def _workspace_ids(context: Context) -> dict:
   try:
     values = [
@@ -169,12 +205,8 @@ COMMANDS = {
     },
   },
   "issue": {
-    "select": {
-      "dependency": {
-        "to-tickets": {"": "Synchronize RWF dependencies to tickets", "--compare": "Compare without mutation", "--replace": "Replace conflicting ticket dependencies"},
-        "from-tickets": {"": "Synchronize ticket dependencies to RWF", "--compare": "Compare without mutation", "--replace": "Replace conflicting RWF dependencies"},
-      },
-    },
+    "_values": _issue_sync_target,
+    "_value_description": "Issue number for dependency synchronization",
     "info": {
       "": "List open issues",
       "_values": _issue_number,

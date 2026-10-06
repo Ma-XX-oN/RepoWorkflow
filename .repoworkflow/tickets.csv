@@ -1,0 +1,20 @@
+issue,title,dependencies
+403,"Epic: Formalize repo-info typed object classification and error contract",
+404,"Specify repo-info v2 result, object-kind, and error schema",
+405,"Implement GitHub repo-info issue object classification",404
+406,"Preserve typed repo-info failures through core RWF layers",405
+407,"Validate issue roots before dependency and metadata refresh",406
+408,"Certify repo-info classification and mistyped issue smoke cases",407
+409,"Epic: Restore lane selection move workflow and correct select grammar/help",
+410,"Specify lane-move syntax, semantics, and invariants",
+411,"Implement lane-move mutation with path-preserving validation",410
+412,"Fix lanes select grammar, help, completion, and invalid-token diagnostics",410
+413,"Certify lane move and command-diagnostic workflow",411;412
+415,"Epic: Simplify synchronized ticket state and dependency workflow",
+416,"Feature: Define synchronized ticket-state schema and sync authority",
+417,"Implement compact CSV synchronized ticket-state store and legacy migration",416
+418,"Remove obsolete relationship fields and use Git history as sole branch-parent authority",417
+419,"Feature: Synchronize titles and dependencies for one or many explicit issues",416;417
+420,"Feature: Add provider-aware semantic merge for synchronized ticket CSV",416;417
+421,"Document ticket title prefixes and ticket-creation graph workflow",416
+422,"Certify synchronized ticket-state migration, merge, and sync workflows",417;418;419;420;421

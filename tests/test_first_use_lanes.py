@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
@@ -139,6 +140,14 @@ class FirstUseLanesTests(unittest.TestCase):
     env["RWF_TEST_CALLS"] = str(call_log)
     return env
 
+  def ticket_rows(self, root: Path) -> dict[str, dict[str, str]]:
+    path = root / ".repoworkflow" / "tickets.csv"
+    with path.open(newline="", encoding="utf-8") as handle:
+      return {
+        row["issue"]: row
+        for row in csv.DictReader(handle)
+      }
+
   def dependency_calls(self, env: dict[str, str]) -> list[int]:
     path = Path(env["RWF_TEST_CALLS"])
     return [
@@ -198,14 +207,11 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(value["roots"], ["203", "206"])
       self.assertEqual(value["closure"], ["201", "203", "206"])
 
-      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
-      self.assertTrue(graph.is_file())
-      graph_value = json.loads(graph.read_text(encoding="utf-8"))
-      self.assertEqual(graph_value["revision"], 0)
-      self.assertEqual(
-        graph_value["value"]["issues"]["203"]["depends_on"],
-        ["201"],
-      )
+      tickets = root / ".repoworkflow" / "tickets.csv"
+      self.assertTrue(tickets.is_file())
+      rows = self.ticket_rows(root)
+      self.assertEqual(rows["203"]["dependencies"], "201")
+      self.assertEqual(rows["203"]["title"], "Root 203")
 
       common = subprocess.run(
         ["git", "rev-parse", "--git-common-dir"],
@@ -284,9 +290,7 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
 
-      graph_path = (
-        root / ".repoworkflow/state/relationships/graph.json"
-      )
+      graph_path = root / ".repoworkflow" / "tickets.csv"
       selection_path = (
         root / ".git/repoworkflow/lane-selection/selection.json"
       )
@@ -350,14 +354,15 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("Refreshing metadata:", refreshed.stderr)
       self.assertNotIn("Refreshing dependencies:", refreshed.stderr)
       self.assertNotIn("dependency provider must not be used", refreshed.stderr)
-      self.assertEqual(graph_path.read_bytes(), graph_before)
+      self.assertNotEqual(graph_path.read_bytes(), graph_before)
       self.assertEqual(selection_path.read_bytes(), selection_before)
-
-      cached = json.loads(metadata_cache_path.read_text(encoding="utf-8"))
       self.assertEqual(
-        cached["value"]["issues"]["203"]["title"],
+        self.ticket_rows(root)["203"]["title"],
         "Updated Root 203",
       )
+
+      cached = json.loads(metadata_cache_path.read_text(encoding="utf-8"))
+      self.assertNotIn("title", cached["value"]["issues"]["203"])
       records = sorted(
         diagnostics_dir.glob("lane-invocation--*.json"),
         key=lambda path: path.stat().st_mtime_ns,
@@ -385,7 +390,7 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
 
-      graph_path = root / ".repoworkflow/state/relationships/graph.json"
+      graph_path = root / ".repoworkflow" / "tickets.csv"
       selection_path = (
         root / ".git/repoworkflow/lane-selection/selection.json"
       )
@@ -623,8 +628,8 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(selected.returncode, 0, selected.stderr)
       self.assertIn("Refreshing dependencies: #203", selected.stderr)
       self.assertIn("Refreshing dependencies: #201", selected.stderr)
-      self.assertIn("Refreshing metadata: 1/2", selected.stderr)
-      self.assertIn("Refreshing metadata: 2/2", selected.stderr)
+      self.assertIn("Refreshing metadata: #203", selected.stderr)
+      self.assertIn("Refreshing metadata: #201", selected.stderr)
 
       diagnostics_dir = (
         root
@@ -761,25 +766,14 @@ class FirstUseLanesTests(unittest.TestCase):
         ["205", "208", "217", "218"],
       )
 
-      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
-      graph_value = json.loads(graph.read_text(encoding="utf-8"))
-      self.assertEqual(graph_value["revision"], 2)
+      rows = self.ticket_rows(root)
       self.assertEqual(
-        sorted(graph_value["value"]["issues"], key=int),
+        sorted(rows, key=int),
         ["201", "203", "205", "206", "208", "217", "218"],
       )
-      self.assertEqual(
-        graph_value["value"]["issues"]["203"]["depends_on"],
-        ["201"],
-      )
-      self.assertEqual(
-        graph_value["value"]["issues"]["205"]["depends_on"],
-        ["208"],
-      )
-      self.assertEqual(
-        graph_value["value"]["issues"]["218"]["depends_on"],
-        ["217"],
-      )
+      self.assertEqual(rows["203"]["dependencies"], "201")
+      self.assertEqual(rows["205"]["dependencies"], "208")
+      self.assertEqual(rows["218"]["dependencies"], "217")
 
   def test_select_add_remove_preserve_distinct_root_semantics(self):
     with tempfile.TemporaryDirectory() as td:
@@ -1015,13 +1009,7 @@ class FirstUseLanesTests(unittest.TestCase):
         "--json",
       )
       self.assertEqual(first.returncode, 0, first.stderr)
-      graph_path = (
-        root
-        / ".repoworkflow"
-        / "state"
-        / "relationships"
-        / "graph.json"
-      )
+      graph_path = root / ".repoworkflow" / "tickets.csv"
       selection_path = (
         root
         / ".git"
@@ -1093,10 +1081,9 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(json.loads(second.stdout)["closure"], ["201", "203"])
 
-      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
-      value = json.loads(graph.read_text(encoding="utf-8"))
-      self.assertEqual(value["value"]["issues"]["203"]["depends_on"], ["201"])
-      self.assertIn("201", value["value"]["issues"])
+      rows = self.ticket_rows(root)
+      self.assertEqual(rows["203"]["dependencies"], "201")
+      self.assertIn("201", rows)
 
   def test_existing_nonempty_dependency_conflict_fails_closed(self):
     with tempfile.TemporaryDirectory() as td:
@@ -1128,10 +1115,9 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(conflicted.returncode, 2)
       self.assertIn("conflict with native ticket dependencies", conflicted.stderr)
 
-      graph = root / ".repoworkflow" / "state" / "relationships" / "graph.json"
-      value = json.loads(graph.read_text(encoding="utf-8"))
-      self.assertEqual(value["value"]["issues"]["203"]["depends_on"], ["201"])
-      self.assertNotIn("206", value["value"]["issues"])
+      rows = self.ticket_rows(root)
+      self.assertEqual(rows["203"]["dependencies"], "201")
+      self.assertNotIn("206", rows)
 
   def test_repository_manifest_blocks_bootstrap_until_migration_certified(self):
     with tempfile.TemporaryDirectory() as td:
@@ -1157,13 +1143,7 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertNotIn("Traceback", selected.stderr)
       self.assertFalse(
-        (
-          root
-          / ".repoworkflow"
-          / "state"
-          / "relationships"
-          / "graph.json"
-        ).exists()
+        (root / ".repoworkflow" / "tickets.csv").exists()
       )
 
   def test_read_only_lane_failure_does_not_create_runtime_identity(self):

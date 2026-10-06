@@ -203,9 +203,9 @@ class BootstrapCliTests(unittest.TestCase):
           "workspace must be specified",
         ),
         (
-          ("issue", "select", "dependency", "from-tickets"),
+          ("issue", "64", "dependency", "from-tickets"),
           None,
-          "current-work",
+          "missing RepoWorkflow configuration",
         ),
       ]
       for words, env, message in cases:

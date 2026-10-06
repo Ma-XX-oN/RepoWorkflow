@@ -9,6 +9,11 @@ from .current_work_store import CurrentWorkStore
 from .git import git
 from .lifecycle_store import LifecycleStore
 from .relationship_store import RelationshipStore
+from .parent_branch import (
+  ParentBranchError,
+  create_parent_identity,
+  recover_parent_branch,
+)
 from .repo_info_adapter import issue_info
 from .runtime_identity import runtime_writer_identity
 from .state_store import durable_store
@@ -71,9 +76,8 @@ def start_issue(
   current_store = CurrentWorkStore(root)
   current = current_store.read()
   version_before = read_version(root, config)
-  parent = relation.parent
-  if parent is None:
-    raise IssueStartError(f"issue {issue_id} has no canonical parent")
+  branch = f"issue-{issue_id}"
+  parent = _parent_for_start(root, branch)
   base_sha = git(root, "rev-parse", parent).stdout.strip()
 
   transaction_id = _transaction_id(issue_id, identity.session_id)
@@ -152,6 +156,22 @@ def start_issue(
   )
 
 
+
+def _parent_for_start(root: Path, branch: str) -> str:
+  exists = git(root, "show-ref", "--verify", f"refs/heads/{branch}", check=False)
+  if exists.returncode == 0:
+    try:
+      return recover_parent_branch(root, branch)
+    except ParentBranchError as error:
+      raise IssueStartError(str(error)) from error
+
+  parent = git(root, "branch", "--show-current").stdout.strip()
+  if not parent:
+    raise IssueStartError("cannot create work branch from a detached HEAD")
+  if parent == branch:
+    raise IssueStartError(f"work branch {branch} cannot be its own parent")
+  return parent
+
 def _materialize(
   root: Path,
   config: dict,
@@ -175,21 +195,20 @@ def _materialize(
   exists = git(root, "show-ref", "--verify", f"refs/heads/{branch}", check=False)
   if exists.returncode:
     git(root, "branch", branch, parent)
-  ancestor = git(
-    root,
-    "merge-base",
-    "--is-ancestor",
-    parent,
-    branch,
-    check=False,
-  )
-  if ancestor.returncode:
-    raise IssueStartError(
-      f"existing branch {branch} is not based on canonical parent {parent}"
-    )
-  current_branch = git(root, "branch", "--show-current").stdout.strip()
-  if current_branch != branch:
     git(root, "checkout", branch)
+    create_parent_identity(root, branch, parent)
+  else:
+    try:
+      recovered = recover_parent_branch(root, branch)
+    except ParentBranchError as error:
+      raise IssueStartError(str(error)) from error
+    if recovered != parent:
+      raise IssueStartError(
+        f"branch {branch} parent changed: expected {parent}, found {recovered}"
+      )
+    current_branch = git(root, "branch", "--show-current").stdout.strip()
+    if current_branch != branch:
+      git(root, "checkout", branch)
 
   lifecycle_store = LifecycleStore(root)
   lifecycle = lifecycle_store.read(issue_id)

@@ -187,83 +187,47 @@ A useful rule is:
 > If explaining one dependency requires a paragraph, look for a missing
 > interface boundary.
 
-## 5. Four graph relationships
+## 5. Human-facing containers and executable dependencies
 
-RWF work graphs distinguish four relationships.
+RepoWorkflow stores one executable graph relationship: the direct ticket
+dependency.
 
-### 5.1 Child ownership
-
-A child contributes to one umbrella outcome.
-
-```text
-Umbrella A
-├── A1
-├── A2
-└── A3
-```
-
-Completing the children collectively satisfies the umbrella's stated outcome.
-
-Child ownership does not itself impose sibling ordering.
-
-### 5.2 Shared umbrella attachment
-
-A consumer umbrella uses a reusable subsystem owned by another umbrella.
+Ticket titles may use descriptive container prefixes:
 
 ```text
-Shared capability S
-├── S1 contract
-└── S2 implementation
-
-Umbrella A ---- attaches to S
-Umbrella B ---- attaches to S
+Initiative: ...
+Epic: ...
+Feature: ...
 ```
 
-The shared children remain owned by S.  They are not copied or multi-parented
-into A and B.
+These prefixes help humans navigate and review decomposition. They do not create
+ownership, membership, readiness, or ordering semantics.
 
-Attachment is architectural information.  It does not create a scheduling edge
-by itself.
+An ordinary implementation/certification ticket normally has no such prefix.
 
-### 5.3 Direct leaf dependency
+### 5.1 Direct dependency
 
-A concrete executable leaf requires another concrete leaf first.
+A ticket depends on another ticket only when it requires that ticket's exact
+result before it can proceed.
 
 ```text
 S1 -> S2 -> A2
 ```
 
-Leaf dependencies are authoritative for executable readiness.
+Direct dependencies are authoritative for executable readiness.
 
-### 5.4 Direct umbrella dependency
+### 5.2 Container decomposition
 
-A consumer umbrella depends on another umbrella only when the complete consumer
-outcome cannot be complete until the complete prerequisite umbrella outcome is
-complete.
+An Initiative, Epic, or Feature may describe a larger outcome implemented by
+several tickets. The provider issue body may list or explain that decomposition,
+but RWF does not persist a second container relationship graph.
 
-Do not promote every cross-umbrella leaf dependency into an umbrella
-dependency.
+Scheduling still comes only from explicit direct dependencies among the actual
+tickets.
 
-For example:
+## 6. Keep dependencies direct
 
-```text
-Umbrella A
-├── A1
-└── A2
-
-Umbrella B
-├── B1 depends on A1
-└── B2
-```
-
-does not imply that B depends on all of A.
-
-Umbrella dependency is appropriate only when completion of B genuinely requires
-the whole A outcome.
-
-## 6. Keep umbrella dependencies transitively reduced
-
-The umbrella graph is a roadmap, not a duplicate of every transitive fact.
+Do not duplicate transitive prerequisites.
 
 If:
 
@@ -271,42 +235,26 @@ If:
 A -> B -> C
 ```
 
-already expresses the outcome ordering, normally do not also record:
+already expresses the ordering, do not also store:
 
 ```text
 A -> C
 ```
 
-unless A independently requires C.
+unless A independently requires C's interface.
 
-A transitive-reduced umbrella graph stays readable while the leaf graph
-retains precise execution dependencies.
+This keeps the graph minimal while preserving exact executable constraints.
 
 ## 7. Shared prerequisite consolidation
 
-A single shared prerequisite may remain an independent leaf.
+A shared prerequisite remains an ordinary dependency target.
 
-When several related shared leaves form one reusable subsystem, create a shared
-capability umbrella.
+When several related tickets form a reusable subsystem, a human-facing
+`Feature:` or `Epic:` ticket may document that subsystem. Consumers still
+depend directly only on the concrete tickets whose outputs they require.
 
-A common pattern is:
-
-```text
-Shared subsystem
-├── semantic contract
-├── dispatcher / invocation layer
-└── provider implementation
-```
-
-Consumers attach to the shared subsystem and directly depend on only the leaves
-they actually consume.
-
-This prevents:
-
-- arbitrary ownership by the first consumer that discovered the prerequisite;
-- duplicate implementations;
-- multi-parented leaves;
-- unnecessary serialization between unrelated consumers.
+This prevents duplicate implementations and unnecessary serialization without
+introducing a second machine-readable ownership graph.
 
 ## 8. Separate contract, dispatcher, and provider implementation
 
@@ -486,7 +434,7 @@ During issue refinement, treat the following as diagnostic signals:
 - several unrelated umbrellas depend on the same loose leaves;
 - cleanup happens long after creation but lives in the same leaf;
 - an "active issue" is represented as one shared mutable global value;
-- an umbrella dependency exists only because one child consumes one child;
+- a high-level dependency exists only because one implementation ticket consumes another;
 - dependency descriptions repeatedly use "sort of", "through", or "indirectly".
 
 These are reasons to inspect boundaries, not automatic reasons to create more

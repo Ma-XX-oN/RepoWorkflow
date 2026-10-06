@@ -217,86 +217,55 @@ terminal result has been established.
 Branch-parent and dependency-history protection is a common repository
 invariant, not a product-specific Core feature.
 
-RepoWorkflow owns the policy algorithm.  Consumers provide the intended graph,
-including as needed:
+Every RWF work branch records its parent once in Git history using the
+branch-identity marker defined by
+[PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md). Branch policy recovers
+that parent from Git; repository configuration does not duplicate parent or
+integration-target state.
 
-- default integration parent;
-- explicit parent for issue/feature branches;
-- umbrella/integration branches;
-- allowed dependency branches;
-- integration target;
-- other declarative lineage exceptions.
-
-The shared checker should establish facts from Git history rather than trust
-branch names alone.  It should detect practical violations such as:
-
-- declared parent not matching allowed ancestry;
-- unrelated imported issue history;
-- undeclared dependency merges;
-- incorrect pull-request base;
-- an umbrella branch without the required declaration.
-
-The same checker must be invokable locally.  GitHub may run it automatically as
-a cheap preflight without starting expensive validation.
+Repository branch policy may declare which dependency branches may contribute
+history to a work branch. The shared checker establishes facts from Git history
+and rejects undeclared imported history or a pull-request base that differs
+from the recovered branch parent.
 
 ### 8.1 Direct issue dependency graph
 
-Issue grouping and issue ordering are separate concerns.
+RepoWorkflow's executable issue graph contains only explicit direct
+dependencies.
 
-An umbrella groups issues that contribute to a common problem or goal.  It
-does not create an ordering relationship between its members.
+Each synchronized ticket record contains:
 
-RepoWorkflow represents ordering only through explicit direct dependency
-edges.  If one issue genuinely requires an output from another, that
-requirement must be recorded directly.  RWF must not infer dependencies from
-shared umbrellas, branch ancestry, naming, or vague notions of weak/strong
-relationship.
+- ticket number;
+- exact provider title;
+- direct dependencies.
 
-If an ordering relationship can only be described indirectly, that is evidence
-that the work has not been decomposed far enough.  Introduce the missing
-prerequisite task(s) until the dependency graph can express every ordering
-constraint through direct edges.
+Initiative/Epic/Feature title prefixes are human-facing classification only.
+They do not create ownership, membership, readiness, or ordering semantics.
 
-When one issue decomposes into several tasks that collectively satisfy its
-outcome, the original issue remains their owning umbrella.
+If one issue genuinely requires an output from another, that requirement is
+recorded directly. RWF does not infer dependencies from title prefixes, branch
+ancestry, naming, or issue prose.
 
-When decomposition instead discovers reusable prerequisite work shared by
-otherwise unrelated umbrellas, that work must not be assigned to one consumer
-merely because that consumer discovered it first.  A single shared prerequisite
-may remain an independent issue.  If the capability has several contract,
-dispatcher, provider, or implementation tasks, those tasks receive their own
-shared capability umbrella.  Consumer umbrellas attach to that capability
-umbrella while executable ordering remains expressed by direct dependencies on
-the specific leaf interfaces consumed.
+If an ordering relationship can only be described indirectly, inspect the
+decomposition and introduce the missing prerequisite task until every real
+ordering constraint can be expressed through direct edges.
 
-The issue model distinguishes four graph relations:
+Only direct blockers are stored. If A depends on B and B depends on C, do not
+also store A -> C unless A independently consumes C's interface.
 
-1. child ownership;
-2. shared-capability umbrella attachment;
-3. direct leaf dependency;
-4. direct umbrella dependency.
-
-A direct umbrella dependency exists only when the consumer outcome cannot be
-complete until the entire prerequisite umbrella outcome is complete.  It is a
-high-level roadmap relation and does not replace executable leaf dependencies.
-Do not promote a cross-umbrella leaf edge into an umbrella dependency unless
-the whole prerequisite outcome is actually required.
-
-Keep the umbrella-dependency graph transitively reduced: if A depends on B and
-B depends on C, do not also record A -> C merely because the transitive
-relationship exists.  Leaf dependencies remain authoritative for executable
-readiness and may be more precise than the umbrella roadmap.
-
-This graph is also the scheduling graph:
+The dependency graph is also the scheduling graph:
 
 - an issue with no unresolved direct dependencies is ready;
 - an issue with unresolved direct dependencies is blocked;
 - multiple ready issues with no dependency path between them can proceed in
   parallel.
 
-Branch base remains an independent Git-history fact.  An issue may be based on
-another branch without depending semantically on that issue, and a direct issue
-dependency does not by itself require a particular Git branch base.
+Branch parent remains an independent Git-history fact. A branch may be based on
+another branch without creating an issue dependency, and an issue dependency
+does not select a branch parent.
+
+The durable synchronized representation and direction-specific authority rules
+are defined in [TICKET_STATE.md](TICKET_STATE.md).
 
 ## 9. Repository and GitHub Actions policy
 

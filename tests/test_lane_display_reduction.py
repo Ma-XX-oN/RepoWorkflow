@@ -14,13 +14,7 @@ from repo_workflow.relationships import (
 
 
 def relation(*deps: int) -> IssueRelationships:
-  return IssueRelationships(
-    None,
-    (),
-    tuple(str(value) for value in deps),
-    (),
-    None,
-  )
+  return IssueRelationships("Issue", tuple(str(value) for value in deps))
 
 
 def identity(text: str) -> str:

@@ -14,6 +14,7 @@ from .relationship_store import (
   RelationshipStoreError,
 )
 from .relationships import IssueRelationships, RelationshipGraph
+from .repo_info_adapter import issue_info, resolve_info_config
 from .state_store import WriterIdentity
 from .ticket_dependency_adapter import (
   TicketDependencyError,
@@ -36,7 +37,7 @@ def ensure_relationship_graph(
   refresh: bool = False,
   diagnostics: LaneDiagnostics | None = None,
 ) -> RelationshipAcquisition:
-  """Ensure canonical graph coverage using local state unless refresh/missing."""
+  """Ensure canonical ticket coverage using local state unless refresh/missing."""
   try:
     require_dependency_migration_certified(root)
   except DependencyMigrationCertificationError as error:
@@ -46,10 +47,12 @@ def ensure_relationship_graph(
   snapshot = _read_optional(store)
   issues = {} if snapshot is None else dict(snapshot.graph.issues)
   requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
-  config = resolve_dependency_config(root)
+  dependency_config = resolve_dependency_config(root)
+  info_config = resolve_info_config(root)
   pending = list(requested)
   visited: set[str] = set()
   provider_reads: list[int] = []
+  fetched_info: dict[int, dict] = {}
   changed = snapshot is None
 
   while pending:
@@ -59,55 +62,65 @@ def ensure_relationship_graph(
     visited.add(issue)
 
     current = issues.get(issue)
-    provider: tuple[str, ...] | None = None
+    provider: IssueRelationships | None = None
     if refresh or current is None:
       number = int(issue)
       provider_reads.append(number)
       if diagnostics is not None:
         diagnostics.miss("relationships")
-        raw = diagnostics.provider(
+        diagnostics.miss("metadata")
+        dependencies = diagnostics.provider(
           "dependencies",
           number,
-          lambda: read_ticket_dependencies(root, config, number),
+          lambda: read_ticket_dependencies(
+            root,
+            dependency_config,
+            number,
+          ),
+        )
+        info = diagnostics.provider(
+          "metadata",
+          number,
+          lambda: issue_info(root, info_config, number),
         )
       else:
-        raw = read_ticket_dependencies(root, config, number)
-      provider = tuple(str(value) for value in raw)
+        dependencies = read_ticket_dependencies(
+          root,
+          dependency_config,
+          number,
+        )
+        info = issue_info(root, info_config, number)
+      fetched_info[number] = info
+      provider = IssueRelationships(
+        title=info["title"],
+        depends_on=tuple(str(value) for value in dependencies),
+      )
     elif diagnostics is not None:
       diagnostics.hit("relationships")
 
     if current is None:
       assert provider is not None
-      issues[issue] = IssueRelationships(
-        umbrella=None,
-        shared_umbrellas=(),
-        depends_on=provider,
-        umbrella_depends_on=(),
-        parent=None,
-      )
+      issues[issue] = provider
       changed = True
-      dependencies = provider
+      dependencies = provider.depends_on
     elif provider is None:
       dependencies = current.depends_on
-    elif current.depends_on == provider:
-      dependencies = current.depends_on
-    elif not current.depends_on and provider:
-      issues[issue] = IssueRelationships(
-        umbrella=current.umbrella,
-        shared_umbrellas=current.shared_umbrellas,
-        depends_on=provider,
-        umbrella_depends_on=current.umbrella_depends_on,
-        parent=current.parent,
-      )
-      changed = True
-      dependencies = provider
     else:
-      raise TicketDependencyError(
-        "canonical relationship dependencies conflict with native ticket "
-        f"dependencies for #{issue}: "
-        f"canonical={list(current.depends_on)!r}, provider={list(provider)!r}; "
-        "reconcile explicitly before lane selection"
-      )
+      if current.depends_on == provider.depends_on:
+        replacement = provider
+      elif not current.depends_on and provider.depends_on:
+        replacement = provider
+      else:
+        raise TicketDependencyError(
+          "canonical dependencies conflict with native ticket dependencies "
+          f"for #{issue}: canonical={list(current.depends_on)!r}, "
+          f"provider={list(provider.depends_on)!r}; reconcile explicitly "
+          "before lane selection"
+        )
+      if replacement != current:
+        issues[issue] = replacement
+        changed = True
+      dependencies = replacement.depends_on
 
     for dependency in dependencies:
       if dependency not in visited and dependency not in pending:
@@ -115,7 +128,7 @@ def ensure_relationship_graph(
 
   if changed:
     graph = RelationshipGraph.from_json_value({
-      "schema_version": 2,
+      "schema_version": 3,
       "issues": {
         issue: relation.to_json_value()
         for issue, relation in issues.items()
@@ -126,6 +139,10 @@ def ensure_relationship_graph(
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
+
+  if fetched_info:
+    from .issue_metadata import cache_issue_display_metadata
+    cache_issue_display_metadata(root, fetched_info, writer)
 
   return RelationshipAcquisition(
     issues=tuple(sorted((int(issue) for issue in visited))),

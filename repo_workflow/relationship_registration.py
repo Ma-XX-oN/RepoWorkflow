@@ -16,7 +16,7 @@ from .state_store import WriterIdentity
 
 
 class RelationshipRegistrationError(RuntimeError):
-  """Raised when canonical relationship registration cannot proceed safely."""
+  """Raised when canonical ticket registration cannot proceed safely."""
 
 
 def register_issue_relationships(
@@ -27,7 +27,6 @@ def register_issue_relationships(
   *,
   expected_revision: int | None = None,
 ) -> RelationshipSnapshot:
-  """Register one issue's explicit canonical relationship facts."""
   issue_id = _issue_id(issue)
   if not isinstance(relationships, IssueRelationships):
     raise RelationshipRegistrationError(
@@ -42,7 +41,7 @@ def register_issue_relationships(
       raise RelationshipRegistrationError(str(error)) from error
     if expected_revision is not None:
       raise RelationshipRegistrationError(
-        "relationship graph is missing; expected revision cannot be supplied"
+        "ticket state is missing; expected revision cannot be supplied"
       ) from error
     graph = _graph_with({}, issue_id, relationships)
     try:
@@ -56,11 +55,11 @@ def register_issue_relationships(
 
   if expected_revision is None:
     raise RelationshipRegistrationError(
-      "conflicting relationship replacement requires expected revision"
+      "conflicting ticket replacement requires expected revision"
     )
   if expected_revision != current.revision:
     raise RelationshipRegistrationError(
-      "stale relationship graph revision: "
+      "stale ticket-state revision: "
       f"expected {expected_revision}, current {current.revision}"
     )
 
@@ -80,7 +79,7 @@ def _graph_with(
   issues[issue_id] = relationships
   try:
     return RelationshipGraph.from_json_value({
-      "schema_version": 2,
+      "schema_version": 3,
       "issues": {
         key: value.to_json_value()
         for key, value in issues.items()

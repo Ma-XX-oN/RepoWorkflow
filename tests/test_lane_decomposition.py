@@ -5,18 +5,12 @@ from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
 
 def relation(*dependencies: int) -> IssueRelationships:
-  return IssueRelationships(
-    umbrella=None,
-    shared_umbrellas=(),
-    depends_on=tuple(str(value) for value in dependencies),
-    umbrella_depends_on=(),
-    parent=None,
-  )
+  return IssueRelationships("Issue", tuple(str(value) for value in dependencies))
 
 
 def graph(mapping: dict[int, tuple[int, ...]]) -> RelationshipGraph:
   return RelationshipGraph.from_json_value({
-    "schema_version": 2,
+    "schema_version": 3,
     "issues": {
       str(issue): relation(*dependencies).to_json_value()
       for issue, dependencies in mapping.items()

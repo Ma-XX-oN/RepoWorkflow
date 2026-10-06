@@ -317,17 +317,24 @@ its entry after equivalence is established.
 
 ## `.ci/branch-policy.json`
 
-The branch policy declares intended ancestry. Schema 1 provides:
+The branch policy declares allowed imported dependency history while branch
+parent identity comes from the work branch's Git-native identity marker.
+
+Schema 2 provides:
 
 - `integrationBranch`;
 - exact `branches` rules;
 - optional ordered `patterns` rules;
-- per-rule `parent`;
-- `allowedDependencies`;
-- `umbrella`;
-- `integrationTarget`.
+- per-rule `allowedDependencies`.
 
-RepoWorkflow refreshes authoritative remote ancestry before evaluating the branch.
+A schema-2 rule does not store `parent`, `integrationTarget`, or descriptive
+container state.
+
+For a non-integration work branch, RepoWorkflow refreshes authoritative remote
+ancestry, recovers the branch parent from Git history, verifies any PR base
+against that recovered parent, and checks imported merge history against
+`allowedDependencies`.
+
 Unmatched non-integration branches are rejected.
 
 ## `.ci/run-ci-request`

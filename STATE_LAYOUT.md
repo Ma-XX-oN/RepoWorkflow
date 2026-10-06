@@ -128,17 +128,23 @@ observe the same revision and owner.
 A worktree resume pointer may be worktree-local because it belongs only to that
 checkout.
 
-## 5. Durable relationship placement
+## 5. Durable synchronized ticket placement
 
-The canonical relationship graph is durable repository state.
+Canonical synchronized ticket state is durable repository state and is stored
+in one committed compact file:
 
-Its eventual persisted representation belongs under committed
-`.repoworkflow/`, not under Git-local metadata.
+```text
+.repoworkflow/tickets.csv
+```
 
-The pure schema/model is defined in
+Each row contains ticket number, exact synchronized provider title, and direct
+dependencies. The schema and synchronization authority are defined by
+[TICKET_STATE.md](TICKET_STATE.md); direct graph invariants are defined by
 [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md).
 
-The persistent graph store/reader is owned by #145.
+Branch-parent identity is not durable ticket state. It is recorded in ordinary
+Git history as defined by
+[PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md).
 
 ## 5.1 Durable lifecycle placement
 

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .git import git
+from .parent_branch import ParentBranchError, recover_parent_branch
 
 
 class BranchPolicyError(RuntimeError):
@@ -14,39 +15,27 @@ class BranchPolicyError(RuntimeError):
 def _validate_rule(value: object, label: str, *, pattern: bool = False) -> dict:
   if not isinstance(value, dict):
     raise BranchPolicyError(f"{label} must be an object")
-  allowed = {
-    "parent", "allowedDependencies", "umbrella", "integrationTarget"
-  }
+  allowed = {"allowedDependencies"}
   if pattern:
     allowed.add("pattern")
   unknown = sorted(set(value) - allowed)
   if unknown:
-    raise BranchPolicyError(f"{label} has unsupported fields: {', '.join(unknown)}")
+    raise BranchPolicyError(
+      f"{label} has unsupported fields: {', '.join(unknown)}"
+    )
   if pattern:
     match = value.get("pattern")
     if not isinstance(match, str) or not match:
       raise BranchPolicyError(f"{label}.pattern is required")
-  parent = value.get("parent")
-  if not isinstance(parent, str) or not parent:
-    raise BranchPolicyError(f"{label}.parent is required")
   dependencies = value.get("allowedDependencies", [])
   if not isinstance(dependencies, list) or not all(
     isinstance(item, str) and item for item in dependencies
   ):
-    raise BranchPolicyError(f"{label}.allowedDependencies must be an array")
-  umbrella = value.get("umbrella", False)
-  if not isinstance(umbrella, bool):
-    raise BranchPolicyError(f"{label}.umbrella must be boolean")
-  target = value.get("integrationTarget")
-  if target is not None and (not isinstance(target, str) or not target):
-    raise BranchPolicyError(f"{label}.integrationTarget must be a branch name")
-  if umbrella and not target:
-    raise BranchPolicyError(f"{label} umbrella branch requires integrationTarget")
-  if umbrella and not dependencies:
-    raise BranchPolicyError(f"{label} umbrella branch requires allowedDependencies")
+    raise BranchPolicyError(
+      f"{label}.allowedDependencies must be an array"
+    )
   result = dict(value)
   result["allowedDependencies"] = list(dependencies)
-  result["umbrella"] = umbrella
   return result
 
 
@@ -58,12 +47,14 @@ def _load_policy(root: Path) -> dict:
     raise BranchPolicyError(f"missing branch policy: {path}") from exc
   except json.JSONDecodeError as exc:
     raise BranchPolicyError(f"invalid branch policy JSON: {exc}") from exc
-  if not isinstance(value, dict) or value.get("schema") != 1:
-    raise BranchPolicyError("branch policy must declare schema 1")
+  if not isinstance(value, dict) or value.get("schema") != 2:
+    raise BranchPolicyError("branch policy must declare schema 2")
   allowed_top = {"schema", "integrationBranch", "branches", "patterns"}
   unknown = sorted(set(value) - allowed_top)
   if unknown:
-    raise BranchPolicyError("branch policy has unsupported fields: " + ", ".join(unknown))
+    raise BranchPolicyError(
+      "branch policy has unsupported fields: " + ", ".join(unknown)
+    )
   integration = value.get("integrationBranch")
   if not isinstance(integration, str) or not integration:
     raise BranchPolicyError("branch policy integrationBranch is required")
@@ -91,13 +82,34 @@ def _rule_for(policy: dict, branch: str) -> dict | None:
     return dict(exact)
   for rule in policy["patterns"]:
     if fnmatch.fnmatchcase(branch, rule["pattern"]):
-      return {key: value for key, value in rule.items() if key != "pattern"}
+      return {
+        key: value
+        for key, value in rule.items()
+        if key != "pattern"
+      }
   return None
 
 
 def _is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
-  result = git(root, "merge-base", "--is-ancestor", ancestor, descendant, check=False)
+  result = git(
+    root,
+    "merge-base",
+    "--is-ancestor",
+    ancestor,
+    descendant,
+    check=False,
+  )
   return result.returncode == 0
+
+
+def _parent_ref(root: Path, remote: str, parent: str) -> str:
+  remote_ref = f"refs/remotes/{remote}/{parent}"
+  if git(root, "show-ref", "--verify", remote_ref, check=False).returncode == 0:
+    return remote_ref
+  local_ref = f"refs/heads/{parent}"
+  if git(root, "show-ref", "--verify", local_ref, check=False).returncode == 0:
+    return local_ref
+  raise BranchPolicyError(f"parent branch is unavailable: {parent}")
 
 
 def check_branch_policy(
@@ -113,12 +125,7 @@ def check_branch_policy(
   rule = _rule_for(policy, branch)
   if rule is None:
     raise BranchPolicyError(f"no branch policy rule matches {branch}")
-  parent = rule["parent"]
-  target = rule.get("integrationTarget") or parent
-  if pr_base is not None and pr_base != target:
-    raise BranchPolicyError(
-      f"pull request base {pr_base} does not match integration target {target}"
-    )
+
   fetched = git(
     root,
     "fetch",
@@ -130,13 +137,23 @@ def check_branch_policy(
   if fetched.returncode:
     detail = (fetched.stderr or fetched.stdout).strip()
     raise BranchPolicyError(f"cannot refresh branch ancestry: {detail}")
-  parent_ref = f"refs/remotes/{remote}/{parent}"
-  if git(root, "show-ref", "--verify", parent_ref, check=False).returncode:
-    raise BranchPolicyError(f"declared parent branch is unavailable: {parent}")
+
+  try:
+    parent = recover_parent_branch(root, branch)
+  except ParentBranchError as error:
+    raise BranchPolicyError(str(error)) from error
+  if pr_base is not None and pr_base != parent:
+    raise BranchPolicyError(
+      f"pull request base {pr_base} does not match branch parent {parent}"
+    )
+
+  parent_ref = _parent_ref(root, remote, parent)
   head = git(root, "rev-parse", "HEAD").stdout.strip()
   merge_base_result = git(root, "merge-base", head, parent_ref, check=False)
   if merge_base_result.returncode:
-    raise BranchPolicyError(f"branch {branch} has no merge base with {parent}")
+    raise BranchPolicyError(
+      f"branch {branch} has no merge base with {parent}"
+    )
   merge_base = merge_base_result.stdout.strip()
   merge_lines = git(
     root,
@@ -159,8 +176,17 @@ def check_branch_policy(
       matched = False
       for dependency in allowed_dependencies:
         dependency_ref = f"refs/remotes/{remote}/{dependency}"
-        exists = git(root, "show-ref", "--verify", dependency_ref, check=False)
-        if exists.returncode == 0 and _is_ancestor(root, imported, dependency_ref):
+        exists = git(
+          root,
+          "show-ref",
+          "--verify",
+          dependency_ref,
+          check=False,
+        )
+        if (
+          exists.returncode == 0
+          and _is_ancestor(root, imported, dependency_ref)
+        ):
           matched = True
           break
       if not matched:
@@ -168,4 +194,6 @@ def check_branch_policy(
           f"merge {merge_sha} imports undeclared history at {imported}"
         )
   if violations:
-    raise BranchPolicyError("branch policy failed:\n- " + "\n- ".join(violations))
+    raise BranchPolicyError(
+      "branch policy failed:\n- " + "\n- ".join(violations)
+    )

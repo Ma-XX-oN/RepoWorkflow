@@ -7,116 +7,75 @@ from repo_workflow.relationships import (
 )
 
 
+def graph(value):
+  return RelationshipGraph.from_json_value({
+    "schema_version": 3,
+    "issues": value,
+  })
+
+
 class RelationshipGraphTests(unittest.TestCase):
-  def test_round_trip_preserves_distinct_relationship_types(self):
+  def test_round_trip_preserves_exact_title_and_direct_dependencies(self):
     value = {
-      "schema_version": 2,
+      "schema_version": 3,
       "issues": {
-        "10": {
-          "umbrella": "1",
-          "shared_umbrellas": ["50"],
-          "depends_on": ["7"],
-          "umbrella_depends_on": ["40"],
-          "parent": "issue-7",
-        },
-        "7": {
-          "umbrella": "1",
-          "shared_umbrellas": [],
-          "depends_on": [],
-          "umbrella_depends_on": [],
-          "parent": "main",
-        },
+        "7": {"title": "Seven", "depends_on": []},
+        "10": {"title": "Feature: Ten", "depends_on": ["7"]},
       },
     }
-    graph = RelationshipGraph.from_json_value(value)
+    result = RelationshipGraph.from_json_value(value)
 
-    self.assertEqual(graph.to_json_value(), value)
-    issue = graph.issue("10")
-    self.assertEqual(issue.umbrella, "1")
-    self.assertEqual(issue.shared_umbrellas, ("50",))
-    self.assertEqual(issue.depends_on, ("7",))
-    self.assertEqual(issue.umbrella_depends_on, ("40",))
-    self.assertEqual(issue.parent, "issue-7")
+    self.assertEqual(result.to_json_value(), value)
+    self.assertEqual(result.issue(10).title, "Feature: Ten")
+    self.assertEqual(result.issue(10).depends_on, ("7",))
 
-  def test_umbrella_membership_and_attachment_do_not_block_readiness(self):
-    graph = RelationshipGraph.from_json_value({
-      "schema_version": 2,
-      "issues": {
-        "10": {
-          "umbrella": "1",
-          "shared_umbrellas": ["50"],
-          "depends_on": [],
-          "umbrella_depends_on": [],
-          "parent": "issue-9",
-        },
-      },
+  def test_removed_relationship_fields_are_rejected(self):
+    for field, value in (
+      ("umbrella", "1"),
+      ("shared_umbrellas", ["50"]),
+      ("umbrella_depends_on", ["40"]),
+      ("parent", "main"),
+    ):
+      with self.subTest(field=field):
+        with self.assertRaisesRegex(
+          RelationshipSchemaError,
+          "expected title and depends_on only",
+        ):
+          graph({
+            "10": {
+              "title": "Ten",
+              "depends_on": [],
+              field: value,
+            },
+          })
+
+  def test_title_prefixes_have_no_readiness_semantics(self):
+    value = graph({
+      "10": {"title": "Initiative: Ten", "depends_on": []},
+      "20": {"title": "Epic: Twenty", "depends_on": []},
+      "30": {"title": "Feature: Thirty", "depends_on": []},
     })
+    self.assertEqual(
+      ready_issues(value, completed=set()),
+      ("10", "20", "30"),
+    )
 
-    self.assertEqual(ready_issues(graph, completed=set()), ("10",))
-
-  def test_unresolved_direct_leaf_dependency_blocks_until_complete(self):
-    graph = RelationshipGraph.from_json_value({
-      "schema_version": 2,
-      "issues": {
-        "10": {
-          "umbrella": "1",
-          "shared_umbrellas": [],
-          "depends_on": ["7"],
-          "umbrella_depends_on": [],
-          "parent": "main",
-        },
-        "7": {
-          "umbrella": "1",
-          "shared_umbrellas": [],
-          "depends_on": [],
-          "umbrella_depends_on": [],
-          "parent": "main",
-        },
-      },
+  def test_unresolved_direct_dependency_blocks_until_complete(self):
+    value = graph({
+      "7": {"title": "Seven", "depends_on": []},
+      "10": {"title": "Ten", "depends_on": ["7"]},
     })
-
-    self.assertEqual(ready_issues(graph, completed=set()), ("7",))
-    self.assertEqual(ready_issues(graph, completed={"7"}), ("10",))
-
-  def test_parent_never_becomes_dependency(self):
-    graph = RelationshipGraph.from_json_value({
-      "schema_version": 2,
-      "issues": {
-        "10": {
-          "umbrella": None,
-          "shared_umbrellas": [],
-          "depends_on": [],
-          "umbrella_depends_on": [],
-          "parent": "issue-7",
-        },
-      },
-    })
-
-    self.assertEqual(ready_issues(graph, completed=set()), ("10",))
+    self.assertEqual(ready_issues(value, completed=set()), ("7",))
+    self.assertEqual(ready_issues(value, completed={"7"}), ("10",))
 
   def test_direct_dependency_cycle_is_rejected(self):
     with self.assertRaisesRegex(
       RelationshipSchemaError,
       "direct dependency cycle",
     ):
-      RelationshipGraph.from_json_value({
-        "schema_version": 2,
-        "issues": {
-          "1": {
-            "umbrella": None,
-            "shared_umbrellas": [],
-            "depends_on": ["2"],
-            "umbrella_depends_on": [],
-            "parent": "main",
-          },
-          "2": {
-            "umbrella": None,
-            "shared_umbrellas": [],
-            "depends_on": ["1"],
-            "umbrella_depends_on": [],
-            "parent": "main",
-          },
-        },
+      graph({
+        "1": {"title": "One", "depends_on": ["2"]},
+        "2": {"title": "Two", "depends_on": ["1"]},
       })
 
   def test_unknown_direct_dependency_is_rejected(self):
@@ -124,32 +83,23 @@ class RelationshipGraphTests(unittest.TestCase):
       RelationshipSchemaError,
       "unknown direct dependency",
     ):
-      RelationshipGraph.from_json_value({
-        "schema_version": 2,
-        "issues": {
-          "10": {
-            "umbrella": None,
-            "shared_umbrellas": [],
-            "depends_on": ["99"],
-            "umbrella_depends_on": [],
-            "parent": "main",
-          },
-        },
+      graph({
+        "10": {"title": "Ten", "depends_on": ["99"]},
       })
 
-  def test_self_relationships_are_rejected(self):
-    with self.assertRaises(RelationshipSchemaError):
-      RelationshipGraph.from_json_value({
-        "schema_version": 2,
-        "issues": {
-          "10": {
-            "umbrella": "10",
-            "shared_umbrellas": [],
-            "depends_on": [],
-            "umbrella_depends_on": [],
-            "parent": "main",
-          },
-        },
+  def test_self_dependency_is_rejected(self):
+    with self.assertRaisesRegex(RelationshipSchemaError, "self direct"):
+      graph({
+        "10": {"title": "Ten", "depends_on": ["10"]},
+      })
+
+  def test_empty_title_and_duplicate_dependencies_fail_closed(self):
+    with self.assertRaisesRegex(RelationshipSchemaError, "title"):
+      graph({"10": {"title": "", "depends_on": []}})
+    with self.assertRaisesRegex(RelationshipSchemaError, "duplicates"):
+      graph({
+        "7": {"title": "Seven", "depends_on": []},
+        "10": {"title": "Ten", "depends_on": ["7", "7"]},
       })
 
   def test_schema_version_must_be_supported(self):
@@ -158,7 +108,7 @@ class RelationshipGraphTests(unittest.TestCase):
       "unsupported relationship schema version",
     ):
       RelationshipGraph.from_json_value({
-        "schema_version": 1,
+        "schema_version": 2,
         "issues": {},
       })
 

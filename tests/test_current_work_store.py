@@ -11,19 +11,17 @@ from repo_workflow.state_store import WriterIdentity
 from tests.support import RepoFixture
 
 
-def graph():
+def graph(title="One"):
   return RelationshipGraph.from_json_value({
-    "schema_version": 2,
+    "schema_version": 3,
     "issues": {
       "1": {
-        "umbrella": None,
-        "shared_umbrellas": [],
+        "title": title,
         "depends_on": [],
-        "umbrella_depends_on": [],
-        "parent": "main",
       },
     },
   })
+
 
 
 class CurrentWorkStoreTests(unittest.TestCase):
@@ -156,7 +154,7 @@ class CurrentWorkStoreTests(unittest.TestCase):
     )
     relationship_store.replace(
       relationship.revision,
-      graph(),
+      graph("One renamed"),
       self.writer,
     )
 
@@ -183,7 +181,10 @@ class CurrentWorkStoreTests(unittest.TestCase):
       None,
     )
 
-    self.assertEqual(RelationshipStore(self.repo).read().revision, 0)
+    self.assertEqual(
+      RelationshipStore(self.repo).read().revision,
+      relationship.revision,
+    )
     self.assertEqual(lifecycle_store.read(1).revision, 0)
 
 

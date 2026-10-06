@@ -12,14 +12,8 @@ from repo_workflow.relationships import IssueRelationships
 from repo_workflow.state_store import WriterIdentity
 
 
-def relations(*, depends_on=(), parent="main"):
-  return IssueRelationships(
-    umbrella="1",
-    shared_umbrellas=("50",),
-    depends_on=tuple(depends_on),
-    umbrella_depends_on=("40",),
-    parent=parent,
-  )
+def relations(title="Issue", depends_on=()):
+  return IssueRelationships(title, tuple(depends_on))
 
 
 class RelationshipRegistrationTests(unittest.TestCase):
@@ -33,17 +27,20 @@ class RelationshipRegistrationTests(unittest.TestCase):
   def tearDown(self):
     self.temp.cleanup()
 
-  def test_first_registration_creates_canonical_graph(self):
+  def test_first_registration_creates_canonical_ticket_state(self):
     snapshot = register_issue_relationships(
       self.repo,
       7,
       relations(),
       self.writer,
     )
-    self.assertEqual(snapshot.revision, 0)
     self.assertEqual(RelationshipStore(self.repo).issue(7), relations())
+    self.assertEqual(
+      snapshot.revision,
+      RelationshipStore(self.repo).read().revision,
+    )
 
-  def test_identical_registration_is_idempotent_without_revision(self):
+  def test_identical_registration_is_idempotent(self):
     first = register_issue_relationships(
       self.repo,
       7,
@@ -57,7 +54,6 @@ class RelationshipRegistrationTests(unittest.TestCase):
       WriterIdentity("agent-a", "session-2"),
     )
     self.assertEqual(second, first)
-    self.assertEqual(RelationshipStore(self.repo).read().revision, 0)
 
   def test_conflicting_replacement_requires_expected_revision(self):
     register_issue_relationships(self.repo, 7, relations(), self.writer)
@@ -68,7 +64,7 @@ class RelationshipRegistrationTests(unittest.TestCase):
       register_issue_relationships(
         self.repo,
         7,
-        relations(parent="issue-6"),
+        relations(title="Renamed"),
         self.writer,
       )
 
@@ -79,7 +75,7 @@ class RelationshipRegistrationTests(unittest.TestCase):
       relations(),
       self.writer,
     )
-    changed = relations(parent="issue-6")
+    changed = relations(title="Renamed")
     second = register_issue_relationships(
       self.repo,
       7,
@@ -87,37 +83,37 @@ class RelationshipRegistrationTests(unittest.TestCase):
       self.writer,
       expected_revision=first.revision,
     )
-    self.assertEqual(second.revision, 1)
+    self.assertNotEqual(second.revision, first.revision)
     self.assertEqual(RelationshipStore(self.repo).issue(7), changed)
 
-  def test_stale_revision_preserves_prior_graph(self):
+  def test_stale_revision_preserves_prior_state(self):
     first = register_issue_relationships(
       self.repo,
       7,
       relations(),
       self.writer,
     )
-    register_issue_relationships(
+    changed = register_issue_relationships(
       self.repo,
       7,
-      relations(parent="issue-6"),
+      relations(title="First rename"),
       self.writer,
       expected_revision=first.revision,
     )
     with self.assertRaisesRegex(
       RelationshipRegistrationError,
-      "stale relationship graph revision",
+      "stale ticket-state revision",
     ):
       register_issue_relationships(
         self.repo,
         7,
-        relations(parent="issue-5"),
+        relations(title="Second rename"),
         self.writer,
         expected_revision=first.revision,
       )
     self.assertEqual(
-      RelationshipStore(self.repo).issue(7).parent,
-      "issue-6",
+      RelationshipStore(self.repo).read(),
+      changed,
     )
 
   def test_direct_dependency_must_already_be_canonical(self):

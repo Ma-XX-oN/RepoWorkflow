@@ -1,32 +1,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 
-SCHEMA_VERSION = 2
-LEGACY_SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 
 
 class RelationshipSchemaError(ValueError):
-  """Raised when relationship graph data violates the schema contract."""
+  """Raised when synchronized ticket relationships violate their contract."""
 
 
 @dataclass(frozen=True)
 class IssueRelationships:
-  umbrella: str | None
-  shared_umbrellas: tuple[str, ...]
+  title: str
   depends_on: tuple[str, ...]
-  umbrella_depends_on: tuple[str, ...]
-  parent: str | None
+
+  def __post_init__(self) -> None:
+    if not isinstance(self.title, str) or not self.title:
+      raise RelationshipSchemaError("issue title must be non-empty text")
+    normalized = _issue_id_list(list(self.depends_on), "depends_on")
+    if normalized != self.depends_on:
+      object.__setattr__(self, "depends_on", normalized)
 
   def to_json_value(self) -> dict:
     return {
-      "umbrella": self.umbrella,
-      "shared_umbrellas": list(self.shared_umbrellas),
+      "title": self.title,
       "depends_on": list(self.depends_on),
-      "umbrella_depends_on": list(self.umbrella_depends_on),
-      "parent": self.parent,
     }
 
 
@@ -39,10 +38,9 @@ class RelationshipGraph:
   def from_json_value(cls, value: dict) -> "RelationshipGraph":
     if not isinstance(value, dict):
       raise RelationshipSchemaError("relationship graph must be an object")
-    version = value.get("schema_version")
-    if version != SCHEMA_VERSION:
+    if value.get("schema_version") != SCHEMA_VERSION:
       raise RelationshipSchemaError(
-        f"unsupported relationship schema version: {version!r}"
+        f"unsupported relationship schema version: {value.get('schema_version')!r}"
       )
     raw_issues = value.get("issues")
     if not isinstance(raw_issues, dict):
@@ -51,14 +49,22 @@ class RelationshipGraph:
     issues: dict[str, IssueRelationships] = {}
     for raw_issue_id, raw in raw_issues.items():
       issue_id = _issue_id(raw_issue_id)
-      if not isinstance(raw, dict):
+      if not isinstance(raw, dict) or set(raw) != {"title", "depends_on"}:
         raise RelationshipSchemaError(
-          f"issue {issue_id}: relationship record must be an object"
+          f"issue {issue_id}: expected title and depends_on only"
         )
-      issues[issue_id] = _parse_issue(issue_id, raw)
+      title = raw["title"]
+      if not isinstance(title, str) or not title:
+        raise RelationshipSchemaError(
+          f"issue {issue_id}: title must be non-empty text"
+        )
+      issues[issue_id] = IssueRelationships(
+        title=title,
+        depends_on=_issue_id_list(raw["depends_on"], "depends_on"),
+      )
 
     _validate_direct_dependencies(issues)
-    return cls(issues=issues, schema_version=version)
+    return cls(issues=issues)
 
   def issue(self, issue_id: str | int) -> IssueRelationships:
     key = _issue_id(issue_id)
@@ -77,68 +83,41 @@ class RelationshipGraph:
     }
 
 
-def migrate_legacy_graph(
-  value: dict,
-  recover_parent: Callable[[str], str],
-) -> RelationshipGraph:
-  """Convert schema v1 to v2 without preferring either conflicting legacy field."""
-  if not isinstance(value, dict) or value.get("schema_version") != LEGACY_SCHEMA_VERSION:
-    raise RelationshipSchemaError("legacy relationship graph must use schema version 1")
+def project_legacy_graph(value: dict, titles: dict[str, str]) -> RelationshipGraph:
+  """Project legacy relationship state onto title + direct dependencies only."""
+  if not isinstance(value, dict) or value.get("schema_version") not in {1, 2}:
+    raise RelationshipSchemaError(
+      "legacy relationship graph must use schema version 1 or 2"
+    )
   raw_issues = value.get("issues")
   if not isinstance(raw_issues, dict):
     raise RelationshipSchemaError("issues must be an object")
 
-  migrated: dict[str, dict] = {}
+  issues: dict[str, IssueRelationships] = {}
   for raw_issue_id, raw in raw_issues.items():
     issue_id = _issue_id(raw_issue_id)
-    if not isinstance(raw, dict):
+    if not isinstance(raw, dict) or "depends_on" not in raw:
       raise RelationshipSchemaError(
-        f"issue {issue_id}: relationship record must be an object"
+        f"legacy issue {issue_id}: direct dependencies are missing"
       )
-    expected = {
-      "umbrella",
-      "shared_umbrellas",
-      "depends_on",
-      "umbrella_depends_on",
-      "branch_base",
-      "integration_target",
-    }
-    if set(raw) != expected:
+    title = titles.get(issue_id)
+    if not isinstance(title, str) or not title:
       raise RelationshipSchemaError(
-        f"issue {issue_id}: legacy relationship fields are invalid"
+        f"legacy issue {issue_id}: synchronized title is missing"
       )
-    branch_base = _optional_text(raw["branch_base"], "branch_base")
-    integration_target = _optional_text(
-      raw["integration_target"],
-      "integration_target",
+    issues[issue_id] = IssueRelationships(
+      title=title,
+      depends_on=_issue_id_list(raw["depends_on"], "depends_on"),
     )
-    if branch_base == integration_target:
-      parent = branch_base
-    elif branch_base is None or integration_target is None:
-      parent = recover_parent(issue_id)
-    else:
-      parent = recover_parent(issue_id)
-    if parent is not None:
-      parent = _optional_text(parent, "parent")
-    migrated[issue_id] = {
-      "umbrella": raw["umbrella"],
-      "shared_umbrellas": raw["shared_umbrellas"],
-      "depends_on": raw["depends_on"],
-      "umbrella_depends_on": raw["umbrella_depends_on"],
-      "parent": parent,
-    }
 
-  return RelationshipGraph.from_json_value({
-    "schema_version": SCHEMA_VERSION,
-    "issues": migrated,
-  })
+  _validate_direct_dependencies(issues)
+  return RelationshipGraph(issues)
 
 
 def ready_issues(
   graph: RelationshipGraph,
   completed: set[str | int],
 ) -> tuple[str, ...]:
-  """Return incomplete issues whose direct leaf dependencies are complete."""
   done = {_issue_id(issue_id) for issue_id in completed}
   ready = [
     issue_id
@@ -149,58 +128,14 @@ def ready_issues(
   return tuple(_sorted_issue_ids(ready))
 
 
-def _parse_issue(issue_id: str, raw: dict) -> IssueRelationships:
-  expected = {
-    "umbrella",
-    "shared_umbrellas",
-    "depends_on",
-    "umbrella_depends_on",
-    "parent",
-  }
-  unknown = set(raw) - expected
-  missing = expected - set(raw)
-  if unknown:
-    raise RelationshipSchemaError(
-      f"issue {issue_id}: unknown fields: {sorted(unknown)!r}"
-    )
-  if missing:
-    raise RelationshipSchemaError(
-      f"issue {issue_id}: missing fields: {sorted(missing)!r}"
-    )
-
-  umbrella = _optional_issue_id(raw["umbrella"], "umbrella")
-  shared = _issue_id_list(raw["shared_umbrellas"], "shared_umbrellas")
-  dependencies = _issue_id_list(raw["depends_on"], "depends_on")
-  umbrella_dependencies = _issue_id_list(
-    raw["umbrella_depends_on"],
-    "umbrella_depends_on",
-  )
-  parent = _optional_text(raw["parent"], "parent")
-
-  for kind, values in (
-    ("umbrella", (() if umbrella is None else (umbrella,))),
-    ("shared umbrella", shared),
-    ("direct dependency", dependencies),
-    ("umbrella dependency", umbrella_dependencies),
-  ):
-    if issue_id in values:
-      raise RelationshipSchemaError(
-        f"issue {issue_id}: self {kind} is not allowed"
-      )
-
-  return IssueRelationships(
-    umbrella=umbrella,
-    shared_umbrellas=shared,
-    depends_on=dependencies,
-    umbrella_depends_on=umbrella_dependencies,
-    parent=parent,
-  )
-
-
 def _validate_direct_dependencies(
   issues: dict[str, IssueRelationships],
 ) -> None:
   for issue_id, relation in issues.items():
+    if issue_id in relation.depends_on:
+      raise RelationshipSchemaError(
+        f"issue {issue_id}: self direct dependency is not allowed"
+      )
     for dependency in relation.depends_on:
       if dependency not in issues:
         raise RelationshipSchemaError(
@@ -236,15 +171,6 @@ def _issue_id(value: str | int) -> str:
   return str(int(text))
 
 
-def _optional_issue_id(value, field: str) -> str | None:
-  if value is None:
-    return None
-  try:
-    return _issue_id(value)
-  except RelationshipSchemaError as error:
-    raise RelationshipSchemaError(f"{field}: {error}") from error
-
-
 def _issue_id_list(value, field: str) -> tuple[str, ...]:
   if not isinstance(value, list):
     raise RelationshipSchemaError(f"{field} must be an array")
@@ -252,14 +178,6 @@ def _issue_id_list(value, field: str) -> tuple[str, ...]:
   if len(result) != len(set(result)):
     raise RelationshipSchemaError(f"{field} contains duplicates")
   return tuple(_sorted_issue_ids(result))
-
-
-def _optional_text(value, field: str) -> str | None:
-  if value is None:
-    return None
-  if not isinstance(value, str) or not value.strip():
-    raise RelationshipSchemaError(f"{field} must be non-empty text or null")
-  return value
 
 
 def _sorted_issue_ids(values) -> list[str]:

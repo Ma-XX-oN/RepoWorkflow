@@ -223,7 +223,7 @@ methodology.
   test adequacy and verification gate applied to RepoWorkflow and consumers.
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral method for decomposing issues into testable interfaces,
-  shared capability umbrellas, and executable dependency graphs.
+  direct dependency interfaces, and executable dependency graphs.
 - [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md) defines the versioned direct
   relationship schema, reconstruction rules, and executable readiness edges.
 - [STATE_LAYOUT.md](STATE_LAYOUT.md) defines durable, clone-common, and
@@ -233,7 +233,7 @@ methodology.
 - [RUNTIME_IDENTITY.md](RUNTIME_IDENTITY.md) defines the provider-neutral
   writer/session invocation boundary for mutation-capable transitions.
 - [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md) defines the corresponding
-  graph-testing, refinement procedure, and leaf/umbrella acceptance checks.
+  graph-testing, refinement procedure, and dependency acceptance checks.
 - [WORKSPACE_MODEL.md](WORKSPACE_MODEL.md) defines repository-local workspace
   identity, lifecycle, claims, resume semantics, and cleanup invariants.
 - [WORKTREE_BACKEND.md](WORKTREE_BACKEND.md) defines transactional local Git

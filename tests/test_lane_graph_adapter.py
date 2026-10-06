@@ -11,7 +11,7 @@ from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
 
 def relation(*deps: int) -> IssueRelationships:
-  return IssueRelationships(None, (), tuple(str(x) for x in deps), (), None)
+  return IssueRelationships("Issue", tuple(str(x) for x in deps))
 
 
 def colour(name):

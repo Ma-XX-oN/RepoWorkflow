@@ -13,6 +13,45 @@ class ParentBranchError(RuntimeError):
 _BRANCH_RE = re.compile(r"^[^\s~^:?*\[\\]+(?:/[^\s~^:?*\[\\]+)*$")
 
 
+
+def create_parent_identity(
+  root: Path,
+  work_branch: str,
+  parent_branch: str,
+) -> str:
+  """Record the branch's creation parent once in ordinary Git history."""
+  work = _branch_name(work_branch, "work branch")
+  parent = _branch_name(parent_branch, "parent branch")
+  current = git(root, "branch", "--show-current").stdout.strip()
+  if current != work:
+    raise ParentBranchError(
+      f"work branch {work} must be checked out to record parent identity"
+    )
+  if work == parent:
+    raise ParentBranchError("work branch cannot be its own parent")
+  if _trailers_in_history(root, work):
+    raise ParentBranchError(f"parent identity already exists for {work}")
+  git(
+    root,
+    "commit",
+    "--allow-empty",
+    "-m",
+    (
+      "RepoWorkflow branch identity\n\n"
+      f"RWF-Branch: {work}\n"
+      f"RWF-Parent: {parent}"
+    ),
+  )
+  return git(root, "rev-parse", "HEAD").stdout.strip()
+
+
+def _trailers_in_history(root: Path, work: str) -> bool:
+  for commit in git(root, "rev-list", "--first-parent", work).stdout.splitlines():
+    message = git(root, "show", "-s", "--format=%B", commit).stdout
+    if work in _trailers(message, "RWF-Branch"):
+      return True
+  return False
+
 def recover_parent_branch(root: Path, work_branch: str) -> str:
   """Recover one parent from branch-bound identity history and local Git refs."""
   work = _branch_name(work_branch, "work branch")
@@ -53,37 +92,99 @@ def recover_parent_branch(root: Path, work_branch: str) -> str:
   if not refs:
     raise ParentBranchError(f"parent branch {parent} has no local or fetched ref")
 
-  for ref in refs:
-    result = git(
+  if not any(
+    git(
       root,
       "merge-base",
       "--is-ancestor",
       creation_tip,
       ref,
       check=False,
+    ).returncode == 0
+    for ref in refs
+  ):
+    raise ParentBranchError(
+      f"parent branch {parent} no longer contains creation tip {creation_tip}"
     )
-    if result.returncode:
-      raise ParentBranchError(
-        f"parent ref {ref} no longer contains creation tip {creation_tip}"
-      )
   return parent
 
 
 def _work_ref(root: Path, work: str) -> str:
+  local = f"refs/heads/{work}"
   refs = _branch_refs(root, work)
   if not refs:
     raise ParentBranchError(
       f"work branch {work} has no local or fetched ref"
     )
-  tips = {
-    git(root, "rev-parse", ref).stdout.strip()
+
+  if local in refs:
+    local_tip = git(root, "rev-parse", local).stdout.strip()
+    local_identity = _parent_identity(root, local, work)
+    for ref in refs:
+      if ref == local:
+        continue
+      try:
+        remote_identity = _parent_identity(root, ref, work)
+      except ParentBranchError as error:
+        raise ParentBranchError(
+          f"work branch {work} has conflicting local/fetched refs"
+        ) from error
+      if remote_identity != local_identity:
+        raise ParentBranchError(
+          f"work branch {work} has conflicting local/fetched refs"
+        )
+      tip = git(root, "rev-parse", ref).stdout.strip()
+      forward = git(
+        root,
+        "merge-base",
+        "--is-ancestor",
+        tip,
+        local_tip,
+        check=False,
+      ).returncode == 0
+      backward = git(
+        root,
+        "merge-base",
+        "--is-ancestor",
+        local_tip,
+        tip,
+        check=False,
+      ).returncode == 0
+      if not (forward or backward):
+        raise ParentBranchError(
+          f"work branch {work} has conflicting local/fetched refs"
+        )
+    return local
+
+  identities = {
+    _parent_identity(root, ref, work)
     for ref in refs
   }
-  if len(tips) != 1:
+  if len(identities) != 1:
     raise ParentBranchError(
-      f"work branch {work} has conflicting local/fetched refs"
+      f"work branch {work} has conflicting fetched parent identities"
     )
   return refs[0]
+
+
+def _parent_identity(
+  root: Path,
+  ref: str,
+  work: str,
+) -> tuple[str, str]:
+  matches: list[tuple[str, str]] = []
+  for commit in git(root, "rev-list", "--first-parent", ref).stdout.splitlines():
+    message = git(root, "show", "-s", "--format=%B", commit).stdout
+    branches = _trailers(message, "RWF-Branch")
+    parents = _trailers(message, "RWF-Parent")
+    if branches == [work] and len(parents) == 1:
+      matches.append((commit, parents[0]))
+  if len(matches) != 1:
+    raise ParentBranchError(
+      f"expected exactly one parent identity marker for {work}; "
+      f"found {len(matches)} in {ref}"
+    )
+  return matches[0]
 
 
 def _branch_refs(root: Path, branch: str) -> tuple[str, ...]:

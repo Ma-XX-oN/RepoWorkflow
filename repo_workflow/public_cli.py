@@ -29,6 +29,7 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
+from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
@@ -106,7 +107,7 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
   if command == "issue":
     if words[1] == "start":
       return True
-    if words[1] == "select":
+    if words[1].isdecimal() and "dependency" in words:
       return "--compare" not in words
     return False
   if command == "workspace":
@@ -125,6 +126,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
 
   parse_tokens(COMMANDS, general, words)
   parse_tokens(COMMANDS, legal, words)
+
+  configure_ticket_merge_driver(root, engine_root)
 
   if _requires_public_runtime_identity(words):
     ensure_public_runtime_identity(root)
@@ -155,8 +158,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   if command == "issue":
-    if words[1] == "select":
-      return dependency_sync_command(root, words[2:])
+    if words[1].isdecimal():
+      return dependency_sync_command(root, tuple(words[1:]))
     if words[1] == "info":
       argument = words[2] if len(words) == 3 else None
       for line in show_issue_info(root, argument):

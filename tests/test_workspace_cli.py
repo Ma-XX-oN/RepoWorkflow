@@ -41,13 +41,7 @@ class WorkspaceCliTests(unittest.TestCase):
     )
     RelationshipStore(self.root).create(
       RelationshipGraph(issues={
-        "140": IssueRelationships(
-          umbrella="135",
-          shared_umbrellas=(),
-          depends_on=(),
-          umbrella_depends_on=(),
-          parent="issue-1-test",
-        ),
+        "140": IssueRelationships("Issue 140", ()),
       }),
       WriterIdentity("planner", "planning-session"),
     )
