@@ -109,6 +109,108 @@ class LaneGraphAdapterTests(unittest.TestCase):
         display_width=len,
       )
 
+  def test_projection_removes_only_redundant_direct_edges(self):
+    graph = RelationshipGraph(issues={
+      "77": relation(),
+      "78": relation(77),
+      "99": relation(78),
+      "100": relation(99),
+      "101": relation(99, 100),
+      "127": relation(),
+      "145": relation(77, 101),
+      "185": relation(77, 145, 186),
+      "186": relation(189),
+      "189": relation(99),
+      "208": relation(),
+      "216": relation(145, 185, 208),
+      "217": relation(216),
+      "218": relation(217),
+    })
+    selection = LaneSelection(
+      roots=("218",),
+      closure=(
+        "77", "78", "99", "100", "101", "127", "145",
+        "185", "186", "189", "208", "216", "217", "218",
+      ),
+      graph_revision=1,
+      assignment={
+        "127": "A", "77": "A", "78": "A", "99": "A",
+        "100": "A", "101": "A", "145": "A", "185": "A",
+        "216": "A", "217": "A", "218": "A",
+        "189": "B", "186": "B", "208": "C",
+      },
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(selection.closure),
+      self.metadata(*map(int, selection.closure)),
+      lane_colours={"A": RED, "B": BLUE, "C": GREY},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    edges = {
+      (source, target)
+      for group in projection.graph.siblings
+      for source in group.nodes
+      for target_group in group.to_nodes
+      for target in target_group.nodes
+    }
+    self.assertNotIn(("A.99", "A.101"), edges)
+    self.assertNotIn(("A.77", "A.145"), edges)
+    self.assertNotIn(("A.77", "A.185"), edges)
+    self.assertNotIn(("A.145", "A.216"), edges)
+    self.assertIn(("C.208", "A.216"), edges)
+    self.assertIn(("B.186", "A.185"), edges)
+
+  def test_reduced_projection_preserves_reachability(self):
+    graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(1),
+      "3": relation(1, 2),
+      "4": relation(1, 2, 3),
+    })
+    selection = LaneSelection(
+      roots=("4",),
+      closure=("1", "2", "3", "4"),
+      graph_revision=1,
+      assignment={
+        "1": "A", "2": "A", "3": "A", "4": "A",
+      },
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(selection.closure),
+      self.metadata(1, 2, 3, 4),
+      lane_colours={"A": RED},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    adjacency = {}
+    for group in projection.graph.siblings:
+      for source in group.nodes:
+        adjacency[source] = {
+          target
+          for target_group in group.to_nodes
+          for target in target_group.nodes
+        }
+
+    def reachable(source):
+      pending = list(adjacency[source])
+      seen = set()
+      while pending:
+        node = pending.pop()
+        if node in seen:
+          continue
+        seen.add(node)
+        pending.extend(adjacency[node] - seen)
+      return seen
+
+    self.assertEqual(reachable("A.1"), {"A.2", "A.3", "*A.4"})
+    self.assertEqual(reachable("A.2"), {"A.3", "*A.4"})
+    self.assertEqual(reachable("A.3"), {"*A.4"})
+
   def test_formatter_colours_data_but_not_annotations(self):
     formatter = make_lane_formatter(len)
     result = formatter((
