@@ -146,7 +146,7 @@ invariant, not merely reproduce the implementation's assumptions.
 Projects should apply their own authoritative test-adequacy and verification
 rules to the resulting contracts.
 
-In RepoWorkflow, [TEST_ADEQUACY.md](TEST_ADEQUACY.md) is the concrete
+[TEST_ADEQUACY.md](TEST_ADEQUACY.md) in RepoWorkflow is a concrete
 repository-neutral test-adequacy and verification contract used to apply this
 principle.
 
