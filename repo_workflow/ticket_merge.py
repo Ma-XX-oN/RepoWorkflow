@@ -78,12 +78,9 @@ def _merge_record(
     theirs.depends_on,
   )
 
-  base_title = None if base is None else base.title
-  title_changed = (
-    ours.title != base_title
-    or theirs.title != base_title
-  )
-  if title_changed:
+  if ours.title == theirs.title:
+    title = ours.title
+  else:
     try:
       provider = resolve_info_config(root)
       title = issue_info(root, provider, issue)["title"]
@@ -91,8 +88,6 @@ def _merge_record(
       raise TicketMergeError(
         f"cannot resolve authoritative title for ticket #{issue}: {error}"
       ) from error
-  else:
-    title = ours.title
 
   return IssueRelationships(title=title, depends_on=dependencies)
 
