@@ -1,11 +1,11 @@
 issue,title,dependencies
-403,"Epic: Formalize repo-info typed object classification and error contract",
+403,"Epic: Formalize repo-info typed object classification and error contract",408
 404,"Specify repo-info v2 result, object-kind, and error schema",
 405,"Implement GitHub repo-info issue object classification",404
 406,"Preserve typed repo-info failures through core RWF layers",405
 407,"Validate issue roots before dependency and metadata refresh",406
 408,"Certify repo-info classification and mistyped issue smoke cases",407
-409,"Epic: Restore lane selection move workflow and correct select grammar/help",
+409,"Epic: Restore lane selection move workflow and correct select grammar/help",413
 410,"Specify lane-move syntax, semantics, and invariants",
 411,"Implement lane-move mutation with path-preserving validation",410
 412,"Fix lanes select grammar, help, completion, and invalid-token diagnostics",410
@@ -20,3 +20,4 @@ issue,title,dependencies
 422,"Certify synchronized ticket-state migration, merge, and sync workflows",417;418;419;420;421
 426,"Remove remaining obsolete umbrella terminology from authoritative docs",
 428,"Validate committed ticket state before authoritative validation",
+430,"Annotate lane node types and colour lane-list groups",

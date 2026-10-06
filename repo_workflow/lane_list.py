@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from .issue_metadata import IssueMetadataStore
+from .lane_render import color_setting
 from .lane_selection import LaneSelectionStore
+from .terminal_style import TerminalStyler
 
 
 class LaneListError(RuntimeError):
@@ -28,11 +30,13 @@ def render_lane_list(
     lanes = [requested]
 
   metadata = IssueMetadataStore(root)
+  styler = TerminalStyler(color_setting(root))
   lines: list[str] = []
   for index, lane_name in enumerate(lanes):
     if index:
       lines.append("")
-    lines.append(f"Lane {lane_name}")
+    colour = styler.lane_colour(lane_name)
+    lines.append(colour(f"Lane {lane_name}"))
     issues = sorted(
       (
         issue
@@ -50,5 +54,5 @@ def render_lane_list(
       line = f"#{issue}  {value.title}"
       if links:
         line += f"  {value.link}"
-      lines.append(line)
+      lines.append(colour(line))
   return tuple(lines)

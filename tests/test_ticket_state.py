@@ -173,5 +173,13 @@ class TicketStateTests(unittest.TestCase):
       RelationshipStore(self.root).read()
 
 
+class RepositoryTicketStateTests(unittest.TestCase):
+  def test_epics_depend_on_terminal_certification_results(self):
+    root = Path(__file__).resolve().parents[1]
+    store = RelationshipStore(root)
+    self.assertEqual(store.direct_dependencies(403), ("408",))
+    self.assertEqual(store.direct_dependencies(409), ("413",))
+
+
 if __name__ == "__main__":
   unittest.main()

@@ -54,8 +54,8 @@ class LaneGraphAdapterTests(unittest.TestCase):
       display_width=len,
     )
     groups = [set(group.nodes) for group in projection.graph.siblings]
-    self.assertIn({"A.1", "B.2"}, groups)
-    self.assertIn({"*A.3"}, groups)
+    self.assertIn({"A1", "B2"}, groups)
+    self.assertIn({"*A3"}, groups)
 
   def test_lane_path_is_reconstructed_in_dependency_order(self):
     graph = RelationshipGraph(issues={
@@ -80,7 +80,7 @@ class LaneGraphAdapterTests(unittest.TestCase):
     )
     self.assertEqual(
       projection.graph.lanes[0].nodes,
-      ("A.1", "A.2", "*A.3"),
+      ("A1", "A2", "*A3"),
     )
 
   def test_lane_with_missing_intermediate_path_node_is_error(self):
@@ -156,12 +156,12 @@ class LaneGraphAdapterTests(unittest.TestCase):
       for target_group in group.to_nodes
       for target in target_group.nodes
     }
-    self.assertNotIn(("A.99", "A.101"), edges)
-    self.assertNotIn(("A.77", "A.145"), edges)
-    self.assertNotIn(("A.77", "A.185"), edges)
-    self.assertNotIn(("A.145", "A.216"), edges)
-    self.assertIn(("C.208", "A.216"), edges)
-    self.assertIn(("B.186", "A.185"), edges)
+    self.assertNotIn(("A99", "A101"), edges)
+    self.assertNotIn(("A77", "A145"), edges)
+    self.assertNotIn(("A77", "A185"), edges)
+    self.assertNotIn(("A145", "A216"), edges)
+    self.assertIn(("C208", "A216"), edges)
+    self.assertIn(("B186", "A185"), edges)
 
   def test_reduced_projection_preserves_reachability(self):
     graph = RelationshipGraph(issues={
@@ -207,24 +207,72 @@ class LaneGraphAdapterTests(unittest.TestCase):
         pending.extend(adjacency[node] - seen)
       return seen
 
-    self.assertEqual(reachable("A.1"), {"A.2", "A.3", "*A.4"})
-    self.assertEqual(reachable("A.2"), {"A.3", "*A.4"})
-    self.assertEqual(reachable("A.3"), {"*A.4"})
+    self.assertEqual(reachable("A1"), {"A2", "A3", "*A4"})
+    self.assertEqual(reachable("A2"), {"A3", "*A4"})
+    self.assertEqual(reachable("A3"), {"*A4"})
 
-  def test_formatter_colours_data_but_not_annotations(self):
+  def test_formatter_colours_data_but_not_status_annotations(self):
     formatter = make_lane_formatter(len)
     result = formatter((
-      FormatEntry("*✓A.9", RED),
-      FormatEntry("B.54", BLUE),
+      FormatEntry("*✓E:A9", RED),
+      FormatEntry("B54", BLUE),
     ))
-    self.assertEqual(result.display_width, 6)
+    self.assertEqual(result.display_width, 7)
     self.assertEqual(
       result.strings,
       (
-        "*✓<red>A. 9</red>",
-        "  <blue>B.54</blue>",
+        "*✓<red>E:A 9</red>",
+        "  <blue>  B54</blue>",
       ),
     )
+
+  def test_untyped_column_does_not_reserve_type_prefix_space(self):
+    formatter = make_lane_formatter(len)
+    result = formatter((
+      FormatEntry("A9", RED),
+      FormatEntry("B54", BLUE),
+    ))
+    self.assertEqual(result.display_width, 3)
+    self.assertEqual(
+      result.strings,
+      (
+        "<red>A 9</red>",
+        "<blue>B54</blue>",
+      ),
+    )
+
+  def test_title_prefixes_annotate_projected_node_ids(self):
+    graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(),
+      "3": relation(1, 2),
+    })
+    selection = LaneSelection(
+      roots=("3",),
+      closure=("1", "2", "3"),
+      graph_revision=1,
+      assignment={"1": "A", "2": "B", "3": "A"},
+    )
+    metadata = {
+      "1": {"closed": False, "title": "Initiative: One", "link": ""},
+      "2": {"closed": False, "title": "Feature: Two", "link": ""},
+      "3": {"closed": False, "title": "Epic: Three", "link": ""},
+    }
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(selection.closure),
+      metadata,
+      lane_colours={"A": RED, "B": BLUE},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    nodes = {
+      node
+      for group in projection.graph.siblings
+      for node in group.nodes
+    }
+    self.assertEqual(nodes, {"I:A1", "F:B2", "*E:A3"})
 
 
 if __name__ == "__main__":
