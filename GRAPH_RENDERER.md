@@ -245,6 +245,44 @@ visually dominant at an unrelated horizontal/vertical crossing.
 
 A successful route must retain the identity of each original semantic edge.
 
+## 14. Route quality
+
+Semantic correctness is a hard gate.  Among semantically valid layouts, the
+renderer uses deterministic route-quality preferences rather than preserving a
+mechanical track choice.
+
+Quality is compared lexicographically using independently measurable geometry:
+
+1. maximum vertical span;
+2. total vertical routing cells;
+3. bend count;
+4. adjacent opposite-direction vertical tracks;
+5. unrelated crossing count;
+6. vertical-track count;
+7. total rendered width;
+8. canonical deterministic tie-breaking.
+
+Long edges consider only a bounded set of candidate rows derived from visible
+rows plus a bounded fallback below them.  A candidate row through an
+intermediate column is invalid when that row contains a visible node.
+
+A long-edge route should remain between its endpoint rows when a valid route is
+available there.  It must not dip below both endpoints merely because a private
+long-edge track was allocated mechanically.
+
+Long edges may reuse a routing row only when all semantic edges sharing that
+row have one common source or one common target.  Other collinear sharing is
+not considered lossless.
+
+Adjacent opposite-direction vertical tracks such as `↓↑` are valid geometry,
+not a semantic error.  Track ordering should avoid them when an equally valid
+deterministic arrangement can separate the directions.
+
+Group ordering may use bounded local improvement against already-placed
+predecessor rows.  It must preserve each `GraphSiblings` object as an
+indivisible unit and may never trade semantic correctness for a lower quality
+score.
+
 ## 14. Semantic validation
 
 The router is not its own oracle.
