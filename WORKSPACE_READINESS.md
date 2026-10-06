@@ -9,21 +9,20 @@ command implementation are separate concerns.
 
 ## 1. Inputs and authority
 
-Readiness is derived from canonical direct issue relationships and current
+Readiness is derived from canonical direct ticket dependencies and current
 durable issue state.
 
 For one candidate issue, the projection reads:
 
-- the candidate's open/terminal state;
-- its direct leaf dependencies;
+- the candidate's lifecycle/terminal state;
+- its direct dependencies;
 - the current state of each direct dependency.
 
-Umbrella membership, shared umbrella attachment, branch base, integration
-target, Git ancestry, workspace existence, and local claim state are not
-dependency edges.
+Ticket title prefixes, Git branch parent/history, workspace existence, and
+local claim state are not dependency edges.
 
-The projection must consume normalized RWF relationship/state interfaces.  It
-must not parse GitHub issue prose or infer relationships from Git history.
+The projection consumes normalized RWF ticket/state interfaces. It does not
+parse ticket prose or infer relationships from Git history.
 
 ## 2. Ready
 
