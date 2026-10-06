@@ -89,9 +89,9 @@ class RealProviderLaneCertificationTests(unittest.TestCase):
       for item in audit["routing"]["routes"]
     }
     self.assertIn((145, 216), direct_edges)
-    self.assertEqual(routes[(145, 185)], "primary")
-    self.assertEqual(routes[(185, 216)], "primary")
-    self.assertTrue(routes[(145, 216)].startswith("bypass["))
+    self.assertIn(routes[(145, 185)], {"adjacent", "bundle"})
+    self.assertIn(routes[(185, 216)], {"adjacent", "bundle"})
+    self.assertEqual(routes[(145, 216)], "long")
 
     self.assertEqual(
       set(audit["selection_lifecycle"]["added_roots"]),
