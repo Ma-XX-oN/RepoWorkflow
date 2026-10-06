@@ -47,8 +47,6 @@ For the same canonical graph and issue state, blocker output is deterministic.
 
 Two issues with no dependency path between them are independently ready.
 
-Umbrella membership is grouping, not ordering.
-
 A shared prerequisite attached to multiple umbrellas blocks each consumer only
 when an explicit direct dependency edge from that consumer requires it.
 
