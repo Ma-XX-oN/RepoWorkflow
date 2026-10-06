@@ -53,7 +53,8 @@
         "added_dependency": 422,
         "reason": "Epic completion requires the certified combined ticket-state outcome."
       }
-    ]
+    ],
+    "accounted_historical_issues": 252
   },
   "issues": {
     "1": {
@@ -1792,5 +1793,83 @@
       "state": "open",
       "dependencies": []
     }
-  }
+  },
+  "excluded_issues": [
+    {
+      "issue": 28,
+      "reason": "placeholder"
+    },
+    {
+      "issue": 29,
+      "reason": "placeholder"
+    },
+    {
+      "issue": 30,
+      "reason": "placeholder"
+    },
+    {
+      "issue": 232,
+      "reason": "superseded"
+    },
+    {
+      "issue": 252,
+      "reason": "experimental"
+    },
+    {
+      "issue": 253,
+      "reason": "experimental"
+    },
+    {
+      "issue": 254,
+      "reason": "experimental"
+    },
+    {
+      "issue": 255,
+      "reason": "experimental"
+    },
+    {
+      "issue": 256,
+      "reason": "experimental"
+    },
+    {
+      "issue": 261,
+      "reason": "experimental"
+    },
+    {
+      "issue": 263,
+      "reason": "experimental"
+    },
+    {
+      "issue": 264,
+      "reason": "experimental"
+    },
+    {
+      "issue": 265,
+      "reason": "experimental"
+    },
+    {
+      "issue": 266,
+      "reason": "experimental"
+    },
+    {
+      "issue": 269,
+      "reason": "experimental"
+    },
+    {
+      "issue": 272,
+      "reason": "experimental"
+    },
+    {
+      "issue": 274,
+      "reason": "experimental"
+    },
+    {
+      "issue": 276,
+      "reason": "experimental"
+    },
+    {
+      "issue": 278,
+      "reason": "quarantined"
+    }
+  ]
 }
