@@ -42,7 +42,11 @@ def render_lane_list(
       key=int,
     )
     for issue in issues:
-      value = metadata.display_issue(int(issue))
+      value = (
+        metadata.display_issue(int(issue))
+        if links
+        else metadata.issue(int(issue))
+      )
       line = f"#{issue}  {value.title}"
       if links:
         line += f"  {value.link}"
