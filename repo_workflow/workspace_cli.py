@@ -7,6 +7,7 @@ from pathlib import Path
 from .git import git
 from .issue_start import start_issue
 from .parent_branch import create_parent_identity
+from .relationship_store import RelationshipStore
 from .workspace_store import WorkspaceClaimError, WorkspaceStore
 from .workspace_worktree import WorktreeBackend, WorktreeError
 from .workspace_readiness import readiness_json
@@ -97,6 +98,12 @@ def handle_workspace(root: Path, words: list[str]) -> int:
 
   if action == "create":
     issue = int(words[2])
+    try:
+      RelationshipStore(root).issue(issue)
+    except Exception as error:
+      raise WorkspaceCommandError(
+        f"issue {issue} has no registered canonical relationships"
+      ) from error
     workspace_id = _workspace_id(issue)
     branch = _branch_name(issue)
     path = _worktree_path(root, workspace_id)
