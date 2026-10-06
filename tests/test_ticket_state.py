@@ -189,6 +189,12 @@ class RepositoryTicketStateTests(unittest.TestCase):
     graph = self.store.read().graph
     audited = self.audit["issues"]
 
+    self.assertEqual(len(audited), 233)
+    self.assertEqual(len(self.audit["excluded_issues"]), 19)
+    self.assertEqual(
+      self.audit["findings"]["accounted_historical_issues"],
+      252,
+    )
     self.assertEqual(set(graph.issues), set(audited))
     for issue, expected in audited.items():
       actual = graph.issue(issue)
