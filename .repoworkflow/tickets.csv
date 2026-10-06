@@ -113,7 +113,7 @@ issue,title,dependencies
 201,Repair repeated concurrent-main stable-version reuse after #64/#200,
 205,Epic: Register parallel lanes and reject conflicting issue ownership before assignment,208;215;218;223;305;306;307
 206,Make authoritative verify remote publication transactional,107
-208,Epic: Synchronize RWF dependency graph with native ticket dependencies,
+208,Epic: Synchronize RWF dependency graph with native ticket dependencies,214
 209,Freeze native ticket dependency adapter contract,63;145;185
 210,Implement GitHub native dependency adapter,209
 211,Implement semantic dependency comparison,145;185;209
@@ -149,7 +149,7 @@ issue,title,dependencies
 282,Support generic variadic positional tails in public command grammar,
 295,Make rwf launcher portable when only python is available,
 297,Make public grammar/help/diagnostics bootstrap-safe before repository initialization,299
-298,Epic: Make public RWF bootstrap-safe and complete read-only issue queries,
+298,Epic: Make public RWF bootstrap-safe and complete read-only issue queries,90;297;300
 299,Add black-box bootstrap matrix for every configuration-independent public CLI path,
 300,Make bare rwf issue list list all open issues,299
 301,Resolve read-only repo-info without workflow configuration when repository provider is discoverable,63;120;121;299
