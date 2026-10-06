@@ -158,6 +158,13 @@ merge fails rather than guessing.
 
 The merged file contains at most one canonical row per ticket.
 
+The repository declares the `rwf-tickets` merge attribute. Repository
+initialization must register the matching driver command so Git invokes
+`scripts/merge-ticket-state.py` with the merge-base, current, and other
+temporary paths. The merge implementation itself is repository-portable; the
+Git configuration is clone-local because Git does not load merge-driver
+commands from committed attributes.
+
 ## 9. Verification
 
 TEST_ADEQUACY.md applies. Verification must independently cover parsing,
