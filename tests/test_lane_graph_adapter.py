@@ -207,7 +207,7 @@ class LaneGraphAdapterTests(unittest.TestCase):
         pending.extend(adjacency[node] - seen)
       return seen
 
-    self.assertEqual(reachable("A1"), {"A2", "A.3", "*A4"})
+    self.assertEqual(reachable("A1"), {"A2", "A3", "*A4"})
     self.assertEqual(reachable("A2"), {"A.3", "*A4"})
     self.assertEqual(reachable("A.3"), {"*A4"})
 
