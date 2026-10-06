@@ -174,11 +174,66 @@ class TicketStateTests(unittest.TestCase):
 
 
 class RepositoryTicketStateTests(unittest.TestCase):
-  def test_epics_depend_on_terminal_certification_results(self):
-    root = Path(__file__).resolve().parents[1]
-    store = RelationshipStore(root)
-    self.assertEqual(store.direct_dependencies(403), ("408",))
-    self.assertEqual(store.direct_dependencies(409), ("413",))
+  def setUp(self):
+    self.root = Path(__file__).resolve().parents[1]
+    self.store = RelationshipStore(self.root)
+    self.audit = json.loads(
+      (
+        self.root
+        / ".repoworkflow"
+        / "dependency-audit-v2.json"
+      ).read_text(encoding="utf-8")
+    )
+
+  def test_committed_ticket_state_matches_reviewed_dependency_audit(self):
+    graph = self.store.read().graph
+    audited = self.audit["issues"]
+
+    self.assertEqual(set(graph.issues), set(audited))
+    for issue, expected in audited.items():
+      actual = graph.issue(issue)
+      self.assertEqual(actual.title, expected["title"], issue)
+      self.assertEqual(
+        actual.depends_on,
+        tuple(str(x) for x in expected["dependencies"]),
+        issue,
+      )
+
+  def test_dependency_audit_retains_high_risk_repairs(self):
+    expected = {
+      5: ("107",),
+      16: ("110",),
+      27: ("96", "306", "313"),
+      51: ("5", "27", "52", "53", "54", "56", "58", "135"),
+      205: ("215", "218", "223", "305", "306", "307"),
+      303: ("309", "313"),
+      305: ("208", "217", "219", "304"),
+      313: ("7", "114", "115", "304"),
+      320: ("304", "305", "318"),
+      342: ("145", "208", "321", "341"),
+      403: ("408",),
+      409: ("413",),
+      415: ("422",),
+    }
+    for issue, dependencies in expected.items():
+      self.assertEqual(
+        self.store.direct_dependencies(issue),
+        dependencies,
+        issue,
+      )
+
+  def test_reviewed_graph_has_no_closed_issue_blocked_by_open_issue(self):
+    audited = self.audit["issues"]
+    for issue, value in audited.items():
+      if value["state"] != "closed":
+        continue
+      for dependency in value["dependencies"]:
+        dependency_state = audited[str(dependency)]["state"]
+        self.assertNotEqual(
+          dependency_state,
+          "open",
+          f"closed #{issue} is blocked by open #{dependency}",
+        )
 
 
 if __name__ == "__main__":
