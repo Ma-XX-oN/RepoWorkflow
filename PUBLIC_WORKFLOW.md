@@ -380,8 +380,8 @@ integration/release intent.
 Before completion, RWF verifies the required TDD, complete ART, AIT/MIT,
 candidate cleanliness/identity, current base, and authorization evidence.
 
-The integration target comes from explicit recorded workflow relationships,
-not from a local navigation stack or merely Git ancestry.
+The completion target is the work branch's Git-native parent identity recovered
+from branch history. It is not stored in ticket relationship state.
 
 Patch/minor/major are semantic intents.  RWF calls `repo-version` internally.
 
