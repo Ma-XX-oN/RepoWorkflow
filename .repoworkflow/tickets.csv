@@ -18,4 +18,5 @@ issue,title,dependencies
 420,"Feature: Add provider-aware semantic merge for synchronized ticket CSV",416;417
 421,"Document ticket title prefixes and ticket-creation graph workflow",416
 422,"Certify synchronized ticket-state migration, merge, and sync workflows",417;418;419;420;421
-426,"Remove remaining obsolete umbrella terminology from authoritative docs"
+426,"Remove remaining obsolete umbrella terminology from authoritative docs",
+428,"Validate committed ticket state before authoritative validation",
