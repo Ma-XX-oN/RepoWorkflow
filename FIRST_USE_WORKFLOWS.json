@@ -261,9 +261,9 @@
             "tests/test_graph_render_model.py::GraphRenderModelTests.test_accepts_constrained_sibling_dag",
             "tests/test_graph_render.py::GraphRenderTests.test_long_edge_records_hidden_semantic_endpoints",
             "tests/test_graph_render.py::GraphRenderTests.test_input_order_does_not_change_output",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_skip_edge_uses_hidden_continuation",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_fan_in_keeps_sibling_nodes_compact",
-            "tests/test_lane_route_render.py::LaneRouteRenderTests.test_direct_and_transitive_edges_keep_separate_identities"
+            "tests/test_graph_render.py::GraphRenderTests.test_directional_cousin_routes_emit_vertical_arrows",
+            "tests/test_graph_render.py::GraphRenderTests.test_multi_overlap_preserves_lane_and_default_edge_colours",
+            "tests/test_lane_render.py::LaneRenderTests.test_long_dependency_is_diagnostic_with_hidden_column"
           ]
         },
         {
@@ -301,7 +301,7 @@
         "debug_projection": "DL-15",
         "identity_preserving_routing": "DL-16",
         "direct_edge_route_identity": "DL-16",
-        "bypass_track_rendering": "DL-16",
+        "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17"
       },
