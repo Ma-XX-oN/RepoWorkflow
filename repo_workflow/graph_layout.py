@@ -123,6 +123,15 @@ def build_layout(graph: Graph) -> LayoutPlan:
       placements,
       max_node_row,
       used_long_rows,
+      lambda row: _long_route_crossings(
+        edge,
+        row,
+        cells,
+        placements,
+        columns,
+        column_start,
+        track_x,
+      ),
     )
     used_long_rows.setdefault(track_y, []).append(edge)
     hidden = tuple(
@@ -185,6 +194,55 @@ def build_layout(graph: Graph) -> LayoutPlan:
     cells=cells,
     routes=ordered_routes,
     default_colour=graph.default_edge_colour,
+  )
+
+
+def _long_route_crossings(
+  edge: SemanticEdge,
+  row: int,
+  cells: dict[tuple[int, int], list[Contribution]],
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  tracks: dict[tuple[int, tuple], int],
+) -> int:
+  proposed: dict[tuple[int, int], list[Contribution]] = {}
+  route_long(
+    proposed,
+    edge,
+    placements,
+    columns,
+    starts,
+    tracks,
+    row,
+  )
+
+  crossings = 0
+  for point, new_items in proposed.items():
+    old_items = cells.get(point, ())
+    for new_item in new_items:
+      for old_item in old_items:
+        if _edges_can_join(new_item.edge, old_item.edge):
+          continue
+        new_horizontal = bool(new_item.bits & 3)
+        new_vertical = bool(new_item.bits & 12)
+        old_horizontal = bool(old_item.bits & 3)
+        old_vertical = bool(old_item.bits & 12)
+        if (
+          (new_horizontal and old_vertical)
+          or (new_vertical and old_horizontal)
+        ):
+          crossings += 1
+  return crossings
+
+
+def _edges_can_join(
+  left: SemanticEdge,
+  right: SemanticEdge,
+) -> bool:
+  return (
+    left.source == right.source
+    or left.target == right.target
   )
 
 
