@@ -68,6 +68,7 @@ def ensure_relationship_graph(
       provider_reads.append(number)
       if diagnostics is not None:
         diagnostics.miss("relationships")
+        diagnostics.miss("metadata")
         dependencies = diagnostics.provider(
           "dependencies",
           number,
