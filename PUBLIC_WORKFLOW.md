@@ -233,8 +233,9 @@ direct dependencies. Repeated lane operations use that local state. A missing
 ticket is acquired from the configured provider, including title and direct
 dependencies. `--refresh` explicitly rereads the relevant provider closure.
 
-RepoWorkflow does not store separate umbrella, shared-umbrella,
-umbrella-dependency, or branch-parent fields in the ticket graph.
+RepoWorkflow does not store a second relationship graph for container
+ownership, membership, or attachment. Branch-parent identity is also outside
+the ticket graph.
 
 Initiative/Epic/Feature tickets are human-facing containers. Their prefixes do
 not create ownership or scheduling relationships. Executable ordering is

@@ -15,7 +15,7 @@ issue graph is a high-level architecture model.
 
 Good decomposition should make it possible to answer, mechanically:
 
-- what outcome each umbrella represents;
+- what outcome each human-facing container represents;
 - what exact interface or transition each leaf owns;
 - what must be true before a leaf starts;
 - what must be true after it succeeds;
@@ -180,7 +180,7 @@ often indicates one of:
 - the required interface should be extracted;
 - a shared prerequisite is missing;
 - one issue combines contract and implementation;
-- one umbrella incorrectly owns reusable infrastructure.
+- one container is incorrectly treated as owning reusable infrastructure.
 
 A useful rule is:
 
@@ -406,15 +406,9 @@ parallel-ready
   two or more ready leaves with no dependency path between them
 ```
 
-Umbrella readiness is a separate high-level view:
-
-```text
-umbrella blocked
-  one or more unresolved direct umbrella dependencies
-```
-
-A blocked umbrella may still contain ready leaves.  Umbrella blocking must not
-unnecessarily serialize its independently executable children.
+Container tickets use the same direct-dependency readiness rule as every
+other ticket.  A descriptive Initiative/Epic/Feature prefix does not create
+separate container readiness, ownership, or child-blocking semantics.
 
 ## 13.1 Published lane display notation
 
@@ -431,7 +425,7 @@ During issue refinement, treat the following as diagnostic signals:
 - one issue contains both read-only planning and mutation;
 - one state issue simultaneously owns storage layout, concurrency, recovery,
   and domain records;
-- several unrelated umbrellas depend on the same loose leaves;
+- several unrelated outcome containers describe the same loose leaves;
 - cleanup happens long after creation but lives in the same leaf;
 - an "active issue" is represented as one shared mutable global value;
 - a high-level dependency exists only because one implementation ticket consumes another;
