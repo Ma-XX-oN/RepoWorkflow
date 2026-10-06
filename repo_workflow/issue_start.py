@@ -9,7 +9,11 @@ from .current_work_store import CurrentWorkStore
 from .git import git
 from .lifecycle_store import LifecycleStore
 from .relationship_store import RelationshipStore
-from .parent_branch import ParentBranchError, recover_parent_branch
+from .parent_branch import (
+  ParentBranchError,
+  create_parent_identity,
+  recover_parent_branch,
+)
 from .repo_info_adapter import issue_info
 from .runtime_identity import runtime_writer_identity
 from .state_store import durable_store
@@ -192,17 +196,7 @@ def _materialize(
   if exists.returncode:
     git(root, "branch", branch, parent)
     git(root, "checkout", branch)
-    git(
-      root,
-      "commit",
-      "--allow-empty",
-      "-m",
-      (
-        "RepoWorkflow branch identity\n\n"
-        f"RWF-Branch: {branch}\n"
-        f"RWF-Parent: {parent}"
-      ),
-    )
+    create_parent_identity(root, branch, parent)
   else:
     try:
       recovered = recover_parent_branch(root, branch)
