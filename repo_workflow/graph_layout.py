@@ -52,7 +52,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
 
   cells: dict[tuple[int, int], list[Contribution]] = {}
   routes: list[RouteRecord] = []
-  used_long_rows: set[int] = set()
+  used_long_rows: dict[int, list[SemanticEdge]] = {}
   bundled_edges: set[tuple[str, str]] = set()
 
   for relation in sorted(
@@ -123,7 +123,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
       max_node_row,
       used_long_rows,
     )
-    used_long_rows.add(track_y)
+    used_long_rows.setdefault(track_y, []).append(edge)
     hidden = tuple(
       HiddenContinuation(
         semantic_source=edge.source,
@@ -396,7 +396,7 @@ def _choose_long_route_row(
   edge: SemanticEdge,
   placements: dict[str, Placement],
   max_node_row: int,
-  used_rows: set[int],
+  used_rows: dict[int, list[SemanticEdge]],
 ) -> int:
   source = placements[edge.source]
   target = placements[edge.target]
@@ -413,11 +413,17 @@ def _choose_long_route_row(
   available = [
     row
     for row in candidates
-    if row not in occupied and row not in used_rows
+    if (
+      row not in occupied
+      and _long_row_is_compatible(edge, used_rows.get(row, []))
+    )
   ]
   if not available:
     row = max_node_row + 1
-    while row in used_rows:
+    while not _long_row_is_compatible(
+      edge,
+      used_rows.get(row, []),
+    ):
       row += 1
     return row
   return min(
@@ -427,6 +433,19 @@ def _choose_long_route_row(
       target.row,
       row,
     ),
+  )
+
+
+def _long_row_is_compatible(
+  edge: SemanticEdge,
+  existing: list[SemanticEdge],
+) -> bool:
+  if not existing:
+    return True
+  edges = [*existing, edge]
+  return (
+    len({item.source for item in edges}) == 1
+    or len({item.target for item in edges}) == 1
   )
 
 
