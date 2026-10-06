@@ -12,14 +12,8 @@ from repo_workflow.relationships import IssueRelationships
 from repo_workflow.state_store import WriterIdentity
 
 
-def relations(*, depends_on=(), parent="main"):
-  return IssueRelationships(
-    umbrella="1",
-    shared_umbrellas=("50",),
-    depends_on=tuple(depends_on),
-    umbrella_depends_on=("40",),
-    parent=parent,
-  )
+def relations(*, depends_on=(), parent="main"):\n  del parent
+  return IssueRelationships("Issue", tuple(depends_on))
 
 
 class RelationshipRegistrationTests(unittest.TestCase):
