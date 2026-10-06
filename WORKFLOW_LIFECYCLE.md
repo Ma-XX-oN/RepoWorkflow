@@ -264,63 +264,36 @@ required ART and then its required AIT/MIT against that exact integrated SHA.
 Only that accepted integrated candidate may proceed toward protected server
 `main`.
 
-## 6.1 Issue grouping and dependency ordering
+## 6.1 Ticket classification and dependency ordering
 
-Umbrella membership records that issues contribute to the same larger body of
-work.  It does not order those issues.
+Ticket creators may prefix titles with `Initiative:`, `Epic:`, or
+`Feature:` to make large bodies of work easier for humans to navigate.
+Those prefixes are descriptive only.
 
-All workflow ordering must be expressed through explicit direct issue
-dependencies.  An issue is blocked while any direct dependency remains
-incomplete.  Once all of its direct dependencies are satisfied, it is ready
-regardless of whether other siblings under the same umbrella remain active.
+RepoWorkflow scheduling uses one relationship: the explicit direct ticket
+dependency.
 
-If an issue requires several distinct tasks to satisfy its outcome, those
-tasks should be split into child issues while the original issue remains their
-umbrella target.
+An issue is blocked while any direct dependency remains incomplete. Once every
+direct dependency is satisfied, the issue is ready regardless of descriptive
+container titles elsewhere in the ticket set.
 
-If two or more otherwise unrelated issues or umbrellas share common
-prerequisite work, that work must not become a child of one consumer merely
-because it was discovered there.  A single prerequisite may remain independent.
-If the shared capability requires several tasks, those tasks should be
-consolidated under their own shared capability umbrella.
+If several implementation tickets contribute to a larger Initiative, Epic, or
+Feature, the provider issue body may document that decomposition. RWF does not
+store a separate child/umbrella ownership graph.
 
-Each consumer umbrella attaches to that shared capability umbrella.  The
-capability's child issues retain one owning umbrella only; they are not copied
-or multi-parented into each consumer.
+Shared prerequisites remain ordinary dependency targets. Consumers depend
+directly on the concrete tickets whose outputs they require.
 
-Four relations must remain distinct:
+The dependency graph is intentionally direct and minimal. If A depends on B and
+B depends on C, do not also store A -> C unless A independently requires C's
+interface.
 
-- child ownership;
-- shared-capability umbrella attachment;
-- direct leaf dependency;
-- direct umbrella dependency.
+RWF must not manufacture ordering from title prefixes, issue prose, branch
+ancestry, or local navigation history.
 
-Concrete workflow ordering uses direct leaf dependencies from consuming leaves
-to the exact capability leaves they require.  A direct umbrella dependency is
-also recorded when the complete consumer outcome cannot be complete until the
-complete prerequisite umbrella is complete.  Do not create an umbrella
-dependency merely because one child uses one child from another umbrella.
-
-The umbrella-dependency graph is a transitive-reduced roadmap: omit an A -> C
-edge when A -> B -> C already expresses it.  Exact leaf dependencies remain
-authoritative for executable readiness.
-
-The resulting dependency graph is intended to make execution order visible:
-
-```text
-ready
-  no unresolved direct dependencies
-
-blocked
-  one or more direct dependencies incomplete
-
-parallel-ready
-  multiple ready issues with no dependency path between them
-```
-
-RWF must not manufacture ordering from umbrella membership, branch ancestry,
-or local navigation history.  Branch base and integration target remain
-separate recorded relationships.
+Branch-parent identity is a separate Git fact recorded and recovered under
+[PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md). It is never stored in
+the ticket dependency graph.
 
 ## 7. Local `main` and ephemeral `prelim-main-<GUID>`
 
