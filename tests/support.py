@@ -20,6 +20,7 @@ class RepoFixture:
     self.root = root
     self.remote = root.parent / f"{root.name}-remote.git"
     self.version = version
+    stable = "-issue." not in version
     self._run("init", "-b", "main")
     self._run("config", "user.name", "Test")
     self._run("config", "user.email", "test@example.invalid")
@@ -93,19 +94,20 @@ class RepoFixture:
     }, indent=2) + "\n", encoding="utf-8")
     self.commit("base")
     self._run("push", "-u", "origin", "main")
-    self._run("switch", "-c", "issue-1-test")
-    self._run(
-      "commit",
-      "--allow-empty",
-      "-m",
-      (
-        "RepoWorkflow branch identity\n\n"
-        "RWF-Branch: issue-1-test\n"
-        "RWF-Parent: main"
-      ),
-    )
-    self._run("commit", "--allow-empty", "-m", "candidate")
-    self._run("push", "-u", "origin", "issue-1-test")
+    if not stable:
+      self._run("switch", "-c", "issue-1-test")
+      self._run(
+        "commit",
+        "--allow-empty",
+        "-m",
+        (
+          "RepoWorkflow branch identity\n\n"
+          "RWF-Branch: issue-1-test\n"
+          "RWF-Parent: main"
+        ),
+      )
+      self._run("commit", "--allow-empty", "-m", "candidate")
+      self._run("push", "-u", "origin", "issue-1-test")
 
   def _run(self, *args: str, check: bool = True):
     return subprocess.run(
@@ -122,7 +124,8 @@ class RepoFixture:
     return self._run("rev-parse", "HEAD").stdout.strip()
 
   def push(self) -> None:
-    self._run("push", "origin", "HEAD:issue-1-test")
+    branch = self._run("branch", "--show-current").stdout.strip()
+    self._run("push", "origin", f"HEAD:{branch}")
 
   def tag_remote(self, tag: str) -> None:
     self._run("tag", tag)
