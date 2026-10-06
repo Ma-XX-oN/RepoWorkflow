@@ -15,12 +15,12 @@ A workspace records local execution context only.
 
 Authoritative shared facts remain elsewhere, including:
 
-- issue identity and open/closed state;
-- child ownership and shared umbrella attachments;
-- direct leaf and umbrella dependencies;
+- synchronized ticket number, exact title, and direct dependencies;
+- provider issue state when required for display;
 - durable issue lifecycle/history;
 - validation evidence;
-- integration and release evidence.
+- integration and release evidence;
+- Git-native branch parent identity/history.
 
 Workspace records may reference those facts, but never replace them.
 
@@ -32,6 +32,9 @@ The workspace layer owns:
 - claim revision and worker/session identity;
 - local resume metadata;
 - references to the branch/worktree used for the workspace.
+
+Ticket title prefixes are descriptive only and do not create workspace or
+dependency semantics.
 
 ## 2. Workspace identity
 
@@ -266,13 +269,11 @@ Workspace existence and issue readiness are separate facts.
 A workspace may exist before an issue becomes ready if the command contract
 explicitly permits provision-only behaviour.
 
-Beginning issue work requires the readiness rule owned by the work graph:
+Beginning issue work uses the direct dependency projection defined by
+[WORKSPACE_READINESS.md](WORKSPACE_READINESS.md).
 
-- no unresolved direct leaf dependencies => ready;
-- one or more unresolved direct leaf dependencies => blocked.
-
-Umbrella membership, shared attachment, and branch base do not create readiness
-edges by themselves.
+Descriptive ticket grouping and Git branch parent/ancestry do not create
+readiness edges.
 
 ## 11. Relationship to WorkStack
 
