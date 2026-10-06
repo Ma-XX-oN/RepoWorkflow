@@ -52,6 +52,7 @@ def ensure_relationship_graph(
   pending = list(requested)
   visited: set[str] = set()
   provider_reads: list[int] = []
+  fetched_info: dict[int, dict] = {}
   changed = snapshot is None
 
   while pending:
@@ -88,6 +89,7 @@ def ensure_relationship_graph(
           number,
         )
         info = issue_info(root, info_config, number)
+      fetched_info[number] = info
       provider = IssueRelationships(
         title=info["title"],
         depends_on=tuple(str(value) for value in dependencies),
@@ -136,6 +138,10 @@ def ensure_relationship_graph(
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
+
+  if fetched_info:
+    from .issue_metadata import cache_issue_display_metadata
+    cache_issue_display_metadata(root, fetched_info, writer)
 
   return RelationshipAcquisition(
     issues=tuple(sorted((int(issue) for issue in visited))),
