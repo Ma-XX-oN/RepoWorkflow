@@ -202,7 +202,7 @@ Required concurrency tests:
 
 Required integration tests:
 
-- accepted task/umbrella content is integrated onto the prelim branch;
+- accepted executable/container content is integrated onto the prelim branch;
 - patch/minor intent produces the adapter-derived stable candidate version;
 - integration-specific conflict resolution remains on the prelim candidate and
   does not rewrite the accepted issue branch;
