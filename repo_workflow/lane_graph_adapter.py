@@ -15,7 +15,12 @@ from .graph_render_model import (
 from .lane_selection import LaneSelection
 
 
-_LABEL = re.compile(r"^([*✓]*)([A-Z]+)\.([0-9]+)$")
+_LABEL = re.compile(r"^([*✓]*)(?:(I|E|F):)?([A-Z]+)([0-9]+)$")
+_TYPE_PREFIXES = {
+  "Initiative:": "I:",
+  "Epic:": "E:",
+  "Feature:": "F:",
+}
 
 
 class LaneGraphProjectionError(RuntimeError):
@@ -149,24 +154,30 @@ def make_lane_formatter(
       return AlignedColumn((), 0)
     parsed = [_parse_label(entry.raw_text) for entry in entries]
     annotation_width = max(display_width(item[0]) for item in parsed)
-    lane_width = max(display_width(item[1]) for item in parsed)
-    issue_width = max(display_width(item[2]) for item in parsed)
+    type_width = 2 if any(item[1] for item in parsed) else 0
+    lane_width = max(display_width(item[2]) for item in parsed)
+    issue_width = max(display_width(item[3]) for item in parsed)
 
     strings: list[str] = []
-    for entry, (annotation, lane, issue) in zip(entries, parsed):
+    for entry, (annotation, kind, lane, issue) in zip(entries, parsed):
       annotation_text = _pad_left(
         annotation,
         annotation_width,
         display_width,
       )
+      type_text = _pad_left(
+        f"{kind}:" if kind else "",
+        type_width,
+        display_width,
+      )
       data_text = (
-        _pad_left(lane, lane_width, display_width)
-        + "."
+        type_text
+        + _pad_left(lane, lane_width, display_width)
         + _pad_left(issue, issue_width, display_width)
       )
       strings.append(annotation_text + entry.colour(data_text))
 
-    width = annotation_width + lane_width + 1 + issue_width
+    width = annotation_width + type_width + lane_width + issue_width
     return AlignedColumn(tuple(strings), width)
 
   return formatter
@@ -181,16 +192,29 @@ def _raw_label(
     ("*" if issue in set(selection.roots) else "")
     + ("✓" if metadata[issue]["closed"] else "")
   )
-  return f"{annotation}{selection.assignment[issue]}.{issue}"
+  kind = _type_prefix(metadata[issue]["title"])
+  return f"{annotation}{kind}{selection.assignment[issue]}{issue}"
 
 
-def _parse_label(value: str) -> tuple[str, str, str]:
+def _type_prefix(title: str) -> str:
+  for prefix, annotation in _TYPE_PREFIXES.items():
+    if title.startswith(prefix):
+      return annotation
+  return ""
+
+
+def _parse_label(value: str) -> tuple[str, str, str, str]:
   match = _LABEL.fullmatch(value)
   if match is None:
     raise LaneGraphProjectionError(
       f"unsupported RepoWorkflow graph label: {value!r}"
     )
-  return match.group(1), match.group(2), match.group(3)
+  return (
+    match.group(1),
+    match.group(2) or "",
+    match.group(3),
+    match.group(4),
+  )
 
 
 def _pad_left(
