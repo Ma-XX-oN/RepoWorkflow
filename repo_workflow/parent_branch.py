@@ -92,36 +92,58 @@ def recover_parent_branch(root: Path, work_branch: str) -> str:
   if not refs:
     raise ParentBranchError(f"parent branch {parent} has no local or fetched ref")
 
-  for ref in refs:
-    result = git(
+  if not any(
+    git(
       root,
       "merge-base",
       "--is-ancestor",
       creation_tip,
       ref,
       check=False,
+    ).returncode == 0
+    for ref in refs
+  ):
+    raise ParentBranchError(
+      f"parent branch {parent} no longer contains creation tip {creation_tip}"
     )
-    if result.returncode:
-      raise ParentBranchError(
-        f"parent ref {ref} no longer contains creation tip {creation_tip}"
-      )
   return parent
 
 
 def _work_ref(root: Path, work: str) -> str:
   local = f"refs/heads/{work}"
-  if git(root, "show-ref", "--verify", local, check=False).returncode == 0:
-    return local
-
-  refs = tuple(
-    ref
-    for ref in _branch_refs(root, work)
-    if ref.startswith("refs/remotes/")
-  )
+  refs = _branch_refs(root, work)
   if not refs:
     raise ParentBranchError(
       f"work branch {work} has no local or fetched ref"
     )
+
+  if local in refs:
+    local_tip = git(root, "rev-parse", local).stdout.strip()
+    for ref in refs:
+      if ref == local:
+        continue
+      tip = git(root, "rev-parse", ref).stdout.strip()
+      forward = git(
+        root,
+        "merge-base",
+        "--is-ancestor",
+        tip,
+        local_tip,
+        check=False,
+      ).returncode == 0
+      backward = git(
+        root,
+        "merge-base",
+        "--is-ancestor",
+        local_tip,
+        tip,
+        check=False,
+      ).returncode == 0
+      if not (forward or backward):
+        raise ParentBranchError(
+          f"work branch {work} has conflicting local/fetched refs"
+        )
+    return local
 
   identities = {
     _parent_identity(root, ref, work)
