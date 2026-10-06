@@ -174,11 +174,70 @@ class TicketStateTests(unittest.TestCase):
 
 
 class RepositoryTicketStateTests(unittest.TestCase):
-  def test_epics_depend_on_terminal_certification_results(self):
-    root = Path(__file__).resolve().parents[1]
-    store = RelationshipStore(root)
-    self.assertEqual(store.direct_dependencies(403), ("408",))
-    self.assertEqual(store.direct_dependencies(409), ("413",))
+  def setUp(self):
+    self.root = Path(__file__).resolve().parents[1]
+    self.store = RelationshipStore(self.root)
+
+  def test_reviewed_dependency_manifest_population_is_preserved(self):
+    manifest_path = (
+      self.root
+      / ".repoworkflow"
+      / "migrations"
+      / "native-dependencies-v1.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    reviewed = set(manifest["issues"])
+    current = set(self.store.read().graph.issues)
+    self.assertTrue(reviewed <= current)
+    self.assertGreaterEqual(len(current), 233)
+
+  def test_dependency_audit_corrections_are_retained(self):
+    expected = {
+      5: (107,),
+      16: (110,),
+      17: (83, 103),
+      27: (74, 96),
+      51: (
+        5, 16, 17, 18, 19, 27, 52, 53, 54, 55, 56, 57, 58,
+        122, 123, 135,
+      ),
+      96: (306, 313, 350),
+      205: (208, 215, 218, 223, 305, 306, 307),
+      208: (214,),
+      230: (64, 227, 229, 240),
+      233: (227, 230, 240),
+      298: (90, 297, 300),
+      303: (307, 309, 312, 313, 320),
+      305: (208, 217, 219, 304),
+      313: (7, 73, 114, 115, 304),
+      320: (304, 305, 318),
+      321: (208, 305, 320, 327),
+      340: (145, 208, 217, 219, 229, 346),
+      342: (145, 208, 321, 341),
+      343: (217, 219, 341, 342, 349, 359),
+      382: (388,),
+      390: (396,),
+      398: (400, 401),
+      403: (408,),
+      406: (404, 405),
+      408: (404, 405, 406, 407),
+      409: (413,),
+      413: (410, 411, 412),
+      415: (422,),
+    }
+    for issue, dependencies in expected.items():
+      with self.subTest(issue=issue):
+        self.assertEqual(
+          self.store.direct_dependencies(issue),
+          tuple(str(value) for value in dependencies),
+        )
+
+  def test_stale_parent_blockers_are_absent(self):
+    self.assertNotIn("205", self.store.direct_dependencies(305))
+    self.assertNotIn("27", self.store.direct_dependencies(313))
+    self.assertNotIn("303", self.store.direct_dependencies(320))
+    self.assertNotIn("228", self.store.direct_dependencies(230))
+    self.assertNotIn("228", self.store.direct_dependencies(233))
 
 
 if __name__ == "__main__":
