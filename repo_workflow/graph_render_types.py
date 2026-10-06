@@ -58,6 +58,7 @@ class Contribution:
   edge: SemanticEdge
   bits: int
   bundle: tuple[int, int] | None = None
+  vertical_direction: int = 0
 
 
 @dataclass(frozen=True)
