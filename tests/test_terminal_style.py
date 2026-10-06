@@ -13,6 +13,12 @@ class TerminalStyleTests(unittest.TestCase):
     self.assertEqual(styler.lane_colour("A")("node"), "node")
     self.assertEqual(styler.default_edge_colour()("─"), "─")
 
+  def test_always_mode_emits_supported_terminal_styling(self):
+    styler = TerminalStyler("always")
+    styled = styler.lane_colour("A")("node")
+    self.assertNotEqual(styled, "node")
+    self.assertIn("node", styled)
+
   def test_display_width_is_terminal_cell_oriented(self):
     styler = TerminalStyler("never")
     self.assertEqual(styler.display_width("ABC"), 3)
