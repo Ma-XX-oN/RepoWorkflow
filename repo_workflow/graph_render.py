@@ -73,21 +73,41 @@ def _render_cell(
 ) -> str:
   per_edge: dict[
     tuple[str, str],
-    tuple[object, int, tuple[int, int] | None],
+    tuple[
+      object,
+      int,
+      tuple[int, int] | None,
+      frozenset[int],
+    ],
   ] = {}
   for item in contributions:
     key = item.edge.key
     previous = per_edge.get(key)
+    directions = (
+      frozenset({item.vertical_direction})
+      if item.vertical_direction
+      else frozenset()
+    )
     if previous is None:
-      per_edge[key] = item.edge, item.bits, item.bundle
+      per_edge[key] = (
+        item.edge,
+        item.bits,
+        item.bundle,
+        directions,
+      )
     else:
-      edge, bits, bundle = previous
-      per_edge[key] = edge, bits | item.bits, bundle
+      edge, bits, bundle, previous_directions = previous
+      per_edge[key] = (
+        edge,
+        bits | item.bits,
+        bundle,
+        previous_directions | directions,
+      )
 
   values = list(per_edge.values())
   if len(values) == 1:
-    edge, bits, _ = values[0]
-    return edge.colour(_line_char(bits))
+    edge, bits, _, directions = values[0]
+    return edge.colour(_directed_char(bits, directions))
 
   edges = [value[0] for value in values]
   bundles = {value[2] for value in values}
@@ -96,6 +116,7 @@ def _render_cell(
   same_bundle = len(bundles) == 1 and None not in bundles
   if same_source or same_target or same_bundle:
     bits = 0
+    directions: set[int] = set()
     lane_edges = [
       edge for edge in edges
       if edge.lane is not None
@@ -113,13 +134,16 @@ def _render_cell(
       if lane_edges
       else default_colour
     )
-    for _, value, _ in values:
+    for _, value, _, value_directions in values:
       bits |= value
-    return colour(_line_char(bits))
+      directions.update(value_directions)
+    return colour(
+      _directed_char(bits, frozenset(directions))
+    )
 
   horizontal = [
     (edge, bits)
-    for edge, bits, _ in values
+    for edge, bits, _, _ in values
     if bits & (_L | _R)
   ]
   if horizontal:
@@ -131,12 +155,24 @@ def _render_cell(
       _line_char(bits & (_L | _R))
     )
 
-  edge, bits, _ = sorted(
+  edge, bits, _, directions = sorted(
     values,
     key=lambda item: item[0].key,
   )[0]
-  return edge.colour(_line_char(bits))
+  return edge.colour(_directed_char(bits, directions))
 
+
+def _directed_char(
+  bits: int,
+  directions: frozenset[int],
+) -> str:
+  if bits == (_U | _D) and len(directions) == 1:
+    direction = next(iter(directions))
+    if direction < 0:
+      return "↑"
+    if direction > 0:
+      return "↓"
+  return _line_char(bits)
 
 def _line_char(bits: int) -> str:
   mapping = {
