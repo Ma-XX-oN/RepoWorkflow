@@ -1,43 +1,105 @@
 from pathlib import Path
+from unittest.mock import Mock, patch
 import unittest
-from unittest.mock import patch, Mock
-from repo_workflow.dependency_comparison import compare_dependencies
-from repo_workflow.dependency_sync import DependencySyncResult, DependencySyncStatus
+
+from repo_workflow.dependency_sync import DependencySyncConflict
 from repo_workflow.dependency_sync_cli import dependency_sync_command
+from repo_workflow.relationships import IssueRelationships, RelationshipGraph
+
+
+def snapshot():
+  value = Mock()
+  value.revision = 7
+  value.graph = RelationshipGraph(issues={
+    "2": IssueRelationships("Two", ()),
+    "9": IssueRelationships("Nine", ()),
+    "64": IssueRelationships("Sixty Four", ("2", "9")),
+    "65": IssueRelationships("Sixty Five", ()),
+  })
+  return value
+
 
 class DependencySyncCliTests(unittest.TestCase):
-  def current(self, selected="64"):
-    value=Mock(); value.selected_issue=selected
-    snap=Mock(); snap.value=value
-    return snap
-
-  @patch("repo_workflow.dependency_sync_cli.read_ticket_dependencies", return_value=(9,54))
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
   @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
-  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
-  @patch("repo_workflow.dependency_sync_cli.CurrentWorkStore")
-  def test_compare_is_read_only(self,current,config,store,read):
-    current.return_value.read.return_value=self.current()
-    store.return_value.direct_dependencies.return_value=("2","9")
-    with patch("repo_workflow.dependency_sync_cli.runtime_writer_identity") as writer:
-      self.assertEqual(dependency_sync_command(Path("."),("dependency","to-tickets","--compare")),0)
-      writer.assert_not_called()
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_compare_is_multi_issue_and_read_only(self, read, store, _config):
+    store.return_value.read.return_value = snapshot()
+    read.side_effect = [
+      ("Sixty Four", (2, 9)),
+      ("Sixty Five", ()),
+    ]
+    with patch(
+      "repo_workflow.dependency_sync_cli.runtime_writer_identity"
+    ) as writer:
+      result = dependency_sync_command(
+        Path("."),
+        (
+          "64",
+          "65",
+          "dependency",
+          "to-tickets",
+          "--compare",
+        ),
+      )
+    self.assertEqual(result, 0)
+    writer.assert_not_called()
+    self.assertEqual(read.call_count, 2)
 
-  @patch("repo_workflow.dependency_sync_cli.refresh_issue_metadata")
-  @patch("repo_workflow.dependency_sync_cli.sync_to_tickets")
-  @patch("repo_workflow.dependency_sync_cli.runtime_writer_identity")
-  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
-  @patch("repo_workflow.dependency_sync_cli.CurrentWorkStore")
-  def test_mutation_refreshes_metadata(self,current,config,writer,sync,refresh):
-    current.return_value.read.return_value=self.current()
-    sync.return_value=DependencySyncResult(64,DependencySyncStatus.SYNCHRONIZED,compare_dependencies((2,),()),(2,))
-    dependency_sync_command(Path("."),("dependency","to-tickets"))
-    refresh.assert_called_once()
+  def test_explicit_issue_list_is_required_and_validated(self):
+    with self.assertRaisesRegex(ValueError, "invalid dependency"):
+      dependency_sync_command(
+        Path("."),
+        ("dependency", "to-tickets"),
+      )
+    with self.assertRaisesRegex(ValueError, "duplicate issue"):
+      dependency_sync_command(
+        Path("."),
+        ("64", "64", "dependency", "to-tickets"),
+      )
 
-  @patch("repo_workflow.dependency_sync_cli.CurrentWorkStore")
-  def test_missing_target_fails(self,current):
-    current.return_value.read.return_value=self.current(None)
-    with self.assertRaisesRegex(ValueError,"requires one selected issue"):
-      dependency_sync_command(Path("."),("dependency","to-tickets"))
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  @patch("repo_workflow.dependency_sync_cli.replace_ticket_dependencies")
+  def test_multi_issue_to_tickets_preflights_before_any_mutation(
+    self,
+    replace,
+    read,
+    store,
+    _config,
+  ):
+    store.return_value.read.return_value = snapshot()
+    read.side_effect = [
+      ("Sixty Four", ()),
+      ("Wrong server title", ()),
+    ]
+    with self.assertRaisesRegex(DependencySyncConflict, "title conflict"):
+      dependency_sync_command(
+        Path("."),
+        ("64", "65", "dependency", "to-tickets"),
+      )
+    replace.assert_not_called()
+
+  @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
+  @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
+  @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")
+  def test_from_tickets_compare_reports_title_and_dependency_state(
+    self,
+    read,
+    store,
+    _config,
+  ):
+    store.return_value.read.return_value = snapshot()
+    read.return_value = ("Renamed on server", (2,))
+    self.assertEqual(
+      dependency_sync_command(
+        Path("."),
+        ("64", "dependency", "from-tickets", "--compare"),
+      ),
+      0,
+    )
+
 
 if __name__ == "__main__":
   unittest.main()
