@@ -1,9 +1,11 @@
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
 from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
 from repo_workflow.lane_list import LaneListError, render_lane_list
+from repo_workflow.lane_render import set_color_setting
 from repo_workflow.lane_selection import LaneSelectionStore
 from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
@@ -69,6 +71,23 @@ class LaneListTests(unittest.TestCase):
         "Lane B",
         "#54  Fifty Four",
       ),
+    )
+
+  def test_groups_use_lane_colour_and_never_mode_stays_plain(self):
+    set_color_setting(self.root, "always", self.writer)
+    styled = render_lane_list(self.root)
+    self.assertTrue(all(
+      "\x1b[" in line
+      for line in styled
+      if line
+    ))
+
+    set_color_setting(self.root, "never", self.writer)
+    plain = render_lane_list(self.root)
+    self.assertTrue(all("\x1b[" not in line for line in plain))
+    self.assertEqual(
+      tuple(re.sub(r"\x1b\[[0-9;]*m", "", line) for line in styled),
+      plain,
     )
 
   def test_links_are_optional(self):
