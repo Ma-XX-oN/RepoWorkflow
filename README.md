@@ -198,8 +198,8 @@ methodology.
 
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
 - [COLLABORATIVE_DESIGN_REVIEW.md](COLLABORATIVE_DESIGN_REVIEW.md) defines
-  the repository-wide discipline for challenging design proposals against
-  accepted invariants before extending them.
+  a project-neutral discipline for evaluating design proposals against accepted
+  invariants before extending them.
 - [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) defines how size
   limits trigger concise rewrites or responsibility-based splits without
   losing authoritative semantics.
