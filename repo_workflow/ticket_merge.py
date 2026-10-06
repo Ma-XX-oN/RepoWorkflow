@@ -31,8 +31,6 @@ def merge_ticket_csv(
     _parse_csv(theirs_text),
   )
   issues: dict[str, IssueRelationships] = {}
-  provider = resolve_info_config(root)
-
   for issue in sorted(
     set(inputs.base.issues)
     | set(inputs.ours.issues)
@@ -44,7 +42,6 @@ def merge_ticket_csv(
     theirs = inputs.theirs.issues.get(issue)
     merged = _merge_record(
       root,
-      provider,
       int(issue),
       base,
       ours,
@@ -58,7 +55,6 @@ def merge_ticket_csv(
 
 def _merge_record(
   root: Path,
-  provider: dict,
   issue: int,
   base: IssueRelationships | None,
   ours: IssueRelationships | None,
@@ -87,6 +83,7 @@ def _merge_record(
     title = ours.title
   else:
     try:
+      provider = resolve_info_config(root)
       title = issue_info(root, provider, issue)["title"]
     except Exception as error:
       raise TicketMergeError(
