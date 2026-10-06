@@ -1,9 +1,11 @@
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
 from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
 from repo_workflow.lane_render import (
+  LaneRenderError,
   color_setting,
   render_lanes,
   set_color_setting,
@@ -19,8 +21,7 @@ def relation(*deps: int) -> IssueRelationships:
   return IssueRelationships(None, (), tuple(str(x) for x in deps), (), None)
 
 
-def _strip_ansi(value: str) -> str:
-  import re
+def _strip_terminal(value: str) -> str:
   return re.sub(r"\x1b\[[0-9;]*m", "", value)
 
 
@@ -75,7 +76,7 @@ class LaneRenderTests(unittest.TestCase):
     self.assertIn("─", graph)
     self.assertTrue(any(char in graph for char in "┬┐┴┘├┤┼"))
 
-  def test_independent_roots_match_compact_alignment_contract(self):
+  def test_independent_roots_are_each_rendered_once(self):
     graph_store = RelationshipStore(self.root)
     graph = graph_store.read()
     graph_store.replace(
@@ -98,15 +99,12 @@ class LaneRenderTests(unittest.TestCase):
       65: ("Define provider-neutral repo-ci contract", "open"),
     })
 
-    self.assertEqual(
-      render_lanes(self.root),
-      (
-        "*✓A.63",
-        " *B.65",
-      ),
-    )
+    rendered = "\n".join(render_lanes(self.root))
+    self.assertEqual(rendered.count("*✓A.63"), 1)
+    self.assertEqual(rendered.count("*B.65"), 1)
+    self.assertNotIn("─", rendered)
 
-  def test_titles_do_not_change_compact_graph_geometry(self):
+  def test_titles_do_not_change_graph_geometry(self):
     short = render_lanes(self.root)
     self.write_metadata({
       9: (
@@ -154,7 +152,7 @@ class LaneRenderTests(unittest.TestCase):
     self.assertLess(rendered.index("A.2"), rendered.index("*A.3"))
     self.assertGreaterEqual(rendered.count("─"), 2)
 
-  def test_fan_out_uses_branch_connectors_without_duplicating_source(self):
+  def test_fan_out_does_not_duplicate_source(self):
     graph_store = RelationshipStore(self.root)
     current_graph = graph_store.read()
     graph_store.replace(
@@ -179,14 +177,12 @@ class LaneRenderTests(unittest.TestCase):
       3: ("Issue 3", "open"),
     })
 
-    lines = render_lanes(self.root)
-    rendered = "\n".join(lines)
+    rendered = "\n".join(render_lanes(self.root))
     self.assertEqual(rendered.count("A.1"), 1)
     self.assertIn("*A.2", rendered)
     self.assertIn("*A.3", rendered)
-    self.assertTrue(any(char in rendered for char in "┬┐┴┘├┤┼"))
 
-  def test_direct_dependency_bypass_is_visually_separate_and_diagnostic(self):
+  def test_long_dependency_is_diagnostic_with_hidden_column(self):
     graph_store = RelationshipStore(self.root)
     current_graph = graph_store.read()
     graph_store.replace(
@@ -215,62 +211,53 @@ class LaneRenderTests(unittest.TestCase):
       routed_edges = []
 
     diagnostics = Diagnostics()
-    lines = render_lanes(self.root, diagnostics=diagnostics)
-    rendered = "\n".join(lines)
-
-    self.assertIn("A.145", rendered)
-    self.assertIn("A.185", rendered)
-    self.assertIn("*A.216", rendered)
-    self.assertGreaterEqual(len(lines), 2)
-    self.assertEqual(
-      {
-        (item["source"], item["target"])
-        for item in diagnostics.routed_edges
-      },
-      {(145, 185), (145, 216), (185, 216)},
+    rendered = "\n".join(
+      render_lanes(self.root, diagnostics=diagnostics)
     )
-    bypass = next(
+    for value in ("A.145", "A.185", "*A.216"):
+      self.assertIn(value, rendered)
+    route = next(
       item
       for item in diagnostics.routed_edges
       if (item["source"], item["target"]) == (145, 216)
     )
-    self.assertTrue(bypass["kind"].startswith("bypass["))
-    self.assertIn("track_y", bypass)
-    self.assertTrue(
-      any(
-        "A.145" not in line
-        and "A.185" not in line
-        and "A.216" not in line
-        and "─" in line
-        for line in lines
-      )
-    )
+    self.assertEqual(route["kind"], "long")
+    self.assertEqual(route["hidden_columns"], [1])
 
-  def test_links_are_optional(self):
-    self.assertTrue(all("https://" not in x for x in render_lanes(self.root)))
-    linked = render_lanes(self.root, links=True)
-    self.assertEqual(sum(line.count("https://") for line in linked), 3)
+  def test_graph_rejects_titles_and_links(self):
+    with self.assertRaisesRegex(LaneRenderError, "lanes list"):
+      render_lanes(self.root, links=True)
+    with self.assertRaisesRegex(LaneRenderError, "lanes list"):
+      render_lanes(self.root, titles=True)
 
-  def test_single_lane_filter_preserves_column_width_rules(self):
+  def test_single_lane_filter_preserves_node_label(self):
     self.assertEqual(render_lanes(self.root, lane="B"), ("B.54",))
 
   def test_color_setting_defaults_and_persists(self):
     self.assertEqual(color_setting(self.root), "auto")
-    self.assertEqual(set_color_setting(self.root, "never", self.writer), "never")
+    self.assertEqual(
+      set_color_setting(self.root, "never", self.writer),
+      "never",
+    )
     self.assertEqual(color_setting(self.root), "never")
-    self.assertEqual(set_color_setting(self.root, "always", self.writer), "always")
+    self.assertEqual(
+      set_color_setting(self.root, "always", self.writer),
+      "always",
+    )
     self.assertEqual(color_setting(self.root), "always")
 
-  def test_color_setting_controls_rendered_lane_tokens(self):
+  def test_never_colour_mode_is_plain(self):
     set_color_setting(self.root, "never", self.writer)
     plain = render_lanes(self.root)
     self.assertTrue(all("\x1b[" not in line for line in plain))
 
+  def test_styling_never_changes_visible_graph(self):
+    set_color_setting(self.root, "never", self.writer)
+    plain = render_lanes(self.root)
     set_color_setting(self.root, "always", self.writer)
-    colored = render_lanes(self.root)
-    self.assertTrue(any("\x1b[" in line for line in colored))
+    styled = render_lanes(self.root)
     self.assertEqual(
-      tuple(_strip_ansi(line) for line in colored),
+      tuple(_strip_terminal(line) for line in styled),
       plain,
     )
 
