@@ -45,8 +45,7 @@ For the same canonical graph and issue state, blocker output is deterministic.
 
 ## 4. Independent siblings
 
-Two issues attached to the same umbrella remain independently ready when there
-is no direct dependency path between them.
+Two issues with no dependency path between them are independently ready.
 
 Umbrella membership is grouping, not ordering.
 
