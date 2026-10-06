@@ -60,14 +60,13 @@ def _merge_record(
   ours: IssueRelationships | None,
   theirs: IssueRelationships | None,
 ) -> IssueRelationships | None:
-  if ours == theirs:
-    return ours
-  if ours == base:
-    return theirs
-  if theirs == base:
-    return ours
-
+  if ours is None and theirs is None:
+    return None
   if ours is None or theirs is None:
+    if ours == base:
+      return theirs
+    if theirs == base:
+      return ours
     raise TicketMergeError(
       f"ticket #{issue} was deleted on one side and modified on the other"
     )
@@ -79,9 +78,12 @@ def _merge_record(
     theirs.depends_on,
   )
 
-  if ours.title == theirs.title:
-    title = ours.title
-  else:
+  base_title = None if base is None else base.title
+  title_changed = (
+    ours.title != base_title
+    or theirs.title != base_title
+  )
+  if title_changed:
     try:
       provider = resolve_info_config(root)
       title = issue_info(root, provider, issue)["title"]
@@ -89,6 +91,8 @@ def _merge_record(
       raise TicketMergeError(
         f"cannot resolve authoritative title for ticket #{issue}: {error}"
       ) from error
+  else:
+    title = ours.title
 
   return IssueRelationships(title=title, depends_on=dependencies)
 
