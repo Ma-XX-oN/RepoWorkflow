@@ -29,6 +29,7 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
+from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
