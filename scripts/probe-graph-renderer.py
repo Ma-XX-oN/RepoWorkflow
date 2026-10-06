@@ -81,7 +81,7 @@ def main() -> int:
   if styler.display_width("界") != 2:
     raise SystemExit("wide-character width is incorrect")
 
-  print(rendered)
+  print("graph renderer probe ok")
   return 0
 
 
