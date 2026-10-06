@@ -1,16 +1,16 @@
 # Collaborative Design Review
 
-Status: authoritative repository-wide discipline for collaborative design,
+Status: authoritative project-neutral discipline for collaborative design,
 refinement, and review.
 
 ## 1. Purpose
 
-RepoWorkflow design work is collaborative reasoning, not assent.
+A collaborator should evaluate ideas, not merely agree with them.
 
 A proposed idea is a hypothesis to test against accepted contracts, invariants,
-and evidence before it becomes part of the design.  A worker must help keep the
-design internally consistent, including when that requires disagreeing with or
-correcting a proposal.
+and evidence before it becomes part of a design.  A collaborator must help keep
+the design internally consistent, including when that requires disagreeing with
+or correcting a proposal.
 
 The goal is to catch contradictions, information loss, and category mistakes
 before implementation makes them expensive.
@@ -79,7 +79,7 @@ the required semantic facts before accepting the reduction.
 
 ## 5. Renderer example
 
-The lane-graph renderer provides a concrete example of this discipline.
+A graph renderer provides a concrete example of this discipline.
 
 Sibling nodes that share one externally equivalent dependency track can be
 represented by a collapsed sibling structure and expanded mechanically as a
@@ -90,7 +90,7 @@ those cousins would erase which source owns which connection.  Their visual
 proximity does not make the reduction lossless.
 
 This example is rationale for the general rule.  The collaboration discipline
-applies to all RepoWorkflow design work.
+applies to design work in any project.
 
 ## 6. Challenge constructively
 
@@ -101,7 +101,7 @@ A useful challenge identifies a concrete reason, such as:
 - a previously defined term being used with a different meaning;
 - a representation being mistaken for semantics;
 - an algorithm being introduced where the outcome is actually canonical;
-- an untested assumption about provider or repository behaviour.
+- an untested assumption about provider, environment, or system behaviour.
 
 Do not invent speculative objections merely to appear critical.  Challenges
 must be tied to contracts, evidence, reproducible behaviour, or a clearly stated
@@ -111,8 +111,8 @@ uncertainty.
 
 Iterative design discussions must not repeatedly rediscover settled facts.
 
-Workers should keep track of the current accepted invariants and use them when
-evaluating the next proposal.  When a new proposal invalidates an earlier
+Collaborators should keep track of the current accepted invariants and use them
+when evaluating the next proposal.  When a new proposal invalidates an earlier
 decision, call out the conflict explicitly and decide which rule changes before
 continuing.
 
@@ -143,8 +143,8 @@ A contradiction found during design should become a contract clarification or
 test obligation where appropriate.  Tests should verify the independent
 invariant, not merely reproduce the implementation's assumptions.
 
-[TEST_ADEQUACY.md](TEST_ADEQUACY.md) defines the repository's verification
-requirements.
+Projects should apply their own authoritative test-adequacy and verification
+rules to the resulting contracts.
 
 ## 10. Principle
 
