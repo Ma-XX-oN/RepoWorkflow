@@ -62,7 +62,9 @@ class GraphRenderTests(unittest.TestCase):
     self.assertEqual(text.count("C"), 1)
     self.assertEqual(text.count("X"), 1)
     self.assertIn("┬", text)
-    self.assertIn("<red>", "\n".join(result.lines))
+    rendered = "\n".join(result.lines)
+    self.assertIn("<red>", rendered)
+    self.assertNotIn("<grey>", rendered)
     self.assertEqual(
       {(route.source, route.target) for route in result.routes},
       {("A", "X"), ("C", "X")},
@@ -97,6 +99,74 @@ class GraphRenderTests(unittest.TestCase):
       [("A", "P", 1)],
     )
     self.assertIn("<red>", "\n".join(result.lines))
+
+  def test_directional_cousin_routes_emit_vertical_arrows(self):
+    x = GraphSiblings(("X",))
+    y = GraphSiblings(("Y",))
+    a = GraphSiblings(("A",), (x,))
+    b = GraphSiblings(("B",), (x, y))
+    c = GraphSiblings(("C",), (y,))
+    result = render_graph(
+      Graph(
+        (a, b, c, x, y),
+        (
+          Lane(("A", "X"), RED),
+          Lane(("B",), BLUE),
+          Lane(("C", "Y"), GREEN),
+        ),
+        GREY,
+        formatter,
+      )
+    )
+    rendered = "\n".join(plain(result.lines))
+    self.assertTrue("↑" in rendered or "↓" in rendered)
+    self.assertEqual(
+      {(route.source, route.target) for route in result.routes},
+      {
+        ("A", "X"),
+        ("B", "X"),
+        ("B", "Y"),
+        ("C", "Y"),
+      },
+    )
+
+  def test_multi_overlap_preserves_lane_and_default_edge_colours(self):
+    x = GraphSiblings(("X",))
+    y = GraphSiblings(("Y",))
+    z = GraphSiblings(("Z",))
+    a = GraphSiblings(("A",), (x,))
+    b = GraphSiblings(("B",), (x, y, z))
+    c = GraphSiblings(("C",), (y,))
+    d = GraphSiblings(("D",), (z,))
+    result = render_graph(
+      Graph(
+        (a, b, c, d, x, y, z),
+        (
+          Lane(("A", "X"), RED),
+          Lane(("B", "Z"), BLUE),
+          Lane(("C", "Y"), GREEN),
+          Lane(("D",), marker("yellow")),
+        ),
+        GREY,
+        formatter,
+      )
+    )
+    rendered = "\n".join(result.lines)
+    self.assertIn("<red>", rendered)
+    self.assertIn("<blue>", rendered)
+    self.assertIn("<green>", rendered)
+    self.assertIn("<grey>", rendered)
+    self.assertEqual(
+      {(route.source, route.target) for route in result.routes},
+      {
+        ("A", "X"),
+        ("B", "X"),
+        ("B", "Y"),
+        ("B", "Z"),
+        ("C", "Y"),
+        ("D", "Z"),
+      },
+    )
 
   def test_cross_lane_edge_uses_default_colour(self):
     x = GraphSiblings(("X",))
