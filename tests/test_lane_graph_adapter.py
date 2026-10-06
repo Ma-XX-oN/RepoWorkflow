@@ -111,12 +111,12 @@ class LaneGraphAdapterTests(unittest.TestCase):
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={
-      "77": relation(),
+      "127": relation(),
+      "77": relation(127),
       "78": relation(77),
       "99": relation(78),
       "100": relation(99),
       "101": relation(99, 100),
-      "127": relation(),
       "145": relation(77, 101),
       "185": relation(77, 145, 186),
       "186": relation(189),
