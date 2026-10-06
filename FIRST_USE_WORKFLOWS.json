@@ -265,7 +265,8 @@
             "tests/test_graph_render.py::GraphRenderTests.test_multi_overlap_preserves_lane_and_default_edge_colours",
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_multi_overlap_geometry_preserves_exact_edge_set",
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_long_edge_variants_preserve_connected_routes",
-            "tests/test_lane_render.py::LaneRenderTests.test_long_dependency_is_diagnostic_with_hidden_column"
+            "tests/test_lane_render.py::LaneRenderTests.test_long_dependency_is_diagnostic_with_hidden_column",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_view_is_deterministic_across_fresh_processes"
           ]
         },
         {
