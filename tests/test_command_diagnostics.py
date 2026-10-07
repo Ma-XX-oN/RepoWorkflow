@@ -117,8 +117,10 @@ class CommandDiagnosticTests(unittest.TestCase):
     commands = {
       "validate": {
         "regression": {
-          "--group": {
-            "_values": lambda context: {"completions": ["alpha", "beta"]},
+          "_switches": {
+            "--group": [
+              {"alpha": "Alpha", "beta": "Beta"},
+            ],
           },
         },
       },
@@ -146,8 +148,10 @@ class CommandDiagnosticTests(unittest.TestCase):
     commands = {
       "validate": {
         "regression": {
-          "--group": {
-            "_values": lambda context: {"completions": ["alpha", "beta"]},
+          "_switches": {
+            "--group": [
+              {"alpha": "Alpha", "beta": "Beta"},
+            ],
           },
         },
       },
