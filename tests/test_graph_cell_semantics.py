@@ -12,7 +12,7 @@ from repo_workflow.graph_render_types import (
   Contribution,
   SemanticEdge,
 )
-from repo_workflow.graph_route_semantics import _switch_edges
+from repo_workflow.graph_route_interactions import switch_edges_for_cell
 
 
 def plain(text: str) -> str:
@@ -39,7 +39,7 @@ class GraphCellSemanticTests(unittest.TestCase):
       Contribution(second, _U | _D, vertical_direction=1),
     )
 
-    self.assertEqual(_switch_edges(contributions), set())
+    self.assertEqual(switch_edges_for_cell(contributions), set())
     self.assertEqual(_render_cell(list(contributions), plain), "─")
 
   def test_same_target_perpendicular_crossing_is_not_a_junction(self):
@@ -50,7 +50,7 @@ class GraphCellSemanticTests(unittest.TestCase):
       Contribution(second, _U | _D, vertical_direction=-1),
     )
 
-    self.assertEqual(_switch_edges(contributions), set())
+    self.assertEqual(switch_edges_for_cell(contributions), set())
     self.assertEqual(_render_cell(list(contributions), plain), "─")
 
   def test_same_source_shared_direction_remains_a_junction(self):
@@ -62,7 +62,7 @@ class GraphCellSemanticTests(unittest.TestCase):
     )
 
     self.assertEqual(
-      _switch_edges(contributions),
+      switch_edges_for_cell(contributions),
       {first.key, second.key},
     )
     self.assertEqual(_render_cell(list(contributions), plain), "┬")
@@ -76,7 +76,7 @@ class GraphCellSemanticTests(unittest.TestCase):
     )
 
     self.assertEqual(
-      _switch_edges(contributions),
+      switch_edges_for_cell(contributions),
       {first.key, second.key},
     )
     self.assertEqual(_render_cell(list(contributions), plain), "┴")
