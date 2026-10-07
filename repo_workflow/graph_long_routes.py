@@ -38,6 +38,7 @@ def long_route_candidates(
       and _long_row_is_compatible(
         edge,
         used_rows.get(row, []),
+        placements,
       )
     )
   ]
@@ -84,11 +85,51 @@ def choose_long_route_row(
 def _long_row_is_compatible(
   edge: SemanticEdge,
   existing: list[SemanticEdge],
+  placements: dict[str, Placement],
 ) -> bool:
   if not existing:
     return True
-  edges = [*existing, edge]
+
+  component = [edge]
+  pending = [edge]
+  remaining = list(existing)
+  while pending:
+    current = pending.pop()
+    current_span = _edge_span(current, placements)
+    connected = [
+      item
+      for item in remaining
+      if _spans_overlap(
+        current_span,
+        _edge_span(item, placements),
+      )
+    ]
+    if not connected:
+      continue
+    for item in connected:
+      remaining.remove(item)
+      component.append(item)
+      pending.append(item)
+
+  if len(component) == 1:
+    return True
   return (
-    len({item.source for item in edges}) == 1
-    or len({item.target for item in edges}) == 1
+    len({item.source for item in component}) == 1
+    or len({item.target for item in component}) == 1
   )
+
+
+def _edge_span(
+  edge: SemanticEdge,
+  placements: dict[str, Placement],
+) -> tuple[int, int]:
+  source = placements[edge.source].column
+  target = placements[edge.target].column
+  return source, target - 1
+
+
+def _spans_overlap(
+  left: tuple[int, int],
+  right: tuple[int, int],
+) -> bool:
+  return max(left[0], right[0]) <= min(left[1], right[1])
