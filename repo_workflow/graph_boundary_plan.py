@@ -25,7 +25,6 @@ def dogleg_edges(
     if (
       (edge.source_group, edge.target_group) not in bundle_relations
       and placements[edge.target].column == placements[edge.source].column + 1
-      and placements[edge.source].row == placements[edge.target].row
       and len(validated.adjacency[edge.source]) > 1
       and len(validated.incoming[edge.target]) > 1
     )
