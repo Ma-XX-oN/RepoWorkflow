@@ -248,6 +248,10 @@ This requirement exists so dependency traversal can reconstruct how work
 expanded into prerequisite rabbit holes without relying on chat history or
 human memory.
 
+[TICKET_STATE.md](TICKET_STATE.md) owns the concrete synchronized-ticket
+creation, commit, validation, and readback procedure that implements this
+requirement.
+
 ## 6. Keep dependencies direct
 
 Do not duplicate transitive prerequisites.
