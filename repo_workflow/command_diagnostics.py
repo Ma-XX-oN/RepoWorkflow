@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
 
-from .command_grammar import Context, TERMINAL, VARIADIC, next_entries
+from .command_grammar import (
+  CommandGrammarError,
+  Context,
+  completion_items,
+  parse_tokens,
+  prefix_valid,
+)
 
 
 class FailureKind(str, Enum):
@@ -23,20 +29,61 @@ class CommandFailure:
   legal_transitions: tuple[str, ...] = ()
 
 
-def _entry_for(
-  node: dict,
-  context: Context,
-  words: tuple[str, ...],
-  index: int,
-  token: str,
-):
-  entries, values = next_entries(node, context.at(words, index))
-  return entries.get(token), values
+def _manual_failure(
+  commands: dict,
+  tokens: tuple[str, ...],
+  general: Context,
+  legal: Context,
+) -> tuple[FailureKind, int] | None:
+  for index in range(len(tokens)):
+    prefix = tokens[:index + 1]
+    if not prefix_valid(commands, general, prefix):
+      return FailureKind.UNRECOGNISED, index
+    if not prefix_valid(commands, legal, prefix):
+      return FailureKind.STATE_INVALID, index
+
+  try:
+    parse_tokens(commands, general, tokens)
+  except CommandGrammarError:
+    return FailureKind.UNRECOGNISED, max(0, len(tokens) - 1)
+  try:
+    parse_tokens(commands, legal, tokens)
+  except CommandGrammarError:
+    return FailureKind.STATE_INVALID, max(0, len(tokens) - 1)
+  return None
 
 
-def _advance(node: dict, entry):
-  if isinstance(entry, dict):
-    return entry
+def _completion_failure(
+  commands: dict,
+  tokens: tuple[str, ...],
+  general: Context,
+  legal: Context,
+) -> tuple[FailureKind, int] | None:
+  completed = tokens[:-1]
+  for index in range(len(completed)):
+    prefix = completed[:index + 1]
+    if not prefix_valid(commands, general, prefix):
+      return FailureKind.UNRECOGNISED, index
+    if not prefix_valid(commands, legal, prefix):
+      return FailureKind.STATE_INVALID, index
+
+  general_items = completion_items(commands, general, tokens)
+  legal_items = completion_items(commands, legal, tokens)
+  if legal_items:
+    return None
+  if general_items:
+    kind = (
+      FailureKind.VALUE_NO_COMPLETION
+      if any(item.bare_value for item in general_items)
+      else FailureKind.STATE_NO_COMPLETION
+    )
+    return kind, len(tokens) - 1
+
+  all_general = completion_items(commands, general, [*completed, ""])
+  if any(item.bare_value for item in all_general):
+    return FailureKind.VALUE_NO_COMPLETION, len(tokens) - 1
+  if all_general:
+    return FailureKind.UNRECOGNISED, len(tokens) - 1
   return None
 
 
@@ -50,188 +97,21 @@ def analyse_failure(
   state_name: str | None,
   legal_transitions: Iterable[str],
 ) -> CommandFailure | None:
-  tokens = tuple(words)
-  transitions = tuple(legal_transitions)
-  if not tokens:
-    tokens = ("",)
-
-  last_index = len(tokens) - 1
-  exact_count = last_index if completion else len(tokens)
-  general_node = commands
-  legal_node = commands
-
-  for index in range(exact_count):
-    token = tokens[index]
-    general_entry, general_values = _entry_for(
-      general_node,
-      general_context,
-      tokens,
-      index,
-      token,
-    )
-    legal_entry, legal_values = _entry_for(
-      legal_node,
-      legal_context,
-      tokens,
-      index,
-      token,
-    )
-
-    general_known = general_entry is not None or token in general_values
-    legal_known = legal_entry is not None or token in legal_values
-    general_variadic = general_node.get(VARIADIC)
-    legal_variadic = legal_node.get(VARIADIC)
-    remaining = exact_count - index
-
-    if not general_known and general_variadic is not None:
-      if remaining >= general_variadic["min"]:
-        if legal_variadic is not None and remaining >= legal_variadic["min"]:
-          return None
-        return CommandFailure(
-          FailureKind.STATE_INVALID,
-          tokens,
-          index,
-          state_name,
-          transitions,
-        )
-
-    if not general_known:
-      return CommandFailure(
-        FailureKind.UNRECOGNISED,
-        tokens,
-        index,
-        state_name,
-        transitions,
-      )
-    if not legal_known:
-      return CommandFailure(
-        FailureKind.STATE_INVALID,
-        tokens,
-        index,
-        state_name,
-        transitions,
-      )
-
-    if token in general_values or token in legal_values:
-      if index != exact_count - 1:
-        return CommandFailure(
-          FailureKind.UNRECOGNISED,
-          tokens,
-          index + 1,
-          state_name,
-          transitions,
-        )
-      return None
-
-    general_node = _advance(general_node, general_entry)
-    legal_node = _advance(legal_node, legal_entry)
-    if general_node is None or legal_node is None:
-      if index != exact_count - 1:
-        return CommandFailure(
-          FailureKind.UNRECOGNISED,
-          tokens,
-          index + 1,
-          state_name,
-          transitions,
-        )
-      return None
-
-  if not completion:
-    general_zero_variadic = (
-      isinstance(general_node, dict)
-      and general_node.get(VARIADIC, {}).get("min") == 0
-    )
-    legal_zero_variadic = (
-      isinstance(legal_node, dict)
-      and legal_node.get(VARIADIC, {}).get("min") == 0
-    )
-    if (
-      isinstance(general_node, dict)
-      and TERMINAL not in general_node
-      and not general_zero_variadic
-    ):
-      return CommandFailure(
-        FailureKind.UNRECOGNISED,
-        tokens,
-        max(0, len(tokens) - 1),
-        state_name,
-        transitions,
-      )
-    if (
-      isinstance(legal_node, dict)
-      and TERMINAL not in legal_node
-      and not legal_zero_variadic
-    ):
-      return CommandFailure(
-        FailureKind.STATE_INVALID,
-        tokens,
-        max(0, len(tokens) - 1),
-        state_name,
-        transitions,
-      )
-    return None
-
-  partial = tokens[-1]
-  index = last_index
-  if isinstance(general_node, dict) and VARIADIC in general_node:
-    if isinstance(legal_node, dict) and VARIADIC in legal_node:
-      return None
-    return CommandFailure(
-      FailureKind.STATE_NO_COMPLETION,
-      tokens,
-      index,
-      state_name,
-      transitions,
-    )
-  general_entries, general_values = next_entries(
-    general_node,
-    general_context.at(tokens, index),
+  tokens = tuple(words) or ("",)
+  result = (
+    _completion_failure(commands, tokens, general_context, legal_context)
+    if completion
+    else _manual_failure(commands, tokens, general_context, legal_context)
   )
-  legal_entries, legal_values = next_entries(
-    legal_node,
-    legal_context.at(tokens, index),
-  )
-
-  general_matches = {
-    token for token in general_entries if token.startswith(partial)
-  }
-  general_value_matches = {
-    token for token in general_values if token.startswith(partial)
-  }
-  legal_matches = {
-    token for token in legal_entries if token.startswith(partial)
-  }
-  legal_value_matches = {
-    token for token in legal_values if token.startswith(partial)
-  }
-
-  if legal_matches or legal_value_matches:
+  if result is None:
     return None
-
-  if general_value_matches or general_values:
-    return CommandFailure(
-      FailureKind.VALUE_NO_COMPLETION,
-      tokens,
-      index,
-      state_name,
-      transitions,
-    )
-
-  if general_matches:
-    return CommandFailure(
-      FailureKind.STATE_NO_COMPLETION,
-      tokens,
-      index,
-      state_name,
-      transitions,
-    )
-
+  kind, index = result
   return CommandFailure(
-    FailureKind.UNRECOGNISED,
+    kind,
     tokens,
     index,
     state_name,
-    transitions,
+    tuple(legal_transitions),
   )
 
 
@@ -246,7 +126,6 @@ def _with_transitions(lines: list[str], failure: CommandFailure) -> list[str]:
     return lines
   if failure.state_name is None:
     return lines
-
   lines.extend(["", "Legal transitions:", f"  {failure.state_name}"])
   if failure.legal_transitions:
     lines.extend(f"  → {transition}" for transition in failure.legal_transitions)
