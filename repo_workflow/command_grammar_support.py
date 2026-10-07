@@ -205,11 +205,11 @@ def consume_switch(
   words: tuple[str, ...],
   index: int,
   context,
-) -> tuple[int, dict | None, int]:
+) -> tuple[int, tuple[tuple[dict, int], ...]]:
   params = switch_params(entry)
   if not params:
-    return index, None, 0
-  for slot in params:
+    return index, ()
+  for slot_index, slot in enumerate(params):
     quantifier = parse_quantifier(
       slot.get(QUANTIFIER),
       label="parameter quantifier",
@@ -223,12 +223,25 @@ def consume_switch(
         break
       count += 1
       index += 1
-    can_repeat = quantifier.maximum is None or count < quantifier.maximum
-    if index == len(words) and can_repeat:
-      return index, slot, count
-    if count < quantifier.minimum:
+    if count < quantifier.minimum and index < len(words):
       raise CommandGrammarError(f"invalid switch parameter: {words[index]}")
-  return index, None, 0
+    if index == len(words):
+      pending: list[tuple[dict, int]] = []
+      can_repeat = quantifier.maximum is None or count < quantifier.maximum
+      if can_repeat:
+        pending.append((slot, count))
+      if count < quantifier.minimum:
+        return index, tuple(pending)
+      for later in params[slot_index + 1:]:
+        pending.append((later, 0))
+        later_bounds = parse_quantifier(
+          later.get(QUANTIFIER),
+          label="parameter quantifier",
+        )
+        if later_bounds.minimum > 0:
+          break
+      return index, tuple(pending)
+  return index, ()
 
 
 def ordered_match(slot: dict, token: str, context) -> bool:
