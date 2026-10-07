@@ -8,15 +8,14 @@ from repo_workflow.graph_render_types import (
   _L,
   _R,
   _U,
-  GraphLayoutError,
-  _D,
-  _L,
-  _R,
-  _U,
   Contribution,
+  GraphLayoutError,
   SemanticEdge,
 )
-from repo_workflow.graph_route_semantics import _switch_edges
+from repo_workflow.graph_route_semantics import (
+  _switch_edges,
+  simple_path,
+)
 
 
 def plain(text: str) -> str:
