@@ -136,6 +136,31 @@ class QuantifiedGrammarTests(unittest.TestCase):
     ]
     self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
 
+  def test_optional_parameter_cannot_hide_later_required_parameter(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--route": {
+            "_params": [
+              {"verbose": "Verbose", "_quantifier": "?"},
+              {"<LANE>": self.lane_values},
+            ],
+          },
+        },
+      },
+    }
+    with self.assertRaisesRegex(CommandGrammarError, "incomplete"):
+      parse_tokens(commands, self.context, ["x", "--route"])
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "--route", "A"]),
+      ("x", "--route", "A"),
+    )
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "--route", "verbose", "B"]),
+      ("x", "--route", "verbose", "B"),
+    )
+
   def test_parameter_position_quantifier_is_independent_of_switch_quantifier(self):
     commands = {
       "x": {
