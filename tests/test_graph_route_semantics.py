@@ -8,6 +8,11 @@ from repo_workflow.graph_render_types import (
   _L,
   _R,
   _U,
+  GraphLayoutError,
+  _D,
+  _L,
+  _R,
+  _U,
   Contribution,
   SemanticEdge,
 )
@@ -30,6 +35,46 @@ def edge(source: str, target: str) -> SemanticEdge:
 
 
 class GraphRouteSemanticTests(unittest.TestCase):
+  def test_adjacent_parallel_dogleg_legs_are_not_connected_without_bits(self):
+    route = {
+      (0, 0): _R,
+      (1, 0): _L | _D,
+      (1, 1): _U | _D,
+      (1, 2): _U | _D,
+      (1, 3): _U | _R,
+      (2, 3): _L | _U,
+      (2, 2): _U | _D,
+      (2, 1): _U | _D,
+      (2, 0): _D | _R,
+      (3, 0): _L,
+    }
+
+    path = simple_path(route, (0, 0), (3, 0))
+
+    self.assertEqual(len(path), len(route))
+    self.assertEqual(path[0], (0, 0))
+    self.assertEqual(path[-1], (3, 0))
+
+  def test_direction_bits_detect_real_cross_connection(self):
+    route = {
+      (0, 0): _R,
+      (1, 0): _L | _D,
+      (1, 1): _U | _D | _R,
+      (1, 2): _U | _D,
+      (1, 3): _U | _R,
+      (2, 3): _L | _U,
+      (2, 2): _U | _D,
+      (2, 1): _U | _D | _L,
+      (2, 0): _D | _R,
+      (3, 0): _L,
+    }
+
+    with self.assertRaisesRegex(
+      GraphLayoutError,
+      "branches or self-intersects",
+    ):
+      simple_path(route, (0, 0), (3, 0))
+
   def test_perpendicular_same_source_crossing_is_not_a_switch(self):
     left = edge("S", "A")
     down = edge("S", "B")
