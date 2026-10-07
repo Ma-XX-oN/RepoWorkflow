@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .graph_boundary_order import order_boundary_items
 from .graph_geometry import (
   edge_item_key,
   route_adjacent,
@@ -406,35 +407,15 @@ def _boundary_items(
     for placement in placements.values()
   )
   return {
-    boundary: tuple(
-      sorted(
-        values.get(boundary, set()),
-        key=lambda item: _boundary_item_order(
-          item,
-          placements,
-        ),
-      )
+    boundary: order_boundary_items(
+      values.get(boundary, set()),
+      boundary,
+      edges,
+      placements,
+      bundled,
     )
     for boundary in range(max_column)
   }
-
-
-def _boundary_item_order(
-  item: tuple,
-  placements: dict[str, Placement],
-) -> tuple[int, tuple]:
-  if item[0] != "edge":
-    return 1, item
-  source = placements[item[1]]
-  target = placements[item[2]]
-  delta = target.row - source.row
-  if delta < 0:
-    direction = 0
-  elif delta > 0:
-    direction = 2
-  else:
-    direction = 1
-  return direction, item
 
 
 def _column_geometry(
