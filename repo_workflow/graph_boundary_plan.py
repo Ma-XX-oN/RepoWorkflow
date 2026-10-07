@@ -3,6 +3,7 @@ from __future__ import annotations
 from .graph_boundary_order import order_boundary_items
 from .graph_routing import (
   bundle_item_key,
+  dogleg_separator_key,
   dogleg_source_key,
   dogleg_target_key,
   edge_item_key,
@@ -157,10 +158,13 @@ def boundary_items(
     source = placements[edge.source]
     target = placements[edge.target]
     if edge.key in doglegs:
-      values.setdefault(source.column, set()).update({
+      items = {
         dogleg_source_key(edge),
         dogleg_target_key(edge),
-      })
+      }
+      if source.row == target.row:
+        items.add(dogleg_separator_key(source.column))
+      values.setdefault(source.column, set()).update(items)
       continue
     if edge.key in long_bridges:
       values.setdefault(source.column, set()).add(
