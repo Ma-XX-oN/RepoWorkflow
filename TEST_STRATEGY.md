@@ -42,6 +42,36 @@ Tests must not depend on the user's machine or manual acceptance.  Temporary
 repositories, remotes, GitHub test branches/PRs where required, and automated
 shell interaction are the test harness.
 
+## 1.1 Validation depth by workflow stage
+
+RepoWorkflow CI distinguishes issue verification, regression, and integration
+because they establish different facts and have different cost.
+
+Issue development runs the issue-owned catalogue group(s), plus any groups
+expanded from durable high-risk aliases and cheap invariant groups.  This is
+the normal pull-request feedback path.  It must not claim regression or
+integration evidence.
+
+Regression runs the broad repository validation suite.  It is required when a
+dependency-complete umbrella/group outcome is ready for regression, and may be
+requested earlier when a change carries significant broad risk.  Because RWF
+does not store semantic umbrella membership separately, CI must not infer this
+gate from ticket title prefixes or invented graph relationships; the regression
+tier is selected explicitly by the workflow that knows the umbrella outcome is
+complete.
+
+Integration runs the broad validation suite plus all authoritative
+cross-platform/provider probes.  An authoritative push to `main` is always an
+integration candidate.  Full platform probes are therefore integration gates,
+not ordinary issue-development feedback.
+
+Documentation-only changes retain the dedicated fast path and may skip code
+validation.  A stronger successful tier may satisfy a narrower requirement,
+but issue or regression evidence must never masquerade as integration evidence.
+
+Every CI plan records the selected tier, selected groups where applicable, and
+the reason for that selection.
+
 ## 2. Cross-cutting tests
 
 These tests apply across implementation stages.
