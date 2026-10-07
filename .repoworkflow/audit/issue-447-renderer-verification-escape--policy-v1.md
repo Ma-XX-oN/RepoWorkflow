@@ -165,3 +165,26 @@ This is expected and demonstrates that old certification evidence is not being
 silently reused.  Do not refresh these digests until the current renderer
 candidate has passed the semantic/canonical verification gates.
 
+### Authoritative pre-certification validation result
+
+Self CI run #948 tested semantic head
+`d34c81b2f23931f0164c01d9921aa4dfcaa2f6a6`.
+
+Results before certification refresh:
+
+- canonical renderer probe: GREEN on Ubuntu, Windows, and macOS;
+- ticket-merge probe: GREEN on Ubuntu, Windows, and macOS;
+- argv-limit probe: GREEN on Ubuntu, Windows, and macOS;
+- authoritative validation executed 652 tests in 272.362 seconds;
+- exactly two tests failed;
+- both failures were the intentionally stale renderer-certification binding:
+  material-input digests no longer matched and the manifest did not yet cover
+  the mechanically complete current `graph_*.py` renderer module surface;
+- no renderer, generated-DAG, assembled CLI, canonical-graph, ticket-state, or
+  other regression test failed.
+
+The subsequent certification refresh at
+`97b6de2c993e564c9a32d90a3e34ec7163fc77d8` bound all 18 material inputs
+and recorded run #948 as evidence.  VERSION was then advanced to 0.1.113 at
+`e14ba274bb77b09bc9c514f93c828cd3dffcc835`.
+

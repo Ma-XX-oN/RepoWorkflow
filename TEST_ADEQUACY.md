@@ -394,6 +394,8 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Boundaries were considered.
 - [ ] Zero/one/many cardinalities were considered.
 - [ ] Relevant condition combinations/decision tables were considered.
+- [ ] Material interacting dimensions were exercised together, not only
+  individually.
 - [ ] Invalid/negative cases were considered.
 
 ### State and lifecycle
@@ -415,6 +417,8 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Black-box expectations are not copied from implementation assumptions.
 - [ ] Mocks/fixtures/fakes are validated against authoritative contracts.
 - [ ] Required authoritative external/persistent data is actually populated.
+- [ ] Production-owned canonical data that drives behaviour is exercised as an
+  active fixture at the appropriate assembled level.
 
 ### Structural/static verification
 
@@ -429,10 +433,16 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Relevant regression testing passes.
 - [ ] A regression test is retained unless there is a documented reason not to.
 - [ ] Escaped defects were assessed for systemic prevention improvements.
+- [ ] For assembled escaped defects, retained regression continues through
+  downstream supported stages that were previously unreachable.
 
 ### Risk and reproducibility
 
 - [ ] Test depth matches the risk.
+- [ ] Combinatorial state spaces with an independent oracle use bounded
+  generated/property coverage, or have a documented N/A rationale.
+- [ ] Historical certification evidence is current for all material bindings,
+  or is explicitly stale and regenerated before closure.
 - [ ] Candidate/configuration/environment/provider identity is reproducible.
 - [ ] Remaining untested material risk is explicit.
 
