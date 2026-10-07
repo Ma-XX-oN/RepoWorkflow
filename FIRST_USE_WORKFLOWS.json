@@ -278,6 +278,7 @@
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
             "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
             "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_focus_seed_discovers_complete_provider_component",
             "tests/test_ticket_dependency_adapter.py::TicketDependencyAdapterTests.test_related_read_returns_both_direct_relationship_directions",
             "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_related_returns_blocked_by_and_blocking_numbers",
             "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_truncated_blocking_connection_fails_closed"
