@@ -3,6 +3,7 @@ from __future__ import annotations
 from .graph_geometry import (
   edge_item_key,
   route_adjacent,
+  route_candidate_preserves_reachability,
   route_long,
   validate_routes,
 )
@@ -136,6 +137,17 @@ def build_layout(graph: Graph) -> LayoutPlan:
         column_start,
         track_x,
       ),
+      lambda row: _long_route_candidate_valid(
+        edge,
+        row,
+        cells,
+        routes,
+        validated,
+        placements,
+        columns,
+        column_start,
+        track_x,
+      ),
     )
     used_long_rows.setdefault(track_y, []).append(edge)
     hidden = tuple(
@@ -198,6 +210,45 @@ def build_layout(graph: Graph) -> LayoutPlan:
     cells=cells,
     routes=ordered_routes,
     default_colour=graph.default_edge_colour,
+  )
+
+
+def _long_route_candidate_valid(
+  edge: SemanticEdge,
+  row: int,
+  cells: dict[tuple[int, int], list[Contribution]],
+  routes: list[RouteRecord],
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  tracks: dict[tuple[int, tuple], int],
+) -> bool:
+  candidate_cells = {
+    point: list(values)
+    for point, values in cells.items()
+  }
+  route_long(
+    candidate_cells,
+    edge,
+    placements,
+    columns,
+    starts,
+    tracks,
+    row,
+  )
+  expected = {
+    (route.source, route.target)
+    for route in routes
+  }
+  expected.add(edge.key)
+  return route_candidate_preserves_reachability(
+    validated,
+    placements,
+    columns,
+    starts,
+    candidate_cells,
+    expected,
   )
 
 
