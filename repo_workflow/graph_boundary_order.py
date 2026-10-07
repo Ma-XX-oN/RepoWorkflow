@@ -17,6 +17,10 @@ from .graph_routing import (
 from .graph_ordering import group_key
 from .graph_render_model import GraphSiblings, ValidatedGraph
 from .graph_render_types import (
+  _D,
+  _L,
+  _R,
+  _U,
   Column,
   GraphLayoutError,
   Placement,
@@ -272,11 +276,11 @@ def _boundary_order_quality(
     if len(per_edge) < 2:
       continue
     has_horizontal = any(
-      bits & 3
+      bits & (_L | _R)
       for bits in per_edge.values()
     )
     has_vertical = any(
-      bits & 12
+      bits & (_U | _D)
       for bits in per_edge.values()
     )
     if has_horizontal and has_vertical:
