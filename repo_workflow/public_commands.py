@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .command_grammar import Context, validate_node
+from .test_catalogue import TestCatalogueError, load_test_catalogue
 from .workflow_state import derive_plan, discover_facts
 from .workspace_store import WorkspaceStore
 
@@ -70,6 +71,13 @@ def _lane_name(context: Context) -> list[str]:
   if token and not token.startswith("--"):
     return [token]
   return []
+
+
+def _high_risk_aliases(context: Context) -> list[str]:
+  try:
+    return list(load_test_catalogue(context.root).alias_names())
+  except TestCatalogueError:
+    return []
 
 
 def _dependency_direction_node() -> dict:
@@ -302,6 +310,11 @@ COMMANDS = {
     },
   },
   "workspace": _workspace_commands(),
+  "high-risk": {
+    "_values": _high_risk_aliases,
+    "_value_description": "Test-catalogue alias section",
+    "_quantifier": "+",
+  },
   "what-next": {
     "": "Show legal next workflow transitions",
     "_switches": {
