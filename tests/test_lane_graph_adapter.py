@@ -1,5 +1,7 @@
+from pathlib import Path
 import unittest
 
+from repo_workflow.lane_decomposition import decompose_lanes
 from repo_workflow.lane_graph_adapter import (
   LaneGraphProjectionError,
   make_lane_formatter,
@@ -7,6 +9,7 @@ from repo_workflow.lane_graph_adapter import (
 )
 from repo_workflow.graph_render_model import FormatEntry, validate_graph
 from repo_workflow.lane_selection import LaneSelection
+from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
 
@@ -178,6 +181,50 @@ class LaneGraphAdapterTests(unittest.TestCase):
     self.assertEqual(
       projection.graph.lanes[0].nodes,
       ("A137", "A139", "*A143"),
+    )
+    validate_graph(projection.graph)
+
+  def test_repository_typed_ticket_selection_projects_successfully(self):
+    root = Path(__file__).resolve().parents[1]
+    graph = RelationshipStore(root).read().graph
+    prefixes = ("Initiative:", "Epic:", "Feature:")
+    selected = tuple(
+      issue
+      for issue, relation in graph.issues.items()
+      if relation.title.startswith(prefixes)
+    )
+    plan = decompose_lanes(graph, selected)
+    assignment = {
+      issue: lane.name
+      for lane in plan.lanes
+      for issue in lane.issues
+    }
+    selection = LaneSelection(
+      roots=plan.selected,
+      closure=plan.closure,
+      graph_revision=1,
+      assignment=assignment,
+    )
+    metadata = {
+      issue: {
+        "closed": False,
+        "title": graph.issue(issue).title,
+        "link": "",
+      }
+      for issue in plan.closure
+    }
+    lane_colours = {
+      lane.name: RED
+      for lane in plan.lanes
+    }
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(plan.closure),
+      metadata,
+      lane_colours=lane_colours,
+      default_edge_colour=GREY,
+      display_width=len,
     )
     validate_graph(projection.graph)
 
