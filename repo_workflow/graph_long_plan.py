@@ -50,7 +50,7 @@ def route_long_edges(
     for row, values in used_rows.items()
   }
 
-  for component in _long_conflict_components(
+  for component in _geometric_components(
     tuple(edges),
     placements,
   ):
