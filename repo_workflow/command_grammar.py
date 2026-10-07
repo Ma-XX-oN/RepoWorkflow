@@ -126,6 +126,12 @@ def _walk_ordered(
   return index, state
 
 
+def _choice_quantifier(node: dict):
+  if QUANTIFIER not in node or VALUES in node or ORDERED in node:
+    return None
+  return parse_quantifier(node[QUANTIFIER], label=f"choice {QUANTIFIER}")
+
+
 def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> WalkState:
   node = commands
   state = WalkState(node, 0, {})
@@ -157,6 +163,13 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
       entry = _parameter_match(entries, token, current)
     if entry is not None:
       if isinstance(entry, str) or callable(entry):
+        choice = _choice_quantifier(node)
+        if choice is not None:
+          if choice.maximum is not None and state.value_count >= choice.maximum:
+            raise CommandGrammarError("too many command alternatives")
+          state.value_count += 1
+          index += 1
+          continue
         if index != len(words) - 1:
           raise CommandGrammarError(f"{token!r} is a terminal command")
         return WalkState({TERMINAL: "Parameter"}, 0, {})
@@ -210,6 +223,11 @@ def _validate_finished(state: WalkState, context: Context) -> None:
     )
     if state.value_count < bounds.minimum:
       raise CommandGrammarError("command value arguments are incomplete")
+    return
+  choice = _choice_quantifier(node)
+  if choice is not None:
+    if state.value_count < choice.minimum:
+      raise CommandGrammarError("command alternatives are incomplete")
     return
   if TERMINAL not in node:
     raise CommandGrammarError("command is incomplete")
@@ -343,6 +361,12 @@ def _node_items(
         ).items()
         if token.startswith(prefix)
       )
+    result.extend(_switch_items(node, state, context, prefix))
+    return result, spec
+  choice = _choice_quantifier(node)
+  if choice is not None:
+    if choice.maximum is None or state.value_count < choice.maximum:
+      result.extend(_entry_items(entries, context, prefix, describe=describe))
     result.extend(_switch_items(node, state, context, prefix))
     return result, spec
   if include_terminal and TERMINAL in node and LAST_TERMINAL.startswith(prefix):
