@@ -239,3 +239,4 @@ issue,title,dependencies
 439,"Certify dependent-lane decomposition, ordering, and readiness transitions",437;438
 440,Expand lane selection seeds to their complete dependency-connected component,217;219;342;343
 442,Preserve lane path edges during display transitive reduction,399
+447,Prevent merge-before-branch false reachability in rendered lane geometry,393;442
