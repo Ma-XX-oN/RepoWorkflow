@@ -83,7 +83,14 @@ def build_layout(graph: Graph) -> LayoutPlan:
 
   cells: dict[tuple[int, int], list[Contribution]] = {}
   routes: list[RouteRecord] = []
-  used_long_rows: dict[int, list[SemanticEdge]] = {}
+  edge_by_key = {
+    edge.key: edge
+    for edge in edges
+  }
+  used_long_rows: dict[int, list[SemanticEdge]] = {
+    row: [edge_by_key[key]]
+    for key, row in dogleg_rows.items()
+  }
   bundled_edges: set[tuple[str, str]] = set()
 
   for relation in sorted(
