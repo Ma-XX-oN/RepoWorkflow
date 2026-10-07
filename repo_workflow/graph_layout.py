@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from .graph_boundary_plan import (
-  boundary_items,
-  bundle_relations,
+  boundary_items as plan_boundary_items,
+  bundle_relations as find_bundle_relations,
   column_geometry,
-  dogleg_edges,
+  dogleg_edges as find_dogleg_edges,
 )
 from .graph_geometry import (
   long_route_candidate_valid,
@@ -58,8 +58,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
   columns = _format_columns(validated, column_nodes)
   edges = _semantic_edges(validated)
 
-  bundle_relations = bundle_relations(edges, group_rank)
-  dogleg_edges = dogleg_edges(
+  bundle_relations = find_bundle_relations(edges, group_rank)
+  dogleg_edges = find_dogleg_edges(
     validated,
     edges,
     placements,
@@ -69,7 +69,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
     key: max_node_row + index + 1
     for index, key in enumerate(sorted(dogleg_edges))
   }
-  boundary_items = boundary_items(
+  boundary_items = plan_boundary_items(
     edges,
     placements,
     columns,
