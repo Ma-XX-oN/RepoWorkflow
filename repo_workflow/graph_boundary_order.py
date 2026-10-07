@@ -44,8 +44,21 @@ def order_boundary_items(
       key=lambda item: _item_order(item, placements),
     )
   )
+  active = _active_items(
+    boundary,
+    edges,
+    placements,
+    bundle_relations,
+    bundled,
+    dogleg_edges,
+  )
+  active_base = tuple(
+    item
+    for item in base
+    if item in active
+  )
   if _order_is_valid(
-    base,
+    active_base,
     boundary,
     edges,
     placements,
@@ -56,10 +69,10 @@ def order_boundary_items(
     dogleg_edges,
     dogleg_rows,
   ):
-    return base
+    return _merge_passive(base, active_base, active)
 
-  pending = deque([base])
-  seen = {base}
+  pending = deque([active_base])
+  seen = {active_base}
   checked = 1
   while pending and checked < _MAX_CANDIDATES:
     current = pending.popleft()
@@ -86,7 +99,7 @@ def order_boundary_items(
         dogleg_edges,
         dogleg_rows,
       ):
-        return ordered
+        return _merge_passive(base, ordered, active)
       if checked >= _MAX_CANDIDATES:
         break
       pending.append(ordered)
@@ -101,9 +114,73 @@ def order_boundary_items(
   )
   raise GraphLayoutError(
     "no semantically valid bounded adjacent-track ordering is available "
-    f"for boundary {boundary} after {checked} candidates; "
-    f"items={base!r}; edges={adjacent_edges!r}"
+    f"for boundary {boundary} after {checked} active candidates; "
+    f"active_items={active_base!r}; passive_count={len(base) - len(active_base)}; "
+    f"edges={adjacent_edges!r}"
   )
+
+
+def _active_items(
+  boundary: int,
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+  bundled: set[tuple[str, str]],
+  dogleg_edges: set[tuple[str, str]],
+) -> set[tuple]:
+  result: set[tuple] = set()
+
+  for source_group, target_group in bundle_relations:
+    if any(
+      (
+        edge.source_group is source_group
+        and edge.target_group is target_group
+        and placements[edge.source].column == boundary
+        and placements[edge.target].column == boundary + 1
+      )
+      for edge in edges
+    ):
+      result.add(bundle_item_key(source_group, target_group))
+
+  for edge in edges:
+    if edge.key in bundled:
+      continue
+    source = placements[edge.source]
+    target = placements[edge.target]
+    if (
+      source.column != boundary
+      or target.column != boundary + 1
+    ):
+      continue
+    if edge.key in dogleg_edges:
+      result.add(dogleg_source_key(edge))
+      result.add(dogleg_target_key(edge))
+    else:
+      result.add(edge_item_key(edge))
+
+  return result
+
+
+def _merge_passive(
+  base: tuple[tuple, ...],
+  active_order: tuple[tuple, ...],
+  active: set[tuple],
+) -> tuple[tuple, ...]:
+  result = list(base)
+  positions = [
+    index
+    for index, item in enumerate(base)
+    if item in active
+  ]
+  if len(positions) != len(active_order):
+    raise GraphLayoutError(
+      "adjacent-track active/passive partition is inconsistent"
+    )
+  for index, item in zip(positions, active_order):
+    result[index] = item
+  return tuple(result)
 
 
 def _order_is_valid(
