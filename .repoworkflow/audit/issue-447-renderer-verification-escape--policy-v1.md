@@ -80,3 +80,59 @@ Issue #447 is not complete merely when the observed #350/#96 layout succeeds.
 The stronger verification system must be executable and GREEN first, and the
 routing repair must then pass under it without weakening the independent
 geometry validator.
+
+## Work checkpoint — current #448 head
+
+Current branch head:
+
+```text
+5a5a4663e9728ef396ca4ddadb08f1fe7834ee1d
+```
+
+PR #448 remains draft and mergeable against main
+`4e1e45af5e5482378bd78534371efe9e11be37e3`.
+
+Latest active CI is Self CI run #945
+(`37567540283`) for this exact head.
+
+Work already completed before this checkpoint includes:
+
+- canonical typed-ticket full-render smoke wired into the cross-platform
+  renderer probe;
+- assembled public `rwf issue list` -> `rwf lanes select` smoke;
+- bounded generated four-node DAG coverage crossed with valid lane path
+  partitions;
+- explicit one:one, one:many, many:one, and many:many fan-degree coverage;
+- certification-input binding for canonical graph and renderer modules;
+- stale-PR-run cancellation through workflow concurrency;
+- candidate semantic validation over switch-connected geometry;
+- bounded backtracking/MRV/forward checking for long-route planning;
+- long-row reuse only for geometrically compatible spans;
+- many:many adjacent/long bridge separation work;
+- source modules split so renderer/routing/oracle files remain below the
+  repository 500-line limit.
+
+Important previously observed failures, in order:
+
+1. #442 stopped before physical rendering and missed false reachability from
+   G350 to AU308/AV318.
+2. After full rendering was added, long-route planning failed for AL231->AL235.
+3. Global long-route search then exhausted its bounded state space.
+4. Search was partitioned/refined by geometric conflicts.
+5. Subsequent work shifted to boundary ordering/quality and same-row dogleg
+   separation.
+
+Recent commits after the long-route work include:
+
+- separate opposing same-row dogleg track groups;
+- reserve passive separators for same-row fan doglegs;
+- choose best semantically valid boundary ordering;
+- stop boundary search at perfect quality;
+- bind certification to the complete renderer module surface;
+- require mechanically complete certification bindings;
+- rank boundary candidates before semantic validation.
+
+Do not redo the above work without first identifying a regression in those
+specific mechanisms.  Continue from the exact current head and the latest
+authoritative CI failure/result.
+
