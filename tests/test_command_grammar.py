@@ -248,29 +248,225 @@ class CommandGrammarTests(unittest.TestCase):
       ],
     )
 
-  def test_variadic_tail_preserves_one_or_many_arguments(self):
-    commands = {"tests": {"_variadic": {"min": 1, "description": "Git review"}}}
-    self.assertEqual(parse_tokens(commands, self.context, ["tests", "diff"]), ("tests", "diff"))
-    self.assertEqual(parse_tokens(commands, self.context, ["tests", "diff", "--word-diff"]), ("tests", "diff", "--word-diff"))
+  def test_default_quantifier_accepts_exactly_one_value(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_values": lambda context: [context.current_token]
+        if context.current_token else [],
+      },
+    }
+    self.assertEqual(parse_tokens(commands, self.context, ["x", "a"]), ("x", "a"))
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(commands, self.context, ["x"])
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(commands, self.context, ["x", "a", "b"])
 
-  def test_zero_minimum_variadic_tail_accepts_no_arguments(self):
-    commands = {"tests": {"_variadic": {"min": 0, "description": "Arguments"}}}
-    self.assertEqual(parse_tokens(commands, self.context, ["tests"]), ("tests",))
+  def test_regex_quantifiers_cover_cardinality_boundaries(self):
+    cases = {
+      "?": (0, 1),
+      "*": (0, 3),
+      "+": (1, 3),
+      "{2}": (2, 2),
+      "{2,}": (2, 4),
+      "{2,3}": (2, 3),
+    }
+    for quantifier, (minimum, maximum) in cases.items():
+      with self.subTest(quantifier=quantifier):
+        commands = {
+          "x": {
+            "": "Run",
+            "_values": lambda context: [context.current_token]
+            if context.current_token else [],
+            "_quantifier": quantifier,
+          },
+        }
+        accepted = tuple(["x", *(str(i) for i in range(maximum))])
+        self.assertEqual(parse_tokens(commands, self.context, accepted), accepted)
+        if minimum:
+          with self.assertRaises(CommandGrammarError):
+            parse_tokens(
+              commands,
+              self.context,
+              ["x", *(str(i) for i in range(minimum - 1))],
+            )
+        bounded = quantifier in {"?", "{2}", "{2,3}"}
+        if bounded:
+          with self.assertRaises(CommandGrammarError):
+            parse_tokens(
+              commands,
+              self.context,
+              ["x", *(str(i) for i in range(maximum + 1))],
+            )
 
-  def test_variadic_tail_requires_declared_minimum(self):
-    commands = {"tests": {"_variadic": {"min": 1, "description": "Git review"}}}
-    with self.assertRaisesRegex(CommandGrammarError, "incomplete"):
-      parse_tokens(commands, self.context, ["tests"])
+  def test_switches_parse_in_arbitrary_order_with_values(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_values": lambda context: [context.current_token]
+        if context.current_token and not context.current_token.startswith("--")
+        else [],
+        "_quantifier": "+",
+        "_switches": {
+          "--alpha": "Alpha",
+          "--beta": "Beta",
+        },
+      },
+    }
+    for words in (
+      ["x", "--alpha", "one", "--beta", "two"],
+      ["x", "one", "--beta", "two", "--alpha"],
+    ):
+      self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
 
-  def test_static_child_wins_before_variadic_tail(self):
-    commands = {"tests": {"view": "View", "_variadic": {"min": 1, "description": "Git review"}}}
-    self.assertEqual(parse_tokens(commands, self.context, ["tests", "view"]), ("tests", "view"))
-    with self.assertRaisesRegex(CommandGrammarError, "terminal command"):
-      parse_tokens(commands, self.context, ["tests", "view", "extra"])
+  def test_duplicate_switch_is_rejected_by_default(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {"--flag": "Flag"},
+      },
+    }
+    with self.assertRaisesRegex(CommandGrammarError, "duplicate switch"):
+      parse_tokens(commands, self.context, ["x", "--flag", "--flag"])
 
-  def test_variadic_tail_does_not_invent_completions(self):
-    commands = {"tests": {"view": "View", "_variadic": {"min": 1, "description": "Git review"}}}
-    self.assertEqual([x.token for x in completion_items(commands, self.context, ["tests", ""])], ["view"])
+  def test_switch_quantifier_permits_repetition(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--follow": {
+            "": "Follow",
+            "_quantifier": "*",
+          },
+        },
+      },
+    }
+    words = ["x", "--follow", "--follow", "--follow"]
+    self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
+
+  def test_static_switch_parameter_alternatives_parse(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--mode": [
+            {"fast": "Fast", "slow": "Slow"},
+          ],
+        },
+      },
+    }
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "--mode", "fast"]),
+      ("x", "--mode", "fast"),
+    )
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(commands, self.context, ["x", "--mode", "invalid"])
+
+  def test_optional_and_repeated_switch_parameters_parse(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--tag": [
+            {"one": "One", "_quantifier": "?"},
+            {"a": "A", "b": "B", "_quantifier": "*"},
+          ],
+        },
+      },
+    }
+    for words in (
+      ["x", "--tag"],
+      ["x", "--tag", "one"],
+      ["x", "--tag", "one", "a", "b"],
+    ):
+      self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
+
+  def test_dynamic_switch_provider_is_authoritative(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": lambda context: {
+          "--legal": "Legal",
+        },
+      },
+    }
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "--legal"]),
+      ("x", "--legal"),
+    )
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(commands, self.context, ["x", "--other"])
+
+  def test_dynamic_switch_parameter_provider_is_authoritative(self):
+    def params(context):
+      return {"alpha": "Alpha", "beta": "Beta"}
+
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--group": [
+            {"<group>": params},
+          ],
+        },
+      },
+    }
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "--group", "alpha"]),
+      ("x", "--group", "alpha"),
+    )
+
+  def test_completion_includes_switches_and_parameter_values(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--mode": [
+            {"fast": "Fast", "slow": "Slow"},
+          ],
+        },
+      },
+    }
+    self.assertEqual(
+      [item.token for item in completion_items(commands, self.context, ["x", "--"])],
+      ["--mode"],
+    )
+    self.assertEqual(
+      [item.token for item in completion_items(
+        commands,
+        self.context,
+        ["x", "--mode", ""],
+      )],
+      ["fast", "slow"],
+    )
+
+  def test_repeated_parameter_completion_remains_available(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--tag": [
+            {"a": "A", "b": "B", "_quantifier": "+"},
+          ],
+        },
+      },
+    }
+    self.assertEqual(
+      [item.token for item in completion_items(
+        commands,
+        self.context,
+        ["x", "--tag", "a", ""],
+      )],
+      ["a", "b"],
+    )
+
+  def test_switches_must_be_declared_under_switches(self):
+    with self.assertRaisesRegex(CommandGrammarError, "_switches"):
+      validate_node({"x": {"--flag": "Flag"}})
+
+  def test_variadic_is_not_a_supported_grammar_item(self):
+    with self.assertRaisesRegex(CommandGrammarError, "_variadic"):
+      validate_node({"x": {"_variadic": {"min": 1}}})
 
 
 if __name__ == "__main__":
