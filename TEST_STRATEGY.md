@@ -397,6 +397,32 @@ suite passes in addition to all lower-level tests.
 Every defect found in RepoWorkflow must receive a regression test that fails
 for the defect before or alongside the fix and passes afterward.
 
+When a defect blocks an assembled workflow at stage N, confirmation must not
+stop at stage N after the fix.  The retained regression must continue through
+the downstream supported stages that were previously unreachable when doing so
+is practical.  For a rendering pipeline, fixing projection must continue
+through layout, routing, semantic geometry validation, and final rendering.
+
+A test that reproduces only the intent of an escaped public command is not a
+substitute for an assembled-path regression when the shipped command can be
+tested deterministically.
+
+Historical certification evidence must be bound to the material inputs that
+make it valid.  When authoritative data, decomposition semantics, rendering
+semantics, provider contracts, or the tested candidate change materially, the
+evidence is stale until regenerated or replaced by current executable tests.
+CI must not silently treat stale certification as current proof.
+
+Production-owned canonical data that materially drives behaviour is an active
+test fixture.  For RepoWorkflow, changes to synchronized ticket state must
+exercise the canonical lane/render smoke scenarios, not only schema
+validation.
+
+Platform probes, semantic/topology tests, integration tests, and assembled
+public-workflow tests establish different facts.  Passing one category must
+not be cited as evidence for another without an explicit test that crosses the
+relevant boundary.
+
 Every new lifecycle invariant must identify its test level and stage.  Changes
 to `WORKFLOW_LIFECYCLE.md` that introduce testable behaviour must update this
 test strategy in the same work so implementation requirements and test
