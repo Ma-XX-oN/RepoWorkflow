@@ -444,35 +444,25 @@ rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
 ## 13.2 Finish dependency-complete work before switching tasks
 
-The dependency graph and group structure exist so a worker can finish one
-meaningful unit of work before starting an unrelated one.
+The dependency graph and group structure exist so workers finish one meaningful
+outcome before beginning unrelated work.
 
 A documentation, specification, test, or scaffolding substep is not a completed
-task when the ticket's required implementation, migration, verification, or
-integration work is still outstanding.
+task while its ticket still requires implementation, migration, verification,
+or integration.
 
-Before switching to another task, a worker must:
+Follow direct prerequisites to completion, return to the blocked parent, and
+finish that parent's remaining contract before switching tasks.  Container work
+is complete only after its required dependency path converges through
+certification/integration.
 
-- identify the current ticket or group outcome from the dependency graph;
-- complete every direct prerequisite needed for that outcome, following rabbit
-  holes only when they are real executable dependencies;
-- return from each prerequisite to the blocked parent task once the prerequisite
-  is complete;
-- finish the parent task's implementation, migration, verification, and
-  integration obligations before declaring it complete;
-- start unrelated work only after the current task is complete, unless the graph
-  shows the work is genuinely parallel-ready and doing it in parallel will not
-  fragment or delay completion of the current task.
+Other work may start only when the current outcome is complete, unless the graph
+shows it is genuinely parallel-ready and parallel execution will not fragment or
+delay the active outcome.
 
-A prerequisite ticket may be completed independently when its result is a real
-reusable interface.  A reference document, partial migration, or preparatory
-change that leaves its own ticket contract knowingly unimplemented is not an
-independently complete result.
-
-When work is decomposed into a container plus leaves/convergence, the container
-is complete only when its dependency path has converged through the required
-certification/integration result.  Workers should use that structure to avoid
-abandoning a partially completed workstream for a newly noticed task.
+A prerequisite may finish independently when it produces a real reusable
+interface.  Preparatory/reference work that knowingly leaves its own ticket
+contract unimplemented is not independently complete.
 
 ## 14. Use decomposition to expose architecture problems
 
