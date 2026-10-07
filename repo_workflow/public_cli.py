@@ -15,6 +15,7 @@ from .command_grammar import (
 )
 from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
+from .high_risk import associate_high_risk
 from .issue_info_cli import show_issue_info
 from .invocation_identity import ensure_public_runtime_identity
 from .issue_list import list_issues
@@ -112,6 +113,8 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
     return False
   if command == "workspace":
     return words[1] in {"create", "claim", "release", "resume", "close"}
+  if command == "high-risk":
+    return True
   return False
 
 
@@ -171,6 +174,18 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       return 0
     result = start_issue(root, words[2])
     print(json.dumps(result.to_json_value(), separators=(",", ":")))
+    return 0
+
+  if command == "high-risk":
+    result = associate_high_risk(
+      root,
+      words[1:],
+      runtime_writer_identity(),
+    )
+    print(json.dumps({
+      "issue": result.lifecycle.issue,
+      "high_risk_aliases": list(result.lifecycle.high_risk_aliases),
+    }, separators=(",", ":")))
     return 0
 
   if command == "what-next":
