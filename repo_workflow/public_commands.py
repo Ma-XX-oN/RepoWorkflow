@@ -148,25 +148,23 @@ def _workspace_commands() -> dict:
 #   "--<switch>": "<help>"
 #   "--<switch>": {
 #     "_quantifier": "...",
+#     ...
 #   }
-#   "--<switch>": {
-#     "_quantifier": "...",
-#     "_params": [
-#       {
-#         "<param0-opt0>": ...,
-#         "<param0-opt1>": ...,
-#         ...,
-#         "_quantifier": "...",
-#       },
-#       {
-#         "<param1-opt0>": ...,
-#         "<param1-opt1>": ...,
-#         ...,
-#         "_quantifier": "...",
-#       },
-#       ...
-#     ],
-#   }
+#   "--<switch>": [
+#     {
+#       "<param0-opt0>": ...,
+#       "<param0-opt1>": ...,
+#       ...,
+#       "_quantifier": "...",
+#     },
+#     {
+#       "<param1-opt0>": ...,
+#       "<param1-opt1>": ...,
+#       ...,
+#       "_quantifier": "...",
+#     },
+#     ...
+#   ]
 #
 #   "<cmd>": "<help>"
 #   "<cmd>": {
