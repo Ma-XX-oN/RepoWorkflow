@@ -234,6 +234,78 @@ class QuantifiedGrammarTests(unittest.TestCase):
       ["<ISSUE>  Issue number"],
     )
 
+  def test_quantified_command_alternatives_are_unordered_choice_group(self):
+    commands = {
+      "x": {
+        "alpha": "Alpha",
+        "beta": "Beta",
+        "_quantifier": "+",
+      },
+    }
+    for words in (
+      ["x", "alpha"],
+      ["x", "beta", "alpha", "beta"],
+    ):
+      with self.subTest(words=words):
+        self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(commands, self.context, ["x"])
+
+  def test_quantified_command_alternative_range_is_enforced(self):
+    commands = {
+      "x": {
+        "alpha": "Alpha",
+        "beta": "Beta",
+        "_quantifier": "{2,3}",
+      },
+    }
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "alpha", "beta"]),
+      ("x", "alpha", "beta"),
+    )
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(commands, self.context, ["x", "alpha"])
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(
+        commands,
+        self.context,
+        ["x", "alpha", "beta", "alpha", "beta"],
+      )
+
+  def test_repeated_nested_choice_requires_ordered_sequence(self):
+    with self.assertRaisesRegex(CommandGrammarError, "_ordered"):
+      validate_node({
+        "x": {
+          "alpha": {"next": "Next"},
+          "_quantifier": "+",
+        },
+      })
+
+  def test_choice_completion_remains_available_until_maximum(self):
+    commands = {
+      "x": {
+        "alpha": "Alpha",
+        "beta": "Beta",
+        "_quantifier": "{1,2}",
+      },
+    }
+    self.assertEqual(
+      [item.token for item in completion_items(
+        commands,
+        self.context,
+        ["x", "alpha", ""],
+      )],
+      ["alpha", "beta"],
+    )
+    self.assertEqual(
+      completion_items(
+        commands,
+        self.context,
+        ["x", "alpha", "beta", ""],
+      ),
+      [],
+    )
+
   def test_old_bare_switch_parameter_list_is_rejected(self):
     with self.assertRaisesRegex(CommandGrammarError, "_params"):
       validate_node({
