@@ -4,11 +4,11 @@
   "issue": 447,
   "certified_renderer_candidate": "d34c81b2f23931f0164c01d9921aa4dfcaa2f6a6",
   "evidence": {
-    "workflow_run_id": 37653417274,
-    "note": "Canonical renderer probes passed on Ubuntu, macOS, and Windows for the updated synchronized ticket graph; authoritative validation failed only on stale certification binding, documentation size, and one unrelated temporary-directory cleanup race before this refresh."
+    "workflow_run_id": 37671592112,
+    "note": "Canonical renderer probes passed on Ubuntu, Windows, and macOS in Self CI #991; authoritative validation failed only because the synchronized ticket-state blob changed and invalidated this certification binding."
   },
   "material_inputs": {
-    ".repoworkflow/tickets.csv": "7cd9b5a7e8144fc5bf812ce8ede128adaad3927e",
+    ".repoworkflow/tickets.csv": "b73f45db016e81d6f9f5de2bdf1de433efacdb74",
     "repo_workflow/lane_decomposition.py": "40710929f20d6f356ade118c06aff7b6e8405996",
     "repo_workflow/lane_graph_adapter.py": "cce805001e26a60db3323ea498ad882b685c6456",
     "repo_workflow/graph_boundary_order.py": "b0ff781496b8c5f8972636880b2989ce09ddfaa7",

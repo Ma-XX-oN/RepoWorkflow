@@ -252,3 +252,9 @@ issue,title,dependencies
 462,Add --follow back-only dependency traversal,452
 463,Add umbrella-only --filter projection to lane graphs,456
 464,Certify focused lane traversal and umbrella filtering controls,452;453;454;462;463
+473,"Feature: Add risk-scoped issue verification and staged Self CI",477
+474,Define test-catalogue aliases and durable high-risk issue associations,456
+475,Implement rwf high-risk catalogue-section association,456;474
+476,"Stage Self CI by issue verification, regression, and integration risk",456;475
+477,Certify risk-scoped testing and staged Self CI workflow,476
+478,Advance stable version after quantified-grammar release collision,456
