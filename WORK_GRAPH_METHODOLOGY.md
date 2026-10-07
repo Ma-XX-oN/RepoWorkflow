@@ -442,6 +442,38 @@ separate container readiness, ownership, or child-blocking semantics.
 Published lane naming, issue qualification, stability, and completion-display
 rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
+## 13.2 Finish dependency-complete work before switching tasks
+
+The dependency graph and group structure exist so a worker can finish one
+meaningful unit of work before starting an unrelated one.
+
+A documentation, specification, test, or scaffolding substep is not a completed
+task when the ticket's required implementation, migration, verification, or
+integration work is still outstanding.
+
+Before switching to another task, a worker must:
+
+- identify the current ticket or group outcome from the dependency graph;
+- complete every direct prerequisite needed for that outcome, following rabbit
+  holes only when they are real executable dependencies;
+- return from each prerequisite to the blocked parent task once the prerequisite
+  is complete;
+- finish the parent task's implementation, migration, verification, and
+  integration obligations before declaring it complete;
+- start unrelated work only after the current task is complete, unless the graph
+  shows the work is genuinely parallel-ready and doing it in parallel will not
+  fragment or delay completion of the current task.
+
+A prerequisite ticket may be completed independently when its result is a real
+reusable interface.  A reference document, partial migration, or preparatory
+change that leaves its own ticket contract knowingly unimplemented is not an
+independently complete result.
+
+When work is decomposed into a container plus leaves/convergence, the container
+is complete only when its dependency path has converged through the required
+certification/integration result.  Workers should use that structure to avoid
+abandoning a partially completed workstream for a newly noticed task.
+
 ## 14. Use decomposition to expose architecture problems
 
 During issue refinement, treat the following as diagnostic signals:
