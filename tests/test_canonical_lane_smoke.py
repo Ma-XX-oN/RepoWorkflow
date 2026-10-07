@@ -26,23 +26,43 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
     shutil.copyfile(CANONICAL_TICKETS, target)
 
     issues = {}
+    dependencies = {}
     with CANONICAL_TICKETS.open(
       newline="",
       encoding="utf-8",
     ) as handle:
       for row in csv.DictReader(handle):
-        issues[row["issue"]] = row["title"]
+        issue = row["issue"]
+        issues[issue] = row["title"]
+        dependencies[issue] = [
+          int(value)
+          for value in row["dependencies"].split(";")
+          if value
+        ]
 
+    dependants = {issue: [] for issue in issues}
+    for issue, values in dependencies.items():
+      for dependency in values:
+        dependants[str(dependency)].append(int(issue))
+    graph_data = {
+      "issues": issues,
+      "dependencies": dependencies,
+      "dependants": {
+        issue: sorted(values)
+        for issue, values in dependants.items()
+      },
+    }
     data = root / "issues.json"
     data.write_text(
-      json.dumps(issues, sort_keys=True) + "\n",
+      json.dumps(graph_data, sort_keys=True) + "\n",
       encoding="utf-8",
     )
     script = root / "scripts" / "canonical_info.py"
     script.write_text(
       "import json, pathlib, sys\n"
-      "issues = json.loads((pathlib.Path(__file__).parents[1] / "
+      "data = json.loads((pathlib.Path(__file__).parents[1] / "
       "'issues.json').read_text(encoding='utf-8'))\n"
+      "issues = data['issues']\n"
       "args = sys.argv[1:]\n"
       "if args == ['issue', 'list-open']:\n"
       "  values = [\n"
@@ -50,6 +70,14 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       "    for number, title in sorted(issues.items(), key=lambda item: int(item[0]))\n"
       "  ]\n"
       "  print(json.dumps({'schema_version': 1, 'issues': values}))\n"
+      "elif args[:2] == ['dependency', 'related']:\n"
+      "  number = str(int(args[2]))\n"
+      "  print(json.dumps({\n"
+      "    'schema_version': 1,\n"
+      "    'issue': int(number),\n"
+      "    'dependencies': data['dependencies'][number],\n"
+      "    'dependants': data['dependants'][number],\n"
+      "  }))\n"
       "else:\n"
       "  number = str(int(args[-1]))\n"
       "  print(json.dumps({\n"
@@ -64,6 +92,7 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
     config_path = root / ".ci" / "repoworkflow.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["infoCommand"] = [sys.executable, str(script)]
+    config["dependencyCommand"] = [sys.executable, str(script)]
     config_path.write_text(
       json.dumps(config, indent=2) + "\n",
       encoding="utf-8",
