@@ -147,3 +147,21 @@ This is the first candidate in the #447 work where the current committed typed
 Initiative/Epic/Feature graph completed full rendering successfully on all
 three supported CI platforms.
 
+### Certification binding status after renderer GREEN
+
+The certification binding is intentionally stale at this stage.  Exact stale
+material inputs against head `e2251fa40d48321badb6629e56db4e0ec9d7fb5a`:
+
+- `.repoworkflow/tickets.csv`
+- `repo_workflow/graph_render.py`
+- `repo_workflow/graph_layout.py`
+- `repo_workflow/graph_geometry.py`
+- `repo_workflow/graph_long_routes.py`
+- `repo_workflow/graph_boundary_plan.py`
+- `repo_workflow/graph_boundary_order.py`
+- `repo_workflow/graph_routing.py`
+
+This is expected and demonstrates that old certification evidence is not being
+silently reused.  Do not refresh these digests until the current renderer
+candidate has passed the semantic/canonical verification gates.
+
