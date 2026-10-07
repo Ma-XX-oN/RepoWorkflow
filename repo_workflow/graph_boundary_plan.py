@@ -96,6 +96,7 @@ def dogleg_route_rows(
   }
   result: dict[tuple[str, str], int] = {}
   private_row = max_node_row + 1
+
   for key in sorted(doglegs):
     edge = edge_by_key[key]
     source = placements[edge.source]
@@ -103,8 +104,25 @@ def dogleg_route_rows(
     if source.row != target.row:
       result[key] = source.row
       continue
+
+    visible_rows = [
+      row
+      for row in range(max_node_row + 1)
+      if row != source.row
+    ]
+    if visible_rows:
+      result[key] = min(
+        visible_rows,
+        key=lambda row: (
+          abs(row - source.row),
+          row,
+        ),
+      )
+      continue
+
     result[key] = private_row
     private_row += 1
+
   return result
 
 
