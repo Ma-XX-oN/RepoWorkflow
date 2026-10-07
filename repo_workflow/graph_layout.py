@@ -5,6 +5,7 @@ from .graph_boundary_plan import (
   bundle_relations as find_bundle_relations,
   column_geometry,
   dogleg_edges as find_dogleg_edges,
+  dogleg_route_rows,
   long_bridge_edges as find_long_bridge_edges,
 )
 from .graph_geometry import validate_routes
@@ -65,10 +66,12 @@ def build_layout(graph: Graph) -> LayoutPlan:
     placements,
     bundle_relations,
   )
-  dogleg_rows = {
-    key: max_node_row + index + 1
-    for index, key in enumerate(sorted(dogleg_edges))
-  }
+  dogleg_rows = dogleg_route_rows(
+    edges,
+    dogleg_edges,
+    placements,
+    max_node_row,
+  )
   boundary_items = plan_boundary_items(
     edges,
     placements,
@@ -88,10 +91,9 @@ def build_layout(graph: Graph) -> LayoutPlan:
     edge.key: edge
     for edge in edges
   }
-  used_long_rows: dict[int, list[SemanticEdge]] = {
-    row: [edge_by_key[key]]
-    for key, row in dogleg_rows.items()
-  }
+  used_long_rows: dict[int, list[SemanticEdge]] = {}
+  for key, row in dogleg_rows.items():
+    used_long_rows.setdefault(row, []).append(edge_by_key[key])
   bundled_edges: set[tuple[str, str]] = set()
 
   for relation in sorted(
