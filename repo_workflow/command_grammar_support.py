@@ -154,8 +154,9 @@ def consume_switch(
         break
       count += 1
       index += 1
+    can_repeat = quantifier.maximum is None or count < quantifier.maximum
+    if index == len(words) and can_repeat:
+      return index, slot, count
     if count < quantifier.minimum:
-      if index == len(words):
-        return index, slot, count
       raise CommandGrammarError(f"invalid switch parameter: {words[index]}")
   return index, None, 0
