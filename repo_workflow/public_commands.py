@@ -139,6 +139,54 @@ def _workspace_commands() -> dict:
   }
 
 
+# COMMANDS grammar reference
+#
+#   "<cmd>": "<help>"
+#   "--<switch>": "<help>"
+#   "<param>": "<help>"
+#   "<param>": param_completion_fn
+#   "--<switch>": [
+#     {
+#       "<param0-opt-0>": ...,
+#       "<param0-opt-1>": ...,
+#       ...,
+#       "_quantifier": "...",
+#     },
+#     {
+#       "<param1-opt-0>": ...,
+#       "<param1-opt-1>": ...,
+#       ...,
+#       "_quantifier": "...",
+#     },
+#     ...
+#   ]
+#   "<cmd>": {
+#     "_values": completion_fn,
+#     "_value_description": "<help>",
+#     "_quantifier": "...",
+#   }
+#   "<cmd>": {
+#     "_switches": {
+#       "--<switch0>": ...,
+#       "--<switch1>": ...,
+#       ...
+#     }
+#   }
+#   "<cmd>": {"_switches": switch_completion_fn}
+#   "<cmd>": {
+#     "<cmd0>": ...,
+#     "<cmd1>": ...,
+#     ...,
+#     "_quantifier": "...",
+#   }
+#
+# completion_fn returns only a list of completion item strings.
+# switch_completion_fn returns a dict of valid switches for the current context.
+# param_completion_fn returns a dict of valid params for the current context.
+# "_quantifier" is optional and defaults to "{1}".
+# There is no "_variadic" grammar item in the quantified grammar.
+
+
 COMMANDS = {
   "init": {
     "": "Initialize RepoWorkflow in this repository",
