@@ -4,7 +4,7 @@ import unittest
 
 from repo_workflow.graph_long_routes import choose_long_route_row
 from repo_workflow.graph_render_model import GraphSiblings
-from repo_workflow.graph_render_types import Placement, SemanticEdge
+from repo_workflow.graph_render_types import GraphLayoutError, Placement, SemanticEdge
 
 
 def identity(text: str) -> str:
@@ -59,7 +59,7 @@ class LongRouteCandidateTests(unittest.TestCase):
       return False
 
     with self.assertRaisesRegex(
-      ValueError,
+      GraphLayoutError,
       "no semantically valid bounded long-route row candidate",
     ):
       choose_long_route_row(
