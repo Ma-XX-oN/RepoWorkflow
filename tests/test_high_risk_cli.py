@@ -110,6 +110,40 @@ class HighRiskCliTests(unittest.TestCase):
       ("command-grammar", "high-risk"),
     )
 
+  def test_repeated_and_changed_invocations_are_additive_and_idempotent(self):
+    first = self.run_rwf("high-risk", "command-grammar")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    first_lifecycle = LifecycleStore(self.repo).read(1)
+    repeated = self.run_rwf("high-risk", "command-grammar")
+    self.assertEqual(repeated.returncode, 0, repeated.stderr)
+    repeated_lifecycle = LifecycleStore(self.repo).read(1)
+    self.assertEqual(repeated_lifecycle.revision, first_lifecycle.revision)
+
+    changed = self.run_rwf("high-risk", "high-risk")
+    self.assertEqual(changed.returncode, 0, changed.stderr)
+    self.assertEqual(
+      json.loads(changed.stdout)["high_risk_aliases"],
+      ["command-grammar", "high-risk"],
+    )
+
+  def test_help_exposes_catalogue_sections(self):
+    result = self.run_rwf("high-risk", "--help")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertIn("command-grammar", result.stdout)
+    self.assertIn("high-risk", result.stdout)
+
+  def test_command_requires_active_current_issue(self):
+    store = CurrentWorkStore(self.repo)
+    current = store.read()
+    store.replace(
+      current.revision,
+      current.value.empty(),
+      self.writer,
+    )
+    result = self.run_rwf("high-risk", "command-grammar")
+    self.assertEqual(result.returncode, 2)
+    self.assertIn("active current issue", result.stderr)
+
   def test_completion_reads_aliases_from_authoritative_catalogue(self):
     result = self.run_rwf(
       "complete",
