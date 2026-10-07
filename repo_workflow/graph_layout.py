@@ -7,10 +7,7 @@ from .graph_boundary_plan import (
   dogleg_edges as find_dogleg_edges,
   long_bridge_edges as find_long_bridge_edges,
 )
-from .graph_geometry import (
-  long_route_candidate_valid,
-  validate_routes,
-)
+from .graph_geometry import validate_routes
 from .graph_routing import (
   bundle_item_key,
   dogleg_source_key,
@@ -20,7 +17,7 @@ from .graph_routing import (
   route_adjacent_dogleg,
   route_long,
 )
-from .graph_long_routes import choose_long_route_row
+from .graph_long_plan import route_long_edges
 from .graph_ordering import group_key, group_ranks, place_nodes
 from .graph_render_model import (
   AlignedColumn,
@@ -31,10 +28,6 @@ from .graph_render_model import (
   validate_graph,
 )
 from .graph_render_types import (
-  _D,
-  _L,
-  _R,
-  _U,
   Column,
   Contribution,
   HiddenContinuation,
@@ -177,73 +170,18 @@ def build_layout(graph: Graph) -> LayoutPlan:
       RouteRecord(edge.source, edge.target, "adjacent", ())
     )
 
-  for edge in long_edges:
-    source = placements[edge.source]
-    target = placements[edge.target]
-    source_item = (
-      dogleg_source_key(edge)
-      if edge.key in long_bridge_edges
-      else edge_item_key(edge)
-    )
-    target_item = (
-      dogleg_target_key(edge)
-      if edge.key in long_bridge_edges
-      else edge_item_key(edge)
-    )
-    track_y = choose_long_route_row(
-      edge,
-      placements,
-      max_node_row,
-      used_long_rows,
-      lambda row: _long_route_crossings(
-        edge,
-        row,
-        cells,
-        placements,
-        columns,
-        column_start,
-        track_x,
-        source_item,
-        target_item,
-      ),
-      lambda row: long_route_candidate_valid(
-        edge,
-        row,
-        cells,
-        routes,
-        validated,
-        placements,
-        columns,
-        column_start,
-        track_x,
-        source_item=source_item,
-        target_item=target_item,
-      ),
-    )
-    used_long_rows.setdefault(track_y, []).append(edge)
-    hidden = tuple(
-      HiddenContinuation(
-        semantic_source=edge.source,
-        semantic_target=edge.target,
-        column=column,
-        row=track_y,
-      )
-      for column in range(source.column + 1, target.column)
-    )
-    route_long(
-      cells,
-      edge,
-      placements,
-      columns,
-      column_start,
-      track_x,
-      track_y,
-      source_item=source_item,
-      target_item=target_item,
-    )
-    routes.append(
-      RouteRecord(edge.source, edge.target, "long", hidden)
-    )
+  cells, routes = route_long_edges(
+    long_edges,
+    cells=cells,
+    routes=routes,
+    validated=validated,
+    placements=placements,
+    columns=columns,
+    starts=column_start,
+    tracks=track_x,
+    max_node_row=max_node_row,
+    used_rows=used_long_rows,
+  )
 
   ordered_routes = tuple(
     sorted(routes, key=lambda route: (route.source, route.target))
@@ -283,59 +221,6 @@ def build_layout(graph: Graph) -> LayoutPlan:
     cells=cells,
     routes=ordered_routes,
     default_colour=graph.default_edge_colour,
-  )
-
-
-def _long_route_crossings(
-  edge: SemanticEdge,
-  row: int,
-  cells: dict[tuple[int, int], list[Contribution]],
-  placements: dict[str, Placement],
-  columns: dict[int, Column],
-  starts: dict[int, int],
-  tracks: dict[tuple[int, tuple], int],
-  source_item: tuple,
-  target_item: tuple,
-) -> int:
-  proposed: dict[tuple[int, int], list[Contribution]] = {}
-  route_long(
-    proposed,
-    edge,
-    placements,
-    columns,
-    starts,
-    tracks,
-    row,
-    source_item=source_item,
-    target_item=target_item,
-  )
-
-  crossings = 0
-  for point, new_items in proposed.items():
-    old_items = cells.get(point, ())
-    for new_item in new_items:
-      for old_item in old_items:
-        if _edges_can_join(new_item.edge, old_item.edge):
-          continue
-        new_horizontal = bool(new_item.bits & (_L | _R))
-        new_vertical = bool(new_item.bits & (_U | _D))
-        old_horizontal = bool(old_item.bits & (_L | _R))
-        old_vertical = bool(old_item.bits & (_U | _D))
-        if (
-          (new_horizontal and old_vertical)
-          or (new_vertical and old_horizontal)
-        ):
-          crossings += 1
-  return crossings
-
-
-def _edges_can_join(
-  left: SemanticEdge,
-  right: SemanticEdge,
-) -> bool:
-  return (
-    left.source == right.source
-    or left.target == right.target
   )
 
 
