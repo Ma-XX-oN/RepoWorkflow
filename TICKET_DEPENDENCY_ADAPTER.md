@@ -19,6 +19,12 @@ Read the complete direct dependency set for one issue:
 dependency get ISSUE
 ```
 
+Read both direct dependency directions for connected-component discovery:
+
+```text
+dependency related ISSUE
+```
+
 Replace the complete direct dependency set for one issue:
 
 ```text
@@ -30,7 +36,7 @@ empty dependency set.
 
 ## Successful result
 
-Both operations return exactly:
+`get` and `replace` return exactly:
 
 ```json
 {
@@ -40,11 +46,22 @@ Both operations return exactly:
 }
 ```
 
+`related` returns exactly:
+
+```json
+{
+  "schema_version": 1,
+  "issue": 64,
+  "dependencies": [2, 9],
+  "dependants": [70, 81]
+}
+```
+
 Rules:
 
 - `issue` and every dependency are positive integers;
 - `issue` must equal the requested issue;
-- dependencies are sorted ascending, unique, and may be empty;
+- dependencies and dependants are sorted ascending, unique, and may be empty;
 - self-dependency is invalid;
 - dependency ordering has no semantic meaning;
 - after replace, the returned set must exactly equal the requested normalized
@@ -61,9 +78,13 @@ Core RWF validates successful JSON strictly.  Unknown fields, malformed JSON,
 unsupported schema versions, wrong issue identity, duplicate/unsorted IDs, or a
 replace result that differs from the requested complete set fail explicitly.
 
+`related` is read-only.  Core lane acquisition stores only its dependency side
+as canonical edges.  Its dependant side is used only to discover additional
+tickets in the same connected component.
+
 ## Repository-state invariant
 
-The adapter may mutate the external ticket provider only.  Both operations must
+The adapter may mutate the external ticket provider only.  All operations must
 leave local Git repository state, refs, HEAD, index, and worktree unchanged.
 Core RWF checks this boundary.
 
