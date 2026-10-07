@@ -176,19 +176,34 @@ coverage. High structural coverage can still execute the wrong behaviour.
 
 ## 9. Defect-fix discipline
 
-For a defect fix:
+Every bug investigation must follow the evidence-driven experiment protocol in
+[BUG_INVESTIGATION.md](BUG_INVESTIGATION.md).  That protocol requires repeated:
 
-1. reproduce the defect with a failing test or other objective evidence;
-2. identify the violated requirement/invariant and root cause;
-3. apply the fix;
-4. run confirmation testing that proves the original defect is corrected;
+```text
+Problem
+Hypothesis
+Action
+Learning
+```
+
+cycles from objective reproduction through root-cause identification.  It
+applies to every bug resolution, not only renderer or high-risk defects.
+
+For every defect fix:
+
+1. reproduce the defect with failing objective evidence;
+2. identify the violated requirement/invariant and root cause through the
+   required experiment cycles;
+3. apply the fix only after evidence identifies the defect mechanism with
+   sufficient confidence;
+4. run confirmation testing proving the original defect is corrected;
 5. run relevant regression testing;
 6. normally retain a regression test that would fail if the defect returns;
 7. examine whether the escape reveals a reusable process/test improvement.
 
 An escaped defect is evidence about both the product and the verification
-process. Fixing only the local code without examining the systemic testing gap
-is incomplete when the gap can recur elsewhere.
+process. Fixing only the local code without examining a reusable systemic
+testing gap is incomplete.
 
 ## 10. Risk-based depth
 

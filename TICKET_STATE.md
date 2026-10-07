@@ -118,6 +118,16 @@ back successfully.
 Human-authored tickets normally originate with provider dependencies and are
 acquired through `from-tickets` or first-use provider acquisition.
 
+When a newly created ticket is part of a larger decomposed task, update the
+canonical dependency graph in the same ticket-creation work so traversal can
+recover the route back to the larger outcome.  Do not leave the relationship
+only in issue prose, chat history, or a human memory of why the ticket exists.
+Use only real direct executable dependencies: connect leaves through their
+actual prerequisites and convergence/certification work, and do not invent a
+dependency merely to encode container membership.  A newly created ticket must
+not be left absent from `.repoworkflow/tickets.csv` while dependent work
+continues.
+
 ## 6. Dependency invariants
 
 Only direct dependencies are stored.

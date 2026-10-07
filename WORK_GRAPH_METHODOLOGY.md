@@ -225,6 +225,33 @@ but RWF does not persist a second container relationship graph.
 Scheduling still comes only from explicit direct dependencies among the actual
 tickets.
 
+## 5.3 Ticket-creation dependency requirement
+
+Updating the canonical dependency graph is a required part of ticket creation
+and decomposition, not optional follow-up bookkeeping.
+
+When creating a ticket, splitting an existing task, or discovering a new direct
+prerequisite while working a task:
+
+- record the new ticket in `.repoworkflow/tickets.csv` immediately;
+- record every known direct dependency immediately;
+- if the ticket belongs to a larger decomposed outcome, preserve a real
+  executable dependency path back to that outcome through the appropriate
+  prerequisite and convergence/certification tickets;
+- do not continue dependent implementation while the new ticket or known
+  dependency is absent from the canonical graph;
+- do not invent dependency edges solely to encode container membership;
+- validate and read back the committed graph before treating ticket creation or
+  decomposition as complete.
+
+This requirement exists so dependency traversal can reconstruct how work
+expanded into prerequisite rabbit holes without relying on chat history or
+human memory.
+
+[TICKET_STATE.md](TICKET_STATE.md) owns the concrete synchronized-ticket
+creation, commit, validation, and readback procedure that implements this
+requirement.
+
 ## 6. Keep dependencies direct
 
 Do not duplicate transitive prerequisites.
