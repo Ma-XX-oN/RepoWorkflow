@@ -3,10 +3,7 @@ from __future__ import annotations
 from unittest.mock import patch
 import unittest
 
-from repo_workflow.graph_long_plan import (
-  _geometric_components,
-  route_long_edges,
-)
+from repo_workflow.graph_long_plan import route_long_edges
 from repo_workflow.graph_render_model import (
   Graph,
   GraphSiblings,
@@ -25,96 +22,117 @@ def plain(text: str) -> str:
 
 
 def semantic_edge(source: str, target: str) -> SemanticEdge:
-  source_group = GraphSiblings((source,))
-  target_group = GraphSiblings((target,))
   return SemanticEdge(
     source,
     target,
-    source_group,
-    target_group,
+    GraphSiblings((source,)),
+    GraphSiblings((target,)),
     None,
     plain,
   )
 
 
+def validated_stub() -> ValidatedGraph:
+  graph = Graph(
+    (),
+    (Lane(("A",), plain),),
+    plain,
+    lambda entries: None,
+  )
+  return ValidatedGraph(
+    graph=graph,
+    node_group={},
+    adjacency={},
+    incoming={},
+    node_lane={},
+  )
+
+
 class LongRoutePlannerTests(unittest.TestCase):
-  def test_geometric_components_keep_disjoint_spans_separate(self):
-    left = semantic_edge("A", "B")
-    right = semantic_edge("C", "D")
+  def test_prefers_first_semantically_valid_compact_candidate(self):
+    item = semantic_edge("A", "B")
     placements = {
       "A": Placement(0, 0),
-      "B": Placement(2, 0),
-      "C": Placement(3, 1),
-      "D": Placement(5, 1),
+      "B": Placement(2, 2),
+    }
+    columns = {
+      0: Column(("A",), ("A",), 1),
+      1: Column(("X",), ("X",), 1),
+      2: Column(("B",), ("B",), 1),
     }
 
-    components = _geometric_components(
-      [left, right],
-      placements,
-    )
+    with (
+      patch(
+        "repo_workflow.graph_long_plan.long_route_candidates",
+        return_value=(0, 2),
+      ),
+      patch(
+        "repo_workflow.graph_long_plan.long_route_candidate_valid",
+        side_effect=lambda edge, row, *args, **kwargs: row == 2,
+      ),
+      patch("repo_workflow.graph_long_plan.route_long"),
+    ):
+      _, routes = route_long_edges(
+        [item],
+        cells={},
+        routes=[],
+        validated=validated_stub(),
+        placements=placements,
+        columns=columns,
+        starts={0: 0, 1: 4, 2: 8},
+        tracks={},
+        max_node_row=2,
+        used_rows={},
+      )
 
-    self.assertEqual(
-      tuple(tuple(edge.key for edge in group) for group in components),
-      ((left.key,), (right.key,)),
-    )
+    self.assertEqual(routes[0].hidden[0].row, 2)
 
-  def test_geometric_components_join_transitive_overlap_chain(self):
-    first = semantic_edge("A", "B")
-    second = semantic_edge("C", "D")
-    third = semantic_edge("E", "F")
+  def test_uses_private_row_when_compact_candidates_are_unsafe(self):
+    item = semantic_edge("A", "B")
     placements = {
       "A": Placement(0, 0),
-      "B": Placement(3, 0),
-      "C": Placement(2, 1),
-      "D": Placement(5, 1),
-      "E": Placement(4, 2),
-      "F": Placement(7, 2),
+      "B": Placement(2, 2),
+    }
+    columns = {
+      0: Column(("A",), ("A",), 1),
+      1: Column(("X",), ("X",), 1),
+      2: Column(("B",), ("B",), 1),
     }
 
-    components = _geometric_components(
-      [first, second, third],
-      placements,
-    )
+    checked = []
 
-    self.assertEqual(len(components), 1)
-    self.assertEqual(
-      {edge.key for edge in components[0]},
-      {first.key, second.key, third.key},
-    )
+    def valid(edge, row, *args, **kwargs):
+      checked.append(row)
+      return row == 3
 
-  def test_overlap_with_same_source_does_not_share_search_component(self):
-    first = semantic_edge("A", "B")
-    second = semantic_edge("A", "C")
-    placements = {
-      "A": Placement(0, 0),
-      "B": Placement(3, 0),
-      "C": Placement(4, 1),
-    }
+    with (
+      patch(
+        "repo_workflow.graph_long_plan.long_route_candidates",
+        return_value=(0, 2),
+      ),
+      patch(
+        "repo_workflow.graph_long_plan.long_route_candidate_valid",
+        side_effect=valid,
+      ),
+      patch("repo_workflow.graph_long_plan.route_long"),
+    ):
+      _, routes = route_long_edges(
+        [item],
+        cells={},
+        routes=[],
+        validated=validated_stub(),
+        placements=placements,
+        columns=columns,
+        starts={0: 0, 1: 4, 2: 8},
+        tracks={},
+        max_node_row=2,
+        used_rows={},
+      )
 
-    components = _geometric_components(
-      (first, second),
-      placements,
-    )
+    self.assertEqual(checked, [0, 2, 3])
+    self.assertEqual(routes[0].hidden[0].row, 3)
 
-    self.assertEqual(len(components), 2)
-
-  def test_overlap_with_same_target_does_not_share_search_component(self):
-    first = semantic_edge("A", "D")
-    second = semantic_edge("B", "D")
-    placements = {
-      "A": Placement(0, 0),
-      "B": Placement(1, 1),
-      "D": Placement(4, 0),
-    }
-
-    components = _geometric_components(
-      (first, second),
-      placements,
-    )
-
-    self.assertEqual(len(components), 2)
-
-  def test_backtracks_when_first_local_choice_blocks_later_edge(self):
+  def test_private_rows_are_unique_and_deterministic(self):
     first = semantic_edge("A", "B")
     second = semantic_edge("C", "D")
     placements = {
@@ -128,56 +146,23 @@ class LongRoutePlannerTests(unittest.TestCase):
       1: Column(("X",), ("X",), 1),
       2: Column(("B", "D"), ("B", "D"), 1),
     }
-    graph = Graph(
-      (),
-      (Lane(("A",), plain),),
-      plain,
-      lambda entries: None,
-    )
-    validated = ValidatedGraph(
-      graph=graph,
-      node_group={},
-      adjacency={},
-      incoming={},
-      node_lane={},
-    )
-
-    def candidates(edge, *args, **kwargs):
-      return (0, 1)
-
-    def candidate_valid(
-      edge,
-      row,
-      cells,
-      routes,
-      *args,
-      **kwargs,
-    ):
-      if edge.key == first.key:
-        return True
-      return bool(
-        row == 0
-        and routes
-        and routes[0].hidden
-        and routes[0].hidden[0].row == 1
-      )
 
     with (
       patch(
         "repo_workflow.graph_long_plan.long_route_candidates",
-        side_effect=candidates,
+        return_value=(),
       ),
       patch(
         "repo_workflow.graph_long_plan.long_route_candidate_valid",
-        side_effect=candidate_valid,
+        return_value=True,
       ),
       patch("repo_workflow.graph_long_plan.route_long"),
     ):
       _, routes = route_long_edges(
-        [first, second],
+        [second, first],
         cells={},
         routes=[],
-        validated=validated,
+        validated=validated_stub(),
         placements=placements,
         columns=columns,
         starts={0: 0, 1: 4, 2: 8},
@@ -186,8 +171,12 @@ class LongRoutePlannerTests(unittest.TestCase):
         used_rows={},
       )
 
-    self.assertEqual(routes[0].hidden[0].row, 1)
-    self.assertEqual(routes[1].hidden[0].row, 0)
+    rows = {
+      (route.source, route.target): route.hidden[0].row
+      for route in routes
+    }
+    self.assertEqual(rows[first.key], 2)
+    self.assertEqual(rows[second.key], 3)
 
 
 if __name__ == "__main__":
