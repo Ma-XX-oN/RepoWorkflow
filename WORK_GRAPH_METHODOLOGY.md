@@ -442,6 +442,28 @@ separate container readiness, ownership, or child-blocking semantics.
 Published lane naming, issue qualification, stability, and completion-display
 rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
+## 13.2 Finish dependency-complete work before switching tasks
+
+The dependency graph and group structure exist so workers finish one meaningful
+outcome before beginning unrelated work.
+
+A documentation, specification, test, or scaffolding substep is not a completed
+task while its ticket still requires implementation, migration, verification,
+or integration.
+
+Follow direct prerequisites to completion, return to the blocked parent, and
+finish that parent's remaining contract before switching tasks.  Container work
+is complete only after its required dependency path converges through
+certification/integration.
+
+Other work may start only when the current outcome is complete, unless the graph
+shows it is genuinely parallel-ready and parallel execution will not fragment or
+delay the active outcome.
+
+A prerequisite may finish independently when it produces a real reusable
+interface.  Preparatory/reference work that knowingly leaves its own ticket
+contract unimplemented is not independently complete.
+
 ## 14. Use decomposition to expose architecture problems
 
 During issue refinement, treat the following as diagnostic signals:
