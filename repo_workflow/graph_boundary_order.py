@@ -64,32 +64,12 @@ def order_boundary_items(
     for item in base
     if item in active
   )
-  base_errors: list[str] = []
-  best_order: tuple[tuple, ...] | None = None
-  best_score: tuple | None = None
 
-  def consider(
-    active_order: tuple[tuple, ...],
-    *,
-    errors: list[str] | None = None,
-  ) -> None:
-    nonlocal best_order, best_score
-    if not _order_is_valid(
-      active_order,
-      boundary,
-      edges,
-      placements,
-      columns,
-      validated,
-      bundle_relations,
-      bundled,
-      dogleg_edges,
-      dogleg_rows,
-      errors=errors,
-    ):
-      return
+  active_orders = _bounded_active_orders(active_base)
+  ranked: list[tuple[tuple, tuple[tuple, ...], tuple[tuple, ...]]] = []
+  for active_order in active_orders:
     full_order = _merge_passive(base, active_order, active)
-    score = (
+    quality = (
       *_boundary_order_quality(
         full_order,
         boundary,
@@ -103,43 +83,38 @@ def order_boundary_items(
       ),
       full_order,
     )
-    if best_score is None or score < best_score:
-      best_score = score
-      best_order = full_order
+    ranked.append((quality, active_order, full_order))
 
-  consider(active_base, errors=base_errors)
-  if best_score is not None and best_score[:3] == (0, 0, 0):
-    return best_order
-  if len(active_base) <= 1:
-    if best_order is not None:
-      return best_order
-  else:
-    pending = deque([active_base])
-    seen = {active_base}
-    checked = 1
-    while pending and checked < _MAX_CANDIDATES:
-      current = pending.popleft()
-      for index in range(len(current) - 1):
-        candidate = list(current)
-        candidate[index], candidate[index + 1] = (
-          candidate[index + 1],
-          candidate[index],
-        )
-        ordered = tuple(candidate)
-        if ordered in seen:
-          continue
-        seen.add(ordered)
-        checked += 1
-        consider(ordered)
-        if best_score is not None and best_score[:3] == (0, 0, 0):
-          return best_order
-        if checked >= _MAX_CANDIDATES:
-          break
-        pending.append(ordered)
+  ranked.sort(key=lambda item: item[0])
+  for _, active_order, full_order in ranked:
+    if _order_is_valid(
+      active_order,
+      boundary,
+      edges,
+      placements,
+      columns,
+      validated,
+      bundle_relations,
+      bundled,
+      dogleg_edges,
+      dogleg_rows,
+    ):
+      return full_order
 
-  if best_order is not None:
-    return best_order
-
+  base_errors: list[str] = []
+  _order_is_valid(
+    active_base,
+    boundary,
+    edges,
+    placements,
+    columns,
+    validated,
+    bundle_relations,
+    bundled,
+    dogleg_edges,
+    dogleg_rows,
+    errors=base_errors,
+  )
   adjacent_edges = tuple(
     edge.key
     for edge in edges
@@ -148,14 +123,38 @@ def order_boundary_items(
       and placements[edge.target].column == boundary + 1
     )
   )
-  checked = len(seen) if len(active_base) > 1 else 1
   raise GraphLayoutError(
     "no semantically valid bounded adjacent-track ordering is available "
-    f"for boundary {boundary} after {checked} active candidates; "
+    f"for boundary {boundary} after {len(active_orders)} active candidates; "
     f"active_items={active_base!r}; passive_count={len(base) - len(active_base)}; "
     f"edges={adjacent_edges!r}; "
     f"base_error={base_errors[0] if base_errors else 'unknown'}"
   )
+
+
+def _bounded_active_orders(
+  base: tuple[tuple, ...],
+) -> tuple[tuple[tuple, ...], ...]:
+  pending = deque([base])
+  seen = {base}
+  result: list[tuple[tuple, ...]] = []
+
+  while pending and len(result) < _MAX_CANDIDATES:
+    current = pending.popleft()
+    result.append(current)
+    for index in range(len(current) - 1):
+      candidate = list(current)
+      candidate[index], candidate[index + 1] = (
+        candidate[index + 1],
+        candidate[index],
+      )
+      ordered = tuple(candidate)
+      if ordered in seen:
+        continue
+      seen.add(ordered)
+      pending.append(ordered)
+
+  return tuple(result)
 
 
 def _active_items(
