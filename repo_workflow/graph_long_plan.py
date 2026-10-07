@@ -23,7 +23,7 @@ from .graph_routing import (
 )
 
 
-_MAX_STATES = 8192
+_MAX_STATES_PER_COMPONENT = 2048
 
 
 def route_long_edges(
@@ -50,18 +50,21 @@ def route_long_edges(
     for row, values in used_rows.items()
   }
 
-  for component in _geometric_components(edges, placements):
+  for component in _long_conflict_components(
+    tuple(edges),
+    placements,
+  ):
     current_cells, current_routes, current_used = _route_component(
       component,
       cells=current_cells,
       routes=current_routes,
-      used_rows=current_used,
       validated=validated,
       placements=placements,
       columns=columns,
       starts=starts,
       tracks=tracks,
       max_node_row=max_node_row,
+      used_rows=current_used,
       long_bridges=long_bridges,
     )
 
@@ -73,13 +76,13 @@ def _route_component(
   *,
   cells: dict[tuple[int, int], list[Contribution]],
   routes: list[RouteRecord],
-  used_rows: dict[int, list[SemanticEdge]],
   validated: ValidatedGraph,
   placements: dict[str, Placement],
   columns: dict[int, Column],
   starts: dict[int, int],
   tracks: dict[tuple[int, tuple], int],
   max_node_row: int,
+  used_rows: dict[int, list[SemanticEdge]],
   long_bridges: set[tuple[str, str]] | frozenset[tuple[str, str]],
 ) -> tuple[
   dict[tuple[int, int], list[Contribution]],
@@ -87,7 +90,19 @@ def _route_component(
   dict[int, list[SemanticEdge]],
 ]:
   states = 0
-  fallback_rows = len(edges) + len(used_rows) + 3
+  relevant_used_rows = sum(
+    1
+    for values in used_rows.values()
+    if any(
+      _spans_overlap(
+        _edge_span(candidate, placements),
+        _edge_span(existing, placements),
+      )
+      for candidate in edges
+      for existing in values
+    )
+  )
+  fallback_rows = len(edges) + relevant_used_rows + 3
 
   def compatible_rows(
     edge: SemanticEdge,
@@ -111,10 +126,10 @@ def _route_component(
     nonlocal states
     if not remaining:
       return current_cells, current_routes, current_used
-    if states >= _MAX_STATES:
+    if states >= _MAX_STATES_PER_COMPONENT:
       raise GraphLayoutError(
-        "bounded long-route search exhausted "
-        f"{_MAX_STATES} candidate states"
+        "bounded long-route component search exhausted "
+        f"{_MAX_STATES_PER_COMPONENT} candidate states"
       )
 
     available_by_edge = {
@@ -155,12 +170,13 @@ def _route_component(
       for item in remaining
       if item is not edge
     )
+
     for row in candidates:
       states += 1
-      if states > _MAX_STATES:
+      if states > _MAX_STATES_PER_COMPONENT:
         raise GraphLayoutError(
-          "bounded long-route search exhausted "
-          f"{_MAX_STATES} candidate states"
+          "bounded long-route component search exhausted "
+          f"{_MAX_STATES_PER_COMPONENT} candidate states"
         )
       if not long_route_candidate_valid(
         edge,
@@ -237,55 +253,52 @@ def _route_component(
     )
     raise GraphLayoutError(
       "no semantically valid bounded long-route combination is available "
-      f"for [{edge_text}]"
+      f"for conflict component [{edge_text}]"
     )
   return result
 
 
-def _geometric_components(
-  edges: list[SemanticEdge],
+def _long_conflict_components(
+  edges: tuple[SemanticEdge, ...],
   placements: dict[str, Placement],
 ) -> tuple[tuple[SemanticEdge, ...], ...]:
-  remaining = set(edge.key for edge in edges)
-  edge_by_key = {edge.key: edge for edge in edges}
-  result: list[tuple[SemanticEdge, ...]] = []
+  remaining = list(sorted(edges, key=lambda edge: edge.key))
+  components: list[tuple[SemanticEdge, ...]] = []
 
   while remaining:
-    start = min(remaining)
-    pending = [start]
-    component: set[tuple[str, str]] = set()
+    seed = remaining.pop(0)
+    component = [seed]
+    pending = [seed]
     while pending:
-      key = pending.pop()
-      if key in component:
-        continue
-      component.add(key)
-      remaining.discard(key)
-      span = _edge_span(edge_by_key[key], placements)
+      current = pending.pop()
+      current_span = _edge_span(current, placements)
       connected = [
-        other
-        for other in sorted(remaining)
+        edge
+        for edge in remaining
         if _spans_overlap(
-          span,
-          _edge_span(edge_by_key[other], placements),
+          current_span,
+          _edge_span(edge, placements),
         )
       ]
-      pending.extend(connected)
-    result.append(tuple(
-      edge_by_key[key]
-      for key in sorted(component)
-    ))
+      for edge in connected:
+        remaining.remove(edge)
+        component.append(edge)
+        pending.append(edge)
+    components.append(tuple(sorted(component, key=lambda edge: edge.key)))
 
-  return tuple(result)
+  return tuple(sorted(
+    components,
+    key=lambda component: component[0].key,
+  ))
 
 
 def _edge_span(
   edge: SemanticEdge,
   placements: dict[str, Placement],
 ) -> tuple[int, int]:
-  return (
-    placements[edge.source].column,
-    placements[edge.target].column - 1,
-  )
+  source = placements[edge.source].column
+  target = placements[edge.target].column
+  return source, target - 1
 
 
 def _spans_overlap(
@@ -293,6 +306,7 @@ def _spans_overlap(
   right: tuple[int, int],
 ) -> bool:
   return max(left[0], right[0]) <= min(left[1], right[1])
+
 
 def _route_items(
   edge: SemanticEdge,
