@@ -7,6 +7,7 @@ from repo_workflow.lane_graph_adapter import (
   make_lane_formatter,
   project_lane_graph,
 )
+from repo_workflow.graph_render import render_graph
 from repo_workflow.graph_render_model import FormatEntry, validate_graph
 from repo_workflow.lane_selection import LaneSelection
 from repo_workflow.relationship_store import RelationshipStore
@@ -227,6 +228,50 @@ class LaneGraphAdapterTests(unittest.TestCase):
       display_width=len,
     )
     validate_graph(projection.graph)
+    render_graph(projection.graph)
+
+  def test_fan_out_fan_in_bridge_does_not_create_false_reachability(self):
+    graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(),
+      "3": relation(2),
+      "4": relation(1, 3),
+      "5": relation(3),
+    })
+    selection = LaneSelection(
+      roots=("4", "5"),
+      closure=("1", "2", "3", "4", "5"),
+      graph_revision=1,
+      assignment={
+        "1": "A",
+        "2": "B",
+        "3": "B",
+        "4": "A",
+        "5": "B",
+      },
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(selection.closure),
+      self.metadata(1, 2, 3, 4, 5),
+      lane_colours={"A": RED, "B": BLUE},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    rendered = render_graph(projection.graph)
+    self.assertEqual(
+      {
+        (route.source, route.target)
+        for route in rendered.routes
+      },
+      {
+        ("A1", "*A4"),
+        ("B2", "B3"),
+        ("B3", "*A4"),
+        ("B3", "*B5"),
+      },
+    )
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={

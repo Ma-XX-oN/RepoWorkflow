@@ -243,6 +243,16 @@ relationship.
 Unrelated paths may cross without becoming a junction.  Horizontal geometry is
 visually dominant at an unrelated horizontal/vertical crossing.
 
+Endpoint identity alone does not create a junction.  Two same-source or
+same-target routes form an intentional switch only where their routed
+contributions share at least one actual direction in the cell.  A purely
+perpendicular same-source or same-target overlap remains a crossing rather than
+a branch or merge.  Bundle identity remains an explicit junction contract.
+
+This distinction is required to prevent a private dogleg or long-route crossing
+from becoming a false semantic branch merely because the two edges happen to
+share an endpoint elsewhere.
+
 A successful route must retain the identity of each original semantic edge.
 
 ## 14. Route quality
@@ -270,9 +280,13 @@ A long-edge route should remain between its endpoint rows when a valid route is
 available there.  It must not dip below both endpoints merely because a private
 long-edge track was allocated mechanically.
 
-Long edges may reuse a routing row only when all semantic edges sharing that
-row have one common source or one common target.  Other collinear sharing is
-not considered lossless.
+Long edges may reuse a routing row when their horizontal route spans are
+geometrically disjoint.  For any connected set of overlapping spans on one
+row, all semantic edges in that overlap component must have one common source
+or one common target.  Pairwise compatibility is insufficient: a chain that
+shares a source on one side and a target on the other would create the same
+merge-before-branch false reachability as an adjacent many-to-many bridge.
+Other overlapping collinear sharing is not considered lossless.
 
 Adjacent opposite-direction vertical tracks such as `↓↑` are valid geometry,
 not a semantic error.  Track ordering should avoid them when an equally valid
@@ -366,6 +380,49 @@ Specification tests must cover at least:
 - terminal-cell width independent of styling codes;
 - exact RepoWorkflow adapter projection.
 
-Property tests should generate bounded valid constrained DAGs.  A generated case
-must either render with exact semantic equivalence or fail explicitly as
-unsupported.
+Fan topology is an explicit decision dimension.  Tests must cover all four
+source/target degree classes:
+
+- one-to-one;
+- one-to-many;
+- many-to-one;
+- many-to-many.
+
+Many-to-many coverage must include an edge whose source also branches and whose
+target also merges.  It must prove that source-side branching occurs before
+target-side merging in rendered geometry, so unrelated routes cannot become a
+semantic junction.
+
+The fan classes must be crossed with materially relevant layout conditions,
+including same-lane versus cross-lane edges, adjacent versus long edges,
+sibling grouping, and above/same-row/below placement where those conditions
+change routing.
+
+Property tests must generate bounded valid constrained DAGs and lane
+assignments.  A generated case must either:
+
+1. render with exactly the same directed reachability as the semantic graph; or
+2. fail explicitly as unsupported.
+
+Generated coverage is required because handcrafted fixtures cannot reasonably
+enumerate the interaction of topology, grouping, lane assignment, ordering,
+and route placement.
+
+For RepoWorkflow itself, the current committed ticket graph is an active
+production fixture.  CI must run canonical representative selections through:
+
+```text
+ticket state
+    -> lane decomposition
+    -> RepoWorkflow adapter
+    -> render_graph()
+    -> rendered-geometry semantic validation
+```
+
+At least one assembled public-CLI smoke test must cross the same boundary.
+A projection-only or model-validation-only test does not satisfy this gate.
+
+Historical renderer certification is evidence only for the exact graph,
+renderer/decomposition contract, and candidate to which it is bound.  A
+material change to any of those inputs invalidates that certification until it
+is regenerated or replaced by current executable evidence.

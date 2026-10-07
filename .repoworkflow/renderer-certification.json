@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "purpose": "Bind current renderer certification to material graph and routing inputs.",
+  "issue": 447,
+  "certified_renderer_candidate": "d34c81b2f23931f0164c01d9921aa4dfcaa2f6a6",
+  "evidence": {
+    "workflow_run_id": 37567851976,
+    "note": "Canonical renderer probes passed on Ubuntu, macOS, and Windows; authoritative validation had only stale-certification failures before this refresh."
+  },
+  "material_inputs": {
+    ".repoworkflow/tickets.csv": "afc337d5e9c32bf875803dc07c04fdfc1874d73f",
+    "repo_workflow/lane_decomposition.py": "40710929f20d6f356ade118c06aff7b6e8405996",
+    "repo_workflow/lane_graph_adapter.py": "cce805001e26a60db3323ea498ad882b685c6456",
+    "repo_workflow/graph_boundary_order.py": "b0ff781496b8c5f8972636880b2989ce09ddfaa7",
+    "repo_workflow/graph_boundary_plan.py": "051392ec1eef89768507afb72d2edd381c085321",
+    "repo_workflow/graph_geometry.py": "2aa9767aabd88c4edfee992ba98e282121b1322f",
+    "repo_workflow/graph_layout.py": "748fdd622c26d77a5cc0514898c401fb8687564c",
+    "repo_workflow/graph_long_plan.py": "018c5c6449f8e4629f300be67c16a0d1029cffb9",
+    "repo_workflow/graph_long_routes.py": "b7938d2ac55964516ec26344b8ac70fffd5847d5",
+    "repo_workflow/graph_ordering.py": "614e0693fc3af217cf58b4ff52d5ddaecb6011bc",
+    "repo_workflow/graph_quality.py": "c37fe70c625ec638d3d5644d6018720e20d2fa96",
+    "repo_workflow/graph_render.py": "81d2372bdeed7882a344dbd24c7ae9b9c4ed2e42",
+    "repo_workflow/graph_render_model.py": "e9becfee8b5d3310627aba3e7463bc6b452040b9",
+    "repo_workflow/graph_render_types.py": "d17e9d1c48603d949ede9b31b4c7d396b786238c",
+    "repo_workflow/graph_route_interactions.py": "325824362f35cf317fe63f61fbed752dc19f1e65",
+    "repo_workflow/graph_route_path.py": "0c31ba28e0af845074eb8aa5549b38cc2e84ffde",
+    "repo_workflow/graph_route_semantics.py": "6fb2536179ae4fe04a118776c9895bcdd5cce46c",
+    "repo_workflow/graph_routing.py": "d9d1a211312738ee568af699af7f0aae8fcf8f00"
+  }
+}

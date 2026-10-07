@@ -246,6 +246,133 @@ Add new techniques or scenarios when existing tests stop exposing meaningful
 new failure classes. Preserve useful regression tests while avoiding redundant
 tests that add no independent evidence.
 
+## 12.1 Escaped-defect continuation and assembled-path coverage
+
+When a defect is discovered through an assembled workflow, fixing only the
+first failing layer is insufficient evidence of completion.
+
+The retained regression must, where practical, continue through downstream
+supported stages that were previously unreachable.  A replacement test that
+only reconstructs the user's intent through lower-level helpers is not
+equivalent to exercising the shipped public boundary.
+
+For a pipeline such as:
+
+```text
+input
+  -> acquisition
+  -> normalization
+  -> semantic model
+  -> projection
+  -> layout
+  -> routing
+  -> rendering/output
+```
+
+a defect at one stage must be followed by continued execution through later
+supported stages after the fix.  This catches latent defects that were hidden
+behind the original failure.
+
+If the public/assembled path can be tested deterministically, at least one
+regression must enter through that boundary rather than only through internal
+helpers.
+
+## 12.2 Interacting dimensions require cross-product analysis
+
+Testing individual dimensions independently does not establish correctness for
+their interactions.
+
+When two or more dimensions materially influence behaviour, analyse their
+cross-product explicitly using a decision table, pairwise strategy, exhaustive
+bounded enumeration, or another justified combinatorial technique.
+
+Examples include:
+
+- fan-in degree x fan-out degree;
+- same-lane x cross-lane;
+- adjacent x long edge;
+- grouped x ungrouped nodes;
+- above x same-row x below placement;
+- permission x lifecycle state;
+- cache state x provider state;
+- retry state x changed input.
+
+A test suite that covers each factor separately but omits a material
+combination has an identified adequacy gap.
+
+## 12.3 Generated and property-based testing for combinatorial systems
+
+When a component's valid state space is combinatorial and an independent oracle
+exists, generated/property-based testing should supplement example-based tests.
+
+Use bounded exhaustive generation where practical for small state spaces.
+Otherwise use deterministic generation with reproducible seeds and explicit
+coverage goals.
+
+For every generated case, define an independent invariant such as:
+
+- semantic equivalence;
+- exact reachability;
+- round-trip equality;
+- conservation of state;
+- monotonicity;
+- idempotency;
+- explicit rejection of unsupported input.
+
+A generated case must either satisfy the invariant or fail through a documented
+unsupported/invalid-input path.  Silent semantic drift is never acceptable.
+
+## 12.4 Production-owned data as active test input
+
+Repository-owned canonical data that materially drives behaviour is an active
+test fixture, not merely configuration.
+
+When such data changes, the workflows and components that consume it must be
+re-exercised at an appropriate assembled level.  Schema validation alone is
+insufficient when data topology, cardinality, ordering, or contents influence
+behaviour.
+
+Examples include dependency graphs, migration manifests, policy tables,
+routing tables, compatibility matrices, and generated registries.
+
+## 12.5 Certification and evidence invalidation
+
+Historical certification evidence is valid only for the material inputs and
+candidate to which it is bound.
+
+Certification records should include enough identity to detect material drift,
+such as:
+
+- exact candidate SHA;
+- authoritative data digest;
+- relevant schema/contract version;
+- provider/API version where applicable;
+- fixture/data revision;
+- configuration affecting behaviour.
+
+When any material binding changes, prior evidence must become stale until it
+is regenerated or replaced by current executable evidence.
+
+A test that merely proves an old certification artifact exists or has a valid
+shape does not establish that the current implementation remains certified.
+
+Where the material input surface can be enumerated mechanically, derive the
+required certification bindings mechanically rather than maintaining a manual
+subset.  Refactoring that adds, removes, or splits material modules must then
+invalidate certification automatically instead of depending on a maintainer to
+remember every binding.
+
+## 12.6 Evidence categories must remain distinct
+
+Platform coverage, semantic/topology coverage, integration coverage, and
+assembled public-workflow coverage establish different facts.
+
+Do not cite a platform smoke probe as evidence of semantic coverage, or a unit
+semantic test as evidence of assembled workflow correctness, unless the test
+actually crosses the relevant boundary.
+
+Verification reporting must state which category each result establishes.
+
 ## 13. Universal closure gate
 
 Before declaring coding work complete, answer each applicable item.
@@ -267,6 +394,8 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Boundaries were considered.
 - [ ] Zero/one/many cardinalities were considered.
 - [ ] Relevant condition combinations/decision tables were considered.
+- [ ] Material interacting dimensions were exercised together, not only
+  individually.
 - [ ] Invalid/negative cases were considered.
 
 ### State and lifecycle
@@ -288,6 +417,8 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Black-box expectations are not copied from implementation assumptions.
 - [ ] Mocks/fixtures/fakes are validated against authoritative contracts.
 - [ ] Required authoritative external/persistent data is actually populated.
+- [ ] Production-owned canonical data that drives behaviour is exercised as an
+  active fixture at the appropriate assembled level.
 
 ### Structural/static verification
 
@@ -302,10 +433,16 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Relevant regression testing passes.
 - [ ] A regression test is retained unless there is a documented reason not to.
 - [ ] Escaped defects were assessed for systemic prevention improvements.
+- [ ] For assembled escaped defects, retained regression continues through
+  downstream supported stages that were previously unreachable.
 
 ### Risk and reproducibility
 
 - [ ] Test depth matches the risk.
+- [ ] Combinatorial state spaces with an independent oracle use bounded
+  generated/property coverage, or have a documented N/A rationale.
+- [ ] Historical certification evidence is current for all material bindings,
+  or is explicitly stale and regenerated before closure.
 - [ ] Candidate/configuration/environment/provider identity is reproducible.
 - [ ] Remaining untested material risk is explicit.
 

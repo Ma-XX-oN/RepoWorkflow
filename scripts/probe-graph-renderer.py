@@ -9,6 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from repo_workflow.graph_render import render_graph
+from repo_workflow.lane_decomposition import decompose_lanes
+from repo_workflow.lane_graph_adapter import project_lane_graph
+from repo_workflow.lane_selection import LaneSelection
+from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.graph_render_model import (
   AlignedColumn,
   FormatEntry,
@@ -37,6 +41,50 @@ def formatter(entries: tuple[FormatEntry, ...]) -> AlignedColumn:
     for entry in entries
   )
   return AlignedColumn(strings, width)
+
+
+def probe_canonical_repo_graph() -> None:
+  graph = RelationshipStore(ROOT).read().graph
+  prefixes = ("Initiative:", "Epic:", "Feature:")
+  selected = tuple(
+    issue
+    for issue, relation in graph.issues.items()
+    if relation.title.startswith(prefixes)
+  )
+  plan = decompose_lanes(graph, selected)
+  assignment = {
+    issue: lane.name
+    for lane in plan.lanes
+    for issue in lane.issues
+  }
+  selection = LaneSelection(
+    roots=plan.selected,
+    closure=plan.closure,
+    graph_revision=1,
+    assignment=assignment,
+  )
+  metadata = {
+    issue: {
+      "closed": False,
+      "title": graph.issue(issue).title,
+      "link": "",
+    }
+    for issue in plan.closure
+  }
+  styler = TerminalStyler("never")
+  projection = project_lane_graph(
+    selection,
+    graph,
+    set(plan.closure),
+    metadata,
+    lane_colours={
+      lane.name: plain
+      for lane in plan.lanes
+    },
+    default_edge_colour=plain,
+    display_width=styler.display_width,
+  )
+  render_graph(projection.graph)
 
 
 def main() -> int:
@@ -74,6 +122,8 @@ def main() -> int:
   rendered = "\n".join(first.lines)
   if not ("↑" in rendered or "↓" in rendered):
     raise SystemExit("directed vertical routing marker is missing")
+
+  probe_canonical_repo_graph()
 
   styler = TerminalStyler("never")
   if styler.display_width("e\u0301") != 1:

@@ -257,7 +257,7 @@
         },
         {
           "id": "DL-16",
-          "requirement": "every dependency supplied to the constrained sibling-group DAG renderer has exactly one deterministic route; long edges retain semantic endpoint identity through hidden continuation columns; unrelated crossings never create semantic junctions; debug maps displayed semantic edges to route identities",
+          "requirement": "every dependency supplied to the constrained sibling-group DAG renderer has exactly one deterministic route; long edges retain semantic endpoint identity through hidden continuation columns; specified overlap cases and bounded generated DAGs preserve exact directed reachability; debug maps displayed semantic edges to route identities",
           "verification": [
             "tests/test_graph_render_model.py::GraphRenderModelTests.test_accepts_constrained_sibling_dag",
             "tests/test_graph_render.py::GraphRenderTests.test_long_edge_records_hidden_semantic_endpoints",
@@ -267,7 +267,9 @@
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_multi_overlap_geometry_preserves_exact_edge_set",
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_long_edge_variants_preserve_connected_routes",
             "tests/test_lane_render.py::LaneRenderTests.test_redundant_long_dependency_is_not_displayed",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_view_is_deterministic_across_fresh_processes"
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_view_is_deterministic_across_fresh_processes",
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_fan_out_fan_in_bridge_does_not_create_false_reachability",
+            "tests/test_generated_graph_semantics.py::GeneratedGraphSemanticTests.test_every_four_node_dag_preserves_rendered_reachability"
           ]
         },
         {
@@ -283,10 +285,12 @@
         },
         {
           "id": "DL-17",
-          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and displayed renderer routes preserve canonical dependency reachability",
+          "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data, and the current committed canonical typed-ticket graph is exercised through both full renderer projection and the shipped public CLI; local repeated inspection performs zero provider reads, explicit refresh performs provider reads, and displayed renderer routes preserve dependency reachability",
           "verification": [
             "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_cache_and_routing_certification",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar"
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar",
+            "tests/test_canonical_lane_smoke.py::CanonicalLaneSmokeTests.test_current_typed_issue_smoke_renders_through_public_cli",
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_repository_typed_ticket_selection_projects_successfully"
           ]
         },
         {
@@ -303,14 +307,16 @@
         },
         {
           "id": "DL-19",
-          "requirement": "RepoWorkflow lane display may omit a canonical direct dependency only when another displayed path preserves the same prerequisite reachability; the canonical relationship store is unchanged; the real #218 projection removes redundant display shortcuts while retaining independent branches such as #208 -> #216; final displayed routing remains deterministic and visually continuous",
+          "requirement": "RepoWorkflow lane display may omit a canonical direct dependency only when another displayed path preserves the same prerequisite reachability; the canonical relationship store is unchanged; reduced display graphs must survive full physical rendering with exact directed reachability; renderer certification is valid only while its material graph/routing inputs match",
           "verification": [
             "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_projection_removes_only_redundant_direct_edges",
             "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_reduced_projection_preserves_reachability",
             "tests/test_lane_render.py::LaneRenderTests.test_redundant_long_dependency_is_not_displayed",
             "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_reduced_routes_are_minimal_reachability_edges",
-            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_final_glyphs_cover_all_routed_geometry",
-            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_has_no_adjacent_duplicate_arrow_columns"
+            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_final_glyphs_preserve_junctions_and_horizontal_crossings",
+            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_has_no_adjacent_duplicate_arrow_columns",
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_repository_typed_ticket_selection_projects_successfully",
+            "tests/test_renderer_certification_binding.py::RendererCertificationBindingTests.test_renderer_certification_matches_material_inputs"
           ]
         },
         {
@@ -321,6 +327,18 @@
             "tests/test_dependency_sync_cli.py::DependencySyncCliTests.test_multi_issue_to_tickets_preflights_before_any_mutation",
             "tests/test_dependency_sync_to_tickets.py::ToTicketDependencySyncTests.test_title_mismatch_blocks_before_dependency_mutation",
             "tests/test_dependency_sync_from_tickets.py::FromTicketDependencySyncTests.test_replace_updates_title_and_dependencies"
+          ]
+        },
+        {
+          "id": "DL-22",
+          "requirement": "renderer verification explicitly covers 1:1, 1:many, many:1, and many:many fan topology; bounded generated DAGs use the independent geometry validator; current canonical graph changes invalidate bound certification evidence until refreshed",
+          "verification": [
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_fan_out_fan_in_bridge_does_not_create_false_reachability",
+            "tests/test_generated_graph_semantics.py::GeneratedGraphSemanticTests.test_every_four_node_dag_preserves_rendered_reachability",
+            "tests/test_generated_graph_semantics.py::GeneratedGraphSemanticTests.test_all_fan_degree_classes_are_in_generated_space",
+            "tests/test_renderer_certification_binding.py::RendererCertificationBindingTests.test_renderer_certification_matches_material_inputs",
+            "tests/test_renderer_certification_binding.py::RendererCertificationBindingTests.test_certification_covers_canonical_graph_and_routing_pipeline",
+            "tests/test_canonical_lane_smoke.py::CanonicalLaneSmokeTests.test_current_typed_issue_smoke_renders_through_public_cli"
           ]
         }
       ],
@@ -358,7 +376,12 @@
         "forced_colour_backend_contract": "DL-18",
         "reachability_preserving_display_reduction": "DL-19",
         "rendered_route_continuity": "DL-19",
-        "explicit_multi_issue_sync": "DL-20"
+        "explicit_multi_issue_sync": "DL-20",
+        "many_to_many_routing": "DL-22",
+        "generated_dag_semantics": "DL-22",
+        "canonical_graph_full_render": "DL-17",
+        "assembled_current_graph_smoke": "DL-17",
+        "renderer_certification_binding": "DL-22"
       },
       "stateful": true,
       "provider_boundary": true,

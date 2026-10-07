@@ -114,7 +114,11 @@ def _render_cell(
   same_source = len({edge.source for edge in edges}) == 1
   same_target = len({edge.target for edge in edges}) == 1
   same_bundle = len(bundles) == 1 and None not in bundles
-  if same_source or same_target or same_bundle:
+  shared_bits = values[0][1]
+  for _, bits, _, _ in values[1:]:
+    shared_bits &= bits
+  shared_endpoint = (same_source or same_target) and bool(shared_bits)
+  if shared_endpoint or same_bundle:
     bits = 0
     directions: set[int] = set()
     lane_edges = [

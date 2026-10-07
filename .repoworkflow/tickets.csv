@@ -240,3 +240,4 @@ issue,title,dependencies
 440,Expand lane selection seeds to their complete dependency-connected component,217;219;342;343
 442,Preserve lane path edges during display transitive reduction,399
 444,Advance stable version after #440 release collision,440
+447,Prevent merge-before-branch false reachability in rendered lane geometry,393;442
