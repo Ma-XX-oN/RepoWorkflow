@@ -76,12 +76,18 @@ def route_long(
   starts: dict[int, int],
   tracks: dict[tuple[int, tuple], int],
   track_y: int,
+  *,
+  source_item: tuple | None = None,
+  target_item: tuple | None = None,
 ) -> None:
   source = placements[edge.source]
   target = placements[edge.target]
-  item = edge_item_key(edge)
-  source_track = tracks[(source.column, item)]
-  target_track = tracks[(target.column - 1, item)]
+  if source_item is None:
+    source_item = edge_item_key(edge)
+  if target_item is None:
+    target_item = edge_item_key(edge)
+  source_track = tracks[(source.column, source_item)]
+  target_track = tracks[(target.column - 1, target_item)]
   source_x = starts[source.column] + columns[source.column].width
   target_x = starts[target.column] - 1
   _horizontal(cells, edge, source_x, source_track, source.row, None)
