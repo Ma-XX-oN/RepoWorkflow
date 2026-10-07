@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+from collections import deque
+
+from .graph_geometry import (
+  edge_item_key,
+  route_adjacent,
+  route_candidate_preserves_reachability,
+)
+from .graph_ordering import group_key
+from .graph_render_model import GraphSiblings, ValidatedGraph
 from .graph_render_types import (
+  Column,
   GraphLayoutError,
   Placement,
   SemanticEdge,
 )
+
+
+_MAX_CANDIDATES = 4096
 
 
 def order_boundary_items(
@@ -12,79 +25,169 @@ def order_boundary_items(
   boundary: int,
   edges: tuple[SemanticEdge, ...],
   placements: dict[str, Placement],
+  columns: dict[int, Column],
+  validated: ValidatedGraph,
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
   bundled: set[tuple[str, str]],
 ) -> tuple[tuple, ...]:
-  constraints = {
-    item: set()
-    for item in items
-  }
-  adjacent = [
-    edge
-    for edge in edges
-    if (
-      edge.key not in bundled
-      and placements[edge.source].column == boundary
-      and placements[edge.target].column == boundary + 1
+  base = tuple(
+    sorted(
+      items,
+      key=lambda item: _item_order(item, placements),
     )
-  ]
-  by_source: dict[str, list[SemanticEdge]] = {}
-  by_target: dict[str, list[SemanticEdge]] = {}
-  for edge in adjacent:
-    by_source.setdefault(edge.source, []).append(edge)
-    by_target.setdefault(edge.target, []).append(edge)
-
-  for bridge in adjacent:
-    outgoing = [
-      edge
-      for edge in by_source[bridge.source]
-      if edge.key != bridge.key
-    ]
-    incoming = [
-      edge
-      for edge in by_target[bridge.target]
-      if edge.key != bridge.key
-    ]
-    for source_edge in outgoing:
-      source_item = _edge_item(source_edge)
-      if source_item not in constraints:
-        continue
-      for target_edge in incoming:
-        target_item = _edge_item(target_edge)
-        if target_item not in constraints:
-          continue
-        constraints[source_item].add(target_item)
-
-  indegree = {item: 0 for item in items}
-  for targets in constraints.values():
-    for target in targets:
-      indegree[target] += 1
-
-  ready = sorted(
-    (item for item, degree in indegree.items() if degree == 0),
-    key=lambda item: _item_order(item, placements),
   )
-  ordered: list[tuple] = []
-  while ready:
-    item = ready.pop(0)
-    ordered.append(item)
-    for target in sorted(
-      constraints[item],
-      key=lambda value: _item_order(value, placements),
-    ):
-      indegree[target] -= 1
-      if indegree[target] == 0:
-        ready.append(target)
-        ready.sort(key=lambda value: _item_order(value, placements))
+  if _order_is_valid(
+    base,
+    boundary,
+    edges,
+    placements,
+    columns,
+    validated,
+    bundle_relations,
+    bundled,
+  ):
+    return base
 
-  if len(ordered) != len(items):
-    raise GraphLayoutError(
-      "adjacent track ordering constraints are cyclic"
+  pending = deque([base])
+  seen = {base}
+  checked = 1
+  while pending and checked < _MAX_CANDIDATES:
+    current = pending.popleft()
+    for index in range(len(current) - 1):
+      candidate = list(current)
+      candidate[index], candidate[index + 1] = (
+        candidate[index + 1],
+        candidate[index],
+      )
+      ordered = tuple(candidate)
+      if ordered in seen:
+        continue
+      seen.add(ordered)
+      checked += 1
+      if _order_is_valid(
+        ordered,
+        boundary,
+        edges,
+        placements,
+        columns,
+        validated,
+        bundle_relations,
+        bundled,
+      ):
+        return ordered
+      if checked >= _MAX_CANDIDATES:
+        break
+      pending.append(ordered)
+
+  raise GraphLayoutError(
+    "no semantically valid bounded adjacent-track ordering is available"
+  )
+
+
+def _order_is_valid(
+  order: tuple[tuple, ...],
+  boundary: int,
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  validated: ValidatedGraph,
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+  bundled: set[tuple[str, str]],
+) -> bool:
+  gap_width = max(3, len(order) + 2)
+  source_start = 0
+  target_start = columns[boundary].width + gap_width
+  starts = {
+    boundary: source_start,
+    boundary + 1: target_start,
+  }
+  tracks = {
+    item: columns[boundary].width + 1 + index
+    for index, item in enumerate(order)
+  }
+  cells = {}
+  expected: set[tuple[str, str]] = set()
+
+  for source_group, target_group in sorted(
+    bundle_relations,
+    key=lambda item: (
+      group_key(item[0]),
+      group_key(item[1]),
+    ),
+  ):
+    relation_edges = tuple(
+      edge
+      for edge in edges
+      if (
+        edge.source_group is source_group
+        and edge.target_group is target_group
+        and placements[edge.source].column == boundary
+        and placements[edge.target].column == boundary + 1
+      )
     )
-  return tuple(ordered)
+    if not relation_edges:
+      continue
+    item = _bundle_item_key(source_group, target_group)
+    if item not in tracks:
+      continue
+    x = tracks[item]
+    bundle_id = (id(source_group), id(target_group))
+    for edge in relation_edges:
+      route_adjacent(
+        cells,
+        edge,
+        placements,
+        columns,
+        starts,
+        x,
+        bundle=bundle_id,
+      )
+      expected.add(edge.key)
+
+  for edge in edges:
+    if edge.key in bundled:
+      continue
+    source = placements[edge.source]
+    target = placements[edge.target]
+    if (
+      source.column != boundary
+      or target.column != boundary + 1
+    ):
+      continue
+    item = edge_item_key(edge)
+    if item not in tracks:
+      return False
+    route_adjacent(
+      cells,
+      edge,
+      placements,
+      columns,
+      starts,
+      tracks[item],
+    )
+    expected.add(edge.key)
+
+  if not expected:
+    return True
+  return route_candidate_preserves_reachability(
+    validated,
+    placements,
+    columns,
+    starts,
+    cells,
+    expected,
+  )
 
 
-def _edge_item(edge: SemanticEdge) -> tuple:
-  return "edge", edge.source, edge.target
+def _bundle_item_key(
+  source: GraphSiblings,
+  target: GraphSiblings,
+) -> tuple:
+  return "bundle", group_key(source), group_key(target)
 
 
 def _item_order(
