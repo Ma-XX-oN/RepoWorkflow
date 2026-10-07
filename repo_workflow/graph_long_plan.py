@@ -16,7 +16,11 @@ from .graph_render_types import (
   RouteRecord,
   SemanticEdge,
 )
-from .graph_routing import route_long
+from .graph_routing import (
+  dogleg_source_key,
+  dogleg_target_key,
+  route_long,
+)
 
 
 _MAX_STATES = 8192
@@ -34,6 +38,7 @@ def route_long_edges(
   tracks: dict[tuple[int, tuple], int],
   max_node_row: int,
   used_rows: dict[int, list[SemanticEdge]],
+  long_bridges: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[
   dict[tuple[int, int], list[Contribution]],
   list[RouteRecord],
@@ -57,6 +62,7 @@ def route_long_edges(
       )
 
     edge = edges[index]
+    source_item, target_item = _route_items(edge, long_bridges)
     candidates = long_route_candidates(
       edge,
       placements,
@@ -70,6 +76,8 @@ def route_long_edges(
         columns,
         starts,
         tracks,
+        source_item,
+        target_item,
       ),
       fallback_rows=fallback_rows,
     )
@@ -85,6 +93,8 @@ def route_long_edges(
         columns,
         starts,
         tracks,
+        source_item=source_item,
+        target_item=target_item,
       ):
         continue
 
@@ -100,6 +110,8 @@ def route_long_edges(
         starts,
         tracks,
         row,
+        source_item=source_item,
+        target_item=target_item,
       )
       source = placements[edge.source]
       target = placements[edge.target]
@@ -145,6 +157,15 @@ def route_long_edges(
   return result
 
 
+def _route_items(
+  edge: SemanticEdge,
+  long_bridges: set[tuple[str, str]] | frozenset[tuple[str, str]],
+) -> tuple[tuple | None, tuple | None]:
+  if edge.key not in long_bridges:
+    return None, None
+  return dogleg_source_key(edge), dogleg_target_key(edge)
+
+
 def _crossing_cost(
   edge: SemanticEdge,
   row: int,
@@ -153,6 +174,8 @@ def _crossing_cost(
   columns: dict[int, Column],
   starts: dict[int, int],
   tracks: dict[tuple[int, tuple], int],
+  source_item: tuple | None,
+  target_item: tuple | None,
 ) -> int:
   proposed: dict[tuple[int, int], list[Contribution]] = {}
   route_long(
@@ -163,6 +186,8 @@ def _crossing_cost(
     starts,
     tracks,
     row,
+    source_item=source_item,
+    target_item=target_item,
   )
 
   crossings = 0
