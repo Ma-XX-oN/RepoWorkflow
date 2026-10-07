@@ -59,22 +59,15 @@ semantic descriptions as double-Tab completion, with normal help formatting.
 First Tab performs ordinary completion or a contextual completion diagnostic.
 A second Tab at the same completion point renders descriptions/details.
 
-Dynamic `_values` providers use one explicit result contract:
+Dynamic positions follow the provider contracts in
+[COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md).  Simple quantified `_values`
+completion functions return lists of completion strings.  State-projection
+positions that require described fragments or custom Tab behaviour use the
+explicit completion-specification extension with optional `on-tab`.
 
-```python
-{
-  "completions": [...],
-  "on-tab": completion_handler,
-}
-```
-
-`on-tab` is optional; absence means the default completion handler.  Provider
-semantics must not depend on whether Python happened to return a string,
-`list[str]`, described fragments, or another shape.
-
-A custom `on-tab` handler is the extension point for shell/presentation
-behaviour and contextual diagnostics.  The semantic command grammar therefore
-does not hard-code Bash-specific insertion behaviour.
+A custom `on-tab` handler remains the extension point for
+shell/presentation behaviour and contextual diagnostics.  The semantic command
+grammar therefore does not hard-code Bash-specific insertion behaviour.
 
 Completion and diagnostic paths are read-only, preserve the literal typed
 input, and identify the first failing token.  Static parsing, help, and syntax

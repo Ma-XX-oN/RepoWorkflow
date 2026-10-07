@@ -87,9 +87,10 @@ one authored command grammar.  The authoritative completion contract is
 semantic descriptions as double Tab.  First Tab performs ordinary completion
 or contextual diagnostics.
 
-Dynamic `_values` providers return one explicit completion specification with
-`completions` and optional `on-tab`; behaviour is not inferred from Python
-return-type shape.
+Dynamic values follow [COMMAND_GRAMMAR.md](COMMAND_GRAMMAR.md): simple
+quantified completion functions return completion-string lists, while the
+state-projection extension uses an explicit completion specification with
+optional `on-tab`.
 
 Completion/help/diagnostic paths are read-only.
 

@@ -24,17 +24,163 @@ Structural rules:
 
 - `""` is optional; when present it maps to the description for executing the
   current node as-is.
-- `"_values"` is the only dynamic extension point.
-- every other key is a literal next command token and maps to a description or
-  another command node.
-- ordinary authored command tokens have descriptions.
+- literal command alternatives remain recursively nested dictionary entries;
+- dynamic positional values use `"_values"`;
+- switches are declared under `"_switches"`;
+- ordered positional continuations use `"_ordered"`;
+- switch positional parameters use `"_params"`;
+- `"_quantifier"` applies to the construct beside which it is declared;
+- ordinary authored command tokens and parameters have descriptions;
 - `<last-terminal>` is presentation-only and never an authored or parseable
-  token.
+  token;
 - unsupported special keys such as `_for-states` are invalid.
 
-## 2. One dynamic provider result contract
+The complete authored forms are:
 
-Every dynamic `_values` provider returns one explicit completion
+```python
+"<param>": "<help>"
+"<param>": param_completion_fn
+
+"--<switch>": "<help>"
+"--<switch>": {
+  "_params": [
+    {
+      "<param0-opt0>": ...,
+      "<param0-opt1>": ...,
+      "_quantifier": "...",
+    },
+    {
+      "<param1-opt0>": ...,
+      "<param1-opt1>": ...,
+      "_quantifier": "...",
+    },
+  ],
+  "_quantifier": "...",
+}
+
+"<cmd>": "<help>"
+"<cmd>": {
+  "_values": completion_fn,
+  "_value_description": "<help>",
+  "_quantifier": "...",
+}
+"<cmd>": {
+  "_switches": {
+    "--<switch0>": ...,
+    "--<switch1>": ...,
+  }
+}
+"<cmd>": {"_switches": switch_completion_fn}
+"<cmd>": {
+  "<cmd-opt0>": ...,
+  "<cmd-opt1>": ...,
+  "_quantifier": "...",
+}
+"<cmd>": {
+  "_ordered": [
+    {"<cmd0-opt0>": ..., "<cmd0-opt1>": ...},
+    {"<cmd1-opt0>": ..., "<cmd1-opt1>": ...},
+  ],
+  "_quantifier": "...",
+}
+```
+
+`completion_fn` returns a list of completion item strings.
+`switch_completion_fn` returns the valid switch dictionary for the current
+context.  `param_completion_fn` returns the valid positional-parameter
+dictionary for the current context.
+
+Quantifier scope is structural:
+
+- inside one `_params` position, it controls that parameter position;
+- beside `_params`, it controls occurrences of the switch itself;
+- beside `_ordered`, it controls repetitions of the complete ordered sequence;
+- beside `_values`, it controls dynamic positional-value cardinality;
+- beside a dictionary of terminal command/parameter alternatives, it controls
+  how many alternatives from that choice group may be consumed.
+
+A repeated choice group is unordered: each occurrence may select any declared
+terminal alternative.  A repeated multi-token structure must use `_ordered`
+so its return/sequence boundary is explicit rather than inferred from nested
+command recursion.
+
+The general quantifier default is `{1}`.  A switch declaration is optional by
+being a member of `_switches`; when its switch-level quantifier is omitted it
+may occur at most once.  A switch-level `*` or `+` therefore permits repeated
+occurrences without changing whether the switch is otherwise selected.
+
+Quantifier syntax is regex-style: `?`, `*`, `+`, `{n}`, `{n,}`, and
+`{n,m}`.
+
+## 2. Ordered parameters and switch parameters
+
+An ordered slot is one dictionary of alternatives.  Literal keys match
+themselves.  Angle-bracket parameter keys describe positional values.  A
+callable parameter alternative resolves the valid values for the current
+context.
+
+For example:
+
+```python
+"move": {
+  "_ordered": [
+    {"<ISSUE>": issue_completion_fn},
+    {"to-lane": "Move to lane"},
+    {"<LANE>": lane_completion_fn},
+  ],
+}
+```
+
+represents:
+
+```text
+move ISSUE to-lane LANE
+```
+
+A repeatable parameterized switch is represented without losing either
+cardinality:
+
+```python
+"--follow": {
+  "_params": [
+    {
+      "initiative": "Follow initiative boundary",
+      "epic": "Follow epic boundary",
+      "feature": "Follow feature boundary",
+      "group": "Follow any group boundary",
+      "back-only": "Traverse toward dependencies/root only",
+    },
+    {
+      "<N>": count_completion_fn,
+      "_quantifier": "?",
+    },
+  ],
+  "_quantifier": "*",
+}
+```
+
+Parser, completion, help, and diagnostics consume these exact structures.
+
+## 3. Dynamic provider result contracts
+
+The quantified value form introduced by #456 is the simple catalogue/value
+provider:
+
+```python
+"<cmd>": {
+  "_values": completion_fn,
+  "_value_description": "<help>",
+  "_quantifier": "...",
+}
+```
+
+For that form, `completion_fn` returns only a list of completion item strings.
+Cardinality and help are authored by the grammar rather than encoded in the
+provider's Python return shape.
+
+The earlier #52 state-projection/handler extension remains available when a
+dynamic command position needs described command fragments or custom Tab
+behaviour.  That distinct provider returns an explicit completion
 specification:
 
 ```python
@@ -44,28 +190,19 @@ specification:
 }
 ```
 
-`on-tab` is optional.  Absence means the default handler.
-
-The provider contract must not assign semantics by Python return-type shape.
-A provider does not sometimes return `list[str]`, sometimes
-`list[dict]`, or a special single string with implied behaviour.
-
-`completions` may contain whatever validated completion-entry representation
-the grammar/compiler defines for:
-
-- catalogue-owned values;
-- described command fragments;
-- state-derived legal transitions.
-
-The distinction belongs to the completion entries/specification, not to the
-outer Python container type.
+`on-tab` is optional.  Absence means the default handler.  This extension is
+not the simple `completion_fn` shown in the #456 grammar reference.
 
 A custom `on-tab` handler is the first-class escape hatch for exceptional
 completion presentation or insertion behaviour.  Shell-specific concepts such
 as whether a completion adds a trailing space belong in the handler/adapter,
 not in the semantic command grammar.
 
-## 3. Dynamic state projection
+Provider results must be validated according to the provider form being used;
+callers must not infer unrelated semantics merely from an arbitrary Python
+container type.
+
+## 4. Dynamic state projection
 
 There is no separate `_for-states` field.
 
@@ -92,7 +229,7 @@ General-syntax diagnosis may evaluate a general projection while legal
 completion evaluates the current-state projection, but both come from the same
 authored command tree/providers.
 
-## 4. Catalogue completion
+## 5. Catalogue completion
 
 Repository-owned catalogues remain authoritative for their identifiers and
 metadata.  The grammar does not duplicate those definitions.
@@ -127,7 +264,7 @@ Test catalogue:
 
 That runtime diagnosis is distinct from descriptive help.
 
-## 5. First Tab, double Tab, and --help
+## 6. First Tab, double Tab, and --help
 
 One Tab performs ordinary completion or a contextual completion diagnostic.
 
@@ -151,7 +288,7 @@ while single Tab inserts/completes issue numbers.
 Contextual first-Tab/runtime errors must be actionable.  `--help` should
 explain command usage/configuration rather than merely repeat the runtime error.
 
-## 6. Executable nodes and <last-terminal>
+## 7. Executable nodes and <last-terminal>
 
 When a node is executable as-is and also has continuations, completion may
 present its current-node action as:
@@ -163,7 +300,7 @@ present its current-node action as:
 The sentinel is display-only.  It is never inserted into the command line and
 is rejected if typed manually.
 
-## 7. Shared diagnostics
+## 8. Shared diagnostics
 
 Parsing, manual execution, and completion use one command-path analyser.
 
@@ -207,7 +344,7 @@ Legal transitions:
 Catalogue/custom handlers may instead provide domain-specific diagnostics, such
 as the missing issue-scoped TDD group error in section 4.
 
-## 8. Shell adapters
+## 9. Shell adapters
 
 Bash, zsh, and other supported shells are presentation adapters.
 
@@ -223,7 +360,7 @@ rwf init zsh
 
 The platform-neutral Python engine remains authoritative.
 
-## 9. Read-only completion invariant
+## 10. Read-only completion invariant
 
 Completion/help/diagnostic paths must not:
 
@@ -236,10 +373,11 @@ Completion/help/diagnostic paths must not:
 Tests must prove that failed and successful completion leave workflow/repository
 state unchanged.
 
-## 10. Implementation ownership
+## 11. Implementation ownership
 
-Issue #52 owns migration from the current return-shape-coupled provider model to
-this explicit completion specification.
+Issue #52 owns migration from the return-shape-coupled provider model to the
+explicit completion specification.  Issue #456 owns the quantified command,
+switch, parameter, and ordered-position grammar described above.
 
 Issue #54 owns issue-scoped TDD group completion/diagnostics.
 

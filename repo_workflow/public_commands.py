@@ -58,11 +58,11 @@ def _validate_commands(context: Context) -> dict:
   return {"completions": fragments}
 
 
-def _issue_number(context: Context) -> dict:
+def _issue_number(context: Context) -> list[str]:
   token = context.current_token
   if token and token.isdecimal():
-    return {"completions": [token]}
-  return {"completions": []}
+    return [token]
+  return []
 
 
 def _lane_name(context: Context) -> list[str]:
@@ -112,15 +112,14 @@ def _issue_sync_target(context: Context) -> dict:
   return {"completions": []}
 
 
-def _workspace_ids(context: Context) -> dict:
+def _workspace_ids(context: Context) -> list[str]:
   try:
-    values = [
+    return [
       workspace["workspace_id"]
       for workspace in WorkspaceStore(context.root).list_workspaces()
     ]
   except Exception:
-    values = []
-  return {"completions": values}
+    return []
 
 
 def _workspace_value() -> dict:
@@ -158,24 +157,20 @@ def _workspace_commands() -> dict:
 #
 #   "--<switch>": "<help>"
 #   "--<switch>": {
+#     "_params": [
+#       {
+#         "<param0-opt0>": ...,
+#         "<param0-opt1>": ...,
+#         "_quantifier": "...",
+#       },
+#       {
+#         "<param1-opt0>": ...,
+#         "<param1-opt1>": ...,
+#         "_quantifier": "...",
+#       },
+#     ],
 #     "_quantifier": "...",
-#     ...
 #   }
-#   "--<switch>": [
-#     {
-#       "<param0-opt0>": ...,
-#       "<param0-opt1>": ...,
-#       ...,
-#       "_quantifier": "...",
-#     },
-#     {
-#       "<param1-opt0>": ...,
-#       "<param1-opt1>": ...,
-#       ...,
-#       "_quantifier": "...",
-#     },
-#     ...
-#   ]
 #
 #   "<cmd>": "<help>"
 #   "<cmd>": {
@@ -187,23 +182,34 @@ def _workspace_commands() -> dict:
 #     "_switches": {
 #       "--<switch0>": ...,
 #       "--<switch1>": ...,
-#       ...
 #     }
 #   }
 #   "<cmd>": {"_switches": switch_completion_fn}
 #   "<cmd>": {
-#     "<cmd0>": ...,
-#     "<cmd1>": ...,
-#     ...,
+#     "<cmd-opt0>": ...,
+#     "<cmd-opt1>": ...,
+#     "_quantifier": "...",
+#   }
+#   "<cmd>": {
+#     "_ordered": [
+#       {"<cmd0-opt0>": ..., "<cmd0-opt1>": ...},
+#       {"<cmd1-opt0>": ..., "<cmd1-opt1>": ...},
+#     ],
 #     "_quantifier": "...",
 #   }
 #
 # - completion_fn returns only a list of completion item strings.
 # - switch_completion_fn returns a dict of valid switches for the current context.
 # - param_completion_fn returns a dict of valid params for the current context.
-# - "_quantifier" is optional and defaults to "{1}".
-# - Quantifier notation is intentionally based on regular-expression quantifiers
-#   so cardinality reads in the familiar regex form: ?, *, +, {n}, {n,}, {n,m}.
+# - "_quantifier" is optional and defaults to "{1}" for the construct beside it.
+# - A switch declaration is optional by being under "_switches"; with no
+#   switch-level quantifier it may occur at most once.
+# - A quantifier inside a "_params" position controls that parameter position.
+# - A quantifier beside "_params" controls occurrences of that switch.
+# - A quantifier beside "_ordered" controls repetitions of that full sequence.
+# - A quantifier beside terminal command alternatives controls an unordered
+#   choice group; repeated multi-token structures use "_ordered".
+# - Quantifier notation is regex-style: ?, *, +, {n}, {n,}, {n,m}.
 
 COMMANDS = {
   "init": {

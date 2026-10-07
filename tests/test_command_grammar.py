@@ -11,43 +11,34 @@ from repo_workflow.command_grammar import (
   validate_node,
 )
 
-
 class CommandGrammarTests(unittest.TestCase):
   def setUp(self):
     self.context = Context(Path("."))
-
   def test_terminal_description_marks_node_executable(self):
     commands = {"run": {"": "Run it", "again": "Run again"}}
     validate_node(commands)
     self.assertEqual(parse_tokens(commands, self.context, ["run"]), ("run",))
-
   def test_normal_string_entry_is_terminal(self):
     commands = {"run": "Run it"}
     self.assertEqual(parse_tokens(commands, self.context, ["run"]), ("run",))
-
   def test_nested_node_parses_recursively(self):
     commands = {"validate": {"regression": "Run regression"}}
     self.assertEqual(
       parse_tokens(commands, self.context, ["validate", "regression"]),
       ("validate", "regression"),
     )
-
   def test_empty_terminal_description_is_rejected(self):
     with self.assertRaises(CommandGrammarError):
       validate_node({"run": {"": ""}})
-
   def test_unknown_special_key_is_rejected(self):
     with self.assertRaisesRegex(CommandGrammarError, "_for-states"):
       validate_node({"run": {"_for-states": ["ready"]}})
-
   def test_last_terminal_cannot_be_authored(self):
     with self.assertRaisesRegex(CommandGrammarError, LAST_TERMINAL):
       validate_node({LAST_TERMINAL: "Not a command"})
-
   def test_literal_values_are_rejected(self):
     with self.assertRaises(CommandGrammarError):
       validate_node({"group": {"": "Choose group", "_values": ["one", "two"]}})
-
   def test_provider_rejects_bad_bare_completion_entries(self):
     commands = {
       "group": {
@@ -56,7 +47,6 @@ class CommandGrammarTests(unittest.TestCase):
     }
     with self.assertRaises(CommandGrammarError):
       completion_items(commands, self.context, ["group", ""])
-
   def test_callable_bare_values_parse(self):
     commands = {
       "group": {
@@ -67,7 +57,6 @@ class CommandGrammarTests(unittest.TestCase):
       parse_tokens(commands, self.context, ["group", "one"]),
       ("group", "one"),
     )
-
   def test_callable_described_fragments_parse(self):
     commands = {
       "validate": {
@@ -83,7 +72,6 @@ class CommandGrammarTests(unittest.TestCase):
       parse_tokens(commands, self.context, ["validate", "integration", "failed"]),
       ("validate", "integration", "failed"),
     )
-
   def test_completion_spec_can_mix_bare_and_described_entries(self):
     commands = {
       "x": {
@@ -350,9 +338,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--mode": [
-            {"fast": "Fast", "slow": "Slow"},
-          ],
+          "--mode": {
+            "_params": [
+              {"fast": "Fast", "slow": "Slow"},
+            ],
+          },
         },
       },
     }
@@ -368,10 +358,12 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--tag": [
-            {"one": "One", "_quantifier": "?"},
-            {"a": "A", "b": "B", "_quantifier": "*"},
-          ],
+          "--tag": {
+            "_params": [
+              {"one": "One", "_quantifier": "?"},
+              {"a": "A", "b": "B", "_quantifier": "*"},
+            ],
+          },
         },
       },
     }
@@ -406,9 +398,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--group": [
-            {"<group>": params},
-          ],
+          "--group": {
+            "_params": [
+              {"<group>": params},
+            ],
+          },
         },
       },
     }
@@ -422,9 +416,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--mode": [
-            {"fast": "Fast", "slow": "Slow"},
-          ],
+          "--mode": {
+            "_params": [
+              {"fast": "Fast", "slow": "Slow"},
+            ],
+          },
         },
       },
     }
@@ -446,9 +442,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--tag": [
-            {"a": "A", "b": "B", "_quantifier": "+"},
-          ],
+          "--tag": {
+            "_params": [
+              {"a": "A", "b": "B", "_quantifier": "+"},
+            ],
+          },
         },
       },
     }
