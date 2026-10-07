@@ -51,6 +51,21 @@ class TestCatalogueTests(unittest.TestCase):
       ("issue-456-grammar", "issue-474-catalogue"),
     )
 
+  def test_alias_groups_add_to_required_issue_groups(self):
+    catalogue = parse_test_catalogue(self.value())
+    self.assertEqual(
+      catalogue.verification_groups(
+        ["issue-474-catalogue"],
+        ["command-grammar"],
+      ),
+      ("issue-456-grammar", "issue-474-catalogue"),
+    )
+
+  def test_unknown_required_group_fails_closed(self):
+    catalogue = parse_test_catalogue(self.value())
+    with self.assertRaisesRegex(TestCatalogueError, "unknown required test group"):
+      catalogue.verification_groups(["issue-999-missing"], [])
+
   def test_alias_names_are_deterministic(self):
     catalogue = parse_test_catalogue(self.value())
     self.assertEqual(
