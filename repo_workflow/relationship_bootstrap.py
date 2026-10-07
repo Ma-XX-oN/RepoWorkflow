@@ -19,7 +19,7 @@ from .repo_info_adapter import issue_info, resolve_info_config
 from .state_store import WriterIdentity
 from .ticket_dependency_adapter import (
   TicketDependencyError,
-  read_ticket_dependencies,
+  read_ticket_relationships,
   resolve_dependency_config,
 )
 
@@ -77,10 +77,10 @@ def ensure_relationship_graph(
       if diagnostics is not None:
         diagnostics.miss("relationships")
         diagnostics.miss("metadata")
-        dependencies = diagnostics.provider(
+        relationships = diagnostics.provider(
           "dependencies",
           number,
-          lambda: read_ticket_dependencies(
+          lambda: read_ticket_relationships(
             root,
             dependency_config,
             number,
@@ -92,7 +92,7 @@ def ensure_relationship_graph(
           lambda: issue_info(root, info_config, number),
         )
       else:
-        dependencies = read_ticket_dependencies(
+        relationships = read_ticket_relationships(
           root,
           dependency_config,
           number,
@@ -101,10 +101,15 @@ def ensure_relationship_graph(
       fetched_info[number] = info
       provider = IssueRelationships(
         title=info["title"],
-        depends_on=tuple(str(value) for value in dependencies),
+        depends_on=tuple(str(value) for value in relationships.dependencies),
       )
-    elif diagnostics is not None:
-      diagnostics.hit("relationships")
+      provider_dependants = tuple(
+        str(value) for value in relationships.dependants
+      )
+    else:
+      provider_dependants = ()
+      if diagnostics is not None:
+        diagnostics.hit("relationships")
 
     if current is None:
       assert provider is not None
@@ -130,9 +135,10 @@ def ensure_relationship_graph(
         changed = True
       dependencies = replacement.depends_on
 
-    for dependency in dependencies:
-      if dependency not in visited and dependency not in pending:
-        pending.append(dependency)
+    related = (*dependencies, *provider_dependants)
+    for related_issue in related:
+      if related_issue not in visited and related_issue not in pending:
+        pending.append(related_issue)
 
   if changed:
     graph = RelationshipGraph.from_json_value({

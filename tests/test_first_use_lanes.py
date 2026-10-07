@@ -107,17 +107,22 @@ class FirstUseLanesTests(unittest.TestCase):
       "#!/usr/bin/env python3\n"
       "import json, os, sys\n"
       "args = sys.argv[1:]\n"
-      "if args[:2] == ['issue', 'view'] and 'blockedBy' in args:\n"
+      "if args[:2] == ['issue', 'view'] and any('blockedBy' in arg for arg in args):\n"
       "  number = int(args[2])\n"
       "  with open(os.environ['RWF_TEST_CALLS'], 'a', encoding='utf-8') as log:\n"
       "    log.write(json.dumps({'kind': 'dependency', 'issue': number}) + '\\n')\n"
       "  state = json.load(open(os.environ['RWF_TEST_DEPS'], encoding='utf-8'))\n"
       "  deps = state[str(number)]\n"
-      "  nodes = [{'number': n, 'title': f'Issue {n}', "
+      "  dependants = sorted(int(issue) for issue, values in state.items() if number in values)\n"
+      "  def connection(values):\n"
+      "    nodes = [{'number': n, 'title': f'Issue {n}', "
       "'url': f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{n}', "
-      "'state': 'OPEN'} for n in deps]\n"
-      "  print(json.dumps({'blockedBy': "
-      "{'nodes': nodes, 'totalCount': len(nodes)}}))\n"
+      "'state': 'OPEN'} for n in values]\n"
+      "    return {'nodes': nodes, 'totalCount': len(nodes)}\n"
+      "  print(json.dumps({\n"
+      "    'blockedBy': connection(deps),\n"
+      "    'blocking': connection(dependants),\n"
+      "  }))\n"
       "elif args[:2] == ['issue', 'view']:\n"
       "  number = int(args[2])\n"
       "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
@@ -242,6 +247,41 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
 
+  def test_leaf_focus_discovers_complete_component_from_provider(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base, {
+        435: [439],
+        436: [],
+        437: [436],
+        438: [436],
+        439: [437, 438],
+      })
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "436",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      value = json.loads(selected.stdout)
+      self.assertEqual(value["roots"], ["436"])
+      self.assertEqual(value["closure"], ["435", "436", "437", "438", "439"])
+      self.assertEqual(set(self.dependency_calls(env)), {
+        435, 436, 437, 438, 439
+      })
+
+      rendered = self.run_rwf(root, env, "lanes", "select", "436")
+      self.assertEqual(rendered.returncode, 0, rendered.stderr)
+      self.assertIn("*A436", rendered.stdout)
+      self.assertEqual(rendered.stdout.count("*"), 1)
+
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
@@ -326,7 +366,7 @@ class FirstUseLanesTests(unittest.TestCase):
         "#!/usr/bin/env python3\n"
         "import json, os, sys\n"
         "args = sys.argv[1:]\n"
-        "if 'blockedBy' in args:\n"
+        "if any('blockedBy' in arg for arg in args):\n"
         "  print('dependency provider must not be used', file=sys.stderr)\n"
         "  raise SystemExit(96)\n"
         "if args[:2] == ['issue', 'view']:\n"
@@ -406,7 +446,7 @@ class FirstUseLanesTests(unittest.TestCase):
         "#!/usr/bin/env python3\n"
         "import sys\n"
         "args = sys.argv[1:]\n"
-        "if 'blockedBy' in args:\n"
+        "if any('blockedBy' in arg for arg in args):\n"
         "  print('dependency provider must not be used', file=sys.stderr)\n"
         "  raise SystemExit(96)\n"
         "print('metadata unavailable', file=sys.stderr)\n"
@@ -453,7 +493,7 @@ class FirstUseLanesTests(unittest.TestCase):
         "#!/usr/bin/env python3\n"
         "import json, sys\n"
         "args = sys.argv[1:]\n"
-        "if args[:2] != ['issue', 'view'] or 'blockedBy' in args:\n"
+        "if args[:2] != ['issue', 'view'] or any('blockedBy' in arg for arg in args):\n"
         "  print('unexpected gh arguments: ' + repr(args), file=sys.stderr)\n"
         "  raise SystemExit(2)\n"
         "number = int(args[2])\n"
