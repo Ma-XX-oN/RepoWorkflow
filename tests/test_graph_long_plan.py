@@ -3,7 +3,10 @@ from __future__ import annotations
 from unittest.mock import patch
 import unittest
 
-from repo_workflow.graph_long_plan import route_long_edges
+from repo_workflow.graph_long_plan import (
+  _geometric_components,
+  route_long_edges,
+)
 from repo_workflow.graph_render_model import (
   Graph,
   GraphSiblings,
@@ -35,6 +38,50 @@ def semantic_edge(source: str, target: str) -> SemanticEdge:
 
 
 class LongRoutePlannerTests(unittest.TestCase):
+  def test_geometric_components_keep_disjoint_spans_separate(self):
+    left = semantic_edge("A", "B")
+    right = semantic_edge("C", "D")
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(2, 0),
+      "C": Placement(3, 1),
+      "D": Placement(5, 1),
+    }
+
+    components = _geometric_components(
+      [left, right],
+      placements,
+    )
+
+    self.assertEqual(
+      tuple(tuple(edge.key for edge in group) for group in components),
+      ((left.key,), (right.key,)),
+    )
+
+  def test_geometric_components_join_transitive_overlap_chain(self):
+    first = semantic_edge("A", "B")
+    second = semantic_edge("C", "D")
+    third = semantic_edge("E", "F")
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(3, 0),
+      "C": Placement(2, 1),
+      "D": Placement(5, 1),
+      "E": Placement(4, 2),
+      "F": Placement(7, 2),
+    }
+
+    components = _geometric_components(
+      [first, second, third],
+      placements,
+    )
+
+    self.assertEqual(len(components), 1)
+    self.assertEqual(
+      {edge.key for edge in components[0]},
+      {first.key, second.key, third.key},
+    )
+
   def test_backtracks_when_first_local_choice_blocks_later_edge(self):
     first = semantic_edge("A", "B")
     second = semantic_edge("C", "D")
