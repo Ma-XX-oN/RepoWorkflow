@@ -319,7 +319,12 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
 def _validate_finished(state: WalkState, context: Context) -> None:
   node = state.node
   if state.pending_slot is not None:
-    raise CommandGrammarError("switch parameters are incomplete")
+    quantifier = parse_quantifier(
+      state.pending_slot.get(QUANTIFIER),
+      label="parameter quantifier",
+    )
+    if state.pending_slot_count < quantifier.minimum:
+      raise CommandGrammarError("switch parameters are incomplete")
   if VALUES in node:
     quantifier = parse_quantifier(node.get(QUANTIFIER), label=f"{VALUES} {QUANTIFIER}")
     if state.value_count < quantifier.minimum:
@@ -376,7 +381,12 @@ def _node_items(
     for token, description in candidates.items():
       if token.startswith(prefix):
         result.append(Completion(token, description, True))
-    return result, spec
+    quantifier = parse_quantifier(
+      state.pending_slot.get(QUANTIFIER),
+      label="parameter quantifier",
+    )
+    if state.pending_slot_count < quantifier.minimum:
+      return result, spec
 
   if include_terminal and TERMINAL in node and LAST_TERMINAL.startswith(prefix):
     result.append(Completion(LAST_TERMINAL, node[TERMINAL]))
