@@ -175,6 +175,25 @@ class QuantifiedGrammarTests(unittest.TestCase):
     }
     self.assertEqual(parse_tokens(commands, self.context, ["x"]), ("x",))
 
+  def test_selected_switch_minimum_cardinality_is_enforced(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--flag": {
+            "_quantifier": "{2}",
+          },
+        },
+      },
+    }
+    self.assertEqual(parse_tokens(commands, self.context, ["x"]), ("x",))
+    with self.assertRaisesRegex(CommandGrammarError, "occurrences"):
+      parse_tokens(commands, self.context, ["x", "--flag"])
+    self.assertEqual(
+      parse_tokens(commands, self.context, ["x", "--flag", "--flag"]),
+      ("x", "--flag", "--flag"),
+    )
+
   def test_default_switch_cardinality_rejects_duplicate(self):
     commands = {
       "x": {
