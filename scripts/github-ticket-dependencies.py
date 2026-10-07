@@ -23,40 +23,56 @@ def gh(*arguments: str) -> str:
   return result.stdout
 
 
-def read(issue: int) -> tuple[int, ...]:
-  raw = gh("issue", "view", str(issue), "--json", "blockedBy")
+def _connection(value: dict, field: str) -> tuple[int, ...]:
+  connection = value[field]
+  if (
+    not isinstance(connection, dict)
+    or set(connection) != {"nodes", "totalCount"}
+  ):
+    raise ValueError(f"{field} must contain nodes and totalCount")
+  nodes = connection["nodes"]
+  total = connection["totalCount"]
+  if not isinstance(nodes, list):
+    raise ValueError(f"{field}.nodes must be an array")
+  if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+    raise ValueError(f"{field}.totalCount must be a non-negative integer")
+  if total != len(nodes):
+    raise ValueError(
+      f"{field} relationship set is truncated: "
+      f"totalCount={total}, nodes={len(nodes)}"
+    )
+  numbers = []
+  for item in nodes:
+    if not isinstance(item, dict):
+      raise ValueError(f"{field} node must be an object")
+    number = item.get("number")
+    if isinstance(number, bool) or not isinstance(number, int):
+      raise ValueError(f"{field} node number must be an integer")
+    numbers.append(number)
+  normalized = tuple(sorted(set(numbers)))
+  if len(normalized) != len(numbers):
+    raise ValueError(f"{field} contains duplicate issue numbers")
+  return normalized
+
+
+def read_related(issue: int) -> tuple[tuple[int, ...], tuple[int, ...]]:
+  raw = gh("issue", "view", str(issue), "--json", "blockedBy,blocking")
   try:
     value = json.loads(raw)
-    blocked = value["blockedBy"]
-    if not isinstance(blocked, dict) or set(blocked) != {"nodes", "totalCount"}:
-      raise ValueError("blockedBy must contain nodes and totalCount")
-    nodes = blocked["nodes"]
-    total = blocked["totalCount"]
-    if not isinstance(nodes, list):
-      raise ValueError("blockedBy.nodes must be an array")
-    if isinstance(total, bool) or not isinstance(total, int) or total < 0:
-      raise ValueError("blockedBy.totalCount must be a non-negative integer")
-    if total != len(nodes):
-      raise ValueError(
-        "blockedBy relationship set is truncated: "
-        f"totalCount={total}, nodes={len(nodes)}"
-      )
-    numbers = []
-    for item in nodes:
-      if not isinstance(item, dict):
-        raise ValueError("blockedBy node must be an object")
-      number = item.get("number")
-      if isinstance(number, bool) or not isinstance(number, int):
-        raise ValueError("blockedBy node number must be an integer")
-      numbers.append(number)
-    normalized = tuple(sorted(set(numbers)))
-    if len(normalized) != len(numbers):
-      raise ValueError("blockedBy contains duplicate issue numbers")
+    blocked_by = _connection(value, "blockedBy")
+    blocking = _connection(value, "blocking")
   except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
     fail(f"GitHub dependency response is malformed: {exc}")
-  if any(number <= 0 for number in normalized) or issue in normalized:
+  if any(number <= 0 for number in (*blocked_by, *blocking)):
     fail("GitHub dependency response contains an invalid issue number")
-  return normalized
+  if issue in blocked_by or issue in blocking:
+    fail("GitHub dependency response contains an invalid issue number")
+  return blocked_by, blocking
+
+
+def read(issue: int) -> tuple[int, ...]:
+  blocked_by, _ = read_related(issue)
+  return blocked_by
 
 
 def emit(issue: int, dependencies: tuple[int, ...]) -> None:
@@ -70,9 +86,13 @@ def emit(issue: int, dependencies: tuple[int, ...]) -> None:
 def main(arguments: list[str]) -> int:
   if len(arguments) < 3 or arguments[:2] not in (
     ["dependency", "get"],
+    ["dependency", "related"],
     ["dependency", "replace"],
   ):
-    fail("usage: dependency get ISSUE | dependency replace ISSUE [DEPENDENCY...]")
+    fail(
+      "usage: dependency get ISSUE | dependency related ISSUE | "
+      "dependency replace ISSUE [DEPENDENCY...]"
+    )
   try:
     issue = int(arguments[2])
     requested = tuple(sorted({int(item) for item in arguments[3:]}))
@@ -84,6 +104,18 @@ def main(arguments: list[str]) -> int:
     fail("self dependency is invalid")
 
   operation = arguments[1]
+  if operation == "related":
+    if len(arguments) != 3:
+      fail("dependency related accepts exactly one issue")
+    dependencies, dependants = read_related(issue)
+    print(json.dumps({
+      "schema_version": 1,
+      "issue": issue,
+      "dependencies": list(dependencies),
+      "dependants": list(dependants),
+    }, separators=(",", ":")))
+    return 0
+
   current = read(issue)
   if operation == "get":
     if len(arguments) != 3:
