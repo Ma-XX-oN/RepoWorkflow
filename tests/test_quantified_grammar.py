@@ -161,6 +161,29 @@ class QuantifiedGrammarTests(unittest.TestCase):
       ("x", "--route", "verbose", "B"),
     )
 
+  def test_optional_parameter_completion_includes_later_required_slot(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {
+          "--route": {
+            "_params": [
+              {"verbose": "Verbose", "_quantifier": "?"},
+              {"<LANE>": self.lane_values},
+            ],
+          },
+        },
+      },
+    }
+    self.assertEqual(
+      [item.token for item in completion_items(
+        commands,
+        self.context,
+        ["x", "--route", ""],
+      )],
+      ["A", "B", "verbose"],
+    )
+
   def test_parameter_position_quantifier_is_independent_of_switch_quantifier(self):
     commands = {
       "x": {
