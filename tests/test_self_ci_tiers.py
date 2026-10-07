@@ -125,6 +125,17 @@ class SelfCiTierTests(unittest.TestCase):
       ),
     )
 
+  def test_explicit_stronger_tier_is_not_downgraded_by_docs_classification(self):
+    plan = plan_self_ci(
+      self.repo,
+      event="workflow_dispatch",
+      ref="refs/heads/issue-476-staged-self-ci",
+      head_ref="issue-476-staged-self-ci",
+      classification="fast",
+      requested_tier="integration",
+    )
+    self.assertEqual(plan.tier, "integration")
+
   def test_explicit_regression_and_integration_tiers_are_distinct(self):
     regression = plan_self_ci(
       self.repo,
