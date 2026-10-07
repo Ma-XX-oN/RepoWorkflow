@@ -81,7 +81,7 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       "args = sys.argv[1:]\n"
       "with open(os.environ['RWF_TEST_CALLS'], 'a', encoding='utf-8') as log:\n"
       "  log.write(json.dumps(args) + '\\n')\n"
-      "if args[:2] == ['issue', 'view'] and 'blockedBy' in args:\n"
+      "if args[:2] == ['issue', 'view'] and any('blockedBy' in arg for arg in args):\n"
       "  print('dependency provider must not be used', file=sys.stderr)\n"
       "  raise SystemExit(96)\n"
       "if args[:2] == ['issue', 'view']:\n"
