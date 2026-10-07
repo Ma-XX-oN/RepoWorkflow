@@ -96,7 +96,13 @@ Quantifier scope is structural:
 - beside `_params`, it controls occurrences of the switch itself;
 - beside `_ordered`, it controls repetitions of the complete ordered sequence;
 - beside `_values`, it controls dynamic positional-value cardinality;
-- beside command alternatives, it controls that command construct.
+- beside a dictionary of terminal command/parameter alternatives, it controls
+  how many alternatives from that choice group may be consumed.
+
+A repeated choice group is unordered: each occurrence may select any declared
+terminal alternative.  A repeated multi-token structure must use `_ordered`
+so its return/sequence boundary is explicit rather than inferred from nested
+command recursion.
 
 The general quantifier default is `{1}`.  A switch declaration is optional by
 being a member of `_switches`; when its switch-level quantifier is omitted it
