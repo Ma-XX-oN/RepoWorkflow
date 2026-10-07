@@ -271,7 +271,7 @@
           ]
         },
         {
-          "id": "DL-18",
+          "id": "DL-21",
           "requirement": "lane selection arguments are focus seeds: synchronized selection expands to the complete dependency-connected component while only explicit seeds receive the * marker",
           "verification": [
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_selected_prerequisite_expands_to_complete_connected_component",
@@ -352,6 +352,7 @@
         "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17",
+        "focus_seed_component_expansion": "DL-21",
         "route_quality_refinement": "DL-18",
         "forced_colour_backend_contract": "DL-18",
         "reachability_preserving_display_reduction": "DL-19",
