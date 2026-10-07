@@ -20,7 +20,6 @@ def executable_static_paths(
   if prefix and (
     "" in node
     or "_values" in node
-    or "_variadic" in node
   ):
     result.add(prefix)
 
