@@ -184,6 +184,8 @@ def _workspace_commands() -> dict:
 # switch_completion_fn returns a dict of valid switches for the current context.
 # param_completion_fn returns a dict of valid params for the current context.
 # "_quantifier" is optional and defaults to "{1}".
+# Quantifier notation is intentionally based on regular-expression quantifiers
+# so cardinality reads in the familiar regex form: ?, *, +, {n}, {n,}, {n,m}.
 # There is no "_variadic" grammar item in the quantified grammar.
 
 
