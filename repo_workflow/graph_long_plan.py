@@ -258,7 +258,7 @@ def _route_component(
   return result
 
 
-def _long_conflict_components(
+def _geometric_components(
   edges: tuple[SemanticEdge, ...],
   placements: dict[str, Placement],
 ) -> tuple[tuple[SemanticEdge, ...], ...]:
