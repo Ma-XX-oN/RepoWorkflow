@@ -12,6 +12,8 @@ def choose_long_route_row(
   max_node_row: int,
   used_rows: dict[int, list[SemanticEdge]],
   crossing_cost: Callable[[int], int],
+  *,
+  reserved_rows: set[int] | None = None,
 ) -> int:
   source = placements[edge.source]
   target = placements[edge.target]
@@ -28,11 +30,13 @@ def choose_long_route_row(
     *range(max_node_row + 1),
     *range(max_node_row + 1, fallback_stop),
   }
+  reserved = reserved_rows or set()
   available = [
     row
     for row in candidates
     if (
       row not in occupied
+      and row not in reserved
       and _long_row_is_compatible(
         edge,
         used_rows.get(row, []),
