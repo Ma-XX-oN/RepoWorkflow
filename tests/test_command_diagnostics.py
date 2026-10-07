@@ -250,11 +250,15 @@ class CommandDiagnosticTests(unittest.TestCase):
     self.assertNotIn("integration-result-pending", rendered)
 
 
-  def test_variadic_tail_is_accepted_by_manual_diagnostics(self):
+  def test_quantified_values_are_accepted_by_manual_diagnostics(self):
     commands = {
       "issue": {
         "list": {
-          "_variadic": {"min": 1, "description": "Issue IDs"},
+          "": "List",
+          "_values": lambda context: [context.current_token]
+          if context.current_token.isdecimal() else [],
+          "_quantifier": "*",
+          "_switches": {"--links": "Links"},
         },
       },
     }
@@ -269,11 +273,14 @@ class CommandDiagnosticTests(unittest.TestCase):
     )
     self.assertIsNone(failure)
 
-  def test_variadic_tail_completion_does_not_report_unknown_value(self):
+  def test_quantified_value_completion_does_not_report_unknown_value(self):
     commands = {
       "issue": {
         "list": {
-          "_variadic": {"min": 1, "description": "Issue IDs"},
+          "": "List",
+          "_values": lambda context: [context.current_token]
+          if context.current_token.isdecimal() else [],
+          "_quantifier": "*",
         },
       },
     }
@@ -288,28 +295,14 @@ class CommandDiagnosticTests(unittest.TestCase):
     )
     self.assertIsNone(failure)
 
-  def test_zero_minimum_variadic_node_is_executable(self):
-    commands = {
-      "x": {
-        "_variadic": {"min": 0, "description": "Arguments"},
-      },
-    }
-    failure = analyse_failure(
-      commands,
-      ["x"],
-      self.general_context(),
-      self.legal_context(),
-      completion=False,
-      state_name=None,
-      legal_transitions=(),
-    )
-    self.assertIsNone(failure)
-
-  def test_variadic_minimum_is_still_enforced(self):
+  def test_required_quantified_value_is_still_enforced(self):
     commands = {
       "issue": {
         "list": {
-          "_variadic": {"min": 1, "description": "Issue IDs"},
+          "": "List",
+          "_values": lambda context: [context.current_token]
+          if context.current_token.isdecimal() else [],
+          "_quantifier": "+",
         },
       },
     }
@@ -323,6 +316,25 @@ class CommandDiagnosticTests(unittest.TestCase):
       legal_transitions=("validate regression",),
     )
     self.assertEqual(failure.kind, FailureKind.UNRECOGNISED)
+
+  def test_duplicate_switch_failure_marks_second_switch(self):
+    commands = {
+      "x": {
+        "": "Run",
+        "_switches": {"--flag": "Flag"},
+      },
+    }
+    failure = analyse_failure(
+      commands,
+      ["x", "--flag", "--flag"],
+      self.general_context(),
+      self.legal_context(),
+      completion=False,
+      state_name=None,
+      legal_transitions=(),
+    )
+    self.assertEqual(failure.kind, FailureKind.UNRECOGNISED)
+    self.assertEqual(failure.index, 2)
 
 
 if __name__ == "__main__":
