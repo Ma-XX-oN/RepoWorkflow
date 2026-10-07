@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from repo_workflow.graph_boundary_plan import dogleg_edges
+from repo_workflow.graph_boundary_plan import dogleg_edges, long_bridge_edges
 from repo_workflow.graph_render_model import Graph, GraphSiblings, ValidatedGraph
 from repo_workflow.graph_render_types import Placement, SemanticEdge
 
@@ -23,6 +23,90 @@ def edge(source: str, target: str) -> SemanticEdge:
 
 
 class BoundaryPlanTests(unittest.TestCase):
+  def test_adjacent_fan_out_only_edge_requires_dogleg(self):
+    item = edge("A", "B")
+    validated = ValidatedGraph(
+      graph=Graph((), (), plain, lambda entries: None),
+      node_group={},
+      node_lane={},
+      adjacency={
+        "A": frozenset({"B", "C"}),
+        "B": frozenset(),
+        "C": frozenset(),
+      },
+      incoming={
+        "A": frozenset(),
+        "B": frozenset({"A"}),
+        "C": frozenset({"A"}),
+      },
+    )
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(1, 0),
+      "C": Placement(1, 1),
+    }
+
+    self.assertEqual(
+      dogleg_edges(validated, (item,), placements, set()),
+      {item.key},
+    )
+
+  def test_adjacent_fan_in_only_edge_requires_dogleg(self):
+    item = edge("A", "C")
+    validated = ValidatedGraph(
+      graph=Graph((), (), plain, lambda entries: None),
+      node_group={},
+      node_lane={},
+      adjacency={
+        "A": frozenset({"C"}),
+        "B": frozenset({"C"}),
+        "C": frozenset(),
+      },
+      incoming={
+        "A": frozenset(),
+        "B": frozenset(),
+        "C": frozenset({"A", "B"}),
+      },
+    )
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(0, 1),
+      "C": Placement(1, 0),
+    }
+
+    self.assertEqual(
+      dogleg_edges(validated, (item,), placements, set()),
+      {item.key},
+    )
+
+  def test_long_fan_in_only_edge_requires_endpoint_separation(self):
+    item = edge("A", "D")
+    validated = ValidatedGraph(
+      graph=Graph((), (), plain, lambda entries: None),
+      node_group={},
+      node_lane={},
+      adjacency={
+        "A": frozenset({"D"}),
+        "B": frozenset({"D"}),
+        "D": frozenset(),
+      },
+      incoming={
+        "A": frozenset(),
+        "B": frozenset(),
+        "D": frozenset({"A", "B"}),
+      },
+    )
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(0, 1),
+      "D": Placement(2, 0),
+    }
+
+    self.assertEqual(
+      long_bridge_edges(validated, (item,), placements, set()),
+      {item.key},
+    )
+
   def test_different_row_many_to_many_bridge_requires_dogleg(self):
     bridge = edge("S", "T")
     edges = (
