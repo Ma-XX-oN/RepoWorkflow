@@ -50,7 +50,14 @@ def ensure_relationship_graph(
   requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
   dependency_config = resolve_dependency_config(root)
   info_config = resolve_info_config(root)
-  pending = list(requested)
+  if (
+    refresh
+    and snapshot is not None
+    and all(issue in issues for issue in requested)
+  ):
+    pending = list(dependency_component(snapshot.graph, requested))
+  else:
+    pending = list(requested)
   visited: set[str] = set()
   provider_reads: list[int] = []
   fetched_info: dict[int, dict] = {}
