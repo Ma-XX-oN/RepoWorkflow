@@ -23,14 +23,19 @@ def choose_long_route_row(
     if source.column < placement.column < target.column
   }
 
-  fallback_stop = max_node_row + len(used_rows) + 3
+  reserved = reserved_rows or set()
+  fallback_stop = (
+    max_node_row
+    + len(used_rows)
+    + len(reserved)
+    + 3
+  )
   candidates = {
     source.row,
     target.row,
     *range(max_node_row + 1),
     *range(max_node_row + 1, fallback_stop),
   }
-  reserved = reserved_rows or set()
   available = [
     row
     for row in candidates
