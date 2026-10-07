@@ -12,7 +12,7 @@ from .state_store import (
 )
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 STATES = {"unstarted", "active", "aborted", "accepted", "completed"}
 TRANSITIONS = {
   ("unstarted", "start"): "active",
@@ -53,6 +53,7 @@ class IssueLifecycle:
   dependency_satisfied: bool
   relationship_revision: int | None
   history: tuple[LifecycleEvent, ...]
+  high_risk_aliases: tuple[str, ...] = ()
   schema_version: int = SCHEMA_VERSION
 
   @classmethod
@@ -63,12 +64,18 @@ class IssueLifecycle:
       dependency_satisfied=False,
       relationship_revision=None,
       history=(),
+      high_risk_aliases=(),
     )
 
   @classmethod
   def from_json_value(cls, value: dict) -> "IssueLifecycle":
     if not isinstance(value, dict):
       raise LifecycleError("lifecycle value must be an object")
+    version = value.get("schema_version")
+    if version not in {1, SCHEMA_VERSION}:
+      raise LifecycleError(
+        f"unsupported lifecycle schema version: {version!r}"
+      )
     expected = {
       "schema_version",
       "issue",
@@ -77,12 +84,10 @@ class IssueLifecycle:
       "relationship_revision",
       "history",
     }
+    if version == SCHEMA_VERSION:
+      expected.add("high_risk_aliases")
     if set(value) != expected:
       raise LifecycleError("lifecycle value has missing or unsupported fields")
-    if value["schema_version"] != SCHEMA_VERSION:
-      raise LifecycleError(
-        f"unsupported lifecycle schema version: {value['schema_version']!r}"
-      )
     issue = _issue_id(value["issue"])
     state = value["state"]
     if state not in STATES:
@@ -103,12 +108,14 @@ class IssueLifecycle:
       for sequence, raw in enumerate(raw_history)
     )
     _validate_history(state, history)
+    aliases = () if version == 1 else _aliases(value["high_risk_aliases"])
     return cls(
       issue=issue,
       state=state,
       dependency_satisfied=satisfied,
       relationship_revision=relationship_revision,
       history=history,
+      high_risk_aliases=aliases,
     )
 
   def to_json_value(self) -> dict:
@@ -119,6 +126,7 @@ class IssueLifecycle:
       "dependency_satisfied": self.dependency_satisfied,
       "relationship_revision": self.relationship_revision,
       "history": [event.to_json_value() for event in self.history],
+      "high_risk_aliases": list(self.high_risk_aliases),
     }
 
 
@@ -200,6 +208,47 @@ class LifecycleStore:
       dependency_satisfied=next_state == "completed",
       relationship_revision=relationship_revision,
       history=current.lifecycle.history + (event,),
+      high_risk_aliases=current.lifecycle.high_risk_aliases,
+    )
+    try:
+      if current.revision is None:
+        record = self.records.create(
+          _key(current.lifecycle.issue),
+          successor.to_json_value(),
+          writer,
+        )
+      else:
+        record = self.records.replace(
+          _key(current.lifecycle.issue),
+          current.revision,
+          successor.to_json_value(),
+          writer,
+        )
+    except StateStoreError as error:
+      raise LifecycleError(str(error)) from error
+    return LifecycleSnapshot(successor, record["revision"])
+
+  def set_high_risk_aliases(
+    self,
+    issue: str | int,
+    aliases: tuple[str, ...] | list[str],
+    writer: WriterIdentity,
+    expected_revision: int | None,
+  ) -> LifecycleSnapshot:
+    current = self.read(issue)
+    if current.revision != expected_revision:
+      raise LifecycleError(
+        f"stale lifecycle revision for issue {current.lifecycle.issue}: "
+        f"expected {expected_revision!r}, current {current.revision!r}"
+      )
+    normalized = _aliases(aliases)
+    successor = IssueLifecycle(
+      issue=current.lifecycle.issue,
+      state=current.lifecycle.state,
+      dependency_satisfied=current.lifecycle.dependency_satisfied,
+      relationship_revision=current.lifecycle.relationship_revision,
+      history=current.lifecycle.history,
+      high_risk_aliases=normalized,
     )
     try:
       if current.revision is None:
@@ -249,6 +298,20 @@ def _issue_id(value: str | int) -> str:
   if not text.isdigit() or int(text) < 1 or text != str(int(text)):
     raise LifecycleError(f"invalid issue id: {value!r}")
   return text
+
+
+def _aliases(value) -> tuple[str, ...]:
+  if not isinstance(value, (list, tuple)):
+    raise LifecycleError("high_risk_aliases must be an array")
+  result: list[str] = []
+  seen: set[str] = set()
+  for item in value:
+    if not isinstance(item, str) or not item.strip() or item != item.strip():
+      raise LifecycleError("high_risk_aliases must contain non-empty names")
+    if item not in seen:
+      seen.add(item)
+      result.append(item)
+  return tuple(sorted(result))
 
 
 def _optional_revision(value: int | None) -> int | None:
