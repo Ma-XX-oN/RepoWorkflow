@@ -33,20 +33,19 @@ class SelfCiTests(unittest.TestCase):
     )
     self.assertIn("python repo_workflow.py classify --base", text)
 
-    gated_jobs = (
+    for job in (
       "validate",
       "argv-limits",
       "graph-renderer-platform",
       "ticket-merge-platform",
-    )
-    for job in gated_jobs:
-      start = text.index(f"  {job}:")
-      following = text.find("\n  ", start + 3)
-      block = text[start:] if following == -1 else text[start:following]
-      self.assertIn("needs: classify", block)
+    ):
       self.assertIn(
-        "needs.classify.outputs.validation != 'fast'",
-        block,
+        (
+          f"  {job}:\n"
+          "    needs: classify\n"
+          "    if: needs.classify.outputs.validation != 'fast'\n"
+        ),
+        text,
       )
 
   def test_docs_only_main_push_can_release_without_code_validation(self):
