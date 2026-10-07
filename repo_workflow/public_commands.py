@@ -156,7 +156,6 @@ def _workspace_commands() -> dict:
 #   "<param>": param_completion_fn
 #
 #   "--<switch>": "<help>"
-#   "--<switch>": "<help>"
 #   "--<switch>": {
 #     "_quantifier": "...",
 #     ...
