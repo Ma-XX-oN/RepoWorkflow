@@ -25,8 +25,10 @@ def dogleg_edges(
     if (
       (edge.source_group, edge.target_group) not in bundle_relations
       and placements[edge.target].column == placements[edge.source].column + 1
-      and len(validated.adjacency[edge.source]) > 1
-      and len(validated.incoming[edge.target]) > 1
+      and (
+        len(validated.adjacency[edge.source]) > 1
+        or len(validated.incoming[edge.target]) > 1
+      )
     )
   }
 
@@ -45,8 +47,10 @@ def long_bridge_edges(
     if (
       (edge.source_group, edge.target_group) not in bundle_relations
       and placements[edge.target].column > placements[edge.source].column + 1
-      and len(validated.adjacency[edge.source]) > 1
-      and len(validated.incoming[edge.target]) > 1
+      and (
+        len(validated.adjacency[edge.source]) > 1
+        or len(validated.incoming[edge.target]) > 1
+      )
     )
   }
 
