@@ -113,7 +113,25 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
   if ORDERED in node:
     validate_ordered(node[ORDERED], f"{label}[{ORDERED!r}]")
     if VALUES in node:
-      raise CommandGrammarError(f"{label} cannot combine {ORDERED!r} and {VALUES!r}")
+      raise CommandGrammarError(
+        f"{label} cannot combine {ORDERED!r} and {VALUES!r}"
+      )
+  if QUANTIFIER in node and ORDERED not in node and VALUES not in node:
+    bounds = parse_quantifier(node[QUANTIFIER], label=f"{label}[{QUANTIFIER!r}]")
+    repeated = bounds.minimum != 1 or bounds.maximum != 1
+    if repeated:
+      nested = [
+        token
+        for token, entry in node.items()
+        if not token.startswith("_")
+        and token != TERMINAL
+        and isinstance(entry, dict)
+      ]
+      if nested:
+        raise CommandGrammarError(
+          f"{label} repeated command alternatives must be terminal; "
+          f"use {ORDERED!r} for repeated multi-token structure"
+        )
   for token, entry in node.items():
     if not isinstance(token, str):
       raise CommandGrammarError(f"{label} keys must be strings")
