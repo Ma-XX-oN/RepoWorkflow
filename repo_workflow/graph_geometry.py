@@ -232,7 +232,7 @@ def _interaction_component(
     if edge in seen:
       continue
     seen.add(edge)
-    pending.extend(adjacency.get(edge, ()) - seen)
+    pending.extend(adjacency.get(edge, set()) - seen)
   return seen
 
 
