@@ -141,25 +141,27 @@ def _workspace_commands() -> dict:
 
 # COMMANDS grammar reference
 #
-#   "<cmd>": "<help>"
-#   "--<switch>": "<help>"
 #   "<param>": "<help>"
 #   "<param>": param_completion_fn
+#
+#   "--<switch>": "<help>"
 #   "--<switch>": [
 #     {
-#       "<param0-opt-0>": ...,
-#       "<param0-opt-1>": ...,
+#       "<param0-opt0>": ...,
+#       "<param0-opt1>": ...,
 #       ...,
 #       "_quantifier": "...",
 #     },
 #     {
-#       "<param1-opt-0>": ...,
-#       "<param1-opt-1>": ...,
+#       "<param1-opt0>": ...,
+#       "<param1-opt1>": ...,
 #       ...,
 #       "_quantifier": "...",
 #     },
 #     ...
 #   ]
+#
+#   "<cmd>": "<help>"
 #   "<cmd>": {
 #     "_values": completion_fn,
 #     "_value_description": "<help>",
@@ -180,14 +182,12 @@ def _workspace_commands() -> dict:
 #     "_quantifier": "...",
 #   }
 #
-# completion_fn returns only a list of completion item strings.
-# switch_completion_fn returns a dict of valid switches for the current context.
-# param_completion_fn returns a dict of valid params for the current context.
-# "_quantifier" is optional and defaults to "{1}".
-# Quantifier notation is intentionally based on regular-expression quantifiers
-# so cardinality reads in the familiar regex form: ?, *, +, {n}, {n,}, {n,m}.
-# There is no "_variadic" grammar item in the quantified grammar.
-
+# - completion_fn returns only a list of completion item strings.
+# - switch_completion_fn returns a dict of valid switches for the current context.
+# - param_completion_fn returns a dict of valid params for the current context.
+# - "_quantifier" is optional and defaults to "{1}".
+# - Quantifier notation is intentionally based on regular-expression quantifiers
+#   so cardinality reads in the familiar regex form: ?, *, +, {n}, {n,}, {n,m}.
 
 COMMANDS = {
   "init": {
