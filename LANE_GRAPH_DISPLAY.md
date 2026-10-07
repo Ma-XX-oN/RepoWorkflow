@@ -20,6 +20,18 @@ rwf lanes view
 Successful selection mutations and `lanes view` render the selected dependency
 graph.  Graph direction is leaf to root.
 
+The issue arguments to `lanes select` are focus seeds, not graph-boundary
+roots.  Selection expands each seed to its complete dependency-connected
+component by traversing both direct dependencies and direct dependants.  The
+rendered graph therefore shows the seed's position within the complete known
+work graph that contains it.  Explicitly selected issues alone receive the
+`*` marker.
+
+Multiple focus seeds render the union of their connected components.  Reverse
+traversal is used only to discover component membership; canonical direct
+dependency direction remains authoritative for topology, scheduling, and
+rendering.  No reverse or synthetic dependency edge is created.
+
 `rwf lanes list [lane] [--links]` is deliberately not a graph.  It is the
 lane-membership inventory, analogous to `rwf issue list`: issues are grouped
 by lane and displayed as `#N  title`, with the synchronized canonical link
