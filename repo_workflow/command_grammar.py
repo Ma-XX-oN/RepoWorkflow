@@ -2,8 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Callable, Iterable, TypeAlias
+
+from .command_grammar_support import (
+  CommandGrammarError,
+  QUANTIFIER,
+  SWITCHES,
+  consume_switch,
+  parse_quantifier,
+  slot_candidates,
+  switch_description,
+  switch_quantifier,
+  validate_description,
+  validate_switches,
+)
 
 
 LAST_TERMINAL = "<last-terminal>"
@@ -12,14 +24,6 @@ VALUES = "_values"
 VALUE_DESCRIPTION = "_value_description"
 COMPLETIONS = "completions"
 ON_TAB = "on-tab"
-QUANTIFIER = "_quantifier"
-SWITCHES = "_switches"
-
-
-class CommandGrammarError(ValueError):
-  pass
-
-
 @dataclass(frozen=True)
 class Context:
   root: Path
@@ -72,21 +76,6 @@ CompletionEntry: TypeAlias = str | DynamicCommand
 ValueProvider: TypeAlias = Callable[[Context], object]
 
 
-@dataclass(frozen=True)
-class Quantifier:
-  minimum: int
-  maximum: int | None
-
-
-@dataclass
-class WalkState:
-  node: dict
-  value_count: int
-  switch_counts: dict[str, int]
-  pending_slot: dict | None = None
-  pending_slot_count: int = 0
-
-
 def default_on_tab(request: CompletionRequest) -> CompletionResponse:
   return request.default()
 
@@ -123,86 +112,6 @@ class ResolvedCompletionSpec:
     )
 
 
-def _validate_description(value: object, label: str) -> None:
-  if not isinstance(value, str) or not value:
-    raise CommandGrammarError(f"{label} must be a non-empty description string")
-
-
-def _validate_value_source(value: object, label: str) -> None:
-  if not callable(value):
-    raise CommandGrammarError(f"{label} must be a callable completion provider")
-
-
-def parse_quantifier(value: object, *, label: str) -> Quantifier:
-  if value is None:
-    return Quantifier(1, 1)
-  if not isinstance(value, str):
-    raise CommandGrammarError(f"{label} must be a regex-style quantifier")
-  if value == "?":
-    return Quantifier(0, 1)
-  if value == "*":
-    return Quantifier(0, None)
-  if value == "+":
-    return Quantifier(1, None)
-  match = re.fullmatch(r"\{(\d+)(?:,(\d*)?)?\}", value)
-  if match is None:
-    raise CommandGrammarError(f"{label} has invalid quantifier {value!r}")
-  minimum = int(match.group(1))
-  comma = "," in value
-  upper = match.group(2)
-  maximum = minimum if not comma else (None if upper == "" else int(upper))
-  if maximum is not None and maximum < minimum:
-    raise CommandGrammarError(f"{label} maximum is less than minimum")
-  return Quantifier(minimum, maximum)
-
-
-def _validate_param_slot(slot: object, label: str) -> None:
-  if not isinstance(slot, dict):
-    raise CommandGrammarError(f"{label} must be a parameter-alternative dictionary")
-  parse_quantifier(slot.get(QUANTIFIER), label=f"{label}[{QUANTIFIER!r}]")
-  alternatives = [name for name in slot if name != QUANTIFIER]
-  if not alternatives:
-    raise CommandGrammarError(f"{label} must define at least one parameter alternative")
-  for token in alternatives:
-    if not isinstance(token, str) or not token:
-      raise CommandGrammarError(f"{label} parameter names must be non-empty strings")
-    entry = slot[token]
-    if callable(entry):
-      continue
-    _validate_description(entry, f"{label}[{token!r}]")
-
-
-def _validate_switch_entry(entry: object, label: str) -> None:
-  if isinstance(entry, str):
-    _validate_description(entry, label)
-    return
-  if isinstance(entry, list):
-    for index, slot in enumerate(entry):
-      _validate_param_slot(slot, f"{label}[{index}]")
-    return
-  if not isinstance(entry, dict):
-    raise CommandGrammarError(f"{label} must be help, parameters, or a switch node")
-  allowed = {TERMINAL, QUANTIFIER}
-  unknown = set(entry) - allowed
-  if unknown:
-    names = ", ".join(repr(name) for name in sorted(unknown))
-    raise CommandGrammarError(f"{label} contains unsupported switch field(s): {names}")
-  if TERMINAL in entry:
-    _validate_description(entry[TERMINAL], f"{label}[{TERMINAL!r}]")
-  parse_quantifier(entry.get(QUANTIFIER), label=f"{label}[{QUANTIFIER!r}]")
-
-
-def _validate_switches(value: object, label: str) -> None:
-  if callable(value):
-    return
-  if not isinstance(value, dict):
-    raise CommandGrammarError(f"{label} must be a switch dictionary or provider")
-  for token, entry in value.items():
-    if not isinstance(token, str) or not token.startswith("--"):
-      raise CommandGrammarError(f"{label} keys must be --switch tokens")
-    _validate_switch_entry(entry, f"{label}[{token!r}]")
-
-
 def validate_node(node: object, *, label: str = "COMMANDS") -> None:
   if not isinstance(node, dict):
     raise CommandGrammarError(f"{label} must be a dictionary")
@@ -211,18 +120,18 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
     if not isinstance(token, str):
       raise CommandGrammarError(f"{label} keys must be strings")
     if token == TERMINAL:
-      _validate_description(entry, f"{label}[{TERMINAL!r}]")
+      validate_description(entry, f"{label}[{TERMINAL!r}]")
       continue
     if token == VALUES:
       _validate_value_source(entry, f"{label}[{VALUES!r}]")
       continue
     if token == VALUE_DESCRIPTION:
-      _validate_description(entry, f"{label}[{VALUE_DESCRIPTION!r}]")
+      validate_description(entry, f"{label}[{VALUE_DESCRIPTION!r}]")
       continue
     if token == QUANTIFIER:
       continue
     if token == SWITCHES:
-      _validate_switches(entry, f"{label}[{SWITCHES!r}]")
+      validate_switches(entry, f"{label}[{SWITCHES!r}]")
       continue
     if token.startswith("_"):
       raise CommandGrammarError(f"{label} contains unsupported special key {token!r}")
@@ -233,7 +142,7 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
     if token == LAST_TERMINAL:
       raise CommandGrammarError(f"{LAST_TERMINAL} is completion-only")
     if isinstance(entry, str):
-      _validate_description(entry, f"{label}[{token!r}]")
+      validate_description(entry, f"{label}[{token!r}]")
     else:
       validate_node(entry, label=f"{label}[{token!r}]")
 
@@ -314,7 +223,7 @@ def _resolved_switches(node: dict, context: Context) -> dict:
   value = source(context) if callable(source) else source
   if not isinstance(value, dict):
     raise CommandGrammarError(f"{SWITCHES} provider must return a dictionary")
-  _validate_switches(value, SWITCHES)
+  validate_switches(value, SWITCHES)
   return value
 
 
@@ -345,58 +254,6 @@ def next_entries(
   return entries, set(values)
 
 
-def _switch_quantifier(entry: object) -> Quantifier:
-  if isinstance(entry, dict):
-    return parse_quantifier(entry.get(QUANTIFIER), label=f"switch {QUANTIFIER}")
-  return Quantifier(0, 1)
-
-
-def _slot_candidates(slot: dict, context: Context) -> dict[str, str | None]:
-  result: dict[str, str | None] = {}
-  for token, entry in slot.items():
-    if token == QUANTIFIER:
-      continue
-    if callable(entry):
-      values = entry(context)
-      if not isinstance(values, dict):
-        raise CommandGrammarError("parameter completion provider must return a dictionary")
-      for name, description in values.items():
-        if not isinstance(name, str) or not name:
-          raise CommandGrammarError("parameter completion names must be strings")
-        if description is not None and not isinstance(description, str):
-          raise CommandGrammarError("parameter completion descriptions must be strings")
-        result[name] = description
-    else:
-      result[token] = entry
-  return result
-
-
-def _consume_switch(
-  entry: object,
-  words: tuple[str, ...],
-  index: int,
-  context: Context,
-) -> tuple[int, dict | None, int]:
-  if not isinstance(entry, list):
-    return index, None, 0
-  for slot in entry:
-    quantifier = parse_quantifier(slot.get(QUANTIFIER), label="parameter quantifier")
-    count = 0
-    while index < len(words):
-      candidates = _slot_candidates(slot, context.at(words, index))
-      if words[index] not in candidates:
-        break
-      if quantifier.maximum is not None and count >= quantifier.maximum:
-        break
-      count += 1
-      index += 1
-    if count < quantifier.minimum:
-      if index == len(words):
-        return index, slot, count
-      raise CommandGrammarError(f"invalid switch parameter: {words[index]}")
-  return index, None, 0
-
-
 def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> WalkState:
   node = commands
   value_count = 0
@@ -410,12 +267,12 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
 
     if token in switches:
       switch_entry = switches[token]
-      quantifier = _switch_quantifier(switch_entry)
+      quantifier = switch_quantifier(switch_entry)
       count = switch_counts.get(token, 0)
       if quantifier.maximum is not None and count >= quantifier.maximum:
         raise CommandGrammarError(f"duplicate switch is not permitted: {token}")
       switch_counts[token] = count + 1
-      index, pending, pending_count = _consume_switch(
+      index, pending, pending_count = consume_switch(
         switch_entry,
         words,
         index + 1,
@@ -462,7 +319,7 @@ def _validate_finished(state: WalkState, context: Context) -> None:
     if state.value_count < quantifier.minimum:
       raise CommandGrammarError("command value arguments are incomplete")
   for token, entry in _resolved_switches(node, context).items():
-    quantifier = _switch_quantifier(entry)
+    quantifier = switch_quantifier(entry)
     if state.switch_counts.get(token, 0) < quantifier.minimum:
       raise CommandGrammarError(f"required switch is missing: {token}")
   if TERMINAL not in node:
@@ -497,7 +354,7 @@ def parse_tokens(
   return words
 
 
-def _switch_description(entry: object) -> str | None:
+def switch_description(entry: object) -> str | None:
   if isinstance(entry, str):
     return entry
   if isinstance(entry, dict):
@@ -517,7 +374,7 @@ def _node_items(
   result: list[Completion] = []
 
   if state.pending_slot is not None:
-    candidates = _slot_candidates(state.pending_slot, context)
+    candidates = slot_candidates(state.pending_slot, context)
     for token, description in candidates.items():
       if token.startswith(prefix):
         result.append(Completion(token, description, True))
@@ -550,12 +407,12 @@ def _node_items(
         result.append(Completion(token, None, True))
 
   for token, entry in _resolved_switches(node, context).items():
-    switch_quantifier = _switch_quantifier(entry)
+    switch_quantifier = switch_quantifier(entry)
     count = state.switch_counts.get(token, 0)
     if switch_quantifier.maximum is not None and count >= switch_quantifier.maximum:
       continue
     if token.startswith(prefix):
-      result.append(Completion(token, _switch_description(entry)))
+      result.append(Completion(token, switch_description(entry)))
 
   return result, spec
 
