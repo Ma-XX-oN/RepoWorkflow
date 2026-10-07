@@ -439,7 +439,13 @@ requirements below:
 5. pilot one consumer before broad migration;
 6. preserve existing authoritative validation coverage during migration;
 7. remove old standalone/duplicate workflows only after equivalence has been
-   established.
+   established;
+8. when a required interface, syntax, data shape, naming convention, or design
+   decision is not already specified by an authoritative contract or existing
+   implementation, stop and ask the user before inventing or committing a new
+   representation.  Do not create placeholder syntax or speculative structure
+   merely to keep implementation moving.  Resolve the design question first so
+   later work does not need to revisit avoidable assumptions.
 
 Authoritative source and documentation files have a practical hard ceiling of
 about 500 lines.  Size pressure is an architectural signal, not a content
