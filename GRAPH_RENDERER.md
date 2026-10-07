@@ -270,9 +270,13 @@ A long-edge route should remain between its endpoint rows when a valid route is
 available there.  It must not dip below both endpoints merely because a private
 long-edge track was allocated mechanically.
 
-Long edges may reuse a routing row only when all semantic edges sharing that
-row have one common source or one common target.  Other collinear sharing is
-not considered lossless.
+Long edges may reuse a routing row when their horizontal route spans are
+geometrically disjoint.  For any connected set of overlapping spans on one
+row, all semantic edges in that overlap component must have one common source
+or one common target.  Pairwise compatibility is insufficient: a chain that
+shares a source on one side and a target on the other would create the same
+merge-before-branch false reachability as an adjacent many-to-many bridge.
+Other overlapping collinear sharing is not considered lossless.
 
 Adjacent opposite-direction vertical tracks such as `↓↑` are valid geometry,
 not a semantic error.  Track ordering should avoid them when an equally valid
