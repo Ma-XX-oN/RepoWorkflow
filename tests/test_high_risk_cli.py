@@ -123,6 +123,12 @@ class HighRiskCliTests(unittest.TestCase):
       ["command-grammar", "high-risk"],
     )
 
+  def test_help_exposes_catalogue_sections(self):
+    result = self.run_rwf("high-risk", "--help")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertIn("command-grammar", result.stdout)
+    self.assertIn("high-risk", result.stdout)
+
   def test_unknown_alias_fails_without_partial_mutation(self):
     before = LifecycleStore(self.repo).read(1)
     result = self.run_rwf(
