@@ -82,6 +82,38 @@ class LongRoutePlannerTests(unittest.TestCase):
       {first.key, second.key, third.key},
     )
 
+  def test_overlap_with_same_source_does_not_share_search_component(self):
+    first = semantic_edge("A", "B")
+    second = semantic_edge("A", "C")
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(3, 0),
+      "C": Placement(4, 1),
+    }
+
+    components = _geometric_components(
+      (first, second),
+      placements,
+    )
+
+    self.assertEqual(len(components), 2)
+
+  def test_overlap_with_same_target_does_not_share_search_component(self):
+    first = semantic_edge("A", "D")
+    second = semantic_edge("B", "D")
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(1, 1),
+      "D": Placement(4, 0),
+    }
+
+    components = _geometric_components(
+      (first, second),
+      placements,
+    )
+
+    self.assertEqual(len(components), 2)
+
   def test_backtracks_when_first_local_choice_blocks_later_edge(self):
     first = semantic_edge("A", "B")
     second = semantic_edge("C", "D")
