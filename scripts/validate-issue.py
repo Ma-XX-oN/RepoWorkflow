@@ -18,8 +18,20 @@ from repo_workflow.self_ci import group_command
 
 def main() -> int:
   parser = argparse.ArgumentParser()
-  parser.add_argument("--groups", nargs="+", required=True)
+  parser.add_argument("--groups", nargs="+")
+  parser.add_argument("--groups-json")
   args = parser.parse_args()
+  if bool(args.groups) == bool(args.groups_json):
+    parser.error("provide exactly one of --groups or --groups-json")
+  groups = (
+    args.groups
+    if args.groups is not None
+    else json.loads(args.groups_json)
+  )
+  if not isinstance(groups, list) or not groups or not all(
+    isinstance(group, str) and group for group in groups
+  ):
+    parser.error("selected groups must be a non-empty string array")
 
   started = time.monotonic()
   RelationshipStore(ROOT).read()
@@ -31,7 +43,7 @@ def main() -> int:
     return 1
 
   evidence = []
-  for group in args.groups:
+  for group in groups:
     command = group_command(ROOT, group)
     result = subprocess.run(
       command,
@@ -52,7 +64,7 @@ def main() -> int:
     if result.returncode:
       print(json.dumps({
         "tier": "issue",
-        "groups": args.groups,
+        "groups": groups,
         "evidence": evidence,
         "durationSeconds": round(time.monotonic() - started, 3),
       }, separators=(",", ":")))
