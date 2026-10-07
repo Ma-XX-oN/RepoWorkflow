@@ -253,6 +253,84 @@ class QuantifiedGrammarTests(unittest.TestCase):
       ["<ISSUE>  Issue number"],
     )
 
+  def test_all_quantifiers_apply_to_parameter_positions(self):
+    cases = {
+      "?": (0, 1, 2),
+      "*": (0, 3, None),
+      "+": (1, 3, None),
+      "{2}": (2, 2, 3),
+      "{2,}": (2, 4, None),
+      "{2,3}": (2, 3, 4),
+    }
+    for quantifier, (minimum, accepted, too_many) in cases.items():
+      commands = {
+        "x": {
+          "": "Run",
+          "_switches": {
+            "--p": {
+              "_params": [
+                {"a": "A", "_quantifier": quantifier},
+              ],
+            },
+          },
+        },
+      }
+      with self.subTest(quantifier=quantifier, accepted=accepted):
+        words = ["x", "--p", *(["a"] * accepted)]
+        self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
+      if minimum:
+        with self.subTest(quantifier=quantifier, too_few=True):
+          with self.assertRaises(CommandGrammarError):
+            parse_tokens(
+              commands,
+              self.context,
+              ["x", "--p", *(["a"] * (minimum - 1))],
+            )
+      if too_many is not None:
+        with self.subTest(quantifier=quantifier, too_many=True):
+          with self.assertRaises(CommandGrammarError):
+            parse_tokens(
+              commands,
+              self.context,
+              ["x", "--p", *(["a"] * too_many)],
+            )
+
+  def test_all_quantifiers_apply_to_complete_ordered_sequence(self):
+    cases = {
+      "?": (0, 1, 2),
+      "*": (0, 3, None),
+      "+": (1, 3, None),
+      "{2}": (2, 2, 3),
+      "{2,}": (2, 4, None),
+      "{2,3}": (2, 3, 4),
+    }
+    for quantifier, (minimum, accepted, too_many) in cases.items():
+      commands = {
+        "x": {
+          "_ordered": [{"a": "A"}],
+          "_quantifier": quantifier,
+        },
+      }
+      with self.subTest(quantifier=quantifier, accepted=accepted):
+        words = ["x", *(["a"] * accepted)]
+        self.assertEqual(parse_tokens(commands, self.context, words), tuple(words))
+      if minimum:
+        with self.subTest(quantifier=quantifier, too_few=True):
+          with self.assertRaises(CommandGrammarError):
+            parse_tokens(
+              commands,
+              self.context,
+              ["x", *(["a"] * (minimum - 1))],
+            )
+      if too_many is not None:
+        with self.subTest(quantifier=quantifier, too_many=True):
+          with self.assertRaises(CommandGrammarError):
+            parse_tokens(
+              commands,
+              self.context,
+              ["x", *(["a"] * too_many)],
+            )
+
   def test_quantified_command_alternatives_are_unordered_choice_group(self):
     commands = {
       "x": {
