@@ -278,7 +278,7 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
         return WalkState(node, value_count, switch_counts, pending, pending_count)
       continue
 
-    entry = entries.get(token)
+    entry = entries.get(token) if value_count == 0 else None
     if entry is not None:
       if isinstance(entry, str):
         if index != len(words) - 1:
@@ -395,10 +395,11 @@ def _node_items(
   ):
     result.append(Completion("<value>", node[VALUE_DESCRIPTION], True))
 
-  for token, entry in entries.items():
-    if token.startswith(prefix):
-      description = entry if isinstance(entry, str) else entry.get(TERMINAL)
-      result.append(Completion(token, description))
+  if state.value_count == 0:
+    for token, entry in entries.items():
+      if token.startswith(prefix):
+        description = entry if isinstance(entry, str) else entry.get(TERMINAL)
+        result.append(Completion(token, description))
   if can_take_value:
     for token in values:
       if token.startswith(prefix):
