@@ -84,6 +84,30 @@ def bundle_relations(
   return result
 
 
+def dogleg_route_rows(
+  edges: tuple[SemanticEdge, ...],
+  doglegs: set[tuple[str, str]],
+  placements: dict[str, Placement],
+  max_node_row: int,
+) -> dict[tuple[str, str], int]:
+  edge_by_key = {
+    edge.key: edge
+    for edge in edges
+  }
+  result: dict[tuple[str, str], int] = {}
+  private_row = max_node_row + 1
+  for key in sorted(doglegs):
+    edge = edge_by_key[key]
+    source = placements[edge.source]
+    target = placements[edge.target]
+    if source.row != target.row:
+      result[key] = source.row
+      continue
+    result[key] = private_row
+    private_row += 1
+  return result
+
+
 def boundary_items(
   edges: tuple[SemanticEdge, ...],
   placements: dict[str, Placement],
