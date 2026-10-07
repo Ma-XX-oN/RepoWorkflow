@@ -356,6 +356,12 @@ is regenerated or replaced by current executable evidence.
 A test that merely proves an old certification artifact exists or has a valid
 shape does not establish that the current implementation remains certified.
 
+Where the material input surface can be enumerated mechanically, derive the
+required certification bindings mechanically rather than maintaining a manual
+subset.  Refactoring that adds, removes, or splits material modules must then
+invalidate certification automatically instead of depending on a maintainer to
+remember every binding.
+
 ## 12.6 Evidence categories must remain distinct
 
 Platform coverage, semantic/topology coverage, integration coverage, and
