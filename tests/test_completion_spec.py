@@ -19,10 +19,16 @@ class CompletionSpecificationTests(unittest.TestCase):
     with self.assertRaisesRegex(CommandGrammarError, "callable"):
       validate_node({"group": {"_values": ["one", "two"]}})
 
-  def test_provider_must_return_explicit_completion_spec(self):
+  def test_provider_may_return_plain_completion_strings(self):
     commands = {"group": {"_values": lambda context: ["one", "two"]}}
-    with self.assertRaisesRegex(CommandGrammarError, "completion specification"):
-      completion_items(commands, self.context, ["group", ""])
+    self.assertEqual(
+      [item.token for item in completion_items(
+        commands,
+        self.context,
+        ["group", ""],
+      )],
+      ["one", "two"],
+    )
 
   def test_completion_spec_requires_completions(self):
     commands = {"group": {"_values": lambda context: {}}}
