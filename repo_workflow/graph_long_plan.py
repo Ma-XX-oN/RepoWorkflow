@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from .graph_geometry import long_route_candidate_valid
+from .graph_geometry import (
+  long_route_candidate_valid,
+  validate_long_route_candidate,
+)
 from .graph_long_routes import long_route_candidates
 from .graph_render_model import ValidatedGraph
 from .graph_render_types import (
@@ -98,10 +101,21 @@ def route_long_edges(
         break
 
     if chosen is None:
+      validate_long_route_candidate(
+        edge,
+        private_row,
+        current_cells,
+        validated,
+        placements,
+        columns,
+        starts,
+        tracks,
+        source_item=source_item,
+        target_item=target_item,
+      )
       raise GraphLayoutError(
-        "no semantically valid long-route candidate is available for "
-        f"{edge.source!r} -> {edge.target!r}, including private row "
-        f"{private_row}"
+        "private long-route candidate unexpectedly validated but "
+        "was not selected"
       )
 
     route_long(
