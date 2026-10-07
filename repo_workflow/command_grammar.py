@@ -17,7 +17,6 @@ from .command_grammar_support import (
   validate_switches,
 )
 
-
 LAST_TERMINAL = "<last-terminal>"
 TERMINAL = ""
 VALUES = "_values"
@@ -40,20 +39,17 @@ class Context:
       return self.words[self.index]
     return ""
 
-
 @dataclass(frozen=True)
 class Completion:
   token: str
   description: str | None
   bare_value: bool = False
 
-
 @dataclass(frozen=True)
 class CompletionResponse:
   items: tuple[Completion, ...] = ()
   error: str | None = None
   append_space: bool = True
-
 
 @dataclass(frozen=True)
 class CompletionRequest:
@@ -68,13 +64,11 @@ class CompletionRequest:
   def error(self, message: str) -> CompletionResponse:
     return CompletionResponse(error=message)
 
-
 CompletionHandler: TypeAlias = Callable[[CompletionRequest], CompletionResponse]
 CommandEntry: TypeAlias = str | dict
 DynamicCommand: TypeAlias = dict[str, CommandEntry]
 CompletionEntry: TypeAlias = str | DynamicCommand
 ValueProvider: TypeAlias = Callable[[Context], object]
-
 
 @dataclass
 class WalkState:
@@ -84,11 +78,9 @@ class WalkState:
   pending_slot: dict | None = None
   pending_slot_count: int = 0
 
-
 def _validate_value_source(value: object, label: str) -> None:
   if not callable(value):
     raise CommandGrammarError(f"{label} must be a callable completion provider")
-
 
 def default_on_tab(request: CompletionRequest) -> CompletionResponse:
   return request.default()
