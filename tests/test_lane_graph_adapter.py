@@ -234,34 +234,38 @@ class LaneGraphAdapterTests(unittest.TestCase):
     graph = RelationshipGraph(issues={
       "1": relation(),
       "2": relation(),
-      "3": relation(),
-      "4": relation(1, 2),
-      "5": relation(2),
-      "6": relation(2),
+      "3": relation(2),
+      "4": relation(1, 3),
+      "5": relation(3),
     })
     selection = LaneSelection(
-      roots=("4", "5", "6"),
-      closure=("1", "2", "3", "4", "5", "6"),
+      roots=("4", "5"),
+      closure=("1", "2", "3", "4", "5"),
       graph_revision=1,
       assignment={
         "1": "A",
         "2": "B",
-        "3": "C",
+        "3": "B",
         "4": "A",
         "5": "B",
-        "6": "C",
       },
     )
     projection = project_lane_graph(
       selection,
       graph,
-      {"1", "2", "4", "5", "6"},
-      self.metadata(1, 2, 4, 5, 6),
-      lane_colours={"A": RED, "B": BLUE, "C": GREY},
+      set(selection.closure),
+      self.metadata(1, 2, 3, 4, 5),
+      lane_colours={"A": RED, "B": BLUE},
       default_edge_colour=GREY,
       display_width=len,
     )
-    render_graph(projection.graph)
+    rendered = render_graph(projection.graph)
+    bridge = next(
+      route
+      for route in rendered.routes
+      if (route.source, route.target) == ("B3", "*A4")
+    )
+    self.assertEqual(bridge.kind, "adjacent-bridge")
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={
