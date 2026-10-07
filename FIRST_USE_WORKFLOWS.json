@@ -313,7 +313,7 @@
             "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_reduced_projection_preserves_reachability",
             "tests/test_lane_render.py::LaneRenderTests.test_redundant_long_dependency_is_not_displayed",
             "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_reduced_routes_are_minimal_reachability_edges",
-            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_final_glyphs_cover_all_routed_geometry",
+            "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_final_glyphs_preserve_junctions_and_horizontal_crossings",
             "tests/test_lane_display_reduction.py::LaneDisplayReductionTests.test_real_218_has_no_adjacent_duplicate_arrow_columns",
             "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_repository_typed_ticket_selection_projects_successfully",
             "tests/test_renderer_certification_binding.py::RendererCertificationBindingTests.test_renderer_certification_matches_material_inputs"
