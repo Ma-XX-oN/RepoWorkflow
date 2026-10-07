@@ -72,7 +72,7 @@ def main() -> int:
 
   print(json.dumps({
     "tier": "issue",
-    "groups": args.groups,
+    "groups": groups,
     "evidence": evidence,
     "durationSeconds": round(time.monotonic() - started, 3),
   }, separators=(",", ":")))
