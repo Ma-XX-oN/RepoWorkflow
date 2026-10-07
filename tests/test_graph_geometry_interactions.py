@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from repo_workflow.graph_geometry import _interaction_component
+from repo_workflow.graph_route_interactions import interaction_component
 from repo_workflow.graph_render_model import GraphSiblings
 from repo_workflow.graph_render_types import Contribution, SemanticEdge
 
@@ -45,7 +45,7 @@ class GeometryInteractionTests(unittest.TestCase):
     }
 
     self.assertEqual(
-      _interaction_component(cells, ax.key),
+      interaction_component(cells, ax.key),
       {ax.key, bx.key, by.key},
     )
 
