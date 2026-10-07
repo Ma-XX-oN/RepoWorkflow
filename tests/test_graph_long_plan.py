@@ -64,9 +64,7 @@ class LongRoutePlannerTests(unittest.TestCase):
     )
 
     def candidates(edge, *args, **kwargs):
-      if edge.key == first.key:
-        return (0, 1)
-      return (0,)
+      return (0, 1)
 
     def candidate_valid(
       edge,
@@ -79,7 +77,8 @@ class LongRoutePlannerTests(unittest.TestCase):
       if edge.key == first.key:
         return True
       return bool(
-        routes
+        row == 0
+        and routes
         and routes[0].hidden
         and routes[0].hidden[0].row == 1
       )
