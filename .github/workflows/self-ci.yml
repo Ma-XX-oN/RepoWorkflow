@@ -43,6 +43,8 @@ jobs:
           fi
 
   validate:
+    needs: classify
+    if: needs.classify.outputs.validation != 'fast'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +82,8 @@ jobs:
         run: python scripts/probe-argv-limits.py
 
   graph-renderer-platform:
+    needs: classify
+    if: needs.classify.outputs.validation != 'fast'
     name: Probe graph renderer (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -99,6 +103,8 @@ jobs:
         run: python scripts/probe-graph-renderer.py
 
   ticket-merge-platform:
+    needs: classify
+    if: needs.classify.outputs.validation != 'fast'
     name: Probe ticket merge (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -116,8 +122,15 @@ jobs:
         run: python scripts/probe-ticket-merge.py
 
   release:
-    needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [classify, validate]
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      (
+        needs.classify.outputs.validation == 'fast' ||
+        needs.validate.result == 'success'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write

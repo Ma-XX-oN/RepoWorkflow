@@ -279,10 +279,11 @@ validation without trusting a `docs:` commit-message assertion.
 level, and exact changed paths as JSON.  The same classifier is usable locally,
 by GitHub Actions, or by another CI adapter.
 
-RepoWorkflow's self-CI uses the `docs` class to keep its normal authoritative
-validation but skip the cross-platform argv-limit probes, which do not provide
-additional evidence for documentation-only changes.  Changes to source, tests,
-workflow code, or any other unmatched path continue to receive full validation.
+RepoWorkflow's self-CI uses the `docs` class to skip code-testing jobs for
+documentation-only changes.  The changed-path classifier still runs, and a
+documentation-only push to `main` may continue to the normal release step
+without running code validation.  Changes to source, tests, workflow code, or
+any other unmatched path continue to receive full validation.
 
 ## `.ci/github.json`
 

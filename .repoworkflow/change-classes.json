@@ -5,6 +5,7 @@
       "paths": [
         "**/*.md",
         "docs/**",
+        ".gitignore",
         "VERSION"
       ],
       "validation": "fast"
