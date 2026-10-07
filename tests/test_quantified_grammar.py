@@ -10,6 +10,8 @@ from repo_workflow.command_grammar import (
   validate_node,
 )
 
+from repo_workflow.public_commands import COMMANDS
+
 
 class QuantifiedGrammarTests(unittest.TestCase):
   def setUp(self):
@@ -24,6 +26,11 @@ class QuantifiedGrammarTests(unittest.TestCase):
 
   def count_values(self, context):
     return {"1": "One", "2": "Two", "3": "Three"}
+
+  def test_public_simple_completion_provider_returns_string_list(self):
+    provider = COMMANDS["lanes"]["select"]["_values"]
+    context = Context(Path("."), words=("42",), index=0)
+    self.assertEqual(provider(context), ["42"])
 
   def test_terminal_parameter_accepts_plain_value(self):
     commands = {"show": {"<NAME>": "Name"}}
