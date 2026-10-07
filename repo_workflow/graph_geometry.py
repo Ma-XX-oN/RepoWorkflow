@@ -81,6 +81,9 @@ def long_route_candidate_valid(
   columns: dict[int, Column],
   starts: dict[int, int],
   tracks: dict[tuple[int, tuple], int],
+  *,
+  source_item: tuple | None = None,
+  target_item: tuple | None = None,
 ) -> bool:
   candidate_cells = {
     point: list(values)
@@ -94,6 +97,8 @@ def long_route_candidate_valid(
     starts,
     tracks,
     row,
+    source_item=source_item,
+    target_item=target_item,
   )
   expected = {
     (route.source, route.target)
