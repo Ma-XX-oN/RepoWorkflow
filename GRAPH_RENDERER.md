@@ -366,6 +366,49 @@ Specification tests must cover at least:
 - terminal-cell width independent of styling codes;
 - exact RepoWorkflow adapter projection.
 
-Property tests should generate bounded valid constrained DAGs.  A generated case
-must either render with exact semantic equivalence or fail explicitly as
-unsupported.
+Fan topology is an explicit decision dimension.  Tests must cover all four
+source/target degree classes:
+
+- one-to-one;
+- one-to-many;
+- many-to-one;
+- many-to-many.
+
+Many-to-many coverage must include an edge whose source also branches and whose
+target also merges.  It must prove that source-side branching occurs before
+target-side merging in rendered geometry, so unrelated routes cannot become a
+semantic junction.
+
+The fan classes must be crossed with materially relevant layout conditions,
+including same-lane versus cross-lane edges, adjacent versus long edges,
+sibling grouping, and above/same-row/below placement where those conditions
+change routing.
+
+Property tests must generate bounded valid constrained DAGs and lane
+assignments.  A generated case must either:
+
+1. render with exactly the same directed reachability as the semantic graph; or
+2. fail explicitly as unsupported.
+
+Generated coverage is required because handcrafted fixtures cannot reasonably
+enumerate the interaction of topology, grouping, lane assignment, ordering,
+and route placement.
+
+For RepoWorkflow itself, the current committed ticket graph is an active
+production fixture.  CI must run canonical representative selections through:
+
+```text
+ticket state
+    -> lane decomposition
+    -> RepoWorkflow adapter
+    -> render_graph()
+    -> rendered-geometry semantic validation
+```
+
+At least one assembled public-CLI smoke test must cross the same boundary.
+A projection-only or model-validation-only test does not satisfy this gate.
+
+Historical renderer certification is evidence only for the exact graph,
+renderer/decomposition contract, and candidate to which it is bound.  A
+material change to any of those inputs invalidates that certification until it
+is regenerated or replaced by current executable evidence.
