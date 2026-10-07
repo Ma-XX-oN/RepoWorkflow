@@ -1,12 +1,15 @@
+from pathlib import Path
 import unittest
 
+from repo_workflow.lane_decomposition import decompose_lanes
 from repo_workflow.lane_graph_adapter import (
   LaneGraphProjectionError,
   make_lane_formatter,
   project_lane_graph,
 )
-from repo_workflow.graph_render_model import FormatEntry
+from repo_workflow.graph_render_model import FormatEntry, validate_graph
 from repo_workflow.lane_selection import LaneSelection
+from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
 
@@ -108,6 +111,122 @@ class LaneGraphAdapterTests(unittest.TestCase):
         default_edge_colour=GREY,
         display_width=len,
       )
+
+  def test_transitive_reduction_preserves_consecutive_lane_edge(self):
+    graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(1),
+      "3": relation(1, 2),
+    })
+    selection = LaneSelection(
+      roots=("3",),
+      closure=("1", "2", "3"),
+      graph_revision=1,
+      assignment={"1": "A", "2": "B", "3": "A"},
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      {"1", "2", "3"},
+      self.metadata(1, 2, 3),
+      lane_colours={"A": RED, "B": BLUE},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    self.assertEqual(
+      projection.graph.lanes[0].nodes,
+      ("A1", "*A3"),
+    )
+    edges = {
+      (source, target)
+      for group in projection.graph.siblings
+      for source in group.nodes
+      for target_group in group.to_nodes
+      for target in target_group.nodes
+    }
+    self.assertIn(("A1", "*A3"), edges)
+    self.assertIn(("A1", "B2"), edges)
+    self.assertIn(("B2", "*A3"), edges)
+    validate_graph(projection.graph)
+
+  def test_repository_shaped_139_140_143_lane_edge_survives_reduction(self):
+    graph = RelationshipGraph(issues={
+      "137": relation(),
+      "138": relation(),
+      "139": relation(137),
+      "140": relation(138, 139),
+      "143": relation(138, 139, 140),
+    })
+    selection = LaneSelection(
+      roots=("143",),
+      closure=("137", "138", "139", "140", "143"),
+      graph_revision=1,
+      assignment={
+        "137": "A",
+        "138": "B",
+        "139": "A",
+        "140": "B",
+        "143": "A",
+      },
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(selection.closure),
+      self.metadata(137, 138, 139, 140, 143),
+      lane_colours={"A": RED, "B": BLUE},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    self.assertEqual(
+      projection.graph.lanes[0].nodes,
+      ("A137", "A139", "*A143"),
+    )
+    validate_graph(projection.graph)
+
+  def test_repository_typed_ticket_selection_projects_successfully(self):
+    root = Path(__file__).resolve().parents[1]
+    graph = RelationshipStore(root).read().graph
+    prefixes = ("Initiative:", "Epic:", "Feature:")
+    selected = tuple(
+      issue
+      for issue, relation in graph.issues.items()
+      if relation.title.startswith(prefixes)
+    )
+    plan = decompose_lanes(graph, selected)
+    assignment = {
+      issue: lane.name
+      for lane in plan.lanes
+      for issue in lane.issues
+    }
+    selection = LaneSelection(
+      roots=plan.selected,
+      closure=plan.closure,
+      graph_revision=1,
+      assignment=assignment,
+    )
+    metadata = {
+      issue: {
+        "closed": False,
+        "title": graph.issue(issue).title,
+        "link": "",
+      }
+      for issue in plan.closure
+    }
+    lane_colours = {
+      lane.name: RED
+      for lane in plan.lanes
+    }
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(plan.closure),
+      metadata,
+      lane_colours=lane_colours,
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    validate_graph(projection.graph)
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={

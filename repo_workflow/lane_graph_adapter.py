@@ -67,7 +67,28 @@ def project_lane_graph(
         continue
       full_outgoing[source].add(target)
 
-  outgoing = _transitive_reduction(full_outgoing)
+  full_incoming = {issue: set() for issue in visible}
+  for source, targets in full_outgoing.items():
+    for target in targets:
+      full_incoming[target].add(source)
+
+  lane_names = sorted(
+    {selection.assignment[issue] for issue in visible},
+    key=_lane_key,
+  )
+  lane_orders: dict[str, tuple[str, ...]] = {}
+  protected_edges: set[tuple[str, str]] = set()
+  for lane_name in lane_names:
+    issues = {
+      issue
+      for issue in visible
+      if selection.assignment[issue] == lane_name
+    }
+    ordered = _lane_path(issues, full_outgoing, full_incoming)
+    lane_orders[lane_name] = ordered
+    protected_edges.update(zip(ordered, ordered[1:]))
+
+  outgoing = _transitive_reduction(full_outgoing, protected_edges)
   incoming = {issue: set() for issue in visible}
   for source, targets in outgoing.items():
     for target in targets:
@@ -113,21 +134,12 @@ def project_lane_graph(
     group.to_nodes = tuple(sorted(targets, key=_group_key))
 
   lanes: list[Lane] = []
-  lane_names = sorted(
-    {selection.assignment[issue] for issue in visible},
-    key=_lane_key,
-  )
   for lane_name in lane_names:
     if lane_name not in lane_colours:
       raise LaneGraphProjectionError(
         f"missing colour function for lane {lane_name}"
       )
-    issues = {
-      issue
-      for issue in visible
-      if selection.assignment[issue] == lane_name
-    }
-    ordered = _lane_path(issues, outgoing, incoming)
+    ordered = lane_orders[lane_name]
     lanes.append(
       Lane(
         tuple(issue_text[issue] for issue in ordered),
@@ -230,6 +242,7 @@ def _pad_left(
 
 def _transitive_reduction(
   outgoing: dict[str, set[str]],
+  protected_edges: set[tuple[str, str]],
 ) -> dict[str, set[str]]:
   reduced = {
     source: set(targets)
@@ -237,10 +250,13 @@ def _transitive_reduction(
   }
   for source in sorted(outgoing, key=int):
     for target in sorted(outgoing[source], key=int):
-      if _has_alternate_path(
-        source,
-        target,
-        outgoing,
+      if (
+        (source, target) not in protected_edges
+        and _has_alternate_path(
+          source,
+          target,
+          outgoing,
+        )
       ):
         reduced[source].discard(target)
   return reduced
