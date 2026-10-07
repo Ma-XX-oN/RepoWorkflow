@@ -28,6 +28,7 @@ rwf
 ├── tdd
 │   ├── red group NAME
 │   └── green
+├── high-risk <SECTION> [<SECTION> ...]
 ├── validate
 │   ├── regression [--fast] [--group NAME]
 │   └── integration [--automatic|--manual] [--group NAME]
@@ -121,7 +122,27 @@ in the platform-neutral Python workflow model.
 
 Issue #27 owns implementation.
 
-## 4. Repository-owned adapters
+## 4. High-risk verification sections
+
+`rwf high-risk <SECTION> [<SECTION> ...]` associates one or more semantic
+test-catalogue alias sections from `.ci/tests.json` with the active current
+issue.
+
+All requested section names are validated before durable mutation.  Repeated
+invocation is idempotent, changed invocation unions with the existing set, and
+the normalized association is stored with the issue lifecycle record.  The
+command reports the complete attached alias set after success.
+
+Completion for the positional SECTION values comes from the catalogue alias
+names.  Help uses the same grammar/completion source.  A future general
+`rwf status` implementation must include these lifecycle-owned associations;
+the association is not duplicated into a separate status store.
+
+High-risk sections add targeted issue-verification coverage.  They never replace
+the issue's own required groups and do not by themselves imply complete
+regression or integration evidence.
+
+## 5. Repository-owned adapters
 
 RepoWorkflow owns workflow semantics; consumer repositories own facts and
 provider-specific mechanics through explicit adapters.
@@ -134,7 +155,7 @@ repo-info
 repo-ci
 ```
 
-### 4.1 repo-version
+### 5.1 repo-version
 
 RWF invokes semantic version operations internally.  Users do not normally
 invoke version transitions through `rwf`.
@@ -152,7 +173,7 @@ release-major
 
 The consumer adapter derives and applies literal versions.
 
-### 4.2 repo-info
+### 5.2 repo-info
 
 `repo-info` supplies repository/issue information without teaching core RWF
 GitHub/`gh` or another forge's API.
@@ -162,7 +183,7 @@ validation at start time.
 
 Issue #53 owns this adapter and issue commands.
 
-### 4.3 repo-ci
+### 5.3 repo-ci
 
 Repository/CI-provider mechanics belong behind a portable adapter boundary.
 RWF owns candidate identity, required test coverage, legal transitions,
