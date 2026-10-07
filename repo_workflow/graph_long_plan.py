@@ -275,7 +275,9 @@ def _geometric_components(
       connected = [
         edge
         for edge in remaining
-        if _spans_overlap(
+        if _edges_conflict(
+          current,
+          edge,
           current_span,
           _edge_span(edge, placements),
         )
@@ -290,6 +292,19 @@ def _geometric_components(
     components,
     key=lambda component: component[0].key,
   ))
+
+
+def _edges_conflict(
+  left: SemanticEdge,
+  right: SemanticEdge,
+  left_span: tuple[int, int],
+  right_span: tuple[int, int],
+) -> bool:
+  return (
+    _spans_overlap(left_span, right_span)
+    and left.source != right.source
+    and left.target != right.target
+  )
 
 
 def _edge_span(
