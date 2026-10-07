@@ -260,12 +260,18 @@ class LaneGraphAdapterTests(unittest.TestCase):
       display_width=len,
     )
     rendered = render_graph(projection.graph)
-    bridge = next(
-      route
-      for route in rendered.routes
-      if (route.source, route.target) == ("B3", "*A4")
+    self.assertEqual(
+      {
+        (route.source, route.target)
+        for route in rendered.routes
+      },
+      {
+        ("A1", "*A4"),
+        ("B2", "B3"),
+        ("B3", "*A4"),
+        ("B3", "*B5"),
+      },
     )
-    self.assertEqual(bridge.kind, "adjacent-bridge")
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={
