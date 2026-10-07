@@ -350,9 +350,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--mode": [
-            {"fast": "Fast", "slow": "Slow"},
-          ],
+          "--mode": {
+            "_params": [
+              {"fast": "Fast", "slow": "Slow"},
+            ],
+          },
         },
       },
     }
@@ -368,10 +370,12 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--tag": [
-            {"one": "One", "_quantifier": "?"},
-            {"a": "A", "b": "B", "_quantifier": "*"},
-          ],
+          "--tag": {
+            "_params": [
+              {"one": "One", "_quantifier": "?"},
+              {"a": "A", "b": "B", "_quantifier": "*"},
+            ],
+          },
         },
       },
     }
@@ -406,9 +410,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--group": [
-            {"<group>": params},
-          ],
+          "--group": {
+            "_params": [
+              {"<group>": params},
+            ],
+          },
         },
       },
     }
@@ -422,9 +428,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--mode": [
-            {"fast": "Fast", "slow": "Slow"},
-          ],
+          "--mode": {
+            "_params": [
+              {"fast": "Fast", "slow": "Slow"},
+            ],
+          },
         },
       },
     }
@@ -446,9 +454,11 @@ class CommandGrammarTests(unittest.TestCase):
       "x": {
         "": "Run",
         "_switches": {
-          "--tag": [
-            {"a": "A", "b": "B", "_quantifier": "+"},
-          ],
+          "--tag": {
+            "_params": [
+              {"a": "A", "b": "B", "_quantifier": "+"},
+            ],
+          },
         },
       },
     }
