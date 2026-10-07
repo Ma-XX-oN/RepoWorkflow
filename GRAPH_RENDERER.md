@@ -243,6 +243,16 @@ relationship.
 Unrelated paths may cross without becoming a junction.  Horizontal geometry is
 visually dominant at an unrelated horizontal/vertical crossing.
 
+Endpoint identity alone does not create a junction.  Two same-source or
+same-target routes form an intentional switch only where their routed
+contributions share at least one actual direction in the cell.  A purely
+perpendicular same-source or same-target overlap remains a crossing rather than
+a branch or merge.  Bundle identity remains an explicit junction contract.
+
+This distinction is required to prevent a private dogleg or long-route crossing
+from becoming a false semantic branch merely because the two edges happen to
+share an endpoint elsewhere.
+
 A successful route must retain the identity of each original semantic edge.
 
 ## 14. Route quality
