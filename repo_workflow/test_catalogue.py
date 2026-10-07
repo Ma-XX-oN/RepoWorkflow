@@ -37,6 +37,21 @@ class TestCatalogue:
         raise TestCatalogueError(f"unknown test alias: {name}") from error
     return tuple(sorted(groups))
 
+  def verification_groups(self, required_groups, aliases=()) -> tuple[str, ...]:
+    if isinstance(required_groups, str):
+      required_groups = (required_groups,)
+    required = tuple(required_groups)
+    selected: set[str] = set()
+    for group in required:
+      if not isinstance(group, str) or not group:
+        raise TestCatalogueError("required group names must be non-empty strings")
+      if group not in self.groups:
+        raise TestCatalogueError(f"unknown required test group: {group}")
+      selected.add(group)
+    selected.update(self.expand_aliases(aliases))
+    return tuple(sorted(selected))
+
+
 
 def _group_keys(tests: object) -> frozenset[str]:
   if not isinstance(tests, list):
