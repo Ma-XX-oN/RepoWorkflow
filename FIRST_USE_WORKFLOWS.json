@@ -129,6 +129,7 @@
       ],
       "tests": [
         "tests/test_first_use_lanes.py",
+        "tests/test_lane_component_selection_cli.py",
         "tests/test_real_provider_lane_certification.py"
       ],
       "acceptance": [
@@ -270,6 +271,16 @@
           ]
         },
         {
+          "id": "DL-21",
+          "requirement": "lane selection arguments are focus seeds: synchronized selection expands to the complete dependency-connected component while only explicit seeds receive the * marker",
+          "verification": [
+            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_selected_prerequisite_expands_to_complete_connected_component",
+            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
+            "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component"
+          ]
+        },
+        {
           "id": "DL-17",
           "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data: local repeated inspection performs zero provider reads, explicit refresh performs provider reads, list/view surfaces remain distinct, and displayed renderer routes preserve canonical dependency reachability",
           "verification": [
@@ -341,6 +352,7 @@
         "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17",
+        "focus_seed_component_expansion": "DL-21",
         "route_quality_refinement": "DL-18",
         "forced_colour_backend_contract": "DL-18",
         "reachability_preserving_display_reduction": "DL-19",

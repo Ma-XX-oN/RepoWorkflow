@@ -26,6 +26,34 @@ class LaneDecompositionTests(unittest.TestCase):
       ("A", ("1", "2", "3")),
     ])
 
+  def test_selected_prerequisite_expands_to_complete_connected_component(self):
+    value = graph({
+      1: (), 2: (1,), 3: (1,), 4: (2, 3), 5: (4,), 9: ()
+    })
+    plan = decompose_lanes(value, [1])
+    self.assertEqual(plan.selected, ("1",))
+    self.assertEqual(plan.closure, ("1", "2", "3", "4", "5"))
+    self.assertEqual(
+      {issue for lane in plan.lanes for issue in lane.issues},
+      {"1", "2", "3", "4", "5"},
+    )
+    self.assertNotIn("9", plan.closure)
+
+  def test_middle_seed_expands_both_dependency_directions(self):
+    value = graph({1: (), 2: (1,), 3: (2,), 4: (3,)})
+    plan = decompose_lanes(value, [2])
+    self.assertEqual(plan.selected, ("2",))
+    self.assertEqual(plan.closure, ("1", "2", "3", "4"))
+
+  def test_multiple_seeds_union_disconnected_components(self):
+    value = graph({
+      1: (), 2: (1,), 3: (), 4: (3,), 5: ()
+    })
+    plan = decompose_lanes(value, [1, 4])
+    self.assertEqual(plan.selected, ("1", "4"))
+    self.assertEqual(plan.closure, ("1", "2", "3", "4"))
+    self.assertNotIn("5", plan.closure)
+
   def test_independent_leaves_are_distinct_lanes(self):
     value = graph({1: (), 2: (), 3: ()})
     plan = decompose_lanes(value, [3, 1, 2])

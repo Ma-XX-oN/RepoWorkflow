@@ -8,11 +8,12 @@ inspection.
 The canonical synchronized ticket state is the operational dependency source
 between synchronization boundaries.
 
-Without `--refresh`, lane selection traverses known canonical nodes locally.
-The ticket dependency provider is queried only when a requested node or a
-dependency reached from a known node is absent from synchronized ticket state.
+Without `--refresh`, lane selection discovers the complete connected component
+from known canonical nodes locally.  The ticket dependency provider is queried
+only when a requested node or a prerequisite reached while acquiring missing
+state is absent from synchronized ticket state.
 
-Repeated selection of the same known closure therefore performs no dependency
+Repeated selection of the same known component therefore performs no dependency
 provider reads.
 
 `lanes select remove` is entirely local without `--refresh`.
@@ -22,12 +23,12 @@ provider reads.
 `--refresh` is the explicit provider reread boundary for lane commands.
 
 For selection mutations, refresh scope is the requested or resulting selected
-closure.  It is not a repository-wide crawl.
+connected component.  It is not a repository-wide crawl.
 
 During refresh:
 
-- provider dependencies are reread for every node reached in the relevant
-  closure;
+- provider dependencies are reread for every currently known node in the
+  relevant connected component;
 - identical local/provider sets are idempotent;
 - an empty local set may be populated from a non-empty provider set;
 - differing non-empty sets fail closed and require explicit dependency
@@ -45,7 +46,7 @@ configured dependency provider for that node, validates the result, adds the
 node atomically to canonical state, and continues through any newly discovered
 missing dependencies.
 
-Known portions of the closure are reused without rereading the provider.
+Known portions of the component are reused without rereading the provider.
 
 ## 4. Authority and failure
 
@@ -64,11 +65,11 @@ prove at the public CLI boundary:
 
 - first acquisition performs provider reads for missing nodes;
 - identical repeated selection performs zero new provider reads;
-- adding a root reads only newly missing nodes;
+- adding a focus seed reads only newly missing prerequisite nodes;
 - removing a root performs zero provider reads by default;
 - restart preserves cache reuse;
 - cached selection succeeds when the provider is unavailable;
-- `--refresh` rereads only the relevant closure;
+- `--refresh` rereads only the relevant connected component;
 - refresh conflict/provider failure leaves ticket state and selection unchanged;
 - remove-refresh excludes removed-only nodes;
 - provider fixtures conform to the independently verified adapter contract.

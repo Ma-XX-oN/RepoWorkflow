@@ -150,18 +150,18 @@ COMMANDS = {
     "select": {
       "_variadic": {
         "min": 1,
-        "description": "Issue roots, optionally followed by --refresh/--json",
+        "description": "Issue focus seeds, optionally followed by --refresh/--json",
       },
       "add": {
         "_variadic": {
           "min": 1,
-          "description": "Issue roots, optionally followed by --refresh/--json",
+          "description": "Issue focus seeds, optionally followed by --refresh/--json",
         },
       },
       "remove": {
         "_variadic": {
           "min": 1,
-          "description": "Issue roots, optionally followed by --refresh/--json",
+          "description": "Issue focus seeds, optionally followed by --refresh/--json",
         },
       },
     },
