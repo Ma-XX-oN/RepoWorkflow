@@ -4,11 +4,15 @@ Issue #14 extends the validation design toward a static, language-agnostic test
 catalogue.  This subsection records the settled design decisions reached so far;
 the complete schema and TDD policy remain under design and are not frozen here.
 
-The catalogue has two top-level collections: `test-harnesses` and `tests`.
-`test-harnesses` is the Rosetta dictionary.  Each key names a harness and its
-value describes how native test targets are translated into process arguments.
-`tests` is an array of test declaration objects.  Each declaration selects a
-Rosetta entry with `test-harness` and maps RWF group keys to native targets.
+The authoritative repository catalogue is `.ci/tests.json`.
+
+The catalogue has three top-level collections: `test-harnesses`, `tests`,
+and `aliases`.  `test-harnesses` is the Rosetta dictionary.  Each key names
+a harness and its value describes how native test targets are translated into
+process arguments.  `tests` is an array of test declaration objects.  Each
+declaration selects a Rosetta entry with `test-harness` and maps RWF group
+keys to native targets.  `aliases` maps semantic section names to canonical
+group keys already declared under `tests`.
 
 For example:
 
@@ -36,9 +40,22 @@ For example:
         "name": "parser_null_input"
       }
     }
-  ]
+  ],
+  "aliases": {
+    "parser": [
+      "issue-123-empty-input",
+      "issue-123-null-input"
+    ]
+  }
 }
 ```
+
+Alias names are semantic coverage sections, not executable groups.  Alias members
+must name canonical group keys declared in `tests`; an unknown member fails the
+catalogue closed.  Aliases do not reference other aliases, so expansion is
+one-level and deterministic.  Multiple aliases expand by set union and duplicate
+group keys collapse to one selected group.  Alias membership does not imply
+complete regression coverage.
 
 The group key is the RWF identity.  `name` is the native test target understood
 by the selected harness.  `type` describes the RWF validation role, such as
