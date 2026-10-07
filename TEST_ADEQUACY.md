@@ -176,15 +176,46 @@ coverage. High structural coverage can still execute the wrong behaviour.
 
 ## 9. Defect-fix discipline
 
-For a defect fix:
+Every bug investigation must maintain an explicit experiment log using this
+cycle:
 
-1. reproduce the defect with a failing test or other objective evidence;
-2. identify the violated requirement/invariant and root cause;
-3. apply the fix;
+```text
+Problem
+  State the observed defect precisely, including objective failure evidence.
+
+Hypothesis
+  State one concrete explanation for the defect that the next action can test.
+
+Action
+  Perform the smallest useful diagnostic or corrective action that tests that
+  hypothesis.
+
+Learning
+  Record what the action proved, disproved, or left unresolved before choosing
+  the next hypothesis/action.
+```
+
+Repeat the cycle as needed.  Do not skip directly from a symptom to an
+implementation change without recording the hypothesis being tested and what
+the result established.  If an action does not distinguish between competing
+explanations, refine the action before relying on its result.
+
+For every defect fix:
+
+1. reproduce the defect with a failing test or other objective evidence and
+   record it as the initial Problem;
+2. identify the violated requirement/invariant and investigate the root cause
+   through explicit Hypothesis -> Action -> Learning cycles;
+3. apply the fix only after the evidence identifies the defect mechanism with
+   sufficient confidence;
 4. run confirmation testing that proves the original defect is corrected;
 5. run relevant regression testing;
 6. normally retain a regression test that would fail if the defect returns;
 7. examine whether the escape reveals a reusable process/test improvement.
+
+The experiment log is required for all bug resolution work, not only renderer
+or high-risk defects.  Its level of detail may scale with the complexity of the
+bug, but the four fields and evidence-driven progression remain required.
 
 An escaped defect is evidence about both the product and the verification
 process. Fixing only the local code without examining the systemic testing gap
