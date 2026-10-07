@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "purpose": "Bind current renderer certification to material graph and routing inputs.",
+  "issue": 447,
+  "material_inputs": {
+    ".repoworkflow/tickets.csv": "98e12a0ae0198280770c7a958bd5a7ccf5aa5424",
+    "repo_workflow/lane_decomposition.py": "40710929f20d6f356ade118c06aff7b6e8405996",
+    "repo_workflow/lane_graph_adapter.py": "cce805001e26a60db3323ea498ad882b685c6456",
+    "repo_workflow/graph_render.py": "8bf3a39063df41188282f97bc4802eefe69a7276",
+    "repo_workflow/graph_render_model.py": "e9becfee8b5d3310627aba3e7463bc6b452040b9",
+    "repo_workflow/graph_render_types.py": "d17e9d1c48603d949ede9b31b4c7d396b786238c",
+    "repo_workflow/graph_layout.py": "d0da808a58eb7b072003c587660d6c3f412a7bf6",
+    "repo_workflow/graph_geometry.py": "450b151e8d145215f3ca925ee7220145ffadfdca",
+    "repo_workflow/graph_long_routes.py": "233cf849c87ee8e0377e3dbd65465bf39ca7e8f2",
+    "repo_workflow/graph_ordering.py": "614e0693fc3af217cf58b4ff52d5ddaecb6011bc",
+    "repo_workflow/graph_boundary_plan.py": "e3d8e7051d622305ff2886e5ea6596c11ee0b048",
+    "repo_workflow/graph_boundary_order.py": "91ddb8c351e522cb0c7633d0c98b0c43210743fe",
+    "repo_workflow/graph_routing.py": "6f0da018144df872e3c20cdde7078c697d8b9cd9"
+  }
+}
