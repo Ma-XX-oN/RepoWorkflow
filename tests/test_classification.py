@@ -14,7 +14,7 @@ class ClassificationTests(unittest.TestCase):
   def policy(self):
     return {
       "docs": {
-        "paths": ["**/*.md", "docs/**", "VERSION"],
+        "paths": ["**/*.md", "docs/**", ".gitignore", "VERSION"],
         "validation": "fast",
       }
     }
