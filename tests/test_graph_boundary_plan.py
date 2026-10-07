@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import unittest
 
-from repo_workflow.graph_boundary_plan import dogleg_edges, long_bridge_edges
+from repo_workflow.graph_boundary_plan import (
+  dogleg_edges,
+  dogleg_route_rows,
+  long_bridge_edges,
+)
 from repo_workflow.graph_render_model import Graph, GraphSiblings, ValidatedGraph
 from repo_workflow.graph_render_types import Placement, SemanticEdge
 
@@ -78,6 +82,39 @@ class BoundaryPlanTests(unittest.TestCase):
       dogleg_edges(validated, (item,), placements, set()),
       {item.key},
     )
+
+  def test_different_row_dogleg_uses_source_row(self):
+    item = edge("A", "B")
+    placements = {
+      "A": Placement(0, 3),
+      "B": Placement(1, 7),
+    }
+
+    self.assertEqual(
+      dogleg_route_rows((item,), {item.key}, placements, 7),
+      {item.key: 3},
+    )
+
+  def test_same_row_doglegs_receive_distinct_private_rows(self):
+    first = edge("A", "B")
+    second = edge("C", "D")
+    placements = {
+      "A": Placement(0, 2),
+      "B": Placement(1, 2),
+      "C": Placement(0, 4),
+      "D": Placement(1, 4),
+    }
+
+    rows = dogleg_route_rows(
+      (first, second),
+      {first.key, second.key},
+      placements,
+      4,
+    )
+
+    self.assertEqual(set(rows.values()), {5, 6})
+    self.assertEqual(rows[first.key], 5)
+    self.assertEqual(rows[second.key], 6)
 
   def test_long_fan_in_only_edge_requires_endpoint_separation(self):
     item = edge("A", "D")
