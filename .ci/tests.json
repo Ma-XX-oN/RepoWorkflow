@@ -27,6 +27,10 @@
       "invariant-self-ci-contract": {
         "type": "invariant",
         "name": "tests.test_self_ci"
+      },
+      "issue-477-risk-scoped-ci": {
+        "type": "regression",
+        "name": "tests.test_risk_scoped_ci_certification"
       }
     }
   ],
