@@ -46,14 +46,27 @@ def route_long_edges(
   states = 0
   fallback_rows = len(edges) + len(used_rows) + 3
 
+  def compatible_rows(
+    edge: SemanticEdge,
+    current_used: dict[int, list[SemanticEdge]],
+  ) -> tuple[int, ...]:
+    return long_route_candidates(
+      edge,
+      placements,
+      max_node_row,
+      current_used,
+      lambda row: 0,
+      fallback_rows=fallback_rows,
+    )
+
   def search(
-    index: int,
+    remaining: tuple[SemanticEdge, ...],
     current_cells: dict[tuple[int, int], list[Contribution]],
     current_routes: list[RouteRecord],
     current_used: dict[int, list[SemanticEdge]],
   ):
     nonlocal states
-    if index == len(edges):
+    if not remaining:
       return current_cells, current_routes
     if states >= _MAX_STATES:
       raise GraphLayoutError(
@@ -61,7 +74,20 @@ def route_long_edges(
         f"{_MAX_STATES} candidate states"
       )
 
-    edge = edges[index]
+    available_by_edge = {
+      edge.key: compatible_rows(edge, current_used)
+      for edge in remaining
+    }
+    if any(not rows for rows in available_by_edge.values()):
+      return None
+
+    edge = min(
+      remaining,
+      key=lambda item: (
+        len(available_by_edge[item.key]),
+        item.key,
+      ),
+    )
     source_item, target_item = _route_items(edge, long_bridges)
     candidates = long_route_candidates(
       edge,
@@ -81,8 +107,18 @@ def route_long_edges(
       ),
       fallback_rows=fallback_rows,
     )
+    next_remaining = tuple(
+      item
+      for item in remaining
+      if item is not edge
+    )
     for row in candidates:
       states += 1
+      if states > _MAX_STATES:
+        raise GraphLayoutError(
+          "bounded long-route search exhausted "
+          f"{_MAX_STATES} candidate states"
+        )
       if not long_route_candidate_valid(
         edge,
         row,
@@ -134,8 +170,16 @@ def route_long_edges(
       }
       next_used.setdefault(row, []).append(edge)
 
+      # Forward-check row compatibility before invoking another semantic
+      # candidate validation.
+      if any(
+        not compatible_rows(item, next_used)
+        for item in next_remaining
+      ):
+        continue
+
       result = search(
-        index + 1,
+        next_remaining,
         next_cells,
         next_routes,
         next_used,
@@ -144,7 +188,7 @@ def route_long_edges(
         return result
     return None
 
-  result = search(0, cells, routes, used_rows)
+  result = search(tuple(edges), cells, routes, used_rows)
   if result is None:
     edge_text = ", ".join(
       f"{edge.source}->{edge.target}"
