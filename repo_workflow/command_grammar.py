@@ -78,7 +78,6 @@ def _validate_value_source(value: object, label: str) -> None:
     raise CommandGrammarError(f"{label} must be a callable completion provider")
 def default_on_tab(request: CompletionRequest) -> CompletionResponse:
   return request.default()
-
 @dataclass(frozen=True)
 class ResolvedCompletionSpec:
   entries: dict[str, CommandEntry]
@@ -109,7 +108,6 @@ class ResolvedCompletionSpec:
       self._items(prefix),
       describe,
     )
-
 def validate_node(node: object, *, label: str = "COMMANDS") -> None:
   if not isinstance(node, dict):
     raise CommandGrammarError(f"{label} must be a dictionary")
@@ -143,7 +141,6 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
       validate_description(entry, f"{label}[{token!r}]")
     else:
       validate_node(entry, label=f"{label}[{token!r}]")
-
 def _validate_completion_entries(
   value: object,
   *,
@@ -179,7 +176,6 @@ def _validate_completion_entries(
         raise CommandGrammarError(f"dynamic command token collides with {token!r}")
       entries[token] = entry
   return entries, frozenset(values)
-
 def _validate_completion_spec(
   value: object,
   *,
@@ -205,14 +201,12 @@ def _validate_completion_spec(
     raise CommandGrammarError(f"{label}[{ON_TAB!r}] must be callable")
   return ResolvedCompletionSpec(entries, values, handler, context)
 
-
 def completion_spec(node: dict, context: Context) -> ResolvedCompletionSpec:
   source = node.get(VALUES)
   if source is None:
     return ResolvedCompletionSpec({}, frozenset(), default_on_tab, context)
   _validate_value_source(source, VALUES)
   return _validate_completion_spec(source(context), context=context)
-
 
 def _resolved_switches(node: dict, context: Context) -> dict:
   source = node.get(SWITCHES, {})
@@ -221,7 +215,6 @@ def _resolved_switches(node: dict, context: Context) -> dict:
     raise CommandGrammarError(f"{SWITCHES} provider must return a dictionary")
   validate_switches(value, SWITCHES)
   return value
-
 
 def _resolved_node(
   node: dict,
@@ -240,7 +233,6 @@ def _resolved_node(
     )
   entries.update(spec.entries)
   return entries, spec.values, spec
-
 
 def next_entries(
   node: dict,
