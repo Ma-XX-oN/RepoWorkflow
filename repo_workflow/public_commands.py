@@ -208,6 +208,8 @@ def _workspace_commands() -> dict:
 # - A quantifier inside a "_params" position controls that parameter position.
 # - A quantifier beside "_params" controls occurrences of that switch.
 # - A quantifier beside "_ordered" controls repetitions of that full sequence.
+# - A quantifier beside terminal command alternatives controls an unordered
+#   choice group; repeated multi-token structures use "_ordered".
 # - Quantifier notation is regex-style: ?, *, +, {n}, {n,}, {n,m}.
 
 COMMANDS = {
