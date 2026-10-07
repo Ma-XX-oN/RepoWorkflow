@@ -42,6 +42,7 @@ class RendererCertificationBindingTests(unittest.TestCase):
       "repo_workflow/graph_layout.py",
       "repo_workflow/graph_geometry.py",
       "repo_workflow/graph_long_routes.py",
+      "repo_workflow/graph_long_plan.py",
       "repo_workflow/graph_ordering.py",
       "repo_workflow/graph_boundary_plan.py",
       "repo_workflow/graph_boundary_order.py",
