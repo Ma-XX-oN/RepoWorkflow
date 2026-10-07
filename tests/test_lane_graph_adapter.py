@@ -7,6 +7,7 @@ from repo_workflow.lane_graph_adapter import (
   make_lane_formatter,
   project_lane_graph,
 )
+from repo_workflow.graph_render import render_graph
 from repo_workflow.graph_render_model import FormatEntry, validate_graph
 from repo_workflow.lane_selection import LaneSelection
 from repo_workflow.relationship_store import RelationshipStore
@@ -227,6 +228,40 @@ class LaneGraphAdapterTests(unittest.TestCase):
       display_width=len,
     )
     validate_graph(projection.graph)
+    render_graph(projection.graph)
+
+  def test_fan_out_fan_in_bridge_does_not_create_false_reachability(self):
+    graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(),
+      "3": relation(),
+      "4": relation(1, 2),
+      "5": relation(2),
+      "6": relation(2),
+    })
+    selection = LaneSelection(
+      roots=("4", "5", "6"),
+      closure=("1", "2", "3", "4", "5", "6"),
+      graph_revision=1,
+      assignment={
+        "1": "A",
+        "2": "B",
+        "3": "C",
+        "4": "A",
+        "5": "B",
+        "6": "C",
+      },
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      {"1", "2", "4", "5", "6"},
+      self.metadata(1, 2, 4, 5, 6),
+      lane_colours={"A": RED, "B": BLUE, "C": GREY},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    render_graph(projection.graph)
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={
