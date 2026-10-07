@@ -1,6 +1,7 @@
 from pathlib import Path
 import unittest
 
+from repo_workflow.public_commands import COMMANDS
 from repo_workflow.command_grammar import (
   CommandGrammarError,
   Context,
@@ -467,6 +468,27 @@ class CommandGrammarTests(unittest.TestCase):
   def test_variadic_is_not_a_supported_grammar_item(self):
     with self.assertRaisesRegex(CommandGrammarError, "_variadic"):
       validate_node({"x": {"_variadic": {"min": 1}}})
+
+  def test_public_quantified_commands_parse_real_cli_shapes(self):
+    context = Context(Path("."), legal_only=False)
+    cases = (
+      ["lanes", "select", "5", "6", "--refresh", "--json"],
+      ["lanes", "select", "add", "7", "--json"],
+      ["lanes", "select", "remove", "8", "--refresh"],
+      ["lanes", "list", "A", "--links", "--refresh"],
+      ["lanes", "view", "--debug", "A", "--refresh"],
+      ["issue", "list", "54", "64", "9", "--links"],
+      ["what-next", "--json"],
+      ["version", "--json"],
+    )
+    for words in cases:
+      with self.subTest(words=words):
+        self.assertEqual(parse_tokens(COMMANDS, context, words), tuple(words))
+
+  def test_public_subcommands_cannot_follow_consumed_values(self):
+    context = Context(Path("."), legal_only=False)
+    with self.assertRaises(CommandGrammarError):
+      parse_tokens(COMMANDS, context, ["lanes", "select", "5", "add", "6"])
 
 
 if __name__ == "__main__":
