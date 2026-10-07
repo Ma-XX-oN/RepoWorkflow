@@ -52,6 +52,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
   boundary_items = _boundary_items(
     edges,
     placements,
+    columns,
+    validated,
     group_rank,
     bundle_relations,
   )
@@ -370,6 +372,8 @@ def _bundle_item_key(
 def _boundary_items(
   edges: tuple[SemanticEdge, ...],
   placements: dict[str, Placement],
+  columns: dict[int, Column],
+  validated: ValidatedGraph,
   ranks: dict[GraphSiblings, int],
   bundle_relations: set[
     tuple[GraphSiblings, GraphSiblings]
@@ -412,6 +416,9 @@ def _boundary_items(
       boundary,
       edges,
       placements,
+      columns,
+      validated,
+      bundle_relations,
       bundled,
     )
     for boundary in range(max_column)
