@@ -12,10 +12,8 @@ from repo_workflow.graph_render_types import (
   GraphLayoutError,
   SemanticEdge,
 )
-from repo_workflow.graph_route_semantics import (
-  _switch_edges,
-  simple_path,
-)
+from repo_workflow.graph_route_interactions import switch_edges_for_cell
+from repo_workflow.graph_route_path import simple_path
 
 
 def plain(text: str) -> str:
@@ -78,7 +76,7 @@ class GraphRouteSemanticTests(unittest.TestCase):
     left = edge("S", "A")
     down = edge("S", "B")
     self.assertEqual(
-      _switch_edges((
+      switch_edges_for_cell((
         Contribution(left, _L | _R),
         Contribution(down, _U | _D),
       )),
@@ -89,7 +87,7 @@ class GraphRouteSemanticTests(unittest.TestCase):
     left = edge("A", "T")
     down = edge("B", "T")
     self.assertEqual(
-      _switch_edges((
+      switch_edges_for_cell((
         Contribution(left, _L | _R),
         Contribution(down, _U | _D),
       )),
@@ -100,7 +98,7 @@ class GraphRouteSemanticTests(unittest.TestCase):
     first = edge("S", "A")
     second = edge("S", "B")
     self.assertEqual(
-      _switch_edges((
+      switch_edges_for_cell((
         Contribution(first, _L | _R),
         Contribution(second, _R | _D),
       )),
@@ -111,7 +109,7 @@ class GraphRouteSemanticTests(unittest.TestCase):
     first = edge("A", "T")
     second = edge("B", "T")
     self.assertEqual(
-      _switch_edges((
+      switch_edges_for_cell((
         Contribution(first, _L | _R),
         Contribution(second, _L | _U),
       )),
@@ -123,7 +121,7 @@ class GraphRouteSemanticTests(unittest.TestCase):
     second = edge("B", "Y")
     bundle = (1, 2)
     self.assertEqual(
-      _switch_edges((
+      switch_edges_for_cell((
         Contribution(first, _L | _R, bundle),
         Contribution(second, _U | _D, bundle),
       )),
