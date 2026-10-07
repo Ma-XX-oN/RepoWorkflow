@@ -36,18 +36,10 @@ class RendererCertificationBindingTests(unittest.TestCase):
       ".repoworkflow/tickets.csv",
       "repo_workflow/lane_decomposition.py",
       "repo_workflow/lane_graph_adapter.py",
-      "repo_workflow/graph_render_model.py",
-      "repo_workflow/graph_render.py",
-      "repo_workflow/graph_render_types.py",
-      "repo_workflow/graph_layout.py",
-      "repo_workflow/graph_geometry.py",
-      "repo_workflow/graph_route_semantics.py",
-      "repo_workflow/graph_long_routes.py",
-      "repo_workflow/graph_long_plan.py",
-      "repo_workflow/graph_ordering.py",
-      "repo_workflow/graph_boundary_plan.py",
-      "repo_workflow/graph_boundary_order.py",
-      "repo_workflow/graph_routing.py",
+      *{
+        str(path.relative_to(ROOT))
+        for path in (ROOT / "repo_workflow").glob("graph_*.py")
+      },
     }
     self.assertTrue(required <= paths)
 
