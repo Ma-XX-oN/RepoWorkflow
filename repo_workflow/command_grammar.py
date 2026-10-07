@@ -202,6 +202,11 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
 
 def _validate_finished(state: WalkState, context: Context) -> None:
   node = state.node
+  for token, entry in resolved_switches(node, context).items():
+    count = state.switch_counts.get(token, 0)
+    bounds = switch_quantifier(entry)
+    if count and count < bounds.minimum:
+      raise CommandGrammarError(f"switch occurrences are incomplete: {token}")
   if state.pending_slot is not None:
     bounds = parse_quantifier(
       state.pending_slot.get(QUANTIFIER),
