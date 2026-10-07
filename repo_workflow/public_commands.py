@@ -58,11 +58,11 @@ def _validate_commands(context: Context) -> dict:
   return {"completions": fragments}
 
 
-def _issue_number(context: Context) -> dict:
+def _issue_number(context: Context) -> list[str]:
   token = context.current_token
   if token and token.isdecimal():
-    return {"completions": [token]}
-  return {"completions": []}
+    return [token]
+  return []
 
 
 def _lane_name(context: Context) -> list[str]:
@@ -112,15 +112,14 @@ def _issue_sync_target(context: Context) -> dict:
   return {"completions": []}
 
 
-def _workspace_ids(context: Context) -> dict:
+def _workspace_ids(context: Context) -> list[str]:
   try:
-    values = [
+    return [
       workspace["workspace_id"]
       for workspace in WorkspaceStore(context.root).list_workspaces()
     ]
   except Exception:
-    values = []
-  return {"completions": values}
+    return []
 
 
 def _workspace_value() -> dict:
