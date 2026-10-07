@@ -172,6 +172,92 @@ class LifecycleStoreTests(unittest.TestCase):
     with self.assertRaisesRegex(LifecycleError, "true exactly for completed"):
       IssueLifecycle.from_json_value(value)
 
+  def test_schema_one_reads_with_empty_high_risk_aliases(self):
+    value = {
+      "schema_version": 1,
+      "issue": "1",
+      "state": "unstarted",
+      "dependency_satisfied": False,
+      "relationship_revision": None,
+      "history": [],
+    }
+    lifecycle = IssueLifecycle.from_json_value(value)
+    self.assertEqual(lifecycle.high_risk_aliases, ())
+    self.assertEqual(lifecycle.schema_version, 2)
+
+  def test_high_risk_aliases_round_trip_with_lifecycle(self):
+    started = self.transition(1, "start", None)
+    updated = self.store.set_high_risk_aliases(
+      1,
+      ["graph-renderer", "command-grammar", "graph-renderer"],
+      self.writer,
+      started.revision,
+    )
+    self.assertEqual(
+      updated.lifecycle.high_risk_aliases,
+      ("command-grammar", "graph-renderer"),
+    )
+    self.assertEqual(updated.lifecycle.state, "active")
+    self.assertEqual(updated.lifecycle.history, started.lifecycle.history)
+    self.assertEqual(self.store.read(1), updated)
+
+  def test_lifecycle_transition_preserves_high_risk_aliases(self):
+    started = self.transition(1, "start", None)
+    tagged = self.store.set_high_risk_aliases(
+      1,
+      ["command-grammar"],
+      self.writer,
+      started.revision,
+    )
+    accepted = self.transition(1, "accept", tagged.revision)
+    self.assertEqual(accepted.lifecycle.high_risk_aliases, ("command-grammar",))
+
+  def test_high_risk_alias_replacement_is_deterministic(self):
+    started = self.transition(1, "start", None)
+    first = self.store.set_high_risk_aliases(
+      1,
+      ["b", "a"],
+      self.writer,
+      started.revision,
+    )
+    second = self.store.set_high_risk_aliases(
+      1,
+      ["a", "b", "a"],
+      self.writer,
+      first.revision,
+    )
+    self.assertEqual(first.lifecycle.high_risk_aliases, ("a", "b"))
+    self.assertEqual(second.lifecycle.high_risk_aliases, ("a", "b"))
+
+  def test_stale_high_risk_alias_write_fails_without_mutation(self):
+    started = self.transition(1, "start", None)
+    current = self.store.set_high_risk_aliases(
+      1,
+      ["a"],
+      self.writer,
+      started.revision,
+    )
+    with self.assertRaisesRegex(LifecycleError, "stale lifecycle revision"):
+      self.store.set_high_risk_aliases(
+        1,
+        ["b"],
+        self.writer,
+        started.revision,
+      )
+    self.assertEqual(self.store.read(1), current)
+
+  def test_invalid_high_risk_aliases_fail_closed(self):
+    started = self.transition(1, "start", None)
+    for aliases in ([""], [" bad"], [1], "alias"):
+      with self.subTest(aliases=aliases):
+        with self.assertRaises(LifecycleError):
+          self.store.set_high_risk_aliases(
+            1,
+            aliases,
+            self.writer,
+            started.revision,
+          )
+
   def test_issue_ids_are_canonical(self):
     for issue in (0, "0", "01", -1, True):
       with self.subTest(issue=issue):
