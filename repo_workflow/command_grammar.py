@@ -38,19 +38,16 @@ class Context:
     if 0 <= self.index < len(self.words):
       return self.words[self.index]
     return ""
-
 @dataclass(frozen=True)
 class Completion:
   token: str
   description: str | None
   bare_value: bool = False
-
 @dataclass(frozen=True)
 class CompletionResponse:
   items: tuple[Completion, ...] = ()
   error: str | None = None
   append_space: bool = True
-
 @dataclass(frozen=True)
 class CompletionRequest:
   context: Context
@@ -69,7 +66,6 @@ CommandEntry: TypeAlias = str | dict
 DynamicCommand: TypeAlias = dict[str, CommandEntry]
 CompletionEntry: TypeAlias = str | DynamicCommand
 ValueProvider: TypeAlias = Callable[[Context], object]
-
 @dataclass
 class WalkState:
   node: dict
@@ -77,14 +73,11 @@ class WalkState:
   switch_counts: dict[str, int]
   pending_slot: dict | None = None
   pending_slot_count: int = 0
-
 def _validate_value_source(value: object, label: str) -> None:
   if not callable(value):
     raise CommandGrammarError(f"{label} must be a callable completion provider")
-
 def default_on_tab(request: CompletionRequest) -> CompletionResponse:
   return request.default()
-
 
 @dataclass(frozen=True)
 class ResolvedCompletionSpec:
@@ -116,7 +109,6 @@ class ResolvedCompletionSpec:
       self._items(prefix),
       describe,
     )
-
 
 def validate_node(node: object, *, label: str = "COMMANDS") -> None:
   if not isinstance(node, dict):
@@ -151,7 +143,6 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
       validate_description(entry, f"{label}[{token!r}]")
     else:
       validate_node(entry, label=f"{label}[{token!r}]")
-
 
 def _validate_completion_entries(
   value: object,
@@ -188,7 +179,6 @@ def _validate_completion_entries(
         raise CommandGrammarError(f"dynamic command token collides with {token!r}")
       entries[token] = entry
   return entries, frozenset(values)
-
 
 def _validate_completion_spec(
   value: object,
