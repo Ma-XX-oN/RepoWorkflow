@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .graph_quality import long_route_row_score
-from .graph_render_types import Placement, SemanticEdge
+from .graph_render_types import GraphLayoutError, Placement, SemanticEdge
 
 
 def choose_long_route_row(
@@ -41,7 +41,10 @@ def choose_long_route_row(
     )
   ]
   if not available:
-    raise ValueError("no bounded long-route row candidate is available")
+    raise GraphLayoutError(
+      f"no bounded long-route row candidate is available for "
+      f"{edge.source!r} -> {edge.target!r}"
+    )
 
   ordered = sorted(
     available,
@@ -57,8 +60,9 @@ def choose_long_route_row(
   for row in ordered:
     if candidate_valid is None or candidate_valid(row):
       return row
-  raise ValueError(
-    "no semantically valid bounded long-route row candidate is available"
+  raise GraphLayoutError(
+    "no semantically valid bounded long-route row candidate is available "
+    f"for {edge.source!r} -> {edge.target!r}"
   )
 
 
