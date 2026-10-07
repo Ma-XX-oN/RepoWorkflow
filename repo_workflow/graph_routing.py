@@ -16,6 +16,10 @@ def edge_item_key(edge: SemanticEdge) -> tuple:
   return "edge", edge.source, edge.target
 
 
+def bundle_item_key(source, target) -> tuple:
+  return "bundle", tuple(sorted(source.nodes)), tuple(sorted(target.nodes))
+
+
 def dogleg_source_key(edge: SemanticEdge) -> tuple:
   return "dogleg-source", edge.source, edge.target
 
