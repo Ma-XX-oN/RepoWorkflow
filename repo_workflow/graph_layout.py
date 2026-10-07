@@ -181,6 +181,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
     tracks=track_x,
     max_node_row=max_node_row,
     used_rows=used_long_rows,
+    long_bridges=long_bridge_edges,
   )
 
   ordered_routes = tuple(
