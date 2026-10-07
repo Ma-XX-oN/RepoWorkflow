@@ -108,6 +108,8 @@ def order_boundary_items(
       best_order = full_order
 
   consider(active_base, errors=base_errors)
+  if best_score is not None and best_score[:3] == (0, 0, 0):
+    return best_order
   if len(active_base) <= 1:
     if best_order is not None:
       return best_order
@@ -129,6 +131,8 @@ def order_boundary_items(
         seen.add(ordered)
         checked += 1
         consider(ordered)
+        if best_score is not None and best_score[:3] == (0, 0, 0):
+          return best_order
         if checked >= _MAX_CANDIDATES:
           break
         pending.append(ordered)
