@@ -27,13 +27,38 @@ class SelfCiTests(unittest.TestCase):
     )
     self.assertIn("^[0-9]+\\.[0-9]+\\.[0-9]+$", text)
 
-  def test_docs_only_changes_skip_expensive_argv_probe(self):
+  def test_docs_only_changes_skip_all_code_testing_jobs(self):
     text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
       encoding="utf-8"
     )
     self.assertIn("python repo_workflow.py classify --base", text)
-    self.assertIn("needs: classify", text)
-    self.assertIn("needs.classify.outputs.validation != 'fast'", text)
+
+    gated_jobs = (
+      "validate",
+      "argv-limits",
+      "graph-renderer-platform",
+      "ticket-merge-platform",
+    )
+    for job in gated_jobs:
+      start = text.index(f"  {job}:")
+      following = text.find("\n  ", start + 3)
+      block = text[start:] if following == -1 else text[start:following]
+      self.assertIn("needs: classify", block)
+      self.assertIn(
+        "needs.classify.outputs.validation != 'fast'",
+        block,
+      )
+
+  def test_docs_only_main_push_can_release_without_code_validation(self):
+    text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
+      encoding="utf-8"
+    )
+    start = text.index("  release:")
+    block = text[start:]
+    self.assertIn("needs: [classify, validate]", block)
+    self.assertIn("always()", block)
+    self.assertIn("needs.classify.outputs.validation == 'fast'", block)
+    self.assertIn("needs.validate.result == 'success'", block)
 
 
 if __name__ == "__main__":
