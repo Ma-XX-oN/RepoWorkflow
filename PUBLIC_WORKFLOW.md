@@ -361,6 +361,26 @@ requirement.  Automated integration runners may record their own results.
 Partial validation contributes reusable evidence but does not bypass missing
 required coverage.
 
+### 10.1 CI validation tiers
+
+Hosted Self CI uses the same validation hierarchy:
+
+- issue PRs run the issue-owned catalogue groups, durable high-risk alias
+  groups, and cheap invariant groups;
+- regression runs broad repository validation without the integration-only
+  platform matrix;
+- integration runs broad validation plus the authoritative platform/provider
+  matrix;
+- documentation-only changes retain the fast path.
+
+Regression is selected explicitly when a dependency-complete umbrella outcome
+is ready or when broader risk warrants it.  RepoWorkflow does not infer
+umbrella semantics from Initiative/Epic/Feature title prefixes.
+
+Authoritative `main` pushes are always integration candidates.  CI emits the
+selected tier, groups, and reason so narrower evidence cannot be mistaken for a
+stronger gate.
+
 ## 11. Status and guidance
 
 `rwf status` answers where the current workflow stands: issue/context,
