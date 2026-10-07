@@ -4,6 +4,7 @@ from collections import deque
 
 from .graph_geometry import route_candidate_preserves_reachability
 from .graph_routing import (
+  bundle_item_key,
   dogleg_source_key,
   dogleg_target_key,
   edge_item_key,
@@ -83,8 +84,8 @@ def order_boundary_items(
         bundle_relations,
         bundled,
         dogleg_edges,
-    dogleg_rows,
-  ):
+        dogleg_rows,
+      ):
         return ordered
       if checked >= _MAX_CANDIDATES:
         break
@@ -142,7 +143,7 @@ def _order_is_valid(
     )
     if not relation_edges:
       continue
-    item = _bundle_item_key(source_group, target_group)
+    item = bundle_item_key(source_group, target_group)
     if item not in tracks:
       continue
     x = tracks[item]
@@ -208,13 +209,6 @@ def _order_is_valid(
     cells,
     expected,
   )
-
-
-def _bundle_item_key(
-  source: GraphSiblings,
-  target: GraphSiblings,
-) -> tuple:
-  return "bundle", group_key(source), group_key(target)
 
 
 def _item_order(
