@@ -361,6 +361,28 @@ requirement.  Automated integration runners may record their own results.
 Partial validation contributes reusable evidence but does not bypass missing
 required coverage.
 
+## 9.1 High-risk issue verification sections
+
+Use:
+
+```text
+rwf high-risk <section-name> [<section-name> ...]
+```
+
+to attach one or more semantic test-catalogue alias sections from
+`.ci/tests.json` to the current issue.  The command validates every requested
+section before mutation, unions new sections with existing associations, and
+stores the normalized association with the durable issue lifecycle record.
+
+Repeated invocation with already attached sections is idempotent.  Attached
+sections add targeted issue-verification coverage; they do not replace the
+issue's own required groups and do not imply complete regression.
+
+Completion is derived from the catalogue alias map.  The command result reports
+the complete attached alias set.  The canonical status projection consumes the
+same lifecycle field so the eventual `rwf status` renderer (#111) does not
+maintain separate high-risk state.
+
 ## 10. Status and guidance
 
 `rwf status` answers where the current workflow stands: issue/context,
