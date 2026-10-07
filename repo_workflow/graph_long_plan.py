@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .graph_geometry import (
+from .graph_route_semantics import (
   long_route_candidate_valid,
   validate_long_route_candidate,
 )
