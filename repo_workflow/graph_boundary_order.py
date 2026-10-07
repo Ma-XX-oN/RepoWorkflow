@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from .graph_geometry import route_candidate_preserves_reachability
+from .graph_route_semantics import route_candidate_preserves_reachability
 from .graph_routing import (
   bundle_item_key,
   dogleg_source_key,
