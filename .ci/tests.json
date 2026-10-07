@@ -1,5 +1,45 @@
 {
-  "test-harnesses": {},
-  "tests": [],
-  "aliases": {}
+  "test-harnesses": {
+    "unittest": {
+      "command": "python",
+      "layout": [
+        "-m",
+        "unittest",
+        "$test"
+      ]
+    }
+  },
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-456-command-grammar": {
+        "type": "regression",
+        "name": "tests.test_quantified_grammar"
+      },
+      "issue-475-high-risk": {
+        "type": "regression",
+        "name": "tests.test_high_risk"
+      },
+      "issue-476-staged-self-ci": {
+        "type": "regression",
+        "name": "tests.test_self_ci_tiers"
+      },
+      "invariant-self-ci-contract": {
+        "type": "invariant",
+        "name": "tests.test_self_ci"
+      }
+    }
+  ],
+  "aliases": {
+    "command-grammar": [
+      "issue-456-command-grammar"
+    ],
+    "high-risk": [
+      "issue-475-high-risk"
+    ],
+    "self-ci": [
+      "issue-476-staged-self-ci",
+      "invariant-self-ci-contract"
+    ]
+  }
 }
