@@ -51,6 +51,9 @@ from repo_workflow.public_cli import (
   is_public_command,
 )
 from repo_workflow.current_work_store import CurrentWorkError
+from repo_workflow.high_risk import HighRiskError
+from repo_workflow.lifecycle_store import LifecycleError
+from repo_workflow.test_catalogue import TestCatalogueError
 from repo_workflow.dependency_sync import DependencySyncConflict
 from repo_workflow.issue_metadata import IssueMetadataError
 from repo_workflow.lane_list import LaneListError
@@ -404,6 +407,9 @@ def main(argv: list[str] | None = None) -> int:
     ClassificationError,
     ConfigError,
     CurrentWorkError,
+    HighRiskError,
+    LifecycleError,
+    TestCatalogueError,
     DependencySyncConflict,
     IssueMetadataError,
     LaneListError,
