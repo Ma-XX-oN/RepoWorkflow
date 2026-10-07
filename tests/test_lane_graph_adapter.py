@@ -109,6 +109,76 @@ class LaneGraphAdapterTests(unittest.TestCase):
         display_width=len,
       )
 
+  def test_transitive_reduction_preserves_consecutive_lane_edge(self):
+    graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(1),
+      "3": relation(1, 2),
+    })
+    selection = LaneSelection(
+      roots=("3",),
+      closure=("1", "2", "3"),
+      graph_revision=1,
+      assignment={"1": "A", "2": "B", "3": "A"},
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      {"1", "2", "3"},
+      self.metadata(1, 2, 3),
+      lane_colours={"A": RED, "B": BLUE},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    self.assertEqual(
+      projection.graph.lanes[0].nodes,
+      ("A1", "*A3"),
+    )
+    edges = {
+      (source, target)
+      for group in projection.graph.siblings
+      for source in group.nodes
+      for target_group in group.to_nodes
+      for target in target_group.nodes
+    }
+    self.assertIn(("A1", "*A3"), edges)
+    self.assertIn(("A1", "B2"), edges)
+    self.assertIn(("B2", "*A3"), edges)
+
+  def test_repository_shaped_139_140_143_lane_edge_survives_reduction(self):
+    graph = RelationshipGraph(issues={
+      "137": relation(),
+      "138": relation(),
+      "139": relation(137),
+      "140": relation(138, 139),
+      "143": relation(138, 139, 140),
+    })
+    selection = LaneSelection(
+      roots=("143",),
+      closure=("137", "138", "139", "140", "143"),
+      graph_revision=1,
+      assignment={
+        "137": "A",
+        "138": "B",
+        "139": "A",
+        "140": "B",
+        "143": "A",
+      },
+    )
+    projection = project_lane_graph(
+      selection,
+      graph,
+      set(selection.closure),
+      self.metadata(137, 138, 139, 140, 143),
+      lane_colours={"A": RED, "B": BLUE},
+      default_edge_colour=GREY,
+      display_width=len,
+    )
+    self.assertEqual(
+      projection.graph.lanes[0].nodes,
+      ("A137", "A139", "*A143"),
+    )
+
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={
       "127": relation(),
