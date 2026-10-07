@@ -22,7 +22,10 @@ so through their owning workflow operation.
 
 ## 2. Schema version and record identity
 
-The initial lifecycle value schema version is `1`.
+Lifecycle schema version `1` is the original transition-only record.  Schema
+version `2` adds durable high-risk test-catalogue alias associations.  Version
+1 records remain readable and project an empty high-risk alias set; the next
+successful lifecycle or high-risk-association write emits version 2.
 
 There is one logical lifecycle record per issue.  Its canonical record key is:
 
@@ -47,6 +50,10 @@ A lifecycle value has this shape:
   "state": "active",
   "dependency_satisfied": false,
   "relationship_revision": 7,
+  "high_risk_aliases": [
+    "command-grammar",
+    "graph-renderer"
+  ],
   "history": [
     {
       "sequence": 0,
@@ -66,11 +73,34 @@ Every lifecycle value contains exactly:
 - `state`;
 - `dependency_satisfied`;
 - `relationship_revision`;
+- `high_risk_aliases`;
 - `history`.
 
 `relationship_revision` is the canonical relationship-graph revision consumed
 by the lifecycle transition, or `null` when the transition does not consume
 relationship state.
+
+## 4. High-risk test associations
+
+`high_risk_aliases` is a sorted, duplicate-free array of semantic section
+names from the authoritative `.ci/tests.json` catalogue.
+
+The association belongs in the issue lifecycle record because it is durable
+issue verification policy.  It is not clone-local navigation state and does not
+belong in a separate competing issue metadata record.
+
+Changing the association:
+
+- uses the lifecycle record's existing compare-and-swap revision;
+- preserves lifecycle state, relationship revision, and transition history;
+- does not fabricate a same-state lifecycle transition;
+- validates alias names against the authoritative test catalogue before the
+  mutation is committed by the owning command;
+- is idempotent for an unchanged normalized alias set.
+
+The alias names select additional issue-verification coverage only.  They do
+not by themselves satisfy TDD, regression, integration, dependency, acceptance,
+or completion gates.
 
 ## 4. Lifecycle states
 
@@ -233,7 +263,10 @@ Implementations of this schema must prove at least:
 9. malformed and unsupported values fail closed;
 10. stale CAS input cannot overwrite newer lifecycle state;
 11. relationship revisions round-trip without copying relationship semantics;
-12. branch/workspace cleanup cannot erase durable lifecycle history.
+12. branch/workspace cleanup cannot erase durable lifecycle history;
+13. schema-1 records read with an empty high-risk alias set and upgrade safely;
+14. high-risk alias updates preserve lifecycle state/history;
+15. repeated/changed alias updates are deterministic and stale CAS fails closed.
 
 ## 13. Consumer contract
 
