@@ -7,6 +7,7 @@ import unittest
 from repo_workflow.ticket_dependency_adapter import (
   TicketDependencyError,
   read_ticket_dependencies,
+  read_ticket_relationships,
   replace_ticket_dependencies,
 )
 from tests.support import RepoFixture
@@ -37,6 +38,52 @@ class TicketDependencyAdapterTests(unittest.TestCase):
         (2, 9),
       )
       self.assertEqual(replace_ticket_dependencies(root, config, 64, []), ())
+
+  def test_related_read_returns_both_direct_relationship_directions(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      config = self.fixture(
+        root,
+        "import json, sys\n"
+        "issue = int(sys.argv[3])\n"
+        "print(json.dumps({\n"
+        "  'schema_version': 1, 'issue': issue,\n"
+        "  'dependencies': [2, 9], 'dependants': [70, 81],\n"
+        "}))\n",
+      )
+      value = read_ticket_relationships(root, config, 64)
+      self.assertEqual(value.dependencies, (2, 9))
+      self.assertEqual(value.dependants, (70, 81))
+
+  def test_related_read_validates_dependants_strictly(self):
+    payloads = [
+      json.dumps({
+        "schema_version": 1,
+        "issue": 64,
+        "dependencies": [],
+        "dependants": [81, 70],
+      }),
+      json.dumps({
+        "schema_version": 1,
+        "issue": 64,
+        "dependencies": [],
+        "dependants": [70, 70],
+      }),
+      json.dumps({
+        "schema_version": 1,
+        "issue": 64,
+        "dependencies": [],
+        "dependants": [64],
+      }),
+    ]
+    for payload in payloads:
+      with self.subTest(payload=payload), tempfile.TemporaryDirectory() as td:
+        root = Path(td) / "repo"
+        root.mkdir()
+        config = self.fixture(root, f"print({payload!r})\n")
+        with self.assertRaises(TicketDependencyError):
+          read_ticket_relationships(root, config, 64)
 
   def test_empty_read_is_success_but_provider_failure_is_not(self):
     with tempfile.TemporaryDirectory() as td:

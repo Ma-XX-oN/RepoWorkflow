@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+from dataclasses import dataclass
 from typing import Any
 
 from .git import changed_files, repository_state
@@ -12,6 +13,12 @@ from .repo_info_adapter import _github_repository
 
 class TicketDependencyError(RuntimeError):
   pass
+
+
+@dataclass(frozen=True)
+class TicketRelationships:
+  dependencies: tuple[int, ...]
+  dependants: tuple[int, ...]
 
 
 def _positive(value: Any, label: str) -> int:
@@ -142,6 +149,37 @@ def read_ticket_dependencies(
     _invoke(root, config, ["dependency", "get", str(issue)]),
     issue,
   )
+
+
+def read_ticket_relationships(
+  root: Path,
+  config: dict,
+  issue_number: int,
+) -> TicketRelationships:
+  issue = _positive(issue_number, "requested issue number")
+  value = _invoke(root, config, ["dependency", "related", str(issue)])
+  if not isinstance(value, dict) or set(value) != {
+    "schema_version", "issue", "dependencies", "dependants"
+  }:
+    raise TicketDependencyError(
+      "ticket dependency adapter returned invalid related result"
+    )
+  if value["schema_version"] != 1 or isinstance(value["schema_version"], bool):
+    raise TicketDependencyError(
+      "ticket dependency adapter returned unsupported schema version"
+    )
+  returned_issue = _positive(value["issue"], "issue number")
+  if returned_issue != issue:
+    raise TicketDependencyError(
+      "ticket dependency adapter returned the wrong issue number"
+    )
+  dependencies = _normalize_dependencies(value["dependencies"])
+  dependants = _normalize_dependencies(value["dependants"])
+  if issue in dependencies or issue in dependants:
+    raise TicketDependencyError(
+      "ticket dependency adapter returned self dependency"
+    )
+  return TicketRelationships(dependencies, dependants)
 
 
 def replace_ticket_dependencies(

@@ -225,7 +225,7 @@
         },
         {
           "id": "DL-13",
-          "requirement": "lane relationship acquisition is cache-first: repeated selection and remove perform zero dependency-provider reads for known closure; add reads only missing nodes; --refresh rereads only the relevant closure and provider failure preserves prior graph/selection",
+          "requirement": "lane relationship acquisition is cache-first: repeated selection and remove perform zero dependency-provider reads for known connected components; add reads only missing nodes; --refresh rereads only the relevant connected component and provider failure preserves prior graph/selection",
           "verification": [
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_cached_selection_reuses_relationships_and_add_reads_only_missing",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_rereads_relevant_closure_only",
@@ -277,7 +277,11 @@
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_selected_prerequisite_expands_to_complete_connected_component",
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
             "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
-            "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component"
+            "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_focus_seed_discovers_complete_provider_component",
+            "tests/test_ticket_dependency_adapter.py::TicketDependencyAdapterTests.test_related_read_returns_both_direct_relationship_directions",
+            "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_related_returns_blocked_by_and_blocking_numbers",
+            "tests/test_github_ticket_dependencies.py::GitHubTicketDependencyAdapterTests.test_truncated_blocking_connection_fails_closed"
           ]
         },
         {

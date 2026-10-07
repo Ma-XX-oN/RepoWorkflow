@@ -113,11 +113,16 @@ class FirstUseLanesTests(unittest.TestCase):
       "    log.write(json.dumps({'kind': 'dependency', 'issue': number}) + '\\n')\n"
       "  state = json.load(open(os.environ['RWF_TEST_DEPS'], encoding='utf-8'))\n"
       "  deps = state[str(number)]\n"
-      "  nodes = [{'number': n, 'title': f'Issue {n}', "
+      "  dependants = sorted(int(issue) for issue, values in state.items() if number in values)\n"
+      "  def connection(values):\n"
+      "    nodes = [{'number': n, 'title': f'Issue {n}', "
       "'url': f'https://github.com/Ma-XX-oN/RepoWorkflow/issues/{n}', "
-      "'state': 'OPEN'} for n in deps]\n"
-      "  print(json.dumps({'blockedBy': "
-      "{'nodes': nodes, 'totalCount': len(nodes)}}))\n"
+      "'state': 'OPEN'} for n in values]\n"
+      "    return {'nodes': nodes, 'totalCount': len(nodes)}\n"
+      "  print(json.dumps({\n"
+      "    'blockedBy': connection(deps),\n"
+      "    'blocking': connection(dependants),\n"
+      "  }))\n"
       "elif args[:2] == ['issue', 'view']:\n"
       "  number = int(args[2])\n"
       "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
@@ -241,6 +246,47 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("─", viewed.stdout)
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
+
+  def test_fresh_focus_seed_discovers_complete_provider_component(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base, {
+        435: [439],
+        436: [],
+        437: [436],
+        438: [436],
+        439: [437, 438],
+      })
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "436",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      value = json.loads(selected.stdout)
+      self.assertEqual(value["roots"], ["436"])
+      self.assertEqual(
+        value["closure"],
+        ["435", "436", "437", "438", "439"],
+      )
+      self.assertEqual(
+        self.dependency_calls(env),
+        [436, 437, 438, 439, 435],
+      )
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      for issue in range(435, 440):
+        self.assertIn(str(issue), viewed.stdout)
+      self.assertEqual(viewed.stdout.count("*"), 1)
+      self.assertIn("*A436", viewed.stdout)
 
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
