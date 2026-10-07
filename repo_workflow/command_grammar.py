@@ -158,12 +158,13 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
     current = context.at(words, index)
     token = words[index]
     entries, values, _ = resolved_node(node, current)
-    entry = entries.get(token) if state.value_count == 0 else None
-    if entry is None and state.value_count == 0:
+    choice = _choice_quantifier(node)
+    can_choose = state.value_count == 0 or choice is not None
+    entry = entries.get(token) if can_choose else None
+    if entry is None and can_choose:
       entry = _parameter_match(entries, token, current)
     if entry is not None:
       if isinstance(entry, str) or callable(entry):
-        choice = _choice_quantifier(node)
         if choice is not None:
           if choice.maximum is not None and state.value_count >= choice.maximum:
             raise CommandGrammarError("too many command alternatives")
