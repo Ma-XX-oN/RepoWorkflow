@@ -20,18 +20,13 @@ def validate_route_candidate_reachability(
   cells: dict[tuple[int, int], list[Contribution]],
   expected: set[tuple[str, str]],
 ) -> None:
-  routed_cells: dict[
-    tuple[str, str],
-    set[tuple[int, int]],
-  ] = {}
-  for point, contributions in cells.items():
-    for contribution in contributions:
-      key = contribution.edge.key
-      if key not in expected:
-        raise GraphLayoutError(
-          f"candidate geometry contains unexpected semantic edge {key!r}"
-        )
-      routed_cells.setdefault(key, set()).add(point)
+  routed_cells = collect_routed_edge_bits(cells)
+  unexpected = set(routed_cells) - expected
+  if unexpected:
+    raise GraphLayoutError(
+      "candidate geometry contains unexpected semantic edges "
+      + ", ".join(repr(item) for item in sorted(unexpected))
+    )
 
   missing = expected - set(routed_cells)
   if missing:
@@ -41,7 +36,7 @@ def validate_route_candidate_reachability(
     )
 
   for source, target in expected:
-    points = routed_cells[(source, target)]
+    route_bits = routed_cells[(source, target)]
     source_place = placements[source]
     target_place = placements[target]
     source_anchor = (
@@ -52,12 +47,12 @@ def validate_route_candidate_reachability(
       starts[target_place.column] - 1,
       target_place.row,
     )
-    if source_anchor not in points or target_anchor not in points:
+    if source_anchor not in route_bits or target_anchor not in route_bits:
       raise GraphLayoutError(
         f"candidate route {source!r} -> {target!r} "
         "does not reach both endpoint anchors"
       )
-    simple_path(points, source_anchor, target_anchor)
+    simple_path(route_bits, source_anchor, target_anchor)
 
   expected_by_source: dict[str, set[str]] = {}
   for source, target in expected:
@@ -295,7 +290,10 @@ def validate_rendered_reachability(
   columns: dict[int, Column],
   starts: dict[int, int],
   cells: dict[tuple[int, int], list[Contribution]],
-  routed_cells: dict[tuple[str, str], set[tuple[int, int]]],
+  routed_cells: dict[
+    tuple[str, str],
+    dict[tuple[int, int], int],
+  ],
   *,
   expected_by_source: dict[str, set[str]] | None = None,
 ) -> None:
@@ -304,7 +302,7 @@ def validate_rendered_reachability(
     tuple[str, str],
     dict[tuple[int, int], int],
   ] = {}
-  for edge, points in routed_cells.items():
+  for edge, route_bits in routed_cells.items():
     source, target = edge
     source_place = placements[source]
     target_place = placements[target]
@@ -316,7 +314,7 @@ def validate_rendered_reachability(
       starts[target_place.column] - 1,
       target_place.row,
     )
-    path = simple_path(points, source_anchor, target_anchor)
+    path = simple_path(route_bits, source_anchor, target_anchor)
     paths[edge] = path
     indices[edge] = {
       point: index
@@ -416,26 +414,55 @@ def validate_rendered_reachability(
       )
 
 
+def collect_routed_edge_bits(
+  cells: dict[tuple[int, int], list[Contribution]],
+) -> dict[
+  tuple[str, str],
+  dict[tuple[int, int], int],
+]:
+  result: dict[
+    tuple[str, str],
+    dict[tuple[int, int], int],
+  ] = {}
+  for point, contributions in cells.items():
+    for contribution in contributions:
+      route = result.setdefault(contribution.edge.key, {})
+      route[point] = route.get(point, 0) | contribution.bits
+  return result
+
+
 def simple_path(
-  points: set[tuple[int, int]],
+  route_bits: dict[tuple[int, int], int],
   source: tuple[int, int],
   target: tuple[int, int],
 ) -> tuple[tuple[int, int], ...]:
+  directions = (
+    (_L, (-1, 0), _R),
+    (_R, (1, 0), _L),
+    (_U, (0, -1), _D),
+    (_D, (0, 1), _U),
+  )
   neighbours: dict[
     tuple[int, int],
     list[tuple[int, int]],
   ] = {}
-  for x, y in points:
-    neighbours[(x, y)] = [
-      point
-      for point in (
-        (x - 1, y),
-        (x + 1, y),
-        (x, y - 1),
-        (x, y + 1),
-      )
-      if point in points
-    ]
+
+  for point, bits in route_bits.items():
+    x, y = point
+    values: list[tuple[int, int]] = []
+    for bit, (dx, dy), reciprocal in directions:
+      if not bits & bit:
+        continue
+      neighbour = (x + dx, y + dy)
+      neighbour_bits = route_bits.get(neighbour, 0)
+      if not neighbour_bits & reciprocal:
+        raise GraphLayoutError(
+          "semantic edge route contains a dangling or one-way segment; "
+          f"point={point!r}; neighbour={neighbour!r}; bit={bit!r}"
+        )
+      values.append(neighbour)
+    neighbours[point] = values
+
   branching = {
     point: tuple(values)
     for point, values in neighbours.items()
@@ -445,6 +472,11 @@ def simple_path(
     raise GraphLayoutError(
       "one semantic edge route branches or self-intersects; "
       f"source={source!r}; target={target!r}; branching={branching!r}"
+    )
+
+  if source not in neighbours or target not in neighbours:
+    raise GraphLayoutError(
+      "semantic edge route is missing an endpoint anchor"
     )
 
   path = [source]
@@ -462,10 +494,10 @@ def simple_path(
       )
     previous, current = current, choices[0]
     path.append(current)
-    if len(path) > len(points):
+    if len(path) > len(route_bits):
       raise GraphLayoutError("semantic edge route contains a loop")
 
-  if len(path) != len(points):
+  if len(path) != len(route_bits):
     raise GraphLayoutError(
       "semantic edge route contains geometry outside its endpoint path"
     )
