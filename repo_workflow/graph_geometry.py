@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from .graph_render_model import ValidatedGraph
+from .graph_route_path import (
+  collect_routed_edge_bits,
+  simple_path,
+)
 from .graph_route_semantics import (
   long_route_candidate_valid,
   route_candidate_preserves_reachability,
-  collect_routed_edge_bits,
-  simple_path,
   validate_long_route_candidate,
   validate_rendered_reachability,
   validate_route_candidate_reachability,
