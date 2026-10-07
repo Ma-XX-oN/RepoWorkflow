@@ -12,14 +12,14 @@ from .graph_render_types import (
 )
 
 
-def route_candidate_preserves_reachability(
+def validate_route_candidate_reachability(
   validated: ValidatedGraph,
   placements: dict[str, Placement],
   columns: dict[int, Column],
   starts: dict[int, int],
   cells: dict[tuple[int, int], list[Contribution]],
   expected: set[tuple[str, str]],
-) -> bool:
+) -> None:
   routed_cells: dict[
     tuple[str, str],
     set[tuple[int, int]],
@@ -28,11 +28,17 @@ def route_candidate_preserves_reachability(
     for contribution in contributions:
       key = contribution.edge.key
       if key not in expected:
-        return False
+        raise GraphLayoutError(
+          f"candidate geometry contains unexpected semantic edge {key!r}"
+        )
       routed_cells.setdefault(key, set()).add(point)
 
-  if set(routed_cells) != expected:
-    return False
+  missing = expected - set(routed_cells)
+  if missing:
+    raise GraphLayoutError(
+      "candidate geometry is missing semantic edges "
+      + ", ".join(repr(item) for item in sorted(missing))
+    )
 
   for source, target in expected:
     points = routed_cells[(source, target)]
@@ -47,36 +53,52 @@ def route_candidate_preserves_reachability(
       target_place.row,
     )
     if source_anchor not in points or target_anchor not in points:
-      return False
-    try:
-      _simple_path(points, source_anchor, target_anchor)
-    except GraphLayoutError:
-      return False
+      raise GraphLayoutError(
+        f"candidate route {source!r} -> {target!r} "
+        "does not reach both endpoint anchors"
+      )
+    _simple_path(points, source_anchor, target_anchor)
 
   expected_by_source: dict[str, set[str]] = {}
   for source, target in expected:
     expected_by_source.setdefault(source, set()).add(target)
+  _validate_rendered_reachability(
+    validated,
+    placements,
+    columns,
+    starts,
+    cells,
+    routed_cells,
+    expected_by_source=expected_by_source,
+  )
+
+
+def route_candidate_preserves_reachability(
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  cells: dict[tuple[int, int], list[Contribution]],
+  expected: set[tuple[str, str]],
+) -> bool:
   try:
-    _validate_rendered_reachability(
+    validate_route_candidate_reachability(
       validated,
       placements,
       columns,
       starts,
       cells,
-      routed_cells,
-      expected_by_source=expected_by_source,
+      expected,
     )
   except GraphLayoutError:
     return False
   return True
 
 
-def long_route_candidate_valid(
+def _long_route_candidate_geometry(
   edge: SemanticEdge,
   row: int,
   cells: dict[tuple[int, int], list[Contribution]],
-  routes: list[RouteRecord],
-  validated: ValidatedGraph,
   placements: dict[str, Placement],
   columns: dict[int, Column],
   starts: dict[int, int],
@@ -84,7 +106,10 @@ def long_route_candidate_valid(
   *,
   source_item: tuple | None = None,
   target_item: tuple | None = None,
-) -> bool:
+) -> tuple[
+  dict[tuple[int, int], list[Contribution]],
+  set[tuple[str, str]],
+]:
   candidate_cells = {
     point: list(values)
     for point, values in cells.items()
@@ -116,7 +141,34 @@ def long_route_candidate_valid(
       for contribution in contributions
     )
   }
-  return route_candidate_preserves_reachability(
+  return local_cells, component
+
+
+def validate_long_route_candidate(
+  edge: SemanticEdge,
+  row: int,
+  cells: dict[tuple[int, int], list[Contribution]],
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  tracks: dict[tuple[int, tuple], int],
+  *,
+  source_item: tuple | None = None,
+  target_item: tuple | None = None,
+) -> None:
+  local_cells, component = _long_route_candidate_geometry(
+    edge,
+    row,
+    cells,
+    placements,
+    columns,
+    starts,
+    tracks,
+    source_item=source_item,
+    target_item=target_item,
+  )
+  validate_route_candidate_reachability(
     validated,
     placements,
     columns,
@@ -124,6 +176,38 @@ def long_route_candidate_valid(
     local_cells,
     component,
   )
+
+
+def long_route_candidate_valid(
+  edge: SemanticEdge,
+  row: int,
+  cells: dict[tuple[int, int], list[Contribution]],
+  routes: list[RouteRecord],
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  tracks: dict[tuple[int, tuple], int],
+  *,
+  source_item: tuple | None = None,
+  target_item: tuple | None = None,
+) -> bool:
+  try:
+    validate_long_route_candidate(
+      edge,
+      row,
+      cells,
+      validated,
+      placements,
+      columns,
+      starts,
+      tracks,
+      source_item=source_item,
+      target_item=target_item,
+    )
+  except GraphLayoutError:
+    return False
+  return True
 
 
 def validate_routes(
