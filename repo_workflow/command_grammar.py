@@ -76,6 +76,20 @@ CompletionEntry: TypeAlias = str | DynamicCommand
 ValueProvider: TypeAlias = Callable[[Context], object]
 
 
+@dataclass
+class WalkState:
+  node: dict
+  value_count: int
+  switch_counts: dict[str, int]
+  pending_slot: dict | None = None
+  pending_slot_count: int = 0
+
+
+def _validate_value_source(value: object, label: str) -> None:
+  if not callable(value):
+    raise CommandGrammarError(f"{label} must be a callable completion provider")
+
+
 def default_on_tab(request: CompletionRequest) -> CompletionResponse:
   return request.default()
 
@@ -352,14 +366,6 @@ def parse_tokens(
   state = _walk_prefix(commands, context, words)
   _validate_finished(state, context.at(words, len(words)))
   return words
-
-
-def switch_description(entry: object) -> str | None:
-  if isinstance(entry, str):
-    return entry
-  if isinstance(entry, dict):
-    return entry.get(TERMINAL)
-  return None
 
 
 def _node_items(
