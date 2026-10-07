@@ -56,12 +56,13 @@ class SelfCiTests(unittest.TestCase):
       "graph-renderer-platform",
       "ticket-merge-platform",
     ):
-      start = text.index(f"  {job}:")
-      end = text.find("\n  ", start + 3)
-      block = text[start:] if end < 0 else text[start:end]
       self.assertIn(
-        "if: needs.plan.outputs.tier == 'integration'",
-        block,
+        (
+          f"  {job}:\n"
+          "    needs: [classify, plan]\n"
+          "    if: needs.plan.outputs.tier == 'integration'\n"
+        ),
+        text,
       )
 
   def test_workflow_dispatch_can_explicitly_request_regression(self):
