@@ -71,6 +71,13 @@ class SelfCiTests(unittest.TestCase):
     self.assertIn("- regression", text)
     self.assertIn("- integration", text)
 
+  def test_issue_validation_evidence_reports_resolved_groups(self):
+    text = (ROOT / "scripts" / "validate-issue.py").read_text(
+      encoding="utf-8"
+    )
+    self.assertEqual(text.count('"groups": groups'), 2)
+    self.assertNotIn('"groups": args.groups', text)
+
   def test_release_requires_docs_or_successful_integration(self):
     text = self.workflow_text()
     start = text.index("  release:")
