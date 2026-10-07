@@ -301,6 +301,13 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
       index += 1
       continue
 
+    if VALUES in node and value_count:
+      quantifier = parse_quantifier(
+        node.get(QUANTIFIER),
+        label=f"{VALUES} {QUANTIFIER}",
+      )
+      if quantifier.maximum is not None and value_count >= quantifier.maximum:
+        raise CommandGrammarError(f"{words[index - 1]!r} is a terminal value")
     raise CommandGrammarError(f"invalid command token: {token}")
 
   return WalkState(node, value_count, switch_counts)
@@ -323,7 +330,9 @@ def _validate_finished(state: WalkState, context: Context) -> None:
     quantifier = switch_quantifier(entry)
     if state.switch_counts.get(token, 0) < quantifier.minimum:
       raise CommandGrammarError(f"required switch is missing: {token}")
-  if TERMINAL not in node:
+  if TERMINAL not in node and not (
+    VALUES in node and state.value_count >= quantifier.minimum
+  ):
     raise CommandGrammarError("command is incomplete")
 
 
@@ -406,9 +415,9 @@ def _node_items(
         result.append(Completion(token, None, True))
 
   for token, entry in _resolved_switches(node, context).items():
-    switch_quantifier = switch_quantifier(entry)
+    switch_bounds = switch_quantifier(entry)
     count = state.switch_counts.get(token, 0)
-    if switch_quantifier.maximum is not None and count >= switch_quantifier.maximum:
+    if switch_bounds.maximum is not None and count >= switch_bounds.maximum:
       continue
     if token.startswith(prefix):
       result.append(Completion(token, switch_description(entry)))
