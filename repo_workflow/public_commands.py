@@ -311,7 +311,6 @@ COMMANDS = {
   },
   "workspace": _workspace_commands(),
   "high-risk": {
-    "": "Associate test-catalogue risk sections with the current issue",
     "_values": _high_risk_aliases,
     "_value_description": "Test-catalogue alias section",
     "_quantifier": "+",
