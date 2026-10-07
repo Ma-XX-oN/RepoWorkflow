@@ -136,3 +136,14 @@ Do not redo the above work without first identifying a regression in those
 specific mechanisms.  Continue from the exact current head and the latest
 authoritative CI failure/result.
 
+### Milestone: canonical renderer cross-platform GREEN
+
+Semantic candidate `5a5a4663e9728ef396ca4ddadb08f1fe7834ee1d`
+passed the strengthened canonical graph renderer probe on Ubuntu, Windows, and
+macOS in Self CI run #945.  Ticket-merge and argv-limit probes were also GREEN.
+Authoritative `validate` was still in progress at the time of this checkpoint.
+
+This is the first candidate in the #447 work where the current committed typed
+Initiative/Epic/Feature graph completed full rendering successfully on all
+three supported CI platforms.
+
