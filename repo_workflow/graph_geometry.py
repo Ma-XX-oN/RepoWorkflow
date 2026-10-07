@@ -34,6 +34,27 @@ def route_adjacent(
   _horizontal(cells, edge, track_x, target_x, target.row, bundle)
 
 
+def route_adjacent_dogleg(
+  cells: dict[tuple[int, int], list[Contribution]],
+  edge: SemanticEdge,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  source_track_x: int,
+  target_track_x: int,
+  track_y: int,
+) -> None:
+  source = placements[edge.source]
+  target = placements[edge.target]
+  source_x = starts[source.column] + columns[source.column].width
+  target_x = starts[target.column] - 1
+  _horizontal(cells, edge, source_x, source_track_x, source.row, None)
+  _vertical(cells, edge, source_track_x, source.row, track_y, None)
+  _horizontal(cells, edge, source_track_x, target_track_x, track_y, None)
+  _vertical(cells, edge, target_track_x, track_y, target.row, None)
+  _horizontal(cells, edge, target_track_x, target_x, target.row, None)
+
+
 def route_long(
   cells: dict[tuple[int, int], list[Contribution]],
   edge: SemanticEdge,
