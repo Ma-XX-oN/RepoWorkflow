@@ -118,9 +118,11 @@ class CommandDiagnosticTests(unittest.TestCase):
       "validate": {
         "regression": {
           "_switches": {
-            "--group": [
-              {"alpha": "Alpha", "beta": "Beta"},
-            ],
+            "--group": {
+              "_params": [
+                {"alpha": "Alpha", "beta": "Beta"},
+              ],
+            },
           },
         },
       },
@@ -149,9 +151,11 @@ class CommandDiagnosticTests(unittest.TestCase):
       "validate": {
         "regression": {
           "_switches": {
-            "--group": [
-              {"alpha": "Alpha", "beta": "Beta"},
-            ],
+            "--group": {
+              "_params": [
+                {"alpha": "Alpha", "beta": "Beta"},
+              ],
+            },
           },
         },
       },
