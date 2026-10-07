@@ -61,6 +61,65 @@ def edge_item_key(edge: SemanticEdge) -> tuple:
   return "edge", edge.source, edge.target
 
 
+def route_candidate_preserves_reachability(
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  cells: dict[tuple[int, int], list[Contribution]],
+  expected: set[tuple[str, str]],
+) -> bool:
+  routed_cells: dict[
+    tuple[str, str],
+    set[tuple[int, int]],
+  ] = {}
+  for point, contributions in cells.items():
+    for contribution in contributions:
+      key = contribution.edge.key
+      if key not in expected:
+        return False
+      routed_cells.setdefault(key, set()).add(point)
+
+  if set(routed_cells) != expected:
+    return False
+
+  for source, target in expected:
+    points = routed_cells[(source, target)]
+    source_place = placements[source]
+    target_place = placements[target]
+    source_anchor = (
+      starts[source_place.column] + columns[source_place.column].width,
+      source_place.row,
+    )
+    target_anchor = (
+      starts[target_place.column] - 1,
+      target_place.row,
+    )
+    if source_anchor not in points or target_anchor not in points:
+      return False
+    try:
+      _simple_path(points, source_anchor, target_anchor)
+    except GraphLayoutError:
+      return False
+
+  expected_by_source: dict[str, set[str]] = {}
+  for source, target in expected:
+    expected_by_source.setdefault(source, set()).add(target)
+  try:
+    _validate_rendered_reachability(
+      validated,
+      placements,
+      columns,
+      starts,
+      cells,
+      routed_cells,
+      expected_by_source=expected_by_source,
+    )
+  except GraphLayoutError:
+    return False
+  return True
+
+
 def validate_routes(
   validated: ValidatedGraph,
   placements: dict[str, Placement],
@@ -150,6 +209,8 @@ def _validate_rendered_reachability(
   starts: dict[int, int],
   cells: dict[tuple[int, int], list[Contribution]],
   routed_cells: dict[tuple[str, str], set[tuple[int, int]]],
+  *,
+  expected_by_source: dict[str, set[str]] | None = None,
 ) -> None:
   paths: dict[tuple[str, str], tuple[tuple[int, int], ...]] = {}
   indices: dict[
@@ -203,10 +264,11 @@ def _validate_rendered_reachability(
     if same_source or same_target or same_bundle:
       switches[point] = set(edge_map)
 
-  expected_by_source = {
-    source: set(targets)
-    for source, targets in validated.adjacency.items()
-  }
+  if expected_by_source is None:
+    expected_by_source = {
+      source: set(targets)
+      for source, targets in validated.adjacency.items()
+    }
   for source, expected_targets in expected_by_source.items():
     if not expected_targets:
       continue
