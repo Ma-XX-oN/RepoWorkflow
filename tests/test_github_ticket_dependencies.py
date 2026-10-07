@@ -14,7 +14,10 @@ ADAPTER = ROOT / "scripts" / "github-ticket-dependencies.py"
 class GitHubTicketDependencyAdapterTests(unittest.TestCase):
   def fake_gh(self, root: Path) -> tuple[dict, Path]:
     state = root / "state.json"
-    state.write_text(json.dumps({"blockedBy": [2, 9]}), encoding="utf-8")
+    state.write_text(
+      json.dumps({"blockedBy": [2, 9], "blocking": [70, 81]}),
+      encoding="utf-8",
+    )
     log = root / "log.jsonl"
     gh = root / ("gh.cmd" if os.name == "nt" else "gh")
     if os.name == "nt":
@@ -38,8 +41,12 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       "  f.write(json.dumps(args) + '\\n')\n"
       "state = json.load(open(state_path, encoding='utf-8'))\n"
       "if args[:2] == ['issue', 'view']:\n"
-      "  nodes = [{'number': n, 'title': f'Issue {n}', 'url': f'https://example.invalid/issues/{n}', 'state': 'OPEN'} for n in state['blockedBy']]\n"
-      "  print(json.dumps({'blockedBy': {'nodes': nodes, 'totalCount': state.get('totalCount', len(nodes))}}))\n"
+      "  blocked_nodes = [{'number': n, 'title': f'Issue {n}', 'url': f'https://example.invalid/issues/{n}', 'state': 'OPEN'} for n in state['blockedBy']]\n"
+      "  blocking_nodes = [{'number': n, 'title': f'Issue {n}', 'url': f'https://example.invalid/issues/{n}', 'state': 'OPEN'} for n in state.get('blocking', [])]\n"
+      "  print(json.dumps({\n"
+      "    'blockedBy': {'nodes': blocked_nodes, 'totalCount': state.get('totalCount', len(blocked_nodes))},\n"
+      "    'blocking': {'nodes': blocking_nodes, 'totalCount': state.get('blockingTotalCount', len(blocking_nodes))},\n"
+      "  }))\n"
       "elif args[:2] == ['issue', 'edit']:\n"
       "  if '--remove-blocked-by' in args:\n"
       "    raw = args[args.index('--remove-blocked-by') + 1]\n"
@@ -72,6 +79,18 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       self.assertEqual(result.returncode, 0, result.stderr)
       self.assertEqual(json.loads(result.stdout), {
         "schema_version": 1, "issue": 64, "dependencies": [2, 9]
+      })
+
+  def test_related_returns_blocked_by_and_blocking_numbers(self):
+    with tempfile.TemporaryDirectory() as td:
+      env, _ = self.fake_gh(Path(td))
+      result = self.run_adapter(env, "dependency", "related", "64")
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(json.loads(result.stdout), {
+        "schema_version": 1,
+        "issue": 64,
+        "dependencies": [2, 9],
+        "dependants": [70, 81],
       })
 
   def test_replace_removes_adds_and_confirms_exact_set(self):
@@ -113,6 +132,22 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       result = self.run_adapter(env, "dependency", "get", "64")
       self.assertEqual(result.returncode, 2)
       self.assertIn("relationship set is truncated", result.stderr)
+
+  def test_truncated_blocking_connection_fails_closed(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      env, _ = self.fake_gh(root)
+      (root / "state.json").write_text(
+        json.dumps({
+          "blockedBy": [],
+          "blocking": [70],
+          "blockingTotalCount": 2,
+        }),
+        encoding="utf-8",
+      )
+      result = self.run_adapter(env, "dependency", "related", "64")
+      self.assertEqual(result.returncode, 2)
+      self.assertIn("blocking relationship set is truncated", result.stderr)
 
   def test_provider_failure_is_nonzero(self):
     with tempfile.TemporaryDirectory() as td:
