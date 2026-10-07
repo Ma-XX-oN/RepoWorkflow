@@ -101,14 +101,14 @@ class GeneratedGraphSemanticTests(unittest.TestCase):
           rendered += 1
     self.assertGreater(rendered, 64)
 
-  def test_many_to_many_bridge_classes_are_in_generated_space(self):
+  def test_all_fan_degree_classes_are_in_generated_space(self):
     nodes = ("A", "B", "C", "D")
     possible = tuple(
       (nodes[left], nodes[right])
       for left in range(len(nodes))
       for right in range(left + 1, len(nodes))
     )
-    seen = 0
+    classes = set()
     for count in range(len(possible) + 1):
       for chosen in combinations(possible, count):
         outgoing = {node: 0 for node in nodes}
@@ -116,12 +116,17 @@ class GeneratedGraphSemanticTests(unittest.TestCase):
         for source, target in chosen:
           outgoing[source] += 1
           incoming[target] += 1
-        if any(
-          outgoing[source] > 1 and incoming[target] > 1
-          for source, target in chosen
-        ):
-          seen += 1
-    self.assertGreater(seen, 0)
+        for source, target in chosen:
+          classes.add((
+            "many" if outgoing[source] > 1 else "one",
+            "many" if incoming[target] > 1 else "one",
+          ))
+    self.assertEqual(classes, {
+      ("one", "one"),
+      ("one", "many"),
+      ("many", "one"),
+      ("many", "many"),
+    })
 
 
 if __name__ == "__main__":
