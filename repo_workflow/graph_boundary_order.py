@@ -91,8 +91,18 @@ def order_boundary_items(
         break
       pending.append(ordered)
 
+  adjacent_edges = tuple(
+    edge.key
+    for edge in edges
+    if (
+      placements[edge.source].column == boundary
+      and placements[edge.target].column == boundary + 1
+    )
+  )
   raise GraphLayoutError(
-    "no semantically valid bounded adjacent-track ordering is available"
+    "no semantically valid bounded adjacent-track ordering is available "
+    f"for boundary {boundary} after {checked} candidates; "
+    f"items={base!r}; edges={adjacent_edges!r}"
   )
 
 
