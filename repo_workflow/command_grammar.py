@@ -41,8 +41,7 @@ class WalkState:
   node: dict
   value_count: int
   switch_counts: dict[str, int]
-  pending_slot: dict | None = None
-  pending_slot_count: int = 0
+  pending_slots: tuple[tuple[dict, int], ...] = ()
   ordered_index: int = 0
   ordered_count: int = 0
 
@@ -70,7 +69,7 @@ def _consume_switch_token(
   index: int,
   context: Context,
   switch_counts: dict[str, int],
-) -> tuple[int, dict | None, int] | None:
+) -> tuple[int, tuple[tuple[dict, int], ...]] | None:
   current = context.at(words, index)
   switches = resolved_switches(node, current)
   token = words[index]
@@ -106,10 +105,9 @@ def _walk_ordered(
       state.switch_counts,
     )
     if switched is not None:
-      index, pending, pending_count = switched
-      if pending is not None:
-        state.pending_slot = pending
-        state.pending_slot_count = pending_count
+      index, pending = switched
+      if pending:
+        state.pending_slots = pending
         return index, state
       continue
     if bounds.maximum is not None and state.ordered_count >= bounds.maximum:
@@ -149,10 +147,9 @@ def _walk_prefix(commands: dict, context: Context, words: tuple[str, ...]) -> Wa
       state.switch_counts,
     )
     if switched is not None:
-      index, pending, pending_count = switched
-      if pending is not None:
-        state.pending_slot = pending
-        state.pending_slot_count = pending_count
+      index, pending = switched
+      if pending:
+        state.pending_slots = pending
         return state
       continue
     current = context.at(words, index)
@@ -207,12 +204,12 @@ def _validate_finished(state: WalkState, context: Context) -> None:
     bounds = switch_quantifier(entry)
     if count and count < bounds.minimum:
       raise CommandGrammarError(f"switch occurrences are incomplete: {token}")
-  if state.pending_slot is not None:
+  for slot, count in state.pending_slots:
     bounds = parse_quantifier(
-      state.pending_slot.get(QUANTIFIER),
+      slot.get(QUANTIFIER),
       label="parameter quantifier",
     )
-    if state.pending_slot_count < bounds.minimum:
+    if count < bounds.minimum:
       raise CommandGrammarError("switch parameters are incomplete")
   if ORDERED in node:
     bounds = parse_quantifier(
@@ -315,22 +312,26 @@ def _pending_items(
   *,
   describe: bool,
 ) -> tuple[list[Completion], bool]:
-  if state.pending_slot is None:
-    return [], False
-  result = [
-    Completion(token, description, True)
-    for token, description in slot_candidates(
-      state.pending_slot,
-      context,
-      describe_generic=describe,
-    ).items()
-    if token.startswith(prefix)
-  ]
-  bounds = parse_quantifier(
-    state.pending_slot.get(QUANTIFIER),
-    label="parameter quantifier",
-  )
-  return result, state.pending_slot_count < bounds.minimum
+  result: list[Completion] = []
+  required = False
+  for slot, count in state.pending_slots:
+    result.extend(
+      Completion(token, description, True)
+      for token, description in slot_candidates(
+        slot,
+        context,
+        describe_generic=describe,
+      ).items()
+      if token.startswith(prefix)
+    )
+    bounds = parse_quantifier(
+      slot.get(QUANTIFIER),
+      label="parameter quantifier",
+    )
+    if count < bounds.minimum:
+      required = True
+      break
+  return result, required
 
 
 def _node_items(
