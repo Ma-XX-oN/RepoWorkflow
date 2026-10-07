@@ -100,18 +100,29 @@ def long_route_candidate_valid(
     source_item=source_item,
     target_item=target_item,
   )
-  expected = {
-    (route.source, route.target)
-    for route in routes
+  component = _interaction_component(
+    candidate_cells,
+    edge.key,
+  )
+  local_cells = {
+    point: [
+      contribution
+      for contribution in contributions
+      if contribution.edge.key in component
+    ]
+    for point, contributions in candidate_cells.items()
+    if any(
+      contribution.edge.key in component
+      for contribution in contributions
+    )
   }
-  expected.add(edge.key)
   return route_candidate_preserves_reachability(
     validated,
     placements,
     columns,
     starts,
-    candidate_cells,
-    expected,
+    local_cells,
+    component,
   )
 
 
@@ -197,6 +208,62 @@ def validate_routes(
         )
 
 
+def _interaction_component(
+  cells: dict[tuple[int, int], list[Contribution]],
+  start: tuple[str, str],
+) -> set[tuple[str, str]]:
+  adjacency: dict[
+    tuple[str, str],
+    set[tuple[str, str]],
+  ] = {}
+  for contributions in cells.values():
+    switch_edges = _switch_edges(tuple(contributions))
+    if not switch_edges:
+      continue
+    for edge in switch_edges:
+      adjacency.setdefault(edge, set()).update(
+        switch_edges - {edge}
+      )
+
+  pending = [start]
+  seen: set[tuple[str, str]] = set()
+  while pending:
+    edge = pending.pop()
+    if edge in seen:
+      continue
+    seen.add(edge)
+    pending.extend(adjacency.get(edge, ()) - seen)
+  return seen
+
+
+def _switch_edges(
+  contributions: tuple[Contribution, ...],
+) -> set[tuple[str, str]]:
+  edge_map = {
+    contribution.edge.key: contribution
+    for contribution in contributions
+  }
+  if len(edge_map) < 2:
+    return set()
+  values = list(edge_map.values())
+  same_source = len({
+    item.edge.source
+    for item in values
+  }) == 1
+  same_target = len({
+    item.edge.target
+    for item in values
+  }) == 1
+  bundles = {
+    item.bundle
+    for item in values
+  }
+  same_bundle = len(bundles) == 1 and None not in bundles
+  if same_source or same_target or same_bundle:
+    return set(edge_map)
+  return set()
+
+
 def _validate_rendered_reachability(
   validated: ValidatedGraph,
   placements: dict[str, Placement],
@@ -242,22 +309,9 @@ def _validate_rendered_reachability(
     }
     if len(edge_map) < 2:
       continue
-    values = list(edge_map.values())
-    same_source = len({
-      item.edge.source
-      for item in values
-    }) == 1
-    same_target = len({
-      item.edge.target
-      for item in values
-    }) == 1
-    bundles = {
-      item.bundle
-      for item in values
-    }
-    same_bundle = len(bundles) == 1 and None not in bundles
-    if same_source or same_target or same_bundle:
-      switches[point] = set(edge_map)
+    switch_edges = _switch_edges(tuple(edge_map.values()))
+    if switch_edges:
+      switches[point] = switch_edges
 
   if expected_by_source is None:
     expected_by_source = {
