@@ -436,9 +436,15 @@ def simple_path(
       )
       if point in points
     ]
-  if any(len(values) > 2 for values in neighbours.values()):
+  branching = {
+    point: tuple(values)
+    for point, values in neighbours.items()
+    if len(values) > 2
+  }
+  if branching:
     raise GraphLayoutError(
-      "one semantic edge route branches or self-intersects"
+      "one semantic edge route branches or self-intersects; "
+      f"source={source!r}; target={target!r}; branching={branching!r}"
     )
 
   path = [source]
