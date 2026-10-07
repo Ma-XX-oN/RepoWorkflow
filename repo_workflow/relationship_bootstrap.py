@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .lane_decomposition import dependency_component
 from .lane_diagnostics import LaneDiagnostics
 from .dependency_migration_certification import (
   DependencyMigrationCertificationError,
@@ -49,7 +50,14 @@ def ensure_relationship_graph(
   requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
   dependency_config = resolve_dependency_config(root)
   info_config = resolve_info_config(root)
-  pending = list(requested)
+  if (
+    refresh
+    and snapshot is not None
+    and all(issue in issues for issue in requested)
+  ):
+    pending = list(dependency_component(snapshot.graph, requested))
+  else:
+    pending = list(requested)
   visited: set[str] = set()
   provider_reads: list[int] = []
   fetched_info: dict[int, dict] = {}
@@ -139,13 +147,18 @@ def ensure_relationship_graph(
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
+  else:
+    assert snapshot is not None
+    graph = snapshot.graph
+
+  component = dependency_component(graph, requested)
 
   if fetched_info:
     from .issue_metadata import cache_issue_display_metadata
     cache_issue_display_metadata(root, fetched_info, writer)
 
   return RelationshipAcquisition(
-    issues=tuple(sorted((int(issue) for issue in visited))),
+    issues=tuple(int(issue) for issue in component),
     provider_reads=tuple(provider_reads),
   )
 

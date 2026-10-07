@@ -237,3 +237,4 @@ issue,title,dependencies
 437,Implement automatic dependent-lane decomposition for shared prerequisites and convergence,436
 438,List lanes and issues in execution order with dependency readiness status,436
 439,"Certify dependent-lane decomposition, ordering, and readiness transitions",437;438
+440,Expand lane selection seeds to their complete dependency-connected component,217;219;342;343

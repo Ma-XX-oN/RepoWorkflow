@@ -223,10 +223,16 @@ without discarding durable evidence/history.
 Lane planning uses only explicit direct ticket dependencies:
 
 ```text
-rwf lanes select <roots...>
+rwf lanes select <issues...>
 rwf lanes list
 rwf lanes view
 ```
+
+The issues passed to `lanes select` are focus seeds.  Each seed expands to the
+complete dependency-connected component containing it, following both direct
+dependencies and direct dependants for component discovery.  Only the explicit
+focus seeds receive the `*` marker.  Dependency direction itself is unchanged:
+direct dependency edges remain the sole scheduling and topology authority.
 
 The durable synchronized ticket state contains issue number, exact title, and
 direct dependencies. Repeated lane operations use that local state. A missing
