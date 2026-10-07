@@ -142,6 +142,7 @@ def _workspace_commands() -> dict:
       "": "Show the current workspace",
       "_values": _workspace_ids,
       "_value_description": "Workspace ID",
+      "_quantifier": "?",
     },
     "claim": _workspace_value(),
     "release": _workspace_value(),
@@ -278,6 +279,7 @@ COMMANDS = {
       "": "List open issues",
       "_values": _issue_number,
       "_value_description": "Issue number",
+      "_quantifier": "?",
     },
     "list": {
       "": "List all open issues",
