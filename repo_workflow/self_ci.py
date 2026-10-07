@@ -109,9 +109,6 @@ def plan_self_ci(
   classification: str,
   requested_tier: str = "",
 ) -> SelfCiPlan:
-  if classification == "fast":
-    return SelfCiPlan("docs", None, (), "documentation-only fast path")
-
   if requested_tier and requested_tier not in VALID_TIERS:
     raise SelfCiError(f"unsupported requested CI tier: {requested_tier}")
 
@@ -130,6 +127,9 @@ def plan_self_ci(
       (),
       f"explicit {requested_tier} verification request",
     )
+
+  if classification == "fast" and not requested_tier:
+    return SelfCiPlan("docs", None, (), "documentation-only fast path")
 
   if event == "pull_request" or requested_tier == "issue":
     issue = issue_from_head_ref(head_ref or ref.removeprefix("refs/heads/"))
