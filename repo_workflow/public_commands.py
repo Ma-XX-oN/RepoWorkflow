@@ -65,19 +65,30 @@ def _issue_number(context: Context) -> dict:
   return {"completions": []}
 
 
+def _lane_name(context: Context) -> list[str]:
+  token = context.current_token
+  if token and not token.startswith("--"):
+    return [token]
+  return []
+
+
 def _dependency_direction_node() -> dict:
   return {
     "to-tickets": {
       "": "Synchronize RWF title/dependencies to tickets",
-      "--compare": "Compare title/dependencies without mutation",
-      "--replace": "Replace conflicting ticket dependencies",
+      "_switches": {
+        "--compare": "Compare title/dependencies without mutation",
+        "--replace": "Replace conflicting ticket dependencies",
+      },
     },
     "from-tickets": {
       "": "Synchronize ticket title/dependencies to RWF",
-      "--compare": "Compare title/dependencies without mutation",
-      "--replace": "Replace conflicting local title/dependencies",
-      "--replace-title": "Replace provider-authoritative title only",
-      "--replace-dependencies": "Replace local dependencies only",
+      "_switches": {
+        "--compare": "Compare title/dependencies without mutation",
+        "--replace": "Replace conflicting local title/dependencies",
+        "--replace-title": "Replace provider-authoritative title only",
+        "--replace-dependencies": "Replace local dependencies only",
+      },
     },
   }
 
@@ -131,6 +142,7 @@ def _workspace_commands() -> dict:
       "": "Show the current workspace",
       "_values": _workspace_ids,
       "_value_description": "Workspace ID",
+      "_quantifier": "?",
     },
     "claim": _workspace_value(),
     "release": _workspace_value(),
@@ -145,6 +157,10 @@ def _workspace_commands() -> dict:
 #   "<param>": param_completion_fn
 #
 #   "--<switch>": "<help>"
+#   "--<switch>": {
+#     "_quantifier": "...",
+#     ...
+#   }
 #   "--<switch>": [
 #     {
 #       "<param0-opt0>": ...,
@@ -198,51 +214,53 @@ COMMANDS = {
   },
   "lanes": {
     "select": {
-      "_variadic": {
-        "min": 1,
-        "description": "Issue focus seeds, optionally followed by --refresh/--json",
+      "": "Select issue focus roots",
+      "_values": _issue_number,
+      "_value_description": "Issue number",
+      "_quantifier": "+",
+      "_switches": {
+        "--refresh": "Refresh relationship and issue data",
+        "--json": "Output selection as JSON",
       },
       "add": {
-        "_variadic": {
-          "min": 1,
-          "description": "Issue focus seeds, optionally followed by --refresh/--json",
+        "": "Add issue focus roots",
+        "_values": _issue_number,
+        "_value_description": "Issue number",
+        "_quantifier": "+",
+        "_switches": {
+          "--refresh": "Refresh relationship and issue data",
+          "--json": "Output selection as JSON",
         },
       },
       "remove": {
-        "_variadic": {
-          "min": 1,
-          "description": "Issue focus seeds, optionally followed by --refresh/--json",
+        "": "Remove issue focus roots",
+        "_values": _issue_number,
+        "_value_description": "Issue number",
+        "_quantifier": "+",
+        "_switches": {
+          "--refresh": "Refresh relationship and issue data",
+          "--json": "Output selection as JSON",
         },
       },
     },
     "list": {
       "": "List selected issues grouped by lane",
-      "--links": {
-        "": "List selected issues with links",
-        "--refresh": "Refresh selected lane data and include links",
-      },
-      "--refresh": {
-        "": "Refresh selected lane data before listing",
-        "--links": "Refresh selected lane data and include links",
-      },
-      "_variadic": {
-        "min": 1,
-        "description": "Lane and optional --links/--refresh",
+      "_values": _lane_name,
+      "_value_description": "Lane",
+      "_quantifier": "?",
+      "_switches": {
+        "--links": "Include issue links",
+        "--refresh": "Refresh selected lane data before listing",
       },
     },
     "view": {
       "": "Render selected dependency topology",
-      "--refresh": {
-        "": "Refresh selected lane data before rendering",
-        "--debug": "Refresh and show lane diagnostics",
-      },
-      "--debug": {
-        "": "Show lane data sources, timings, and semantic edges",
-        "--refresh": "Refresh and show lane diagnostics",
-      },
-      "_variadic": {
-        "min": 1,
-        "description": "Lane and optional --refresh/--debug",
+      "_values": _lane_name,
+      "_value_description": "Lane",
+      "_quantifier": "?",
+      "_switches": {
+        "--refresh": "Refresh selected lane data before rendering",
+        "--debug": "Show lane data sources, timings, and semantic edges",
       },
     },
     "clear": "Clear local lane selection",
@@ -261,13 +279,15 @@ COMMANDS = {
       "": "List open issues",
       "_values": _issue_number,
       "_value_description": "Issue number",
+      "_quantifier": "?",
     },
     "list": {
       "": "List all open issues",
-      "--links": "List all open issues with links",
-      "_variadic": {
-        "min": 1,
-        "description": "Issue IDs, optionally followed by --links",
+      "_values": _issue_number,
+      "_value_description": "Issue number",
+      "_quantifier": "*",
+      "_switches": {
+        "--links": "List issues with links",
       },
     },
     "start": {
@@ -278,14 +298,18 @@ COMMANDS = {
   "workspace": _workspace_commands(),
   "what-next": {
     "": "Show legal next workflow transitions",
-    "--json": "Output workflow guidance as JSON",
+    "_switches": {
+      "--json": "Output workflow guidance as JSON",
+    },
   },
   "validate": {
     "_values": _validate_commands,
   },
   "version": {
     "": "Show the repository version",
-    "--json": "Output the repository version as JSON",
+    "_switches": {
+      "--json": "Output the repository version as JSON",
+    },
     "task": {
       "issue": {
         "_values": _issue_number,
