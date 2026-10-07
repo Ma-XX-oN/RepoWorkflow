@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from collections import deque
 
-from .graph_geometry import (
+from .graph_geometry import route_candidate_preserves_reachability
+from .graph_routing import (
+  dogleg_source_key,
+  dogleg_target_key,
   edge_item_key,
   route_adjacent,
-  route_candidate_preserves_reachability,
+  route_adjacent_dogleg,
 )
 from .graph_ordering import group_key
 from .graph_render_model import GraphSiblings, ValidatedGraph
@@ -31,6 +34,8 @@ def order_boundary_items(
     tuple[GraphSiblings, GraphSiblings]
   ],
   bundled: set[tuple[str, str]],
+  dogleg_edges: set[tuple[str, str]],
+  dogleg_rows: dict[tuple[str, str], int],
 ) -> tuple[tuple, ...]:
   base = tuple(
     sorted(
@@ -47,6 +52,8 @@ def order_boundary_items(
     validated,
     bundle_relations,
     bundled,
+    dogleg_edges,
+    dogleg_rows,
   ):
     return base
 
@@ -75,7 +82,9 @@ def order_boundary_items(
         validated,
         bundle_relations,
         bundled,
-      ):
+        dogleg_edges,
+    dogleg_rows,
+  ):
         return ordered
       if checked >= _MAX_CANDIDATES:
         break
@@ -97,6 +106,8 @@ def _order_is_valid(
     tuple[GraphSiblings, GraphSiblings]
   ],
   bundled: set[tuple[str, str]],
+  dogleg_edges: set[tuple[str, str]],
+  dogleg_rows: dict[tuple[str, str], int],
 ) -> bool:
   gap_width = max(3, len(order) + 2)
   source_start = 0
@@ -158,17 +169,33 @@ def _order_is_valid(
       or target.column != boundary + 1
     ):
       continue
-    item = edge_item_key(edge)
-    if item not in tracks:
-      return False
-    route_adjacent(
-      cells,
-      edge,
-      placements,
-      columns,
-      starts,
-      tracks[item],
-    )
+    if edge.key in dogleg_edges:
+      source_item = dogleg_source_key(edge)
+      target_item = dogleg_target_key(edge)
+      if source_item not in tracks or target_item not in tracks:
+        return False
+      route_adjacent_dogleg(
+        cells,
+        edge,
+        placements,
+        columns,
+        starts,
+        tracks[source_item],
+        tracks[target_item],
+        dogleg_rows[edge.key],
+      )
+    else:
+      item = edge_item_key(edge)
+      if item not in tracks:
+        return False
+      route_adjacent(
+        cells,
+        edge,
+        placements,
+        columns,
+        starts,
+        tracks[item],
+      )
     expected.add(edge.key)
 
   if not expected:
@@ -194,6 +221,10 @@ def _item_order(
   item: tuple,
   placements: dict[str, Placement],
 ) -> tuple[int, tuple]:
+  if item[0] == "dogleg-source":
+    return -1, item
+  if item[0] == "dogleg-target":
+    return 3, item
   if item[0] != "edge":
     return 1, item
   source = placements[item[1]]
