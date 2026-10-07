@@ -95,7 +95,7 @@ class BoundaryPlanTests(unittest.TestCase):
       {item.key: 3},
     )
 
-  def test_same_row_doglegs_receive_distinct_private_rows(self):
+  def test_same_row_doglegs_prefer_nearest_visible_row(self):
     first = edge("A", "B")
     second = edge("C", "D")
     placements = {
@@ -112,9 +112,28 @@ class BoundaryPlanTests(unittest.TestCase):
       4,
     )
 
-    self.assertEqual(set(rows.values()), {5, 6})
-    self.assertEqual(rows[first.key], 5)
-    self.assertEqual(rows[second.key], 6)
+    self.assertEqual(rows[first.key], 1)
+    self.assertEqual(rows[second.key], 3)
+
+  def test_one_row_same_row_doglegs_use_private_fallback_rows(self):
+    first = edge("A", "B")
+    second = edge("C", "D")
+    placements = {
+      "A": Placement(0, 0),
+      "B": Placement(1, 0),
+      "C": Placement(2, 0),
+      "D": Placement(3, 0),
+    }
+
+    rows = dogleg_route_rows(
+      (first, second),
+      {first.key, second.key},
+      placements,
+      0,
+    )
+
+    self.assertEqual(rows[first.key], 1)
+    self.assertEqual(rows[second.key], 2)
 
   def test_long_fan_in_only_edge_requires_endpoint_separation(self):
     item = edge("A", "D")
