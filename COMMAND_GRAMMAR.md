@@ -161,9 +161,26 @@ cardinality:
 
 Parser, completion, help, and diagnostics consume these exact structures.
 
-## 3. One dynamic provider result contract
+## 3. Dynamic provider result contracts
 
-Every dynamic `_values` provider returns one explicit completion
+The quantified value form introduced by #456 is the simple catalogue/value
+provider:
+
+```python
+"<cmd>": {
+  "_values": completion_fn,
+  "_value_description": "<help>",
+  "_quantifier": "...",
+}
+```
+
+For that form, `completion_fn` returns only a list of completion item strings.
+Cardinality and help are authored by the grammar rather than encoded in the
+provider's Python return shape.
+
+The earlier #52 state-projection/handler extension remains available when a
+dynamic command position needs described command fragments or custom Tab
+behaviour.  That distinct provider returns an explicit completion
 specification:
 
 ```python
@@ -173,26 +190,17 @@ specification:
 }
 ```
 
-`on-tab` is optional.  Absence means the default handler.
-
-The provider contract must not assign semantics by Python return-type shape.
-A provider does not sometimes return `list[str]`, sometimes
-`list[dict]`, or a special single string with implied behaviour.
-
-`completions` may contain whatever validated completion-entry representation
-the grammar/compiler defines for:
-
-- catalogue-owned values;
-- described command fragments;
-- state-derived legal transitions.
-
-The distinction belongs to the completion entries/specification, not to the
-outer Python container type.
+`on-tab` is optional.  Absence means the default handler.  This extension is
+not the simple `completion_fn` shown in the #456 grammar reference.
 
 A custom `on-tab` handler is the first-class escape hatch for exceptional
 completion presentation or insertion behaviour.  Shell-specific concepts such
 as whether a completion adds a trailing space belong in the handler/adapter,
 not in the semantic command grammar.
+
+Provider results must be validated according to the provider form being used;
+callers must not infer unrelated semantics merely from an arbitrary Python
+container type.
 
 ## 4. Dynamic state projection
 
