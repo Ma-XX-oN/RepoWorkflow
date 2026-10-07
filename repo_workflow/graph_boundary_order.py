@@ -61,53 +61,76 @@ def order_boundary_items(
     if item in active
   )
   base_errors: list[str] = []
-  if _order_is_valid(
-    active_base,
-    boundary,
-    edges,
-    placements,
-    columns,
-    validated,
-    bundle_relations,
-    bundled,
-    dogleg_edges,
-    dogleg_rows,
-    errors=base_errors,
-  ):
-    return _merge_passive(base, active_base, active)
+  best_order: tuple[tuple, ...] | None = None
+  best_score: tuple | None = None
 
-  pending = deque([active_base])
-  seen = {active_base}
-  checked = 1
-  while pending and checked < _MAX_CANDIDATES:
-    current = pending.popleft()
-    for index in range(len(current) - 1):
-      candidate = list(current)
-      candidate[index], candidate[index + 1] = (
-        candidate[index + 1],
-        candidate[index],
-      )
-      ordered = tuple(candidate)
-      if ordered in seen:
-        continue
-      seen.add(ordered)
-      checked += 1
-      if _order_is_valid(
-        ordered,
+  def consider(
+    active_order: tuple[tuple, ...],
+    *,
+    errors: list[str] | None = None,
+  ) -> None:
+    nonlocal best_order, best_score
+    if not _order_is_valid(
+      active_order,
+      boundary,
+      edges,
+      placements,
+      columns,
+      validated,
+      bundle_relations,
+      bundled,
+      dogleg_edges,
+      dogleg_rows,
+      errors=errors,
+    ):
+      return
+    full_order = _merge_passive(base, active_order, active)
+    score = (
+      *_boundary_order_quality(
+        full_order,
         boundary,
         edges,
         placements,
         columns,
-        validated,
         bundle_relations,
         bundled,
         dogleg_edges,
         dogleg_rows,
-      ):
-        return _merge_passive(base, ordered, active)
-      if checked >= _MAX_CANDIDATES:
-        break
-      pending.append(ordered)
+      ),
+      full_order,
+    )
+    if best_score is None or score < best_score:
+      best_score = score
+      best_order = full_order
+
+  consider(active_base, errors=base_errors)
+  if len(active_base) <= 1:
+    if best_order is not None:
+      return best_order
+  else:
+    pending = deque([active_base])
+    seen = {active_base}
+    checked = 1
+    while pending and checked < _MAX_CANDIDATES:
+      current = pending.popleft()
+      for index in range(len(current) - 1):
+        candidate = list(current)
+        candidate[index], candidate[index + 1] = (
+          candidate[index + 1],
+          candidate[index],
+        )
+        ordered = tuple(candidate)
+        if ordered in seen:
+          continue
+        seen.add(ordered)
+        checked += 1
+        consider(ordered)
+        if checked >= _MAX_CANDIDATES:
+          break
+        pending.append(ordered)
+
+  if best_order is not None:
+    return best_order
 
   adjacent_edges = tuple(
     edge.key
@@ -117,6 +140,7 @@ def order_boundary_items(
       and placements[edge.target].column == boundary + 1
     )
   )
+  checked = len(seen) if len(active_base) > 1 else 1
   raise GraphLayoutError(
     "no semantically valid bounded adjacent-track ordering is available "
     f"for boundary {boundary} after {checked} active candidates; "
@@ -189,22 +213,94 @@ def _merge_passive(
   return tuple(result)
 
 
-def _order_is_valid(
+
+def _boundary_order_quality(
   order: tuple[tuple, ...],
   boundary: int,
   edges: tuple[SemanticEdge, ...],
   placements: dict[str, Placement],
   columns: dict[int, Column],
-  validated: ValidatedGraph,
   bundle_relations: set[
     tuple[GraphSiblings, GraphSiblings]
   ],
   bundled: set[tuple[str, str]],
   dogleg_edges: set[tuple[str, str]],
   dogleg_rows: dict[tuple[str, str], int],
-  *,
-  errors: list[str] | None = None,
-) -> bool:
+) -> tuple[int, int, int]:
+  cells, _ = _order_cells(
+    order,
+    boundary,
+    edges,
+    placements,
+    columns,
+    bundle_relations,
+    bundled,
+    dogleg_edges,
+    dogleg_rows,
+  )
+
+  directions: dict[tuple[int, int], set[int]] = {}
+  for point, contributions in cells.items():
+    for contribution in contributions:
+      if contribution.vertical_direction:
+        directions.setdefault(point, set()).add(
+          contribution.vertical_direction
+        )
+
+  opposing = 0
+  adjacent_verticals = 0
+  for (x, y), values in directions.items():
+    right = directions.get((x + 1, y), set())
+    if not right:
+      continue
+    adjacent_verticals += 1
+    if (
+      (1 in values and -1 in right)
+      or (-1 in values and 1 in right)
+    ):
+      opposing += 1
+
+  crossings = 0
+  for contributions in cells.values():
+    per_edge: dict[tuple[str, str], int] = {}
+    for contribution in contributions:
+      key = contribution.edge.key
+      per_edge[key] = (
+        per_edge.get(key, 0)
+        | contribution.bits
+      )
+    if len(per_edge) < 2:
+      continue
+    has_horizontal = any(
+      bits & 3
+      for bits in per_edge.values()
+    )
+    has_vertical = any(
+      bits & 12
+      for bits in per_edge.values()
+    )
+    if has_horizontal and has_vertical:
+      crossings += 1
+
+  return opposing, adjacent_verticals, crossings
+
+
+def _order_cells(
+  order: tuple[tuple, ...],
+  boundary: int,
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+  bundled: set[tuple[str, str]],
+  dogleg_edges: set[tuple[str, str]],
+  dogleg_rows: dict[tuple[str, str], int],
+) -> tuple[
+  dict[tuple[int, int], list],
+  set[tuple[str, str]],
+]:
   gap_width = max(3, len(order) + 2)
   source_start = 0
   target_start = columns[boundary].width + gap_width
@@ -269,7 +365,7 @@ def _order_is_valid(
       source_item = dogleg_source_key(edge)
       target_item = dogleg_target_key(edge)
       if source_item not in tracks or target_item not in tracks:
-        return False
+        return {}, set()
       route_adjacent_dogleg(
         cells,
         edge,
@@ -283,7 +379,7 @@ def _order_is_valid(
     else:
       item = edge_item_key(edge)
       if item not in tracks:
-        return False
+        return {}, set()
       route_adjacent(
         cells,
         edge,
@@ -294,6 +390,41 @@ def _order_is_valid(
       )
     expected.add(edge.key)
 
+  return cells, expected
+
+
+def _order_is_valid(
+  order: tuple[tuple, ...],
+  boundary: int,
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  validated: ValidatedGraph,
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+  bundled: set[tuple[str, str]],
+  dogleg_edges: set[tuple[str, str]],
+  dogleg_rows: dict[tuple[str, str], int],
+  *,
+  errors: list[str] | None = None,
+) -> bool:
+  cells, expected = _order_cells(
+    order,
+    boundary,
+    edges,
+    placements,
+    columns,
+    bundle_relations,
+    bundled,
+    dogleg_edges,
+    dogleg_rows,
+  )
+  gap_width = max(3, len(order) + 2)
+  starts = {
+    boundary: 0,
+    boundary + 1: columns[boundary].width + gap_width,
+  }
   if not expected:
     return True
   if errors is None:
