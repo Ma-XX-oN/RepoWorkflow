@@ -4,6 +4,8 @@ from .graph_render_model import ValidatedGraph
 from .graph_route_semantics import (
   long_route_candidate_valid,
   route_candidate_preserves_reachability,
+  collect_routed_edge_bits,
+  simple_path,
   validate_long_route_candidate,
   validate_rendered_reachability,
   validate_route_candidate_reachability,
@@ -37,15 +39,11 @@ def validate_routes(
       "logical routes do not match semantic relationships"
     )
 
-  routed_cells: dict[tuple[str, str], set[tuple[int, int]]] = {}
-  for point, contributions in cells.items():
-    for contribution in contributions:
-      key = contribution.edge.key
-      if key not in expected:
-        raise GraphLayoutError(
-          "routed geometry contains an unknown semantic edge"
-        )
-      routed_cells.setdefault(key, set()).add(point)
+  routed_cells = collect_routed_edge_bits(cells)
+  if set(routed_cells) - expected:
+    raise GraphLayoutError(
+      "routed geometry contains an unknown semantic edge"
+    )
 
   if set(routed_cells) != expected:
     raise GraphLayoutError(
@@ -53,7 +51,7 @@ def validate_routes(
     )
 
   for source, target in sorted(expected):
-    points = routed_cells[(source, target)]
+    route_bits = routed_cells[(source, target)]
     source_place = placements[source]
     target_place = placements[target]
     source_anchor = (
@@ -64,14 +62,11 @@ def validate_routes(
       starts[target_place.column] - 1,
       target_place.row,
     )
-    if source_anchor not in points or target_anchor not in points:
+    if source_anchor not in route_bits or target_anchor not in route_bits:
       raise GraphLayoutError(
         "semantic edge route does not reach both endpoint anchors"
       )
-    if not _is_connected(points):
-      raise GraphLayoutError(
-        "semantic edge route is not geometrically connected"
-      )
+    simple_path(route_bits, source_anchor, target_anchor)
 
   validate_rendered_reachability(
     validated,
@@ -97,25 +92,3 @@ def validate_routes(
         raise GraphLayoutError(
           "hidden continuation lost semantic endpoints"
         )
-
-
-def _is_connected(points: set[tuple[int, int]]) -> bool:
-  if not points:
-    return False
-  pending = {next(iter(points))}
-  visited: set[tuple[int, int]] = set()
-  while pending:
-    point = pending.pop()
-    if point in visited:
-      continue
-    visited.add(point)
-    x, y = point
-    for neighbour in (
-      (x - 1, y),
-      (x + 1, y),
-      (x, y - 1),
-      (x, y + 1),
-    ):
-      if neighbour in points and neighbour not in visited:
-        pending.add(neighbour)
-  return visited == points
