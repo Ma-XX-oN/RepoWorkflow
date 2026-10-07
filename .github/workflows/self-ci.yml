@@ -7,6 +7,16 @@ on:
       - issue-1-repoworkflow-foundation
   pull_request:
   workflow_dispatch:
+    inputs:
+      validation_tier:
+        description: Validation tier to run
+        required: true
+        default: integration
+        type: choice
+        options:
+          - issue
+          - regression
+          - integration
 
 concurrency:
   group: repoworkflow-self-ci-${{ github.event.pull_request.number || github.ref }}
@@ -42,9 +52,36 @@ jobs:
             echo "$result"
           fi
 
-  validate:
+  plan:
     needs: classify
-    if: needs.classify.outputs.validation != 'fast'
+    runs-on: ubuntu-latest
+    outputs:
+      tier: ${{ steps.plan.outputs.tier }}
+      groups: ${{ steps.plan.outputs.groups }}
+      reason: ${{ steps.plan.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Select validation tier and groups
+        id: plan
+        shell: bash
+        env:
+          REQUESTED_TIER: ${{ github.event_name == 'workflow_dispatch' && inputs.validation_tier || '' }}
+        run: |
+          result="$(python scripts/self-ci-plan.py             --event "${{ github.event_name }}"             --ref "${{ github.ref }}"             --head-ref "${{ github.head_ref }}"             --classification "${{ needs.classify.outputs.validation }}"             --requested-tier "$REQUESTED_TIER")"
+          echo "$result"
+          echo "tier=$(python -c 'import json,sys; print(json.load(sys.stdin)["tier"])' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "groups=$(python -c 'import json,sys; import json as j; print(j.dumps(json.load(sys.stdin)["groups"], separators=(",",":")))' <<<"$result")" >> "$GITHUB_OUTPUT"
+          echo "reason=$(python -c 'import json,sys; print(json.load(sys.stdin)["reason"])' <<<"$result")" >> "$GITHUB_OUTPUT"
+
+  issue-validate:
+    needs: [classify, plan]
+    if: needs.plan.outputs.tier == 'issue'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +93,38 @@ jobs:
           python-version: '3.13'
       - name: Install RepoWorkflow runtime dependencies
         run: python -m pip install -r requirements.txt
+      - name: Run issue-scoped verification
+        env:
+          RWF_GROUPS: ${{ needs.plan.outputs.groups }}
+          RWF_REASON: ${{ needs.plan.outputs.reason }}
+        run: |
+          echo "tier=issue"
+          echo "reason=$RWF_REASON"
+          echo "groups=$RWF_GROUPS"
+          python scripts/validate-issue.py --groups-json "$RWF_GROUPS"
+      - name: Require issue validation to leave repository clean
+        shell: bash
+        run: |
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+  validate:
+    needs: [classify, plan]
+    if: needs.plan.outputs.tier == 'regression' || needs.plan.outputs.tier == 'integration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install RepoWorkflow runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Report selected validation tier
+        run: |
+          echo "tier=${{ needs.plan.outputs.tier }}"
+          echo "reason=${{ needs.plan.outputs.reason }}"
       - name: Run authoritative RepoWorkflow validation
         run: python scripts/validate.py
       - name: Require validation to leave repository clean
@@ -64,8 +133,8 @@ jobs:
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
   argv-limits:
-    needs: classify
-    if: needs.classify.outputs.validation != 'fast'
+    needs: [classify, plan]
+    if: needs.plan.outputs.tier == 'integration'
     name: Probe argv limits (${{ matrix.os }})
     strategy:
       matrix:
@@ -82,8 +151,8 @@ jobs:
         run: python scripts/probe-argv-limits.py
 
   graph-renderer-platform:
-    needs: classify
-    if: needs.classify.outputs.validation != 'fast'
+    needs: [classify, plan]
+    if: needs.plan.outputs.tier == 'integration'
     name: Probe graph renderer (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -103,8 +172,8 @@ jobs:
         run: python scripts/probe-graph-renderer.py
 
   ticket-merge-platform:
-    needs: classify
-    if: needs.classify.outputs.validation != 'fast'
+    needs: [classify, plan]
+    if: needs.plan.outputs.tier == 'integration'
     name: Probe ticket merge (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -122,14 +191,17 @@ jobs:
         run: python scripts/probe-ticket-merge.py
 
   release:
-    needs: [classify, validate]
+    needs: [classify, plan, issue-validate, validate]
     if: >-
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       (
-        needs.classify.outputs.validation == 'fast' ||
-        needs.validate.result == 'success'
+        needs.plan.outputs.tier == 'docs' ||
+        (
+          needs.plan.outputs.tier == 'integration' &&
+          needs.validate.result == 'success'
+        )
       )
     runs-on: ubuntu-latest
     permissions:
