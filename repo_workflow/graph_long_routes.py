@@ -12,6 +12,7 @@ def choose_long_route_row(
   max_node_row: int,
   used_rows: dict[int, list[SemanticEdge]],
   crossing_cost: Callable[[int], int],
+  candidate_valid: Callable[[int], bool] | None = None,
 ) -> int:
   source = placements[edge.source]
   target = placements[edge.target]
@@ -42,7 +43,7 @@ def choose_long_route_row(
   if not available:
     raise ValueError("no bounded long-route row candidate is available")
 
-  return min(
+  ordered = sorted(
     available,
     key=lambda row: (
       crossing_cost(row),
@@ -52,6 +53,12 @@ def choose_long_route_row(
         row,
       ),
     ),
+  )
+  for row in ordered:
+    if candidate_valid is None or candidate_valid(row):
+      return row
+  raise ValueError(
+    "no semantically valid bounded long-route row candidate is available"
   )
 
 
