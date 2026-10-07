@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from .graph_boundary_order import order_boundary_items
 from .graph_geometry import (
+  long_route_candidate_valid,
+  validate_routes,
+)
+from .graph_routing import (
+  dogleg_source_key,
+  dogleg_target_key,
   edge_item_key,
   route_adjacent,
-  long_route_candidate_valid,
+  route_adjacent_dogleg,
   route_long,
-  validate_routes,
 )
 from .graph_long_routes import choose_long_route_row
 from .graph_ordering import group_key, group_ranks, place_nodes
@@ -49,6 +54,16 @@ def build_layout(graph: Graph) -> LayoutPlan:
   edges = _semantic_edges(validated)
 
   bundle_relations = _bundle_relations(edges, group_rank)
+  dogleg_edges = _dogleg_edges(
+    validated,
+    edges,
+    placements,
+    bundle_relations,
+  )
+  dogleg_rows = {
+    key: max_node_row + index + 1
+    for index, key in enumerate(sorted(dogleg_edges))
+  }
   boundary_items = _boundary_items(
     edges,
     placements,
@@ -56,6 +71,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
     validated,
     group_rank,
     bundle_relations,
+    dogleg_edges,
+    dogleg_rows,
   )
   column_start, track_x = _column_geometry(columns, boundary_items)
 
@@ -114,16 +131,28 @@ def build_layout(graph: Graph) -> LayoutPlan:
       long_edges.append(edge)
       continue
     boundary = source.column
-    item_key = edge_item_key(edge)
-    x = track_x[(boundary, item_key)]
-    route_adjacent(
-      cells,
-      edge,
-      placements,
-      columns,
-      column_start,
-      x,
-    )
+    if edge.key in dogleg_edges:
+      route_adjacent_dogleg(
+        cells,
+        edge,
+        placements,
+        columns,
+        column_start,
+        track_x[(boundary, dogleg_source_key(edge))],
+        track_x[(boundary, dogleg_target_key(edge))],
+        dogleg_rows[edge.key],
+      )
+    else:
+      item_key = edge_item_key(edge)
+      x = track_x[(boundary, item_key)]
+      route_adjacent(
+        cells,
+        edge,
+        placements,
+        columns,
+        column_start,
+        x,
+      )
     routes.append(
       RouteRecord(edge.source, edge.target, "adjacent", ())
     )
@@ -333,6 +362,27 @@ def _semantic_edges(
   return tuple(result)
 
 
+def _dogleg_edges(
+  validated: ValidatedGraph,
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+) -> set[tuple[str, str]]:
+  return {
+    edge.key
+    for edge in edges
+    if (
+      (edge.source_group, edge.target_group) not in bundle_relations
+      and placements[edge.target].column == placements[edge.source].column + 1
+      and placements[edge.source].row == placements[edge.target].row
+      and len(validated.adjacency[edge.source]) > 1
+      and len(validated.incoming[edge.target]) > 1
+    )
+  }
+
+
 def _bundle_relations(
   edges: tuple[SemanticEdge, ...],
   ranks: dict[GraphSiblings, int],
@@ -378,6 +428,8 @@ def _boundary_items(
   bundle_relations: set[
     tuple[GraphSiblings, GraphSiblings]
   ],
+  dogleg_edges: set[tuple[str, str]],
+  dogleg_rows: dict[tuple[str, str], int],
 ) -> dict[int, tuple[tuple, ...]]:
   values: dict[int, set[tuple]] = {}
   bundled: set[tuple[str, str]] = set()
@@ -398,6 +450,12 @@ def _boundary_items(
       continue
     source = placements[edge.source]
     target = placements[edge.target]
+    if edge.key in dogleg_edges:
+      values.setdefault(source.column, set()).update({
+        dogleg_source_key(edge),
+        dogleg_target_key(edge),
+      })
+      continue
     values.setdefault(source.column, set()).add(
       edge_item_key(edge)
     )
@@ -420,6 +478,8 @@ def _boundary_items(
       validated,
       bundle_relations,
       bundled,
+      dogleg_edges,
+      dogleg_rows,
     )
     for boundary in range(max_column)
   }
