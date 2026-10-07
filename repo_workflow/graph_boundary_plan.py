@@ -32,6 +32,26 @@ def dogleg_edges(
   }
 
 
+def long_bridge_edges(
+  validated: ValidatedGraph,
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+) -> set[tuple[str, str]]:
+  return {
+    edge.key
+    for edge in edges
+    if (
+      (edge.source_group, edge.target_group) not in bundle_relations
+      and placements[edge.target].column > placements[edge.source].column + 1
+      and len(validated.adjacency[edge.source]) > 1
+      and len(validated.incoming[edge.target]) > 1
+    )
+  }
+
+
 def bundle_relations(
   edges: tuple[SemanticEdge, ...],
   ranks: dict[GraphSiblings, int],
@@ -69,6 +89,7 @@ def boundary_items(
   ranks: dict[GraphSiblings, int],
   bundles: set[tuple[GraphSiblings, GraphSiblings]],
   doglegs: set[tuple[str, str]],
+  long_bridges: set[tuple[str, str]],
   dogleg_rows: dict[tuple[str, str], int],
 ) -> dict[int, tuple[tuple, ...]]:
   values: dict[int, set[tuple]] = {}
@@ -95,6 +116,14 @@ def boundary_items(
         dogleg_source_key(edge),
         dogleg_target_key(edge),
       })
+      continue
+    if edge.key in long_bridges:
+      values.setdefault(source.column, set()).add(
+        dogleg_source_key(edge)
+      )
+      values.setdefault(target.column - 1, set()).add(
+        dogleg_target_key(edge)
+      )
       continue
     values.setdefault(source.column, set()).add(
       edge_item_key(edge)
