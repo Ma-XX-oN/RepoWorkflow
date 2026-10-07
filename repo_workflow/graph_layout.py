@@ -96,6 +96,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
         RouteRecord(edge.source, edge.target, "bundle", ())
       )
 
+  long_edges: list[SemanticEdge] = []
   for edge in edges:
     if edge.key in bundled_edges:
       continue
@@ -106,23 +107,27 @@ def build_layout(graph: Graph) -> LayoutPlan:
       raise ValueError(
         "semantic edge does not point to a later column"
       )
-    if span == 1:
-      boundary = source.column
-      item_key = edge_item_key(edge)
-      x = track_x[(boundary, item_key)]
-      route_adjacent(
-        cells,
-        edge,
-        placements,
-        columns,
-        column_start,
-        x,
-      )
-      routes.append(
-        RouteRecord(edge.source, edge.target, "adjacent", ())
-      )
+    if span > 1:
+      long_edges.append(edge)
       continue
+    boundary = source.column
+    item_key = edge_item_key(edge)
+    x = track_x[(boundary, item_key)]
+    route_adjacent(
+      cells,
+      edge,
+      placements,
+      columns,
+      column_start,
+      x,
+    )
+    routes.append(
+      RouteRecord(edge.source, edge.target, "adjacent", ())
+    )
 
+  for edge in long_edges:
+    source = placements[edge.source]
+    target = placements[edge.target]
     track_y = choose_long_route_row(
       edge,
       placements,
