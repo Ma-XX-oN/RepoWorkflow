@@ -20,6 +20,10 @@ def bundle_item_key(source, target) -> tuple:
   return "bundle", tuple(sorted(source.nodes)), tuple(sorted(target.nodes))
 
 
+def dogleg_separator_key(boundary: int) -> tuple:
+  return "dogleg-separator", boundary
+
+
 def dogleg_source_key(edge: SemanticEdge) -> tuple:
   return "dogleg-source", edge.source, edge.target
 
