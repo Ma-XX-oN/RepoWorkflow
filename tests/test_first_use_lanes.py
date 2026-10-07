@@ -247,6 +247,47 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
 
+  def test_fresh_focus_seed_discovers_complete_provider_component(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base, {
+        435: [439],
+        436: [],
+        437: [436],
+        438: [436],
+        439: [437, 438],
+      })
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "436",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      value = json.loads(selected.stdout)
+      self.assertEqual(value["roots"], ["436"])
+      self.assertEqual(
+        value["closure"],
+        ["435", "436", "437", "438", "439"],
+      )
+      self.assertEqual(
+        self.dependency_calls(env),
+        [436, 437, 438, 439, 435],
+      )
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      for issue in range(435, 440):
+        self.assertIn(str(issue), viewed.stdout)
+      self.assertEqual(viewed.stdout.count("*"), 1)
+      self.assertIn("*A436", viewed.stdout)
+
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
