@@ -469,6 +469,18 @@ def _validate_finished(state: WalkState, context: Context) -> None:
     raise CommandGrammarError("command is incomplete")
 
 
+def prefix_valid(
+  commands: dict,
+  context: Context,
+  tokens: Iterable[str],
+) -> bool:
+  try:
+    _walk_prefix(commands, context, tuple(tokens))
+  except CommandGrammarError:
+    return False
+  return True
+
+
 def parse_tokens(
   commands: dict,
   context: Context,
