@@ -45,7 +45,7 @@ A lifecycle value has this shape:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "issue": "64",
   "state": "active",
   "dependency_satisfied": false,
