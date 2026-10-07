@@ -9,7 +9,8 @@ The lifecycle specification is authoritative for behaviour.  Tests must be
 added with the implementation stage that introduces the behaviour; a stage is
 not complete merely because its implementation exists.
 
-This RepoWorkflow-specific strategy instantiates the universal repository-neutral
+This RepoWorkflow-specific strategy instantiates the universal
+repository-neutral
 adequacy policy in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).  These concrete stage
 requirements do not replace that gate; both apply.
 
