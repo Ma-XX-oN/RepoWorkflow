@@ -35,6 +35,16 @@ a many-to-many fan bridge could create a merge-before-branch visual junction.
 7. After the first escaped failure was repaired, testing did not continue the
    same assembled workflow through downstream stages that had previously been
    unreachable.
+8. The renderer and its oracle inferred physical junctions from semantic
+   endpoint identity: any same-source or same-target overlap was treated as a
+   switch.  That incorrectly turned perpendicular crossings on private
+   doglegs/routes into branch or merge points.  Junction identity must come
+   from actual routed geometry, not merely from semantic relationship names.
+9. Search-space growth in both adjacent-track ordering and long-route planning
+   was initially treated as a search problem.  The safer correction is to
+   remove false interaction classes first: passive tracks do not belong in an
+   adjacent semantic search, and private/non-interacting routes should not
+   share a combinatorial search space.
 
 ## Permanent prevention changes
 
@@ -58,7 +68,11 @@ and `TEST_STRATEGY.md`:
 - generated bounded DAG/lane coverage;
 - current committed ticket graph through full rendering;
 - assembled public-CLI smoke through the same boundary;
-- certification invalidation for graph/renderer/decomposition drift.
+- certification invalidation for graph/renderer/decomposition drift;
+- explicit cell-level tests distinguishing shared-direction junctions from
+  perpendicular crossings;
+- search scopes derived from actual semantic/geometric interaction rather than
+  every track present in the same region.
 
 ## Closure requirement
 
