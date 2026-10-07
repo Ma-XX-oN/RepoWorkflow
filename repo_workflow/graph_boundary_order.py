@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from collections import deque
 
-from .graph_route_semantics import route_candidate_preserves_reachability
+from .graph_route_semantics import (
+  route_candidate_preserves_reachability,
+  validate_route_candidate_reachability,
+)
 from .graph_routing import (
   bundle_item_key,
   dogleg_source_key,
@@ -57,6 +60,7 @@ def order_boundary_items(
     for item in base
     if item in active
   )
+  base_errors: list[str] = []
   if _order_is_valid(
     active_base,
     boundary,
@@ -68,6 +72,7 @@ def order_boundary_items(
     bundled,
     dogleg_edges,
     dogleg_rows,
+    errors=base_errors,
   ):
     return _merge_passive(base, active_base, active)
 
@@ -116,7 +121,8 @@ def order_boundary_items(
     "no semantically valid bounded adjacent-track ordering is available "
     f"for boundary {boundary} after {checked} active candidates; "
     f"active_items={active_base!r}; passive_count={len(base) - len(active_base)}; "
-    f"edges={adjacent_edges!r}"
+    f"edges={adjacent_edges!r}; "
+    f"base_error={base_errors[0] if base_errors else 'unknown'}"
   )
 
 
@@ -196,6 +202,8 @@ def _order_is_valid(
   bundled: set[tuple[str, str]],
   dogleg_edges: set[tuple[str, str]],
   dogleg_rows: dict[tuple[str, str], int],
+  *,
+  errors: list[str] | None = None,
 ) -> bool:
   gap_width = max(3, len(order) + 2)
   source_start = 0
@@ -288,14 +296,28 @@ def _order_is_valid(
 
   if not expected:
     return True
-  return route_candidate_preserves_reachability(
-    validated,
-    placements,
-    columns,
-    starts,
-    cells,
-    expected,
-  )
+  if errors is None:
+    return route_candidate_preserves_reachability(
+      validated,
+      placements,
+      columns,
+      starts,
+      cells,
+      expected,
+    )
+  try:
+    validate_route_candidate_reachability(
+      validated,
+      placements,
+      columns,
+      starts,
+      cells,
+      expected,
+    )
+  except GraphLayoutError as error:
+    errors.append(str(error))
+    return False
+  return True
 
 
 def _item_order(
