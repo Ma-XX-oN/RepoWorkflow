@@ -261,7 +261,7 @@ def validate_rendered_reachability(
     }
     if len(edge_map) < 2:
       continue
-    switch_edges = _switch_edges(tuple(edge_map.values()))
+    switch_edges = switch_edges_for_cell(tuple(edge_map.values()))
     if switch_edges:
       switches[point] = switch_edges
 
