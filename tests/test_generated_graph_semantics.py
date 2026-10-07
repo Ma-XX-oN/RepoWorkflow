@@ -25,7 +25,42 @@ def formatter(entries: tuple[FormatEntry, ...]) -> AlignedColumn:
   )
 
 
-def make_graph(edges: tuple[tuple[str, str], ...]) -> Graph:
+def lane_partitions(
+  nodes: tuple[str, ...],
+) -> tuple[tuple[tuple[str, ...], ...], ...]:
+  result: list[tuple[tuple[str, ...], ...]] = []
+
+  def visit(index: int, groups: list[list[str]]) -> None:
+    if index == len(nodes):
+      result.append(tuple(tuple(group) for group in groups))
+      return
+    node = nodes[index]
+    for group in groups:
+      group.append(node)
+      visit(index + 1, groups)
+      group.pop()
+    groups.append([node])
+    visit(index + 1, groups)
+    groups.pop()
+
+  visit(0, [])
+  return tuple(result)
+
+
+def valid_lane_partition(
+  partition: tuple[tuple[str, ...], ...],
+  edges: set[tuple[str, str]],
+) -> bool:
+  return all(
+    all((source, target) in edges for source, target in zip(lane, lane[1:]))
+    for lane in partition
+  )
+
+
+def make_graph(
+  edges: tuple[tuple[str, str], ...],
+  lanes: tuple[tuple[str, ...], ...],
+) -> Graph:
   nodes = ("A", "B", "C", "D")
   groups = {
     node: GraphSiblings((node,))
@@ -38,7 +73,7 @@ def make_graph(edges: tuple[tuple[str, str], ...]) -> Graph:
     groups[node].to_nodes = tuple(outgoing[node])
   return Graph(
     tuple(groups[node] for node in nodes),
-    tuple(Lane((node,), plain) for node in nodes),
+    tuple(Lane(lane, plain) for lane in lanes),
     plain,
     formatter,
   )
@@ -53,10 +88,18 @@ class GeneratedGraphSemanticTests(unittest.TestCase):
       for right in range(left + 1, len(nodes))
     )
 
+    partitions = lane_partitions(nodes)
+    rendered = 0
     for count in range(len(possible) + 1):
       for chosen in combinations(possible, count):
-        with self.subTest(edges=chosen):
-          render_graph(make_graph(tuple(chosen)))
+        edge_set = set(chosen)
+        for partition in partitions:
+          if not valid_lane_partition(partition, edge_set):
+            continue
+          with self.subTest(edges=chosen, lanes=partition):
+            render_graph(make_graph(tuple(chosen), partition))
+          rendered += 1
+    self.assertGreater(rendered, 64)
 
   def test_many_to_many_bridge_classes_are_in_generated_space(self):
     nodes = ("A", "B", "C", "D")
