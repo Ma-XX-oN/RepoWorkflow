@@ -198,7 +198,7 @@ GitHub Actions is one provider implementation, not the workflow model.
 
 Issue #55 owns this migration.
 
-## 5. Issue workflow
+## 6. Issue workflow
 
 ```text
 rwf issue info
@@ -232,7 +232,7 @@ recorded in Git history; it is not stored in ticket relationship state.
 `issue abort` stops active work without pretending the issue completed and
 without discarding durable evidence/history.
 
-## 6. Dependencies, lanes, and multiple agents
+## 7. Dependencies, lanes, and multiple agents
 
 Lane planning uses only explicit direct ticket dependencies:
 
@@ -274,7 +274,7 @@ ticket-creation workflow are defined by [TICKET_STATE.md](TICKET_STATE.md).
 Repository-neutral decomposition guidance remains in
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
-## 7. Optional TDD workflow
+## 8. Optional TDD workflow
 
 ```text
 rwf tdd red group NAME
@@ -301,7 +301,7 @@ are not already satisfied by reusable unchanged evidence.
 
 Issue #54 owns this command family.
 
-## 8. Reusable validation evidence
+## 9. Reusable validation evidence
 
 Workflow gates are based on whether every required test unit is satisfied for
 the current effective candidate/input fingerprint, not on whether one broad
@@ -332,7 +332,7 @@ evidence according to a deterministic fingerprint contract.
 Issue #16 owns durable evidence, reuse, invalidation, and local/hosted-provider
 equivalence.
 
-## 9. Validation commands
+## 10. Validation commands
 
 Regression:
 
@@ -361,7 +361,7 @@ requirement.  Automated integration runners may record their own results.
 Partial validation contributes reusable evidence but does not bypass missing
 required coverage.
 
-## 10. Status and guidance
+## 11. Status and guidance
 
 `rwf status` answers where the current workflow stands: issue/context,
 branch/version identity, TDD/ART/AIT/MIT evidence, blockers, and relevant
@@ -374,7 +374,7 @@ Both derive from the same state/evidence model used by completion.
 Issue #58 owns alignment of these commands and removal of obsolete public
 commands.
 
-## 11. Commit/push remains Git
+## 12. Commit/push remains Git
 
 Normal source work remains normal Git work:
 
@@ -387,7 +387,7 @@ git push
 RepoWorkflow does not replace ordinary source editing/commit commands unless a
 specific workflow invariant requires an owned operation.
 
-## 12. Completing work
+## 13. Completing work
 
 ```text
 rwf done patch
@@ -414,7 +414,7 @@ Issue #56 owns the public `done` workflow.  Existing #17 owns prelim
 integration/reintegration/PRELIM mechanics and #18 owns protected-server
 enforcement.
 
-## 13. Existing lower-level work
+## 14. Existing lower-level work
 
 The revised public workflow reuses rather than discards existing lower-level
 mechanisms where they still satisfy the new architecture:
@@ -430,7 +430,7 @@ Internal commands may remain temporarily for machine compatibility, but they
 must not define the normal human-facing workflow or force GitHub-specific
 semantics into the portable engine.
 
-## 14. Remaining design work
+## 15. Remaining design work
 
 The major unsettled details are tracked explicitly rather than hidden in this
 synopsis:
