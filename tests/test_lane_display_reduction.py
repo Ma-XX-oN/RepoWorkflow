@@ -120,24 +120,56 @@ class LaneDisplayReductionTests(unittest.TestCase):
       },
     )
 
-  def test_real_218_final_glyphs_cover_all_routed_geometry(self):
+  def test_real_218_final_glyphs_preserve_junctions_and_horizontal_crossings(self):
     projection = self.make_218_projection()
     layout = build_layout(projection.graph)
     rendered = render_graph(projection.graph)
     lines = rendered.lines
 
     for (x, y), contributions in layout.cells.items():
-      required = 0
+      per_edge = {}
+      bundles = set()
       for contribution in contributions:
-        required |= contribution.bits
+        key = contribution.edge.key
+        edge, bits = per_edge.get(
+          key,
+          (contribution.edge, 0),
+        )
+        per_edge[key] = edge, bits | contribution.bits
+        bundles.add(contribution.bundle)
+
+      values = list(per_edge.values())
+      required = 0
+      for _, bits in values:
+        required |= bits
+
+      if len(values) > 1:
+        same_source = len({
+          edge.source
+          for edge, _ in values
+        }) == 1
+        same_target = len({
+          edge.target
+          for edge, _ in values
+        }) == 1
+        shared_bits = values[0][1]
+        for _, bits in values[1:]:
+          shared_bits &= bits
+        intentional_junction = (
+          ((same_source or same_target) and bool(shared_bits))
+          or (len(bundles) == 1 and None not in bundles)
+        )
+        if not intentional_junction and required & (_L | _R):
+          required &= _L | _R
+
       char = lines[y][x] if x < len(lines[y]) else " "
       visible = _GLYPH_BITS.get(char, 0)
       self.assertEqual(
         visible & required,
         required,
         (
-          f"routed geometry hidden at ({x}, {y}): "
-          f"required={required}, char={char!r}\n"
+          f"rendered glyph violates routed crossing/junction contract "
+          f"at ({x}, {y}): required={required}, char={char!r}\n"
           + "\n".join(lines)
         ),
       )
