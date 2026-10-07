@@ -904,7 +904,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
       self.assertEqual(
         self.dependency_calls(env),
-        [203, 201, 203, 201],
+        [203, 201, 201, 203],
       )
       self.assertNotIn(206, self.dependency_calls(env))
 
@@ -952,7 +952,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(json.loads(removed.stdout)["roots"], ["203"])
       self.assertEqual(
         self.dependency_calls(env)[len(before):],
-        [203, 201],
+        [201, 203],
       )
 
   def test_cached_selection_succeeds_when_dependency_provider_is_unavailable(self):
@@ -1098,7 +1098,7 @@ class FirstUseLanesTests(unittest.TestCase):
 
       state_path = Path(env["RWF_TEST_DEPS"])
       state_path.write_text(
-        json.dumps({"203": [206], "206": []}),
+        json.dumps({"201": [], "203": [206], "206": []}),
         encoding="utf-8",
       )
       self.certify_migration(root)
