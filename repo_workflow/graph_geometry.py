@@ -120,6 +120,45 @@ def route_candidate_preserves_reachability(
   return True
 
 
+def long_route_candidate_valid(
+  edge: SemanticEdge,
+  row: int,
+  cells: dict[tuple[int, int], list[Contribution]],
+  routes: list[RouteRecord],
+  validated: ValidatedGraph,
+  placements: dict[str, Placement],
+  columns: dict[int, Column],
+  starts: dict[int, int],
+  tracks: dict[tuple[int, tuple], int],
+) -> bool:
+  candidate_cells = {
+    point: list(values)
+    for point, values in cells.items()
+  }
+  route_long(
+    candidate_cells,
+    edge,
+    placements,
+    columns,
+    starts,
+    tracks,
+    row,
+  )
+  expected = {
+    (route.source, route.target)
+    for route in routes
+  }
+  expected.add(edge.key)
+  return route_candidate_preserves_reachability(
+    validated,
+    placements,
+    columns,
+    starts,
+    candidate_cells,
+    expected,
+  )
+
+
 def validate_routes(
   validated: ValidatedGraph,
   placements: dict[str, Placement],
