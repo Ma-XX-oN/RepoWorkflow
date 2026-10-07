@@ -105,10 +105,15 @@ When RWF or an agent creates/decomposes tickets:
 3. record every known direct dependency;
 4. record an explicit empty dependency set when no direct dependency is known;
 5. validate the resulting dependency graph;
-6. leave the records ready for explicit `to-tickets` synchronization.
+6. commit the synchronized ticket-state update with the ticket-creation work;
+7. read the committed state back and verify every new ticket's exact title and
+   complete direct dependency set;
+8. leave the records ready for explicit `to-tickets` synchronization.
 
 Ticket creation is not complete when dependency information exists only in
-issue prose or conversation context.
+issue prose or conversation context.  An agent must not report ticket creation
+complete until the canonical synchronized state has been committed and read
+back successfully.
 
 Human-authored tickets normally originate with provider dependencies and are
 acquired through `from-tickets` or first-use provider acquisition.
