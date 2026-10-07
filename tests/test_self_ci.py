@@ -10,7 +10,7 @@ class SelfCiTests(unittest.TestCase):
     text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
       encoding="utf-8"
     )
-    self.assertIn("needs: validate", text)
+    self.assertIn("needs: [classify, validate]", text)
     self.assertIn("github.ref == 'refs/heads/main'", text)
     self.assertEqual(text.count("contents: write"), 1)
     self.assertIn("version=\"$(tr -d '\\r\\n' < VERSION)\"", text)
