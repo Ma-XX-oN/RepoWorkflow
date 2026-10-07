@@ -6,14 +6,15 @@ from .graph_quality import long_route_row_score
 from .graph_render_types import GraphLayoutError, Placement, SemanticEdge
 
 
-def choose_long_route_row(
+def long_route_candidates(
   edge: SemanticEdge,
   placements: dict[str, Placement],
   max_node_row: int,
   used_rows: dict[int, list[SemanticEdge]],
   crossing_cost: Callable[[int], int],
-  candidate_valid: Callable[[int], bool] | None = None,
-) -> int:
+  *,
+  fallback_rows: int = 3,
+) -> tuple[int, ...]:
   source = placements[edge.source]
   target = placements[edge.target]
   occupied = {
@@ -22,7 +23,7 @@ def choose_long_route_row(
     if source.column < placement.column < target.column
   }
 
-  fallback_stop = max_node_row + len(used_rows) + 3
+  fallback_stop = max_node_row + max(fallback_rows, 1) + 1
   candidates = {
     source.row,
     target.row,
@@ -41,12 +42,9 @@ def choose_long_route_row(
     )
   ]
   if not available:
-    raise GraphLayoutError(
-      f"no bounded long-route row candidate is available for "
-      f"{edge.source!r} -> {edge.target!r}"
-    )
+    return ()
 
-  ordered = sorted(
+  return tuple(sorted(
     available,
     key=lambda row: (
       crossing_cost(row),
@@ -56,8 +54,25 @@ def choose_long_route_row(
         row,
       ),
     ),
-  )
-  for row in ordered:
+  ))
+
+
+def choose_long_route_row(
+  edge: SemanticEdge,
+  placements: dict[str, Placement],
+  max_node_row: int,
+  used_rows: dict[int, list[SemanticEdge]],
+  crossing_cost: Callable[[int], int],
+  candidate_valid: Callable[[int], bool] | None = None,
+) -> int:
+  for row in long_route_candidates(
+    edge,
+    placements,
+    max_node_row,
+    used_rows,
+    crossing_cost,
+    fallback_rows=len(used_rows) + 3,
+  ):
     if candidate_valid is None or candidate_valid(row):
       return row
   raise GraphLayoutError(
