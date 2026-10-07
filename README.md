@@ -224,6 +224,8 @@ methodology.
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral method for decomposing issues into testable interfaces,
   direct dependency interfaces, and executable dependency graphs.
+- [TICKET_STATE.md](TICKET_STATE.md) defines the canonical synchronized
+  ticket file and the mandatory ticket-creation/dependency-recording workflow.
 - [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md) defines the versioned direct
   relationship schema, reconstruction rules, and executable readiness edges.
 - [STATE_LAYOUT.md](STATE_LAYOUT.md) defines durable, clone-common, and
