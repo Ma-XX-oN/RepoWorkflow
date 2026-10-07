@@ -3,6 +3,7 @@ from __future__ import annotations
 from .graph_geometry import (
   edge_item_key,
   route_adjacent,
+  route_adjacent_bridge,
   route_long,
   validate_routes,
 )
@@ -47,13 +48,29 @@ def build_layout(graph: Graph) -> LayoutPlan:
   edges = _semantic_edges(validated)
 
   bundle_relations = _bundle_relations(edges, group_rank)
+  bridge_edges = _bridge_edges(
+    edges,
+    placements,
+    validated,
+    bundle_relations,
+  )
   boundary_items = _boundary_items(
     edges,
     placements,
     group_rank,
     bundle_relations,
+    bridge_edges,
   )
   column_start, track_x = _column_geometry(columns, boundary_items)
+  bridge_rows = {
+    edge.key: max_node_row + 1 + index
+    for index, edge in enumerate(
+      sorted(
+        (edge for edge in edges if edge.key in bridge_edges),
+        key=lambda edge: edge.key,
+      )
+    )
+  }
 
   cells: dict[tuple[int, int], list[Contribution]] = {}
   routes: list[RouteRecord] = []
@@ -107,19 +124,45 @@ def build_layout(graph: Graph) -> LayoutPlan:
       )
     if span == 1:
       boundary = source.column
-      item_key = edge_item_key(edge)
-      x = track_x[(boundary, item_key)]
-      route_adjacent(
-        cells,
-        edge,
-        placements,
-        columns,
-        column_start,
-        x,
-      )
-      routes.append(
-        RouteRecord(edge.source, edge.target, "adjacent", ())
-      )
+      if edge.key in bridge_edges:
+        source_track = track_x[
+          (boundary, _bridge_item_key(edge, "source"))
+        ]
+        target_track = track_x[
+          (boundary, _bridge_item_key(edge, "target"))
+        ]
+        route_adjacent_bridge(
+          cells,
+          edge,
+          placements,
+          columns,
+          column_start,
+          source_track,
+          target_track,
+          bridge_rows[edge.key],
+        )
+        routes.append(
+          RouteRecord(
+            edge.source,
+            edge.target,
+            "adjacent-bridge",
+            (),
+          )
+        )
+      else:
+        item_key = edge_item_key(edge)
+        x = track_x[(boundary, item_key)]
+        route_adjacent(
+          cells,
+          edge,
+          placements,
+          columns,
+          column_start,
+          x,
+        )
+        routes.append(
+          RouteRecord(edge.source, edge.target, "adjacent", ())
+        )
       continue
 
     track_y = choose_long_route_row(
@@ -136,6 +179,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
         column_start,
         track_x,
       ),
+      reserved_rows=set(bridge_rows.values()),
     )
     used_long_rows.setdefault(track_y, []).append(edge)
     hidden = tuple(
@@ -356,6 +400,7 @@ def _boundary_items(
   bundle_relations: set[
     tuple[GraphSiblings, GraphSiblings]
   ],
+  bridge_edges: set[tuple[str, str]],
 ) -> dict[int, tuple[tuple, ...]]:
   values: dict[int, set[tuple]] = {}
   bundled: set[tuple[str, str]] = set()
@@ -376,6 +421,12 @@ def _boundary_items(
       continue
     source = placements[edge.source]
     target = placements[edge.target]
+    if edge.key in bridge_edges:
+      values.setdefault(source.column, set()).update({
+        _bridge_item_key(edge, "source"),
+        _bridge_item_key(edge, "target"),
+      })
+      continue
     values.setdefault(source.column, set()).add(
       edge_item_key(edge)
     )
@@ -405,19 +456,69 @@ def _boundary_items(
 def _boundary_item_order(
   item: tuple,
   placements: dict[str, Placement],
-) -> tuple[int, tuple]:
+) -> tuple[int, int, tuple]:
+  if item[0] == "bridge":
+    direction = _edge_direction(
+      item[1],
+      item[2],
+      placements,
+    )
+    endpoint = 0 if item[3] == "source" else 2
+    return direction, endpoint, item
   if item[0] != "edge":
-    return 1, item
-  source = placements[item[1]]
-  target = placements[item[2]]
-  delta = target.row - source.row
+    return 1, 1, item
+  return (
+    _edge_direction(item[1], item[2], placements),
+    1,
+    item,
+  )
+
+
+def _edge_direction(
+  source: str,
+  target: str,
+  placements: dict[str, Placement],
+) -> int:
+  delta = placements[target].row - placements[source].row
   if delta < 0:
-    direction = 0
-  elif delta > 0:
-    direction = 2
-  else:
-    direction = 1
-  return direction, item
+    return 0
+  if delta > 0:
+    return 2
+  return 1
+
+
+def _bridge_item_key(
+  edge: SemanticEdge,
+  endpoint: str,
+) -> tuple:
+  return "bridge", edge.source, edge.target, endpoint
+
+
+def _bridge_edges(
+  edges: tuple[SemanticEdge, ...],
+  placements: dict[str, Placement],
+  validated: ValidatedGraph,
+  bundle_relations: set[
+    tuple[GraphSiblings, GraphSiblings]
+  ],
+) -> set[tuple[str, str]]:
+  result: set[tuple[str, str]] = set()
+  for edge in edges:
+    if (
+      (edge.source_group, edge.target_group)
+      in bundle_relations
+    ):
+      continue
+    source = placements[edge.source]
+    target = placements[edge.target]
+    if target.column != source.column + 1:
+      continue
+    if (
+      len(validated.adjacency[edge.source]) > 1
+      and len(validated.incoming[edge.target]) > 1
+    ):
+      result.add(edge.key)
+  return result
 
 
 def _column_geometry(
