@@ -536,6 +536,70 @@
           "deferred_issue": 313
         }
       ]
+    },
+    {
+      "id": "FU-HIGH-RISK",
+      "status": "covered",
+      "scope": [
+        "rwf high-risk <section-name> [<section-name> ...]",
+        "catalogue alias completion",
+        "durable current-issue association"
+      ],
+      "minimum_state": "real Git repository with an active current issue and .ci/tests.json aliases",
+      "prohibited_shortcuts": [
+        "mutating lifecycle state before all aliases validate",
+        "using selected_issue when current issue is absent",
+        "storing high-risk aliases outside the lifecycle record"
+      ],
+      "tests": [
+        "tests/test_high_risk.py",
+        "tests/test_high_risk_cli.py"
+      ],
+      "acceptance": [
+        {
+          "id": "HR-1",
+          "requirement": "one or more valid catalogue aliases attach to the active current issue and union with existing aliases",
+          "verification": [
+            "tests/test_high_risk.py::HighRiskTests.test_association_unions_and_sorts_aliases",
+            "tests/test_high_risk.py::HighRiskTests.test_changed_association_adds_without_losing_existing",
+            "tests/test_high_risk_cli.py::HighRiskCliTests.test_public_command_persists_multiple_aliases"
+          ]
+        },
+        {
+          "id": "HR-2",
+          "requirement": "unknown aliases and missing active current issue fail without partial mutation",
+          "verification": [
+            "tests/test_high_risk.py::HighRiskTests.test_all_aliases_are_validated_before_mutation",
+            "tests/test_high_risk.py::HighRiskTests.test_requires_active_current_issue",
+            "tests/test_high_risk_cli.py::HighRiskCliTests.test_unknown_alias_fails_without_partial_mutation"
+          ]
+        },
+        {
+          "id": "HR-3",
+          "requirement": "completion is sourced from authoritative .ci/tests.json aliases and repeated association is idempotent",
+          "verification": [
+            "tests/test_high_risk_cli.py::HighRiskCliTests.test_completion_reads_aliases_from_authoritative_catalogue",
+            "tests/test_high_risk.py::HighRiskTests.test_repeated_association_is_idempotent"
+          ]
+        },
+        {
+          "id": "HR-4",
+          "requirement": "current-work durable references track the lifecycle revision produced by high-risk association",
+          "verification": [
+            "tests/test_high_risk.py::HighRiskTests.test_current_work_reference_tracks_new_lifecycle_revision"
+          ]
+        }
+      ],
+      "stateful": true,
+      "lifecycle_dimensions": {
+        "initial": "HR-1",
+        "first_operation": "HR-1",
+        "repeated_operation": "HR-3",
+        "changed_input": "HR-1",
+        "persistence": "HR-4",
+        "invalid_transition": "HR-2"
+      },
+      "provider_boundary": false
     }
   ],
   "audited_issue_count": 191,
@@ -550,7 +614,8 @@
     "workspace": "FU-WORK",
     "what-next": "FU-LIFECYCLE",
     "validate": "FU-LIFECYCLE",
-    "issue": "FU-DEPS-LANES"
+    "issue": "FU-DEPS-LANES",
+    "high-risk": "FU-HIGH-RISK"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."
