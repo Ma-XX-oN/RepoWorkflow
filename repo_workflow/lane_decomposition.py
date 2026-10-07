@@ -26,6 +26,34 @@ class LanePlan:
     raise KeyError(key)
 
 
+def dependency_component(
+  graph: RelationshipGraph,
+  selected: Iterable[str | int],
+) -> tuple[str, ...]:
+  selected_ids = _ids(selected)
+  for issue in selected_ids:
+    graph.issue(issue)
+
+  neighbours = {issue: set() for issue in graph.issues}
+  for issue, relation in graph.issues.items():
+    for dependency in relation.depends_on:
+      neighbours[issue].add(dependency)
+      neighbours[dependency].add(issue)
+
+  connected: set[str] = set()
+  pending = list(selected_ids)
+  while pending:
+    issue = pending.pop(0)
+    if issue in connected:
+      continue
+    connected.add(issue)
+    pending.extend(sorted(
+      (value for value in neighbours[issue] if value not in connected),
+      key=int,
+    ))
+  return tuple(sorted(connected, key=int))
+
+
 def decompose_lanes(
   graph: RelationshipGraph,
   selected: Iterable[str | int],
@@ -34,28 +62,7 @@ def decompose_lanes(
 ) -> LanePlan:
   selected_ids = _ids(selected)
   completed_ids = set(_ids(completed))
-  for issue in selected_ids:
-    graph.issue(issue)
-
-  closure: set[str] = set()
-  visiting: set[str] = set()
-
-  def include(issue: str) -> None:
-    if issue in completed_ids or issue in closure:
-      return
-    if issue in visiting:
-      raise RelationshipSchemaError(
-        f"direct dependency cycle includes issue {issue}"
-      )
-    visiting.add(issue)
-    relation = graph.issue(issue)
-    for dependency in relation.depends_on:
-      include(dependency)
-    visiting.remove(issue)
-    closure.add(issue)
-
-  for issue in selected_ids:
-    include(issue)
+  closure = set(dependency_component(graph, selected_ids)) - completed_ids
 
   if not closure:
     return LanePlan(selected_ids, (), ())
