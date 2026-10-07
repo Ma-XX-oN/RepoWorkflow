@@ -221,6 +221,9 @@ methodology.
   losing authoritative semantics.
 - [TEST_ADEQUACY.md](TEST_ADEQUACY.md) defines the universal repository-neutral
   test adequacy and verification gate applied to RepoWorkflow and consumers.
+- [BUG_INVESTIGATION.md](BUG_INVESTIGATION.md) defines the required
+  Problem/Hypothesis/Action/Learning experiment protocol for every bug
+  investigation.
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral method for decomposing issues into testable interfaces,
   direct dependency interfaces, and executable dependency graphs.
