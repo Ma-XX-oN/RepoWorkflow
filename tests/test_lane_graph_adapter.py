@@ -5,7 +5,7 @@ from repo_workflow.lane_graph_adapter import (
   make_lane_formatter,
   project_lane_graph,
 )
-from repo_workflow.graph_render_model import FormatEntry
+from repo_workflow.graph_render_model import FormatEntry, validate_graph
 from repo_workflow.lane_selection import LaneSelection
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
@@ -144,6 +144,7 @@ class LaneGraphAdapterTests(unittest.TestCase):
     self.assertIn(("A1", "*A3"), edges)
     self.assertIn(("A1", "B2"), edges)
     self.assertIn(("B2", "*A3"), edges)
+    validate_graph(projection.graph)
 
   def test_repository_shaped_139_140_143_lane_edge_survives_reduction(self):
     graph = RelationshipGraph(issues={
@@ -178,6 +179,7 @@ class LaneGraphAdapterTests(unittest.TestCase):
       projection.graph.lanes[0].nodes,
       ("A137", "A139", "*A143"),
     )
+    validate_graph(projection.graph)
 
   def test_projection_removes_only_redundant_direct_edges(self):
     graph = RelationshipGraph(issues={
