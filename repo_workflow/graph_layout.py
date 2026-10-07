@@ -5,6 +5,7 @@ from .graph_boundary_plan import (
   bundle_relations as find_bundle_relations,
   column_geometry,
   dogleg_edges as find_dogleg_edges,
+  long_bridge_edges as find_long_bridge_edges,
 )
 from .graph_geometry import (
   long_route_candidate_valid,
@@ -65,6 +66,12 @@ def build_layout(graph: Graph) -> LayoutPlan:
     placements,
     bundle_relations,
   )
+  long_bridge_edges = find_long_bridge_edges(
+    validated,
+    edges,
+    placements,
+    bundle_relations,
+  )
   dogleg_rows = {
     key: max_node_row + index + 1
     for index, key in enumerate(sorted(dogleg_edges))
@@ -77,6 +84,7 @@ def build_layout(graph: Graph) -> LayoutPlan:
     group_rank,
     bundle_relations,
     dogleg_edges,
+    long_bridge_edges,
     dogleg_rows,
   )
   column_start, track_x = column_geometry(columns, boundary_items)
@@ -172,6 +180,16 @@ def build_layout(graph: Graph) -> LayoutPlan:
   for edge in long_edges:
     source = placements[edge.source]
     target = placements[edge.target]
+    source_item = (
+      dogleg_source_key(edge)
+      if edge.key in long_bridge_edges
+      else edge_item_key(edge)
+    )
+    target_item = (
+      dogleg_target_key(edge)
+      if edge.key in long_bridge_edges
+      else edge_item_key(edge)
+    )
     track_y = choose_long_route_row(
       edge,
       placements,
@@ -185,6 +203,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
         columns,
         column_start,
         track_x,
+        source_item,
+        target_item,
       ),
       lambda row: long_route_candidate_valid(
         edge,
@@ -196,6 +216,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
         columns,
         column_start,
         track_x,
+        source_item=source_item,
+        target_item=target_item,
       ),
     )
     used_long_rows.setdefault(track_y, []).append(edge)
@@ -216,6 +238,8 @@ def build_layout(graph: Graph) -> LayoutPlan:
       column_start,
       track_x,
       track_y,
+      source_item=source_item,
+      target_item=target_item,
     )
     routes.append(
       RouteRecord(edge.source, edge.target, "long", hidden)
@@ -270,6 +294,8 @@ def _long_route_crossings(
   columns: dict[int, Column],
   starts: dict[int, int],
   tracks: dict[tuple[int, tuple], int],
+  source_item: tuple,
+  target_item: tuple,
 ) -> int:
   proposed: dict[tuple[int, int], list[Contribution]] = {}
   route_long(
@@ -280,6 +306,8 @@ def _long_route_crossings(
     starts,
     tracks,
     row,
+    source_item=source_item,
+    target_item=target_item,
   )
 
   crossings = 0
