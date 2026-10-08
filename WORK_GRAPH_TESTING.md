@@ -43,9 +43,14 @@ A predefined executable interface can then support three separate test layers:
 This can make tests smaller and more diagnostic while also allowing provider
 and consumer implementation work to proceed in parallel.
 
-The technique is optional.  Use it only when the interface can be defined
-independently and precisely enough to serve as a shared oracle.  Do not invent
-an interface merely to create parallel work.
+More importantly, defining the interface before implementation creates an
+independent test basis before either side can bias the oracle toward its own
+code.  Designing scenarios early can expose ambiguous responsibilities,
+missing states, invalid cases, awkward sequencing, and incomplete failure
+semantics before those problems become implementation defects.
+
+The technique remains useful when work ultimately executes serially.  Its
+design and testing value does not depend on speculative execution.
 
 The executable contract proposal is defined in
 [EXECUTABLE_INTERFACE_CONTRACTS.md](EXECUTABLE_INTERFACE_CONTRACTS.md).
