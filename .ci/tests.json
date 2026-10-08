@@ -40,7 +40,11 @@
         "type": "regression",
         "name": "tests.test_lane_show_children_verification"
       },
-      "issue-522-stale-lane-refresh": {
+      "issue-522-branch-selection-state": {
+        "type": "regression",
+        "name": "tests.test_lane_selection"
+      },
+      "issue-522-branch-selection-cli": {
         "type": "regression",
         "name": "tests.test_first_use_lanes"
       }
