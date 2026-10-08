@@ -43,6 +43,11 @@ def dependency_states(
   for issue in selected_ids:
     graph.issue(issue)
   policy = FollowPolicy() if follow is None else follow
+  if not policy.enables_traversal():
+    return tuple(
+      TraversalState(issue, policy.remaining())
+      for issue in selected_ids
+    )
 
   neighbours = {issue: set() for issue in graph.issues}
   for issue, relation in graph.issues.items():
