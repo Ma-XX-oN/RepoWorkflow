@@ -192,6 +192,8 @@ class LaneSelectionTests(unittest.TestCase):
       ),
     )
     self.assertEqual(current.value.excludes, ())
+    self.assertEqual(current.value.closure, ("1", "2", "3", "4", "5"))
+    self.assertEqual(set(current.value.assignment), set(current.value.closure))
     self.assertEqual(current.value.schema_version, 4)
 
   def test_clear_removes_only_local_selection(self):
@@ -246,6 +248,36 @@ class LaneSelectionTests(unittest.TestCase):
     self.assertEqual(actual.value.closure, ("1", "2", "3", "6"))
     self.assertEqual(actual.value.graph_revision, self.relationships.read().revision)
     self.assertEqual(set(actual.value.assignment), set(actual.value.closure))
+
+
+  def test_missing_seed_preserves_intent_and_invalidates_derived_state(self):
+    selected = self.store.select_rules(
+      (ProjectionRule("3", "dependencies"),),
+      self.writer,
+    )
+    before = self.relationships.read()
+    self.relationships.replace(
+      before.revision,
+      RelationshipGraph(issues={"6": relation()}),
+      self.writer,
+    )
+    missing = self.store.read()
+    self.assertEqual(missing.value.includes, selected.value.includes)
+    self.assertEqual(missing.value.closure, ())
+    self.assertEqual(missing.value.assignment, {})
+    restored_graph = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(),
+      "3": relation(1, 2),
+      "4": relation(1),
+      "5": relation(3),
+      "6": relation(),
+    })
+    revision = self.relationships.read().revision
+    self.relationships.replace(revision, restored_graph, self.writer)
+    restored = LaneSelectionStore(self.root).read()
+    self.assertEqual(restored.value.includes, selected.value.includes)
+    self.assertEqual(restored.value.closure, ("1", "2", "3"))
 
 
 if __name__ == "__main__":
