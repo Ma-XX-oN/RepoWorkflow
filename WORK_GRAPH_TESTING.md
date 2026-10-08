@@ -65,7 +65,8 @@ When restructuring an existing backlog:
 2. Inspect inside each ticket for multiple independently testable contracts,
    state transitions, or coding boundaries.
 3. Split when doing so improves test isolation, implementation decoupling,
-   independent verification, or interface clarity; never split for size alone.
+   independent verification, interface clarity, or reduces reasoning
+   complexity; never split for size alone.
 4. Turn the resulting contracts/transitions into candidate executable tickets.
 5. For each executable ticket, write interface, preconditions, postconditions,
    invariants, failure behaviour, and direct blockers.
@@ -97,8 +98,9 @@ Before accepting a ticket as executable work, ask:
 - Does it depend only on exact interfaces it consumes?
 - Does it contain more than one independently testable contract or coding
   boundary?
-- Would splitting improve test isolation, implementation decoupling, independent
-  verification, or interface clarity rather than merely making smaller tickets?
+- Would splitting improve test isolation, implementation decoupling,
+  independent verification, interface clarity, or reduce the amount of state
+  and interacting behaviour that must be reasoned about at once?
 
 If the final answer is no, the ticket likely needs another decomposition pass.
 
