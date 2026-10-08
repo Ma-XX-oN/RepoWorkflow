@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .lane_decomposition import dependency_component, dependency_states
-from .lane_traversal import FollowPolicy, TraversalState, group_kind
+from .lane_traversal import (
+  FollowPolicy,
+  ShowChildrenPolicy,
+  TraversalState,
+  group_kind,
+)
 from .lane_diagnostics import LaneDiagnostics
 from .dependency_migration_certification import (
   DependencyMigrationCertificationError,
@@ -39,6 +44,7 @@ def ensure_relationship_graph(
   refresh: bool = False,
   diagnostics: LaneDiagnostics | None = None,
   follow: FollowPolicy | None = None,
+  show_children: ShowChildrenPolicy | None = None,
 ) -> RelationshipAcquisition:
   """Ensure canonical ticket coverage using local state unless refresh/missing."""
   try:
@@ -52,6 +58,7 @@ def ensure_relationship_graph(
   requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
   requested_set = set(requested)
   policy = FollowPolicy() if follow is None else follow
+  context = ShowChildrenPolicy() if show_children is None else show_children
   dependency_config = resolve_dependency_config(root)
   info_config = resolve_info_config(root)
   if (
@@ -59,17 +66,22 @@ def ensure_relationship_graph(
     and snapshot is not None
     and all(issue in issues for issue in requested)
   ):
-    pending = list(dependency_states(
-      snapshot.graph,
-      requested,
-      follow=policy,
-    ))
+    pending = [
+      (state, True)
+      for state in dependency_states(
+        snapshot.graph,
+        requested,
+        follow=policy,
+      )
+    ]
   else:
     pending = [
-      TraversalState(issue, policy.remaining())
+      (TraversalState(issue, policy.remaining()), True)
       for issue in requested
     ]
   visited: set[TraversalState] = set()
+  traversed_issues: set[str] = set()
+  context_issues: set[str] = set()
   provider_reads: list[int] = []
   fetched_info: dict[int, dict] = {}
   provider_cache: dict[
@@ -79,11 +91,17 @@ def ensure_relationship_graph(
   changed = snapshot is None
 
   while pending:
-    state = pending.pop(0)
-    if state in visited:
-      continue
-    visited.add(state)
+    state, traverse = pending.pop(0)
     issue = state.issue
+    if traverse:
+      if state in visited:
+        continue
+      visited.add(state)
+      traversed_issues.add(issue)
+    else:
+      if issue in context_issues or issue in traversed_issues:
+        continue
+      context_issues.add(issue)
 
     current = issues.get(issue)
     provider: IssueRelationships | None = None
@@ -156,20 +174,29 @@ def ensure_relationship_graph(
         changed = True
       dependencies = replacement.depends_on
 
+    if not traverse:
+      continue
+
     remaining = state.remaining
     relation = issues[issue]
     kind = group_kind(relation.title)
+    related = (*dependencies, *provider_dependants)
     if issue not in requested_set:
       crossed = policy.cross(kind, remaining)
       if crossed is None:
+        if context.matches(kind):
+          for related_issue in related:
+            pending.append((
+              TraversalState(related_issue, remaining),
+              False,
+            ))
         continue
       remaining = crossed
 
-    related = (*dependencies, *provider_dependants)
     for related_issue in related:
       next_state = TraversalState(related_issue, remaining)
-      if next_state not in visited and next_state not in pending:
-        pending.append(next_state)
+      if next_state not in visited:
+        pending.append((next_state, True))
 
   if changed:
     graph = RelationshipGraph.from_json_value({
@@ -188,7 +215,12 @@ def ensure_relationship_graph(
     assert snapshot is not None
     graph = snapshot.graph
 
-  component = dependency_component(graph, requested, follow=policy)
+  component = dependency_component(
+    graph,
+    requested,
+    follow=policy,
+    show_children=context,
+  )
 
   if fetched_info:
     from .issue_metadata import cache_issue_display_metadata
