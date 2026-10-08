@@ -7,6 +7,7 @@ from .lane_traversal import (
   FollowPolicy,
   ShowChildrenPolicy,
   TraversalState,
+  dependant_boundary_kind,
   group_kind,
 )
 from .relationships import RelationshipGraph, RelationshipSchemaError
@@ -32,49 +33,23 @@ class LanePlan:
     raise KeyError(key)
 
 
+@dataclass(frozen=True)
+class _Discovery:
+  dependency_states: tuple[TraversalState, ...]
+  dependant_states: tuple[TraversalState, ...]
+  stopped_dependency_groups: tuple[TraversalState, ...]
+  stopped_dependant_groups: tuple[TraversalState, ...]
+
+
 def dependency_states(
   graph: RelationshipGraph,
   selected: Iterable[str | int],
   *,
   follow: FollowPolicy | None = None,
 ) -> tuple[TraversalState, ...]:
-  selected_ids = _ids(selected)
-  selected_set = set(selected_ids)
-  for issue in selected_ids:
-    graph.issue(issue)
-  policy = FollowPolicy() if follow is None else follow
-
-  neighbours = {issue: set() for issue in graph.issues}
-  for issue, relation in graph.issues.items():
-    for dependency in relation.depends_on:
-      neighbours[issue].add(dependency)
-      neighbours[dependency].add(issue)
-
-  pending = [
-    TraversalState(issue, policy.remaining())
-    for issue in selected_ids
-  ]
-  visited: set[TraversalState] = set()
-  while pending:
-    state = pending.pop(0)
-    if state in visited:
-      continue
-    visited.add(state)
-
-    remaining = state.remaining
-    kind = group_kind(graph.issue(state.issue).title)
-    if state.issue not in selected_set:
-      crossed = policy.cross(kind, remaining)
-      if crossed is None:
-        continue
-      remaining = crossed
-
-    for neighbour in sorted(neighbours[state.issue], key=int):
-      next_state = TraversalState(neighbour, remaining)
-      if next_state not in visited and next_state not in pending:
-        pending.append(next_state)
+  discovery = _discover(graph, selected, follow=follow)
   return tuple(sorted(
-    visited,
+    set(discovery.dependency_states) | set(discovery.dependant_states),
     key=lambda state: (int(state.issue), state.remaining),
   ))
 
@@ -86,30 +61,151 @@ def dependency_component(
   follow: FollowPolicy | None = None,
   show_children: ShowChildrenPolicy | None = None,
 ) -> tuple[str, ...]:
-  selected_ids = _ids(selected)
-  selected_set = set(selected_ids)
   policy = FollowPolicy() if follow is None else follow
   context = ShowChildrenPolicy() if show_children is None else show_children
-  states = dependency_states(graph, selected_ids, follow=policy)
-  visible = {state.issue for state in states}
+  discovery = _discover(graph, selected, follow=policy)
+  visible = {
+    state.issue
+    for state in (
+      *discovery.dependency_states,
+      *discovery.dependant_states,
+    )
+  }
 
-  neighbours = {issue: set() for issue in graph.issues}
-  for issue, relation in graph.issues.items():
-    for dependency in relation.depends_on:
-      neighbours[issue].add(dependency)
-      neighbours[dependency].add(issue)
-
-  for state in states:
-    if state.issue in selected_set:
-      continue
+  for state in discovery.stopped_dependency_groups:
     kind = group_kind(graph.issue(state.issue).title)
-    if not context.matches(kind):
-      continue
-    if policy.cross(kind, state.remaining) is not None:
-      continue
-    visible.update(neighbours[state.issue])
+    if context.matches(kind):
+      visible.update(graph.issue(state.issue).depends_on)
+
+  dependants = _dependants(graph)
+  for state in discovery.stopped_dependant_groups:
+    kind = group_kind(graph.issue(state.issue).title)
+    if context.matches(kind):
+      visible.update(dependants[state.issue])
 
   return tuple(sorted(visible, key=int))
+
+
+def _discover(
+  graph: RelationshipGraph,
+  selected: Iterable[str | int],
+  *,
+  follow: FollowPolicy | None = None,
+) -> _Discovery:
+  selected_ids = _ids(selected)
+  selected_set = set(selected_ids)
+  for issue in selected_ids:
+    graph.issue(issue)
+  policy = FollowPolicy() if follow is None else follow
+
+  dependency_visited: set[TraversalState] = set()
+  stopped_dependency_groups: set[TraversalState] = set()
+  terminals: set[TraversalState] = set()
+  pending = [
+    TraversalState(issue, policy.remaining())
+    for issue in selected_ids
+  ]
+
+  while pending:
+    state = pending.pop(0)
+    if state in dependency_visited:
+      continue
+    dependency_visited.add(state)
+
+    remaining = state.remaining
+    kind = group_kind(graph.issue(state.issue).title)
+    if state.issue not in selected_set:
+      crossed = policy.cross(kind, remaining)
+      if crossed is None:
+        stopped_dependency_groups.add(state)
+        terminals.add(state)
+        continue
+      remaining = crossed
+
+    dependencies = graph.issue(state.issue).depends_on
+    if not dependencies:
+      terminals.add(TraversalState(state.issue, remaining))
+      continue
+
+    for dependency in dependencies:
+      next_state = TraversalState(dependency, remaining)
+      if next_state not in dependency_visited and next_state not in pending:
+        pending.append(next_state)
+
+  dependants = _dependants(graph)
+  dependant_visited: set[TraversalState] = set()
+  stopped_dependant_groups: set[TraversalState] = set()
+  pending_right: list[tuple[TraversalState, bool]] = []
+
+  for terminal in sorted(
+    terminals,
+    key=lambda state: (int(state.issue), state.remaining),
+  ):
+    if terminal in stopped_dependency_groups:
+      continue
+    title = graph.issue(terminal.issue).title
+    if (
+      terminal.issue not in selected_set
+      and dependant_boundary_kind(title) is not None
+    ):
+      continue
+    pending_right.append((terminal, False))
+
+  while pending_right:
+    state, cross_current = pending_right.pop(0)
+    if state in dependant_visited:
+      continue
+    dependant_visited.add(state)
+
+    remaining = state.remaining
+    if cross_current and state.issue not in selected_set:
+      kind = group_kind(graph.issue(state.issue).title)
+      crossed = policy.cross(kind, remaining)
+      if crossed is None:
+        stopped_dependant_groups.add(state)
+        continue
+      remaining = crossed
+
+    for dependant in dependants[state.issue]:
+      next_state = TraversalState(dependant, remaining)
+      if (
+        next_state not in dependant_visited
+        and all(item[0] != next_state for item in pending_right)
+      ):
+        pending_right.append((next_state, True))
+
+  return _Discovery(
+    dependency_states=tuple(sorted(
+      dependency_visited,
+      key=lambda state: (int(state.issue), state.remaining),
+    )),
+    dependant_states=tuple(sorted(
+      dependant_visited,
+      key=lambda state: (int(state.issue), state.remaining),
+    )),
+    stopped_dependency_groups=tuple(sorted(
+      stopped_dependency_groups,
+      key=lambda state: (int(state.issue), state.remaining),
+    )),
+    stopped_dependant_groups=tuple(sorted(
+      stopped_dependant_groups,
+      key=lambda state: (int(state.issue), state.remaining),
+    )),
+  )
+
+
+def _dependants(graph: RelationshipGraph) -> dict[str, tuple[str, ...]]:
+  values: dict[str, list[str]] = {
+    issue: []
+    for issue in graph.issues
+  }
+  for issue, relation in graph.issues.items():
+    for dependency in relation.depends_on:
+      values[dependency].append(issue)
+  return {
+    issue: tuple(sorted(items, key=int))
+    for issue, items in values.items()
+  }
 
 
 def decompose_lanes(
