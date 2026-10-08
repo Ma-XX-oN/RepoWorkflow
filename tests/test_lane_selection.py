@@ -226,5 +226,27 @@ class LaneSelectionTests(unittest.TestCase):
     )
 
 
+  def test_changed_graph_reprojects_saved_rules_before_inspection(self):
+    selected = self.store.select_rules(
+      (ProjectionRule("3", "dependencies"),),
+      self.writer,
+    )
+    self.assertEqual(selected.value.closure, ("1", "2", "3"))
+    snapshot = self.relationships.read()
+    changed = RelationshipGraph(issues={
+      "1": relation(),
+      "2": relation(),
+      "3": relation(1, 2, 6),
+      "4": relation(1),
+      "5": relation(3),
+      "6": relation(),
+    })
+    self.relationships.replace(snapshot.revision, changed, self.writer)
+    actual = self.store.read()
+    self.assertEqual(actual.value.closure, ("1", "2", "3", "6"))
+    self.assertEqual(actual.value.graph_revision, self.relationships.read().revision)
+    self.assertEqual(set(actual.value.assignment), set(actual.value.closure))
+
+
 if __name__ == "__main__":
   unittest.main()
