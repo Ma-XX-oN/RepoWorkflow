@@ -207,7 +207,11 @@ For every defect fix:
 4. run confirmation testing proving the original defect is corrected;
 5. run relevant regression testing;
 6. normally retain a regression test that would fail if the defect returns;
-7. examine whether the escape reveals a reusable process/test improvement.
+7. when the known-bad candidate remains reproducible, demonstrate that retained
+   regression RED against that actual bad candidate and GREEN against the
+   corrected candidate; a regression that is only shown GREEN on the fix has
+   not yet proved that it detects the escaped defect;
+8. examine whether the escape reveals a reusable process/test improvement.
 
 An escaped defect is evidence about both the product and the verification
 process. Fixing only the local code without examining a reusable systemic
@@ -455,6 +459,8 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Confirmation testing proves the fix.
 - [ ] Relevant regression testing passes.
 - [ ] A regression test is retained unless there is a documented reason not to.
+- [ ] When a known-bad candidate is reproducible, the retained regression was
+  demonstrated RED on that candidate and GREEN on the corrected candidate.
 - [ ] Escaped defects were assessed for systemic prevention improvements.
 - [ ] For assembled escaped defects, retained regression continues through
   downstream supported stages that were previously unreachable.
