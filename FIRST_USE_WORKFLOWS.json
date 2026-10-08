@@ -130,7 +130,8 @@
       "tests": [
         "tests/test_first_use_lanes.py",
         "tests/test_lane_component_selection_cli.py",
-        "tests/test_real_provider_lane_certification.py"
+        "tests/test_real_provider_lane_certification.py",
+        "tests/test_lane_count.py"
       ],
       "acceptance": [
         {
@@ -366,6 +367,16 @@
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_fetches_one_hop_without_recursive_traversal",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_support_fetch_does_not_expand_projection"
           ]
+        },
+        {
+          "id": "DL-25",
+          "requirement": "lanes select --count uses the same traversal/projection semantics as normal selection, counts unique projected issues once, prints only a decimal integer, does not mutate persisted lane selection, and never invokes graph layout/rendering",
+          "verification": [
+            "tests/test_lane_count.py::LaneCountTests.test_count_switch_is_unordered_in_public_grammar",
+            "tests/test_lane_count.py::LaneCountTests.test_projection_is_read_only_and_matches_normal_select",
+            "tests/test_lane_count.py::LaneCountTests.test_count_prints_bare_integer_and_never_renders_or_persists",
+            "tests/test_lane_count.py::LaneCountTests.test_canonical_413_count_matches_independent_projection_without_rendering"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -413,7 +424,8 @@
         "follow_refresh_budget_preservation": "DL-23",
         "show_children_context": "DL-24",
         "show_children_refresh_persistence": "DL-24",
-        "show_children_support_acquisition": "DL-24"
+        "show_children_support_acquisition": "DL-24",
+        "projection_count_without_render": "DL-25"
       },
       "stateful": true,
       "provider_boundary": true,
