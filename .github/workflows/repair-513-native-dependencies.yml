@@ -1,0 +1,31 @@
+name: Repair issue 513 native dependencies
+
+on:
+  push:
+    branches:
+      - repair-513-native-dependencies
+    paths:
+      - .github/workflows/repair-513-native-dependencies.yml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Replace and verify issue 513 dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/github-ticket-dependencies.py             dependency replace 513 440 452
+          python scripts/github-ticket-dependencies.py             dependency get 513
