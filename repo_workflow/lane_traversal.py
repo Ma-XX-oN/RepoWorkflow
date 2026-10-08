@@ -48,6 +48,25 @@ class FollowPolicy:
   def remaining(self) -> tuple[int, int, int, int]:
     return (self.group, self.feature, self.epic, self.initiative)
 
+  def to_json_value(self) -> dict[str, int]:
+    return {
+      "group": self.group,
+      "feature": self.feature,
+      "epic": self.epic,
+      "initiative": self.initiative,
+    }
+
+  @classmethod
+  def from_json_value(cls, value: object) -> "FollowPolicy":
+    if not isinstance(value, dict) or set(value) != set(GROUP_KINDS) | {"group"}:
+      raise LaneTraversalError("invalid persisted follow policy")
+    return cls(
+      group=value["group"],
+      feature=value["feature"],
+      epic=value["epic"],
+      initiative=value["initiative"],
+    )
+
   def cross(
     self,
     kind: str | None,
