@@ -29,6 +29,10 @@ TEST_NAMES = (
     "tests.test_first_use_lanes.FirstUseLanesTests."
     "test_partial_single_cache_widens_to_dependents_without_refresh"
   ),
+  (
+    "tests.test_first_use_lanes.FirstUseLanesTests."
+    "test_partial_cache_widening_failure_preserves_graph_and_selection"
+  ),
 )
 
 
