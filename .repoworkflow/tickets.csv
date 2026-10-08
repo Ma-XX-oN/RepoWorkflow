@@ -262,3 +262,4 @@ issue,title,dependencies
 518,"Epic: Record, replay, and test executable interface behaviour",519
 519,Feature: Add issue-scoped temporary transformation-fidelity test sandboxes,
 521,Fix nested command descriptions in generated help,456
+522,Bind lane projections to branches while preserving unresolved seeds,
