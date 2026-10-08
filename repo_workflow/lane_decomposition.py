@@ -27,12 +27,12 @@ class LanePlan:
     raise KeyError(key)
 
 
-def dependency_component(
+def dependency_states(
   graph: RelationshipGraph,
   selected: Iterable[str | int],
   *,
   follow: FollowPolicy | None = None,
-) -> tuple[str, ...]:
+) -> tuple[TraversalState, ...]:
   selected_ids = _ids(selected)
   selected_set = set(selected_ids)
   for issue in selected_ids:
@@ -45,7 +45,6 @@ def dependency_component(
       neighbours[issue].add(dependency)
       neighbours[dependency].add(issue)
 
-  connected: set[str] = set()
   pending = [
     TraversalState(issue, policy.remaining())
     for issue in selected_ids
@@ -56,7 +55,6 @@ def dependency_component(
     if state in visited:
       continue
     visited.add(state)
-    connected.add(state.issue)
 
     remaining = state.remaining
     kind = group_kind(graph.issue(state.issue).title)
@@ -70,7 +68,20 @@ def dependency_component(
       next_state = TraversalState(neighbour, remaining)
       if next_state not in visited and next_state not in pending:
         pending.append(next_state)
-  return tuple(sorted(connected, key=int))
+  return tuple(sorted(
+    visited,
+    key=lambda state: (int(state.issue), state.remaining),
+  ))
+
+
+def dependency_component(
+  graph: RelationshipGraph,
+  selected: Iterable[str | int],
+  *,
+  follow: FollowPolicy | None = None,
+) -> tuple[str, ...]:
+  states = dependency_states(graph, selected, follow=follow)
+  return tuple(sorted({state.issue for state in states}, key=int))
 
 
 def decompose_lanes(
