@@ -87,7 +87,9 @@ class LaneSelectionStore:
     include_rules = normalize_rules(includes)
     exclude_rules = normalize_rules(excludes)
     if not include_rules:
-      raise LaneSelectionError("lane selection requires at least one include rule")
+      raise LaneSelectionError(
+        "lane selection requires at least one include rule"
+      )
     try:
       graph = RelationshipStore(self.root).read()
     except RelationshipStoreError as error:
@@ -310,7 +312,11 @@ def _selection(value: dict) -> LaneSelection:
   roots = _ids(tuple(value["roots"]))
   closure = _ids(tuple(value["closure"]))
   revision = value["graph_revision"]
-  if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+  if (
+    isinstance(revision, bool)
+    or not isinstance(revision, int)
+    or revision < 0
+  ):
     raise LaneSelectionError("invalid relationship graph revision")
 
   if version == SCHEMA_VERSION:
