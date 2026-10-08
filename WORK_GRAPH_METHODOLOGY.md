@@ -42,9 +42,9 @@ with a clear completion boundary.
 
 A leaf may contain substantial implementation work if its interface remains
 singular.  A small issue may still contain multiple independently testable
-contracts or coding boundaries.  Split when that improves test isolation,
-implementation decoupling, independent verification, or interface clarity—not
-merely to reduce ticket size.
+contracts or coding boundaries.  Split when that improves isolation,
+decoupling, verification, interface clarity, or reduces reasoning/state-space
+complexity—not merely ticket size.
 Useful split boundaries include:
 
 - semantic contract versus implementation;
