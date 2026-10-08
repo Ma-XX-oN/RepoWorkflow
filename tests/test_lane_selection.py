@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -24,6 +25,13 @@ class LaneSelectionTests(unittest.TestCase):
     self.root = Path(self.temp.name) / "repo"
     self.root.mkdir()
     RepoFixture(self.root)
+    self.branch = subprocess.run(
+      ["git", "branch", "--show-current"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    ).stdout.strip()
     self.writer = WriterIdentity("agent", "session")
     self.relationships = RelationshipStore(self.root)
     self.relationships.create(
@@ -46,6 +54,7 @@ class LaneSelectionTests(unittest.TestCase):
       self.relationships.read().revision,
     )
     self.assertEqual(set(result.value.assignment), {"1", "2", "3"})
+    self.assertEqual(result.value.branch, self.branch)
 
   def test_selected_dependency_is_focus_inside_complete_component(self):
     result = self.store.select((1,), self.writer)
@@ -176,7 +185,7 @@ class LaneSelectionTests(unittest.TestCase):
     current = self.store.read()
     self.assertEqual(current.value.follow, FollowPolicy())
     self.assertEqual(current.value.show_children, ShowChildrenPolicy())
-    self.assertEqual(current.value.schema_version, 3)
+    self.assertEqual(current.value.schema_version, 4)
 
   def test_show_children_policy_is_persisted_with_selection(self):
     before = self.relationships.read()
@@ -245,7 +254,109 @@ class LaneSelectionTests(unittest.TestCase):
     )
     current = self.store.read()
     self.assertEqual(current.value.show_children, ShowChildrenPolicy())
-    self.assertEqual(current.value.schema_version, 3)
+    self.assertEqual(current.value.schema_version, 4)
+
+  def test_branch_change_preserves_seeds_and_reprojects_known_roots(self):
+    first = self.store.select((3, 4), self.writer)
+    self.assertEqual(first.value.branch, self.branch)
+    subprocess.run(
+      ["git", "add", ".repoworkflow/tickets.csv"],
+      cwd=self.root,
+      check=True,
+    )
+    subprocess.run(
+      ["git", "commit", "-m", "main ticket state"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+
+    subprocess.run(
+      ["git", "checkout", "-b", "other"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+    current_graph = self.relationships.read()
+    self.relationships.replace(
+      current_graph.revision,
+      RelationshipGraph(issues={"4": relation()}),
+      self.writer,
+    )
+
+    current = self.store.read()
+    self.assertEqual(current.value.branch, "other")
+    self.assertEqual(current.value.roots, ("3", "4"))
+    self.assertEqual(current.value.closure, ("4",))
+    self.assertEqual(current.value.assignment, {"4": "A"})
+
+    persisted = self.store.records.read("selection")["value"]
+    self.assertEqual(persisted["branch"], self.branch)
+    self.assertEqual(persisted["roots"], ["3", "4"])
+
+  def test_switching_back_resolves_preserved_seed_without_reentering_it(self):
+    self.store.select((3,), self.writer)
+    subprocess.run(
+      ["git", "add", ".repoworkflow/tickets.csv"],
+      cwd=self.root,
+      check=True,
+    )
+    subprocess.run(
+      ["git", "commit", "-m", "main ticket state"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+    subprocess.run(
+      ["git", "checkout", "-b", "other"],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+    current_graph = self.relationships.read()
+    self.relationships.replace(
+      current_graph.revision,
+      RelationshipGraph(issues={"4": relation()}),
+      self.writer,
+    )
+    self.assertEqual(self.store.read().value.closure, ())
+
+    subprocess.run(
+      ["git", "checkout", self.branch],
+      cwd=self.root,
+      check=True,
+      capture_output=True,
+      text=True,
+    )
+    restored = self.store.read().value
+    self.assertEqual(restored.roots, ("3",))
+    self.assertEqual(restored.closure, ("1", "2", "3"))
+    self.assertEqual(restored.branch, self.branch)
+
+  def test_legacy_selection_is_reprojected_without_trusting_old_branch_cache(self):
+    revision = self.relationships.read().revision
+    self.store.records.create(
+      "selection",
+      {
+        "schema_version": 3,
+        "roots": ["3"],
+        "closure": ["4"],
+        "graph_revision": revision,
+        "follow": FollowPolicy().to_json_value(),
+        "show_children": ShowChildrenPolicy().to_json_value(),
+        "assignment": {"4": "A"},
+      },
+      self.writer,
+    )
+    current = self.store.read().value
+    self.assertEqual(current.branch, self.branch)
+    self.assertEqual(current.roots, ("3",))
+    self.assertEqual(current.closure, ("1", "2", "3"))
+    self.assertNotIn("4", current.assignment)
 
   def test_selection_is_worktree_local(self):
     self.store.select((3,), self.writer)

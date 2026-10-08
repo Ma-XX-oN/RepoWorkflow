@@ -51,6 +51,14 @@
       "issue-516-lane-count": {
         "type": "regression",
         "name": "tests.test_lane_count_verification"
+      },
+      "issue-522-branch-selection-state": {
+        "type": "regression",
+        "name": "tests.test_lane_selection"
+      },
+      "issue-522-branch-selection-cli": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes"
       }
     }
   ],
