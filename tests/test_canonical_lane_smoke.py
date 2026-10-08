@@ -56,26 +56,43 @@ def expected_default_focus_closure(
 
 
 class CanonicalLaneSmokeTests(unittest.TestCase):
-  def make_repo(self, root: Path) -> None:
+  def make_repo(
+    self,
+    root: Path,
+    issue_filter: set[str] | None = None,
+  ) -> None:
     RepoFixture(root)
-    target = root / ".repoworkflow" / "tickets.csv"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(CANONICAL_TICKETS, target)
-
-    issues = {}
-    dependencies = {}
     with CANONICAL_TICKETS.open(
       newline="",
       encoding="utf-8",
     ) as handle:
-      for row in csv.DictReader(handle):
-        issue = row["issue"]
-        issues[issue] = row["title"]
-        dependencies[issue] = [
-          int(value)
-          for value in row["dependencies"].split(";")
-          if value
-        ]
+      rows = [
+        row
+        for row in csv.DictReader(handle)
+        if issue_filter is None or row["issue"] in issue_filter
+      ]
+
+    target = root / ".repoworkflow" / "tickets.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("w", newline="", encoding="utf-8") as handle:
+      writer = csv.DictWriter(
+        handle,
+        fieldnames=("issue", "title", "dependencies"),
+        lineterminator="\n",
+      )
+      writer.writeheader()
+      writer.writerows(rows)
+
+    issues = {}
+    dependencies = {}
+    for row in rows:
+      issue = row["issue"]
+      issues[issue] = row["title"]
+      dependencies[issue] = [
+        int(value)
+        for value in row["dependencies"].split(";")
+        if value
+      ]
 
     dependants = {issue: [] for issue in issues}
     for issue, values in dependencies.items():
@@ -144,30 +161,30 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
     )
 
   def test_focus_seed_413_preserves_canonical_component(self):
+    with CANONICAL_TICKETS.open(
+      newline="",
+      encoding="utf-8",
+    ) as handle:
+      rows = {
+        row["issue"]: row
+        for row in csv.DictReader(handle)
+      }
+
+    self.assertEqual(rows["409"]["dependencies"], "413")
+    self.assertEqual(rows["410"]["dependencies"], "")
+    self.assertEqual(rows["411"]["dependencies"], "410")
+    self.assertEqual(rows["412"]["dependencies"], "410;456")
+    self.assertEqual(rows["413"]["dependencies"], "410;411;412")
+    self.assertTrue(rows["409"]["title"].startswith("Epic:"))
+
+    expected = expected_default_focus_closure(rows, "413")
+    for issue in ("409", "410", "411", "412", "413", "456"):
+      self.assertIn(issue, expected)
+
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
       self.make_repo(root)
-
-      with CANONICAL_TICKETS.open(
-        newline="",
-        encoding="utf-8",
-      ) as handle:
-        rows = {
-          row["issue"]: row
-          for row in csv.DictReader(handle)
-        }
-
-      self.assertEqual(rows["409"]["dependencies"], "413")
-      self.assertEqual(rows["410"]["dependencies"], "")
-      self.assertEqual(rows["411"]["dependencies"], "410")
-      self.assertEqual(rows["412"]["dependencies"], "410;456")
-      self.assertEqual(rows["413"]["dependencies"], "410;411;412")
-      self.assertTrue(rows["409"]["title"].startswith("Epic:"))
-
-      expected = expected_default_focus_closure(rows, "413")
-      for issue in ("409", "410", "411", "412", "413", "456"):
-        self.assertIn(issue, expected)
 
       selected = self.run_rwf(
         root,
@@ -181,11 +198,27 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       self.assertEqual(value["roots"], ["413"])
       self.assertEqual(tuple(value["closure"]), expected)
 
+    focus_ids = {"409", "410", "411", "412", "413", "456"}
+    focus_rows = {
+      issue: rows[issue]
+      for issue in focus_ids
+    }
+    focus_expected = expected_default_focus_closure(focus_rows, "413")
+    self.assertEqual(
+      focus_expected,
+      ("409", "410", "411", "412", "413", "456"),
+    )
+
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root, focus_ids)
+
       rendered = self.run_rwf(root, "lanes", "select", "413")
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
       self.assertEqual(rendered.stdout.count("*"), 1)
       self.assertRegex(rendered.stdout, re.compile(r"\*\s*[A-Z]+413\b"))
-      for issue in ("409", "410", "411", "412", "413"):
+      for issue in focus_expected:
         self.assertIn(issue, rendered.stdout)
 
       repeated = self.run_rwf(root, "lanes", "select", "413")
@@ -204,6 +237,7 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
         "410 -> 413",
         "411 -> 413",
         "412 -> 413",
+        "412 -> 456",
         "413 -> 409",
       ):
         self.assertIn(edge, debug.stdout)
