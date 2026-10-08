@@ -5,6 +5,7 @@ TEST_NAMES = (
   "tests.test_lane_projection",
   "tests.test_lane_selection",
   "tests.test_lane_projection_cli",
+  "tests.test_lane_relationship_coverage",
   "tests.test_lane_count",
   "tests.test_lane_graph_adapter",
   "tests.test_lane_render",
