@@ -242,15 +242,14 @@ rwf lanes list
 rwf lanes view
 ```
 
-The issues passed to `lanes select` are focus seeds.  Ordinary tickets expand
-through both direct dependencies and direct dependants.  Encountered
-`Feature:`, `Epic:`, and `Initiative:` tickets are included but stop
-component discovery by default; an explicitly selected group seed is not stopped
-merely because it is a group.  Only the explicit focus seeds receive the `*`
-marker.  Dependency direction itself is unchanged: direct dependency edges
-remain the sole scheduling and topology authority.
+The issues passed to `lanes select` are explicit focus seeds.  Without a
+`--follow` option, ordinary dependency/dependant traversal does not start and
+the projected lane selection contains only those explicit seeds.  Only the
+explicit focus seeds receive the `*` marker.  Dependency direction itself is
+unchanged: direct dependency edges remain the sole scheduling and topology
+authority.
 
-Group boundaries may be crossed explicitly:
+`--follow` is the general traversal-enabling mechanism:
 
 ```text
 --follow group [N]
@@ -259,6 +258,12 @@ Group boundaries may be crossed explicitly:
 --follow initiative [N]
 ```
 
+Supplying any valid form above enables ordinary traversal through both direct
+dependencies and direct dependants.  Encountered `Feature:`, `Epic:`, and
+`Initiative:` tickets are included but stop traversal unless the applicable
+follow allowance permits crossing them; an explicitly selected group seed is
+not stopped merely because it is a group.
+
 `N` defaults to 1 and must be positive.  Type-specific allowances compose and
 are counted independently per traversal path.  `group N` uses one shared
 per-path allowance across Feature/Epic/Initiative boundaries.  The same node may
@@ -266,9 +271,10 @@ therefore be visited with different remaining traversal allowances while still
 appearing only once in the projected graph.
 
 Stopped group boundaries may expose one adjacent context layer with
-`--show-children group|feature|epic|initiative`.  It applies only to matching
-unfollowed boundaries: shown nodes do not restart traversal, while an independent
-ordinary path to the same node remains traversable.  Repeated type flags compose;
+`--show-children group|feature|epic|initiative`.  This option does not itself
+enable ordinary traversal.  It applies only to matching unfollowed boundaries
+already present in the projected graph: shown nodes do not restart traversal,
+while an independent followed path to the same node remains traversable.  Repeated type flags compose;
 `group` matches Feature/Epic/Initiative.
 
 The durable synchronized ticket state contains issue number, exact title, and
