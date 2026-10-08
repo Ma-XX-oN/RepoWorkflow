@@ -5,6 +5,10 @@ CI, branch policy, validation, generated artifacts, candidate bookkeeping, and
 terminal result tagging. It is consumed as a Git submodule named `RepoWorkflow`
 in each repository.
 
+[REPOWORKFLOW_OVERVIEW.md](REPOWORKFLOW_OVERVIEW.md) explains the broader RWF
+model: what it is, the engineering disciplines it combines, and how those
+ideas improve decomposition, testing, scheduling, integration, and completion.
+
 The central boundary is:
 
 > GitHub workflow YAML is only a bootstrap. Repository workflow logic must remain
@@ -210,6 +214,8 @@ methodology.
 
 ## Documentation
 
+- [REPOWORKFLOW_OVERVIEW.md](REPOWORKFLOW_OVERVIEW.md) explains what RWF is,
+  what it improves, and how it combines established engineering disciplines.
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
 - [COLLABORATIVE_DESIGN_REVIEW.md](COLLABORATIVE_DESIGN_REVIEW.md) defines
   a project-neutral discipline for evaluating design proposals against accepted
