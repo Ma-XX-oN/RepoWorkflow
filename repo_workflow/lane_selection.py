@@ -75,20 +75,30 @@ class LaneSelectionStore:
         raise LaneSelectionError(str(error)) from error
       legacy = record["value"]["schema_version"] != SCHEMA_VERSION
       if legacy or parsed.graph_revision != current_graph.revision:
-        plan = decompose_rules(
-          current_graph.graph,
-          parsed.includes,
-          parsed.excludes,
+        unresolved = any(
+          rule.seed not in current_graph.graph.issues
+          for rule in (*parsed.includes, *parsed.excludes)
         )
-        parsed = LaneSelection(
-          roots=parsed.roots,
-          closure=plan.closure,
-          graph_revision=current_graph.revision,
-          assignment={
+        if unresolved:
+          closure = ()
+          assignment = {}
+        else:
+          plan = decompose_rules(
+            current_graph.graph,
+            parsed.includes,
+            parsed.excludes,
+          )
+          closure = plan.closure
+          assignment = {
             issue: lane.name
             for lane in plan.lanes
             for issue in lane.issues
-          },
+          }
+        parsed = LaneSelection(
+          roots=parsed.roots,
+          closure=closure,
+          graph_revision=current_graph.revision,
+          assignment=assignment,
           includes=parsed.includes,
           excludes=parsed.excludes,
         )
