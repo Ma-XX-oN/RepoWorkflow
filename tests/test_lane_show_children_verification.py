@@ -2,6 +2,7 @@ import unittest
 
 
 TEST_NAMES = (
+  "tests.test_lane_traversal",
   "tests.test_lane_show_children",
   "tests.test_lane_show_children_grammar",
   "tests.test_lane_selection",
