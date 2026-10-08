@@ -51,6 +51,34 @@
       "issue-516-lane-count": {
         "type": "regression",
         "name": "tests.test_lane_count_verification"
+      },
+      "issue-528-lane-projection-algebra": {
+        "type": "regression",
+        "name": "tests.test_lane_projection"
+      },
+      "issue-529-lane-selection-rules": {
+        "type": "regression",
+        "name": "tests.test_lane_selection"
+      },
+      "issue-530-lane-projection-cli": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_cli"
+      },
+      "issue-531-directional-acquisition": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-532-bug-refactor-prefixes": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-533-selection-expression": {
+        "type": "regression",
+        "name": "tests.test_lane_render"
+      },
+      "issue-535-explicit-lane-projection-certification": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
       }
     }
   ],
