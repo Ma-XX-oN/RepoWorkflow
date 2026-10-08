@@ -35,6 +35,10 @@
       "issue-452-lane-follow": {
         "type": "regression",
         "name": "tests.test_lane_follow_verification"
+      },
+      "issue-453-lane-show-children": {
+        "type": "regression",
+        "name": "tests.test_lane_show_children_verification"
       }
     }
   ],
