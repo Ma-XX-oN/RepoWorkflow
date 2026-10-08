@@ -50,12 +50,10 @@ RepoWorkflow must not infer whether an interface is stable enough for parallel
 work.  The tickets define that agreement.
 
 The benefit is broader than execution speed.  Defining the contract before
-coding should improve decomposition and implementation quality by forcing
-architecture and behavioural assumptions into an independently testable form.
-Tests and scenarios can be designed before provider or consumer code exists, so
-ambiguity, missing cases, awkward APIs, and fragile sequencing can be found
-earlier.  Speculative execution is one optimization enabled by that better
-design; the design/testing discipline remains useful even for a serial chain.
+coding makes architecture and behavioural assumptions independently testable.
+Tests and scenarios can expose ambiguity, missing cases, awkward APIs, and
+fragile sequencing before implementation.  The same discipline improves serial
+work and also enables speculative execution.
 
 ## 2. Contract ticket and implementation tickets
 
