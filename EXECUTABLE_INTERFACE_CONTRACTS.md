@@ -466,20 +466,25 @@ Any observe/record mode must treat captured provider behaviour as untrusted
 evidence.  It must never silently turn implementation behaviour into the
 authoritative contract.
 
-## 19. Proposed decomposition
+## 19. Decomposition and convergence
 
-A future implementation epic should separate at least:
+A speculative ticket grouping should separate contract semantics, comparison
+runtime, provider verification, consumer replay, workflow state/scheduling,
+integration, and certification where those are independently testable.
 
-1. contract/script semantics;
-2. comparing-stream model;
-3. comparison and capture engine;
-4. free-function binding;
-5. member-function binding;
-6. provider verification lifecycle;
-7. consumer replay lifecycle;
-8. reference language binding;
-9. provider/consumer/integration certification;
-10. work-graph methodology integration.
+The predefined interface may be pre-existing or newly designed.  New design
+work should attempt interface-first decomposition when it creates a coherent
+boundary that allows useful overlap.
 
-Contract semantics must be frozen before provider and consumer runtime
-implementations are treated as parallel-ready.
+The interface used for speculative execution is not automatically the final
+production architecture.  After any related ticket grouping converges, review
+whether to:
+
+- retain the interface as a durable boundary;
+- consolidate independently implemented pieces into one code path; or
+- expose a higher-level interface that hides error-prone sequencing while
+  retaining lower-level interfaces internally where justified.
+
+Contract semantics must be frozen before provider and consumer runtime work is
+treated as speculatively parallel-ready.  Final integration/certification must
+exercise the resulting production design, not only the decomposition boundary.
