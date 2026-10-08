@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .git import git
 from .lane_decomposition import LanePlan, decompose_lanes
+from .lane_traversal import FollowPolicy
 from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
@@ -71,11 +72,12 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     *,
     expected_revision: int | None = None,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     normalized = _ids(roots)
     if not normalized:
       raise LaneSelectionError("lane selection requires at least one root")
-    return self._write(normalized, writer, expected_revision)
+    return self._write(normalized, writer, expected_revision, follow=follow)
 
   def add(
     self,
@@ -83,12 +85,14 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     *,
     expected_revision: int,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
     return self._write(
       tuple(sorted(set(current.value.roots) | set(_ids(roots)), key=int)),
       writer,
       expected_revision,
+      follow=follow,
     )
 
   def remove(
@@ -97,6 +101,7 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     *,
     expected_revision: int,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
     remaining = tuple(
@@ -104,7 +109,7 @@ class LaneSelectionStore:
     )
     if not remaining:
       raise LaneSelectionError("remove would leave an empty selection; use clear")
-    return self._write(remaining, writer, expected_revision)
+    return self._write(remaining, writer, expected_revision, follow=follow)
 
   def clear(
     self,
@@ -156,6 +161,8 @@ class LaneSelectionStore:
     roots: tuple[str, ...],
     writer: WriterIdentity,
     expected_revision: int | None,
+    *,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     try:
       graph = RelationshipStore(self.root).read()
@@ -165,7 +172,7 @@ class LaneSelectionStore:
           "canonical relationship graph is not initialized"
         ) from error
       raise LaneSelectionError(str(error)) from error
-    plan = decompose_lanes(graph.graph, roots)
+    plan = decompose_lanes(graph.graph, roots, follow=follow)
     value = _from_plan(plan, graph.revision)
     current = self.read()
     if current.revision != expected_revision:
