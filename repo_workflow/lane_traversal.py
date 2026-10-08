@@ -48,6 +48,9 @@ class FollowPolicy:
   def remaining(self) -> tuple[int, int, int, int]:
     return (self.group, self.feature, self.epic, self.initiative)
 
+  def enables_traversal(self) -> bool:
+    return any(self.remaining())
+
   def to_json_value(self) -> dict[str, int]:
     return {
       "group": self.group,
