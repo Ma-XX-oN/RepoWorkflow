@@ -304,11 +304,10 @@ creates a coherent boundary.  A boundary introduced for decomposition may be
 provisional rather than the best final production interface.
 
 After any related ticket sequence or grouping converges, review those
-boundaries.  This applies even if the tickets executed entirely serially and
-were never labelled as a Feature/Epic.  A coherent feature/outcome may only
-become obvious after decomposition.  Retain useful interfaces, consolidate
-code paths when appropriate, or expose a higher-level durable interface that
-hides fragile low-level sequencing.
+boundaries, even for a purely serial chain with no prior Feature/Epic label.
+A coherent feature/outcome may only become obvious after decomposition.
+Retain useful interfaces, consolidate code paths, or expose a higher-level
+durable interface that hides fragile low-level sequencing.
 
 The portable contract must not leak provider-specific payloads or mechanics.
 
