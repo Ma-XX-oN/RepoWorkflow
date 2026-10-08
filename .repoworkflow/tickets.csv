@@ -245,16 +245,17 @@ issue,title,dependencies
 451,Investigate malformed vertical routing in complex lane graphs,447;464
 452,Add group-boundary --follow control to lane traversal,440;456
 453,Add --show-children context for stopped lane group boundaries,452
-454,Add --max-depend-depth limit to lane dependency traversal,440;456
+454,Add --max-depend-depth limit to lane dependency traversal,456;511
 456,Replace _variadic command tails with quantified command/switch/parameter grammar,
 458,Skip code-testing Self CI jobs for documentation-only changes,
 461,Epic: Add focused lane traversal and umbrella filtering controls,464
-462,Add --follow back-only dependency traversal,452
+462,Add --follow back-only dependency traversal,511
 463,Add umbrella-only --filter projection to lane graphs,456
-464,Certify focused lane traversal and umbrella filtering controls,452;453;454;462;463
+464,Certify focused lane traversal and umbrella filtering controls,452;453;454;462;463;511
 473,"Feature: Add risk-scoped issue verification and staged Self CI",477
 474,Define test-catalogue aliases and durable high-risk issue associations,456
 475,Implement rwf high-risk catalogue-section association,456;474
 476,"Stage Self CI by issue verification, regression, and integration risk",456;475
 477,Certify risk-scoped testing and staged Self CI workflow,476
 478,Advance stable version after quantified-grammar release collision,456
+511,Make lane traversal opt-in through --follow,452
