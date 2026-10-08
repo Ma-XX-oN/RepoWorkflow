@@ -135,7 +135,13 @@ class LaneSelectionStore:
     )
     if not remaining:
       raise LaneSelectionError("remove would leave an empty selection; use clear")
-    return self._write(remaining, writer, expected_revision, follow=policy)
+    return self._write(
+      remaining,
+      writer,
+      expected_revision,
+      follow=policy,
+      show_children=context,
+    )
 
   def clear(
     self,
