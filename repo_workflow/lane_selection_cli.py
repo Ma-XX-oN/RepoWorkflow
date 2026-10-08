@@ -18,6 +18,44 @@ from .relationship_bootstrap import ensure_relationship_graph
 from .runtime_identity import runtime_writer_identity
 
 
+FOLLOW_GROUP_KINDS = frozenset({
+  "group", "feature", "epic", "initiative"
+})
+
+
+def _follow_count_candidates(words: list[str]) -> tuple[int, ...]:
+  return tuple(
+    index
+    for index, token in enumerate(words)
+    if (
+      token.isdecimal()
+      and int(token) > 0
+      and index >= 2
+      and words[index - 2] == "--follow"
+      and words[index - 1] in FOLLOW_GROUP_KINDS
+    )
+  )
+
+
+def _consume_follow_count(words: list[str], index: int) -> bool:
+  if index >= len(words):
+    return False
+  token = words[index]
+  if not token.isdecimal() or int(token) <= 0:
+    return False
+  candidates = _follow_count_candidates(words)
+  ordinary_values = tuple(
+    position
+    for position, value in enumerate(words)
+    if value.isdecimal() and int(value) > 0 and position not in candidates
+  )
+  return bool(
+    ordinary_values
+    or not candidates
+    or index != candidates[-1]
+  )
+
+
 def handle_lane_selection(
   root: Path,
   words: list[str],
@@ -38,6 +76,7 @@ def handle_lane_selection(
   (
     tail,
     as_json,
+    count_only,
     refresh,
     requested_follow,
     requested_show_children,
@@ -131,6 +170,16 @@ def handle_lane_selection(
       show_children=show_children,
     )
     started = time.perf_counter()
+    if count_only:
+      projected = store.project(
+        desired,
+        follow=follow,
+        show_children=show_children,
+      )
+      if diagnostics is not None:
+        diagnostics.phase("decomposition", started)
+      print(len(projected.closure))
+      return 0
     result = store.select(
       desired,
       writer,
@@ -196,6 +245,7 @@ def _selection_arguments(
   list[str],
   bool,
   bool,
+  bool,
   FollowPolicy | None,
   ShowChildrenPolicy | None,
 ]:
@@ -203,12 +253,17 @@ def _selection_arguments(
   follow_values: list[tuple[str, str | None]] = []
   show_children_values: list[str] = []
   as_json = False
+  count_only = False
   refresh = False
   index = 0
   while index < len(words):
     token = words[index]
     if token == "--json":
       as_json = True
+      index += 1
+      continue
+    if token == "--count":
+      count_only = True
       index += 1
       continue
     if token == "--refresh":
@@ -221,11 +276,7 @@ def _selection_arguments(
       kind = words[index + 1]
       count = None
       index += 2
-      if (
-        index < len(words)
-        and not words[index].startswith("--")
-        and words[index].isdecimal()
-      ):
+      if _consume_follow_count(words, index):
         count = words[index]
         index += 1
       follow_values.append((kind, count))
@@ -244,4 +295,4 @@ def _selection_arguments(
     if not show_children_values
     else parse_show_children_arguments(show_children_values)
   )
-  return positional, as_json, refresh, follow, show_children
+  return positional, as_json, count_only, refresh, follow, show_children
