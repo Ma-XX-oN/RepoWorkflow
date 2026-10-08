@@ -3,15 +3,15 @@
 Status: proposal for repository-neutral interface-first decomposition,
 deterministic contract verification, replay, and cross-language bindings.
 
-This proposal extends the interface-oriented decomposition already described by
+This proposal extends the interface-oriented decomposition described by
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) and
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).  It does not replace either
 document while this proposal remains non-authoritative.
 
 ## 1. Purpose
 
-Some dependency chains exist only because a provider implementation and a
-consumer implementation need to agree on an interface.
+Some dependency chains exist only because a provider implementation and one or
+more consumers need to agree on an interface.
 
 For example:
 
@@ -21,64 +21,73 @@ grammar -+- implement tab completion
          +- implement some other feature
 ```
 
-The consumer does not fundamentally need the completed provider
-implementation.  It needs an agreed interface that the provider promises to
-implement.
+The consumers do not fundamentally need the finished grammar implementation.
+They need an agreed interface that the grammar provider promises to implement.
 
-If that interface is extracted first, the graph becomes:
+Extracting that interface first changes the work graph to:
 
 ```text
                   interface contract
                   /       |       \
-                 /        |        \
-       grammar provider  completion  other consumer
-                 \        |        /
-                  \       |       /
-                   integration/certification
+                 v        v        v
+              provider consumer1 consumer2
+                 \        |       /
+                  \       |      /
+                   integration
 ```
 
-Provider and consumer work can then proceed in parallel.  Each side can also be
-tested independently against the same executable contract.
+The provider and consumers can then proceed in parallel.  Each side can also
+be tested independently against the same executable contract.
 
 The central principle is:
 
-> A provider and every consumer agree on an explicit interface before parallel
+> A provider and its consumers agree on an explicit interface before parallel
 > implementation begins.  Provider and consumer tests execute the same
 > deterministic interface contract from opposite sides.
 
-## 2. The interface contract is a first-class work product
+RepoWorkflow must not infer whether an interface is stable enough for parallel
+work.  The tickets define that agreement.
 
-RepoWorkflow must not infer whether two tickets have a stable enough interface
-for parallel work.
+## 2. Contract ticket and implementation tickets
 
-The tickets define that agreement.
+The interface contract is a first-class work product.
 
-A contract ticket specifies the observable boundary between a provider and its
-consumers.  Once that contract is accepted:
+Once a contract ticket is accepted:
 
 - the provider ticket implements the contract;
-- consumer tickets may implement against the contract immediately;
-- provider and consumer tickets are parallel-ready;
-- integration waits for both sides;
-- provider implementation failures do not invalidate consumers when the
-  contract remains unchanged;
-- changing the contract is an explicit contract revision that requires affected
-  consumers to be revalidated.
+- consumer tickets implement against the contract;
+- provider and consumers are parallel-ready;
+- integration waits for all required implementations;
+- provider failures do not invalidate consumers when the contract is unchanged;
+- contract changes are explicit revisions requiring affected revalidation.
 
-For the grammar/completion example, the contract must specify the information
-that completion receives from the object representing the current CLI parse.
-The contract must be precise enough for completion to be implemented and tested
-without the real parser implementation.
+For the grammar/completion example, the contract specifies the information that
+completion receives from the object representing the current CLI parse.  It
+must be precise enough for completion to be implemented and tested without the
+real parser implementation.
 
-## 3. Executable rather than prose-only
+The graph should therefore represent:
+
+```text
+contract
+  +-- provider implementation
+  +-- consumer implementation
+  +-- other consumer implementation
+        |
+        v
+integration/certification
+```
+
+rather than a false provider-then-consumer dependency.
+
+## 3. Executable contract
 
 The interface must be scriptable.
 
-A prose contract remains useful for rationale, ownership, and explanation, but
-the observable call behaviour should also have a deterministic executable
-representation.
+Prose remains useful for rationale and ownership, but observable call behaviour
+also needs a deterministic executable representation.
 
-A contract scenario describes an ordered stream of expected events such as:
+A scenario is an ordered stream of expected events, for example:
 
 ```text
 call create_parser(["lanes", "select"]) -> $parser
@@ -97,11 +106,11 @@ The stream may contain:
 - captured results reused by later calls;
 - deterministic ordering and cardinality.
 
-The contract script must not depend on the provider implementation.
+The contract script must not depend on provider implementation behaviour.
 
 ## 4. Comparing stream
 
-The runtime is centred on a comparing stream.
+The runtime is centred on one comparing stream:
 
 ```text
 InterfaceContract
@@ -113,33 +122,19 @@ ComparingStream
 InterfaceRunner
 ```
 
-The stream is the single ordered source of truth for provider verification and
+The stream is the ordered source of truth for both provider verification and
 consumer replay.
 
-The stream is immutable during execution.  Runtime state consists of the
-current position, captured symbolic values, and any currently in-flight call.
+During one execution the stream is immutable.  Runtime state consists of the
+current position, captured symbolic values, and any in-flight call.
 
-A failure should identify the exact stream event that failed, for example:
-
-```text
-expected event 17:
-  member: $parser.valid_next
-  args:   ["4"]
-
-observed:
-  member: $parser.current_node
-  args:   []
-```
-
-This is preferable to a generic mock failure because the error identifies the
-contract boundary and exact divergence.
+A mismatch should identify the exact stream event, expected call, and observed
+call.  This makes failures contract diagnostics rather than opaque mock
+failures.
 
 ## 5. Provider verification
 
-A provider implementation is verified by executing real calls through the
-contract runner.
-
-The provider-side lifecycle is:
+The real provider is verified with:
 
 ```text
 preverify(...)
@@ -147,94 +142,76 @@ real call
 postverify(...)
 ```
 
-A forwarding helper may provide the ordinary integration point:
+A forwarding helper may provide the usual integration point:
 
 ```text
 fwd(...)
   -> preverify(...)
   -> invoke real function/member
   -> postverify(...)
-  -> return the real result
+  -> return real result
 ```
 
 The wrapper must not alter successful provider behaviour.
 
 ### 5.1 preverify
 
-`preverify()` validates the call before provider code executes.
+`preverify()` checks the next expected call before provider code executes.
 
-It verifies at least:
+It verifies:
 
-- the next expected stream event;
+- expected stream event;
 - free-function or member-function identity;
 - symbolic receiver identity for member calls;
-- argument count;
-- argument values;
+- argument count and values;
 - captured references;
-- ordering;
-- deterministic preconditions represented by the contract.
+- call order;
+- deterministic contract preconditions.
 
-An unexpected call must fail before the underlying provider function is
-invoked.
+An unexpected call fails before the real function runs.
 
-`preverify()` does not commit the stream event as completed.  It establishes
-the in-flight call that `postverify()` must complete.
+`preverify()` establishes an in-flight call but does not commit the event as
+complete.
 
 ### 5.2 postverify
 
-`postverify()` validates the provider outcome.
+`postverify()` checks the provider outcome.
 
-It verifies at least:
+It verifies:
 
-- expected returned value;
-- expected structured output;
+- expected return value or structured output;
 - expected error or exception;
-- symbolic captures produced by the call;
-- deterministic postconditions represented by the scenario.
+- output captures;
+- deterministic contract postconditions.
 
-Only successful `postverify()` advances the stream past the call.
-
-If provider execution produces an unexpected exception or return value, the
-runner reports the mismatch without silently advancing the contract.
+Only successful post-verification advances past the call.  Unexpected results
+or failures leave the mismatch associated with the in-flight event.
 
 ## 6. Consumer replay
 
 Consumers use the same contract without the provider implementation.
 
-`replay()` performs the consumer-side operation:
+`replay()`:
 
-```text
-consumer call
-    |
-    v
-replay(...)
-    |
-    +-- validate function/member identity
-    +-- validate receiver when applicable
-    +-- validate inputs
-    +-- retrieve scripted output/error
-    +-- apply captures
-    +-- advance the stream
-    |
-    v
-consumer receives scripted result
-```
+1. validates the expected function or member;
+2. validates the receiver where applicable;
+3. validates the consumer inputs;
+4. obtains the scripted output or error;
+5. applies captures and state transitions;
+6. advances the stream;
+7. returns or raises the scripted result.
 
 Replay outputs come from the contract.  They are not generated by arbitrary
 callbacks or copied from current provider behaviour.
 
-This permits a consumer ticket to implement and test its complete behaviour
-while the provider ticket is still being implemented.
-
-Provider verification and consumer replay must use the same input comparison,
+Provider verification and consumer replay must share the same comparison,
 capture, sequencing, and output semantics.
 
-## 7. Shared runtime primitives
+## 7. Shared comparison engine
 
-The public operations should share one comparison engine rather than implement
-three interpretations of the contract.
+The three public operations should use one comparison engine.
 
-Conceptually, the common primitives include:
+Conceptually, shared primitives include:
 
 ```text
 match_event()
@@ -251,39 +228,31 @@ finish_scenario()
 Then:
 
 ```text
-preverify()
-  = match event + receiver + inputs
-
-postverify()
-  = match output/error + capture + advance
-
-replay()
-  = match event + receiver + inputs
-    + obtain scripted output/error
-    + capture + advance
+preverify = call/input matching
+postverify = output/error matching + capture + advance
+replay = call/input matching + scripted result + capture + advance
 ```
 
-The exact implementation language and names are not fixed by this proposal.
+The exact implementation language and function names are not fixed here.
 
-## 8. Free functions and member functions
+## 8. Free and member functions
 
-The runner should provide distinct front ends for free functions and member
-functions while sharing the same comparing-stream implementation.
+Provide distinct front ends for free functions and member functions while
+sharing the same comparing-stream engine.
 
-A free-function call is identified by:
+A free call is identified by:
 
 ```text
 function + arguments
 ```
 
-A member-function call is identified by:
+A member call is identified by:
 
 ```text
 receiver + member + arguments
 ```
 
-The member-function interface therefore receives an object/receiver
-unconditionally.
+The member-function form therefore receives the object/receiver unconditionally.
 
 Conceptually:
 
@@ -299,13 +268,11 @@ MemberFunctionRunner
   replay(obj, fn_name, ...)
 ```
 
-Both are thin adapters over one shared contract executor.
-
 ## 9. Symbolic object identity
 
-Contract scripts must not depend on process-specific object addresses.
+Contract scripts must not depend on process-specific addresses.
 
-A member object should be assigned a symbolic identity such as:
+Objects use symbolic identities such as:
 
 ```text
 $parser
@@ -313,7 +280,7 @@ $repo
 $session
 ```
 
-A call may capture a real object under that symbolic identity:
+A call may capture an object and reuse it later:
 
 ```text
 create_parser(...) -> $parser
@@ -321,19 +288,15 @@ $parser.parse(...)
 $parser.valid_next(...)
 ```
 
-In provider-verification mode, the runner maps the real runtime object to the
-symbolic identity.
+Provider verification maps the real object to the symbolic identity.  Replay
+supplies a replay-side representative associated with the same identity.
 
-In replay mode, the runner supplies a replay-side representative associated
-with the same symbolic identity.
-
-Object identity, lifetime, and aliasing semantics remain binding-specific where
+Object lifetime, aliasing, and related semantics remain binding-specific where
 the common model is insufficient.
 
-## 10. Value and error model
+## 10. Values, errors, and portability
 
-The common contract format should support a small deterministic set of
-portable-enough value forms, including:
+The common contract format should support a small deterministic value model:
 
 - null/no-value;
 - booleans;
@@ -345,54 +308,43 @@ portable-enough value forms, including:
 - symbolic references;
 - deterministic typed errors.
 
-The common model is intentionally not described as fully language-neutral.
-Language neutrality is only an approximation.
+The model is not fully language-neutral.  Language neutrality is only an
+approximation.
 
-Different runtimes expose different semantics for:
+Runtimes differ in object identity, integer behaviour, references, ownership,
+mutation, aliasing, exceptions, result objects, async semantics, and dispatch.
 
-- object identity and lifetime;
-- integer width and overflow;
-- references versus values;
-- ownership and borrowing;
-- mutation and aliasing;
-- exceptions, error codes, and result objects;
-- async execution;
-- dispatch and overload resolution.
-
-The design goal is therefore:
+The goal is therefore:
 
 > A common deterministic contract model with explicit per-language bindings and
-> extensions for semantics that cannot be faithfully normalized.
+> extensions where semantics cannot be faithfully normalized.
 
-Bindings must not hide semantic differences merely to claim portability.
+Bindings must expose significant semantic differences rather than hide them for
+the sake of apparent portability.
 
-## 11. Determinism
+## 11. Deterministic matching
 
 Contract scripts must be wholly deterministic.
 
-The core contract language must not permit arbitrary user code or arbitrary
-predicates to decide whether a call matches.
+The core format must not embed arbitrary host-language predicates or arbitrary
+callbacks for matching.
 
-Prefer declarative matching operations such as:
+Prefer specified operations such as:
 
 - exact scalar equality;
 - exact ordered sequence equality;
 - exact mapping equality;
 - selected structured-field matching;
-- type/category constraints where defined;
+- explicit type/category constraints;
 - symbolic-reference identity;
 - explicit deterministic numeric constraints;
 - explicit expected errors.
 
-If richer matching becomes necessary, it should be added as a named,
-specified, deterministic contract operation rather than as embedded host
-language code.
+Richer matching should be added as named, specified contract operations.
 
-## 12. Scenario lifecycle
+## 12. Scenarios and lifecycle
 
-An interface normally requires more than one case.
-
-A contract therefore contains named deterministic scenarios, for example:
+An interface normally needs multiple scenarios, such as:
 
 ```text
 ordinary completion
@@ -404,10 +356,9 @@ repeated operation
 changed parser state
 ```
 
-Each scenario has an independent comparing stream and must finish with no
-unconsumed required events.
+Each scenario has an independent comparing stream.
 
-Scenario completion should detect:
+Scenario completion detects:
 
 - missing expected calls;
 - extra calls;
@@ -418,53 +369,13 @@ Scenario completion should detect:
 - wrong errors;
 - unresolved required captures.
 
-## 13. Work-graph decomposition
+This supports lifecycle and negative testing without changing the core runner.
 
-The interface contract changes the correct dependency graph.
+## 13. Testing consequences
 
-Do not model:
+The executable interface creates three separate obligations.
 
-```text
-provider implementation
-        |
-        v
-consumer implementation
-```
-
-when the consumer only requires an agreed interface.
-
-Model:
-
-```text
-                  interface contract
-                  /              \
-                 v                v
-       provider implementation  consumer implementation
-                 \              /
-                  v            v
-               integration/certification
-```
-
-With multiple consumers:
-
-```text
-                      contract
-                 /       |       \
-                v        v        v
-             provider consumer1 consumer2
-                \        |       /
-                 \       |      /
-                  integration
-```
-
-This is ordinary parallel execution after the contract ticket completes.  RWF
-does not need speculative scheduling to create the parallelism.
-
-## 14. Testing consequences
-
-The executable contract creates three distinct test obligations.
-
-### 14.1 Provider conformance
+### 13.1 Provider conformance
 
 Run the real provider through `preverify()` and `postverify()`.
 
@@ -472,7 +383,7 @@ Question answered:
 
 > Does the real provider satisfy the agreed interface?
 
-### 14.2 Consumer contract testing
+### 13.2 Consumer contract testing
 
 Run the consumer against `replay()`.
 
@@ -480,74 +391,64 @@ Question answered:
 
 > Does the consumer behave correctly when given exactly the agreed interface?
 
-### 14.3 Integration and certification
+### 13.3 Integration and certification
 
-Connect the real provider and real consumer after both independently conform.
+Connect the independently verified real provider and real consumers.
 
 Question answered:
 
-> Are the independently verified components wired together correctly?
+> Are the conforming components wired together correctly?
 
-Integration testing should not unnecessarily reproduce every provider and
-consumer behavioural test.  Its primary responsibility is the real connection
-between already-verified sides.
+Integration should verify the connection rather than unnecessarily reproduce
+all provider and consumer behavioural tests.
 
 All implementation and certification remain subject to
 [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 15. Contract changes
+## 14. Contract changes
 
-A provider test failure does not invalidate consumer work merely because the
-provider implementation changes.
+A provider implementation failure does not invalidate consumer work merely
+because provider code changes.
 
-If the agreed interface remains unchanged:
+If the contract remains unchanged:
 
 ```text
-provider fails
-    |
-    v
-fix provider
-    |
-    v
-verify same contract
+provider fails -> fix provider -> verify same contract
 ```
 
 Consumers remain valid against the same contract.
 
-If the interface itself must change:
+If the interface itself changes:
 
 1. revise the contract explicitly;
-2. identify every provider and consumer bound to that contract;
-3. update their replay/conformance scenarios as required;
+2. identify every provider and consumer bound to it;
+3. update affected scenarios;
 4. revalidate affected implementations;
 5. rerun integration/certification.
 
-Contract evolution is therefore visible work rather than an inferred side
-effect of provider implementation.
+Contract evolution is visible work, not an inferred implementation side effect.
 
-## 16. Relationship to RepoWorkflow
+## 15. RepoWorkflow responsibility
 
-RepoWorkflow's role is to represent and schedule the explicit work graph.
+RepoWorkflow represents and schedules the explicit graph.
 
 It must not infer:
 
 - whether an interface is stable;
-- whether arbitrary implementation changes are compatible;
-- whether a consumer can safely ignore a changed contract;
-- how two teams should negotiate interface semantics.
+- whether arbitrary changes are compatible;
+- whether a consumer can ignore a changed contract;
+- how provider and consumers should negotiate semantics.
 
 Those decisions belong to the contract and its tickets.
 
-RepoWorkflow may later support the mechanics around executable contracts, such
-as locating contract artifacts, exposing their ticket relationships, or
-running configured verification commands.  Such capabilities must consume the
-explicit contract rather than derive one from implementation behaviour.
+RWF may later support mechanics such as locating contract artifacts, exposing
+their ticket relationships, or running configured contract verification.
+Those capabilities must consume an explicit contract rather than derive one
+from implementation behaviour.
 
-## 17. Initial scope
+## 16. Initial implementation scope
 
-A first implementation should remain deliberately small.
-
-It should support:
+A first implementation should support:
 
 - deterministic scenario streams;
 - free-function calls;
@@ -556,65 +457,62 @@ It should support:
 - exact structured inputs and outputs;
 - expected errors;
 - captures and later references;
-- provider `preverify()` / `postverify()`;
+- provider `preverify()` and `postverify()`;
 - consumer `replay()`;
 - scenario completion validation;
-- one language binding implemented as the reference binding.
+- one reference language binding.
 
-It should defer until separately specified:
+Initially defer:
 
 - arbitrary predicates;
 - automatic contract generation from provider behaviour;
 - automatic compatibility inference;
 - automatic interface discovery;
-- unconstrained host-language callbacks inside contract scripts;
+- unconstrained callbacks in contract scripts;
 - claims of complete language neutrality.
 
-## 18. Design invariants
+## 17. Design invariants
 
-The proposal depends on the following invariants:
-
-1. One contract representation drives provider verification and consumer replay.
+1. One contract drives provider verification and consumer replay.
 2. The contract is defined independently of provider implementation behaviour.
 3. Calls are validated before real provider execution.
-4. Provider results or errors are validated before a stream step commits.
-5. Replay validates consumer inputs before returning scripted outputs.
+4. Provider outcomes are validated before a stream step commits.
+5. Replay validates inputs before returning scripted outputs.
 6. Stream order is deterministic.
 7. The stream is immutable during one execution.
-8. Symbolic references replace process-specific object addresses in contracts.
+8. Symbolic references replace process-specific addresses in contracts.
 9. Free/member wrappers share one comparison engine.
 10. Language-specific semantics remain explicit when normalization is lossy.
-11. Contract changes are explicit work and trigger affected revalidation.
+11. Contract changes trigger explicit affected revalidation.
 12. RWF schedules explicit contracts; it does not infer interface agreements.
 
-## 19. Open design questions
+## 18. Open design questions
 
-The following details require later specification:
+Later specification must define:
 
-- exact contract serialization format;
-- exact value-schema and comparison operators;
-- representation of binding-specific extension fields;
-- error normalization rules;
+- contract serialization format;
+- value schema and comparison operators;
+- binding-specific extension fields;
+- error normalization;
 - async/coroutine representation;
-- object lifetime and aliasing rules;
-- scenario composition/reuse;
+- object lifetime and aliasing;
+- scenario composition and reuse;
 - contract versioning and migration;
-- how contract artifacts attach to tickets;
-- how integration tests select and execute scenarios;
-- whether an observe/record mode is useful for debugging without granting the
-  observed behaviour contract authority.
+- how artifacts attach to tickets;
+- integration scenario selection;
+- whether an observe/record mode is useful for debugging.
 
-Any observe/record capability must treat captured provider behaviour as
-untrusted evidence.  It must never silently convert implementation behaviour
-into the authoritative contract.
+Any observe/record mode must treat captured provider behaviour as untrusted
+evidence.  It must never silently turn implementation behaviour into the
+authoritative contract.
 
-## 20. Proposed next decomposition
+## 19. Proposed decomposition
 
 A future implementation epic should separate at least:
 
 1. contract/script semantics;
 2. comparing-stream model;
-3. core comparison and capture engine;
+3. comparison and capture engine;
 4. free-function binding;
 5. member-function binding;
 6. provider verification lifecycle;
@@ -623,5 +521,5 @@ A future implementation epic should separate at least:
 9. provider/consumer/integration certification;
 10. work-graph methodology integration.
 
-The contract semantics must be frozen before provider and consumer runtime
+Contract semantics must be frozen before provider and consumer runtime
 implementations are treated as parallel-ready.
