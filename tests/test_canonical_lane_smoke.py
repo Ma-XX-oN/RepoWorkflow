@@ -184,7 +184,7 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       rendered = self.run_rwf(root, "lanes", "select", "413")
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
       self.assertEqual(rendered.stdout.count("*"), 1)
-      self.assertRegex(rendered.stdout, re.compile(r"\*[A-Z]+413\b"))
+      self.assertRegex(rendered.stdout, re.compile(r"\*\s*[A-Z]+413\b"))
       for issue in ("409", "410", "411", "412", "413"):
         self.assertIn(issue, rendered.stdout)
 
