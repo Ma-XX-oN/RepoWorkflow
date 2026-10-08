@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from .relationships import RelationshipGraph
+from .lane_decomposition import Lane, LanePlan
+from .relationships import RelationshipGraph, RelationshipSchemaError
 
 
 PROJECTION_MODES = frozenset({
@@ -68,6 +69,78 @@ def project_rules(
 
   return tuple(sorted(include_set - exclude_set, key=int))
 
+
+
+def decompose_rules(
+  graph: RelationshipGraph,
+  includes: Iterable[ProjectionRule],
+  excludes: Iterable[ProjectionRule] = (),
+) -> LanePlan:
+  include_rules = normalize_rules(includes)
+  exclude_rules = normalize_rules(excludes)
+  selected = tuple(sorted({rule.seed for rule in include_rules}, key=int))
+  closure = set(project_rules(graph, include_rules, exclude_rules))
+  if not closure:
+    return LanePlan(selected, (), ())
+
+  indegree = {issue: 0 for issue in closure}
+  dependants = {issue: [] for issue in closure}
+  for issue in closure:
+    for dependency in graph.issue(issue).depends_on:
+      if dependency in closure:
+        indegree[issue] += 1
+        dependants[dependency].append(issue)
+
+  ready = sorted(
+    (issue for issue, degree in indegree.items() if degree == 0),
+    key=int,
+  )
+  order: list[str] = []
+  while ready:
+    issue = ready.pop(0)
+    order.append(issue)
+    for dependant in sorted(dependants[issue], key=int):
+      indegree[dependant] -= 1
+      if indegree[dependant] == 0:
+        ready.append(dependant)
+        ready.sort(key=int)
+  if len(order) != len(closure):
+    raise RelationshipSchemaError("direct dependency graph is cyclic")
+
+  owners: dict[str, int] = {}
+  lane_issues: list[list[str]] = []
+  for issue in order:
+    predecessors = sorted(
+      (
+        dependency
+        for dependency in graph.issue(issue).depends_on
+        if dependency in closure
+      ),
+      key=int,
+    )
+    extendable = [
+      predecessor
+      for predecessor in predecessors
+      if lane_issues[owners[predecessor]][-1] == predecessor
+    ]
+    if extendable:
+      lane_index = owners[min(extendable, key=int)]
+    else:
+      lane_index = len(lane_issues)
+      lane_issues.append([])
+    owners[issue] = lane_index
+    lane_issues[lane_index].append(issue)
+
+  lanes = tuple(
+    Lane(_lane_name(index), tuple(issues))
+    for index, issues in enumerate(lane_issues)
+    if issues
+  )
+  return LanePlan(
+    selected=selected,
+    closure=tuple(sorted(closure, key=int)),
+    lanes=lanes,
+  )
 
 def normalize_rules(
   rules: Iterable[ProjectionRule],
@@ -143,3 +216,12 @@ def _issue_id(value: str | int) -> str:
   if not text.isdigit() or int(text) < 1:
     raise LaneProjectionError(f"invalid issue id: {value!r}")
   return str(int(text))
+
+
+def _lane_name(index: int) -> str:
+  value = index + 1
+  chars: list[str] = []
+  while value:
+    value, remainder = divmod(value - 1, 26)
+    chars.append(chr(ord("A") + remainder))
+  return "".join(reversed(chars))
