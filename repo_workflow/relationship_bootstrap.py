@@ -188,6 +188,11 @@ def ensure_relationship_graph(
     kind = group_kind(relation.title)
     related = (*dependencies, *provider_dependants)
     if not policy.enables_traversal():
+      for dependency in dependencies:
+        pending.append((
+          TraversalState(dependency, remaining),
+          False,
+        ))
       continue
     if issue not in requested_set:
       crossed = policy.cross(kind, remaining)
