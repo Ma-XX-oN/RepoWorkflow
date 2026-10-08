@@ -1,7 +1,8 @@
 # Executable Interface Contract Proposal
 
-Status: proposal for repository-neutral interface-first decomposition,
-deterministic contract verification, replay, and cross-language bindings.
+Status: proposal owned by epic #487 for repository-neutral interface-first
+decomposition, deterministic contract verification, replay, and cross-language
+bindings.
 
 This proposal extends the interface-oriented decomposition described by
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) and
