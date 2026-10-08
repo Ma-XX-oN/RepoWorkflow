@@ -270,5 +270,5 @@ issue,title,dependencies
 532,Add Bug and Refactor synchronized ticket kinds and lane node prefixes,
 533,Render compact selection algebra footer for excluded lane graphs,528;529
 534,Reconcile focused lane traversal controls with explicit projection modes,452;453;454;462;463;516;528
-535,Certify explicit lane projection rules end to end,529;530;531;532;533;534
+535,Certify explicit lane projection rules end to end,529;530;531;532;533;537
 537,Bug: Track partial directional lane acquisition coverage,531
