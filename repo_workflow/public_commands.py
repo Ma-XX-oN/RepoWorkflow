@@ -100,6 +100,18 @@ def _lane_select_switches() -> dict:
       ],
       "_quantifier": "*",
     },
+    "--show-children": {
+      "": "Show one child layer beyond stopped group boundaries",
+      "_params": [
+        {
+          "group": "Show children for any stopped group boundary",
+          "feature": "Show children for stopped Feature boundaries",
+          "epic": "Show children for stopped Epic boundaries",
+          "initiative": "Show children for stopped Initiative boundaries",
+        },
+      ],
+      "_quantifier": "*",
+    },
   }
 
 
