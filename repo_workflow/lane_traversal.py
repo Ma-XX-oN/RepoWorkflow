@@ -92,6 +92,59 @@ class FollowPolicy:
 
 
 @dataclass(frozen=True)
+class ShowChildrenPolicy:
+  group: bool = False
+  feature: bool = False
+  epic: bool = False
+  initiative: bool = False
+
+  def matches(self, kind: str | None) -> bool:
+    if kind is None:
+      return False
+    return self.group or bool(getattr(self, kind))
+
+  def to_json_value(self) -> dict[str, bool]:
+    return {
+      "group": self.group,
+      "feature": self.feature,
+      "epic": self.epic,
+      "initiative": self.initiative,
+    }
+
+  @classmethod
+  def from_json_value(cls, value: object) -> "ShowChildrenPolicy":
+    expected = set(GROUP_KINDS) | {"group"}
+    if not isinstance(value, dict) or set(value) != expected:
+      raise LaneTraversalError("invalid persisted show-children policy")
+    if any(not isinstance(value[name], bool) for name in expected):
+      raise LaneTraversalError("show-children policy values must be booleans")
+    return cls(
+      group=value["group"],
+      feature=value["feature"],
+      epic=value["epic"],
+      initiative=value["initiative"],
+    )
+
+
+def parse_show_children_arguments(values: list[str]) -> ShowChildrenPolicy:
+  selected = {
+    "group": False,
+    "feature": False,
+    "epic": False,
+    "initiative": False,
+  }
+  for kind in values:
+    if kind not in selected:
+      raise LaneTraversalError(f"invalid --show-children group kind: {kind}")
+    if selected[kind]:
+      raise LaneTraversalError(
+        f"duplicate --show-children {kind} is not permitted"
+      )
+    selected[kind] = True
+  return ShowChildrenPolicy(**selected)
+
+
+@dataclass(frozen=True)
 class TraversalState:
   issue: str
   remaining: tuple[int, int, int, int]
