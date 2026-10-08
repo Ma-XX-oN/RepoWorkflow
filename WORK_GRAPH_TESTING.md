@@ -62,18 +62,21 @@ apply.
 When restructuring an existing backlog:
 
 1. Write the outcome of each broad ticket in one sentence.
-2. Identify independently testable contracts or state transitions inside it.
-3. Turn those contracts/transitions into candidate executable tickets.
-4. For each executable ticket, write interface, preconditions, postconditions,
+2. Inspect inside each ticket for multiple independently testable contracts,
+   state transitions, or coding boundaries.
+3. Split when doing so improves test isolation, implementation decoupling,
+   independent verification, or interface clarity; never split for size alone.
+4. Turn the resulting contracts/transitions into candidate executable tickets.
+5. For each executable ticket, write interface, preconditions, postconditions,
    invariants, failure behaviour, and direct blockers.
-5. Inspect every dependency that is difficult to state directly.
-6. Extract missing interfaces or shared prerequisites where necessary.
-7. Add only direct dependencies that represent exact required inputs/results.
-8. Remove redundant transitive dependency edges.
-9. Recalculate ready, blocked, and parallel-ready tickets.
-10. Check whether cleanup/reconciliation is represented explicitly.
-11. Check whether local context has been confused with durable shared state.
-12. Re-run the decomposition test until every executable ticket has a clean
+6. Inspect every dependency that is difficult to state directly.
+7. Extract missing interfaces or shared prerequisites where necessary.
+8. Add only direct dependencies that represent exact required inputs/results.
+9. Remove redundant transitive dependency edges.
+10. Recalculate ready, blocked, and parallel-ready tickets.
+11. Check whether cleanup/reconciliation is represented explicitly.
+12. Check whether local context has been confused with durable shared state.
+13. Re-run the decomposition test until every executable ticket has a clean
     completion boundary.
 
 Descriptive `Initiative:`, `Epic:`, and `Feature:` tickets may document
@@ -92,8 +95,10 @@ Before accepting a ticket as executable work, ask:
 - Is failure/rollback behaviour defined?
 - Can it be tested without first implementing an unrelated presentation layer?
 - Does it depend only on exact interfaces it consumes?
-- Would splitting it further reveal a genuinely reusable/testable contract,
-  rather than merely making smaller tickets?
+- Does it contain more than one independently testable contract or coding
+  boundary?
+- Would splitting improve test isolation, implementation decoupling, independent
+  verification, or interface clarity rather than merely making smaller tickets?
 
 If the final answer is no, the ticket likely needs another decomposition pass.
 
