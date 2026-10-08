@@ -271,6 +271,19 @@ unfollowed boundaries: shown nodes do not restart traversal, while an independen
 ordinary path to the same node remains traversable.  Repeated type flags compose;
 `group` matches Feature/Epic/Initiative.
 
+Large selections can be sized without graph layout or rendering:
+
+```text
+rwf lanes select <issues...> --count
+```
+
+`--count` uses the same traversal/projection semantics as the equivalent
+selection, including group stopping, `--follow`, and `--show-children`.
+It counts each projected issue once, prints only the decimal count on stdout,
+does not render the graph, and does not replace the persisted lane selection.
+When #454 adds `--max-depend-depth`, that limit applies through the same
+shared projection path.
+
 The durable synchronized ticket state contains issue number, exact title, and
 direct dependencies. Repeated lane operations use that local state. A missing
 ticket is acquired from the configured provider, including title and direct

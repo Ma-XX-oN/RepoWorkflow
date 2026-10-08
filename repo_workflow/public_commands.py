@@ -73,6 +73,44 @@ def _lane_name(context: Context) -> list[str]:
   return []
 
 
+FOLLOW_GROUP_KINDS = frozenset({
+  "group", "feature", "epic", "initiative"
+})
+
+
+def _follow_count_candidates(words: tuple[str, ...]) -> tuple[int, ...]:
+  return tuple(
+    index
+    for index, token in enumerate(words)
+    if (
+      token.isdecimal()
+      and int(token) > 0
+      and index >= 2
+      and words[index - 2] == "--follow"
+      and words[index - 1] in FOLLOW_GROUP_KINDS
+    )
+  )
+
+
+def _lane_follow_count(context: Context) -> dict[str, str]:
+  token = context.current_token
+  description = "Positive per-path boundary count; default 1"
+  if not token:
+    return {"<N>": description}
+  if not token.isdecimal() or int(token) <= 0:
+    return {}
+
+  candidates = _follow_count_candidates(context.words)
+  ordinary_values = tuple(
+    index
+    for index, value in enumerate(context.words)
+    if value.isdecimal() and int(value) > 0 and index not in candidates
+  )
+  if ordinary_values or not candidates or context.index != candidates[-1]:
+    return {token: description}
+  return {}
+
+
 def _high_risk_aliases(context: Context) -> list[str]:
   try:
     return list(load_test_catalogue(context.root).alias_names())
@@ -80,8 +118,8 @@ def _high_risk_aliases(context: Context) -> list[str]:
     return []
 
 
-def _lane_select_switches() -> dict:
-  return {
+def _lane_select_switches(*, include_count: bool = False) -> dict:
+  switches = {
     "--refresh": "Refresh relationship and issue data",
     "--json": "Output selection as JSON",
     "--follow": {
@@ -94,7 +132,7 @@ def _lane_select_switches() -> dict:
           "initiative": "Follow Initiative boundaries",
         },
         {
-          "<N>": "Positive per-path boundary count; default 1",
+          "<N>": _lane_follow_count,
           "_quantifier": "?",
         },
       ],
@@ -113,6 +151,11 @@ def _lane_select_switches() -> dict:
       "_quantifier": "*",
     },
   }
+  if include_count:
+    switches["--count"] = (
+      "Count projected issues without graph layout or rendering"
+    )
+  return switches
 
 
 def _dependency_direction_node() -> dict:
@@ -267,7 +310,7 @@ COMMANDS = {
       "_values": _issue_number,
       "_value_description": "Issue number",
       "_quantifier": "+",
-      "_switches": _lane_select_switches(),
+      "_switches": _lane_select_switches(include_count=True),
       "add": {
         "": "Add issue focus roots",
         "_values": _issue_number,
