@@ -51,6 +51,7 @@ def refresh_current_lane_selection(
     refresh=True,
     diagnostics=diagnostics,
     follow=current.value.follow,
+    show_children=current.value.show_children,
   )
   if diagnostics is not None:
     diagnostics.phase("relationships", started)
@@ -72,6 +73,7 @@ def refresh_current_lane_selection(
     writer,
     expected_revision=current.revision,
     follow=current.value.follow,
+    show_children=current.value.show_children,
   )
   if diagnostics is not None:
     diagnostics.phase("decomposition", started)
