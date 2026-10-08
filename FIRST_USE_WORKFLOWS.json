@@ -274,12 +274,16 @@
         },
         {
           "id": "DL-21",
-          "requirement": "lane selection arguments are focus seeds: ordinary synchronized nodes expand through dependency/dependant connectivity until an unfollowed Feature/Epic/Initiative boundary is included and stops traversal; only explicit seeds receive the * marker",
+          "requirement": "lane selection is seed-only without --follow; any valid --follow group|feature|epic|initiative [N] enables ordinary dependency/dependant traversal, after which unfollowed group boundaries and per-path budgets govern expansion; only explicit seeds receive the * marker",
           "verification": [
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_selected_prerequisite_expands_to_complete_connected_component",
+            "tests/test_lane_follow_activation.py::LaneFollowActivationTests.test_no_follow_keeps_single_explicit_seed_only",
+            "tests/test_lane_follow_activation.py::LaneFollowActivationTests.test_no_follow_keeps_multiple_explicit_seeds_only",
+            "tests/test_lane_follow_activation.py::LaneFollowActivationTests.test_valid_follow_form_enables_ordinary_traversal",
+            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_followed_prerequisite_expands_to_complete_connected_component",
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
-            "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
-            "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_followed_dependency_is_focus_inside_complete_component",
+            "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_followed_focus_seed_renders_complete_synchronized_component",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_no_follow_keeps_provider_support_out_of_projection",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_leaf_focus_discovers_complete_component_from_provider"
           ]
         },
@@ -343,9 +347,10 @@
         },
         {
           "id": "DL-23",
-          "requirement": "group-boundary traversal is compact by default; explicit --follow group|feature|epic|initiative [N] uses positive per-path budgets, persists with the lane selection, preserves consumed budgets across refresh, and limits provider acquisition to traversable nodes",
+          "requirement": "--follow is the general traversal-enabling mechanism: without it explicit seeds do not expand; with --follow group|feature|epic|initiative [N], traversal is enabled and positive per-path group budgets persist with the lane selection, preserve consumed budgets across refresh, and limit provider traversal",
           "verification": [
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_default_stops_at_encountered_group_boundary",
+            "tests/test_lane_follow_activation.py::LaneFollowActivationTests.test_no_follow_keeps_single_explicit_seed_only",
+            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_enabled_traversal_stops_at_unfollowed_group_boundary",
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_group_seed_is_not_stopped_by_its_own_kind",
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_group_budget_is_shared_across_mixed_group_kinds",
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_same_node_can_be_reached_with_different_remaining_budget",
@@ -357,8 +362,9 @@
         },
         {
           "id": "DL-24",
-          "requirement": "--show-children group|feature|epic|initiative adds exactly one immediate context layer at matching stopped group boundaries, does not restart ordinary traversal from display-only nodes, preserves normal traversal through independently reached nodes, persists across refresh, and keeps provider support acquisition out of the visible projection",
+          "requirement": "--show-children group|feature|epic|initiative does not enable ordinary traversal; when follow-enabled traversal reaches a matching stopped group boundary it adds exactly one immediate context layer, does not restart ordinary traversal from display-only nodes, preserves normal traversal through independently reached nodes, persists across refresh, and keeps provider support acquisition out of the visible projection",
           "verification": [
+            "tests/test_lane_follow_activation.py::LaneFollowActivationTests.test_show_children_does_not_enable_ordinary_traversal",
             "tests/test_lane_show_children.py::LaneShowChildrenTests.test_stopped_feature_shows_one_immediate_child_layer",
             "tests/test_lane_show_children.py::LaneShowChildrenTests.test_display_child_also_reached_normally_keeps_traversing",
             "tests/test_lane_show_children_grammar.py::LaneShowChildrenGrammarTests.test_show_children_forms_parse",
@@ -397,7 +403,6 @@
         "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17",
-        "focus_seed_component_expansion": "DL-21",
         "route_quality_refinement": "DL-18",
         "forced_colour_backend_contract": "DL-18",
         "reachability_preserving_display_reduction": "DL-19",
@@ -413,7 +418,9 @@
         "follow_refresh_budget_preservation": "DL-23",
         "show_children_context": "DL-24",
         "show_children_refresh_persistence": "DL-24",
-        "show_children_support_acquisition": "DL-24"
+        "show_children_support_acquisition": "DL-24",
+        "no_follow_seed_only": "DL-21",
+        "follow_enabled_component_traversal": "DL-21"
       },
       "stateful": true,
       "provider_boundary": true,
