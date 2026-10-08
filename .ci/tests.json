@@ -79,6 +79,10 @@
       "issue-535-explicit-lane-projection-certification": {
         "type": "regression",
         "name": "tests.test_lane_projection_verification"
+      },
+      "issue-527-explicit-lane-projections": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
       }
     }
   ],
