@@ -29,6 +29,29 @@ Contract tests should precede provider implementations where practical.
 Provider implementations should be tested against the same semantic contract,
 not only against provider-specific examples.
 
+## 1.1 Interface-first provider/consumer testing
+
+When a direct dependency exists only because a consumer needs a provider
+interface, consider extracting that interface before implementation.
+
+A predefined executable interface can then support three separate test layers:
+
+1. provider conformance tests against the real implementation;
+2. consumer tests against deterministic replay of the same interface;
+3. real integration tests after both sides independently conform.
+
+This can make tests smaller and more diagnostic while also allowing provider
+and consumer implementation work to proceed in parallel.
+
+The technique is optional.  Use it only when the interface can be defined
+independently and precisely enough to serve as a shared oracle.  Do not invent
+an interface merely to create parallel work.
+
+The executable contract proposal is defined in
+[EXECUTABLE_INTERFACE_CONTRACTS.md](EXECUTABLE_INTERFACE_CONTRACTS.md).
+Universal adequacy requirements in [TEST_ADEQUACY.md](TEST_ADEQUACY.md) still
+apply.
+
 ## 2. A practical decomposition procedure
 
 When restructuring an existing backlog:
