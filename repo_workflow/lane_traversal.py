@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 
 GROUP_KINDS = ("feature", "epic", "initiative")
+DEPENDANT_BOUNDARY_KINDS = ("bug", "refactor")
 
 
 class LaneTraversalError(ValueError):
@@ -14,6 +15,15 @@ def group_kind(title: str) -> str | None:
   if not isinstance(title, str):
     return None
   for kind in GROUP_KINDS:
+    if title.startswith(f"{kind.title()}:"):
+      return kind
+  return None
+
+
+def dependant_boundary_kind(title: str) -> str | None:
+  if not isinstance(title, str):
+    return None
+  for kind in DEPENDANT_BOUNDARY_KINDS:
     if title.startswith(f"{kind.title()}:"):
       return kind
   return None
