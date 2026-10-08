@@ -283,22 +283,26 @@ depend directly only on the concrete tickets whose outputs they require.
 This prevents duplicate implementations and unnecessary serialization without
 introducing a second machine-readable ownership graph.
 
-## 8. Separate contract, dispatcher, and provider implementation
+## 8. Use interfaces to expose safe parallel work
 
-Provider boundaries are especially prone to poor decomposition.
+During decomposition, actively look for a real provider/consumer interface that
+can be defined before either implementation is complete.  A good predefined
+interface can turn an otherwise serial dependency into independently testable
+provider and consumer work and may enable speculative execution.
 
 Prefer:
 
 ```text
 semantic contract
-   ├── dispatcher / invocation layer
+   ├── dispatcher / consumer implementation
    ├── provider A implementation
    └── provider B implementation
 ```
 
-Once the contract is frozen, dispatcher and provider implementations may often
-proceed in parallel.
+This is an attempted optimization, not a requirement to manufacture interfaces.
+If no clean, stable contract exists, preserve the real serial dependency.
 
+Once the contract is frozen, implementations may often proceed in parallel.
 The portable contract must not leak provider-specific payloads, names, runner
 labels, event structures, or authentication mechanics.
 
