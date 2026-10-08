@@ -14,6 +14,7 @@ RECORD_KEY = "coverage"
 @dataclass(frozen=True)
 class RelationshipCoverage:
   partial: bool
+  baseline_seeds: tuple[str, ...]
   rules: tuple[ProjectionRule, ...]
 
 
@@ -35,18 +36,40 @@ class RelationshipCoverageStore:
         return None, None
       raise
     value = record["value"]
-    if not isinstance(value, dict) or set(value) != {"partial", "rules"}:
+    if not isinstance(value, dict) or set(value) != {
+      "partial",
+      "baseline_seeds",
+      "rules",
+    }:
       raise StateStoreError("invalid lane relationship coverage")
     partial = value["partial"]
     if not isinstance(partial, bool):
       raise StateStoreError("invalid lane relationship coverage partial flag")
+    baseline = value["baseline_seeds"]
+    if (
+      not isinstance(baseline, list)
+      or any(
+        not isinstance(item, str)
+        or not item.isdigit()
+        or int(item) < 1
+        for item in baseline
+      )
+    ):
+      raise StateStoreError("invalid lane relationship coverage baseline")
+    normalized_baseline = tuple(sorted(set(baseline), key=int))
+    if tuple(baseline) != normalized_baseline:
+      raise StateStoreError(
+        "lane relationship coverage baseline must be unique and sorted"
+      )
     raw_rules = value["rules"]
     if not isinstance(raw_rules, list):
       raise StateStoreError("invalid lane relationship coverage rules")
     rules = normalize_rules(
       tuple(ProjectionRule.from_json_value(item) for item in raw_rules)
     )
-    return RelationshipCoverage(partial, rules), record["revision"]
+    return RelationshipCoverage(partial, normalized_baseline, rules), (
+      record["revision"]
+    )
 
   def write(
     self,
@@ -57,7 +80,11 @@ class RelationshipCoverageStore:
   ) -> None:
     value = {
       "partial": coverage.partial,
-      "rules": [rule.to_json_value() for rule in normalize_rules(coverage.rules)],
+      "baseline_seeds": list(coverage.baseline_seeds),
+      "rules": [
+        rule.to_json_value()
+        for rule in normalize_rules(coverage.rules)
+      ],
     }
     if expected_revision is None:
       self.records.create(RECORD_KEY, value, writer)
@@ -69,7 +96,7 @@ def rule_is_covered(
   coverage: RelationshipCoverage,
   rule: ProjectionRule,
 ) -> bool:
-  if not coverage.partial:
+  if not coverage.partial or rule.seed in set(coverage.baseline_seeds):
     return True
   modes = {
     item.mode
