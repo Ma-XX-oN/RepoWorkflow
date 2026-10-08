@@ -29,7 +29,8 @@ from tests.support import RepoFixture
 ROOT = Path(__file__).resolve().parents[1]
 RWF = ROOT / "rwf"
 CANONICAL_TICKETS = ROOT / ".repoworkflow" / "tickets.csv"
-TYPE_PREFIXES = ("Feature:", "Epic:", "Initiative:")
+GROUP_PREFIXES = ("Feature:", "Epic:", "Initiative:")
+DEPENDANT_BOUNDARY_PREFIXES = ("Bug:", "Refactor:")
 
 
 def relation(title: str, *dependencies: int) -> IssueRelationships:
@@ -65,18 +66,50 @@ def expected_default_closure(
       if dependency in dependants:
         dependants[dependency].add(issue)
 
-  seen = {seed}
+  left_seen = set()
+  terminals = set()
   pending = [seed]
   while pending:
     issue = pending.pop(0)
-    if issue != seed and rows[issue]["title"].startswith(TYPE_PREFIXES):
+    if issue in left_seen:
       continue
-    neighbours = set(dependencies[issue]) | dependants[issue]
-    for neighbour in sorted(neighbours, key=int):
-      if neighbour in rows and neighbour not in seen:
-        seen.add(neighbour)
-        pending.append(neighbour)
-  return tuple(sorted(seen, key=int))
+    left_seen.add(issue)
+    if issue != seed and rows[issue]["title"].startswith(GROUP_PREFIXES):
+      terminals.add(issue)
+      continue
+    values = dependencies[issue]
+    if not values:
+      terminals.add(issue)
+      continue
+    for dependency in values:
+      if dependency in rows and dependency not in left_seen:
+        pending.append(dependency)
+
+  right_seen = set()
+  pending = [
+    issue
+    for issue in sorted(terminals, key=int)
+    if (
+      issue == seed
+      or not rows[issue]["title"].startswith(DEPENDANT_BOUNDARY_PREFIXES)
+    )
+    and not (
+      issue != seed
+      and rows[issue]["title"].startswith(GROUP_PREFIXES)
+    )
+  ]
+  while pending:
+    issue = pending.pop(0)
+    if issue in right_seen:
+      continue
+    right_seen.add(issue)
+    if issue != seed and rows[issue]["title"].startswith(GROUP_PREFIXES):
+      continue
+    for dependant in sorted(dependants[issue], key=int):
+      if dependant not in right_seen:
+        pending.append(dependant)
+
+  return tuple(sorted(left_seen | right_seen, key=int))
 
 
 class LaneCountTests(unittest.TestCase):
@@ -162,7 +195,7 @@ class LaneCountTests(unittest.TestCase):
   def test_canonical_413_count_matches_independent_projection_without_rendering(self):
     rows = canonical_rows()
     expected = expected_default_closure(rows, "413")
-    self.assertGreater(len(expected), 1)
+    self.assertEqual(expected, ("409", "410", "411", "412", "413", "456"))
 
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
