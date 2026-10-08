@@ -431,6 +431,77 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertGreater(len(self.dependency_calls(env)), len(before))
       self.assertNotIn(4, json.loads(widened.stdout)["closure"])
 
+  def test_complete_baseline_extension_tracks_partial_new_seed(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      ticket_path = root / ".repoworkflow" / "tickets.csv"
+      ticket_path.parent.mkdir(parents=True, exist_ok=True)
+      ticket_path.write_text(
+        "issue,title,dependencies\n"
+        "1,Existing synchronized issue,\n",
+        encoding="utf-8",
+      )
+
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+        },
+        titles={
+          1: "Existing synchronized issue",
+          2: "New seed",
+          3: "New dependant",
+        },
+      )
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--single",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(json.loads(first.stdout)["closure"], ["2"])
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      widened = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependents",
+        "--json",
+      )
+      self.assertEqual(widened.returncode, 0, widened.stderr)
+      self.assertEqual(
+        json.loads(widened.stdout)["closure"],
+        ["2", "3"],
+      )
+      self.assertIn(2, self.dependency_calls(env))
+      self.assertIn(3, self.dependency_calls(env))
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      baseline = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "1",
+        "--json",
+      )
+      self.assertEqual(baseline.returncode, 0, baseline.stderr)
+      self.assertEqual(self.dependency_calls(env), [])
+
   def test_partial_cache_widening_failure_preserves_graph_and_selection(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
