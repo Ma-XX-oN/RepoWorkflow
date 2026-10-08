@@ -9,6 +9,7 @@ TEST_NAMES = (
   "tests.test_lane_show_children",
   "tests.test_lane_component_selection_cli",
   "tests.test_first_use_workflows",
+  "tests.test_ticket_state",
   (
     "tests.test_first_use_lanes.FirstUseLanesTests."
     "test_no_follow_keeps_provider_support_out_of_projection"
