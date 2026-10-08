@@ -89,10 +89,13 @@ def ensure_relationship_rules(
   snapshot = _read_optional(store)
   issues = {} if snapshot is None else dict(snapshot.graph.issues)
   requested = {rule.seed for rule in all_rules}
+  initial_issue_ids = tuple(sorted(issues, key=int))
   coverage_store = RelationshipCoverageStore(root)
   coverage, coverage_revision = coverage_store.read()
-  partial = snapshot is None or (
-    coverage is not None and coverage.partial
+  partial = (
+    snapshot is None
+    or bool(requested - set(issues))
+    or (coverage is not None and coverage.partial)
   )
 
   locally_covered = (
@@ -288,15 +291,20 @@ def ensure_relationship_rules(
   next_coverage = None
   if partial:
     prior_rules = () if coverage is None else coverage.rules
+    baseline = (
+      initial_issue_ids
+      if coverage is None and snapshot is not None
+      else (() if coverage is None else coverage.baseline_seeds)
+    )
     next_coverage = RelationshipCoverage(
       partial=True,
+      baseline_seeds=baseline,
       rules=normalize_rules((*prior_rules, *all_rules)),
     )
 
-  # On the first partial acquisition, establish the coverage marker before
-  # creating tickets.csv so a crash cannot leave a partial graph looking like
-  # a complete synchronized graph.
-  if snapshot is None and coverage is None and next_coverage is not None:
+  # Establish the first partial-coverage marker before mutating tickets.csv so
+  # a crash cannot leave a partially acquired graph looking complete.
+  if coverage is None and next_coverage is not None:
     coverage_store.write(
       next_coverage,
       writer,
@@ -310,10 +318,7 @@ def ensure_relationship_rules(
     else:
       store.replace(snapshot.revision, graph, writer)
 
-  if (
-    next_coverage is not None
-    and not (snapshot is None and coverage is None)
-  ):
+  if next_coverage is not None and coverage is not None:
     coverage_store.write(
       next_coverage,
       writer,
