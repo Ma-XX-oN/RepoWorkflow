@@ -258,4 +258,3 @@ issue,title,dependencies
 476,"Stage Self CI by issue verification, regression, and integration risk",456;475
 477,Certify risk-scoped testing and staged Self CI workflow,476
 478,Advance stable version after quantified-grammar release collision,456
-518,Epic: Record replay and test executable interface behaviour,
