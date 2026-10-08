@@ -12,7 +12,10 @@ from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
 
 def relation(*dependencies: int) -> IssueRelationships:
-  return IssueRelationships("Issue", tuple(str(value) for value in dependencies))
+  return IssueRelationships(
+    "Issue",
+    tuple(str(value) for value in dependencies),
+  )
 
 
 def graph(mapping: dict[int, tuple[int, ...]]) -> RelationshipGraph:
