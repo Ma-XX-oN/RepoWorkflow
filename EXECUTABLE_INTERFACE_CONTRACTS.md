@@ -209,50 +209,19 @@ capture, sequencing, and output semantics.
 
 ## 7. Shared comparison engine
 
-The three public operations should use one comparison engine.
-
-Conceptually, shared primitives include:
-
-```text
-match_event()
-match_receiver()
-match_inputs()
-match_output()
-match_error()
-capture_value()
-resolve_reference()
-advance()
-finish_scenario()
-```
-
-Then:
-
-```text
-preverify = call/input matching
-postverify = output/error matching + capture + advance
-replay = call/input matching + scripted result + capture + advance
-```
-
-The exact implementation language and function names are not fixed here.
+`preverify()`, `postverify()`, and `replay()` must share one comparison,
+capture, reference-resolution, sequencing, and scenario-completion engine.
+There must not be separate interpretations of the contract for verification
+and replay.  Exact internal function names are not fixed here.
 
 ## 8. Free and member functions
 
 Provide distinct front ends for free functions and member functions while
 sharing the same comparing-stream engine.
 
-A free call is identified by:
-
-```text
-function + arguments
-```
-
-A member call is identified by:
-
-```text
-receiver + member + arguments
-```
-
-The member-function form therefore receives the object/receiver unconditionally.
+A free call is identified by its function and arguments.  A member call is
+identified by its receiver, member, and arguments.  The member-function form
+therefore receives the object/receiver unconditionally.
 
 Conceptually:
 
@@ -344,19 +313,9 @@ Richer matching should be added as named, specified contract operations.
 
 ## 12. Scenarios and lifecycle
 
-An interface normally needs multiple scenarios, such as:
-
-```text
-ordinary completion
-empty completion
-dynamic grammar completion
-invalid token
-provider error
-repeated operation
-changed parser state
-```
-
-Each scenario has an independent comparing stream.
+An interface normally needs multiple scenarios, including ordinary, empty,
+dynamic, invalid-input, provider-error, repeated-operation, and changed-state
+cases.  Each scenario has an independent comparing stream.
 
 Scenario completion detects:
 
