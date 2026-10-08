@@ -40,9 +40,9 @@
         "type": "regression",
         "name": "tests.test_lane_show_children_verification"
       },
-      "issue-511-lane-follow-activation": {
+      "issue-513-lane-focus-regression": {
         "type": "regression",
-        "name": "tests.test_lane_follow_activation_verification"
+        "name": "tests.test_lane_focus_regression_verification"
       }
     }
   ],
