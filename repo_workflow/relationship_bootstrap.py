@@ -123,14 +123,14 @@ def ensure_relationship_rules(
   def load(issue: str) -> tuple[IssueRelationships, tuple[str, ...]]:
     nonlocal changed
 
+    cached = provider_cache.get(issue)
+    if cached is not None:
+      return cached
+
     if not refresh and issue in issues:
       if diagnostics is not None:
         diagnostics.hit("relationships")
       return issues[issue], local_dependents(issue)
-
-    cached = provider_cache.get(issue)
-    if cached is not None:
-      return cached
 
     number = int(issue)
     provider_reads.append(number)
