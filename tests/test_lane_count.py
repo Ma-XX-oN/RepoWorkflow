@@ -29,7 +29,6 @@ from tests.support import RepoFixture
 ROOT = Path(__file__).resolve().parents[1]
 RWF = ROOT / "rwf"
 CANONICAL_TICKETS = ROOT / ".repoworkflow" / "tickets.csv"
-TYPE_PREFIXES = ("Feature:", "Epic:", "Initiative:")
 
 
 def relation(title: str, *dependencies: int) -> IssueRelationships:
@@ -65,27 +64,34 @@ def expected_default_closure(
       if dependency in dependants:
         dependants[dependency].add(issue)
 
-  seen = {seed}
-  pending = [seed]
-  while pending:
-    issue = pending.pop(0)
-    if issue != seed and rows[issue]["title"].startswith(TYPE_PREFIXES):
-      continue
-    neighbours = set(dependencies[issue]) | dependants[issue]
-    for neighbour in sorted(neighbours, key=int):
-      if neighbour in rows and neighbour not in seen:
-        seen.add(neighbour)
-        pending.append(neighbour)
-  return tuple(sorted(seen, key=int))
+  def closure(adjacency):
+    seen = set()
+    pending = [seed]
+    while pending:
+      issue = pending.pop()
+      if issue in seen:
+        continue
+      seen.add(issue)
+      pending.extend(
+        value
+        for value in adjacency[issue]
+        if value not in seen
+      )
+    return seen
+
+  return tuple(sorted(
+    closure(dependencies) | closure(dependants),
+    key=int,
+  ))
 
 
 class LaneCountTests(unittest.TestCase):
   def test_count_switch_is_unordered_in_public_grammar(self):
     context = Context(Path("."), legal_only=False)
     cases = (
-      ["lanes", "select", "5", "--count", "--follow", "epic"],
-      ["lanes", "select", "--count", "5", "--follow", "epic"],
-      ["lanes", "select", "--follow", "epic", "5", "--count"],
+      ["lanes", "select", "5", "--count", "--dependencies"],
+      ["lanes", "select", "--count", "5", "--dependents"],
+      ["lanes", "select", "--single", "5", "--count"],
     )
     for words in cases:
       with self.subTest(words=words):
@@ -115,7 +121,7 @@ class LaneCountTests(unittest.TestCase):
 
       self.assertEqual(before, after)
       self.assertEqual(projected.roots, ("2",))
-      self.assertEqual(projected.closure, ("1", "2", "3"))
+      self.assertEqual(projected.closure, ("1", "2", "3", "4"))
 
       selected = store.select((2,), writer)
       self.assertEqual(projected.closure, selected.value.closure)
@@ -124,7 +130,7 @@ class LaneCountTests(unittest.TestCase):
   def test_count_prints_bare_integer_and_never_renders_or_persists(self):
     store = mock.Mock()
     store.read.return_value = LaneSelectionSnapshot(None, None)
-    store.project.return_value = LaneSelection(
+    store.project_rules.return_value = LaneSelection(
       roots=("2",),
       closure=("1", "2", "3"),
       graph_revision=7,
@@ -154,15 +160,16 @@ class LaneCountTests(unittest.TestCase):
 
     self.assertEqual(result, 0)
     self.assertEqual(stdout.getvalue(), "3\n")
-    store.project.assert_called_once()
-    store.select.assert_not_called()
-    store.add.assert_not_called()
-    store.remove.assert_not_called()
+    store.project_rules.assert_called_once()
+    store.select_rules.assert_not_called()
+    store.add_rules.assert_not_called()
+    store.remove_rules.assert_not_called()
+    store.exclude_rules.assert_not_called()
 
   def test_canonical_413_count_matches_independent_projection_without_rendering(self):
     rows = canonical_rows()
     expected = expected_default_closure(rows, "413")
-    self.assertGreater(len(expected), 1)
+    self.assertEqual(expected, ("409", "410", "411", "412", "413", "456"))
 
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
