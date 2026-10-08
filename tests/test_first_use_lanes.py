@@ -384,6 +384,53 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 5})
       self.assertNotIn(4, self.dependency_calls(env))
 
+  def test_partial_single_cache_widens_to_dependents_without_refresh(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+          4: [1],
+          5: [3],
+        },
+      )
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--single",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(json.loads(first.stdout)["closure"], ["2"])
+      before = list(self.dependency_calls(env))
+
+      widened = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependents",
+        "--json",
+      )
+      self.assertEqual(widened.returncode, 0, widened.stderr)
+      self.assertEqual(
+        json.loads(widened.stdout)["closure"],
+        ["2", "3", "5"],
+      )
+      self.assertGreater(len(self.dependency_calls(env)), len(before))
+      self.assertNotIn(4, json.loads(widened.stdout)["closure"])
+
   def test_directional_selection_refresh_replays_persisted_rules(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
