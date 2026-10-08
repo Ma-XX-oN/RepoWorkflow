@@ -265,22 +265,11 @@ per-path allowance across Feature/Epic/Initiative boundaries.  The same node may
 therefore be visited with different remaining traversal allowances while still
 appearing only once in the projected graph.
 
-Stopped group boundaries may expose exactly one layer of context without
-crossing the boundary:
-
-```text
---show-children group
---show-children feature
---show-children epic
---show-children initiative
-```
-
-The flag applies only to matching boundaries that were not followed.  Immediate
-adjacent nodes that traversal would otherwise reach are included for display,
-but they do not recursively restart ordinary traversal.  If a shown node is
-also reached through another ordinary path, that ordinary path remains fully
-traversable.  Repeated type-specific flags compose, and `group` matches
-Feature/Epic/Initiative boundaries.
+Stopped group boundaries may expose one adjacent context layer with
+`--show-children group|feature|epic|initiative`.  It applies only to matching
+unfollowed boundaries: shown nodes do not restart traversal, while an independent
+ordinary path to the same node remains traversable.  Repeated type flags compose;
+`group` matches Feature/Epic/Initiative.
 
 The durable synchronized ticket state contains issue number, exact title, and
 direct dependencies. Repeated lane operations use that local state. A missing
