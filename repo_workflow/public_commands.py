@@ -73,44 +73,6 @@ def _lane_name(context: Context) -> list[str]:
   return []
 
 
-FOLLOW_GROUP_KINDS = frozenset({
-  "group", "feature", "epic", "initiative"
-})
-
-
-def _follow_count_candidates(words: tuple[str, ...]) -> tuple[int, ...]:
-  return tuple(
-    index
-    for index, token in enumerate(words)
-    if (
-      token.isdecimal()
-      and int(token) > 0
-      and index >= 2
-      and words[index - 2] == "--follow"
-      and words[index - 1] in FOLLOW_GROUP_KINDS
-    )
-  )
-
-
-def _lane_follow_count(context: Context) -> dict[str, str]:
-  token = context.current_token
-  description = "Positive per-path boundary count; default 1"
-  if not token:
-    return {"<N>": description}
-  if not token.isdecimal() or int(token) <= 0:
-    return {}
-
-  candidates = _follow_count_candidates(context.words)
-  ordinary_values = tuple(
-    index
-    for index, value in enumerate(context.words)
-    if value.isdecimal() and int(value) > 0 and index not in candidates
-  )
-  if ordinary_values or not candidates or context.index != candidates[-1]:
-    return {token: description}
-  return {}
-
-
 def _high_risk_aliases(context: Context) -> list[str]:
   try:
     return list(load_test_catalogue(context.root).alias_names())
@@ -120,36 +82,11 @@ def _high_risk_aliases(context: Context) -> list[str]:
 
 def _lane_select_switches(*, include_count: bool = False) -> dict:
   switches = {
+    "--dependencies": "Include seed and transitive dependencies",
+    "--dependents": "Include seed and transitive dependents",
+    "--single": "Include only the seed",
     "--refresh": "Refresh relationship and issue data",
     "--json": "Output selection as JSON",
-    "--follow": {
-      "": "Follow through matching group boundaries",
-      "_params": [
-        {
-          "group": "Follow Feature/Epic/Initiative boundaries",
-          "feature": "Follow Feature boundaries",
-          "epic": "Follow Epic boundaries",
-          "initiative": "Follow Initiative boundaries",
-        },
-        {
-          "<N>": _lane_follow_count,
-          "_quantifier": "?",
-        },
-      ],
-      "_quantifier": "*",
-    },
-    "--show-children": {
-      "": "Show one child layer beyond stopped group boundaries",
-      "_params": [
-        {
-          "group": "Show children for any stopped group boundary",
-          "feature": "Show children for stopped Feature boundaries",
-          "epic": "Show children for stopped Epic boundaries",
-          "initiative": "Show children for stopped Initiative boundaries",
-        },
-      ],
-      "_quantifier": "*",
-    },
   }
   if include_count:
     switches["--count"] = (
@@ -320,6 +257,13 @@ COMMANDS = {
       },
       "remove": {
         "": "Remove issue focus roots",
+        "_values": _issue_number,
+        "_value_description": "Issue number",
+        "_quantifier": "+",
+        "_switches": _lane_select_switches(),
+      },
+      "exclude": {
+        "": "Exclude projected issues from the selection",
         "_values": _issue_number,
         "_value_description": "Issue number",
         "_quantifier": "+",
