@@ -30,13 +30,14 @@ def handle_lane_selection(
 
   if words[:2] != ["lanes", "select"]:
     raise ValueError("invalid lanes command")
-  tail, as_json, refresh, follow = _selection_arguments(words[2:])
+  tail, as_json, refresh, requested_follow = _selection_arguments(words[2:])
   if not tail:
     raise ValueError("lane selection requires at least one root")
 
   if tail[0] == "add":
     if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
+    follow = current.value.follow if requested_follow is None else requested_follow
     additions = tuple(tail[1:])
     desired = tuple(sorted(
       set(current.value.roots) | {str(int(value)) for value in additions},
@@ -62,6 +63,7 @@ def handle_lane_selection(
   elif tail[0] == "remove":
     if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
+    follow = current.value.follow if requested_follow is None else requested_follow
     removals = tuple(tail[1:])
     removed = {str(int(value)) for value in removals}
     desired = tuple(
@@ -87,6 +89,7 @@ def handle_lane_selection(
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
   else:
+    follow = FollowPolicy() if requested_follow is None else requested_follow
     desired = tuple(tail)
     _prepare(
       root,
@@ -155,7 +158,7 @@ def _prepare(
 
 def _selection_arguments(
   words: list[str],
-) -> tuple[list[str], bool, bool, FollowPolicy]:
+) -> tuple[list[str], bool, bool, FollowPolicy | None]:
   positional: list[str] = []
   follow_values: list[tuple[str, str | None]] = []
   as_json = False
@@ -188,4 +191,5 @@ def _selection_arguments(
       continue
     positional.append(token)
     index += 1
-  return positional, as_json, refresh, parse_follow_arguments(follow_values)
+  follow = None if not follow_values else parse_follow_arguments(follow_values)
+  return positional, as_json, refresh, follow
