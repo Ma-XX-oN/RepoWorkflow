@@ -1,11 +1,16 @@
 import unittest
 
 from repo_workflow.lane_decomposition import decompose_lanes
+from repo_workflow.lane_traversal import FollowPolicy
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
 
 def relation(*dependencies: int) -> IssueRelationships:
   return IssueRelationships("Issue", tuple(str(value) for value in dependencies))
+
+
+def titled(title: str, *dependencies: int) -> IssueRelationships:
+  return IssueRelationships(title, tuple(str(value) for value in dependencies))
 
 
 def graph(mapping: dict[int, tuple[int, ...]]) -> RelationshipGraph:
@@ -98,6 +103,99 @@ class LaneDecompositionTests(unittest.TestCase):
     first = decompose_lanes(value, [4, 3])
     second = decompose_lanes(value, [3, 4, 3])
     self.assertEqual(first, second)
+
+  def test_default_stops_at_encountered_group_boundary(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: Boundary", 1),
+      "3": titled("Issue 3", 2),
+      "4": titled("Issue 4", 3),
+    })
+    plan = decompose_lanes(value, [1])
+    self.assertEqual(plan.closure, ("1", "2"))
+
+  def test_group_seed_is_not_stopped_by_its_own_kind(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: Boundary", 1),
+      "3": titled("Issue 3", 2),
+    })
+    plan = decompose_lanes(value, [2])
+    self.assertEqual(plan.closure, ("1", "2", "3"))
+
+  def test_type_follow_crosses_one_matching_boundary_per_path(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: First", 1),
+      "3": titled("Issue 3", 2),
+      "4": titled("Feature: Second", 3),
+      "5": titled("Issue 5", 4),
+    })
+    plan = decompose_lanes(
+      value,
+      [1],
+      follow=FollowPolicy(feature=1),
+    )
+    self.assertEqual(plan.closure, ("1", "2", "3", "4"))
+
+  def test_type_follow_count_two_crosses_two_boundaries(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: First", 1),
+      "3": titled("Issue 3", 2),
+      "4": titled("Feature: Second", 3),
+      "5": titled("Issue 5", 4),
+    })
+    plan = decompose_lanes(
+      value,
+      [1],
+      follow=FollowPolicy(feature=2),
+    )
+    self.assertEqual(plan.closure, ("1", "2", "3", "4", "5"))
+
+  def test_group_budget_is_shared_across_mixed_group_kinds(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: First", 1),
+      "3": titled("Issue 3", 2),
+      "4": titled("Epic: Second", 3),
+      "5": titled("Issue 5", 4),
+    })
+    one = decompose_lanes(value, [1], follow=FollowPolicy(group=1))
+    two = decompose_lanes(value, [1], follow=FollowPolicy(group=2))
+    self.assertEqual(one.closure, ("1", "2", "3", "4"))
+    self.assertEqual(two.closure, ("1", "2", "3", "4", "5"))
+
+  def test_type_specific_follow_budgets_compose(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: First", 1),
+      "3": titled("Issue 3", 2),
+      "4": titled("Epic: Second", 3),
+      "5": titled("Issue 5", 4),
+    })
+    plan = decompose_lanes(
+      value,
+      [1],
+      follow=FollowPolicy(feature=1, epic=1),
+    )
+    self.assertEqual(plan.closure, ("1", "2", "3", "4", "5"))
+
+  def test_same_node_can_be_reached_with_different_remaining_budget(self):
+    value = RelationshipGraph(issues={
+      "1": titled("Issue 1"),
+      "2": titled("Feature: Costly", 1),
+      "3": titled("Issue 3", 1),
+      "4": titled("Issue 4", 2, 3),
+      "5": titled("Feature: Later", 4),
+      "6": titled("Issue 6", 5),
+    })
+    plan = decompose_lanes(
+      value,
+      [1],
+      follow=FollowPolicy(feature=1),
+    )
+    self.assertIn("6", plan.closure)
 
   def test_unknown_selected_issue_fails(self):
     value = graph({1: ()})

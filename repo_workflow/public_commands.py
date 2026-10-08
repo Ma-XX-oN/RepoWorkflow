@@ -80,6 +80,29 @@ def _high_risk_aliases(context: Context) -> list[str]:
     return []
 
 
+def _lane_select_switches() -> dict:
+  return {
+    "--refresh": "Refresh relationship and issue data",
+    "--json": "Output selection as JSON",
+    "--follow": {
+      "": "Follow through matching group boundaries",
+      "_params": [
+        {
+          "group": "Follow Feature/Epic/Initiative boundaries",
+          "feature": "Follow Feature boundaries",
+          "epic": "Follow Epic boundaries",
+          "initiative": "Follow Initiative boundaries",
+        },
+        {
+          "<N>": "Positive per-path boundary count; default 1",
+          "_quantifier": "?",
+        },
+      ],
+      "_quantifier": "*",
+    },
+  }
+
+
 def _dependency_direction_node() -> dict:
   return {
     "to-tickets": {
@@ -232,29 +255,20 @@ COMMANDS = {
       "_values": _issue_number,
       "_value_description": "Issue number",
       "_quantifier": "+",
-      "_switches": {
-        "--refresh": "Refresh relationship and issue data",
-        "--json": "Output selection as JSON",
-      },
+      "_switches": _lane_select_switches(),
       "add": {
         "": "Add issue focus roots",
         "_values": _issue_number,
         "_value_description": "Issue number",
         "_quantifier": "+",
-        "_switches": {
-          "--refresh": "Refresh relationship and issue data",
-          "--json": "Output selection as JSON",
-        },
+        "_switches": _lane_select_switches(),
       },
       "remove": {
         "": "Remove issue focus roots",
         "_values": _issue_number,
         "_value_description": "Issue number",
         "_quantifier": "+",
-        "_switches": {
-          "--refresh": "Refresh relationship and issue data",
-          "--json": "Output selection as JSON",
-        },
+        "_switches": _lane_select_switches(),
       },
     },
     "list": {

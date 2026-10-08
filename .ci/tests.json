@@ -31,6 +31,10 @@
       "issue-477-risk-scoped-ci": {
         "type": "regression",
         "name": "tests.test_risk_scoped_ci_certification"
+      },
+      "issue-452-lane-follow": {
+        "type": "regression",
+        "name": "tests.test_lane_follow_verification"
       }
     }
   ],

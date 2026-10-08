@@ -242,11 +242,28 @@ rwf lanes list
 rwf lanes view
 ```
 
-The issues passed to `lanes select` are focus seeds.  Each seed expands to the
-complete dependency-connected component containing it, following both direct
-dependencies and direct dependants for component discovery.  Only the explicit
-focus seeds receive the `*` marker.  Dependency direction itself is unchanged:
-direct dependency edges remain the sole scheduling and topology authority.
+The issues passed to `lanes select` are focus seeds.  Ordinary tickets expand
+through both direct dependencies and direct dependants.  Encountered
+`Feature:`, `Epic:`, and `Initiative:` tickets are included but stop
+component discovery by default; an explicitly selected group seed is not stopped
+merely because it is a group.  Only the explicit focus seeds receive the `*`
+marker.  Dependency direction itself is unchanged: direct dependency edges
+remain the sole scheduling and topology authority.
+
+Group boundaries may be crossed explicitly:
+
+```text
+--follow group [N]
+--follow feature [N]
+--follow epic [N]
+--follow initiative [N]
+```
+
+`N` defaults to 1 and must be positive.  Type-specific allowances compose and
+are counted independently per traversal path.  `group N` uses one shared
+per-path allowance across Feature/Epic/Initiative boundaries.  The same node may
+therefore be visited with different remaining traversal allowances while still
+appearing only once in the projected graph.
 
 The durable synchronized ticket state contains issue number, exact title, and
 direct dependencies. Repeated lane operations use that local state. A missing

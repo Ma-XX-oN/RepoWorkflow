@@ -5,12 +5,13 @@ from pathlib import Path
 
 from .git import git
 from .lane_decomposition import LanePlan, decompose_lanes
+from .lane_traversal import FollowPolicy
 from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
 
 RECORD_KEY = "selection"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class LaneSelectionError(RuntimeError):
@@ -23,6 +24,7 @@ class LaneSelection:
   closure: tuple[str, ...]
   graph_revision: int
   assignment: dict[str, str]
+  follow: FollowPolicy = FollowPolicy()
   schema_version: int = SCHEMA_VERSION
 
   def to_json_value(self) -> dict:
@@ -31,6 +33,7 @@ class LaneSelection:
       "roots": list(self.roots),
       "closure": list(self.closure),
       "graph_revision": self.graph_revision,
+      "follow": self.follow.to_json_value(),
       "assignment": {
         issue: self.assignment[issue]
         for issue in sorted(self.assignment, key=int)
@@ -71,11 +74,12 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     *,
     expected_revision: int | None = None,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     normalized = _ids(roots)
     if not normalized:
       raise LaneSelectionError("lane selection requires at least one root")
-    return self._write(normalized, writer, expected_revision)
+    return self._write(normalized, writer, expected_revision, follow=follow)
 
   def add(
     self,
@@ -83,12 +87,15 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     *,
     expected_revision: int,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
+    policy = current.value.follow if follow is None else follow
     return self._write(
       tuple(sorted(set(current.value.roots) | set(_ids(roots)), key=int)),
       writer,
       expected_revision,
+      follow=policy,
     )
 
   def remove(
@@ -97,14 +104,16 @@ class LaneSelectionStore:
     writer: WriterIdentity,
     *,
     expected_revision: int,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
+    policy = current.value.follow if follow is None else follow
     remaining = tuple(
       value for value in current.value.roots if value not in set(_ids(roots))
     )
     if not remaining:
       raise LaneSelectionError("remove would leave an empty selection; use clear")
-    return self._write(remaining, writer, expected_revision)
+    return self._write(remaining, writer, expected_revision, follow=policy)
 
   def clear(
     self,
@@ -117,6 +126,7 @@ class LaneSelectionStore:
       "roots": [],
       "closure": [],
       "graph_revision": self._graph_revision(),
+      "follow": FollowPolicy().to_json_value(),
       "assignment": {},
     }
     try:
@@ -156,6 +166,8 @@ class LaneSelectionStore:
     roots: tuple[str, ...],
     writer: WriterIdentity,
     expected_revision: int | None,
+    *,
+    follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     try:
       graph = RelationshipStore(self.root).read()
@@ -165,8 +177,9 @@ class LaneSelectionStore:
           "canonical relationship graph is not initialized"
         ) from error
       raise LaneSelectionError(str(error)) from error
-    plan = decompose_lanes(graph.graph, roots)
-    value = _from_plan(plan, graph.revision)
+    policy = FollowPolicy() if follow is None else follow
+    plan = decompose_lanes(graph.graph, roots, follow=policy)
+    value = _from_plan(plan, graph.revision, policy)
     current = self.read()
     if current.revision != expected_revision:
       raise LaneSelectionError(
@@ -188,7 +201,11 @@ class LaneSelectionStore:
     return LaneSelectionSnapshot(value, record["revision"])
 
 
-def _from_plan(plan: LanePlan, graph_revision: int) -> LaneSelection:
+def _from_plan(
+  plan: LanePlan,
+  graph_revision: int,
+  follow: FollowPolicy,
+) -> LaneSelection:
   assignment = {
     issue: lane.name
     for lane in plan.lanes
@@ -199,21 +216,33 @@ def _from_plan(plan: LanePlan, graph_revision: int) -> LaneSelection:
     closure=plan.closure,
     graph_revision=graph_revision,
     assignment=assignment,
+    follow=follow,
   )
 
 
 def _selection(value: dict) -> LaneSelection:
-  if not isinstance(value, dict) or set(value) != {
+  if not isinstance(value, dict):
+    raise LaneSelectionError("lane selection must be an object")
+  version = value.get("schema_version")
+  expected = {
     "schema_version", "roots", "closure", "graph_revision", "assignment"
-  }:
-    raise LaneSelectionError("lane selection has missing/unsupported fields")
-  if value["schema_version"] != SCHEMA_VERSION:
+  }
+  if version == SCHEMA_VERSION:
+    expected.add("follow")
+  elif version != 1:
     raise LaneSelectionError("unsupported lane selection schema version")
+  if set(value) != expected:
+    raise LaneSelectionError("lane selection has missing/unsupported fields")
   roots = _ids(tuple(value["roots"]))
   closure = _ids(tuple(value["closure"]))
   revision = value["graph_revision"]
   if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
     raise LaneSelectionError("invalid relationship graph revision")
+  follow = (
+    FollowPolicy()
+    if version == 1
+    else FollowPolicy.from_json_value(value["follow"])
+  )
   assignment = value["assignment"]
   if not isinstance(assignment, dict) or set(assignment) != set(closure):
     raise LaneSelectionError("lane assignment must cover the complete closure")
@@ -222,7 +251,7 @@ def _selection(value: dict) -> LaneSelection:
     if not isinstance(lane, str) or not lane:
       raise LaneSelectionError("lane name must be non-empty text")
     normalized[issue] = lane
-  return LaneSelection(roots, closure, revision, normalized)
+  return LaneSelection(roots, closure, revision, normalized, follow)
 
 
 def _ids(values: tuple[str | int, ...]) -> tuple[str, ...]:

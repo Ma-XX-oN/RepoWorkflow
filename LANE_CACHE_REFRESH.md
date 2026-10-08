@@ -8,10 +8,12 @@ inspection.
 The canonical synchronized ticket state is the operational dependency source
 between synchronization boundaries.
 
-Without `--refresh`, lane selection discovers the complete connected component
-from known canonical nodes locally.  The ticket dependency provider is queried
-only when a requested node or a prerequisite reached while acquiring missing
-state is absent from synchronized ticket state.
+Without `--refresh`, lane selection discovers the locally projected connected
+component from known canonical nodes.  Encountered Feature/Epic/Initiative nodes
+are stopping boundaries unless permitted by the selection's persisted
+`--follow` policy.  The ticket dependency provider is queried only when a
+requested or traversable node reached while acquiring missing state is absent
+from synchronized ticket state.
 
 Repeated selection of the same known component therefore performs no dependency
 provider reads.
@@ -23,7 +25,9 @@ provider reads.
 `--refresh` is the explicit provider reread boundary for lane commands.
 
 For selection mutations, refresh scope is the requested or resulting selected
-connected component.  It is not a repository-wide crawl.
+component under the persisted traversal policy.  It is not a repository-wide
+crawl.  Refresh preserves per-path consumed follow budgets; it must not reset a
+boundary allowance merely because a reached node is already cached.
 
 During refresh:
 
@@ -58,7 +62,17 @@ Provider failure is never interpreted as an empty dependency set.
 Runtime never infers dependency edges from title prefixes, ticket-body grouping,
 or Git ancestry.
 
-## 5. Verification obligations
+## 5. Persisted traversal policy
+
+The worktree-local lane selection stores the normalized follow policy together
+with roots, closure, graph revision, and lane assignment.  Subsequent
+`lanes view --refresh` operations reuse that policy.  Selection records from
+the prior schema remain readable and project the default no-follow policy.
+
+Selection `add` and `remove` preserve the existing policy when no replacement
+`--follow` flags are supplied.
+
+## 6. Verification obligations
 
 Tests must distinguish requirements coverage from structural coverage and
 prove at the public CLI boundary:

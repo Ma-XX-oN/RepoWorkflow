@@ -27,6 +27,7 @@ def refresh_current_lane_metadata(
     writer,
     refresh=True,
     diagnostics=diagnostics,
+    follow=current.value.follow,
   )
   if diagnostics is not None:
     diagnostics.phase("metadata", started)
@@ -70,6 +71,7 @@ def refresh_current_lane_selection(
     current.value.roots,
     writer,
     expected_revision=current.revision,
+    follow=current.value.follow,
   )
   if diagnostics is not None:
     diagnostics.phase("decomposition", started)

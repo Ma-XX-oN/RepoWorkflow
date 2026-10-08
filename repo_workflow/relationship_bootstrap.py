@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .lane_decomposition import dependency_component
+from .lane_decomposition import dependency_component, dependency_states
+from .lane_traversal import FollowPolicy, TraversalState, group_kind
 from .lane_diagnostics import LaneDiagnostics
 from .dependency_migration_certification import (
   DependencyMigrationCertificationError,
@@ -37,6 +38,7 @@ def ensure_relationship_graph(
   *,
   refresh: bool = False,
   diagnostics: LaneDiagnostics | None = None,
+  follow: FollowPolicy | None = None,
 ) -> RelationshipAcquisition:
   """Ensure canonical ticket coverage using local state unless refresh/missing."""
   try:
@@ -48,6 +50,8 @@ def ensure_relationship_graph(
   snapshot = _read_optional(store)
   issues = {} if snapshot is None else dict(snapshot.graph.issues)
   requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
+  requested_set = set(requested)
+  policy = FollowPolicy() if follow is None else follow
   dependency_config = resolve_dependency_config(root)
   info_config = resolve_info_config(root)
   if (
@@ -55,57 +59,74 @@ def ensure_relationship_graph(
     and snapshot is not None
     and all(issue in issues for issue in requested)
   ):
-    pending = list(dependency_component(snapshot.graph, requested))
+    pending = list(dependency_states(
+      snapshot.graph,
+      requested,
+      follow=policy,
+    ))
   else:
-    pending = list(requested)
-  visited: set[str] = set()
+    pending = [
+      TraversalState(issue, policy.remaining())
+      for issue in requested
+    ]
+  visited: set[TraversalState] = set()
   provider_reads: list[int] = []
   fetched_info: dict[int, dict] = {}
+  provider_cache: dict[
+    str,
+    tuple[IssueRelationships, tuple[str, ...], dict],
+  ] = {}
   changed = snapshot is None
 
   while pending:
-    issue = pending.pop(0)
-    if issue in visited:
+    state = pending.pop(0)
+    if state in visited:
       continue
-    visited.add(issue)
+    visited.add(state)
+    issue = state.issue
 
     current = issues.get(issue)
     provider: IssueRelationships | None = None
     if refresh or current is None:
-      number = int(issue)
-      provider_reads.append(number)
-      if diagnostics is not None:
-        diagnostics.miss("relationships")
-        diagnostics.miss("metadata")
-        relationships = diagnostics.provider(
-          "dependencies",
-          number,
-          lambda: read_ticket_relationships(
+      cached_provider = provider_cache.get(issue)
+      if cached_provider is not None:
+        provider, provider_dependants, info = cached_provider
+      else:
+        number = int(issue)
+        provider_reads.append(number)
+        if diagnostics is not None:
+          diagnostics.miss("relationships")
+          diagnostics.miss("metadata")
+          relationships = diagnostics.provider(
+            "dependencies",
+            number,
+            lambda: read_ticket_relationships(
+              root,
+              dependency_config,
+              number,
+            ),
+          )
+          info = diagnostics.provider(
+            "metadata",
+            number,
+            lambda: issue_info(root, info_config, number),
+          )
+        else:
+          relationships = read_ticket_relationships(
             root,
             dependency_config,
             number,
-          ),
+          )
+          info = issue_info(root, info_config, number)
+        fetched_info[number] = info
+        provider = IssueRelationships(
+          title=info["title"],
+          depends_on=tuple(str(value) for value in relationships.dependencies),
         )
-        info = diagnostics.provider(
-          "metadata",
-          number,
-          lambda: issue_info(root, info_config, number),
+        provider_dependants = tuple(
+          str(value) for value in relationships.dependants
         )
-      else:
-        relationships = read_ticket_relationships(
-          root,
-          dependency_config,
-          number,
-        )
-        info = issue_info(root, info_config, number)
-      fetched_info[number] = info
-      provider = IssueRelationships(
-        title=info["title"],
-        depends_on=tuple(str(value) for value in relationships.dependencies),
-      )
-      provider_dependants = tuple(
-        str(value) for value in relationships.dependants
-      )
+        provider_cache[issue] = (provider, provider_dependants, info)
     else:
       provider_dependants = ()
       if diagnostics is not None:
@@ -135,10 +156,20 @@ def ensure_relationship_graph(
         changed = True
       dependencies = replacement.depends_on
 
+    remaining = state.remaining
+    relation = issues[issue]
+    kind = group_kind(relation.title)
+    if issue not in requested_set:
+      crossed = policy.cross(kind, remaining)
+      if crossed is None:
+        continue
+      remaining = crossed
+
     related = (*dependencies, *provider_dependants)
     for related_issue in related:
-      if related_issue not in visited and related_issue not in pending:
-        pending.append(related_issue)
+      next_state = TraversalState(related_issue, remaining)
+      if next_state not in visited and next_state not in pending:
+        pending.append(next_state)
 
   if changed:
     graph = RelationshipGraph.from_json_value({
@@ -157,7 +188,7 @@ def ensure_relationship_graph(
     assert snapshot is not None
     graph = snapshot.graph
 
-  component = dependency_component(graph, requested)
+  component = dependency_component(graph, requested, follow=policy)
 
   if fetched_info:
     from .issue_metadata import cache_issue_display_metadata
