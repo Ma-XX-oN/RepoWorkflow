@@ -31,6 +31,10 @@ TEST_NAMES = (
   ),
   (
     "tests.test_first_use_lanes.FirstUseLanesTests."
+    "test_complete_baseline_extension_tracks_partial_new_seed"
+  ),
+  (
+    "tests.test_first_use_lanes.FirstUseLanesTests."
     "test_partial_cache_widening_failure_preserves_graph_and_selection"
   ),
 )
