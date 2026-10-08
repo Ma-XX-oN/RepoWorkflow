@@ -264,6 +264,18 @@ class LaneSelectionStore:
       raise LaneSelectionError(str(error)) from error
     policy = FollowPolicy() if follow is None else follow
     context = ShowChildrenPolicy() if show_children is None else show_children
+    current = self.read()
+    preserved = set() if current.value is None else set(current.value.roots)
+    unknown_new = tuple(
+      issue
+      for issue in roots
+      if issue not in graph.graph.issues and issue not in preserved
+    )
+    if unknown_new:
+      raise LaneSelectionError(
+        "selected issue is absent from canonical ticket state: "
+        + ", ".join(unknown_new)
+      )
     resolved = tuple(issue for issue in roots if issue in graph.graph.issues)
     if resolved:
       plan = decompose_lanes(
@@ -282,7 +294,6 @@ class LaneSelectionStore:
       roots=roots,
       branch=_current_branch(self.root),
     )
-    current = self.read()
     if current.revision != expected_revision:
       raise LaneSelectionError(
         f"stale lane selection revision: expected {expected_revision!r}, "
