@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .git import git
+from .git import current_branch, git
 from .lane_decomposition import LanePlan, decompose_lanes
 from .lane_traversal import FollowPolicy, ShowChildrenPolicy
 from .relationship_store import RelationshipStore, RelationshipStoreError
@@ -11,7 +11,7 @@ from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
 
 RECORD_KEY = "selection"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class LaneSelectionError(RuntimeError):
@@ -24,6 +24,7 @@ class LaneSelection:
   closure: tuple[str, ...]
   graph_revision: int
   assignment: dict[str, str]
+  branch: str | None
   follow: FollowPolicy = FollowPolicy()
   show_children: ShowChildrenPolicy = ShowChildrenPolicy()
   schema_version: int = SCHEMA_VERSION
@@ -34,6 +35,7 @@ class LaneSelection:
       "roots": list(self.roots),
       "closure": list(self.closure),
       "graph_revision": self.graph_revision,
+      "branch": self.branch,
       "follow": self.follow.to_json_value(),
       "show_children": self.show_children.to_json_value(),
       "assignment": {
@@ -65,6 +67,8 @@ class LaneSelectionStore:
         return LaneSelectionSnapshot(None, None)
       raise LaneSelectionError(str(error)) from error
     parsed = _selection(record["value"])
+    if parsed.roots:
+      parsed = self._current_projection(parsed)
     return LaneSelectionSnapshot(
       None if not parsed.roots else parsed,
       record["revision"],
@@ -154,6 +158,7 @@ class LaneSelectionStore:
       "roots": [],
       "closure": [],
       "graph_revision": self._graph_revision(),
+      "branch": _current_branch(self.root),
       "follow": FollowPolicy().to_json_value(),
       "show_children": ShowChildrenPolicy().to_json_value(),
       "assignment": {},
@@ -168,6 +173,56 @@ class LaneSelectionStore:
     except StateStoreError as error:
       raise LaneSelectionError(str(error)) from error
     return LaneSelectionSnapshot(None, record["revision"])
+
+  def _current_projection(self, selection: LaneSelection) -> LaneSelection:
+    branch = _current_branch(self.root)
+    if selection.branch == branch and branch is not None:
+      return selection
+
+    try:
+      graph = RelationshipStore(self.root).read()
+    except RelationshipStoreError as error:
+      if "record is missing:" not in str(error):
+        raise LaneSelectionError(str(error)) from error
+      return LaneSelection(
+        roots=selection.roots,
+        closure=(),
+        graph_revision=0,
+        assignment={},
+        branch=branch,
+        follow=selection.follow,
+        show_children=selection.show_children,
+      )
+
+    resolved = tuple(
+      issue for issue in selection.roots if issue in graph.graph.issues
+    )
+    if resolved:
+      plan = decompose_lanes(
+        graph.graph,
+        resolved,
+        follow=selection.follow,
+        show_children=selection.show_children,
+      )
+      assignment = {
+        issue: lane.name
+        for lane in plan.lanes
+        for issue in lane.issues
+      }
+      closure = plan.closure
+    else:
+      assignment = {}
+      closure = ()
+
+    return LaneSelection(
+      roots=selection.roots,
+      closure=closure,
+      graph_revision=graph.revision,
+      assignment=assignment,
+      branch=branch,
+      follow=selection.follow,
+      show_children=selection.show_children,
+    )
 
   def _graph_revision(self) -> int:
     try:
@@ -209,13 +264,24 @@ class LaneSelectionStore:
       raise LaneSelectionError(str(error)) from error
     policy = FollowPolicy() if follow is None else follow
     context = ShowChildrenPolicy() if show_children is None else show_children
-    plan = decompose_lanes(
-      graph.graph,
-      roots,
-      follow=policy,
-      show_children=context,
+    resolved = tuple(issue for issue in roots if issue in graph.graph.issues)
+    if resolved:
+      plan = decompose_lanes(
+        graph.graph,
+        resolved,
+        follow=policy,
+        show_children=context,
+      )
+    else:
+      plan = LanePlan((), (), ())
+    value = _from_plan(
+      plan,
+      graph.revision,
+      policy,
+      context,
+      roots=roots,
+      branch=_current_branch(self.root),
     )
-    value = _from_plan(plan, graph.revision, policy, context)
     current = self.read()
     if current.revision != expected_revision:
       raise LaneSelectionError(
@@ -242,6 +308,9 @@ def _from_plan(
   graph_revision: int,
   follow: FollowPolicy,
   show_children: ShowChildrenPolicy,
+  *,
+  roots: tuple[str, ...] | None = None,
+  branch: str | None = None,
 ) -> LaneSelection:
   assignment = {
     issue: lane.name
@@ -249,10 +318,11 @@ def _from_plan(
     for issue in lane.issues
   }
   return LaneSelection(
-    roots=plan.selected,
+    roots=plan.selected if roots is None else roots,
     closure=plan.closure,
     graph_revision=graph_revision,
     assignment=assignment,
+    branch=branch,
     follow=follow,
     show_children=show_children,
   )
@@ -266,6 +336,8 @@ def _selection(value: dict) -> LaneSelection:
     "schema_version", "roots", "closure", "graph_revision", "assignment"
   }
   if version == SCHEMA_VERSION:
+    expected.update({"branch", "follow", "show_children"})
+  elif version == 3:
     expected.update({"follow", "show_children"})
   elif version == 2:
     expected.add("follow")
@@ -288,6 +360,9 @@ def _selection(value: dict) -> LaneSelection:
     if version in {1, 2}
     else ShowChildrenPolicy.from_json_value(value["show_children"])
   )
+  branch = value.get("branch") if version == SCHEMA_VERSION else None
+  if branch is not None and (not isinstance(branch, str) or not branch):
+    raise LaneSelectionError("lane selection branch must be non-empty text or null")
   assignment = value["assignment"]
   if not isinstance(assignment, dict) or set(assignment) != set(closure):
     raise LaneSelectionError("lane assignment must cover the complete closure")
@@ -301,9 +376,15 @@ def _selection(value: dict) -> LaneSelection:
     closure,
     revision,
     normalized,
+    branch,
     follow,
     show_children,
   )
+
+
+def _current_branch(root: Path) -> str | None:
+  branch = current_branch(root)
+  return None if branch == "HEAD" else branch
 
 
 def _ids(values: tuple[str | int, ...]) -> tuple[str, ...]:
