@@ -83,6 +83,10 @@
       "issue-527-explicit-lane-projections": {
         "type": "regression",
         "name": "tests.test_lane_projection_verification"
+      },
+      "issue-537-partial-direction-cache": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
       }
     }
   ],
