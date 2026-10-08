@@ -283,7 +283,7 @@ def _entry_items(
           result.append(Completion(value, description, True))
       continue
     if token.startswith(prefix):
-      description = entry if isinstance(entry, str) else None
+      description = entry if isinstance(entry, str) else entry.get(TERMINAL)
       result.append(Completion(token, description))
   return result
 
