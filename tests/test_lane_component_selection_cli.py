@@ -125,7 +125,7 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       if "blockedBy" in line
     ]
 
-  def test_focus_seed_renders_complete_synchronized_component(self):
+  def test_followed_focus_seed_renders_complete_synchronized_component(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
       root = base / "repo"
@@ -134,7 +134,15 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       self.write_ticket_state(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(root, env, "lanes", "select", "436")
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "436",
+        "--follow",
+        "group",
+      )
       self.assertEqual(selected.returncode, 0, selected.stderr)
       for issue in range(435, 440):
         self.assertIn(str(issue), selected.stdout)
@@ -158,6 +166,8 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
         "lanes",
         "select",
         "435",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(root_selected.returncode, 0, root_selected.stderr)
