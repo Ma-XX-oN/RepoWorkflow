@@ -285,10 +285,10 @@ introducing a second machine-readable ownership graph.
 
 ## 8. Use interfaces to expose safe parallel work
 
-During decomposition, actively look for a real provider/consumer interface that
-can be defined before either implementation is complete.  A good predefined
-interface can turn an otherwise serial dependency into independently testable
-provider and consumer work and may enable speculative execution.
+During decomposition, actively look for a provider/consumer interface that can
+be defined before either implementation is complete.  It may already exist or
+may be newly designed.  A predefined interface can turn an otherwise serial
+dependency into independently testable work and enable speculative execution.
 
 Prefer:
 
@@ -299,12 +299,15 @@ semantic contract
    └── provider B implementation
 ```
 
-This is an attempted optimization, not a requirement to manufacture interfaces.
-If no clean, stable contract exists, preserve the real serial dependency.
+For new design work, interface-first decomposition should be attempted when it
+creates a coherent boundary.  A boundary introduced for decomposition may be
+provisional rather than the best final production interface.
 
-Once the contract is frozen, implementations may often proceed in parallel.
-The portable contract must not leak provider-specific payloads, names, runner
-labels, event structures, or authentication mechanics.
+After any related ticket grouping converges, review those boundaries.  Retain
+useful interfaces, consolidate code paths when appropriate, or expose a
+higher-level durable interface that hides fragile low-level sequencing.
+
+The portable contract must not leak provider-specific payloads or mechanics.
 
 ## 9. Separate presentation from semantics
 
