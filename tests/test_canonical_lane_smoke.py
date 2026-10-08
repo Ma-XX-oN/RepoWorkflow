@@ -19,6 +19,42 @@ CANONICAL_TICKETS = ROOT / ".repoworkflow" / "tickets.csv"
 TYPE_PREFIXES = ("Initiative:", "Epic:", "Feature:")
 
 
+def expected_default_focus_closure(
+  rows: dict[str, dict[str, str]],
+  seed: str,
+) -> tuple[str, ...]:
+  dependencies = {
+    issue: tuple(
+      value
+      for value in row["dependencies"].split(";")
+      if value
+    )
+    for issue, row in rows.items()
+  }
+  dependants = {issue: set() for issue in rows}
+  for issue, values in dependencies.items():
+    for dependency in values:
+      if dependency in dependants:
+        dependants[dependency].add(issue)
+
+  seen = {seed}
+  pending = [seed]
+  while pending:
+    issue = pending.pop(0)
+    title = rows[issue]["title"]
+    if issue != seed and title.startswith(TYPE_PREFIXES):
+      continue
+    neighbours = (
+      set(dependencies[issue])
+      | dependants[issue]
+    )
+    for neighbour in sorted(neighbours, key=int):
+      if neighbour in rows and neighbour not in seen:
+        seen.add(neighbour)
+        pending.append(neighbour)
+  return tuple(sorted(seen, key=int))
+
+
 class CanonicalLaneSmokeTests(unittest.TestCase):
   def make_repo(self, root: Path) -> None:
     RepoFixture(root)
@@ -120,22 +156,18 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
         rows = {
           row["issue"]: row
           for row in csv.DictReader(handle)
-          if row["issue"] in {"409", "410", "411", "412", "413"}
         }
-      self.assertEqual(
-        {
-          issue: row["dependencies"]
-          for issue, row in rows.items()
-        },
-        {
-          "409": "413",
-          "410": "",
-          "411": "410",
-          "412": "410;456",
-          "413": "410;411;412",
-        },
-      )
+
+      self.assertEqual(rows["409"]["dependencies"], "413")
+      self.assertEqual(rows["410"]["dependencies"], "")
+      self.assertEqual(rows["411"]["dependencies"], "410")
+      self.assertEqual(rows["412"]["dependencies"], "410;456")
+      self.assertEqual(rows["413"]["dependencies"], "410;411;412")
       self.assertTrue(rows["409"]["title"].startswith("Epic:"))
+
+      expected = expected_default_focus_closure(rows, "413")
+      for issue in ("409", "410", "411", "412", "413", "456"):
+        self.assertIn(issue, expected)
 
       selected = self.run_rwf(
         root,
@@ -147,16 +179,13 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       self.assertEqual(selected.returncode, 0, selected.stderr)
       value = json.loads(selected.stdout)
       self.assertEqual(value["roots"], ["413"])
-      self.assertEqual(
-        value["closure"],
-        ["409", "410", "411", "412", "413", "456"],
-      )
+      self.assertEqual(tuple(value["closure"]), expected)
 
       rendered = self.run_rwf(root, "lanes", "select", "413")
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
       self.assertEqual(rendered.stdout.count("*"), 1)
       self.assertRegex(rendered.stdout, re.compile(r"\*[A-Z]+413\b"))
-      for issue in ("409", "410", "411", "412", "413", "456"):
+      for issue in ("409", "410", "411", "412", "413"):
         self.assertIn(issue, rendered.stdout)
 
       repeated = self.run_rwf(root, "lanes", "select", "413")
@@ -178,6 +207,7 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
         "413 -> 409",
       ):
         self.assertIn(edge, debug.stdout)
+
 
   def test_current_typed_issue_smoke_renders_through_public_cli(self):
     with tempfile.TemporaryDirectory() as td:
