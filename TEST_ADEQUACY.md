@@ -47,6 +47,14 @@ Authoritative test bases include, in order appropriate to the work:
 Do not derive both implementation behaviour and expected test results from the
 same implementation assumption.
 
+When a proposed behaviour change conflicts with an established regression or
+compatibility test, do not rewrite that test's oracle merely to make the
+proposal GREEN.  First identify the authoritative requirement or contract that
+explicitly supersedes the established behaviour.  If no such authoritative
+supersession exists, the disagreement is evidence against the proposal.  When
+a contract is intentionally superseded, record that contract delta and why the
+older oracle no longer applies before changing or removing the regression.
+
 Specification/contract-based tests and implementation/structural tests are
 separate evidence. Structural inspection can show that a path was exercised;
 it cannot establish that the path implements the correct requirement.
