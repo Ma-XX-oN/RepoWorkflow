@@ -1461,5 +1461,48 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertFalse(writer_path.exists())
 
 
+  def test_terminal_refactor_does_not_launch_provider_dependant_fanout(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [],
+          3: [1, 2],
+          4: [1, 3],
+          5: [2],
+          6: [1],
+        },
+        titles={
+          1: "Implement ordinary foundation",
+          2: "Refactor: Shared technical prerequisite",
+          3: "Bug: Intermediate correction",
+          4: "Certify local workflow",
+          5: "Unrelated dependant of refactor",
+          6: "Ordinary dependant of foundation",
+        },
+      )
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "4",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(
+        json.loads(selected.stdout)["closure"],
+        ["1", "2", "3", "4", "6"],
+      )
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4, 6})
+      self.assertNotIn(5, self.dependency_calls(env))
+
+
 if __name__ == "__main__":
   unittest.main()
