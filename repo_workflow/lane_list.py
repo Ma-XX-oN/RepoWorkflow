@@ -5,6 +5,7 @@ from pathlib import Path
 from .issue_metadata import IssueMetadataStore
 from .lane_render import color_setting
 from .lane_selection import LaneSelectionStore
+from .relationship_store import RelationshipStore, RelationshipStoreError
 from .terminal_style import TerminalStyler
 
 
@@ -55,4 +56,20 @@ def render_lane_list(
       if links:
         line += f"  {value.link}"
       lines.append(colour(line))
+
+  try:
+    graph = RelationshipStore(root).read().graph
+    unresolved = tuple(
+      issue for issue in selection.roots if issue not in graph.issues
+    )
+  except RelationshipStoreError as error:
+    if "record is missing:" not in str(error):
+      raise
+    unresolved = selection.roots
+
+  if unresolved:
+    if lines:
+      lines.append("")
+    lines.append("Unresolved seeds")
+    lines.extend(f"#{issue}" for issue in unresolved)
   return tuple(lines)
