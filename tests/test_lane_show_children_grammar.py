@@ -7,6 +7,8 @@ from repo_workflow.command_grammar import (
   completion_items,
   parse_tokens,
 )
+from repo_workflow.lane_selection_cli import _selection_arguments
+from repo_workflow.lane_traversal import ShowChildrenPolicy
 from repo_workflow.public_commands import COMMANDS
 
 
@@ -60,13 +62,27 @@ class LaneShowChildrenGrammarTests(unittest.TestCase):
         ["lanes", "select", "5", "--show-children"],
       )
 
-  def test_show_children_does_not_accept_count(self):
-    with self.assertRaises(CommandGrammarError):
-      parse_tokens(
-        COMMANDS,
-        self.context,
-        ["lanes", "select", "5", "--show-children", "feature", "2"],
-      )
+  def test_numeric_token_after_show_children_remains_a_seed(self):
+    words = [
+      "lanes", "select", "5",
+      "--show-children", "feature",
+      "2",
+    ]
+    self.assertEqual(
+      parse_tokens(COMMANDS, self.context, words),
+      tuple(words),
+    )
+    positional, as_json, refresh, follow, show_children = _selection_arguments(
+      words[2:]
+    )
+    self.assertEqual(positional, ["5", "2"])
+    self.assertFalse(as_json)
+    self.assertFalse(refresh)
+    self.assertIsNone(follow)
+    self.assertEqual(
+      show_children,
+      ShowChildrenPolicy(feature=True),
+    )
 
 
 if __name__ == "__main__":
