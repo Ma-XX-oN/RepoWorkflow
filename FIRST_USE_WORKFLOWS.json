@@ -280,7 +280,8 @@
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
             "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
             "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_leaf_focus_discovers_complete_component_from_provider"
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_leaf_focus_discovers_complete_component_from_provider",
+            "tests/test_canonical_lane_smoke.py::CanonicalLaneSmokeTests.test_focus_seed_413_preserves_canonical_component"
           ]
         },
         {

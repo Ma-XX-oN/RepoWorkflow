@@ -47,6 +47,14 @@ Authoritative test bases include, in order appropriate to the work:
 Do not derive both implementation behaviour and expected test results from the
 same implementation assumption.
 
+When a proposed behaviour change conflicts with an established regression or
+compatibility test, do not rewrite that test's oracle merely to make the
+proposal GREEN.  First identify the authoritative requirement or contract that
+explicitly supersedes the established behaviour.  If no such authoritative
+supersession exists, the disagreement is evidence against the proposal.  When
+a contract is intentionally superseded, record that contract delta and why the
+older oracle no longer applies before changing or removing the regression.
+
 Specification/contract-based tests and implementation/structural tests are
 separate evidence. Structural inspection can show that a path was exercised;
 it cannot establish that the path implements the correct requirement.
@@ -199,7 +207,11 @@ For every defect fix:
 4. run confirmation testing proving the original defect is corrected;
 5. run relevant regression testing;
 6. normally retain a regression test that would fail if the defect returns;
-7. examine whether the escape reveals a reusable process/test improvement.
+7. when the known-bad candidate remains reproducible, demonstrate that retained
+   regression RED against that actual bad candidate and GREEN against the
+   corrected candidate; a regression that is only shown GREEN on the fix has
+   not yet proved that it detects the escaped defect;
+8. examine whether the escape reveals a reusable process/test improvement.
 
 An escaped defect is evidence about both the product and the verification
 process. Fixing only the local code without examining a reusable systemic
@@ -447,6 +459,8 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Confirmation testing proves the fix.
 - [ ] Relevant regression testing passes.
 - [ ] A regression test is retained unless there is a documented reason not to.
+- [ ] When a known-bad candidate is reproducible, the retained regression was
+  demonstrated RED on that candidate and GREEN on the corrected candidate.
 - [ ] Escaped defects were assessed for systemic prevention improvements.
 - [ ] For assembled escaped defects, retained regression continues through
   downstream supported stages that were previously unreachable.
