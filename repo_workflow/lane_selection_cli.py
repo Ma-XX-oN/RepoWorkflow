@@ -7,7 +7,12 @@ from pathlib import Path
 from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionStore
-from .lane_traversal import FollowPolicy, parse_follow_arguments
+from .lane_traversal import (
+  FollowPolicy,
+  ShowChildrenPolicy,
+  parse_follow_arguments,
+  parse_show_children_arguments,
+)
 from .lane_render import render_lanes
 from .relationship_bootstrap import ensure_relationship_graph
 from .runtime_identity import runtime_writer_identity
@@ -30,7 +35,13 @@ def handle_lane_selection(
 
   if words[:2] != ["lanes", "select"]:
     raise ValueError("invalid lanes command")
-  tail, as_json, refresh, requested_follow = _selection_arguments(words[2:])
+  (
+    tail,
+    as_json,
+    refresh,
+    requested_follow,
+    requested_show_children,
+  ) = _selection_arguments(words[2:])
   if not tail:
     raise ValueError("lane selection requires at least one root")
 
@@ -38,6 +49,11 @@ def handle_lane_selection(
     if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
     follow = current.value.follow if requested_follow is None else requested_follow
+    show_children = (
+      current.value.show_children
+      if requested_show_children is None
+      else requested_show_children
+    )
     additions = tuple(tail[1:])
     desired = tuple(sorted(
       set(current.value.roots) | {str(int(value)) for value in additions},
@@ -50,6 +66,7 @@ def handle_lane_selection(
       refresh=refresh,
       diagnostics=diagnostics,
       follow=follow,
+      show_children=show_children,
     )
     started = time.perf_counter()
     result = store.add(
@@ -57,6 +74,7 @@ def handle_lane_selection(
       writer,
       expected_revision=current.revision,
       follow=follow,
+      show_children=show_children,
     )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
@@ -64,6 +82,11 @@ def handle_lane_selection(
     if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
     follow = current.value.follow if requested_follow is None else requested_follow
+    show_children = (
+      current.value.show_children
+      if requested_show_children is None
+      else requested_show_children
+    )
     removals = tuple(tail[1:])
     removed = {str(int(value)) for value in removals}
     desired = tuple(
@@ -78,6 +101,7 @@ def handle_lane_selection(
         refresh=refresh,
         diagnostics=diagnostics,
         follow=follow,
+        show_children=show_children,
       )
     started = time.perf_counter()
     result = store.remove(
@@ -85,11 +109,17 @@ def handle_lane_selection(
       writer,
       expected_revision=current.revision,
       follow=follow,
+      show_children=show_children,
     )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
   else:
     follow = FollowPolicy() if requested_follow is None else requested_follow
+    show_children = (
+      ShowChildrenPolicy()
+      if requested_show_children is None
+      else requested_show_children
+    )
     desired = tuple(tail)
     _prepare(
       root,
@@ -98,6 +128,7 @@ def handle_lane_selection(
       refresh=refresh,
       diagnostics=diagnostics,
       follow=follow,
+      show_children=show_children,
     )
     started = time.perf_counter()
     result = store.select(
@@ -105,6 +136,7 @@ def handle_lane_selection(
       writer,
       expected_revision=current.revision,
       follow=follow,
+      show_children=show_children,
     )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
@@ -132,6 +164,7 @@ def _prepare(
   refresh: bool,
   diagnostics: LaneDiagnostics | None,
   follow: FollowPolicy,
+  show_children: ShowChildrenPolicy,
 ) -> None:
   started = time.perf_counter()
   relationships = ensure_relationship_graph(
@@ -141,6 +174,7 @@ def _prepare(
     refresh=refresh,
     diagnostics=diagnostics,
     follow=follow,
+    show_children=show_children,
   )
   if diagnostics is not None:
     diagnostics.phase("relationships", started)
@@ -158,9 +192,16 @@ def _prepare(
 
 def _selection_arguments(
   words: list[str],
-) -> tuple[list[str], bool, bool, FollowPolicy | None]:
+) -> tuple[
+  list[str],
+  bool,
+  bool,
+  FollowPolicy | None,
+  ShowChildrenPolicy | None,
+]:
   positional: list[str] = []
   follow_values: list[tuple[str, str | None]] = []
+  show_children_values: list[str] = []
   as_json = False
   refresh = False
   index = 0
@@ -189,7 +230,18 @@ def _selection_arguments(
         index += 1
       follow_values.append((kind, count))
       continue
+    if token == "--show-children":
+      if index + 1 >= len(words):
+        raise ValueError("--show-children requires a group kind")
+      show_children_values.append(words[index + 1])
+      index += 2
+      continue
     positional.append(token)
     index += 1
   follow = None if not follow_values else parse_follow_arguments(follow_values)
-  return positional, as_json, refresh, follow
+  show_children = (
+    None
+    if not show_children_values
+    else parse_show_children_arguments(show_children_values)
+  )
+  return positional, as_json, refresh, follow, show_children

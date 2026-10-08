@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from repo_workflow.lane_selection import LaneSelectionError, LaneSelectionStore
-from repo_workflow.lane_traversal import FollowPolicy
+from repo_workflow.lane_traversal import FollowPolicy, ShowChildrenPolicy
 from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
@@ -175,7 +175,77 @@ class LaneSelectionTests(unittest.TestCase):
     )
     current = self.store.read()
     self.assertEqual(current.value.follow, FollowPolicy())
-    self.assertEqual(current.value.schema_version, 2)
+    self.assertEqual(current.value.show_children, ShowChildrenPolicy())
+    self.assertEqual(current.value.schema_version, 3)
+
+  def test_show_children_policy_is_persisted_with_selection(self):
+    before = self.relationships.read()
+    self.relationships.replace(
+      before.revision,
+      RelationshipGraph(issues={
+        "1": titled("Issue 1"),
+        "2": titled("Feature: Boundary", 1),
+        "3": titled("Issue 3", 2),
+        "4": titled("Issue 4", 3),
+      }),
+      self.writer,
+    )
+    result = self.store.select(
+      (1,),
+      self.writer,
+      show_children=ShowChildrenPolicy(feature=True),
+    )
+    self.assertEqual(result.value.closure, ("1", "2", "3"))
+    self.assertEqual(
+      self.store.read().value.show_children,
+      ShowChildrenPolicy(feature=True),
+    )
+
+  def test_add_without_new_show_children_flags_preserves_policy(self):
+    before = self.relationships.read()
+    self.relationships.replace(
+      before.revision,
+      RelationshipGraph(issues={
+        "1": titled("Issue 1"),
+        "2": titled("Feature: Boundary", 1),
+        "3": titled("Issue 3", 2),
+        "4": titled("Issue 4"),
+      }),
+      self.writer,
+    )
+    first = self.store.select(
+      (1,),
+      self.writer,
+      show_children=ShowChildrenPolicy(feature=True),
+    )
+    second = self.store.add(
+      (4,),
+      self.writer,
+      expected_revision=first.revision,
+    )
+    self.assertEqual(
+      second.value.show_children,
+      ShowChildrenPolicy(feature=True),
+    )
+    self.assertEqual(second.value.closure, ("1", "2", "3", "4"))
+
+  def test_schema_two_selection_reads_with_default_show_children_policy(self):
+    revision = self.relationships.read().revision
+    self.store.records.create(
+      "selection",
+      {
+        "schema_version": 2,
+        "roots": ["1"],
+        "closure": ["1"],
+        "graph_revision": revision,
+        "follow": FollowPolicy().to_json_value(),
+        "assignment": {"1": "A"},
+      },
+      self.writer,
+    )
+    current = self.store.read()
+    self.assertEqual(current.value.show_children, ShowChildrenPolicy())
+    self.assertEqual(current.value.schema_version, 3)
 
   def test_selection_is_worktree_local(self):
     self.store.select((3,), self.writer)

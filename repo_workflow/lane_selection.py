@@ -5,13 +5,13 @@ from pathlib import Path
 
 from .git import git
 from .lane_decomposition import LanePlan, decompose_lanes
-from .lane_traversal import FollowPolicy
+from .lane_traversal import FollowPolicy, ShowChildrenPolicy
 from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
 
 RECORD_KEY = "selection"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class LaneSelectionError(RuntimeError):
@@ -25,6 +25,7 @@ class LaneSelection:
   graph_revision: int
   assignment: dict[str, str]
   follow: FollowPolicy = FollowPolicy()
+  show_children: ShowChildrenPolicy = ShowChildrenPolicy()
   schema_version: int = SCHEMA_VERSION
 
   def to_json_value(self) -> dict:
@@ -34,6 +35,7 @@ class LaneSelection:
       "closure": list(self.closure),
       "graph_revision": self.graph_revision,
       "follow": self.follow.to_json_value(),
+      "show_children": self.show_children.to_json_value(),
       "assignment": {
         issue: self.assignment[issue]
         for issue in sorted(self.assignment, key=int)
@@ -75,11 +77,18 @@ class LaneSelectionStore:
     *,
     expected_revision: int | None = None,
     follow: FollowPolicy | None = None,
+    show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     normalized = _ids(roots)
     if not normalized:
       raise LaneSelectionError("lane selection requires at least one root")
-    return self._write(normalized, writer, expected_revision, follow=follow)
+    return self._write(
+      normalized,
+      writer,
+      expected_revision,
+      follow=follow,
+      show_children=show_children,
+    )
 
   def add(
     self,
@@ -88,14 +97,21 @@ class LaneSelectionStore:
     *,
     expected_revision: int,
     follow: FollowPolicy | None = None,
+    show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
     policy = current.value.follow if follow is None else follow
+    context = (
+      current.value.show_children
+      if show_children is None
+      else show_children
+    )
     return self._write(
       tuple(sorted(set(current.value.roots) | set(_ids(roots)), key=int)),
       writer,
       expected_revision,
       follow=policy,
+      show_children=context,
     )
 
   def remove(
@@ -105,15 +121,27 @@ class LaneSelectionStore:
     *,
     expected_revision: int,
     follow: FollowPolicy | None = None,
+    show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
     policy = current.value.follow if follow is None else follow
+    context = (
+      current.value.show_children
+      if show_children is None
+      else show_children
+    )
     remaining = tuple(
       value for value in current.value.roots if value not in set(_ids(roots))
     )
     if not remaining:
       raise LaneSelectionError("remove would leave an empty selection; use clear")
-    return self._write(remaining, writer, expected_revision, follow=policy)
+    return self._write(
+      remaining,
+      writer,
+      expected_revision,
+      follow=policy,
+      show_children=context,
+    )
 
   def clear(
     self,
@@ -127,6 +155,7 @@ class LaneSelectionStore:
       "closure": [],
       "graph_revision": self._graph_revision(),
       "follow": FollowPolicy().to_json_value(),
+      "show_children": ShowChildrenPolicy().to_json_value(),
       "assignment": {},
     }
     try:
@@ -168,6 +197,7 @@ class LaneSelectionStore:
     expected_revision: int | None,
     *,
     follow: FollowPolicy | None = None,
+    show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     try:
       graph = RelationshipStore(self.root).read()
@@ -178,8 +208,14 @@ class LaneSelectionStore:
         ) from error
       raise LaneSelectionError(str(error)) from error
     policy = FollowPolicy() if follow is None else follow
-    plan = decompose_lanes(graph.graph, roots, follow=policy)
-    value = _from_plan(plan, graph.revision, policy)
+    context = ShowChildrenPolicy() if show_children is None else show_children
+    plan = decompose_lanes(
+      graph.graph,
+      roots,
+      follow=policy,
+      show_children=context,
+    )
+    value = _from_plan(plan, graph.revision, policy, context)
     current = self.read()
     if current.revision != expected_revision:
       raise LaneSelectionError(
@@ -205,6 +241,7 @@ def _from_plan(
   plan: LanePlan,
   graph_revision: int,
   follow: FollowPolicy,
+  show_children: ShowChildrenPolicy,
 ) -> LaneSelection:
   assignment = {
     issue: lane.name
@@ -217,6 +254,7 @@ def _from_plan(
     graph_revision=graph_revision,
     assignment=assignment,
     follow=follow,
+    show_children=show_children,
   )
 
 
@@ -228,6 +266,8 @@ def _selection(value: dict) -> LaneSelection:
     "schema_version", "roots", "closure", "graph_revision", "assignment"
   }
   if version == SCHEMA_VERSION:
+    expected.update({"follow", "show_children"})
+  elif version == 2:
     expected.add("follow")
   elif version != 1:
     raise LaneSelectionError("unsupported lane selection schema version")
@@ -243,6 +283,11 @@ def _selection(value: dict) -> LaneSelection:
     if version == 1
     else FollowPolicy.from_json_value(value["follow"])
   )
+  show_children = (
+    ShowChildrenPolicy()
+    if version in {1, 2}
+    else ShowChildrenPolicy.from_json_value(value["show_children"])
+  )
   assignment = value["assignment"]
   if not isinstance(assignment, dict) or set(assignment) != set(closure):
     raise LaneSelectionError("lane assignment must cover the complete closure")
@@ -251,7 +296,14 @@ def _selection(value: dict) -> LaneSelection:
     if not isinstance(lane, str) or not lane:
       raise LaneSelectionError("lane name must be non-empty text")
     normalized[issue] = lane
-  return LaneSelection(roots, closure, revision, normalized, follow)
+  return LaneSelection(
+    roots,
+    closure,
+    revision,
+    normalized,
+    follow,
+    show_children,
+  )
 
 
 def _ids(values: tuple[str | int, ...]) -> tuple[str, ...]:

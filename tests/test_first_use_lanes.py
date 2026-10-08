@@ -338,6 +338,104 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4})
 
+  def test_show_children_fetches_one_hop_without_recursive_traversal(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+          4: [3],
+        },
+        titles={
+          1: "Issue 1",
+          2: "Feature: Boundary",
+          3: "Issue 3",
+          4: "Issue 4",
+        },
+      )
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "1",
+        "--show-children",
+        "feature",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(
+        json.loads(selected.stdout)["closure"],
+        ["1", "2", "3"],
+      )
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3})
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertNotIn(4, self.dependency_calls(env))
+
+      selection_path = (
+        root / ".git/repoworkflow/lane-selection/selection.json"
+      )
+      record = json.loads(selection_path.read_text(encoding="utf-8"))
+      self.assertTrue(
+        record["value"]["show_children"]["feature"],
+      )
+
+  def test_show_children_support_fetch_does_not_expand_projection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+          4: [3],
+        },
+        titles={
+          1: "Issue 1",
+          2: "Issue 2",
+          3: "Feature: Boundary",
+          4: "Issue 4",
+        },
+      )
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "4",
+        "--show-children",
+        "feature",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(
+        json.loads(selected.stdout)["closure"],
+        ["2", "3", "4"],
+      )
+      self.assertNotIn("1", json.loads(selected.stdout)["closure"])
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4})
+
   def test_refresh_preserves_consumed_follow_budget(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
