@@ -203,6 +203,16 @@ Feature: ...
 These prefixes help humans navigate and review decomposition. They do not create
 ownership, membership, readiness, or ordering semantics.
 
+Corrective and structural work may instead use:
+
+```text
+Bug: ...
+Refactor: ...
+```
+
+Those are also descriptive classifications only and do not change graph
+traversal or dependency semantics.
+
 An ordinary implementation/certification ticket normally has no such prefix.
 
 ### 5.1 Direct dependency
