@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -105,6 +106,78 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       capture_output=True,
       text=True,
     )
+
+  def test_focus_seed_413_preserves_canonical_component(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      with CANONICAL_TICKETS.open(
+        newline="",
+        encoding="utf-8",
+      ) as handle:
+        rows = {
+          row["issue"]: row
+          for row in csv.DictReader(handle)
+          if row["issue"] in {"409", "410", "411", "412", "413"}
+        }
+      self.assertEqual(
+        {
+          issue: row["dependencies"]
+          for issue, row in rows.items()
+        },
+        {
+          "409": "413",
+          "410": "",
+          "411": "410",
+          "412": "410;456",
+          "413": "410;411;412",
+        },
+      )
+      self.assertTrue(rows["409"]["title"].startswith("Epic:"))
+
+      selected = self.run_rwf(
+        root,
+        "lanes",
+        "select",
+        "413",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      value = json.loads(selected.stdout)
+      self.assertEqual(value["roots"], ["413"])
+      self.assertEqual(
+        value["closure"],
+        ["409", "410", "411", "412", "413", "456"],
+      )
+
+      rendered = self.run_rwf(root, "lanes", "select", "413")
+      self.assertEqual(rendered.returncode, 0, rendered.stderr)
+      self.assertEqual(rendered.stdout.count("*"), 1)
+      self.assertRegex(rendered.stdout, re.compile(r"\*[A-Z]+413\b"))
+      for issue in ("409", "410", "411", "412", "413", "456"):
+        self.assertIn(issue, rendered.stdout)
+
+      repeated = self.run_rwf(root, "lanes", "select", "413")
+      self.assertEqual(repeated.returncode, 0, repeated.stderr)
+      self.assertEqual(repeated.stdout, rendered.stdout)
+
+      restarted = self.run_rwf(root, "lanes", "view")
+      self.assertEqual(restarted.returncode, 0, restarted.stderr)
+      self.assertEqual(restarted.stdout, rendered.stdout)
+
+      debug = self.run_rwf(root, "lanes", "view", "--debug")
+      self.assertEqual(debug.returncode, 0, debug.stderr)
+      for edge in (
+        "410 -> 411",
+        "410 -> 412",
+        "410 -> 413",
+        "411 -> 413",
+        "412 -> 413",
+        "413 -> 409",
+      ):
+        self.assertIn(edge, debug.stdout)
 
   def test_current_typed_issue_smoke_renders_through_public_cli(self):
     with tempfile.TemporaryDirectory() as td:
