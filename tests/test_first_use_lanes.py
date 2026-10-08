@@ -259,6 +259,42 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn("Leaf 201", viewed.stdout)
       self.assertNotIn("Root 203", viewed.stdout)
 
+
+  def test_no_follow_keeps_provider_support_out_of_projection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      value = json.loads(selected.stdout)
+      self.assertEqual(value["roots"], ["203"])
+      self.assertEqual(value["closure"], ["203"])
+      self.assertEqual(
+        value["follow"],
+        {"group": 0, "feature": 0, "epic": 0, "initiative": 0},
+      )
+
+      self.assertEqual(self.dependency_calls(env), [203, 201])
+      rows = self.ticket_rows(root)
+      self.assertEqual(rows["203"]["dependencies"], "201")
+      self.assertIn("201", rows)
+
+      viewed = self.run_rwf(root, env, "lanes", "view")
+      self.assertEqual(viewed.returncode, 0, viewed.stderr)
+      self.assertIn("A203", viewed.stdout)
+      self.assertNotIn("A201", viewed.stdout)
+
   def test_leaf_focus_discovers_complete_component_from_provider(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
