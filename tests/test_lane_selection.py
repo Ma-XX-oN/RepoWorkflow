@@ -38,7 +38,11 @@ class LaneSelectionTests(unittest.TestCase):
     self.temp.cleanup()
 
   def test_create_records_roots_closure_revision_and_assignment(self):
-    result = self.store.select((3,), self.writer)
+    result = self.store.select(
+      (3,),
+      self.writer,
+      follow=FollowPolicy(feature=1),
+    )
     self.assertEqual(result.value.roots, ("3",))
     self.assertEqual(result.value.closure, ("1", "2", "3"))
     self.assertEqual(
@@ -47,32 +51,44 @@ class LaneSelectionTests(unittest.TestCase):
     )
     self.assertEqual(set(result.value.assignment), {"1", "2", "3"})
 
-  def test_selected_dependency_is_focus_inside_complete_component(self):
-    result = self.store.select((1,), self.writer)
+  def test_followed_dependency_is_focus_inside_complete_component(self):
+    result = self.store.select(
+      (1,),
+      self.writer,
+      follow=FollowPolicy(feature=1),
+    )
     self.assertEqual(result.value.roots, ("1",))
     self.assertEqual(result.value.closure, ("1", "2", "3"))
     self.assertEqual(set(result.value.assignment), {"1", "2", "3"})
 
   def test_add_focus_in_same_component_preserves_complete_component(self):
-    first = self.store.select((1,), self.writer)
+    first = self.store.select(
+      (1,), self.writer, follow=FollowPolicy(feature=1)
+    )
     second = self.store.add((3,), self.writer, expected_revision=first.revision)
     self.assertEqual(second.value.roots, ("1", "3"))
     self.assertEqual(second.value.closure, ("1", "2", "3"))
 
   def test_remove_focus_in_same_component_keeps_component_from_remaining_seed(self):
-    first = self.store.select((1, 3), self.writer)
+    first = self.store.select(
+      (1, 3), self.writer, follow=FollowPolicy(feature=1)
+    )
     second = self.store.remove((1,), self.writer, expected_revision=first.revision)
     self.assertEqual(second.value.roots, ("3",))
     self.assertEqual(second.value.closure, ("1", "2", "3"))
 
   def test_add_recomputes_complete_decomposition_atomically(self):
-    first = self.store.select((3,), self.writer)
+    first = self.store.select(
+      (3,), self.writer, follow=FollowPolicy(feature=1)
+    )
     second = self.store.add((4,), self.writer, expected_revision=first.revision)
     self.assertEqual(second.value.roots, ("3", "4"))
     self.assertEqual(second.value.closure, ("1", "2", "3", "4"))
 
   def test_remove_recomputes_closure(self):
-    first = self.store.select((3, 4), self.writer)
+    first = self.store.select(
+      (3, 4), self.writer, follow=FollowPolicy(feature=1)
+    )
     second = self.store.remove((3,), self.writer, expected_revision=first.revision)
     self.assertEqual(second.value.roots, ("4",))
     self.assertEqual(second.value.closure, ("4",))
@@ -98,7 +114,7 @@ class LaneSelectionTests(unittest.TestCase):
       self.store.remove((4,), self.writer, expected_revision=first.revision)
     self.assertEqual(self.store.read(), second)
 
-  def test_default_selection_stops_at_group_boundary(self):
+  def test_enabled_selection_stops_at_unfollowed_group_boundary(self):
     before = self.relationships.read()
     self.relationships.replace(
       before.revision,
@@ -109,9 +125,13 @@ class LaneSelectionTests(unittest.TestCase):
       }),
       self.writer,
     )
-    result = self.store.select((1,), self.writer)
+    result = self.store.select(
+      (1,),
+      self.writer,
+      follow=FollowPolicy(epic=1),
+    )
     self.assertEqual(result.value.closure, ("1", "2"))
-    self.assertEqual(result.value.follow, FollowPolicy())
+    self.assertEqual(result.value.follow, FollowPolicy(epic=1))
 
   def test_follow_policy_is_persisted_with_selection(self):
     before = self.relationships.read()
@@ -193,6 +213,7 @@ class LaneSelectionTests(unittest.TestCase):
     result = self.store.select(
       (1,),
       self.writer,
+      follow=FollowPolicy(epic=1),
       show_children=ShowChildrenPolicy(feature=True),
     )
     self.assertEqual(result.value.closure, ("1", "2", "3"))
@@ -216,6 +237,7 @@ class LaneSelectionTests(unittest.TestCase):
     first = self.store.select(
       (1,),
       self.writer,
+      follow=FollowPolicy(epic=1),
       show_children=ShowChildrenPolicy(feature=True),
     )
     second = self.store.add(
