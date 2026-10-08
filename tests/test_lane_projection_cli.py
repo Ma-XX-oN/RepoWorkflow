@@ -4,7 +4,11 @@ import io
 import unittest
 from unittest import mock
 
-from repo_workflow.command_grammar import Context, completion_items, parse_tokens
+from repo_workflow.command_grammar import (
+  Context,
+  completion_items,
+  parse_tokens,
+)
 from repo_workflow.lane_projection import ProjectionRule
 from repo_workflow.lane_selection import LaneSelection, LaneSelectionSnapshot
 from repo_workflow.lane_selection_cli import (
