@@ -6,6 +6,7 @@ from repo_workflow.lane_projection import (
   normalize_rules,
   project_rule,
   project_rules,
+  selection_expression,
 )
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 
@@ -148,6 +149,27 @@ class LaneProjectionTests(unittest.TestCase):
         ProjectionRule("3", "dependencies"),
         ProjectionRule("3", "single"),
       ),
+    )
+
+  def test_selection_expression_is_compact_and_deterministic(self):
+    self.assertEqual(
+      selection_expression(
+        (
+          ProjectionRule("413", "both"),
+          ProjectionRule("521", "single"),
+        ),
+        (ProjectionRule("456", "dependents"),),
+      ),
+      "(inc_both(#413) ∪ #521) − inc_dependents(#456)",
+    )
+
+  def test_selection_expression_names_dependencies_explicitly(self):
+    self.assertEqual(
+      selection_expression(
+        (ProjectionRule("7", "single"),),
+        (ProjectionRule("3", "dependencies"),),
+      ),
+      "#7 − inc_dependencies(#3)",
     )
 
   def test_invalid_mode_is_rejected(self):
