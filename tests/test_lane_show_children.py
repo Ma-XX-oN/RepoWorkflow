@@ -20,13 +20,19 @@ class LaneShowChildrenTests(unittest.TestCase):
     plan = decompose_lanes(
       graph,
       [1],
+      follow=FollowPolicy(epic=1),
       show_children=ShowChildrenPolicy(feature=True),
     )
     self.assertEqual(plan.closure, ("1", "2", "3"))
     self.assertNotIn("4", plan.closure)
 
   def test_group_matches_feature_epic_and_initiative(self):
-    for title in ("Feature: F", "Epic: E", "Initiative: I"):
+    cases = (
+      ("Feature: F", FollowPolicy(epic=1)),
+      ("Epic: E", FollowPolicy(feature=1)),
+      ("Initiative: I", FollowPolicy(feature=1)),
+    )
+    for title, follow in cases:
       with self.subTest(title=title):
         graph = RelationshipGraph(issues={
           "1": titled("Issue 1"),
@@ -36,6 +42,7 @@ class LaneShowChildrenTests(unittest.TestCase):
         plan = decompose_lanes(
           graph,
           [1],
+          follow=follow,
           show_children=ShowChildrenPolicy(group=True),
         )
         self.assertEqual(plan.closure, ("1", "2", "3"))
@@ -49,6 +56,7 @@ class LaneShowChildrenTests(unittest.TestCase):
     plan = decompose_lanes(
       graph,
       [1],
+      follow=FollowPolicy(feature=1),
       show_children=ShowChildrenPolicy(feature=True),
     )
     self.assertEqual(plan.closure, ("1", "2"))
@@ -78,6 +86,7 @@ class LaneShowChildrenTests(unittest.TestCase):
     plan = decompose_lanes(
       graph,
       [1],
+      follow=FollowPolicy(epic=1),
       show_children=ShowChildrenPolicy(feature=True),
     )
     self.assertIn("4", plan.closure)
@@ -93,6 +102,7 @@ class LaneShowChildrenTests(unittest.TestCase):
     plan = decompose_lanes(
       graph,
       [2],
+      follow=FollowPolicy(epic=1),
       show_children=ShowChildrenPolicy(feature=True),
     )
     self.assertEqual(plan.closure, ("1", "2", "3", "4"))
