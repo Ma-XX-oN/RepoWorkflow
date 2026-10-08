@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .git import git
-from .lane_decomposition import LanePlan, decompose_lanes
-from .lane_projection import ProjectionRule, decompose_rules, normalize_rules
-from .lane_traversal import FollowPolicy, ShowChildrenPolicy
+from .lane_projection import (
+  ProjectionRule,
+  decompose_rules,
+  normalize_rules,
+)
 from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
@@ -27,8 +29,6 @@ class LaneSelection:
   assignment: dict[str, str]
   includes: tuple[ProjectionRule, ...] = ()
   excludes: tuple[ProjectionRule, ...] = ()
-  follow: FollowPolicy = FollowPolicy()
-  show_children: ShowChildrenPolicy = ShowChildrenPolicy()
   schema_version: int = SCHEMA_VERSION
 
   def to_json_value(self) -> dict:
@@ -39,8 +39,6 @@ class LaneSelection:
       "excludes": [rule.to_json_value() for rule in self.excludes],
       "closure": list(self.closure),
       "graph_revision": self.graph_revision,
-      "follow": self.follow.to_json_value(),
-      "show_children": self.show_children.to_json_value(),
       "assignment": {
         issue: self.assignment[issue]
         for issue in sorted(self.assignment, key=int)
@@ -71,45 +69,20 @@ class LaneSelectionStore:
       raise LaneSelectionError(str(error)) from error
     parsed = _selection(record["value"])
     return LaneSelectionSnapshot(
-      None if not parsed.roots else parsed,
+      None if not parsed.includes else parsed,
       record["revision"],
     )
 
   def project(
     self,
     roots: tuple[str | int, ...],
-    *,
-    follow: FollowPolicy | None = None,
-    show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelection:
-    normalized = _ids(roots)
-    if not normalized:
-      raise LaneSelectionError("lane selection requires at least one root")
-    try:
-      graph = RelationshipStore(self.root).read()
-    except RelationshipStoreError as error:
-      if "record is missing:" in str(error):
-        raise LaneSelectionError(
-          "canonical relationship graph is not initialized"
-        ) from error
-      raise LaneSelectionError(str(error)) from error
-    policy = FollowPolicy() if follow is None else follow
-    context = ShowChildrenPolicy() if show_children is None else show_children
-    plan = decompose_lanes(
-      graph.graph,
-      normalized,
-      follow=policy,
-      show_children=context,
-    )
-    return _from_plan(plan, graph.revision, policy, context)
+    return self.project_rules(_rules(roots, "both"))
 
   def project_rules(
     self,
     includes: tuple[ProjectionRule, ...],
     excludes: tuple[ProjectionRule, ...] = (),
-    *,
-    follow: FollowPolicy | None = None,
-    show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelection:
     include_rules = normalize_rules(includes)
     exclude_rules = normalize_rules(excludes)
@@ -123,16 +96,34 @@ class LaneSelectionStore:
           "canonical relationship graph is not initialized"
         ) from error
       raise LaneSelectionError(str(error)) from error
-    policy = FollowPolicy() if follow is None else follow
-    context = ShowChildrenPolicy() if show_children is None else show_children
+
     plan = decompose_rules(graph.graph, include_rules, exclude_rules)
-    return _from_plan(
-      plan,
-      graph.revision,
-      policy,
-      context,
+    assignment = {
+      issue: lane.name
+      for lane in plan.lanes
+      for issue in lane.issues
+    }
+    roots = tuple(sorted({rule.seed for rule in include_rules}, key=int))
+    return LaneSelection(
+      roots=roots,
+      closure=plan.closure,
+      graph_revision=graph.revision,
+      assignment=assignment,
       includes=include_rules,
       excludes=exclude_rules,
+    )
+
+  def select(
+    self,
+    roots: tuple[str | int, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int | None = None,
+  ) -> LaneSelectionSnapshot:
+    return self.select_rules(
+      _rules(roots, "both"),
+      writer,
+      expected_revision=expected_revision,
     )
 
   def select_rules(
@@ -146,6 +137,19 @@ class LaneSelectionStore:
     value = self.project_rules(includes, excludes)
     return self._write_value(value, writer, expected_revision)
 
+  def add(
+    self,
+    roots: tuple[str | int, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int,
+  ) -> LaneSelectionSnapshot:
+    return self.add_rules(
+      _rules(roots, "both"),
+      writer,
+      expected_revision=expected_revision,
+    )
+
   def add_rules(
     self,
     additions: tuple[ProjectionRule, ...],
@@ -155,13 +159,21 @@ class LaneSelectionStore:
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
     includes = normalize_rules((*current.value.includes, *additions))
-    value = self.project_rules(
-      includes,
-      current.value.excludes,
-      follow=current.value.follow,
-      show_children=current.value.show_children,
-    )
+    value = self.project_rules(includes, current.value.excludes)
     return self._write_value(value, writer, expected_revision)
+
+  def remove(
+    self,
+    roots: tuple[str | int, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int,
+  ) -> LaneSelectionSnapshot:
+    return self.remove_rules(
+      _rules(roots, "both"),
+      writer,
+      expected_revision=expected_revision,
+    )
 
   def remove_rules(
     self,
@@ -173,17 +185,15 @@ class LaneSelectionStore:
     current = self._expected(expected_revision)
     remove_set = set(normalize_rules(removals))
     includes = tuple(
-      rule for rule in current.value.includes
+      rule
+      for rule in current.value.includes
       if rule not in remove_set
     )
     if not includes:
-      raise LaneSelectionError("remove would leave an empty selection; use clear")
-    value = self.project_rules(
-      includes,
-      current.value.excludes,
-      follow=current.value.follow,
-      show_children=current.value.show_children,
-    )
+      raise LaneSelectionError(
+        "remove would leave an empty selection; use clear"
+      )
+    value = self.project_rules(includes, current.value.excludes)
     return self._write_value(value, writer, expected_revision)
 
   def exclude_rules(
@@ -195,100 +205,22 @@ class LaneSelectionStore:
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
     excludes = normalize_rules((*current.value.excludes, *additions))
-    value = self.project_rules(
-      current.value.includes,
-      excludes,
-      follow=current.value.follow,
-      show_children=current.value.show_children,
-    )
+    value = self.project_rules(current.value.includes, excludes)
     return self._write_value(value, writer, expected_revision)
-
-  def select(
-    self,
-    roots: tuple[str | int, ...],
-    writer: WriterIdentity,
-    *,
-    expected_revision: int | None = None,
-    follow: FollowPolicy | None = None,
-    show_children: ShowChildrenPolicy | None = None,
-  ) -> LaneSelectionSnapshot:
-    normalized = _ids(roots)
-    if not normalized:
-      raise LaneSelectionError("lane selection requires at least one root")
-    return self._write(
-      normalized,
-      writer,
-      expected_revision,
-      follow=follow,
-      show_children=show_children,
-    )
-
-  def add(
-    self,
-    roots: tuple[str | int, ...],
-    writer: WriterIdentity,
-    *,
-    expected_revision: int,
-    follow: FollowPolicy | None = None,
-    show_children: ShowChildrenPolicy | None = None,
-  ) -> LaneSelectionSnapshot:
-    current = self._expected(expected_revision)
-    policy = current.value.follow if follow is None else follow
-    context = (
-      current.value.show_children
-      if show_children is None
-      else show_children
-    )
-    return self._write(
-      tuple(sorted(set(current.value.roots) | set(_ids(roots)), key=int)),
-      writer,
-      expected_revision,
-      follow=policy,
-      show_children=context,
-    )
-
-  def remove(
-    self,
-    roots: tuple[str | int, ...],
-    writer: WriterIdentity,
-    *,
-    expected_revision: int,
-    follow: FollowPolicy | None = None,
-    show_children: ShowChildrenPolicy | None = None,
-  ) -> LaneSelectionSnapshot:
-    current = self._expected(expected_revision)
-    policy = current.value.follow if follow is None else follow
-    context = (
-      current.value.show_children
-      if show_children is None
-      else show_children
-    )
-    remaining = tuple(
-      value for value in current.value.roots if value not in set(_ids(roots))
-    )
-    if not remaining:
-      raise LaneSelectionError("remove would leave an empty selection; use clear")
-    return self._write(
-      remaining,
-      writer,
-      expected_revision,
-      follow=policy,
-      show_children=context,
-    )
 
   def clear(
     self,
     *,
     expected_revision: int,
   ) -> LaneSelectionSnapshot:
-    current = self._expected(expected_revision)
+    self._expected(expected_revision)
     empty = {
       "schema_version": SCHEMA_VERSION,
       "roots": [],
+      "includes": [],
+      "excludes": [],
       "closure": [],
       "graph_revision": self._graph_revision(),
-      "follow": FollowPolicy().to_json_value(),
-      "show_children": ShowChildrenPolicy().to_json_value(),
       "assignment": {},
     }
     try:
@@ -349,105 +281,48 @@ class LaneSelectionStore:
       raise LaneSelectionError(str(error)) from error
     return LaneSelectionSnapshot(value, record["revision"])
 
-  def _write(
-    self,
-    roots: tuple[str, ...],
-    writer: WriterIdentity,
-    expected_revision: int | None,
-    *,
-    follow: FollowPolicy | None = None,
-    show_children: ShowChildrenPolicy | None = None,
-  ) -> LaneSelectionSnapshot:
-    value = self.project(
-      roots,
-      follow=follow,
-      show_children=show_children,
-    )
-    current = self.read()
-    if current.revision != expected_revision:
-      raise LaneSelectionError(
-        f"stale lane selection revision: expected {expected_revision!r}, "
-        f"current {current.revision!r}"
-      )
-    try:
-      if expected_revision is None:
-        record = self.records.create(RECORD_KEY, value.to_json_value(), writer)
-      else:
-        record = self.records.replace(
-          RECORD_KEY,
-          expected_revision,
-          value.to_json_value(),
-          writer,
-        )
-    except StateStoreError as error:
-      raise LaneSelectionError(str(error)) from error
-    return LaneSelectionSnapshot(value, record["revision"])
-
-
-def _from_plan(
-  plan: LanePlan,
-  graph_revision: int,
-  follow: FollowPolicy,
-  show_children: ShowChildrenPolicy,
-  *,
-  includes: tuple[ProjectionRule, ...] | None = None,
-  excludes: tuple[ProjectionRule, ...] | None = None,
-) -> LaneSelection:
-  assignment = {
-    issue: lane.name
-    for lane in plan.lanes
-    for issue in lane.issues
-  }
-  return LaneSelection(
-    roots=plan.selected,
-    closure=plan.closure,
-    graph_revision=graph_revision,
-    assignment=assignment,
-    includes=(
-      tuple(ProjectionRule(issue, "both") for issue in plan.selected)
-      if includes is None
-      else normalize_rules(includes)
-    ),
-    excludes=(
-      ()
-      if excludes is None
-      else normalize_rules(excludes)
-    ),
-    follow=follow,
-    show_children=show_children,
-  )
-
 
 def _selection(value: dict) -> LaneSelection:
   if not isinstance(value, dict):
     raise LaneSelectionError("lane selection must be an object")
+
   version = value.get("schema_version")
-  expected = {
-    "schema_version", "roots", "closure", "graph_revision", "assignment"
+  legacy_expected = {
+    "schema_version",
+    "roots",
+    "closure",
+    "graph_revision",
+    "assignment",
   }
-  if version == SCHEMA_VERSION:
-    expected.update({"follow", "show_children"})
+  if version == 1:
+    expected = legacy_expected
   elif version == 2:
-    expected.add("follow")
-  elif version != 1:
+    expected = legacy_expected | {"follow"}
+  elif version == 3:
+    expected = legacy_expected | {"follow", "show_children"}
+  elif version == SCHEMA_VERSION:
+    expected = legacy_expected | {"includes", "excludes"}
+  else:
     raise LaneSelectionError("unsupported lane selection schema version")
   if set(value) != expected:
     raise LaneSelectionError("lane selection has missing/unsupported fields")
+
   roots = _ids(tuple(value["roots"]))
   closure = _ids(tuple(value["closure"]))
   revision = value["graph_revision"]
   if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
     raise LaneSelectionError("invalid relationship graph revision")
-  follow = (
-    FollowPolicy()
-    if version == 1
-    else FollowPolicy.from_json_value(value["follow"])
-  )
-  show_children = (
-    ShowChildrenPolicy()
-    if version in {1, 2}
-    else ShowChildrenPolicy.from_json_value(value["show_children"])
-  )
+
+  if version == SCHEMA_VERSION:
+    includes = _rule_values(value["includes"], "includes")
+    excludes = _rule_values(value["excludes"], "excludes")
+    include_roots = tuple(sorted({rule.seed for rule in includes}, key=int))
+    if roots != include_roots:
+      raise LaneSelectionError("roots must match include-rule seeds")
+  else:
+    includes = _rules(roots, "both")
+    excludes = ()
+
   assignment = value["assignment"]
   if not isinstance(assignment, dict) or set(assignment) != set(closure):
     raise LaneSelectionError("lane assignment must cover the complete closure")
@@ -456,14 +331,41 @@ def _selection(value: dict) -> LaneSelection:
     if not isinstance(lane, str) or not lane:
       raise LaneSelectionError("lane name must be non-empty text")
     normalized[issue] = lane
+
   return LaneSelection(
-    roots,
-    closure,
-    revision,
-    normalized,
-    follow,
-    show_children,
+    roots=roots,
+    closure=closure,
+    graph_revision=revision,
+    assignment=normalized,
+    includes=includes,
+    excludes=excludes,
   )
+
+
+def _rule_values(
+  values: object,
+  field: str,
+) -> tuple[ProjectionRule, ...]:
+  if not isinstance(values, list):
+    raise LaneSelectionError(f"{field} must be an array")
+  try:
+    rules = tuple(ProjectionRule.from_json_value(value) for value in values)
+    normalized = normalize_rules(rules)
+  except ValueError as error:
+    raise LaneSelectionError(str(error)) from error
+  if tuple(rules) != normalized:
+    raise LaneSelectionError(f"{field} must be unique and deterministic")
+  return normalized
+
+
+def _rules(
+  roots: tuple[str | int, ...],
+  mode: str,
+) -> tuple[ProjectionRule, ...]:
+  normalized = _ids(roots)
+  if not normalized:
+    raise LaneSelectionError("lane selection requires at least one root")
+  return tuple(ProjectionRule(issue, mode) for issue in normalized)
 
 
 def _ids(values: tuple[str | int, ...]) -> tuple[str, ...]:
