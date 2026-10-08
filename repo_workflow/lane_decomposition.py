@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from .lane_traversal import FollowPolicy, TraversalState, group_kind
 from .relationships import RelationshipGraph, RelationshipSchemaError
 
 
@@ -29,10 +30,14 @@ class LanePlan:
 def dependency_component(
   graph: RelationshipGraph,
   selected: Iterable[str | int],
+  *,
+  follow: FollowPolicy | None = None,
 ) -> tuple[str, ...]:
   selected_ids = _ids(selected)
+  selected_set = set(selected_ids)
   for issue in selected_ids:
     graph.issue(issue)
+  policy = FollowPolicy() if follow is None else follow
 
   neighbours = {issue: set() for issue in graph.issues}
   for issue, relation in graph.issues.items():
@@ -41,16 +46,30 @@ def dependency_component(
       neighbours[dependency].add(issue)
 
   connected: set[str] = set()
-  pending = list(selected_ids)
+  pending = [
+    TraversalState(issue, policy.remaining())
+    for issue in selected_ids
+  ]
+  visited: set[TraversalState] = set()
   while pending:
-    issue = pending.pop(0)
-    if issue in connected:
+    state = pending.pop(0)
+    if state in visited:
       continue
-    connected.add(issue)
-    pending.extend(sorted(
-      (value for value in neighbours[issue] if value not in connected),
-      key=int,
-    ))
+    visited.add(state)
+    connected.add(state.issue)
+
+    remaining = state.remaining
+    kind = group_kind(graph.issue(state.issue).title)
+    if state.issue not in selected_set:
+      crossed = policy.cross(kind, remaining)
+      if crossed is None:
+        continue
+      remaining = crossed
+
+    for neighbour in sorted(neighbours[state.issue], key=int):
+      next_state = TraversalState(neighbour, remaining)
+      if next_state not in visited and next_state not in pending:
+        pending.append(next_state)
   return tuple(sorted(connected, key=int))
 
 
@@ -59,10 +78,13 @@ def decompose_lanes(
   selected: Iterable[str | int],
   *,
   completed: Iterable[str | int] = (),
+  follow: FollowPolicy | None = None,
 ) -> LanePlan:
   selected_ids = _ids(selected)
   completed_ids = set(_ids(completed))
-  closure = set(dependency_component(graph, selected_ids)) - completed_ids
+  closure = set(
+    dependency_component(graph, selected_ids, follow=follow)
+  ) - completed_ids
 
   if not closure:
     return LanePlan(selected_ids, (), ())
