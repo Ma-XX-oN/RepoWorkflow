@@ -248,6 +248,23 @@ This requirement exists so dependency traversal can reconstruct how work
 expanded into prerequisite rabbit holes without relying on chat history or
 human memory.
 
+Before treating decomposition/ticket creation as complete, reconcile the
+agreed capability list against the provider tickets that were actually created:
+
+- every explicitly agreed implementation/certification capability must map to a
+  created ticket or an explicitly documented deferred item;
+- compare the final created-ticket set back to the agreed decomposition rather
+  than assuming sequential ticket creation was complete;
+- a capability discussed only in chat/specification notes is not safely
+  retained until it has a durable ticket/work-graph representation;
+- if a planned ticket is intentionally omitted, record that decision and why;
+- do not begin dependent implementation while an agreed, non-deferred
+  capability is missing from the provider/canonical work graph.
+
+This reconciliation closes the gap where a capability can be specified,
+announced as a planned ticket, and then disappear because the ticket itself was
+never created.
+
 [TICKET_STATE.md](TICKET_STATE.md) owns the concrete synchronized-ticket
 creation, commit, validation, and readback procedure that implements this
 requirement.
