@@ -388,6 +388,80 @@ actually crosses the relevant boundary.
 
 Verification reporting must state which category each result establishes.
 
+## 12.7 Temporary transformation-fidelity tests
+
+Some deterministic tests exist only to prove that a bounded transformation did
+not change behaviour outside its authorized change surface.  These are
+temporary transformation-fidelity tests, not permanent specification or
+regression tests.
+
+Examples include:
+
+- refactor-preservation or characterization tests;
+- old-versus-new differential tests;
+- migration-fidelity tests;
+- representation or adapter replacement tests;
+- temporary golden-master comparisons;
+- optimization-preservation tests that use a temporary reference
+  implementation.
+
+The oracle for a transformation-fidelity test is temporary: it may be the
+pre-change implementation, representation, schema, adapter, output corpus, or a
+deliberately simple reference implementation.  Passing such a test establishes
+fidelity for the transformation; it does not automatically make every observed
+behaviour an enduring contract.
+
+Permanent contract/specification/regression tests remain distinct.  Before a
+temporary fidelity sandbox is removed, review every material preservation case.
+If a case represents a durable requirement, invariant, or escaped-defect
+regression, promote a focused test into the permanent suite.  Cases whose only
+purpose was to prove transformation fidelity remain temporary.
+
+RepoWorkflow-managed temporary fidelity material for issue `N` lives in one
+self-contained disposable sandbox:
+
+```text
+.ci/
+  temp-tests/
+    N/
+      tests.json
+      ...
+```
+
+`.ci/temp-tests/N/tests.json` is the canonical manifest for issue `N`.
+Everything else below `.ci/temp-tests/N/` is issue-owned temporary
+verification material.  The sandbox is language- and build-system-neutral; it
+may contain Python scripts, C/C++ sources and headers, CMake files, Rust/Java/
+Node sources, fixtures, helpers, golden/reference data, build definitions, or
+other support material required by the temporary verification.
+
+Temporary fidelity implementation must remain inside its issue sandbox rather
+than being scattered through permanent source or test directories.  Permanent
+product/test code may be exercised by the sandbox, but disposable fidelity
+code, helpers, fixtures, reference implementations, and build support belong
+under `.ci/temp-tests/N/`.
+
+Regression validation must discover and execute applicable
+`.ci/temp-tests/*/tests.json` manifests in addition to permanent regression
+coverage.
+
+Before integration of issue `N`:
+
+1. promote any durable requirements/regressions into permanent tests;
+2. remove the complete `.ci/temp-tests/N/` sandbox, including `tests.json`,
+   temporary source, headers, fixtures, helpers, golden/reference data, build
+   files, and other committed support material;
+3. verify that no temporary fidelity implementation survives merely because a
+   manifest was deleted.
+
+Integration validation must fail with an actionable diagnostic when the issue
+being integrated still has its temporary-test sandbox.  It should also reject
+malformed or orphan temporary-test state where practical.
+
+The purpose of this lifecycle is to make broad deterministic fidelity testing
+cheap during a transformation without turning incidental observed behaviour or
+disposable scaffolding into permanent test-suite debt.
+
 ## 13. Universal closure gate
 
 Before declaring coding work complete, answer each applicable item.
@@ -450,6 +524,15 @@ Before declaring coding work complete, answer each applicable item.
 - [ ] Escaped defects were assessed for systemic prevention improvements.
 - [ ] For assembled escaped defects, retained regression continues through
   downstream supported stages that were previously unreachable.
+
+### Temporary transformation fidelity
+
+- [ ] Applicable temporary transformation-fidelity tests were run during
+  regression validation.
+- [ ] Material temporary preservation cases were reviewed for promotion into
+  permanent contract/regression tests.
+- [ ] The complete `.ci/temp-tests/<issue>/` sandbox is absent before
+  integration.
 
 ### Risk and reproducibility
 
