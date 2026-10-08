@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from .lane_traversal import FollowPolicy, TraversalState, group_kind
+from .lane_traversal import (
+  FollowPolicy,
+  ShowChildrenPolicy,
+  TraversalState,
+  group_kind,
+)
 from .relationships import RelationshipGraph, RelationshipSchemaError
 
 
@@ -79,9 +84,32 @@ def dependency_component(
   selected: Iterable[str | int],
   *,
   follow: FollowPolicy | None = None,
+  show_children: ShowChildrenPolicy | None = None,
 ) -> tuple[str, ...]:
-  states = dependency_states(graph, selected, follow=follow)
-  return tuple(sorted({state.issue for state in states}, key=int))
+  selected_ids = _ids(selected)
+  selected_set = set(selected_ids)
+  policy = FollowPolicy() if follow is None else follow
+  context = ShowChildrenPolicy() if show_children is None else show_children
+  states = dependency_states(graph, selected_ids, follow=policy)
+  visible = {state.issue for state in states}
+
+  neighbours = {issue: set() for issue in graph.issues}
+  for issue, relation in graph.issues.items():
+    for dependency in relation.depends_on:
+      neighbours[issue].add(dependency)
+      neighbours[dependency].add(issue)
+
+  for state in states:
+    if state.issue in selected_set:
+      continue
+    kind = group_kind(graph.issue(state.issue).title)
+    if not context.matches(kind):
+      continue
+    if policy.cross(kind, state.remaining) is not None:
+      continue
+    visible.update(neighbours[state.issue])
+
+  return tuple(sorted(visible, key=int))
 
 
 def decompose_lanes(
@@ -90,11 +118,17 @@ def decompose_lanes(
   *,
   completed: Iterable[str | int] = (),
   follow: FollowPolicy | None = None,
+  show_children: ShowChildrenPolicy | None = None,
 ) -> LanePlan:
   selected_ids = _ids(selected)
   completed_ids = set(_ids(completed))
   closure = set(
-    dependency_component(graph, selected_ids, follow=follow)
+    dependency_component(
+      graph,
+      selected_ids,
+      follow=follow,
+      show_children=show_children,
+    )
   ) - completed_ids
 
   if not closure:
