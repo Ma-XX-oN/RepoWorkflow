@@ -49,11 +49,10 @@ The central principle is:
 RepoWorkflow must not infer whether an interface is stable enough for parallel
 work.  The tickets define that agreement.
 
-The benefit is broader than execution speed.  Defining the contract before
-coding makes architecture and behavioural assumptions independently testable.
-Tests and scenarios can expose ambiguity, missing cases, awkward APIs, and
-fragile sequencing before implementation.  The same discipline improves serial
-work and also enables speculative execution.
+The broader benefit is earlier design/test feedback.  Defining the contract
+before coding makes assumptions independently testable, exposing ambiguity,
+missing cases, awkward APIs, and fragile sequencing before implementation.
+The same discipline improves serial work and enables speculative execution.
 
 ## 2. Contract ticket and implementation tickets
 
