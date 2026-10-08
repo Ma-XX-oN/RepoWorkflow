@@ -70,6 +70,34 @@ class LaneSelectionStore:
       record["revision"],
     )
 
+  def project(
+    self,
+    roots: tuple[str | int, ...],
+    *,
+    follow: FollowPolicy | None = None,
+    show_children: ShowChildrenPolicy | None = None,
+  ) -> LaneSelection:
+    normalized = _ids(roots)
+    if not normalized:
+      raise LaneSelectionError("lane selection requires at least one root")
+    try:
+      graph = RelationshipStore(self.root).read()
+    except RelationshipStoreError as error:
+      if "record is missing:" in str(error):
+        raise LaneSelectionError(
+          "canonical relationship graph is not initialized"
+        ) from error
+      raise LaneSelectionError(str(error)) from error
+    policy = FollowPolicy() if follow is None else follow
+    context = ShowChildrenPolicy() if show_children is None else show_children
+    plan = decompose_lanes(
+      graph.graph,
+      normalized,
+      follow=policy,
+      show_children=context,
+    )
+    return _from_plan(plan, graph.revision, policy, context)
+
   def select(
     self,
     roots: tuple[str | int, ...],
@@ -199,23 +227,11 @@ class LaneSelectionStore:
     follow: FollowPolicy | None = None,
     show_children: ShowChildrenPolicy | None = None,
   ) -> LaneSelectionSnapshot:
-    try:
-      graph = RelationshipStore(self.root).read()
-    except RelationshipStoreError as error:
-      if "record is missing:" in str(error):
-        raise LaneSelectionError(
-          "canonical relationship graph is not initialized"
-        ) from error
-      raise LaneSelectionError(str(error)) from error
-    policy = FollowPolicy() if follow is None else follow
-    context = ShowChildrenPolicy() if show_children is None else show_children
-    plan = decompose_lanes(
-      graph.graph,
+    value = self.project(
       roots,
-      follow=policy,
-      show_children=context,
+      follow=follow,
+      show_children=show_children,
     )
-    value = _from_plan(plan, graph.revision, policy, context)
     current = self.read()
     if current.revision != expected_revision:
       raise LaneSelectionError(
