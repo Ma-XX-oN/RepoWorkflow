@@ -208,7 +208,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(root, env, "lanes", "select", "203", "206", "--json")
+      selected = self.run_rwf(\n        root, env, "lanes", "select", "203", "206",\n        "--follow", "group", "--json",\n      )
       self.assertEqual(selected.returncode, 0, selected.stderr)
       value = json.loads(selected.stdout)
       self.assertEqual(value["roots"], ["203", "206"])
@@ -269,6 +269,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "436",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
@@ -279,7 +281,7 @@ class FirstUseLanesTests(unittest.TestCase):
         435, 436, 437, 438, 439
       })
 
-      rendered = self.run_rwf(root, env, "lanes", "select", "436")
+      rendered = self.run_rwf(\n        root, env, "lanes", "select", "436", "--follow", "group"\n      )
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
       self.assertIn("*A436", rendered.stdout)
       self.assertEqual(rendered.stdout.count("*"), 1)
@@ -313,6 +315,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "1",
+        "--follow",
+        "epic",
         "--json",
       )
       self.assertEqual(stopped.returncode, 0, stopped.stderr)
@@ -366,6 +370,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "1",
+        "--follow",
+        "epic",
         "--show-children",
         "feature",
         "--json",
@@ -424,6 +430,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "4",
+        "--follow",
+        "epic",
         "--show-children",
         "feature",
         "--json",
@@ -505,7 +513,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(root, env, "lanes", "select", "203", "206")
+      selected = self.run_rwf(\n        root, env, "lanes", "select", "203", "206", "--follow", "group"\n      )
       self.assertEqual(selected.returncode, 0, selected.stderr)
       self.assertNotIn('"schema_version"', selected.stdout)
       self.assertIn("─", selected.stdout)
@@ -878,6 +886,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
@@ -1007,14 +1017,14 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(first.returncode, 0, first.stderr)
       self.assertEqual(json.loads(first.stdout)["closure"], ["206"])
 
-      second = self.run_rwf(root, env, "lanes", "select", "206", "203", "--json")
+      second = self.run_rwf(\n        root, env, "lanes", "select", "206", "203",\n        "--follow", "group", "--json",\n      )
       self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(
         json.loads(second.stdout)["closure"],
         ["201", "203", "206"],
       )
 
-      third = self.run_rwf(root, env, "lanes", "select", "205", "218", "--json")
+      third = self.run_rwf(\n        root, env, "lanes", "select", "205", "218",\n        "--follow", "group", "--json",\n      )
       self.assertEqual(third.returncode, 0, third.stderr)
       self.assertEqual(
         json.loads(third.stdout)["closure"],
@@ -1047,20 +1057,20 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(json.loads(added.stdout)["roots"], ["203", "206"])
       self.assertEqual(
         json.loads(added.stdout)["closure"],
-        ["201", "203", "206"],
+        ["203", "206"],
       )
 
       removed = self.run_rwf(root, env, "lanes", "select", "remove", "206", "--json")
       self.assertEqual(removed.returncode, 0, removed.stderr)
       self.assertEqual(json.loads(removed.stdout)["roots"], ["203"])
-      self.assertEqual(json.loads(removed.stdout)["closure"], ["201", "203"])
+      self.assertEqual(json.loads(removed.stdout)["closure"], ["203"])
 
       replaced = self.run_rwf(root, env, "lanes", "select", "205", "218", "--json")
       self.assertEqual(replaced.returncode, 0, replaced.stderr)
       self.assertEqual(json.loads(replaced.stdout)["roots"], ["205", "218"])
       self.assertEqual(
         json.loads(replaced.stdout)["closure"],
-        ["205", "208", "217", "218"],
+        ["205", "218"],
       )
 
   def test_cached_selection_reuses_relationships_and_add_reads_only_missing(self):
@@ -1077,6 +1087,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(first.returncode, 0, first.stderr)
@@ -1088,6 +1100,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(repeated.returncode, 0, repeated.stderr)
@@ -1123,6 +1137,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(restarted.returncode, 0, restarted.stderr)
@@ -1142,6 +1158,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
@@ -1153,6 +1171,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--refresh",
         "--json",
       )
@@ -1177,6 +1197,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(first.returncode, 0, first.stderr)
@@ -1224,6 +1246,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(first.returncode, 0, first.stderr)
@@ -1242,6 +1266,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(cached.returncode, 0, cached.stderr)
@@ -1261,6 +1287,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--json",
       )
       self.assertEqual(first.returncode, 0, first.stderr)
@@ -1291,6 +1319,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--refresh",
         "--json",
       )
@@ -1330,6 +1360,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--refresh",
         "--json",
       )
@@ -1364,6 +1396,8 @@ class FirstUseLanesTests(unittest.TestCase):
         "lanes",
         "select",
         "203",
+        "--follow",
+        "group",
         "--refresh",
         "--json",
       )
