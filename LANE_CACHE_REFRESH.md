@@ -64,13 +64,19 @@ or Git ancestry.
 
 ## 5. Persisted traversal policy
 
-The worktree-local lane selection stores the normalized follow policy together
-with roots, closure, graph revision, and lane assignment.  Subsequent
-`lanes view --refresh` operations reuse that policy.  Selection records from
-the prior schema remain readable and project the default no-follow policy.
+The worktree-local lane selection stores normalized traversal policy together
+with roots, closure, graph revision, and lane assignment.  This includes both
+`--follow` budgets and `--show-children` context.  Subsequent
+`lanes view --refresh` operations reuse both policies.
 
-Selection `add` and `remove` preserve the existing policy when no replacement
-`--follow` flags are supplied.
+Older selection records remain readable and project the corresponding defaults:
+schema 1 has no follow or show-children policy; schema 2 has follow policy but
+no show-children policy.
+
+Selection `add` and `remove` preserve the existing policies when no
+replacement traversal flags are supplied.  A stopped matching group may acquire
+and display one immediate adjacent layer for `--show-children`, but those
+display-only nodes never restart ordinary provider traversal.
 
 ## 6. Verification obligations
 
