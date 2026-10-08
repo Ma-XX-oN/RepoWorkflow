@@ -5,13 +5,14 @@ from pathlib import Path
 
 from .git import git
 from .lane_decomposition import LanePlan, decompose_lanes
+from .lane_projection import ProjectionRule, decompose_rules, normalize_rules
 from .lane_traversal import FollowPolicy, ShowChildrenPolicy
 from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import JsonRecordStore, StateStoreError, WriterIdentity
 
 
 RECORD_KEY = "selection"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class LaneSelectionError(RuntimeError):
@@ -24,6 +25,8 @@ class LaneSelection:
   closure: tuple[str, ...]
   graph_revision: int
   assignment: dict[str, str]
+  includes: tuple[ProjectionRule, ...] = ()
+  excludes: tuple[ProjectionRule, ...] = ()
   follow: FollowPolicy = FollowPolicy()
   show_children: ShowChildrenPolicy = ShowChildrenPolicy()
   schema_version: int = SCHEMA_VERSION
@@ -32,6 +35,8 @@ class LaneSelection:
     return {
       "schema_version": self.schema_version,
       "roots": list(self.roots),
+      "includes": [rule.to_json_value() for rule in self.includes],
+      "excludes": [rule.to_json_value() for rule in self.excludes],
       "closure": list(self.closure),
       "graph_revision": self.graph_revision,
       "follow": self.follow.to_json_value(),
@@ -97,6 +102,106 @@ class LaneSelectionStore:
       show_children=context,
     )
     return _from_plan(plan, graph.revision, policy, context)
+
+  def project_rules(
+    self,
+    includes: tuple[ProjectionRule, ...],
+    excludes: tuple[ProjectionRule, ...] = (),
+    *,
+    follow: FollowPolicy | None = None,
+    show_children: ShowChildrenPolicy | None = None,
+  ) -> LaneSelection:
+    include_rules = normalize_rules(includes)
+    exclude_rules = normalize_rules(excludes)
+    if not include_rules:
+      raise LaneSelectionError("lane selection requires at least one include rule")
+    try:
+      graph = RelationshipStore(self.root).read()
+    except RelationshipStoreError as error:
+      if "record is missing:" in str(error):
+        raise LaneSelectionError(
+          "canonical relationship graph is not initialized"
+        ) from error
+      raise LaneSelectionError(str(error)) from error
+    policy = FollowPolicy() if follow is None else follow
+    context = ShowChildrenPolicy() if show_children is None else show_children
+    plan = decompose_rules(graph.graph, include_rules, exclude_rules)
+    return _from_plan(
+      plan,
+      graph.revision,
+      policy,
+      context,
+      includes=include_rules,
+      excludes=exclude_rules,
+    )
+
+  def select_rules(
+    self,
+    includes: tuple[ProjectionRule, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int | None = None,
+    excludes: tuple[ProjectionRule, ...] = (),
+  ) -> LaneSelectionSnapshot:
+    value = self.project_rules(includes, excludes)
+    return self._write_value(value, writer, expected_revision)
+
+  def add_rules(
+    self,
+    additions: tuple[ProjectionRule, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int,
+  ) -> LaneSelectionSnapshot:
+    current = self._expected(expected_revision)
+    includes = normalize_rules((*current.value.includes, *additions))
+    value = self.project_rules(
+      includes,
+      current.value.excludes,
+      follow=current.value.follow,
+      show_children=current.value.show_children,
+    )
+    return self._write_value(value, writer, expected_revision)
+
+  def remove_rules(
+    self,
+    removals: tuple[ProjectionRule, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int,
+  ) -> LaneSelectionSnapshot:
+    current = self._expected(expected_revision)
+    remove_set = set(normalize_rules(removals))
+    includes = tuple(
+      rule for rule in current.value.includes
+      if rule not in remove_set
+    )
+    if not includes:
+      raise LaneSelectionError("remove would leave an empty selection; use clear")
+    value = self.project_rules(
+      includes,
+      current.value.excludes,
+      follow=current.value.follow,
+      show_children=current.value.show_children,
+    )
+    return self._write_value(value, writer, expected_revision)
+
+  def exclude_rules(
+    self,
+    additions: tuple[ProjectionRule, ...],
+    writer: WriterIdentity,
+    *,
+    expected_revision: int,
+  ) -> LaneSelectionSnapshot:
+    current = self._expected(expected_revision)
+    excludes = normalize_rules((*current.value.excludes, *additions))
+    value = self.project_rules(
+      current.value.includes,
+      excludes,
+      follow=current.value.follow,
+      show_children=current.value.show_children,
+    )
+    return self._write_value(value, writer, expected_revision)
 
   def select(
     self,
@@ -218,6 +323,32 @@ class LaneSelectionStore:
       )
     return current
 
+  def _write_value(
+    self,
+    value: LaneSelection,
+    writer: WriterIdentity,
+    expected_revision: int | None,
+  ) -> LaneSelectionSnapshot:
+    current = self.read()
+    if current.revision != expected_revision:
+      raise LaneSelectionError(
+        f"stale lane selection revision: expected {expected_revision!r}, "
+        f"current {current.revision!r}"
+      )
+    try:
+      if expected_revision is None:
+        record = self.records.create(RECORD_KEY, value.to_json_value(), writer)
+      else:
+        record = self.records.replace(
+          RECORD_KEY,
+          expected_revision,
+          value.to_json_value(),
+          writer,
+        )
+    except StateStoreError as error:
+      raise LaneSelectionError(str(error)) from error
+    return LaneSelectionSnapshot(value, record["revision"])
+
   def _write(
     self,
     roots: tuple[str, ...],
@@ -258,6 +389,9 @@ def _from_plan(
   graph_revision: int,
   follow: FollowPolicy,
   show_children: ShowChildrenPolicy,
+  *,
+  includes: tuple[ProjectionRule, ...] | None = None,
+  excludes: tuple[ProjectionRule, ...] | None = None,
 ) -> LaneSelection:
   assignment = {
     issue: lane.name
@@ -269,6 +403,16 @@ def _from_plan(
     closure=plan.closure,
     graph_revision=graph_revision,
     assignment=assignment,
+    includes=(
+      tuple(ProjectionRule(issue, "both") for issue in plan.selected)
+      if includes is None
+      else normalize_rules(includes)
+    ),
+    excludes=(
+      ()
+      if excludes is None
+      else normalize_rules(excludes)
+    ),
     follow=follow,
     show_children=show_children,
   )
