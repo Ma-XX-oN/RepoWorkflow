@@ -39,6 +39,10 @@
       "issue-453-lane-show-children": {
         "type": "regression",
         "name": "tests.test_lane_show_children_verification"
+      },
+      "issue-522-stale-lane-refresh": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes"
       }
     }
   ],
