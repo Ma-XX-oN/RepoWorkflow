@@ -7,7 +7,6 @@ from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionSnapshot, LaneSelectionStore
 from .relationship_bootstrap import ensure_relationship_graph
-from .relationship_store import RelationshipStore, RelationshipStoreError
 from .state_store import WriterIdentity
 
 
@@ -20,25 +19,6 @@ def refresh_current_lane_metadata(
   current = LaneSelectionStore(root).read()
   if current.value is None:
     raise ValueError("lane selection is missing")
-
-  try:
-    graph = RelationshipStore(root).read()
-  except RelationshipStoreError as error:
-    if "record is missing:" not in str(error):
-      raise
-    graph = None
-
-  compatible = (
-    graph is not None
-    and current.value.graph_revision == graph.revision
-    and all(issue in graph.graph.issues for issue in current.value.closure)
-  )
-  if not compatible:
-    return refresh_current_lane_selection(
-      root,
-      writer,
-      diagnostics=diagnostics,
-    )
 
   started = time.perf_counter()
   ensure_lane_metadata(
