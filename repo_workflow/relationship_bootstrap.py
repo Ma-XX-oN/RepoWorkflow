@@ -187,6 +187,8 @@ def ensure_relationship_graph(
     relation = issues[issue]
     kind = group_kind(relation.title)
     related = (*dependencies, *provider_dependants)
+    if not policy.enables_traversal():
+      continue
     if issue not in requested_set:
       crossed = policy.cross(kind, remaining)
       if crossed is None:
