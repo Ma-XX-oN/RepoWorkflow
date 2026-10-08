@@ -263,7 +263,7 @@ issue,title,dependencies
 477,Certify risk-scoped testing and staged Self CI workflow,476
 478,Advance stable version after quantified-grammar release collision,456
 482,Allow completion_fn to return strings or dynamic command grammar,506;507
-487,Epic: Faster code generation through speculative parallel task completion,498
+487,Epic: Faster code generation through speculative parallel task completion,498;518
 488,Finalize executable interface contract design for speculative task completion,
 489,Implement deterministic executable-interface comparing stream,488
 490,Implement provider preverify/postverify interface verification,489
@@ -281,3 +281,4 @@ issue,title,dependencies
 507,Make public command consumers use the resolved-grammar interface,505
 508,Implement pure lane-layout width estimation and spacing selection,470
 509,Implement terminal-width and edge-spacing override resolution,470
+518,Epic: Record replay and test executable interface behaviour,
