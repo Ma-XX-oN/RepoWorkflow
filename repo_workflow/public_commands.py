@@ -261,14 +261,14 @@ COMMANDS = {
         "_values": _issue_number,
         "_value_description": "Issue number",
         "_quantifier": "+",
-      "_switches": _lane_select_switches(),
+        "_switches": _lane_select_switches(),
       },
       "remove": {
         "": "Remove issue focus roots",
         "_values": _issue_number,
         "_value_description": "Issue number",
         "_quantifier": "+",
-      "_switches": _lane_select_switches(),
+        "_switches": _lane_select_switches(),
       },
     },
     "list": {
