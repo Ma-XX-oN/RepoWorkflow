@@ -175,6 +175,12 @@ def ensure_relationship_graph(
       dependencies = replacement.depends_on
 
     if not traverse:
+      for dependency in dependencies:
+        if dependency not in traversed_issues and dependency not in context_issues:
+          pending.append((
+            TraversalState(dependency, state.remaining),
+            False,
+          ))
       continue
 
     remaining = state.remaining
