@@ -471,8 +471,10 @@ class CommandGrammarTests(unittest.TestCase):
     context = Context(Path("."), legal_only=False)
     cases = (
       ["lanes", "select", "5", "6", "--refresh", "--json"],
-      ["lanes", "select", "add", "7", "--json"],
-      ["lanes", "select", "remove", "8", "--refresh"],
+      ["lanes", "select", "5", "--follow", "initiative"],
+      ["lanes", "select", "5", "--follow", "feature", "2", "--follow", "epic"],
+      ["lanes", "select", "add", "7", "--follow", "feature", "--json"],
+      ["lanes", "select", "remove", "8", "--follow", "epic", "2", "--refresh"],
       ["lanes", "list", "A", "--links", "--refresh"],
       ["lanes", "view", "--debug", "A", "--refresh"],
       ["issue", "list", "54", "64", "9", "--links"],
@@ -482,6 +484,29 @@ class CommandGrammarTests(unittest.TestCase):
     for words in cases:
       with self.subTest(words=words):
         self.assertEqual(parse_tokens(COMMANDS, context, words), tuple(words))
+
+  def test_public_follow_completion_exposes_group_kinds(self):
+    context = Context(Path("."), legal_only=False)
+    items = completion_items(
+      COMMANDS,
+      context,
+      ["lanes", "select", "5", "--follow", ""],
+    )
+    self.assertEqual(
+      [item.token for item in items],
+      ["epic", "feature", "group", "initiative"],
+    )
+
+  def test_public_follow_help_exposes_optional_count_position(self):
+    context = Context(Path("."), legal_only=False)
+    items = completion_items(
+      COMMANDS,
+      context,
+      ["lanes", "select", "5", "--follow", "feature", ""],
+      include_terminal=True,
+      describe=True,
+    )
+    self.assertIn("<N>", [item.token for item in items])
 
   def test_public_subcommands_cannot_follow_consumed_values(self):
     context = Context(Path("."), legal_only=False)
