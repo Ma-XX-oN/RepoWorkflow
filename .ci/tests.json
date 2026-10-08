@@ -47,6 +47,10 @@
       "issue-521-public-help": {
         "type": "regression",
         "name": "tests.test_bootstrap_cli"
+      },
+      "issue-516-lane-count": {
+        "type": "regression",
+        "name": "tests.test_lane_count_verification"
       }
     }
   ],
