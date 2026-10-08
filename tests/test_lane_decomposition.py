@@ -26,16 +26,16 @@ def graph(mapping: dict[int, tuple[int, ...]]) -> RelationshipGraph:
 class LaneDecompositionTests(unittest.TestCase):
   def test_chain_is_one_lane(self):
     value = graph({1: (), 2: (1,), 3: (2,)})
-    plan = decompose_lanes(value, [3])
+    plan = decompose_lanes(value, [3], follow=FollowPolicy(feature=1))
     self.assertEqual([(x.name, x.issues) for x in plan.lanes], [
       ("A", ("1", "2", "3")),
     ])
 
-  def test_selected_prerequisite_expands_to_complete_connected_component(self):
+  def test_followed_prerequisite_expands_to_complete_connected_component(self):
     value = graph({
       1: (), 2: (1,), 3: (1,), 4: (2, 3), 5: (4,), 9: ()
     })
-    plan = decompose_lanes(value, [1])
+    plan = decompose_lanes(value, [1], follow=FollowPolicy(feature=1))
     self.assertEqual(plan.selected, ("1",))
     self.assertEqual(plan.closure, ("1", "2", "3", "4", "5"))
     self.assertEqual(
@@ -46,7 +46,7 @@ class LaneDecompositionTests(unittest.TestCase):
 
   def test_middle_seed_expands_both_dependency_directions(self):
     value = graph({1: (), 2: (1,), 3: (2,), 4: (3,)})
-    plan = decompose_lanes(value, [2])
+    plan = decompose_lanes(value, [2], follow=FollowPolicy(feature=1))
     self.assertEqual(plan.selected, ("2",))
     self.assertEqual(plan.closure, ("1", "2", "3", "4"))
 
@@ -54,7 +54,7 @@ class LaneDecompositionTests(unittest.TestCase):
     value = graph({
       1: (), 2: (1,), 3: (), 4: (3,), 5: ()
     })
-    plan = decompose_lanes(value, [1, 4])
+    plan = decompose_lanes(value, [1, 4], follow=FollowPolicy(feature=1))
     self.assertEqual(plan.selected, ("1", "4"))
     self.assertEqual(plan.closure, ("1", "2", "3", "4"))
     self.assertNotIn("5", plan.closure)
@@ -68,14 +68,14 @@ class LaneDecompositionTests(unittest.TestCase):
 
   def test_branch_starts_new_lane_so_each_lane_is_a_path(self):
     value = graph({1: (), 2: (1,), 3: (1,)})
-    plan = decompose_lanes(value, [2, 3])
+    plan = decompose_lanes(value, [2, 3], follow=FollowPolicy(feature=1))
     self.assertEqual([(x.name, x.issues) for x in plan.lanes], [
       ("A", ("1", "2")), ("B", ("3",)),
     ])
 
   def test_convergence_has_single_deterministic_owner(self):
     value = graph({105: (), 106: (), 107: (105, 106)})
-    plan = decompose_lanes(value, [107])
+    plan = decompose_lanes(value, [107], follow=FollowPolicy(feature=1))
     self.assertEqual(plan.owner(107), "A")
     self.assertEqual(sum("107" in lane.issues for lane in plan.lanes), 1)
     self.assertEqual([(x.name, x.issues) for x in plan.lanes], [
@@ -86,7 +86,7 @@ class LaneDecompositionTests(unittest.TestCase):
     value = graph({
       1: (), 2: (), 3: (1, 2), 4: (), 5: (3, 4), 6: (5,)
     })
-    plan = decompose_lanes(value, [6])
+    plan = decompose_lanes(value, [6], follow=FollowPolicy(feature=1))
     self.assertEqual(plan.owner(3), "A")
     self.assertEqual(plan.owner(5), "A")
     self.assertEqual(plan.owner(6), "A")
@@ -94,7 +94,12 @@ class LaneDecompositionTests(unittest.TestCase):
 
   def test_completed_dependencies_are_excluded_from_closure(self):
     value = graph({1: (), 2: (1,), 3: (2,)})
-    plan = decompose_lanes(value, [3], completed=[1])
+    plan = decompose_lanes(
+      value,
+      [3],
+      completed=[1],
+      follow=FollowPolicy(feature=1),
+    )
     self.assertEqual(plan.closure, ("2", "3"))
     self.assertEqual(plan.lanes[0].issues, ("2", "3"))
 
@@ -104,14 +109,18 @@ class LaneDecompositionTests(unittest.TestCase):
     second = decompose_lanes(value, [3, 4, 3])
     self.assertEqual(first, second)
 
-  def test_default_stops_at_encountered_group_boundary(self):
+  def test_enabled_traversal_stops_at_unfollowed_group_boundary(self):
     value = RelationshipGraph(issues={
       "1": titled("Issue 1"),
       "2": titled("Feature: Boundary", 1),
       "3": titled("Issue 3", 2),
       "4": titled("Issue 4", 3),
     })
-    plan = decompose_lanes(value, [1])
+    plan = decompose_lanes(
+      value,
+      [1],
+      follow=FollowPolicy(epic=1),
+    )
     self.assertEqual(plan.closure, ("1", "2"))
 
   def test_group_seed_is_not_stopped_by_its_own_kind(self):
@@ -120,7 +129,11 @@ class LaneDecompositionTests(unittest.TestCase):
       "2": titled("Feature: Boundary", 1),
       "3": titled("Issue 3", 2),
     })
-    plan = decompose_lanes(value, [2])
+    plan = decompose_lanes(
+      value,
+      [2],
+      follow=FollowPolicy(epic=1),
+    )
     self.assertEqual(plan.closure, ("1", "2", "3"))
 
   def test_type_follow_crosses_one_matching_boundary_per_path(self):
@@ -205,7 +218,7 @@ class LaneDecompositionTests(unittest.TestCase):
   def test_input_graph_is_not_mutated(self):
     value = graph({1: (), 2: (1,)})
     before = value.to_json_value()
-    decompose_lanes(value, [2])
+    decompose_lanes(value, [2], follow=FollowPolicy(feature=1))
     self.assertEqual(value.to_json_value(), before)
 
 
