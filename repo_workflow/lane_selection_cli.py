@@ -7,6 +7,7 @@ from pathlib import Path
 from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionStore
+from .lane_traversal import FollowPolicy, parse_follow_arguments
 from .lane_render import render_lanes
 from .relationship_bootstrap import ensure_relationship_graph
 from .runtime_identity import runtime_writer_identity
@@ -29,13 +30,7 @@ def handle_lane_selection(
 
   if words[:2] != ["lanes", "select"]:
     raise ValueError("invalid lanes command")
-  tail = words[2:]
-  as_json = "--json" in tail
-  refresh = "--refresh" in tail
-  tail = [
-    word for word in tail
-    if word not in {"--json", "--refresh"}
-  ]
+  tail, as_json, refresh, follow = _selection_arguments(words[2:])
   if not tail:
     raise ValueError("lane selection requires at least one root")
 
@@ -53,12 +48,14 @@ def handle_lane_selection(
       writer,
       refresh=refresh,
       diagnostics=diagnostics,
+      follow=follow,
     )
     started = time.perf_counter()
     result = store.add(
       additions,
       writer,
       expected_revision=current.revision,
+      follow=follow,
     )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
@@ -78,12 +75,14 @@ def handle_lane_selection(
         writer,
         refresh=refresh,
         diagnostics=diagnostics,
+        follow=follow,
       )
     started = time.perf_counter()
     result = store.remove(
       removals,
       writer,
       expected_revision=current.revision,
+      follow=follow,
     )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
@@ -95,12 +94,14 @@ def handle_lane_selection(
       writer,
       refresh=refresh,
       diagnostics=diagnostics,
+      follow=follow,
     )
     started = time.perf_counter()
     result = store.select(
       desired,
       writer,
       expected_revision=current.revision,
+      follow=follow,
     )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
@@ -127,6 +128,7 @@ def _prepare(
   *,
   refresh: bool,
   diagnostics: LaneDiagnostics | None,
+  follow: FollowPolicy,
 ) -> None:
   started = time.perf_counter()
   relationships = ensure_relationship_graph(
@@ -135,6 +137,7 @@ def _prepare(
     writer,
     refresh=refresh,
     diagnostics=diagnostics,
+    follow=follow,
   )
   if diagnostics is not None:
     diagnostics.phase("relationships", started)
@@ -148,3 +151,41 @@ def _prepare(
   )
   if diagnostics is not None:
     diagnostics.phase("metadata", started)
+
+
+def _selection_arguments(
+  words: list[str],
+) -> tuple[list[str], bool, bool, FollowPolicy]:
+  positional: list[str] = []
+  follow_values: list[tuple[str, str | None]] = []
+  as_json = False
+  refresh = False
+  index = 0
+  while index < len(words):
+    token = words[index]
+    if token == "--json":
+      as_json = True
+      index += 1
+      continue
+    if token == "--refresh":
+      refresh = True
+      index += 1
+      continue
+    if token == "--follow":
+      if index + 1 >= len(words):
+        raise ValueError("--follow requires a group kind")
+      kind = words[index + 1]
+      count = None
+      index += 2
+      if (
+        index < len(words)
+        and not words[index].startswith("--")
+        and words[index].isdecimal()
+      ):
+        count = words[index]
+        index += 1
+      follow_values.append((kind, count))
+      continue
+    positional.append(token)
+    index += 1
+  return positional, as_json, refresh, parse_follow_arguments(follow_values)
