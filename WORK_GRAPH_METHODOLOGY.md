@@ -283,14 +283,19 @@ depend directly only on the concrete tickets whose outputs they require.
 This prevents duplicate implementations and unnecessary serialization without
 introducing a second machine-readable ownership graph.
 
-## 8. Use interfaces to expose safe parallel work
+## 8. Use interfaces to improve design, testing, and execution
 
 During decomposition, actively look for a provider/consumer interface that can
-be defined before either implementation is complete.  It may already exist or
-may be newly designed.  A predefined interface can turn an otherwise serial
-dependency into independently testable work and enable speculative execution.
+be defined before implementation.  It may already exist or be newly designed.
 
-Prefer:
+Interface-first decomposition is valuable even before scheduling is considered.
+It forces responsibilities, assumptions, inputs, outputs, failure behaviour,
+and invariants to be stated early enough to expose design ambiguity before code
+is written.  The same contract can provide an independent basis for provider
+tests, consumer tests, and later integration tests.
+
+A predefined interface may also turn a serial dependency into independently
+testable work and enable speculative execution.
 
 ```text
 semantic contract
@@ -299,15 +304,10 @@ semantic contract
    └── provider B implementation
 ```
 
-For new design work, interface-first decomposition should be attempted when it
-creates a coherent boundary.  A boundary introduced for decomposition may be
-provisional rather than the best final production interface.
-
-After any related ticket sequence or grouping converges, review those
-boundaries, even for a purely serial chain with no prior Feature/Epic label.
-A coherent feature/outcome may only become obvious after decomposition.
-Retain useful interfaces, consolidate code paths, or expose a higher-level
-durable interface that hides fragile low-level sequencing.
+A decomposition boundary may be provisional.  After any related serial or
+parallel ticket sequence converges, review whether to retain the interface,
+consolidate code paths, or expose a higher-level durable interface that hides
+fragile sequencing.  The grouping need not have had a Feature/Epic label.
 
 The portable contract must not leak provider-specific payloads or mechanics.
 
