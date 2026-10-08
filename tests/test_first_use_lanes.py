@@ -208,7 +208,17 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(\n        root, env, "lanes", "select", "203", "206",\n        "--follow", "group", "--json",\n      )
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "206",
+        "--follow",
+        "group",
+        "--json",
+      )
       self.assertEqual(selected.returncode, 0, selected.stderr)
       value = json.loads(selected.stdout)
       self.assertEqual(value["roots"], ["203", "206"])
@@ -281,7 +291,15 @@ class FirstUseLanesTests(unittest.TestCase):
         435, 436, 437, 438, 439
       })
 
-      rendered = self.run_rwf(\n        root, env, "lanes", "select", "436", "--follow", "group"\n      )
+      rendered = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "436",
+        "--follow",
+        "group",
+      )
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
       self.assertIn("*A436", rendered.stdout)
       self.assertEqual(rendered.stdout.count("*"), 1)
@@ -513,7 +531,16 @@ class FirstUseLanesTests(unittest.TestCase):
       self.make_repo(root)
       env = self.fake_github(base)
 
-      selected = self.run_rwf(\n        root, env, "lanes", "select", "203", "206", "--follow", "group"\n      )
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "203",
+        "206",
+        "--follow",
+        "group",
+      )
       self.assertEqual(selected.returncode, 0, selected.stderr)
       self.assertNotIn('"schema_version"', selected.stdout)
       self.assertIn("─", selected.stdout)
@@ -1017,14 +1044,34 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(first.returncode, 0, first.stderr)
       self.assertEqual(json.loads(first.stdout)["closure"], ["206"])
 
-      second = self.run_rwf(\n        root, env, "lanes", "select", "206", "203",\n        "--follow", "group", "--json",\n      )
+      second = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "206",
+        "203",
+        "--follow",
+        "group",
+        "--json",
+      )
       self.assertEqual(second.returncode, 0, second.stderr)
       self.assertEqual(
         json.loads(second.stdout)["closure"],
         ["201", "203", "206"],
       )
 
-      third = self.run_rwf(\n        root, env, "lanes", "select", "205", "218",\n        "--follow", "group", "--json",\n      )
+      third = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "205",
+        "218",
+        "--follow",
+        "group",
+        "--json",
+      )
       self.assertEqual(third.returncode, 0, third.stderr)
       self.assertEqual(
         json.loads(third.stdout)["closure"],
