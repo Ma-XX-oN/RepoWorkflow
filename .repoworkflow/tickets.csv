@@ -252,9 +252,32 @@ issue,title,dependencies
 462,Add --follow back-only dependency traversal,452
 463,Add umbrella-only --filter projection to lane graphs,456
 464,Certify focused lane traversal and umbrella filtering controls,452;453;454;462;463
+469,Epic: Adapt lane-graph edge spacing to terminal width,472
+470,Specify terminal-width and edge-spacing rendering contract,
+471,Implement one-pass terminal-aware lane-graph edge spacing,508;509
+472,Certify terminal-width adaptive lane-graph spacing,471
 473,"Feature: Add risk-scoped issue verification and staged Self CI",477
 474,Define test-catalogue aliases and durable high-risk issue associations,456
 475,Implement rwf high-risk catalogue-section association,456;474
 476,"Stage Self CI by issue verification, regression, and integration risk",456;475
 477,Certify risk-scoped testing and staged Self CI workflow,476
 478,Advance stable version after quantified-grammar release collision,456
+482,Allow completion_fn to return strings or dynamic command grammar,506;507
+487,Epic: Faster code generation through speculative parallel task completion,498
+488,Finalize executable interface contract design for speculative task completion,
+489,Implement deterministic executable-interface comparing stream,488
+490,Implement provider preverify/postverify interface verification,489
+491,Implement deterministic consumer replay for predefined interfaces,489
+492,Define and persist speculative task-completion state and contract binding,488
+493,Schedule eligible serial dependents for speculative parallel execution,492;488
+494,Invalidate and revalidate speculative work when interface contracts change,492;489;490;491
+495,Gate speculative work retirement on prerequisite and real integration success,490;491;492;494
+496,"Expose speculative readiness, completion, staleness, and blockers in RWF output",493;492;494
+497,Integrate predefined-interface speculation into work-graph methodology,488;492;493
+498,Certify correctness and code-generation latency gains from speculative parallel completion,493;494;495;496;497;499
+499,Converge ticket-sequence interfaces into durable production design,495;497
+505,Specify resolved-grammar contract for dynamic completion results,456
+506,Implement dynamic completion result normalization to resolved grammar,505
+507,Make public command consumers use the resolved-grammar interface,505
+508,Implement pure lane-layout width estimation and spacing selection,470
+509,Implement terminal-width and edge-spacing override resolution,470
