@@ -24,7 +24,7 @@ class LaneSelection:
   closure: tuple[str, ...]
   graph_revision: int
   assignment: dict[str, str]
-  branch: str | None
+  branch: str | None = None
   follow: FollowPolicy = FollowPolicy()
   show_children: ShowChildrenPolicy = ShowChildrenPolicy()
   schema_version: int = SCHEMA_VERSION
