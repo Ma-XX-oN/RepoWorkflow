@@ -237,7 +237,7 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
         "410 -> 413",
         "411 -> 413",
         "412 -> 413",
-        "412 -> 456",
+        "456 -> 412",
         "413 -> 409",
       ):
         self.assertIn(edge, debug.stdout)
