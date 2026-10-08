@@ -90,11 +90,12 @@ class LaneSelectionStore:
     follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
+    policy = current.value.follow if follow is None else follow
     return self._write(
       tuple(sorted(set(current.value.roots) | set(_ids(roots)), key=int)),
       writer,
       expected_revision,
-      follow=follow,
+      follow=policy,
     )
 
   def remove(
@@ -106,12 +107,13 @@ class LaneSelectionStore:
     follow: FollowPolicy | None = None,
   ) -> LaneSelectionSnapshot:
     current = self._expected(expected_revision)
+    policy = current.value.follow if follow is None else follow
     remaining = tuple(
       value for value in current.value.roots if value not in set(_ids(roots))
     )
     if not remaining:
       raise LaneSelectionError("remove would leave an empty selection; use clear")
-    return self._write(remaining, writer, expected_revision, follow=follow)
+    return self._write(remaining, writer, expected_revision, follow=policy)
 
   def clear(
     self,
