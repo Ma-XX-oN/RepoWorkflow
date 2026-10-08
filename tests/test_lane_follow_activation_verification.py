@@ -3,6 +3,10 @@ import unittest
 
 TEST_NAMES = (
   "tests.test_lane_follow_activation",
+  "tests.test_lane_traversal",
+  "tests.test_lane_decomposition",
+  "tests.test_lane_selection",
+  "tests.test_lane_show_children",
 )
 
 
