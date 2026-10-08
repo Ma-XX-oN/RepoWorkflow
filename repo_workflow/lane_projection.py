@@ -142,6 +142,33 @@ def decompose_rules(
     lanes=lanes,
   )
 
+
+def selection_expression(
+  includes: Iterable[ProjectionRule],
+  excludes: Iterable[ProjectionRule] = (),
+) -> str:
+  include_rules = normalize_rules(includes)
+  exclude_rules = normalize_rules(excludes)
+  if not include_rules:
+    raise LaneProjectionError("selection expression requires an include rule")
+
+  include_text = " ∪ ".join(_rule_expression(rule) for rule in include_rules)
+  if len(include_rules) > 1:
+    include_text = f"({include_text})"
+  if not exclude_rules:
+    return include_text
+
+  exclude_text = " ∪ ".join(_rule_expression(rule) for rule in exclude_rules)
+  if len(exclude_rules) > 1:
+    exclude_text = f"({exclude_text})"
+  return f"{include_text} − {exclude_text}"
+
+
+def _rule_expression(rule: ProjectionRule) -> str:
+  if rule.mode == "single":
+    return f"#{rule.seed}"
+  return f"inc_{rule.mode}(#{rule.seed})"
+
 def normalize_rules(
   rules: Iterable[ProjectionRule],
 ) -> tuple[ProjectionRule, ...]:
