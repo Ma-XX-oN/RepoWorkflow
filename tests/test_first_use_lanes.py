@@ -53,6 +53,7 @@ class FirstUseLanesTests(unittest.TestCase):
     self,
     base: Path,
     dependencies: dict[int, list[int]] | None = None,
+    titles: dict[int, str] | None = None,
   ) -> dict[str, str]:
     if dependencies is None:
       dependencies = {
@@ -75,7 +76,7 @@ class FirstUseLanesTests(unittest.TestCase):
       for number, deps in dependencies.items()
       for number in (number, *deps)
     })
-    titles = {
+    default_titles = {
       206: "Root 206",
       203: "Root 203",
       201: "Leaf 201",
@@ -86,6 +87,7 @@ class FirstUseLanesTests(unittest.TestCase):
       187: "Leaf A",
       189: "Leaf B",
     }
+    titles = default_titles if titles is None else {**default_titles, **titles}
     metadata_state.write_text(
       json.dumps({
         str(number): {
@@ -281,6 +283,60 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
       self.assertIn("*A436", rendered.stdout)
       self.assertEqual(rendered.stdout.count("*"), 1)
+
+  def test_group_boundary_stops_provider_component_until_followed(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      dependencies = {
+        1: [],
+        2: [1],
+        3: [2],
+        4: [3],
+      }
+      env = self.fake_github(
+        base,
+        dependencies,
+        titles={
+          1: "Issue 1",
+          2: "Feature: Boundary",
+          3: "Issue 3",
+          4: "Issue 4",
+        },
+      )
+
+      stopped = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "1",
+        "--json",
+      )
+      self.assertEqual(stopped.returncode, 0, stopped.stderr)
+      self.assertEqual(json.loads(stopped.stdout)["closure"], ["1", "2"])
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2})
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      followed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "1",
+        "--follow",
+        "feature",
+        "--refresh",
+        "--json",
+      )
+      self.assertEqual(followed.returncode, 0, followed.stderr)
+      self.assertEqual(
+        json.loads(followed.stdout)["closure"],
+        ["1", "2", "3", "4"],
+      )
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4})
 
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
