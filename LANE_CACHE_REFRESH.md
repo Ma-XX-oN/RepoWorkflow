@@ -8,15 +8,22 @@ inspection.
 The canonical synchronized ticket state is the operational dependency source
 between synchronization boundaries.
 
-Without `--refresh`, lane selection discovers the locally projected connected
-component from known canonical nodes.  Encountered Feature/Epic/Initiative nodes
-are stopping boundaries unless permitted by the selection's persisted
-`--follow` policy.  The ticket dependency provider is queried only when a
-requested or traversable node reached while acquiring missing state is absent
-from synchronized ticket state.
+Without `--refresh`, lane selection uses synchronized local state first.
+With no persisted `--follow` policy, the projected selection contains only the
+explicit roots and ordinary dependency/dependant traversal does not start.
+Missing direct dependency targets may still be acquired as support-only
+canonical state so the synchronized dependency graph remains structurally
+complete; those support nodes do not enter the projected lane selection merely
+because they were acquired.
 
-Repeated selection of the same known component therefore performs no dependency
-provider reads.
+When a persisted `--follow` policy enables traversal, discovery proceeds
+through known canonical dependencies and dependants subject to its group-boundary
+budgets.  The ticket dependency provider is queried only when a requested,
+traversable, or structurally required support node is absent from synchronized
+ticket state.
+
+Repeated selection of the same known projected state therefore performs no new
+dependency provider reads.
 
 `lanes select remove` is entirely local without `--refresh`.
 
@@ -25,14 +32,15 @@ provider reads.
 `--refresh` is the explicit provider reread boundary for lane commands.
 
 For selection mutations, refresh scope is the requested or resulting selected
-component under the persisted traversal policy.  It is not a repository-wide
-crawl.  Refresh preserves per-path consumed follow budgets; it must not reset a
+projection under the persisted traversal policy, plus support-only dependency
+targets required to keep synchronized canonical state valid.  It is not a
+repository-wide crawl.  Refresh preserves per-path consumed follow budgets; it must not reset a
 boundary allowance merely because a reached node is already cached.
 
 During refresh:
 
-- provider dependencies are reread for every currently known node in the
-  relevant connected component;
+- provider dependencies are reread for every currently known traversed node in
+  the relevant projection, plus required support-only dependency targets;
 - identical local/provider sets are idempotent;
 - an empty local set may be populated from a non-empty provider set;
 - differing non-empty sets fail closed and require explicit dependency
@@ -50,7 +58,8 @@ configured dependency provider for that node, validates the result, adds the
 node atomically to canonical state, and continues through any newly discovered
 missing dependencies.
 
-Known portions of the component are reused without rereading the provider.
+Known projected and support-only portions are reused without rereading the
+provider.
 
 ## 4. Authority and failure
 
@@ -69,9 +78,10 @@ with roots, closure, graph revision, and lane assignment.  This includes both
 `--follow` budgets and `--show-children` context.  Subsequent
 `lanes view --refresh` operations reuse both policies.
 
-Older selection records remain readable and project the corresponding defaults:
-schema 1 has no follow or show-children policy; schema 2 has follow policy but
-no show-children policy.
+Older selection records remain readable and project the corresponding policy
+defaults: schema 1 has no follow or show-children policy; schema 2 has follow
+policy but no show-children policy.  An absent/default follow policy means
+ordinary traversal is disabled.
 
 Selection `add` and `remove` preserve the existing policies when no
 replacement traversal flags are supplied.  A stopped matching group may acquire
@@ -89,7 +99,10 @@ prove at the public CLI boundary:
 - removing a root performs zero provider reads by default;
 - restart preserves cache reuse;
 - cached selection succeeds when the provider is unavailable;
-- `--refresh` rereads only the relevant connected component;
+- no-follow selection keeps support-only acquisition out of the visible
+  projection;
+- `--refresh` rereads only the relevant followed projection and required
+  support state;
 - refresh conflict/provider failure leaves ticket state and selection unchanged;
 - remove-refresh excludes removed-only nodes;
 - provider fixtures conform to the independently verified adapter contract.
