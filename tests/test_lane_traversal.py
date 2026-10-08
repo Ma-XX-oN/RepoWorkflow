@@ -53,7 +53,7 @@ class LaneTraversalTests(unittest.TestCase):
       ])
 
   def test_selection_parser_removes_follow_from_focus_roots(self):
-    positional, as_json, refresh, follow = _selection_arguments([
+    positional, as_json, refresh, follow, show_children = _selection_arguments([
       "5",
       "--follow", "epic", "2",
       "6",
@@ -64,13 +64,15 @@ class LaneTraversalTests(unittest.TestCase):
     self.assertTrue(as_json)
     self.assertTrue(refresh)
     self.assertEqual(follow, FollowPolicy(epic=2))
+    self.assertIsNone(show_children)
 
   def test_selection_parser_keeps_omitted_follow_distinct_from_default(self):
-    positional, as_json, refresh, follow = _selection_arguments(["5"])
+    positional, as_json, refresh, follow, show_children = _selection_arguments(["5"])
     self.assertEqual(positional, ["5"])
     self.assertFalse(as_json)
     self.assertFalse(refresh)
     self.assertIsNone(follow)
+    self.assertIsNone(show_children)
 
 
 if __name__ == "__main__":
