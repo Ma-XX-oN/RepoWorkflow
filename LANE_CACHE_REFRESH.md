@@ -24,6 +24,14 @@ Without `--refresh`, known synchronized state is reused and the dependency
 provider is queried only when data required by the requested rule projection is
 missing.
 
+A canonical ticket file that predates first-use acquisition is treated as a
+complete synchronized local source. When RWF creates a partial ticket graph by
+first-use provider acquisition, it records clone-local directional coverage for
+the seed/mode rules acquired. A later wider or incomparable mode for the same
+seed must query the provider instead of interpreting absent nodes in that
+partial graph as authoritative absence. Repeating a covered mode remains
+provider-free.
+
 ## 2. Explicit refresh
 
 `--refresh` is the explicit provider reread boundary for lane commands.
