@@ -7,6 +7,7 @@ from repo_workflow.command_grammar import (
   Context,
   LAST_TERMINAL,
   completion_items,
+  help_lines,
   parse_tokens,
   validate_node,
 )
@@ -148,6 +149,48 @@ class CommandGrammarTests(unittest.TestCase):
     items = completion_items({"alpha": "Description"}, self.context, [""])
     self.assertEqual(items[0].description, "Description")
     self.assertFalse(items[0].bare_value)
+
+  def test_nested_command_help_uses_terminal_description(self):
+    commands = {
+      "parent": {
+        "child": {
+          "": "Child description",
+          "_switches": {"--flag": "Flag"},
+        },
+        "group": {
+          "leaf": "Leaf",
+        },
+        "plain": "Plain description",
+      },
+    }
+    self.assertEqual(
+      help_lines(commands, self.context, ["parent"]),
+      [
+        "child  Child description",
+        "group",
+        "plain  Plain description",
+      ],
+    )
+
+  def test_nested_command_detailed_completion_matches_help_description(self):
+    commands = {
+      "parent": {
+        "child": {
+          "": "Child description",
+          "leaf": "Leaf",
+        },
+      },
+    }
+    items = completion_items(
+      commands,
+      self.context,
+      ["parent", ""],
+      describe=True,
+    )
+    self.assertEqual(
+      [(item.token, item.description) for item in items],
+      [("child", "Child description")],
+    )
 
   def test_dynamic_described_completion_keeps_description(self):
     commands = {

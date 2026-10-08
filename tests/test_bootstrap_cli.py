@@ -72,6 +72,31 @@ class BootstrapCliTests(unittest.TestCase):
           self.assertNotIn("repoworkflow.json", completed.stderr)
           self.assertNotIn("missing RepoWorkflow configuration", completed.stderr)
 
+  def test_lanes_help_describes_nested_public_commands(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      completed = self.run_cli(root, "lanes", "--help")
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      lines = {
+        line.split(maxsplit=1)[0]: line.split(maxsplit=1)[1]
+        for line in completed.stdout.splitlines()
+      }
+      self.assertEqual(
+        lines["list"],
+        "List selected issues grouped by lane",
+      )
+      self.assertEqual(
+        lines["select"],
+        "Select issue focus roots",
+      )
+      self.assertEqual(
+        lines["view"],
+        "Render selected dependency topology",
+      )
+
   def test_invalid_syntax_is_reported_before_missing_configuration(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"

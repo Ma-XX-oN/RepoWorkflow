@@ -39,6 +39,14 @@
       "issue-453-lane-show-children": {
         "type": "regression",
         "name": "tests.test_lane_show_children_verification"
+      },
+      "issue-521-command-grammar-help": {
+        "type": "regression",
+        "name": "tests.test_command_grammar"
+      },
+      "issue-521-public-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
       }
     }
   ],
