@@ -157,6 +157,36 @@ For provider-backed or externally synchronized behaviour:
 Correct synchronization code operating against an unpopulated authoritative
 source is not a complete implementation.
 
+## 7.1 Executable interface contracts as a testing technique
+
+When a provider and consumer have an explicit predefined interface, an
+executable interface contract may be used as an optional test technique.
+
+A suitable contract runner can support both:
+
+- provider conformance testing, where real provider calls are checked with
+  pre-call and post-call verification; and
+- consumer testing, where the same deterministic contract is replayed to
+  validate consumer inputs and return scripted outputs or errors.
+
+This technique is appropriate when it improves independence, determinism, or
+parallel development.  It does not replace real integration testing.
+
+The provider and consumer must use the same independently defined contract.
+Do not derive the contract from current provider behaviour and then use that
+same behaviour as the oracle.
+
+When used, verify at least:
+
+- provider conformance to the contract;
+- consumer behaviour against deterministic replay;
+- malformed or unexpected calls and outputs;
+- contract-version or changed-interface invalidation;
+- real provider/consumer integration after independent conformance passes.
+
+The proposed deterministic mechanism is described in
+[EXECUTABLE_INTERFACE_CONTRACTS.md](EXECUTABLE_INTERFACE_CONTRACTS.md).
+
 ## 8. Black-box, structural, and static verification
 
 Requirements coverage and structural coverage are different obligations.
