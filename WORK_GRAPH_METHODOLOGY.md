@@ -40,10 +40,11 @@ this remains the source for repository-neutral decomposition and graph semantics
 A leaf is well-formed when it owns one coherent contract or state transition
 with a clear completion boundary.
 
-A leaf may contain substantial implementation work and still be valid if its
-interface remains singular.  A small issue may still be poorly decomposed when
-it mixes several independently testable responsibilities.
-
+A leaf may contain substantial implementation work if its interface remains
+singular.  A small issue may still contain multiple independently testable
+contracts or coding boundaries.  Split when that improves test isolation,
+implementation decoupling, independent verification, or interface clarity—not
+merely to reduce ticket size.
 Useful split boundaries include:
 
 - semantic contract versus implementation;
@@ -58,9 +59,8 @@ Useful split boundaries include:
 - candidate preparation versus result finalization;
 - creation versus later cleanup/reconciliation.
 
-When two responsibilities have different preconditions, postconditions,
-failure behaviour, or independent consumers, they are strong candidates for
-separate leaves.
+Different preconditions, postconditions, failure behaviour, or consumers are
+strong evidence for separate leaves.
 
 ## 3. The leaf contract
 
