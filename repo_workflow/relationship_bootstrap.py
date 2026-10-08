@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .lane_decomposition import dependency_component, dependency_states
+from .lane_decomposition import dependency_component
 from .lane_traversal import (
   FollowPolicy,
   ShowChildrenPolicy,
   TraversalState,
+  dependant_boundary_kind,
   group_kind,
 )
 from .lane_diagnostics import LaneDiagnostics
@@ -46,7 +47,7 @@ def ensure_relationship_graph(
   follow: FollowPolicy | None = None,
   show_children: ShowChildrenPolicy | None = None,
 ) -> RelationshipAcquisition:
-  """Ensure canonical ticket coverage using local state unless refresh/missing."""
+  """Ensure canonical ticket coverage for terminal-root lane discovery."""
   try:
     require_dependency_migration_certified(root)
   except DependencyMigrationCertificationError as error:
@@ -59,29 +60,25 @@ def ensure_relationship_graph(
   requested_set = set(requested)
   policy = FollowPolicy() if follow is None else follow
   context = ShowChildrenPolicy() if show_children is None else show_children
-  dependency_config = resolve_dependency_config(root)
-  info_config = resolve_info_config(root)
+
   if (
-    refresh
+    not refresh
     and snapshot is not None
     and all(issue in issues for issue in requested)
   ):
-    pending = [
-      (state, True)
-      for state in dependency_states(
-        snapshot.graph,
-        requested,
-        follow=policy,
-      )
-    ]
-  else:
-    pending = [
-      (TraversalState(issue, policy.remaining()), True)
-      for issue in requested
-    ]
-  visited: set[TraversalState] = set()
-  traversed_issues: set[str] = set()
-  context_issues: set[str] = set()
+    component = dependency_component(
+      snapshot.graph,
+      requested,
+      follow=policy,
+      show_children=context,
+    )
+    return RelationshipAcquisition(
+      issues=tuple(int(issue) for issue in component),
+      provider_reads=(),
+    )
+
+  dependency_config = resolve_dependency_config(root)
+  info_config = resolve_info_config(root)
   provider_reads: list[int] = []
   fetched_info: dict[int, dict] = {}
   provider_cache: dict[
@@ -90,136 +87,179 @@ def ensure_relationship_graph(
   ] = {}
   changed = snapshot is None
 
-  while pending:
-    state, traverse = pending.pop(0)
-    issue = state.issue
-    if traverse:
-      if state in visited:
-        continue
-      visited.add(state)
-      traversed_issues.add(issue)
+  def load(issue: str) -> tuple[IssueRelationships, tuple[str, ...]]:
+    nonlocal changed
+    cached = provider_cache.get(issue)
+    if cached is not None:
+      relation, dependants, _ = cached
+      return relation, dependants
+
+    number = int(issue)
+    provider_reads.append(number)
+    if diagnostics is not None:
+      diagnostics.miss("relationships")
+      diagnostics.miss("metadata")
+      relationships = diagnostics.provider(
+        "dependencies",
+        number,
+        lambda: read_ticket_relationships(
+          root,
+          dependency_config,
+          number,
+        ),
+      )
+      info = diagnostics.provider(
+        "metadata",
+        number,
+        lambda: issue_info(root, info_config, number),
+      )
     else:
-      if issue in context_issues or issue in traversed_issues:
-        continue
-      context_issues.add(issue)
+      relationships = read_ticket_relationships(
+        root,
+        dependency_config,
+        number,
+      )
+      info = issue_info(root, info_config, number)
+
+    fetched_info[number] = info
+    provider = IssueRelationships(
+      title=info["title"],
+      depends_on=tuple(str(value) for value in relationships.dependencies),
+    )
+    provider_dependants = tuple(
+      str(value)
+      for value in relationships.dependants
+    )
+    provider_cache[issue] = (provider, provider_dependants, info)
 
     current = issues.get(issue)
-    provider: IssueRelationships | None = None
-    if refresh or current is None:
-      cached_provider = provider_cache.get(issue)
-      if cached_provider is not None:
-        provider, provider_dependants, info = cached_provider
-      else:
-        number = int(issue)
-        provider_reads.append(number)
-        if diagnostics is not None:
-          diagnostics.miss("relationships")
-          diagnostics.miss("metadata")
-          relationships = diagnostics.provider(
-            "dependencies",
-            number,
-            lambda: read_ticket_relationships(
-              root,
-              dependency_config,
-              number,
-            ),
-          )
-          info = diagnostics.provider(
-            "metadata",
-            number,
-            lambda: issue_info(root, info_config, number),
-          )
-        else:
-          relationships = read_ticket_relationships(
-            root,
-            dependency_config,
-            number,
-          )
-          info = issue_info(root, info_config, number)
-        fetched_info[number] = info
-        provider = IssueRelationships(
-          title=info["title"],
-          depends_on=tuple(str(value) for value in relationships.dependencies),
-        )
-        provider_dependants = tuple(
-          str(value) for value in relationships.dependants
-        )
-        provider_cache[issue] = (provider, provider_dependants, info)
-    else:
-      provider_dependants = ()
-      if diagnostics is not None:
-        diagnostics.hit("relationships")
-
     if current is None:
-      assert provider is not None
       issues[issue] = provider
       changed = True
-      dependencies = provider.depends_on
-    elif provider is None:
-      dependencies = current.depends_on
-    else:
-      if current.depends_on == provider.depends_on:
-        replacement = provider
-      elif not current.depends_on and provider.depends_on:
-        replacement = provider
-      else:
-        raise TicketDependencyError(
-          "canonical dependencies conflict with native ticket dependencies "
-          f"for #{issue}: canonical={list(current.depends_on)!r}, "
-          f"provider={list(provider.depends_on)!r}; reconcile explicitly "
-          "before lane selection"
-        )
-      if replacement != current:
-        issues[issue] = replacement
+    elif current.depends_on == provider.depends_on:
+      if current != provider:
+        issues[issue] = provider
         changed = True
-      dependencies = replacement.depends_on
+    elif not current.depends_on and provider.depends_on:
+      issues[issue] = provider
+      changed = True
+    else:
+      raise TicketDependencyError(
+        "canonical dependencies conflict with native ticket dependencies "
+        f"for #{issue}: canonical={list(current.depends_on)!r}, "
+        f"provider={list(provider.depends_on)!r}; reconcile explicitly "
+        "before lane selection"
+      )
 
-    if not traverse:
-      for dependency in dependencies:
-        if dependency not in traversed_issues and dependency not in context_issues:
-          pending.append((
-            TraversalState(dependency, state.remaining),
-            False,
-          ))
+    return issues[issue], provider_dependants
+
+  support_seen: set[str] = set()
+
+  def ensure_support(issue: str) -> None:
+    pending = [issue]
+    while pending:
+      current_issue = pending.pop(0)
+      if current_issue in support_seen:
+        continue
+      support_seen.add(current_issue)
+      relation, _ = load(current_issue)
+      for dependency in relation.depends_on:
+        if dependency not in support_seen:
+          pending.append(dependency)
+
+  dependency_visited: set[TraversalState] = set()
+  stopped_dependency_groups: set[TraversalState] = set()
+  terminals: set[TraversalState] = set()
+  pending_left = [
+    TraversalState(issue, policy.remaining())
+    for issue in requested
+  ]
+
+  while pending_left:
+    state = pending_left.pop(0)
+    if state in dependency_visited:
       continue
+    dependency_visited.add(state)
 
+    relation, _ = load(state.issue)
     remaining = state.remaining
-    relation = issues[issue]
     kind = group_kind(relation.title)
-    related = (*dependencies, *provider_dependants)
-    if issue not in requested_set:
+    if state.issue not in requested_set:
       crossed = policy.cross(kind, remaining)
       if crossed is None:
+        stopped_dependency_groups.add(state)
+        terminals.add(state)
         if context.matches(kind):
-          for related_issue in related:
-            pending.append((
-              TraversalState(related_issue, remaining),
-              False,
-            ))
+          for dependency in relation.depends_on:
+            ensure_support(dependency)
         continue
       remaining = crossed
 
-    for related_issue in related:
-      next_state = TraversalState(related_issue, remaining)
-      if next_state not in visited:
-        pending.append((next_state, True))
+    if not relation.depends_on:
+      terminals.add(TraversalState(state.issue, remaining))
+      continue
+
+    for dependency in relation.depends_on:
+      next_state = TraversalState(dependency, remaining)
+      if next_state not in dependency_visited and next_state not in pending_left:
+        pending_left.append(next_state)
+
+  pending_right: list[tuple[TraversalState, bool]] = []
+  for terminal in sorted(
+    terminals,
+    key=lambda state: (int(state.issue), state.remaining),
+  ):
+    if terminal in stopped_dependency_groups:
+      continue
+    relation, _ = load(terminal.issue)
+    if (
+      terminal.issue not in requested_set
+      and dependant_boundary_kind(relation.title) is not None
+    ):
+      continue
+    pending_right.append((terminal, False))
+
+  dependant_visited: set[TraversalState] = set()
+  while pending_right:
+    state, cross_current = pending_right.pop(0)
+    if state in dependant_visited:
+      continue
+    dependant_visited.add(state)
+
+    relation, provider_dependants = load(state.issue)
+    remaining = state.remaining
+    if cross_current and state.issue not in requested_set:
+      kind = group_kind(relation.title)
+      crossed = policy.cross(kind, remaining)
+      if crossed is None:
+        if context.matches(kind):
+          for dependant in provider_dependants:
+            ensure_support(dependant)
+        continue
+      remaining = crossed
+
+    for dependant in provider_dependants:
+      ensure_support(dependant)
+      next_state = TraversalState(dependant, remaining)
+      if (
+        next_state not in dependant_visited
+        and all(item[0] != next_state for item in pending_right)
+      ):
+        pending_right.append((next_state, True))
+
+  graph = RelationshipGraph.from_json_value({
+    "schema_version": 3,
+    "issues": {
+      issue: relation.to_json_value()
+      for issue, relation in issues.items()
+    },
+  })
 
   if changed:
-    graph = RelationshipGraph.from_json_value({
-      "schema_version": 3,
-      "issues": {
-        issue: relation.to_json_value()
-        for issue, relation in issues.items()
-      },
-    })
-
     if snapshot is None:
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
-  else:
-    assert snapshot is not None
-    graph = snapshot.graph
 
   component = dependency_component(
     graph,
