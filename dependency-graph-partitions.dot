@@ -3,7 +3,7 @@ digraph "RepoWorkflow partition experiment" {
   node [shape=box, fontsize=10, fontcolor="black"];
   edge [arrowsize=0.7];
 
-  // Presentation direction is dependency -> dependant.
+  // dependency -> dependant presentation
   // Seed=gold, Feature=lightblue, Epic=palegreen, Initiative=plum,
   // Bug=mistyrose, Refactor=khaki1, ordinary=white.
 
@@ -209,11 +209,11 @@ digraph "RepoWorkflow partition experiment" {
   "390" [label="#390  Improve constrained renderer colour/runtime and route quality", style="filled", fillcolor="white"];
   "391" [label="#391  Make terminal colour backend an explicit supported runtime", style="filled", fillcolor="white"];
   "392" [label="#392  Define renderer route-quality metrics and deterministic comparison", style="filled", fillcolor="white"];
-  "393" [label="#393  Bug: Eliminate unnecessary long-edge excursions with bounded candidates", style="filled", fillcolor="mistyrose"];
-  "394" [label="#394  Bug: Prefer safe track reuse and avoid opposing adjacent verticals", style="filled", fillcolor="mistyrose"];
+  "393" [label="#393  Eliminate unnecessary long-edge excursions with bounded candidates", style="filled", fillcolor="white"];
+  "394" [label="#394  Prefer safe track reuse and avoid opposing adjacent verticals", style="filled", fillcolor="white"];
   "395" [label="#395  Add bounded node/group ordering improvement for route quality", style="filled", fillcolor="white"];
   "396" [label="#396  Certify renderer quality on real #107 and #218 dependency graphs", style="filled", fillcolor="white"];
-  "398" [label="#398  Refactor: Simplify lane display by preserving dependency reachability", style="filled", fillcolor="khaki1"];
+  "398" [label="#398  Simplify lane display by preserving dependency reachability", style="filled", fillcolor="white"];
   "399" [label="#399  Add reachability-preserving transitive reduction to lane projection", style="filled", fillcolor="white"];
   "400" [label="#400  Validate rendered glyph continuity after lane graph simplification", style="filled", fillcolor="white"];
   "401" [label="#401  Certify simplified real #218 lane graph", style="filled", fillcolor="white"];
@@ -236,7 +236,7 @@ digraph "RepoWorkflow partition experiment" {
   "420" [label="#420  Feature: Add provider-aware semantic merge for synchronized ticket CSV", style="filled", fillcolor="lightblue"];
   "421" [label="#421  Document ticket title prefixes and ticket-creation graph workflow", style="filled", fillcolor="white"];
   "422" [label="#422  Certify synchronized ticket-state migration, merge, and sync workflows", style="filled", fillcolor="white"];
-  "426" [label="#426  Refactor: Remove remaining obsolete umbrella terminology from authoritative docs", style="filled", fillcolor="khaki1"];
+  "426" [label="#426  Remove remaining obsolete umbrella terminology from authoritative docs", style="filled", fillcolor="white"];
   "428" [label="#428  Validate committed ticket state before authoritative validation", style="filled", fillcolor="white"];
   "430" [label="#430  Annotate lane node types and colour lane-list groups", style="filled", fillcolor="white"];
   "432" [label="#432  Restore complete reviewed dependency graph in synchronized ticket state", style="filled", fillcolor="white"];
