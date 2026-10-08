@@ -338,6 +338,67 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4})
 
+  def test_refresh_preserves_consumed_follow_budget(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+          4: [3],
+          5: [4],
+        },
+        titles={
+          1: "Issue 1",
+          2: "Feature: First",
+          3: "Issue 3",
+          4: "Feature: Second",
+          5: "Issue 5",
+        },
+      )
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "1",
+        "--follow",
+        "feature",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(
+        json.loads(selected.stdout)["closure"],
+        ["1", "2", "3", "4"],
+      )
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      refreshed = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "view",
+        "--refresh",
+      )
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertNotIn(5, self.dependency_calls(env))
+
+      selection_path = (
+        root / ".git/repoworkflow/lane-selection/selection.json"
+      )
+      record = json.loads(selection_path.read_text(encoding="utf-8"))
+      self.assertEqual(
+        record["value"]["closure"],
+        ["1", "2", "3", "4"],
+      )
+      self.assertEqual(record["value"]["follow"]["feature"], 1)
+
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
