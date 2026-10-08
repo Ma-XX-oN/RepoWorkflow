@@ -11,6 +11,7 @@ class LaneRelationshipCoverageTests(unittest.TestCase):
   def coverage(self, *modes: str) -> RelationshipCoverage:
     return RelationshipCoverage(
       partial=True,
+      baseline_seeds=(),
       rules=tuple(ProjectionRule("7", mode) for mode in modes),
     )
 
@@ -62,8 +63,25 @@ class LaneRelationshipCoverageTests(unittest.TestCase):
       rule_is_covered(coverage, ProjectionRule("8", "single"))
     )
 
+  def test_complete_baseline_seed_stays_covered_after_partial_extension(self):
+    coverage = RelationshipCoverage(
+      partial=True,
+      baseline_seeds=("7",),
+      rules=(ProjectionRule("8", "single"),),
+    )
+    self.assertTrue(
+      rule_is_covered(coverage, ProjectionRule("7", "both"))
+    )
+    self.assertFalse(
+      rule_is_covered(coverage, ProjectionRule("8", "dependents"))
+    )
+
   def test_complete_local_state_covers_every_rule(self):
-    coverage = RelationshipCoverage(partial=False, rules=())
+    coverage = RelationshipCoverage(
+      partial=False,
+      baseline_seeds=(),
+      rules=(),
+    )
     self.assertTrue(
       rule_is_covered(coverage, ProjectionRule("99", "both"))
     )
