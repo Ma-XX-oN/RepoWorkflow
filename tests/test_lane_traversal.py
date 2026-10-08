@@ -4,6 +4,7 @@ from repo_workflow.lane_selection_cli import _selection_arguments
 from repo_workflow.lane_traversal import (
   FollowPolicy,
   LaneTraversalError,
+  dependant_boundary_kind,
   group_kind,
   parse_follow_arguments,
 )
@@ -16,6 +17,12 @@ class LaneTraversalTests(unittest.TestCase):
     self.assertEqual(group_kind("Initiative: Three"), "initiative")
     self.assertIsNone(group_kind("Issue 4"))
     self.assertIsNone(group_kind("feature: lower-case is ordinary"))
+
+  def test_dependant_boundary_kind_uses_synchronized_title_prefixes(self):
+    self.assertEqual(dependant_boundary_kind("Bug: One"), "bug")
+    self.assertEqual(dependant_boundary_kind("Refactor: Two"), "refactor")
+    self.assertIsNone(dependant_boundary_kind("Fix ordinary issue"))
+    self.assertIsNone(dependant_boundary_kind("bug: lower-case is ordinary"))
 
   def test_omitted_follow_count_defaults_to_one(self):
     self.assertEqual(
