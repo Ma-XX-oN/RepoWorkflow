@@ -13,6 +13,11 @@ from .lane_projection import (
   normalize_rules,
   project_rules,
 )
+from .lane_relationship_coverage import (
+  RelationshipCoverage,
+  RelationshipCoverageStore,
+  rule_is_covered,
+)
 from .relationship_store import (
   RelationshipSnapshot,
   RelationshipStore,
@@ -84,11 +89,21 @@ def ensure_relationship_rules(
   snapshot = _read_optional(store)
   issues = {} if snapshot is None else dict(snapshot.graph.issues)
   requested = {rule.seed for rule in all_rules}
+  coverage_store = RelationshipCoverageStore(root)
+  coverage, coverage_revision = coverage_store.read()
+  partial = snapshot is None or (
+    coverage is not None and coverage.partial
+  )
 
+  locally_covered = (
+    coverage is None
+    or all(rule_is_covered(coverage, rule) for rule in all_rules)
+  )
   if (
     not refresh
     and snapshot is not None
     and requested <= set(issues)
+    and locally_covered
   ):
     projected = project_rules(
       snapshot.graph,
@@ -120,14 +135,18 @@ def ensure_relationship_rules(
       key=int,
     ))
 
-  def load(issue: str) -> tuple[IssueRelationships, tuple[str, ...]]:
+  def load(
+    issue: str,
+    *,
+    force_provider: bool,
+  ) -> tuple[IssueRelationships, tuple[str, ...]]:
     nonlocal changed
 
     cached = provider_cache.get(issue)
     if cached is not None:
       return cached
 
-    if not refresh and issue in issues:
+    if not force_provider and not refresh and issue in issues:
       if diagnostics is not None:
         diagnostics.hit("relationships")
       return issues[issue], local_dependents(issue)
@@ -190,23 +209,27 @@ def ensure_relationship_rules(
 
     return issues[issue], provider_dependents
 
-  support_seen: set[str] = set()
+  support_seen: set[tuple[str, bool]] = set()
 
-  def ensure_support(issue: str) -> None:
+  def ensure_support(issue: str, *, force_provider: bool) -> None:
     pending = [issue]
     while pending:
       current_issue = pending.pop()
-      if current_issue in support_seen:
+      key = (current_issue, force_provider)
+      if key in support_seen:
         continue
-      support_seen.add(current_issue)
-      relation, _ = load(current_issue)
+      support_seen.add(key)
+      relation, _ = load(
+        current_issue,
+        force_provider=force_provider,
+      )
       pending.extend(
         dependency
         for dependency in relation.depends_on
         if dependency not in support_seen
       )
 
-  def walk_dependencies(seed: str) -> None:
+  def walk_dependencies(seed: str, *, force_provider: bool) -> None:
     pending = [seed]
     seen: set[str] = set()
     while pending:
@@ -214,14 +237,14 @@ def ensure_relationship_rules(
       if issue in seen:
         continue
       seen.add(issue)
-      relation, _ = load(issue)
+      relation, _ = load(issue, force_provider=force_provider)
       pending.extend(
         dependency
         for dependency in relation.depends_on
         if dependency not in seen
       )
 
-  def walk_dependents(seed: str) -> None:
+  def walk_dependents(seed: str, *, force_provider: bool) -> None:
     pending = [seed]
     seen: set[str] = set()
     while pending:
@@ -229,23 +252,30 @@ def ensure_relationship_rules(
       if issue in seen:
         continue
       seen.add(issue)
-      _, dependents = load(issue)
+      _, dependents = load(issue, force_provider=force_provider)
       for dependant in dependents:
-        ensure_support(dependant)
+        ensure_support(dependant, force_provider=force_provider)
         if dependant not in seen:
           pending.append(dependant)
 
   for rule in all_rules:
+    force_provider = refresh or (
+      partial
+      and (
+        coverage is None
+        or not rule_is_covered(coverage, rule)
+      )
+    )
     if rule.mode == "single":
-      ensure_support(rule.seed)
+      ensure_support(rule.seed, force_provider=force_provider)
     elif rule.mode == "dependencies":
-      walk_dependencies(rule.seed)
+      walk_dependencies(rule.seed, force_provider=force_provider)
     elif rule.mode == "dependents":
-      ensure_support(rule.seed)
-      walk_dependents(rule.seed)
+      ensure_support(rule.seed, force_provider=force_provider)
+      walk_dependents(rule.seed, force_provider=force_provider)
     else:
-      walk_dependencies(rule.seed)
-      walk_dependents(rule.seed)
+      walk_dependencies(rule.seed, force_provider=force_provider)
+      walk_dependents(rule.seed, force_provider=force_provider)
 
   graph = RelationshipGraph.from_json_value({
     "schema_version": 3,
@@ -255,11 +285,40 @@ def ensure_relationship_rules(
     },
   })
 
+  next_coverage = None
+  if partial:
+    prior_rules = () if coverage is None else coverage.rules
+    next_coverage = RelationshipCoverage(
+      partial=True,
+      rules=normalize_rules((*prior_rules, *all_rules)),
+    )
+
+  # On the first partial acquisition, establish the coverage marker before
+  # creating tickets.csv so a crash cannot leave a partial graph looking like
+  # a complete synchronized graph.
+  if snapshot is None and coverage is None and next_coverage is not None:
+    coverage_store.write(
+      next_coverage,
+      writer,
+      expected_revision=None,
+    )
+    coverage_revision = 0
+
   if changed:
     if snapshot is None:
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
+
+  if (
+    next_coverage is not None
+    and not (snapshot is None and coverage is None)
+  ):
+    coverage_store.write(
+      next_coverage,
+      writer,
+      expected_revision=coverage_revision,
+    )
 
   projected = project_rules(graph, include_rules, exclude_rules)
 
