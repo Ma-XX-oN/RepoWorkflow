@@ -431,6 +431,73 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertGreater(len(self.dependency_calls(env)), len(before))
       self.assertNotIn(4, json.loads(widened.stdout)["closure"])
 
+  def test_partial_cache_widening_failure_preserves_graph_and_selection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+        },
+      )
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--single",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      graph_path = root / ".repoworkflow" / "tickets.csv"
+      selection_path = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "lane-selection"
+        / "selection.json"
+      )
+      graph_before = graph_path.read_text(encoding="utf-8")
+      selection_before = selection_path.read_text(encoding="utf-8")
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(92)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      widened = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependents",
+        "--json",
+      )
+      self.assertEqual(widened.returncode, 2)
+      self.assertIn("provider unavailable", widened.stderr)
+      self.assertEqual(
+        graph_path.read_text(encoding="utf-8"),
+        graph_before,
+      )
+      self.assertEqual(
+        selection_path.read_text(encoding="utf-8"),
+        selection_before,
+      )
+
   def test_directional_selection_refresh_replays_persisted_rules(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
