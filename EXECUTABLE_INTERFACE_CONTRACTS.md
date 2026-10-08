@@ -476,14 +476,19 @@ The predefined interface may be pre-existing or newly designed.  New design
 work should attempt interface-first decomposition when it creates a coherent
 boundary that allows useful overlap.
 
-The interface used for speculative execution is not automatically the final
-production architecture.  After any related ticket grouping converges, review
-whether to:
+The interface used for decomposition or speculative execution is not
+automatically the final production architecture.  After any related ticket
+sequence or grouping converges, including a purely serial chain, review whether
+to:
 
 - retain the interface as a durable boundary;
 - consolidate independently implemented pieces into one code path; or
 - expose a higher-level interface that hides error-prone sequencing while
   retaining lower-level interfaces internally where justified.
+
+The grouping does not need to have been identified as a Feature/Epic in
+advance; a coherent feature/outcome may only become apparent after the
+dependency path is decomposed.
 
 Contract semantics must be frozen before provider and consumer runtime work is
 treated as speculatively parallel-ready.  Final integration/certification must
