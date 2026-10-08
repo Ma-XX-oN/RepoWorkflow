@@ -823,6 +823,103 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertNotIn("provider unavailable", first.stderr)
       self.assertNotIn("provider unavailable", second.stderr)
 
+  def test_branch_change_preserves_missing_seed_without_provider_refresh(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          440: [],
+          452: [],
+          513: [440, 452],
+          516: [],
+        },
+        titles={
+          440: "Expand lane selection seeds",
+          452: "Add group-boundary follow control",
+          513: "Canonical lane focus regression",
+          516: "Lane count",
+        },
+      )
+
+      baseline = self.run_rwf(root, env, "lanes", "select", "516", "--json")
+      self.assertEqual(baseline.returncode, 0, baseline.stderr)
+      subprocess.run(
+        ["git", "add", ".repoworkflow/tickets.csv"],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "baseline ticket state"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      subprocess.run(
+        ["git", "checkout", "-b", "issue-513"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      selected = self.run_rwf(root, env, "lanes", "select", "513", "--json")
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      subprocess.run(
+        ["git", "add", ".repoworkflow/tickets.csv"],
+        cwd=root,
+        check=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-m", "issue 513 ticket state"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+
+      subprocess.run(
+        ["git", "checkout", "main"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      self.assertNotIn("513", self.ticket_rows(root))
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+
+      listed = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertIn("Unresolved seeds", listed.stdout)
+      self.assertIn("#513", listed.stdout)
+      self.assertEqual(self.dependency_calls(env), [])
+      self.assertNotIn("513", self.ticket_rows(root))
+
+      refreshed = self.run_rwf(root, env, "lanes", "list", "--refresh")
+      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+      self.assertIn("Unresolved seeds", refreshed.stdout)
+      self.assertIn("#513", refreshed.stdout)
+      self.assertEqual(self.dependency_calls(env), [])
+      self.assertNotIn("513", self.ticket_rows(root))
+
+      subprocess.run(
+        ["git", "checkout", "issue-513"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+      )
+      restored = self.run_rwf(root, env, "lanes", "list")
+      self.assertEqual(restored.returncode, 0, restored.stderr)
+      self.assertIn("#513  Canonical lane focus regression", restored.stdout)
+      self.assertNotIn("Unresolved seeds", restored.stdout)
+
+
+
   def test_lane_flag_combinations_are_accepted_by_public_grammar(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
