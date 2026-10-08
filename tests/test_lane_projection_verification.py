@@ -24,6 +24,10 @@ TEST_NAMES = (
     "tests.test_first_use_lanes.FirstUseLanesTests."
     "test_directional_selection_refresh_replays_persisted_rules"
   ),
+  (
+    "tests.test_first_use_lanes.FirstUseLanesTests."
+    "test_partial_single_cache_widens_to_dependents_without_refresh"
+  ),
 )
 
 
