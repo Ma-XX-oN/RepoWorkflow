@@ -354,6 +354,18 @@
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_group_boundary_stops_provider_component_until_followed",
             "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_preserves_consumed_follow_budget"
           ]
+        },
+        {
+          "id": "DL-24",
+          "requirement": "--show-children group|feature|epic|initiative adds exactly one immediate context layer at matching stopped group boundaries, does not restart ordinary traversal from display-only nodes, preserves normal traversal through independently reached nodes, persists across refresh, and keeps provider support acquisition out of the visible projection",
+          "verification": [
+            "tests/test_lane_show_children.py::LaneShowChildrenTests.test_stopped_feature_shows_one_immediate_child_layer",
+            "tests/test_lane_show_children.py::LaneShowChildrenTests.test_display_child_also_reached_normally_keeps_traversing",
+            "tests/test_lane_show_children_grammar.py::LaneShowChildrenGrammarTests.test_show_children_forms_parse",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_show_children_policy_is_persisted_with_selection",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_fetches_one_hop_without_recursive_traversal",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_support_fetch_does_not_expand_projection"
+          ]
         }
       ],
       "lifecycle_dimensions": {
@@ -398,7 +410,10 @@
         "renderer_certification_binding": "DL-22",
         "group_boundary_follow": "DL-23",
         "follow_policy_persistence": "DL-23",
-        "follow_refresh_budget_preservation": "DL-23"
+        "follow_refresh_budget_preservation": "DL-23",
+        "show_children_context": "DL-24",
+        "show_children_refresh_persistence": "DL-24",
+        "show_children_support_acquisition": "DL-24"
       },
       "stateful": true,
       "provider_boundary": true,
