@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .lane_decomposition import dependency_component
+from .lane_decomposition import dependency_component, dependency_states
 from .lane_traversal import FollowPolicy, TraversalState, group_kind
 from .lane_diagnostics import LaneDiagnostics
 from .dependency_migration_certification import (
@@ -59,14 +59,11 @@ def ensure_relationship_graph(
     and snapshot is not None
     and all(issue in issues for issue in requested)
   ):
-    pending = [
-      TraversalState(issue, policy.remaining())
-      for issue in dependency_component(
-        snapshot.graph,
-        requested,
-        follow=policy,
-      )
-    ]
+    pending = list(dependency_states(
+      snapshot.graph,
+      requested,
+      follow=policy,
+    ))
   else:
     pending = [
       TraversalState(issue, policy.remaining())
