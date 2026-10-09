@@ -55,6 +55,10 @@
       "issue-540-on-demand-ci-marker": {
         "type": "regression",
         "name": "tests.test_ci_invocation"
+      },
+      "issue-542-premerge-evidence-gate": {
+        "type": "regression",
+        "name": "tests.test_pre_merge_gate"
       }
     }
   ],
