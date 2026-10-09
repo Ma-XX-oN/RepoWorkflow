@@ -92,7 +92,7 @@ class HostedIntegrationProviderTests(unittest.TestCase):
         ]
         responses[jobs_url]["total_count"] = 2
         responses[marker_url]["content"] = base64.b64encode(
-          (stage + " " + SHA + "\\n").encode(),
+          (stage + " " + SHA + "\n").encode(),
         ).decode()
         self.assertTrue(verify_hosted_stage(
           record, repo=REPO, stage=stage,
