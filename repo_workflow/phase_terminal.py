@@ -31,13 +31,22 @@ class PhasePlan:
   next_request: tuple[str, ...] | None
 
 
-def plan_phase(\n  version: str, *, phase: str, outcome: str,\n  prior_terminal: str | None = None,\n) -> PhasePlan:
+def plan_phase(
+  version: str, *, phase: str, outcome: str,
+  prior_terminal: str | None = None,
+) -> PhasePlan:
   """Derive distinct immutable tag identity and next semantic request.
 
   next_request is an adapter operation for the *next* attempt, not a
   mutation permitted during terminal evidence creation.
   """
-  if prior_terminal is not None and prior_terminal not in {"PASS", "FAIL"}:\n    raise PhaseTransitionError("invalid prior terminal state")\n  if prior_terminal is not None and (\n    outcome == "INCOMPLETE" or outcome != prior_terminal\n  ):\n    raise PhaseTransitionError("terminal outcome is already immutable")\n  match = _VERSION.fullmatch(version)
+  if prior_terminal is not None and prior_terminal not in {"PASS", "FAIL"}:
+    raise PhaseTransitionError("invalid prior terminal state")
+  if prior_terminal is not None and (
+    outcome == "INCOMPLETE" or outcome != prior_terminal
+  ):
+    raise PhaseTransitionError("terminal outcome is already immutable")
+  match = _VERSION.fullmatch(version)
   if match is None:
     raise PhaseTransitionError("invalid task development version")
   if phase not in _PHASES:
@@ -57,7 +66,8 @@ def plan_phase(\n  version: str, *, phase: str, outcome: str,\n  prior_terminal:
     else:
       tag = f"v{base}-PRELIM-{issue}.{q}.{r}"
     if outcome == "FAIL":
-      # Existing CI-FAIL outcome suffix, composed with the PRELIM namespace.\n      tag += "-CI-FAIL"
+      # Existing CI-FAIL outcome suffix, composed with the PRELIM namespace.
+      tag += "-CI-FAIL"
       if phase == "regression":
         request = ("task", "--increment", "CI-iteration")
         next_version = f"{base}-issue.{issue}.{q}.{r + 1}"
