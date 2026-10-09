@@ -386,6 +386,56 @@ class InterfacePlaybackTests(unittest.TestCase):
       self.assertEqual(len(interactions), 1)
       self.assertEqual(interactions[0]["result"]["return"], "abc")
 
+  def test_record_filter_cannot_create_forward_reference(self):
+    recorder = InterfacePlayback()
+
+    def bad_filter(interaction):
+      interaction["result"]["return"] = {"$ref": "missing"}
+      return interaction
+
+    with self.assertRaisesRegex(
+      InterfaceGrammarError,
+      "forward or unknown logical object reference",
+    ):
+      recorder.record(bad_filter, lambda: 1, Free, "f")
+    self.assertEqual(recorder._recording, [])
+
+  def test_save_back_to_loaded_filename_does_not_truncate(self):
+    recorder = InterfacePlayback()
+    recorder.record(identity, lambda: 1, Free, "f")
+    with tempfile.TemporaryDirectory() as temp:
+      path = Path(temp) / "same.json"
+      recorder.save(path)
+      before = path.read_text(encoding="utf-8")
+      loaded = InterfacePlayback(path)
+      loaded.save(path)
+      self.assertEqual(path.read_text(encoding="utf-8"), before)
+      self.assertEqual(loaded.replay(Free, "f"), 1)
+
+  def test_builtin_dictionary_grammar_rejects_missing_exact_key_value(self):
+    recording = [{
+      "call": {"fn_name": "f", "obj": {"$free": True}},
+      "before": {
+        "args": [{
+          "$new": "dict_1",
+          "$type": "builtins.dict",
+          "keys": ["a"],
+          "items": {},
+        }],
+        "kwargs": {},
+      },
+      "after": {
+        "args": [{"$ref": "dict_1"}],
+        "kwargs": {},
+      },
+      "result": {"return": None},
+    }]
+    with self.assertRaisesRegex(
+      InterfaceGrammarError,
+      "missing values for keys",
+    ):
+      InterfacePlayback(recording)
+
   def test_large_file_is_valid_incremental_json_array(self):
     recorder = InterfacePlayback()
     for value in range(1000):
