@@ -686,7 +686,8 @@
     "what-next": "FU-LIFECYCLE",
     "validate": "FU-LIFECYCLE",
     "issue": "FU-DEPS-LANES",
-    "high-risk": "FU-HIGH-RISK"
+    "high-risk": "FU-HIGH-RISK",
+    "test": "FU-UNIFIED-TEST"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."
