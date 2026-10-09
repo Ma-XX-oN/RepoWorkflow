@@ -103,6 +103,16 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(result["candidate_sha"], self.candidate)
     self.assertEqual(result["retry_depth"], 0)
 
+  def test_retry_depth_limit_exact_boundary(self):
+    for _ in range(100):
+      sha = self.invoke()
+    observed = resolve_invocation(self.root, sha)
+    self.assertEqual(observed["retry_depth"], 99)
+    self.assertEqual(observed["candidate_sha"], self.candidate)
+    too_many = self.invoke()
+    with self.assertRaisesRegex(HostedVersionError, "too deep"):
+      resolve_invocation(self.root, too_many)
+
   def test_two_retries_preserve_first_source_identity(self):
     self.invoke()
     second = self.invoke()
