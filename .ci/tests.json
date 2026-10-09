@@ -104,6 +104,10 @@
         "type": "regression",
         "name": "tests.test_completion"
       },
+      "issue-545-red-classification": {
+        "type": "regression",
+        "name": "tests.test_red_expected"
+      },
       "issue-545-red-evidence": {
         "type": "regression",
         "name": "tests.test_red_evidence"
@@ -183,6 +187,10 @@
       "issue-545-cache-evidence": {
         "type": "regression",
         "name": "tests.test_test_cache_evidence"
+      },
+      "issue-541-hosted-plan-binding": {
+        "type": "regression",
+        "name": "tests.test_on_demand_plan"
       }
     }
   ],

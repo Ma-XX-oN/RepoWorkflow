@@ -56,6 +56,20 @@ class HostedPlanCandidateTests(unittest.TestCase):
     self.assertEqual(result["invocation_sha"], invocation_sha)
     self.assertNotEqual(result["tested_sha"], result["invocation_sha"])
 
+  def test_temporary_marker_resolves_to_original_candidate(self):
+    self.invoke(stage="temp-testing")
+    result = self.plan(self.root)
+    self.assertEqual(result["stage"], "temp-testing")
+    self.assertEqual(result["tested_sha"], self.candidate)
+    self.assertEqual(result["previous_tip"], self.candidate)
+
+  def test_temporary_transition_after_green_preserves_candidate(self):
+    self.invoke(stage="GREEN-testing")
+    self.invoke(stage="temp-testing")
+    result = self.plan(self.root)
+    self.assertEqual(result["stage"], "temp-testing")
+    self.assertEqual(result["tested_sha"], self.candidate)
+
   def test_retry_binds_to_original_candidate(self):
     self.invoke()
     first_request = self.git("rev-parse", "HEAD")
