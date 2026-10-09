@@ -127,6 +127,27 @@ jobs:
           "$GITHUB_REF_NAME"
           "$GITHUB_SHA"
           "$GITHUB_RUN_ID"
+      - name: Verify public remote results retrieval without a new CI request
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./rwf test results --remote > "$RUNNER_TEMP/hosted-results.jsonl"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "hosted-results.jsonl"
+          records = [
+            json.loads(line) for line in path.read_text().splitlines()
+            if line.strip()
+          ]
+          assert records, "remote testing log is empty"
+          latest = records[-1]
+          assert latest["providerRunId"] == int(os.environ["GITHUB_RUN_ID"])
+          assert latest["providerInvocationSHA"] == os.environ["GITHUB_SHA"]
+          PY
 
   argv-limits:
     needs: plan
