@@ -147,6 +147,10 @@
       "issue-545-cache-evidence": {
         "type": "regression",
         "name": "tests.test_test_cache_evidence"
+      },
+      "issue-571-terminal-phase": {
+        "type": "regression",
+        "name": "tests.test_phase_terminal"
       }
     }
   ],
