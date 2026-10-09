@@ -101,7 +101,7 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
   command = words[0]
   if command == "lanes":
     if words[1] in {"list", "view"}:
-      return "--refresh" in words
+      return "--refresh" in words or "--current" in words
     return True
   if command == "settings":
     return True
@@ -237,7 +237,8 @@ def _handle_lanes(
     refresh = "--refresh" in tail
     links = "--links" in tail
     debug = "--debug" in tail
-    ignored = {"--refresh", "--links", "--debug"}
+    current_states = "--current" in tail
+    ignored = {"--refresh", "--current", "--links", "--debug"}
     lane = next((x for x in tail if x not in ignored), None)
     if refresh:
       if words[1] == "list":
@@ -258,6 +259,11 @@ def _handle_lanes(
         diagnostics.hit("metadata", len(selection.closure))
         if words[1] == "view":
           diagnostics.hit("relationships", len(selection.closure))
+
+    if current_states and words[1] != "view":
+      raise ValueError("--current requires lanes view")
+    if current_states:
+      RelationshipStore(root).refresh_states(runtime_writer_identity())
 
     started = time.perf_counter()
     if words[1] == "list":
