@@ -36,7 +36,7 @@ class HostedIdentityTests(unittest.TestCase):
     tip = self.git("rev-parse", "HEAD")
     marker = self.root / ".ci/run"
     marker.parent.mkdir(exist_ok=True)
-    marker.write_text(stage + "-testing " + (sha or tip) + "\n")
+    marker.write_text(("temp" if stage == "temporary" else stage) + "-testing " + (sha or tip) + "\n")
     self.git("add", ".ci/run")
     self.git("commit", "-qm", "request")
     return self.git("rev-parse", "HEAD")
