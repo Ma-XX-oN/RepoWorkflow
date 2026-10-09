@@ -191,6 +191,7 @@ class TerminalTagTests(unittest.TestCase):
   def test_nonreusable_pass_cannot_receive_tag(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "testVersion": VERSION,
+      "branch": "issue-545-test",
       "testSHA": self.candidate, "result": "succeeded",
       "reusable": False, "headChangedDuringTest": False,
       "uncommittedChanges": [],
@@ -202,6 +203,7 @@ class TerminalTagTests(unittest.TestCase):
   def test_incomplete_retry_before_pass_does_not_consume_version(self):
     entries = [
       {"kind": "regression", "testVersion": VERSION,
+       "branch": "issue-545-test",
        "testSHA": self.candidate, "result": result,
        "reusable": result == "succeeded",
        "headChangedDuringTest": False, "uncommittedChanges": []}
@@ -219,6 +221,7 @@ class TerminalTagTests(unittest.TestCase):
     self.issue_tag("INCOMPLETE")
     self.log.write_text("\n".join(json.dumps({
       "kind": "regression", "testVersion": VERSION,
+      "branch": "issue-545-test",
       "testSHA": self.candidate, "result": result,
       "reusable": True, "headChangedDuringTest": False,
       "uncommittedChanges": [],
