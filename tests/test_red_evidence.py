@@ -32,11 +32,13 @@ class RedEvidenceTests(unittest.TestCase):
       "self.assertTrue(True)", "self.assertTrue(False)",
     ))
     failure = self.cli("test", "RED")
-    self.assertEqual(failure.returncode, 2, failure.stderr)
+    self.assertEqual(failure.returncode, 0, failure.stderr)
     recorded = json.loads(audit.read_text().splitlines()[-1])
-    self.assertEqual(recorded["result"], "incomplete")
+    self.assertEqual(recorded["result"], "succeeded")
+    self.assertEqual(recorded["branch"], "issue-545-fixture")
+    self.assertTrue(recorded["expectedFailure"])
     self.assertNotEqual(recorded["groups"][0]["exit_code"], 0)
-    self.assertEqual(recorded["reason"], "failure-not-classified-as-expected-red")
+    self.assertEqual(recorded["reason"], "expected-red-assertion-demonstrated")
     self.assertIn("smoke_case.py", recorded["uncommittedChanges"])
     self.assertFalse(recorded["reusable"])
 

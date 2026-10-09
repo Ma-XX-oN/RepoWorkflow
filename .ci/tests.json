@@ -104,6 +104,10 @@
         "type": "regression",
         "name": "tests.test_completion"
       },
+      "issue-545-red-classification": {
+        "type": "regression",
+        "name": "tests.test_red_expected"
+      },
       "issue-545-red-evidence": {
         "type": "regression",
         "name": "tests.test_red_evidence"
