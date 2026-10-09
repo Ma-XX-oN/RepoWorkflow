@@ -54,7 +54,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
   if status.returncode:
     raise RetryEvidenceError("cannot inspect candidate worktree")
   entries = [item for item in status.stdout.split("\0") if item]
-  if any(not item.startswith(("?? ", " M ", "M  ", "MM ")) or
+  if any(item[:3] not in {"?? ", " M "} or
          item[3:] != relative for item in entries):
     raise RetryEvidenceError("source or unrelated files are dirty")
 
@@ -68,6 +68,8 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
   finally:
     # Fail closed if the operation itself wrote new canonical evidence.
     unexpected = None
+    if log.is_symlink():
+      raise RetryEvidenceError("operation replaced canonical log with symlink")
     if log.exists():
       current = log.read_bytes()
       if committed.returncode != 0 or current != committed.stdout.encode("utf-8"):
