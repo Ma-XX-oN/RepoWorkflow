@@ -144,6 +144,10 @@
         "type": "regression",
         "name": "tests.test_consumer_terminal_lifecycle"
       },
+      "issue-572-assembled-contracts": {
+        "type": "regression",
+        "name": "tests.test_lane_a4_assembly"
+      },
       "issue-570-hosted-version-identity": {
         "type": "regression",
         "name": "tests.test_hosted_version_identity"
