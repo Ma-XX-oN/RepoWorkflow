@@ -58,6 +58,18 @@ class HostedIdentityTests(unittest.TestCase):
         with self.assertRaises(HostedVersionError):
           resolve_invocation(self.root, candidate)
 
+  def test_symlink_invocation_marker_is_rejected(self):
+    parent = self.git("rev-parse", "HEAD")
+    target = self.root / "outside-marker.txt"
+    target.write_text("regression-testing " + parent + "\n")
+    marker = self.root / ".ci/run"
+    marker.parent.mkdir(exist_ok=True)
+    marker.symlink_to(target)
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "symlink marker")
+    with self.assertRaisesRegex(HostedVersionError, "regular file"):
+      resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
+
   def test_non_invocation_source_commit_rejected(self):
     with self.assertRaisesRegex(HostedVersionError, "not a hosted invocation"):
       resolve_invocation(self.root, self.candidate)
