@@ -206,6 +206,40 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "another branch"):
       resolve_hosted_version(self.root, sha, self.log)
 
+  def test_version_path_outside_canonical_validation_directory_fails(self):
+    sha = self.invoke()
+    outside = self.root / "testResults-570.jsonl"
+    outside.write_text("{}\n")
+    with self.assertRaisesRegex(HostedVersionError, "canonical"):
+      resolve_hosted_version(self.root, sha, outside)
+
+  def test_wrong_issue_version_record_rejected(self):
+    sha = self.invoke()
+    self.evidence(testVersion="0.1.121-issue.571.0.1")
+    with self.assertRaisesRegex(HostedVersionError, "issue"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_symlinked_version_log_rejected(self):
+    sha = self.invoke()
+    outside = self.root / "external.jsonl"
+    outside.write_text("{}\n")
+    self.log.symlink_to(outside)
+    with self.assertRaisesRegex(HostedVersionError, "canonical"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_non_utf8_version_log_fails_closed(self):
+    sha = self.invoke()
+    self.log.write_bytes(b"\\xff\\xfe")
+    with self.assertRaisesRegex(HostedVersionError, "cannot read"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_version_lookup_does_not_publish_tags(self):
+    sha = self.invoke()
+    self.evidence()
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
+                     VERSION)
+    self.assertEqual(self.git("tag", "--list"), "")
+
   def test_malformed_json_fails_closed(self):
     sha = self.invoke()
     self.log.write_text("{malformed\n")
