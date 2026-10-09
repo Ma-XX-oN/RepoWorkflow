@@ -209,7 +209,6 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
 
 
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
-  # The append-only evidence log does not count as a changed test input.
   status = subprocess.run(
     ["git", "-C", str(root), "status", "--porcelain", "-z",
      "--untracked-files=all"],
@@ -261,7 +260,6 @@ def _run_group_set(
         verify_hosted=checker, raw=remote_raw,
       )
       if set(groups).issubset(accepted):
-        # Materialise the authenticated original, not a new local PASS.
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(remote_raw, encoding="utf-8")
         for group in groups:
@@ -272,7 +270,6 @@ def _run_group_set(
       verify_hosted=checker,
     )
     if checker is not None and set(groups).issubset(reusable):
-      # Preserve provider provenance: do not launder it into local PASS.
       if any(
         isinstance(record, dict)
         and record.get("runner") == "github-actions"
@@ -449,7 +446,6 @@ def run_test(
         root, catalogue_path=temporary,
       ).groups))
       for name in selected:
-        # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
     before = head_sha(root)
     outcome = (
