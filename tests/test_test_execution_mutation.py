@@ -78,5 +78,32 @@ class ExecutionMutationTests(unittest.TestCase):
     self.assertFalse(record["reusable"])
 
 
+  def test_regression_mutation_retains_original_candidate_and_invalidates_reuse(self):
+    from unittest.mock import patch
+    from repo_workflow.test_cli import run_test
+
+    source = self.root / "generated.txt"
+    self.git("add", "-A")
+    self.git("commit", "-m", "baseline regression inputs")
+    candidate = self.git("rev-parse", "HEAD")
+
+    def mutating_verify(*args, **kwargs):
+      source.write_text("generated\\n")
+      self.git("add", "generated.txt")
+      self.git("commit", "-m", "mutation inside regression verifier")
+      return "PASS"
+
+    with patch("repo_workflow.test_cli.verify_local", side_effect=mutating_verify):
+      rc = run_test(self.root, "regression", remote=False, engine_root=self.root)
+    self.assertEqual(rc, 0)
+    self.assertNotEqual(self.git("rev-parse", "HEAD"), candidate)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(audit.read_text().splitlines()[-1])
+    self.assertEqual(record["testSHA"], candidate)
+    self.assertTrue(record["headChangedDuringTest"])
+    self.assertFalse(record["reusable"])
+
+
+
 if __name__ == "__main__":
   unittest.main()
