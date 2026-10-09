@@ -24,7 +24,7 @@ class HostedIntegrationProviderTests(unittest.TestCase):
     }
     self.responses = {
       BASE + "/actions/runs/123": {
-        "conclusion": "success", "status": "completed",
+        "id": 123, "conclusion": "success", "status": "completed",
         "event": "push", "name": "RepoWorkflow On-Demand CI (candidate)",
         "head_sha": INVOCATION,
       },
@@ -68,7 +68,7 @@ class HostedIntegrationProviderTests(unittest.TestCase):
 
   def test_run_fails_or_is_incomplete(self):
     for field, value in (
-      ("conclusion", "failure"), ("status", "queued"),
+      ("id", 999), ("conclusion", "failure"), ("status", "queued"),
       ("event", "pull_request"), ("head_sha", SHA),
       ("name", "an unrelated workflow"),
     ):
@@ -120,6 +120,9 @@ class HostedIntegrationProviderTests(unittest.TestCase):
         record.pop(field)
         self.assertFalse(self.verify(record=record))
     self.assertFalse(self.verify(responses={}))
+    broken = deepcopy(self.responses)
+    broken[BASE + "/actions/runs/123"] = None
+    self.assertFalse(self.verify(responses=broken))
     self.assertFalse(self.verify(record={**self.record, "providerRunId": True}))
 
 
