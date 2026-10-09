@@ -29,6 +29,7 @@ class AtomicPreMergeAcceptanceTests(unittest.TestCase):
     self.run_git(self.first, "branch", "candidate-one")
     self.git("clone", "-q", str(self.first), str(self.second))
     self.configure(self.second)
+    self.run_git(self.second, "checkout", "-q", self.parent)
     self.make_candidate(self.first, "one")
     self.make_candidate(self.second, "two")
     self.candidate_one = self.run_git(self.first, "rev-parse", "HEAD")
