@@ -7,6 +7,12 @@
         "unittest",
         "$test"
       ]
+    },
+    "script-runner": {
+      "command": "python",
+      "layout": [
+        "$test"
+      ]
     }
   },
   "tests": [
@@ -79,6 +85,21 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      }
+    },
+    {
+      "test-harness": "script-runner",
+      "issue-583-authoritative-validate": {
+        "type": "regression",
+        "name": "scripts/validate.py"
+      },
+      "issue-583-graph-platform-probe": {
+        "type": "regression",
+        "name": "scripts/probe-graph-renderer.py"
+      },
+      "issue-583-ticket-merge-probe": {
+        "type": "regression",
+        "name": "scripts/probe-ticket-merge.py"
       }
     }
   ],
