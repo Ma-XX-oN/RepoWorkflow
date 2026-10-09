@@ -51,6 +51,12 @@ def validate_result(
     or record.get("reusable") is not True
   ):
     raise ValueError("hosted PASS does not bind to clean candidate")
+  platform = record.get("platform")
+  if not isinstance(platform, dict) or any(
+    not isinstance(platform.get(field), str) or not platform[field]
+    for field in ("os", "architecture", "runtime")
+  ):
+    raise ValueError("hosted result lacks complete platform identity")
   if kind in {"GREEN", "temporary", "RED"}:
     groups = record.get("groups")
     if not isinstance(groups, list) or not groups:
