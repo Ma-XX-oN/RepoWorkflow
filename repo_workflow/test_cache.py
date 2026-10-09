@@ -35,6 +35,12 @@ def reusable_local_group_passes(
       valid = (
         record.get("result") == "succeeded"
         and record.get("reusable") is True
+        and record.get("uncommittedChanges") == []
+        and record.get("headChangedDuringTest") is False
+        and record.get("platform") == {
+          "os": platform.system(), "architecture": platform.machine(),
+          "runtime": platform.python_version(),
+        }
         and (
           record.get("runner") == "local"
           or (
@@ -43,12 +49,6 @@ def reusable_local_group_passes(
             and verify_hosted(record)
           )
         )
-        and record.get("uncommittedChanges") == []
-        and record.get("headChangedDuringTest") is False
-        and record.get("platform") == {
-          "os": platform.system(), "architecture": platform.machine(),
-          "runtime": platform.python_version(),
-        }
       )
       for group in groups:
         if (
