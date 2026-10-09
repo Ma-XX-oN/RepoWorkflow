@@ -17,6 +17,7 @@ from .local import verify_local
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
 from .retry_evidence import isolate_retry_evidence
+from .engine_remote import prepare_engine_request
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
@@ -30,7 +31,6 @@ STAGES = {
   "regression": "regression-testing",
   "integration": "integration-testing",
 }
-
 
 class TestCommandError(ValueError):
   pass
@@ -144,7 +144,7 @@ def select_group(root: Path, name: str) -> str:
   return name
 
 
-def request_remote(root: Path, stage: str) -> int:
+def request_remote(root: Path, stage: str, *, engine_root: Path | None = None) -> int:
   branch = current_branch(root)
   if branch in {"HEAD", "main"} or branch.startswith("prelim-main-"):
     raise TestCommandError("a work branch is required")
@@ -154,6 +154,8 @@ def request_remote(root: Path, stage: str) -> int:
   audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
   if any(path != audit for path in changed_files(root)):
     raise TestCommandError("the working tree must be clean")
+  if engine_root is not None and root.resolve() == engine_root.resolve() and stage in {"regression", "integration"}:
+    prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
   previous_tip = head_sha(root)
   path = root / ".ci" / "run"
   path.parent.mkdir(parents=True, exist_ok=True)
@@ -343,7 +345,7 @@ def run_test(
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
     if remote:
-      return request_remote(root, stage)
+      return request_remote(root, stage, engine_root=engine_root)
     command = group_command(root, selected)
     match = re.fullmatch(
       r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -405,7 +407,7 @@ def run_test(
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
     if remote:
-      return request_remote(root, stage)
+      return request_remote(root, stage, engine_root=engine_root)
     return _run_group_set(root, stage, (selected,))
   if stage == "temporary":
     manifest = Path(".ci/temp-tests.json")
@@ -417,10 +419,10 @@ def run_test(
     if remote:
       for name in groups:
         group_command(root, name, manifest)
-      return request_remote(root, stage)
+      return request_remote(root, stage, engine_root=engine_root)
     return _run_group_set(root, stage, groups, catalogue_path=manifest)
   if remote:
-    return request_remote(root, stage)
+    return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
     return run_local_integration(root, engine_root=engine_root)
