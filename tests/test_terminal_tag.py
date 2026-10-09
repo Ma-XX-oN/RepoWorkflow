@@ -364,6 +364,15 @@ class TerminalTagTests(unittest.TestCase):
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
     )
 
+  def test_local_only_publish_requires_no_network_or_remote(self):
+    tag = self.issue_tag("PASS", remote="not-a-remote", push=False)
+    self.assertEqual(tag, "v" + VERSION)
+    self.assertEqual(
+      self.git("rev-parse", "refs/tags/" + tag + "^{commit}"),
+      self.candidate,
+    )
+    self.assertEqual(self.published(tag), {})
+
   def test_unreachable_remote_does_not_create_local_tag(self):
     with self.assertRaises(TerminalTagError):
       self.issue_tag("PASS", remote="not-a-remote")
