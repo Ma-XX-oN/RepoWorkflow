@@ -243,6 +243,32 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(repeated.returncode, 2)
     self.assertEqual(self.git("rev-parse", "HEAD"), tip)
 
+  def test_actual_rwf_launcher_preserves_skip_warning_evidence(self):
+    import shutil
+    if shutil.which("sh") is None:
+      self.skipTest("POSIX shell not installed in this environment")
+    command = [
+      "sh", str(ROOT / "rwf"), "--root", str(self.root), "test", "GREEN",
+    ]
+    result = subprocess.run(
+      command, cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertIn("Warning:", result.stderr)
+    output = subprocess.run(
+      [
+        "sh", str(ROOT / "rwf"), "--root", str(self.root),
+        "test", "results",
+      ],
+      cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    self.assertEqual(output.returncode, 0, output.stderr)
+    evidence = json.loads(output.stdout)
+    self.assertEqual(evidence["kind"], "GREEN")
+    self.assertEqual(evidence["result"], "SKIPPED")
+    self.assertEqual(evidence["warning"], result.stderr.strip())
+    self.assertEqual(evidence["testSHA"], self.source)
+
   def test_missing_and_malformed_selection_fail_closed(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-one",
