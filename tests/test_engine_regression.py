@@ -37,14 +37,22 @@ class EngineRegressionTests(unittest.TestCase):
       observed_sha.append(candidate)
       return "PASS"
 
-    with patch(
-      "repo_workflow.test_cli.verify_local",
-      side_effect=verified_preparation,
+    with (
+      patch("repo_workflow.test_cli.verify_local",
+            side_effect=verified_preparation),
+      patch("repo_workflow.test_cli.load_config",
+            return_value={"repository": {"authoritativeRemote": "origin"}}),
+      patch("repo_workflow.test_cli.publish_terminal_tag") as publish,
     ):
       result = run_test(
         self.root, "regression", remote=False,
         engine_root=self.root.parent / "consumer-engine",
       )
+    publish.assert_called_once()
+    self.assertEqual(publish.call_args.kwargs["candidate"], observed_sha[0])
+    self.assertEqual(publish.call_args.kwargs["version"],
+                     "1.0.0-issue.545.0.1")
+    self.assertFalse(publish.call_args.kwargs["push"])
     self.assertEqual(result, 0)
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     record = json.loads(log.read_text().splitlines()[-1])
