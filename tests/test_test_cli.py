@@ -211,6 +211,8 @@ class TestCliContract(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
     )
+    selected = self.cli("test", "RED", "issue-545-green")
+    self.assertEqual(selected.returncode, 2)
     result = self.cli("test", "GREEN")
     self.assertEqual(result.returncode, 0, result.stderr)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
@@ -219,6 +221,61 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(record["kind"], "GREEN")
     self.assertEqual(record["result"], "succeeded")
     self.assertEqual(record["groups"][0]["group"], "issue-545-green")
+
+  def test_selection_is_single_tracked_name_and_idempotent(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-selected",
+    )
+    first = self.cli("test", "RED", "issue-545-selected")
+    self.assertEqual(first.returncode, 2)
+    selection = self.root / ".ci/red-green.txt"
+    self.assertEqual(selection.read_text(), "issue-545-selected\n")
+    tip = self.git("rev-parse", "HEAD")
+    self.assertEqual(
+      self.git("show", "--format=", "--name-only", "HEAD"),
+      ".ci/red-green.txt",
+    )
+    repeated = self.cli("test", "RED", "issue-545-selected")
+    self.assertEqual(repeated.returncode, 2)
+    self.assertEqual(self.git("rev-parse", "HEAD"), tip)
+
+  def test_missing_and_malformed_selection_fail_closed(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-one",
+    )
+    missing = self.cli("test", "GREEN")
+    self.assertEqual(missing.returncode, 2)
+    self.assertIn("no RED/GREEN test selected", missing.stderr)
+    selection = self.root / ".ci/red-green.txt"
+    for raw in ("", "issue-545-one\nissue-545-two\n",
+                "issue-544-other\n", "issue-545-unlisted\n"):
+      selection.write_text(raw)
+      with self.subTest(raw=raw):
+        result = self.cli("test", "GREEN")
+        self.assertEqual(result.returncode, 2)
+
+  def test_remote_green_uses_committed_selected_group(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-one",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.remote()
+    self.assertEqual(
+      self.cli("test", "RED", "issue-545-one").returncode, 2,
+    )
+    self.assertEqual(
+      self.cli("test", "GREEN", "--remote").returncode, 0,
+    )
+    previous = self.git("rev-parse", "HEAD^")
+    self.assertEqual(
+      self.git("show", "HEAD^:.ci/red-green.txt"),
+      "issue-545-one",
+    )
+    self.assertEqual(
+      (self.root / ".ci/run").read_text(),
+      "GREEN-testing " + previous + "\n",
+    )
 
   def test_temporary_catalogue_runs_identical_harness_format(self):
     self._catalogue(
