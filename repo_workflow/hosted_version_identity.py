@@ -140,6 +140,7 @@ def resolve_hosted_version(
   if not canonical_log.exists():
     return identity
   versions = set()
+  phase_owners: dict[str, str] = {}
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except (OSError, UnicodeError) as error:
@@ -153,7 +154,8 @@ def resolve_hosted_version(
       raise HostedVersionError("non-object version evidence")
     if record.get("testSHA") != identity["candidate_sha"]:
       continue
-    if record.get("kind") != identity["stage"]:
+    kind = record.get("kind")
+    if kind not in {"regression", "integration"}:
       continue
     version = record.get("testVersion")
     if version is None:
@@ -170,6 +172,12 @@ def resolve_hosted_version(
       "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
     ) is None:
       raise HostedVersionError("version evidence belongs to another branch")
+    existing_phase = phase_owners.get(version)
+    if existing_phase is not None and existing_phase != kind:
+      raise HostedVersionError("version evidence reused across phases")
+    phase_owners[version] = kind
+    if kind != identity["stage"]:
+      continue
     if record.get("result") == "incomplete":
       continue  # An unfinished attempt does not allocate a version.
     if record.get("headChangedDuringTest") is not False:
