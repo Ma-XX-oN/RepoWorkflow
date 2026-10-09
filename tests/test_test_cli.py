@@ -196,7 +196,7 @@ class TestCliContract(unittest.TestCase):
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "failing contract test")
-    (self.root / ".ci/red-green.txt").write_text("issue-545-failing\\n")
+    (self.root / ".ci/red-green.txt").write_text("issue-545-failing\n")
     self.git("add", ".ci/red-green.txt")
     self.git("commit", "-m", "selected failing group")
     result = self.cli("test", "GREEN")
