@@ -4,6 +4,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
+
+from repo_workflow import terminal_tag
 
 from repo_workflow.terminal_tag import TerminalTagError, publish_terminal_tag
 
@@ -156,6 +159,22 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(
       self.published(second_tag)["refs/tags/" + second_tag + "^{}"],
       second_sha,
+    )
+
+  def test_concurrent_identical_publication_is_idempotent(self):
+    actual_git = terminal_tag._git
+
+    def concurrent_push(root, *args, **kw):
+      if args and args[0] == "push":
+        # Model a second publisher winning the remote push just before ours.
+        actual_git(root, *args, check=True)
+        return subprocess.CompletedProcess(args, 1, "", "already published")
+      return actual_git(root, *args, **kw)
+
+    with patch("repo_workflow.terminal_tag._git", side_effect=concurrent_push):
+      tag = self.issue_tag("PASS")
+    self.assertEqual(
+      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
     )
 
   def test_unreachable_remote_does_not_create_local_tag(self):
