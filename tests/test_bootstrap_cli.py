@@ -72,6 +72,23 @@ class BootstrapCliTests(unittest.TestCase):
           self.assertNotIn("repoworkflow.json", completed.stderr)
           self.assertNotIn("missing RepoWorkflow configuration", completed.stderr)
 
+  def test_root_help_describes_every_public_command(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      completed = self.run_cli(root, "--help")
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      rows = {
+        parts[0]: parts[1]
+        for line in completed.stdout.splitlines()
+        if len(parts := line.split(maxsplit=1)) == 2
+      }
+      for command in COMMANDS:
+        with self.subTest(command=command):
+          self.assertIn(command, rows)
+          self.assertTrue(rows[command].strip())
+
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
