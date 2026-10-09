@@ -39,6 +39,10 @@
       "issue-453-lane-show-children": {
         "type": "regression",
         "name": "tests.test_lane_show_children_verification"
+      },
+      "issue-553-interface-playback": {
+        "type": "regression",
+        "name": "tests.test_interface_playback"
       }
     }
   ],
