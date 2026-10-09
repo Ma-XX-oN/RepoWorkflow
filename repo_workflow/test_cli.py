@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
+import platform
 from pathlib import Path
 import re
 import subprocess
@@ -58,7 +60,8 @@ def results(root: Path, *, remote: bool) -> int:
   relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
   if remote:
     branch = current_branch(root)
-    raw = _git(root, "show", "refs/remotes/origin/" + branch + ":" + relative)
+    _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
+    raw = _git(root, "show", "FETCH_HEAD:" + relative)
   else:
     try:
       raw = (root / relative).read_text(encoding="utf-8")
@@ -87,6 +90,36 @@ def run_test(root: Path, stage: str, *, remote: bool, engine_root: Path) -> int:
   if remote:
     return request_remote(root, stage)
   if stage == "regression":
+    before = head_sha(root)
     outcome = verify_local(root, engine_root=engine_root, push=False)
+    after = head_sha(root)
+    match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
+    if match is None:
+      raise TestCommandError("regression evidence requires an issue branch")
+    path = root / ".repoworkflow" / "validation" / (
+      "testResults-" + match.group(1) + ".jsonl"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+      "timestamp": datetime.now(timezone.utc).isoformat(),
+      "kind": "regression",
+      "branch": current_branch(root),
+      "testSHA": after,
+      "sourceSHA": before,
+      "result": {
+        "PASS": "succeeded",
+        "FAIL": "failed",
+        "INCOMPLETE": "incomplete",
+      }[outcome],
+      "runner": "local",
+      "platform": {
+        "os": platform.system(),
+        "architecture": platform.machine(),
+        "runtime": platform.python_version(),
+      },
+      "hardware": None,
+    }
+    with path.open("a", encoding="utf-8") as handle:
+      handle.write(json.dumps(record, sort_keys=True) + "\\n")
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")
