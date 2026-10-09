@@ -1,0 +1,202 @@
+name: RepoWorkflow On-Demand CI (candidate)
+
+# Staged implementation of #541. The existing self-ci.yml remains active until
+# the full five-stage runner, testing-log gate and branch protections are ready.
+on:
+  push:
+    branches-ignore:
+      - main
+      - 'prelim-main-*'
+    paths:
+      - '.ci/run'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repoworkflow-invocation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.select.outputs.stage }}
+      tested_sha: ${{ steps.select.outputs.tested_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - id: select
+        name: Validate dedicated CI invocation commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/on-demand-ci-plan.py > plan.json
+          cat plan.json
+          stage="$(python -c 'import json; print(json.load(open("plan.json"))["stage"])')"
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+          tested_sha="$(python -c 'import json; print(json.load(open("plan.json"))["tested_sha"])')"
+          echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: plan
+    if: >-
+      needs.plan.outputs.stage == 'RED-testing' ||
+      needs.plan.outputs.stage == 'temp-testing' ||
+      needs.plan.outputs.stage == 'GREEN-testing' ||
+      needs.plan.outputs.stage == 'regression-testing' ||
+      needs.plan.outputs.stage == 'integration-testing'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Restore issue branch identity at verified candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            issue-[1-9]*) git switch -c "$GITHUB_REF_NAME" ;;
+            *) echo 'hosted testing requires an issue branch' >&2; exit 1 ;;
+          esac
+      - name: Run selected stage through public test CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ needs.plan.outputs.stage }}' in
+            RED-testing) ./rwf test RED ;;
+            temp-testing) ./rwf test temporary ;;
+            GREEN-testing) ./rwf test GREEN ;;
+            regression-testing) ./rwf test regression ;;
+            integration-testing) ./rwf test integration ;;
+            *) echo 'unsupported stage' >&2; exit 1 ;;
+          esac
+      - name: Verify authoritative stage result evidence
+        if: ${{ success() }}
+        shell: bash
+        run: >-
+          python scripts/validate-hosted-result.py
+          "${{ needs.plan.outputs.stage }}"
+          "${{ needs.plan.outputs.tested_sha }}"
+          "$GITHUB_REF_NAME"
+      - id: audit
+        name: Verify only canonical test-results log changed
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          branch = os.environ["GITHUB_REF_NAME"]
+          match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
+          if match is None:
+            sys.exit("hosted test result check requires an issue branch")
+          allowed = (
+            ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+          )
+          raw = subprocess.check_output(
+            ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+          )
+          entries = [item for item in raw.split(b"\0") if item]
+          for entry in entries:
+            changed = entry[3:].decode("utf-8", "surrogateescape")
+            if changed != allowed:
+              sys.exit("unexpected hosted test side effect: " + changed)
+          PY
+      - name: Publish canonical hosted testing observations
+        if: ${{ always() && steps.audit.outcome == 'success' }}
+        shell: bash
+        run: >-
+          python scripts/publish-hosted-result.py
+          "${{ needs.plan.outputs.stage }}"
+          "${{ needs.plan.outputs.tested_sha }}"
+          "$GITHUB_REF_NAME"
+          "$GITHUB_SHA"
+          "$GITHUB_RUN_ID"
+      - name: Verify public remote results retrieval without a new CI request
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./rwf test results --remote > "$RUNNER_TEMP/hosted-results.jsonl"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "hosted-results.jsonl"
+          records = [
+            json.loads(line) for line in path.read_text().splitlines()
+            if line.strip()
+          ]
+          assert records, "remote testing log is empty"
+          latest = records[-1]
+          assert latest["providerRunId"] == int(os.environ["GITHUB_RUN_ID"])
+          assert latest["providerInvocationSHA"] == os.environ["GITHUB_SHA"]
+          PY
+
+  argv-limits:
+    needs: plan
+    if: needs.plan.outputs.stage == 'integration-testing'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python scripts/probe-argv-limits.py
+
+  graph-renderer-platform:
+    needs: plan
+    if: needs.plan.outputs.stage == 'integration-testing'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - run: python scripts/probe-graph-renderer.py
+
+  ticket-merge-platform:
+    needs: plan
+    if: needs.plan.outputs.stage == 'integration-testing'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python scripts/probe-ticket-merge.py
+
