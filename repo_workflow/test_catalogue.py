@@ -124,8 +124,10 @@ def parse_test_catalogue(value: object) -> TestCatalogue:
   return TestCatalogue(groups, aliases)
 
 
-def load_test_catalogue(root: Path) -> TestCatalogue:
-  path = Path(root) / CATALOGUE_PATH
+def load_test_catalogue(
+  root: Path, *, catalogue_path: Path = CATALOGUE_PATH,
+) -> TestCatalogue:
+  path = Path(root) / catalogue_path
   try:
     value = json.loads(path.read_text(encoding="utf-8"))
   except FileNotFoundError as error:
