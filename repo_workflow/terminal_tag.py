@@ -69,7 +69,16 @@ def verify_phase_evidence(
   canonical_log: Path, *, stage: str, version: str,
   candidate: str, outcome: str,
 ) -> None:
-  """Require a matching terminal result and prohibit cross-phase version reuse."""
+  """Require matching issue, phase, candidate and terminal result evidence."""
+  issue = re.fullmatch(
+    r"testResults-([1-9][0-9]*)\\.jsonl", canonical_log.name,
+  )
+  version_issue = _VERSION_RE.fullmatch(version)
+  if issue is None or version_issue is None:
+    raise TerminalTagError("canonical evidence requires a per-issue versioned log")
+  expected_issue = version.split("-issue.", 1)[1].split(".", 1)[0]
+  if issue.group(1) != expected_issue:
+    raise TerminalTagError("test log issue differs from development version")
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except OSError as error:
@@ -87,6 +96,12 @@ def verify_phase_evidence(
   if not observed:
     raise TerminalTagError("no canonical evidence for development version")
   for record in observed:
+    branch = record.get("branch")
+    if (not isinstance(branch, str)
+        or re.fullmatch(
+          r"issue-" + re.escape(expected_issue) + r"(?:-.*)?", branch,
+        ) is None):
+      raise TerminalTagError("canonical evidence branch differs from issue")
     if record.get("kind") != stage or record.get("testSHA") != candidate:
       raise TerminalTagError("development version belongs to another phase or candidate")
   expected = "succeeded" if outcome == "PASS" else "failed"
