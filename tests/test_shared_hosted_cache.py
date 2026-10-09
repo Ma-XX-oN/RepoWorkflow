@@ -67,6 +67,10 @@ class SharedHostedCacheTests(unittest.TestCase):
 
   def test_verified_remote_result_skips_rerunning_identical_test(self):
     candidate, bare = self.prepare()
+    published_before = subprocess.check_output(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"], text=True,
+    ).strip()
     with patch(
       "repo_workflow.test_cli.hosted_cache_checker",
       return_value=lambda record: record.get("runner") == "github-actions",
@@ -76,6 +80,10 @@ class SharedHostedCacheTests(unittest.TestCase):
       )
     self.assertEqual(status, 0)
     self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
+    self.assertEqual(subprocess.check_output(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"], text=True,
+    ).strip(), published_before)
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     newest = json.loads(log.read_text().splitlines()[-1])
     self.assertTrue(newest["groups"][0]["reused"])
