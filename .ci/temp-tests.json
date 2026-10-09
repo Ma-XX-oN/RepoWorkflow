@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-545-hosted-temp-probe": {
+        "type": "regression",
+        "name": "tests.test_engine_version_adapter"
+      }
+    }
+  ],
   "aliases": {}
 }
