@@ -53,6 +53,31 @@ class EngineRegressionTests(unittest.TestCase):
     self.assertFalse(record["headChangedDuringTest"])
     self.assertTrue(record["reusable"])
 
+  def test_history_mutation_after_verified_candidate_remains_nonreusable(self):
+    original = self.git("rev-parse", "HEAD")
+
+    def mutate_after_preparation(*args, **kwargs):
+      kwargs["candidate_observer"](original)
+      (self.root / "mutation.txt").write_text("unexpected commit\n")
+      self.git("add", "mutation.txt")
+      self.git("commit", "-qm", "unexpected verifier mutation")
+      return "PASS"
+
+    with patch(
+      "repo_workflow.test_cli.verify_local",
+      side_effect=mutate_after_preparation,
+    ):
+      result = run_test(
+        self.root, "regression", remote=False,
+        engine_root=self.root.parent / "consumer-engine",
+      )
+    self.assertEqual(result, 0)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["testSHA"], original)
+    self.assertTrue(record["headChangedDuringTest"])
+    self.assertFalse(record["reusable"])
+
   def test_engine_checkout_runs_self_suite_and_records_exact_sha(self):
     self._script(0)
     before = self.git("rev-parse", "HEAD")
