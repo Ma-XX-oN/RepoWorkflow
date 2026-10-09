@@ -30,7 +30,7 @@ class ExecutionMutationTests(unittest.TestCase):
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "fixture mutation")
     selection = self.root / ".ci/red-green.txt"
-    selection.write_text("issue-545-mutation\\n")
+    selection.write_text("issue-545-mutation\n")
     self.git("add", ".ci/red-green.txt")
     self.git("commit", "-m", "select test group")
     tested_sha = self.git("rev-parse", "HEAD")
