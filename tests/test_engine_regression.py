@@ -103,6 +103,23 @@ class EngineRegressionTests(unittest.TestCase):
     self.assertEqual(entry["result"], "succeeded")
     self.assertFalse(entry["reusable"])
 
+  def test_engine_self_regression_uses_committed_version_authority(self):
+    self._script(0)
+    path = self.root / ".ci/engine-version"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("0.1.121-issue.545.0.1\n")
+    self.git("add", ".ci/engine-version")
+    self.git("commit", "-qm", "prepare engine task version")
+    candidate = self.git("rev-parse", "HEAD")
+    self.assertEqual(run_test(
+      self.root, "regression", remote=False, engine_root=self.root,
+    ), 0)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["testSHA"], candidate)
+    self.assertEqual(record["testVersion"], "0.1.121-issue.545.0.1")
+    self.assertEqual(self.git("tag", "--list"), "")
+
   def test_engine_failure_never_issues_pass(self):
     self._script(1)
     with patch("repo_workflow.test_cli.verify_local") as consumer:
