@@ -78,6 +78,26 @@ class TestCacheEvidenceTests(unittest.TestCase):
         self.write({**self.base, **change})
         self.assertEqual(self.reusable(), set())
 
+  def test_hosted_pass_requires_real_provider_verification_callback(self):
+    hosted = {
+      **self.base, "runner": "github-actions",
+      "providerRunId": 123, "providerStage": "GREEN-testing",
+    }
+    self.write(hosted)
+    self.assertEqual(self.reusable(), set())
+    from repo_workflow.test_cache import reusable_local_group_passes
+    def check(accepted):
+      return reusable_local_group_passes(
+        self.path, stage="GREEN", revision=SHA, fingerprint=FINGERPRINT,
+        verify_hosted=lambda record: (
+          accepted and record.get("providerRunId") == 123
+        ),
+      )
+    self.assertEqual(check(False), set())
+    self.assertEqual(check(True), {"issue-545-green"})
+    self.write({**hosted, "platform": {"os": "incompatible"}})
+    self.assertEqual(check(True), set())
+
   def test_later_failure_supersedes_old_pass(self):
     self.write(self.base, {**self.base, "result": "failed"})
     self.assertEqual(self.reusable(), set())
