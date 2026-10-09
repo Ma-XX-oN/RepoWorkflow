@@ -9,7 +9,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 from typing import Iterator
@@ -68,9 +67,18 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     yield log
   finally:
     # Fail closed if the operation itself wrote new canonical evidence.
+    unexpected = None
     if log.exists():
       current = log.read_bytes()
       if committed.returncode != 0 or current != committed.stdout.encode("utf-8"):
-        raise RetryEvidenceError("operation changed isolated canonical evidence")
+        unexpected = current
     log.parent.mkdir(parents=True, exist_ok=True)
+    if unexpected is not None:
+      with tempfile.NamedTemporaryFile(
+        mode="wb", prefix=log.name + ".retry-conflict-",
+        dir=log.parent, delete=False,
+      ) as conflict:
+        conflict.write(unexpected)
     log.write_bytes(original)
+    if unexpected is not None:
+      raise RetryEvidenceError("operation changed isolated canonical evidence")
