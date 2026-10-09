@@ -64,8 +64,11 @@ def verify_hosted_integration(
     )
   except (ValueError, KeyError, TypeError):
     return False
+  if not all(isinstance(item, dict) for item in (run, commit, marker, jobs_page)):
+    return False
   if (
-    run.get("conclusion") != "success"
+    run.get("id") != run_id
+    or run.get("conclusion") != "success"
     or run.get("status") != "completed"
     or run.get("event") != "push"
     or run.get("name") != "RepoWorkflow On-Demand CI (candidate)"
