@@ -211,38 +211,41 @@ def _reusable_group_passes(
 ) -> set[str]:
   if not path.exists():
     return set()
-  reusable = set()
+  latest: dict[str, bool] = {}
   try:
-    raw = path.read_text(encoding="utf-8")
-    for line in raw.splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
       record = json.loads(line)
+      if not isinstance(record, dict):
+        return set()
       if (
-        not isinstance(record, dict)
-        or record.get("kind") != stage
+        record.get("kind") != stage
         or record.get("testSHA") != revision
         or record.get("catalogueSHA256") != fingerprint
-        or record.get("result") != "succeeded"
-        or record.get("reusable") is not True
-        or record.get("runner") != "local"
-        or record.get("platform") != {
-          "os": platform.system(), "runtime": platform.python_version(),
-        }
       ):
         continue
       groups = record.get("groups")
       if not isinstance(groups, list):
-        continue
+        return set()
+      valid_record = (
+        record.get("result") == "succeeded"
+        and record.get("reusable") is True
+        and record.get("runner") == "local"
+        and record.get("platform") == {
+          "os": platform.system(), "runtime": platform.python_version(),
+        }
+      )
       for group in groups:
         if (
-          isinstance(group, dict)
-          and isinstance(group.get("group"), str)
-          and group.get("exit_code") == 0
+          not isinstance(group, dict)
+          or not isinstance(group.get("group"), str)
         ):
-          reusable.add(group["group"])
+          return set()
+        latest[group["group"]] = (
+          valid_record and group.get("exit_code") == 0
+        )
   except (ValueError, TypeError):
-    # Corrupt or incomplete evidence must never suppress execution.
     return set()
-  return reusable
+  return {name for name, passed in latest.items() if passed}
 
 
 def _run_group_set(
