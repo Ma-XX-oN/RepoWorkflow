@@ -147,6 +147,10 @@
       "issue-541-hosted-result-evidence": {
         "type": "regression",
         "name": "tests.test_hosted_result"
+      },
+      "issue-545-engine-regression": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
       }
     }
   ],
