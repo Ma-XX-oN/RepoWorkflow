@@ -83,8 +83,6 @@ class ExecutionMutationTests(unittest.TestCase):
     from repo_workflow.test_cli import run_test
 
     source = self.root / "generated.txt"
-    self.git("add", "-A")
-    self.git("commit", "-m", "baseline regression inputs")
     candidate = self.git("rev-parse", "HEAD")
 
     def mutating_verify(*args, **kwargs):
