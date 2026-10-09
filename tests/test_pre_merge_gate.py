@@ -47,7 +47,7 @@ class PreMergeGateTests(unittest.TestCase):
       "reusable": result == "succeeded",
       "uncommittedChanges": [],
       "headChangedDuringTest": False,
-      "platform": {"os": "Linux"},
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
     }) + "\n")
 
 
