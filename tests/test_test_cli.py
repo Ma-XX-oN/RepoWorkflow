@@ -287,6 +287,26 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(changed_sha.returncode, 0, changed_sha.stderr)
     self.assertNotIn("Reusing valid PASS evidence", changed_sha.stdout)
 
+  def test_green_reexecutes_after_failed_or_corrupted_cache(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    self.assertEqual(self.cli("test", "GREEN").returncode, 0)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    valid = json.loads(audit.read_text().strip())
+    valid["result"] = "failed"
+    audit.write_text(json.dumps(valid) + "\n")
+    failed = self.cli("test", "GREEN")
+    self.assertEqual(failed.returncode, 0, failed.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", failed.stdout)
+    audit.write_text("{not JSON}\n")
+    corrupt = self.cli("test", "GREEN")
+    self.assertEqual(corrupt.returncode, 0, corrupt.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", corrupt.stdout)
+
   def test_selection_is_single_tracked_name_and_idempotent(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-selected",
