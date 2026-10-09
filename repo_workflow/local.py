@@ -39,7 +39,7 @@ def _verify_local(
   stable: bool,
   do_tag: bool,
   push: bool,
-  candidate_observer: Callable[[str], None] | None = None,
+  candidate_observer: Callable[[str, str], None] | None = None,
 ) -> str:
   root = root.resolve()
   engine_root = engine_root.resolve()
@@ -96,7 +96,7 @@ def _verify_local(
     )
 
     if candidate_observer is not None:
-      candidate_observer(candidate.commit)
+      candidate_observer(candidate.commit, candidate.version)
 
     for environment in config["environments"]:
       runner = run_stable_environment if stable else run_environment
@@ -127,7 +127,7 @@ def verify_local(
   *,
   engine_root: Path,
   push: bool = False,
-  candidate_observer: Callable[[str], None] | None = None,
+  candidate_observer: Callable[[str, str], None] | None = None,
 ) -> str:
   root = root.resolve()
   before = repository_state(root)
