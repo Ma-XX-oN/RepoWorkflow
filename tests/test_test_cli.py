@@ -188,9 +188,9 @@ class TestCliContract(unittest.TestCase):
 
   def _catalogue(self, path, *, issue_group):
     (self.root / "smoke_case.py").write_text(
-      "import unittest\\n"
-      "class Smoke(unittest.TestCase):\\n"
-      "  def test_pass(self): self.assertTrue(True)\\n"
+      "import unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self): self.assertTrue(True)\n"
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({
