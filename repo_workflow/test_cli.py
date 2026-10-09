@@ -283,7 +283,8 @@ def _run_group_set(
     "kind": stage,
     "result": "failed" if failures else "succeeded",
     "runner": "local",
-    "platform": {"os": platform.system(), "runtime": platform.python_version()},
+    "platform": {"os": platform.system(), "architecture": platform.machine(),
+                 "runtime": platform.python_version()},
     "groups": evidence,
   }
   with path.open("a", encoding="utf-8") as handle:
@@ -355,7 +356,8 @@ def run_test(
       ),
       "runner": "local",
       "platform": {
-        "os": platform.system(), "runtime": platform.python_version(),
+        "os": platform.system(), "architecture": platform.machine(),
+        "runtime": platform.python_version(),
       },
       "uncommittedChanges": dirty,
       "reusable": False,
