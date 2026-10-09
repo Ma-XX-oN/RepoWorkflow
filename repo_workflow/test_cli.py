@@ -24,6 +24,7 @@ from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
+from .red_expected import assertion_failure
 
 STAGES = {
   "RED": "RED-testing",
@@ -364,15 +365,18 @@ def run_test(
     if result.stderr:
       print(result.stderr, end="", file=sys.stderr)
     dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
+    demonstrated = assertion_failure(command, result.returncode, result.stderr)
     record = {
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "testSHA": red_candidate,
       "headChangedDuringTest": head_sha(root) != red_candidate,
       "catalogueSHA256": red_catalogue,
       "kind": "RED",
-      "result": "incomplete",
+      "result": "succeeded" if demonstrated else "incomplete",
+      "expectedFailure": demonstrated,
       "reason": (
-        "expected-red-failure-not-demonstrated"
+        "expected-red-assertion-demonstrated" if demonstrated
+        else "expected-red-failure-not-demonstrated"
         if result.returncode == 0
         else "failure-not-classified-as-expected-red"
       ),
@@ -391,6 +395,8 @@ def run_test(
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
+    if demonstrated:
+      return 0
     if result.returncode == 0:
       raise TestCommandError("RED did not demonstrate the expected failure")
     raise TestCommandError(
