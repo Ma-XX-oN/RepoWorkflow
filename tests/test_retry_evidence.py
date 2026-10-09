@@ -77,7 +77,7 @@ class RetryEvidenceTests(unittest.TestCase):
   def test_symlink_replacement_inside_context_restores_original_evidence(self):
     self.write_record()
     original = self.log.read_bytes()
-    target = self.root / "outside.txt"
+    target = self.root.parent / "outside.txt"
     target.write_text("foreign\n")
     with self.assertRaisesRegex(RetryEvidenceError, "symlink"):
       with isolate_retry_evidence(self.root, 569):
