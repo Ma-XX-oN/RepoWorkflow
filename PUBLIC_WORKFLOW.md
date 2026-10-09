@@ -346,8 +346,7 @@ the selected group and executes missing or invalidated test units.
 catalogue format.  Integration requires removal of the current issue's
 temporary sandbox.  All test stages use the existing per-issue JSONL log.
 
-Issue #545 owns migration to the unified command family.  Earlier `rwf tdd`
-and `rwf validate` operations are not alternative public testing commands.
+Issue #545 owns migration to the unified command family.
 
 ## 9. Reusable validation evidence
 
@@ -404,9 +403,6 @@ uses the same authoritative stage selection and testing log.
 another CI cycle.  A PASS is reusable only with applicable matching
 candidate, test definition, inputs and environment, and complete evidence.
 Missing, failed, dirty or stale observations must not satisfy required tests.
-
-The superseded `rwf validate regression`, `rwf validate integration` and
-`rwf tdd` command families are not parallel public interfaces.
 
 ### 10.1 CI validation tiers
 
