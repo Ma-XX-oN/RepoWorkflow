@@ -141,6 +141,21 @@ class TerminalTagTests(unittest.TestCase):
       )
     self.assertEqual(self.git("tag", "--list"), "")
 
+  def test_external_lookalike_log_is_rejected(self):
+    external = self.root.parent / "testResults-545.jsonl"
+    external.write_text(json.dumps({
+      "kind": "regression", "branch": "issue-545-test",
+      "testVersion": VERSION, "testSHA": self.candidate,
+      "result": "succeeded", "reusable": True,
+      "headChangedDuringTest": False, "uncommittedChanges": [],
+    }) + "\n")
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      publish_terminal_tag(
+        self.root, stage="regression", remote="origin",
+        version=VERSION, candidate=self.candidate, outcome="PASS",
+        canonical_log=external,
+      )
+
   def test_wrong_issue_branch_in_record_is_rejected(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "branch": "issue-546-other",
