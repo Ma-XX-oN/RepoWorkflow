@@ -27,7 +27,7 @@ class ReleaseGateTests(unittest.TestCase):
   def test_release_shell_parses(self):
     path = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "stable-release.yml"
     content = path.read_text(encoding="utf-8")
-    marker = "        run: |\\n"
+    marker = "        run: |\n"
     self.assertEqual(content.count(marker), 1)
     script = content.split(marker, 1)[1]
     self.assertTrue(script.startswith("          set -euo pipefail"))
