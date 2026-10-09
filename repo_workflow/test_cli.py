@@ -418,10 +418,14 @@ def run_test(
         # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
     before = head_sha(root)
+    prepared: list[str] = []
     outcome = (
       self_regression(root)
       if root.resolve() == engine_root.resolve()
-      else verify_local(root, engine_root=engine_root, push=False)
+      else verify_local(
+        root, engine_root=engine_root, push=False,
+        candidate_observer=prepared.append,
+      )
     )
     after = head_sha(root)
     if outcome == "PASS" and selected and _run_group_set(
@@ -435,8 +439,8 @@ def run_test(
       "testResults-" + match.group(1) + ".jsonl"
     )
     uncommitted = _uncommitted_inputs(root, path)
-    tested_sha = before
-    head_changed = head_sha(root) != before
+    tested_sha = prepared[0] if prepared else before
+    head_changed = head_sha(root) != tested_sha
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
       "uncommittedChanges": uncommitted,
