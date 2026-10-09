@@ -74,9 +74,31 @@ jobs:
             integration-testing) ./rwf test integration ;;
             *) echo 'unsupported stage' >&2; exit 1 ;;
           esac
-      - name: Verify validation did not change checkout
+      - name: Verify only canonical test-results log changed
         shell: bash
-        run: test -z "$(git status --porcelain=v1 --untracked-files=all)"
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          branch = os.environ["GITHUB_REF_NAME"]
+          match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
+          if match is None:
+            sys.exit("hosted test result check requires an issue branch")
+          allowed = (
+            ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+          )
+          raw = subprocess.check_output(
+            ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+          )
+          entries = [item for item in raw.split(b"\\0") if item]
+          for entry in entries:
+            changed = entry[3:].decode("utf-8", "surrogateescape")
+            if changed != allowed:
+              sys.exit("unexpected hosted test side effect: " + changed)
+          PY
 
   argv-limits:
     needs: plan
