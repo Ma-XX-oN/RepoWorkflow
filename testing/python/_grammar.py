@@ -133,6 +133,39 @@ def validate_value(value: Any, path: str = "$") -> None:
       f"{path}.$type: expected stable module-qualified type string"
     )
 
+  type_id = value.get("$type")
+  if type_id == "builtins.list":
+    ordinary = {key for key in value if not key.startswith("$")}
+    if ordinary != {"items"} or not isinstance(value["items"], list):
+      raise InterfaceGrammarError(
+        f"{path}: builtins.list requires exactly a list-valued items field"
+      )
+  if type_id == "builtins.dict":
+    ordinary = {key for key in value if not key.startswith("$")}
+    if not ordinary.issubset({"keys", "items"}) or "items" not in ordinary:
+      raise InterfaceGrammarError(
+        f"{path}: builtins.dict permits only keys and items fields"
+      )
+    if not isinstance(value["items"], dict):
+      raise InterfaceGrammarError(
+        f"{path}.items: builtins.dict items must be an object"
+      )
+    if "keys" in value:
+      keys = value["keys"]
+      if (
+        not isinstance(keys, list)
+        or any(not isinstance(key, str) for key in keys)
+        or len(set(keys)) != len(keys)
+      ):
+        raise InterfaceGrammarError(
+          f"{path}.keys: expected unique string keys"
+        )
+      missing = [key for key in keys if key not in value["items"]]
+      if missing:
+        raise InterfaceGrammarError(
+          f"{path}.items: missing values for keys {missing!r}"
+        )
+
   for key, item in value.items():
     if not key.startswith("$"):
       validate_value(item, f"{path}.{key}")
