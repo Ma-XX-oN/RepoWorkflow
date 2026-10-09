@@ -127,6 +127,11 @@ class IssueLifecycle:
       for sequence, raw in enumerate(raw_history)
     )
     _validate_history(state, history, legacy_count)
+    for index, event in enumerate(history):
+      if index >= legacy_count:
+        _validate_transition_candidate(
+          event.transition, event.candidate, history[:index],
+        )
     aliases = () if version == 1 else _aliases(value["high_risk_aliases"])
     return cls(
       issue=issue,
@@ -216,6 +221,11 @@ class LifecycleStore:
 
     relationship_revision = _optional_revision(relationship_revision)
     candidate = _optional_text(candidate, "candidate")
+    _validate_transition_candidate(
+      transition,
+      candidate,
+      current.lifecycle.history,
+    )
     event = LifecycleEvent(
       sequence=len(current.lifecycle.history),
       transition=transition,
@@ -351,6 +361,22 @@ def _optional_text(value: str | None, field: str) -> str | None:
   if not isinstance(value, str) or not value.strip():
     raise LifecycleError(f"{field} must be non-empty text or null")
   return value
+
+
+def _validate_transition_candidate(
+  transition: str,
+  candidate: str | None,
+  history: tuple[LifecycleEvent, ...],
+) -> None:
+  if transition not in {"submit-review", "accept", "complete"}:
+    return
+  if candidate is None:
+    raise LifecycleError(f"{transition} requires an exact candidate")
+  if transition in {"accept", "complete"}:
+    if not history or history[-1].candidate != candidate:
+      raise LifecycleError(
+        f"{transition} candidate does not match prior lifecycle event"
+      )
 
 
 def _event(value: dict, expected_sequence: int, legacy: bool) -> LifecycleEvent:
