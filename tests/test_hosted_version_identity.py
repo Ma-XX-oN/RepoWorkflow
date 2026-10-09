@@ -138,6 +138,29 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(result["candidate_sha"], self.candidate)
     self.assertEqual(result["retry_depth"], 2)
 
+  def test_retry_after_canonical_publication_retains_original_candidate(self):
+    first = self.invoke("integration")
+    self.evidence(kind="integration")
+    self.git("add", ".repoworkflow/validation/testResults-570.jsonl")
+    self.git("commit", "-qm", "test: publish hosted evidence from run 123")
+    evidence_commit = self.git("rev-parse", "HEAD")
+    second = self.invoke("regression")
+    result = resolve_invocation(self.root, second)
+    self.assertEqual(result["request_parent_sha"], evidence_commit)
+    self.assertEqual(result["candidate_sha"], self.candidate)
+    self.assertEqual(result["stage"], "regression")
+    self.assertEqual(result["stage_transition_count"], 1)
+    self.assertNotEqual(result["candidate_sha"], first)
+
+  def test_noncanonical_evidence_commit_starts_new_candidate(self):
+    self.invoke("integration")
+    self.evidence(kind="integration")
+    self.git("add", ".repoworkflow/validation/testResults-570.jsonl")
+    self.git("commit", "-qm", "arbitrary source evidence change")
+    changed = self.git("rev-parse", "HEAD")
+    request = self.invoke("regression")
+    self.assertEqual(resolve_invocation(self.root, request)["candidate_sha"], changed)
+
   def test_version_comes_only_from_matching_canonical_evidence(self):
     sha = self.invoke()
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
