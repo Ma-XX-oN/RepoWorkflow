@@ -17,6 +17,10 @@ class CanonicalEvidenceError(ValueError):
 def require_integration_evidence(
   log: Path, *, candidate: str, required_platforms: tuple[str, ...],
 ) -> None:
+  if not required_platforms or any(
+    not isinstance(name, str) or not name for name in required_platforms
+  ):
+    raise CanonicalEvidenceError("required integration platforms unspecified")
   if re.fullmatch(r"[0-9a-f]{40}", candidate) is None:
     raise CanonicalEvidenceError("invalid candidate SHA")
   try:
