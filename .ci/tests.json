@@ -132,6 +132,10 @@
         "type": "regression",
         "name": "tests.test_engine_regression"
       },
+      "issue-545-terminal-tag": {
+        "type": "regression",
+        "name": "tests.test_terminal_tag"
+      },
       "issue-545-cache-evidence": {
         "type": "regression",
         "name": "tests.test_test_cache_evidence"
