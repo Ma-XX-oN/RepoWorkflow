@@ -59,6 +59,12 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
         "checkout step must contain exactly one with mapping",
       )
 
+  def test_hosted_regression_and_integration_use_public_test_entrypoint(self):
+    self.assertIn("needs.plan.outputs.stage", self.text)
+    self.assertIn("./rwf test regression", self.text)
+    self.assertIn("./rwf test integration", self.text)
+    self.assertNotIn("python scripts/validate.py", self.text)
+
   def test_unimplemented_stages_fail_closed(self):
     for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
       self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
