@@ -312,10 +312,12 @@ def _run_group_set(
   uncommitted = sorted(set(uncommitted_before) | set(
     _uncommitted_inputs(root, path)
   ))
+  head_changed = head_sha(root) != revision
   path.parent.mkdir(parents=True, exist_ok=True)
   record = {
     "uncommittedChanges": uncommitted,
-    "reusable": not bool(uncommitted),
+    "headChangedDuringTest": head_changed,
+    "reusable": not uncommitted and not head_changed,
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
