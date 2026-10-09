@@ -141,6 +141,7 @@ def resolve_hosted_version(
     return identity
   versions = set()
   version_owners: dict[str, tuple[str, str]] = {}
+  terminal_outcomes: dict[str, str] = {}
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except (OSError, UnicodeError) as error:
@@ -174,6 +175,11 @@ def resolve_hosted_version(
     if prior is not None and prior != owner:
       raise HostedVersionError("version evidence claimed by different candidate or phase")
     version_owners[version] = owner
+    terminal_result = record["result"]
+    earlier_result = terminal_outcomes.get(version)
+    if earlier_result is not None and earlier_result != terminal_result:
+      raise HostedVersionError("conflicting terminal version outcomes")
+    terminal_outcomes[version] = terminal_result
     if owner[0] != identity["candidate_sha"]:
       continue
     source_branch = record.get("branch")
