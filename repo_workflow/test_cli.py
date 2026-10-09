@@ -37,6 +37,64 @@ def _git(root: Path, *args: str) -> str:
   return result.stdout.strip()
 
 
+SELECTION = Path(".ci/red-green.txt")
+
+
+def _issue_prefix(root: Path) -> str:
+  match = re.fullmatch(
+    r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
+  )
+  if match is None:
+    raise TestCommandError("RED/GREEN requires a current issue branch")
+  return "issue-" + match.group(1) + "-"
+
+
+def _validate_selection(root: Path, name: str) -> str:
+  prefix = _issue_prefix(root)
+  if (
+    not name.startswith(prefix)
+    or name not in load_test_catalogue(root).groups
+  ):
+    raise TestCommandError(
+      "RED/GREEN tests do not exist for this selection. "
+      "Build and register issue-N- groups in .ci/tests.json."
+    )
+  return name
+
+
+def read_selection(root: Path) -> str:
+  path = root / SELECTION
+  try:
+    raw = path.read_text(encoding="utf-8")
+  except FileNotFoundError as error:
+    raise TestCommandError(
+      "no RED/GREEN test selected; choose an issue-N- group "
+      "declared in .ci/tests.json"
+    ) from error
+  lines = raw.splitlines()
+  if len(lines) != 1 or raw != lines[0] + "\n" or not lines[0]:
+    raise TestCommandError(
+      ".ci/red-green.txt must contain exactly one test-group name"
+    )
+  return _validate_selection(root, lines[0])
+
+
+def select_group(root: Path, name: str) -> str:
+  name = _validate_selection(root, name)
+  path = root / SELECTION
+  if path.exists() and path.read_text(encoding="utf-8") == name + "\n":
+    return name
+  if _git(root, "status", "--porcelain", "--untracked-files=all"):
+    raise TestCommandError(
+      "commit or discard working tree changes before selecting RED test"
+    )
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(name + "\n", encoding="utf-8")
+  _git(root, "add", "--", SELECTION.as_posix())
+  _git(root, "commit", "-m", "test: select RED/GREEN group " + name)
+  return name
+
+
 def request_remote(root: Path, stage: str) -> int:
   branch = current_branch(root)
   if branch in {"HEAD", "main"} or branch.startswith("prelim-main-"):
@@ -139,47 +197,31 @@ def run_test(
   if stage not in STAGES:
     raise TestCommandError("unknown test stage")
   if stage == "RED":
-    if group is None:
-      raise TestCommandError(
-        "select an issue-N- RED test group from .ci/tests.json"
-      )
-    match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-    if match is None:
-      raise TestCommandError("RED requires a current issue branch")
-    prefix = "issue-" + match.group(1) + "-"
-    groups = load_test_catalogue(root).groups
-    if group not in groups or not group.startswith(prefix):
-      raise TestCommandError(
-        "RED/GREEN tests do not exist for this selection. "
-        "Build and register issue-N- groups in .ci/tests.json."
-      )
+    selected = select_group(root, group) if group else read_selection(root)
     if remote:
-      raise TestCommandError(
-        "remote RED requires candidate-bound group selection; "
-        "hosted RED is not yet implemented"
-      )
-    command = group_command(root, group)
+      return request_remote(root, stage)
+    command = group_command(root, selected)
     result = subprocess.run(
       command, cwd=root, text=True, capture_output=True, check=False,
     )
+    if result.stdout:
+      print(result.stdout, end="")
+    if result.stderr:
+      import sys
+      print(result.stderr, end="", file=sys.stderr)
     if result.returncode == 0:
       raise TestCommandError("RED did not demonstrate the expected failure")
     raise TestCommandError(
-      "RED test exited unsuccessfully; expected RED failure has not "
-      "been distinguished from infrastructure error"
+      "RED failed; expected RED failure has not been distinguished "
+      "from infrastructure error"
     )
   if group is not None:
     raise TestCommandError("test group is only supported for RED")
-  if not remote and stage == "GREEN":
-    match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-    if match is None:
-      raise TestCommandError("GREEN requires an issue branch")
-    prefix = "issue-" + match.group(1) + "-"
-    groups = tuple(sorted(
-      name for name in load_test_catalogue(root).groups
-      if name.startswith(prefix)
-    ))
-    return _run_group_set(root, stage, groups)
+  if stage == "GREEN":
+    selected = read_selection(root)
+    if remote:
+      return request_remote(root, stage)
+    return _run_group_set(root, stage, (selected,))
   if not remote and stage == "temporary":
     manifest = Path(".ci/temp-tests.json")
     groups = tuple(sorted(load_test_catalogue(
