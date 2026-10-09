@@ -25,7 +25,7 @@ class RegressionTemporaryTests(unittest.TestCase):
       "self.assertTrue(True)", "self.assertTrue(False)",
     ))
     with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
-      result = run_test(self.root, "regression", remote=False, engine_root=self.root)
+      result = run_test(self.root, "regression", remote=False, engine_root=self.root / "engine")
     self.assertEqual(result, 1)
     verify.assert_called_once()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
@@ -53,7 +53,7 @@ class RegressionTemporaryTests(unittest.TestCase):
     }
     manifest.write_text(json.dumps(value))
     with patch("repo_workflow.test_cli.verify_local", return_value="PASS"):
-      result = run_test(self.root, "regression", remote=False, engine_root=self.root)
+      result = run_test(self.root, "regression", remote=False, engine_root=self.root / "engine")
     self.assertEqual(result, 1)
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     record = json.loads(log.read_text().splitlines()[0])
@@ -68,7 +68,7 @@ class RegressionTemporaryTests(unittest.TestCase):
       issue_group="issue-545-fidelity",
     )
     with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
-      rc = run_test(self.root, "regression", remote=False, engine_root=self.root)
+      rc = run_test(self.root, "regression", remote=False, engine_root=self.root / "engine")
     self.assertEqual(rc, 0)
     verify.assert_called_once()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
@@ -86,7 +86,7 @@ class RegressionTemporaryTests(unittest.TestCase):
     path.write_text(json.dumps(data))
     with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
       with self.assertRaisesRegex(Exception, "native test name"):
-        run_test(self.root, "regression", remote=False, engine_root=self.root)
+        run_test(self.root, "regression", remote=False, engine_root=self.root / "engine")
     verify.assert_not_called()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     self.assertFalse(log.exists())
@@ -97,7 +97,7 @@ class RegressionTemporaryTests(unittest.TestCase):
     path.write_text("{invalid")
     with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
       with self.assertRaisesRegex(Exception, "invalid JSON"):
-        run_test(self.root, "regression", remote=False, engine_root=self.root)
+        run_test(self.root, "regression", remote=False, engine_root=self.root / "engine")
     verify.assert_not_called()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     self.assertFalse(log.exists())
