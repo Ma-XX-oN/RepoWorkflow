@@ -51,6 +51,8 @@ jobs:
       needs.plan.outputs.stage == 'regression-testing' ||
       needs.plan.outputs.stage == 'integration-testing'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,7 +90,8 @@ jobs:
           "${{ needs.plan.outputs.stage }}"
           "${{ needs.plan.outputs.tested_sha }}"
           "$GITHUB_REF_NAME"
-      - name: Verify only canonical test-results log changed
+      - id: audit
+        name: Verify only canonical test-results log changed
         if: ${{ always() }}
         shell: bash
         run: |
@@ -114,6 +117,16 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
+      - name: Publish canonical hosted testing observations
+        if: ${{ always() && steps.audit.outcome == 'success' }}
+        shell: bash
+        run: >-
+          python scripts/publish-hosted-result.py
+          "${{ needs.plan.outputs.stage }}"
+          "${{ needs.plan.outputs.tested_sha }}"
+          "$GITHUB_REF_NAME"
+          "$GITHUB_SHA"
+          "$GITHUB_RUN_ID"
 
   argv-limits:
     needs: plan
