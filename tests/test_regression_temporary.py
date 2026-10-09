@@ -34,6 +34,8 @@ class RegressionTemporaryTests(unittest.TestCase):
     self.assertEqual(observations[0]["kind"], "temporary")
     self.assertEqual(observations[-1]["kind"], "regression")
     self.assertEqual(observations[-1]["result"], "failed")
+    self.assertFalse(observations[-1]["reusable"])
+    self.assertIn("smoke_case.py", observations[-1]["uncommittedChanges"])
     self.assertEqual(observations[0]["result"], "failed")
     self.assertFalse(observations[0]["reusable"])
 
@@ -73,6 +75,8 @@ class RegressionTemporaryTests(unittest.TestCase):
     records = [json.loads(line) for line in log.read_text().splitlines()]
     self.assertEqual([x["kind"] for x in records], ["temporary", "regression"])
     self.assertEqual([x["result"] for x in records], ["succeeded", "succeeded"])
+    self.assertFalse(records[-1]["reusable"])
+    self.assertIn(".ci/temp-tests.json", records[-1]["uncommittedChanges"])
 
   def test_malformed_temporary_manifest_fails_before_regression(self):
     path = self.root / ".ci/temp-tests.json"
