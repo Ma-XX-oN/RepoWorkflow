@@ -369,6 +369,7 @@ def run_test(
     record = {
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "testSHA": red_candidate,
+      "branch": current_branch(root),
       "headChangedDuringTest": head_sha(root) != red_candidate,
       "catalogueSHA256": red_catalogue,
       "kind": "RED",
