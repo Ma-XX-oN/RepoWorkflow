@@ -48,7 +48,7 @@ class TerminalTagTests(unittest.TestCase):
     self.git("commit", "-m", "dedicated CI request")
 
   def published(self, tag):
-    result = self.git("ls-remote", "--tags", "origin", "refs/tags/" + tag)
+    result = self.git(\n      "ls-remote", "--tags", "origin",\n      "refs/tags/" + tag, "refs/tags/" + tag + "^{}",\n    )
     return dict(
       (line.split("\t", 1)[1], line.split("\t", 1)[0])
       for line in result.splitlines() if "\t" in line
