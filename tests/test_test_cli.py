@@ -186,6 +186,29 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(result.returncode, 2)
     self.assertIn("not yet implemented", result.stderr)
 
+  def test_failed_green_not_reusable_and_has_audit_identity(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-failing",
+    )
+    test_file = self.root / "smoke_case.py"
+    test_file.write_text(
+      test_file.read_text().replace("self.assertTrue(True)", "self.fail()")
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "failing contract test")
+    (self.root / ".ci/red-green.txt").write_text("issue-545-failing\n")
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-m", "selected failing group")
+    result = self.cli("test", "GREEN")
+    self.assertEqual(result.returncode, 1, result.stderr)
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(path.read_text().splitlines()[-1])
+    self.assertEqual(record["result"], "failed")
+    self.assertFalse(record["reusable"])
+    self.assertEqual(record["branch"], "issue-545-fixture")
+    self.assertIn("timestamp", record)
+    self.assertIn("architecture", record["platform"])
+
   def _catalogue(self, path, *, issue_group):
     (self.root / "smoke_case.py").write_text(
       "import unittest\n"
