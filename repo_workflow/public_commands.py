@@ -343,6 +343,7 @@ COMMANDS = {
       "_quantifier": "?",
       "_switches": {
         "--refresh": "Refresh selected lane data before rendering",
+        "--current": "Refresh ticket lifecycle states into tickets.csv",
         "--debug": "Show lane data sources, timings, and semantic edges",
       },
     },
