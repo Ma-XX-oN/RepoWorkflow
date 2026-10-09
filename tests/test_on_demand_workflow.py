@@ -110,8 +110,8 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
   def test_hosted_success_requires_matching_non_skipped_test_evidence(self):
     self.assertIn("Verify authoritative stage result evidence", self.text)
     self.assertIn("needs.plan.outputs.tested_sha", self.text)
-    self.assertIn("record.get('testSHA') != candidate", self.text)
-    self.assertIn("record.get('result') != 'succeeded'", self.text)
+    self.assertIn('record.get("testSHA") != candidate', self.text)
+    self.assertIn('record.get("result") != "succeeded"', self.text)
     self.assertIn("incomplete or skipped hosted testing", self.text)
 
   def test_no_separate_unsupported_stage_job(self):
