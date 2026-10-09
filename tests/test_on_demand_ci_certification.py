@@ -68,7 +68,7 @@ class OnDemandCertificationTests(unittest.TestCase):
       "reusable": True,
       "headChangedDuringTest": False,
       "uncommittedChanges": [],
-      "platform": {"os": "Linux"},
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
     }) + "\n")
 
   def check(self, authoritative_tip):
