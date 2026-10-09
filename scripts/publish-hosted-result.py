@@ -66,7 +66,14 @@ def publish(
   local_dirty = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
   if any(line[3:] != relative for line in local_dirty.splitlines() if line):
     raise ValueError("unexpected test side effects prevent publication")
-  original = path.read_text(encoding="utf-8")
+  record["runner"] = "github-actions"
+  record["providerRunId"] = int(run_id)
+  record["providerInvocationSHA"] = invocation
+  record["providerCandidateSHA"] = candidate
+  record["providerStage"] = stage
+  original = "\\n".join([
+    *lines[:-1], json.dumps(record, sort_keys=True),
+  ]) + "\\n"
   _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
   if _git(root, "rev-parse", "FETCH_HEAD") != invocation:
     raise ValueError("remote branch moved since hosted invocation")
