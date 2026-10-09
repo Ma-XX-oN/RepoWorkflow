@@ -12,7 +12,7 @@ import subprocess
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _MARKER = re.compile(
-  r"(RED|temporary|GREEN|regression|integration)-testing ([0-9a-f]{40})\n?\Z"
+  r"(RED|temp|GREEN|regression|integration)-testing ([0-9a-f]{40})\n?\Z"
 )
 _VERSION = re.compile(
   r"[0-9]+\.[0-9]+\.[0-9]+-issue\.([1-9][0-9]*)\.[0-9]+\.[0-9]+\Z"
@@ -50,7 +50,8 @@ def _marker(root: Path, sha: str) -> tuple[str, str] | None:
   match = _MARKER.fullmatch(raw)
   if match is None:
     raise HostedVersionError("invalid two-field hosted invocation marker")
-  return match.group(1), match.group(2)
+  stage = "temporary" if match.group(1) == "temp" else match.group(1)
+  return stage, match.group(2)
 
 
 def resolve_invocation(root: Path, invocation_sha: str) -> dict:
