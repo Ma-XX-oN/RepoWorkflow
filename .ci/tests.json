@@ -91,6 +91,10 @@
       "issue-550-public-help": {
         "type": "regression",
         "name": "tests.test_bootstrap_cli"
+      },
+      "issue-545-unified-test-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli"
       }
     }
   ],
