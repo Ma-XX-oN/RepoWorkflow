@@ -62,6 +62,8 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
   current = invocation_sha
   stage = None
   depth = 0
+  same_stage_retries = 0
+  transitions = 0
   while True:
     if current in observed:
       raise HostedVersionError("cyclic invocation lineage")
@@ -83,7 +85,8 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
       return {
         "invocation_sha": invocation_sha, "request_parent_sha": first_parent,
         "candidate_sha": current, "stage": stage,
-        "retry_depth": depth - 1,
+        "retry_depth": same_stage_retries,
+        "stage_transition_count": transitions,
       }
     current_stage, recorded = marker
     if current_stage not in _STAGES:
@@ -100,8 +103,10 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
     if depth == 0:
       stage = current_stage
       first_parent = parent
+    elif current_stage == stage and transitions == 0:
+      same_stage_retries += 1
     elif current_stage != stage:
-      raise HostedVersionError("retry changes hosted test stage")
+      transitions += 1
     current = parent
     depth += 1
     if depth > 100:
