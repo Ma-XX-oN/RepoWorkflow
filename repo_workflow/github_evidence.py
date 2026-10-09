@@ -59,6 +59,9 @@ def verify_hosted_integration(
     run = read(base + "/actions/runs/" + str(run_id))
     commit = read(base + "/git/commits/" + invocation)
     marker = read(base + "/contents/.ci/run?ref=" + invocation)
+    jobs_page = read(
+      base + "/actions/runs/" + str(run_id) + "/jobs?per_page=100"
+    )
   except (ValueError, KeyError, TypeError):
     return False
   if (
@@ -79,4 +82,20 @@ def verify_hosted_integration(
     request_text = request.decode("utf-8")
   except (ValueError, UnicodeError):
     return False
-  return request_text == "integration-testing " + candidate + "\n"
+  if request_text != "integration-testing " + candidate + "\n":
+    return False
+  jobs = jobs_page.get("jobs")
+  if not isinstance(jobs, list) or jobs_page.get("total_count") != len(jobs):
+    return False
+  actual = {}
+  for job in jobs:
+    if not isinstance(job, dict) or not isinstance(job.get("name"), str):
+      return False
+    if job["name"] in actual:
+      return False
+    actual[job["name"]] = job.get("conclusion")
+  required = {"plan", "validate"}
+  for group in ("argv-limits", "graph-renderer-platform", "ticket-merge-platform"):
+    for system in ("ubuntu-latest", "windows-latest", "macos-latest"):
+      required.add(group + " (" + system + ")")
+  return all(actual.get(name) == "success" for name in required)
