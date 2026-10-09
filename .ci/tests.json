@@ -148,6 +148,10 @@
         "type": "regression",
         "name": "tests.test_hosted_terminal_binding"
       },
+      "issue-572-engine-self-regression-evidence": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
+      },
       "issue-572-engine-remote-preparation": {
         "type": "regression",
         "name": "tests.test_engine_remote"
