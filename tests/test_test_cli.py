@@ -317,6 +317,30 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(changed_sha.returncode, 0, changed_sha.stderr)
     self.assertNotIn("Reusing valid PASS evidence", changed_sha.stdout)
 
+  def test_green_rejects_foreign_runner_and_platform_cache(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    self.assertEqual(self.cli("test", "GREEN").returncode, 0)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    baseline = json.loads(audit.read_text().strip())
+    for field, value in (
+      ("runner", "unverified-external"),
+      ("platform", {"os": "wrong-os", "runtime": "0.0"}),
+    ):
+      with self.subTest(field=field):
+        record = dict(baseline)
+        record[field] = value
+        audit.write_text(json.dumps(record) + "\n")
+        run = self.cli("test", "GREEN")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertNotIn("Reusing valid PASS evidence", run.stdout)
+        actual = json.loads(audit.read_text().splitlines()[-1])
+        self.assertFalse(actual["groups"][0]["reused"])
+
   def test_green_reexecutes_after_failed_or_corrupted_cache(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
