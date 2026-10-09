@@ -121,6 +121,20 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
                      VERSION)
 
+  def test_same_version_cannot_claim_two_terminal_phases(self):
+    sha = self.invoke()
+    self.evidence()
+    self.evidence(kind="integration")
+    with self.assertRaisesRegex(HostedVersionError, "across phases"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_different_version_other_phase_does_not_conflict(self):
+    sha = self.invoke()
+    self.evidence()
+    self.evidence(kind="integration", testVersion="0.1.121-issue.570.0.2")
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
+                     VERSION)
+
   def test_wrong_issue_or_branch_evidence_is_rejected(self):
     sha = self.invoke()
     self.evidence(branch="issue-571-other")
