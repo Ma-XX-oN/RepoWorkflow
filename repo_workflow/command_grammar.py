@@ -6,6 +6,7 @@ from typing import Iterable
 from .command_grammar_spec import (
   COMPLETIONS,
   LAST_TERMINAL,
+  NODE_DESCRIPTION,
   ON_TAB,
   TERMINAL,
   VALUE_DESCRIPTION,
@@ -283,7 +284,10 @@ def _entry_items(
           result.append(Completion(value, description, True))
       continue
     if token.startswith(prefix):
-      description = entry if isinstance(entry, str) else entry.get(TERMINAL)
+      description = (
+        entry if isinstance(entry, str)
+        else entry.get(NODE_DESCRIPTION, entry.get(TERMINAL))
+      )
       result.append(Completion(token, description))
   return result
 

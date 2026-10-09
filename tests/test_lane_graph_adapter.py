@@ -410,24 +410,34 @@ class LaneGraphAdapterTests(unittest.TestCase):
       "1": relation(),
       "2": relation(),
       "3": relation(1, 2),
+      "4": relation(),
+      "5": relation(),
     })
     selection = LaneSelection(
-      roots=("3",),
-      closure=("1", "2", "3"),
+      roots=("3", "5"),
+      closure=("1", "2", "3", "4", "5"),
       graph_revision=1,
-      assignment={"1": "A", "2": "B", "3": "A"},
+      assignment={
+        "1": "A",
+        "2": "B",
+        "3": "A",
+        "4": "C",
+        "5": "D",
+      },
     )
     metadata = {
       "1": {"closed": False, "title": "Initiative: One", "link": ""},
       "2": {"closed": False, "title": "Feature: Two", "link": ""},
       "3": {"closed": False, "title": "Epic: Three", "link": ""},
+      "4": {"closed": False, "title": "Bug: Four", "link": ""},
+      "5": {"closed": False, "title": "Refactor: Five", "link": ""},
     }
     projection = project_lane_graph(
       selection,
       graph,
       set(selection.closure),
       metadata,
-      lane_colours={"A": RED, "B": BLUE},
+      lane_colours={"A": RED, "B": BLUE, "C": GREY, "D": RED},
       default_edge_colour=GREY,
       display_width=len,
     )
@@ -436,7 +446,10 @@ class LaneGraphAdapterTests(unittest.TestCase):
       for group in projection.graph.siblings
       for node in group.nodes
     }
-    self.assertEqual(nodes, {"I:A1", "F:B2", "*E:A3"})
+    self.assertEqual(
+      nodes,
+      {"I:A1", "F:B2", "*E:A3", "B:C4", "*R:D5"},
+    )
 
 
 if __name__ == "__main__":

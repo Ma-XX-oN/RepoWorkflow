@@ -91,6 +91,8 @@ Ticket creators use these descriptive prefixes when they improve navigation:
 - `Initiative:` for broad programme-level containers;
 - `Epic:` for large outcome containers;
 - `Feature:` for coherent capabilities;
+- `Bug:` for corrective work on an observed defect;
+- `Refactor:` for internal restructuring that preserves intended behaviour;
 - no prefix for ordinary executable implementation or certification tasks.
 
 Prefixes are presentation only. RepoWorkflow does not infer dependencies,
