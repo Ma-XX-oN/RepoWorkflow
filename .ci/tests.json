@@ -127,6 +127,10 @@
       "issue-545-engine-regression": {
         "type": "regression",
         "name": "tests.test_engine_regression"
+      },
+      "issue-545-cache-evidence": {
+        "type": "regression",
+        "name": "tests.test_test_cache_evidence"
       }
     }
   ],
