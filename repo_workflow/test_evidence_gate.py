@@ -44,8 +44,11 @@ def require_integration_evidence(
     if record.get("testSHA") != candidate:
       continue
     platform = record.get("platform")
-    if not isinstance(platform, dict) or not isinstance(platform.get("os"), str):
-      raise CanonicalEvidenceError("integration evidence lacks platform")
+    if not isinstance(platform, dict) or any(
+      not isinstance(platform.get(field), str) or not platform[field]
+      for field in ("os", "architecture", "runtime")
+    ):
+      raise CanonicalEvidenceError("integration evidence lacks complete platform")
     os_name = platform["os"]
     if os_name not in required_platforms:
       continue
