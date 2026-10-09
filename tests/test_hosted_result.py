@@ -38,7 +38,9 @@ class HostedResultTests(unittest.TestCase):
     record = {
       "testSHA": SHA, "kind": "GREEN", "result": "succeeded",
       "reusable": True, "uncommittedChanges": [],
+      "branch": "issue-541-test",
       "headChangedDuringTest": False,
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
       "groups": [{"group": "issue-541-unit", "exit_code": 0}],
     }
     record.update(fields)
@@ -69,6 +71,39 @@ class HostedResultTests(unittest.TestCase):
     ):
       with self.subTest(field=field, value=value):
         self.write(**{field: value})
+        self.assertNotEqual(self.invoke().returncode, 0)
+
+  def test_missing_freshness_fields_fail_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for missing in ("uncommittedChanges", "headChangedDuringTest", "reusable"):
+      with self.subTest(missing=missing):
+        self.write()
+        record = json.loads(self.log.read_text())
+        del record[missing]
+        self.log.write_text(json.dumps(record) + "\n")
+        self.assertNotEqual(self.invoke().returncode, 0)
+
+  def test_wrong_or_missing_branch_identity_fails_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for invalid in (None, "", "issue-542-other"):
+      with self.subTest(branch=invalid):
+        self.write(branch=invalid)
+        self.assertNotEqual(self.invoke().returncode, 0)
+
+  def test_missing_or_incomplete_platform_identity_fails_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for bad in (None, {}, {"os": "Linux"}, {
+      "os": "Linux", "architecture": "", "runtime": "3.13",
+    }):
+      with self.subTest(platform=bad):
+        self.write(platform=bad)
+        self.assertNotEqual(self.invoke().returncode, 0)
+
+  def test_non_integer_group_exit_codes_fail_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for invalid in (False, 0.0, "0", None):
+      with self.subTest(exit_code=invalid):
+        self.write(groups=[{"group": "issue-541-unit", "exit_code": invalid}])
         self.assertNotEqual(self.invoke().returncode, 0)
 
   def test_latest_observation_controls_outcome(self):
