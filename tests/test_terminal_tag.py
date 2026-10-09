@@ -121,6 +121,14 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.issue_tag("PASS"), tag)
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), first)
 
+  def test_integration_failure_uses_prelim_fail_namespace(self):
+    tag = self.issue_tag("FAIL", stage="integration")
+    self.assertEqual(tag, "v0.1.121-PRELIM-545.0.1-CI-FAIL")
+    self.assertEqual(
+      self.published(tag)["refs/tags/" + tag + "^{}"],
+      self.candidate,
+    )
+
   def test_complete_failure_tag_points_to_candidate(self):
     tag = self.issue_tag("FAIL")
     self.assertEqual(tag, "v" + VERSION + "-CI-FAIL")
@@ -321,6 +329,7 @@ class TerminalTagTests(unittest.TestCase):
       "PASS", stage="integration", version="0.1.121-issue.545.0.2",
     )
     self.assertNotEqual(first_tag, second_tag)
+    self.assertEqual(second_tag, "v0.1.121-PRELIM-545.0.2")
     self.assertEqual(
       self.published(first_tag)["refs/tags/" + first_tag + "^{}"], first_sha,
     )
