@@ -150,6 +150,13 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
                      VERSION)
 
+  def test_incomplete_candidate_does_not_consume_version_for_new_candidate(self):
+    sha = self.invoke()
+    self.evidence(testSHA="f" * 40, result="incomplete")
+    self.evidence(result="succeeded")
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
+                     VERSION)
+
   def test_same_version_cannot_claim_two_candidates(self):
     sha = self.invoke()
     self.evidence()
