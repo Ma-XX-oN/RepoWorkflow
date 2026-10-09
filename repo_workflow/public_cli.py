@@ -372,6 +372,14 @@ def handle_completion(
 
 
 def handle_help(root: Path, words: list[str]) -> int:
+  if words == ["test", "RED"]:
+    # RED help is unconditional; only interactive completion needs registered groups.
+    node = COMMANDS["test"]["RED"]
+    print(node["_description"])
+    print(node["_value_description"])
+    for option, description in node["_switches"].items():
+      print(option + "  " + description)
+    return 0
   help_words = [*words, ""]
   return handle_completion(root, help_words, describe=True)
 
