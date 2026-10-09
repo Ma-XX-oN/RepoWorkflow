@@ -25,15 +25,14 @@ rwf
 │   │   [--compare|--replace|--replace-title|--replace-dependencies]
 │   ├── start N
 │   └── abort
-├── tdd
-│   ├── red group NAME
-│   └── green
 ├── high-risk <SECTION> [<SECTION> ...]
-├── validate
-│   ├── regression [--fast] [--group NAME]
-│   └── integration [--automatic|--manual] [--group NAME]
-│       ├── succeeded
-│       └── failed
+├── test
+│   ├── RED [<issue-N-group>] [--remote]
+│   ├── temporary [--remote]
+│   ├── GREEN [--remote]
+│   ├── regression [--remote]
+│   ├── integration [--remote]
+│   └── results [--remote]
 └── done
     ├── patch
     ├── minor
@@ -325,32 +324,30 @@ ticket-creation workflow are defined by [TICKET_STATE.md](TICKET_STATE.md).
 Repository-neutral decomposition guidance remains in
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
-## 8. Optional TDD workflow
+## 8. RED/GREEN testing
 
-```text
-rwf tdd red group NAME
-rwf tdd green
-```
+The unified public testing command is `rwf test`.  For active issue N,
+`rwf test RED <issue-N-group>` validates a group declared in `.ci/tests.json`,
+then commits that single selection to tracked `.ci/red-green.txt`.  Repeated
+RED and GREEN operations consume the same selection; selecting another valid
+group replaces it.  The file contains exactly one non-empty group name.
 
-For active issue N, TDD group names must already exist in the repository's test
-catalogue/Rosetta mapping and follow `issue-N-...`.
+Only groups belonging to the current issue are valid.  Completion filters
+those groups and reports actionable catalogue/naming errors.  A missing
+selection emits a warning and appends SKIPPED evidence without running tests
+or claiming PASS.  Malformed or stale selections fail.
 
-`rwf tdd red group <TAB>` completes only groups for the active issue.  Normal
-completion may insert the shared `issue-N-` prefix when several groups match.
+RED records its actual execution result, but a nonzero exit is not an
+authoritative RED PASS until the expected failure is distinguished from an
+infrastructure error.  GREEN reuses only eligible unchanged PASS evidence for
+the selected group and executes missing or invalidated test units.
 
-A custom `on-tab` handler may provide specific actionable diagnostics when no
-group for the active issue exists or a different issue's group is selected.
-The diagnostic should identify the expected naming rule and the catalogue or
-configuration location that must be changed.
+`rwf test temporary` reads `.ci/temp-tests.json`, using the normal test
+catalogue format.  Integration requires removal of the current issue's
+temporary sandbox.  All test stages use the existing per-issue JSONL log.
 
-Double Tab and `--help` explain command usage, naming rules, and catalogue
-location; they do not merely repeat a contextual runtime error.
-
-RED runs the selected group and records RED only when the documented RED
-expectations are satisfied.  GREEN runs the issue's required TDD groups that
-are not already satisfied by reusable unchanged evidence.
-
-Issue #54 owns this command family.
+Issue #545 owns migration to the unified command family.  Earlier `rwf tdd`
+and `rwf validate` operations are not alternative public testing commands.
 
 ## 9. Reusable validation evidence
 
@@ -383,34 +380,33 @@ evidence according to a deterministic fingerprint contract.
 Issue #16 owns durable evidence, reuse, invalidation, and local/hosted-provider
 equivalence.
 
-## 10. Validation commands
+## 10. Testing commands
 
-Regression:
-
-```text
-rwf validate regression
-rwf validate regression --fast
-rwf validate regression --group NAME
-```
-
-Integration:
+The supported public testing interface is:
 
 ```text
-rwf validate integration
-rwf validate integration --automatic
-rwf validate integration --manual
-rwf validate integration --group NAME
-rwf validate integration --group NAME --automatic
-rwf validate integration --group NAME --manual
-rwf validate integration succeeded
-rwf validate integration failed
+rwf test RED [<issue-N-group>] [--remote]
+rwf test temporary [--remote]
+rwf test GREEN [--remote]
+rwf test regression [--remote]
+rwf test integration [--remote]
+rwf test results [--remote]
 ```
 
-A manual integration result may only resolve an actual pending manual test
-requirement.  Automated integration runners may record their own results.
+Without `--remote`, stages execute locally and record observations in
+`.repoworkflow/validation/testResults-<issue#>.jsonl`.  With `--remote`,
+the stage creates a dedicated `.ci/run` invocation commit containing the
+stage marker and immediate pre-invocation candidate SHA.  Hosted execution
+uses the same authoritative stage selection and testing log.
 
-Partial validation contributes reusable evidence but does not bypass missing
-required coverage.
+`rwf test results` reads existing local evidence; `rwf test results
+--remote` retrieves previously published hosted evidence without starting
+another CI cycle.  A PASS is reusable only with applicable matching
+candidate, test definition, inputs and environment, and complete evidence.
+Missing, failed, dirty or stale observations must not satisfy required tests.
+
+The superseded `rwf validate regression`, `rwf validate integration` and
+`rwf tdd` command families are not parallel public interfaces.
 
 ### 10.1 CI validation tiers
 
