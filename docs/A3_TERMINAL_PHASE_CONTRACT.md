@@ -16,9 +16,11 @@ integrates Git, the public test CLI, canonical evidence and hosted workflows.
   `vX.Y.Z-PRELIM-N.Q.R`.  It must never be mistaken for stable `vX.Y.Z`.
 - `-CI-FAIL` is the existing terminal FAIL suffix in terminal_tag.py;
   the user explicitly confirmed that **all version tags** may carry
-  `-CI-FAIL` when CI reports failure, including PRELIM integration tags.
-  This resolves the former naming ambiguity; A4 must still require
-  authoritative failure evidence before publication.
+  `-CI-FAIL` when an authoritative **local test run or remote CI run**
+  reports failure, including PRELIM integration tags.  The suffix is not
+  restricted to GitHub Actions.  A4 must bind local or hosted failure
+  evidence to the exact phase, version, candidate and applicable inputs
+  before publication.
 - INCOMPLETE produces no version or tag consumption in either phase.
 
 ## Transition matrix
