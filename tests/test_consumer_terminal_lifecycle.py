@@ -61,6 +61,33 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         record["testSHA"],
       )
 
+  def test_repeated_incomplete_attempts_preserve_version_and_tag_state(self):
+    helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = helper.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
+    )
+    with td:
+      versions = []
+      candidates = []
+      for _ in range(2):
+        self.assertEqual(
+          run_test(
+            root, "regression", remote=False,
+            engine_root=root / "RepoWorkflow",
+          ), 2,
+        )
+        record = json.loads((
+          root / ".repoworkflow/validation/testResults-1.jsonl"
+        ).read_text().splitlines()[-1])
+        self.assertEqual(record["result"], "incomplete")
+        self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+        versions.append((root / "VERSION").read_text().strip())
+        candidates.append(record["testSHA"])
+      self.assertEqual(versions, [fx.version, fx.version])
+      self.assertEqual(candidates[0], candidates[1])
+
   def test_real_consumer_incomplete_creates_no_terminal_tag(self):
     helper = LocalVerifyTests()
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
