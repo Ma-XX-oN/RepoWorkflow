@@ -51,6 +51,14 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       checkout = section.split("      - uses: actions/checkout@v4", 1)[1]
       self.assertIn(expected, checkout.split("      - uses:", 1)[0])
 
+  def test_checkout_steps_have_one_with_mapping(self):
+    for block in self.text.split("      - uses: actions/checkout@v4")[1:]:
+      step = block.split("\n      - ", 1)[0]
+      self.assertEqual(
+        step.count("\n        with:"), 1,
+        "checkout step must contain exactly one with mapping",
+      )
+
   def test_unimplemented_stages_fail_closed(self):
     for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
       self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
