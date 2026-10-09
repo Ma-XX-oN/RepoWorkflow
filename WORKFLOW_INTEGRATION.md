@@ -75,22 +75,34 @@ driver may be an ergonomic aid, not the remote source of correctness.
 
 ## 10. Local and hosted validation equivalence
 
-A pushed candidate must automatically receive server-side examination.
+Ordinary source pushes do not start paid test jobs.  Testing is requested
+explicitly through the public `rwf test` stages.  A local invocation runs
+the selected stage and appends observations to the existing per-issue
+`.repoworkflow/validation/testResults-<issue#>.jsonl` log.
 
-The server first inspects authoritative validation evidence for the exact
-pushed candidate.
+A hosted request uses `rwf test <stage> --remote`: it creates and pushes a
+dedicated `.ci/run` commit containing the stage marker and immediate
+pre-invocation tip SHA.  The server verifies that invocation and executes
+the stage against the identified candidate, not the invocation commit.
+`rwf test results --remote` fetches already published hosted evidence and
+must not request another CI cycle.
 
-- If complete acceptable local evidence exists for the exact SHA, hosted CI
-  verifies/reuses that evidence and avoids re-running expensive validation.
-- If required automated evidence is missing, hosted CI runs the missing work
-  automatically.
-- Evidence for one SHA never satisfies a different SHA.
+The authoritative result gate considers only complete, applicable evidence:
 
-This permits repositories with limited CI credits to perform expensive complete
-validation locally while retaining server-side enforcement.
+- A reusable PASS requires matching candidate, selected test definitions,
+  relevant inputs and environment identity.
+- Missing, stale, incomplete, failed or dirty evidence never satisfies a
+  required test unit.
+- Unchanged applicable PASS evidence is reused instead of executing the same
+  tests again.
+- Evidence for one candidate SHA never satisfies a different SHA.
+- A merge candidate lacking required evidence remains blocked.  An ordinary
+  push does not automatically launch missing paid tests.
 
-Local execution is a first-class authoritative path, not an approximation of
-GitHub Actions.
+Local execution is a first-class path.  The explicit hosted fallback runs
+the same logical stage and catalogue selection, with provider-bound results.
+Protected server integration must independently recheck current candidate
+and destination-tip evidence at merge acceptance.
 
 ## 11. Integration request/version intent
 

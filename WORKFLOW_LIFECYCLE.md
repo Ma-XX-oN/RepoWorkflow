@@ -267,9 +267,9 @@ Only that accepted integrated candidate may proceed toward protected server
 
 ## 6.1 Ticket classification and dependency ordering
 
-Ticket creators may prefix titles with `Initiative:`, `Epic:`, or
-`Feature:` to make large bodies of work easier for humans to navigate.
-Those prefixes are descriptive only.
+Ticket creators may prefix titles with `Initiative:`, `Epic:`,
+`Feature:`, `Bug:`, or `Refactor:` when those classifications improve
+human navigation. Those prefixes are descriptive only.
 
 RepoWorkflow scheduling uses one relationship: the explicit direct ticket
 dependency.

@@ -35,7 +35,7 @@ from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
-from .workflow_transitions import validate_integration, validate_regression
+from .test_cli import run_test
 from .workspace_cli import handle_workspace
 
 
@@ -199,13 +199,12 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       print(render_human(plan, state))
     return 0
 
-  if command == "validate":
-    if words == ["validate", "regression"]:
-      outcome = validate_regression(root, engine_root=engine_root)
-      return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
-    candidate = validate_integration(root, words[2])
-    print(candidate)
-    return 0
+  if command == "test":
+    return run_test(
+      root, words[1], remote="--remote" in words,
+      engine_root=engine_root,
+      group=next((value for value in words[2:] if value != "--remote"), None),
+    )
 
   if command == "version":
     config = load_config(root)
@@ -373,6 +372,15 @@ def handle_completion(
 
 
 def handle_help(root: Path, words: list[str]) -> int:
+  if words == ["test", "RED"]:
+    # RED help is unconditional; only interactive completion needs registered groups.
+    node = COMMANDS["test"]["RED"]
+    print(node["_description"])
+    print(node["_value_description"])
+    print("Register current issue-N- test groups in .ci/tests.json.")
+    for option, description in node["_switches"].items():
+      print(option + "  " + description)
+    return 0
   help_words = [*words, ""]
   return handle_completion(root, help_words, describe=True)
 

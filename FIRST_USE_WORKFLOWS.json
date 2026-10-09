@@ -275,13 +275,14 @@
         },
         {
           "id": "DL-21",
-          "requirement": "lane selection arguments are focus seeds: ordinary synchronized nodes expand through dependency/dependant connectivity until an unfollowed Feature/Epic/Initiative boundary is included and stops traversal; only explicit seeds receive the * marker",
+          "requirement": "lane selection uses explicit per-seed projection modes: --single includes only the seed, --dependencies includes the transitive dependency closure, --dependents includes the transitive dependent closure, and no directional flag is the union of the two independent seed-origin traversals without reversing direction after leaving the seed",
           "verification": [
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_selected_prerequisite_expands_to_complete_connected_component",
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
-            "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
-            "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_leaf_focus_discovers_complete_component_from_provider"
+            "tests/test_lane_projection.py::LaneProjectionTests.test_single_projects_only_seed",
+            "tests/test_lane_projection.py::LaneProjectionTests.test_dependencies_include_seed_and_transitive_dependencies",
+            "tests/test_lane_projection.py::LaneProjectionTests.test_dependents_include_seed_and_transitive_dependents",
+            "tests/test_lane_projection.py::LaneProjectionTests.test_both_does_not_reverse_direction_from_dependency",
+            "tests/test_lane_projection.py::LaneProjectionTests.test_both_does_not_reverse_direction_from_dependant",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_default_both_is_union_without_direction_reversal"
           ]
         },
         {
@@ -344,28 +345,26 @@
         },
         {
           "id": "DL-23",
-          "requirement": "group-boundary traversal is compact by default; explicit --follow group|feature|epic|initiative [N] uses positive per-path budgets, persists with the lane selection, preserves consumed budgets across refresh, and limits provider acquisition to traversable nodes",
+          "requirement": "lane selection persists deterministic include and exclude projection rules; select replaces include rules, add adds include rules, remove removes the matching seed-plus-mode include rule, exclude adds subtraction rules, and legacy root-only selections migrate each root to mode both",
           "verification": [
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_default_stops_at_encountered_group_boundary",
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_group_seed_is_not_stopped_by_its_own_kind",
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_group_budget_is_shared_across_mixed_group_kinds",
-            "tests/test_lane_decomposition.py::LaneDecompositionTests.test_same_node_can_be_reached_with_different_remaining_budget",
-            "tests/test_lane_follow_grammar.py::LaneFollowGrammarTests.test_follow_forms_parse_through_public_grammar",
-            "tests/test_lane_selection.py::LaneSelectionTests.test_follow_policy_is_persisted_with_selection",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_group_boundary_stops_provider_component_until_followed",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_preserves_consumed_follow_budget"
+            "tests/test_lane_selection.py::LaneSelectionTests.test_add_preserves_existing_rule_modes",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_same_seed_different_modes_are_distinct_rules",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_remove_matches_seed_and_mode_not_projected_nodes",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_exclude_rule_subtracts_projection_without_mutating_includes",
+            "tests/test_lane_selection.py::LaneSelectionTests.test_legacy_schema_three_migrates_roots_to_both_rules",
+            "tests/test_lane_projection_cli.py::LaneProjectionCliTests.test_public_grammar_accepts_projection_modes_for_all_rule_actions"
           ]
         },
         {
           "id": "DL-24",
-          "requirement": "--show-children group|feature|epic|initiative adds exactly one immediate context layer at matching stopped group boundaries, does not restart ordinary traversal from display-only nodes, preserves normal traversal through independently reached nodes, persists across refresh, and keeps provider support acquisition out of the visible projection",
+          "requirement": "directional relationship acquisition matches the persisted projection rules on cold cache and refresh without opposite-direction fanout; Bug: and Refactor: titles render as B: and R: node prefixes without changing traversal; graphs with exclusions append a deterministic compact Selection expression derived from persisted rules",
           "verification": [
-            "tests/test_lane_show_children.py::LaneShowChildrenTests.test_stopped_feature_shows_one_immediate_child_layer",
-            "tests/test_lane_show_children.py::LaneShowChildrenTests.test_display_child_also_reached_normally_keeps_traversing",
-            "tests/test_lane_show_children_grammar.py::LaneShowChildrenGrammarTests.test_show_children_forms_parse",
-            "tests/test_lane_selection.py::LaneSelectionTests.test_show_children_policy_is_persisted_with_selection",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_fetches_one_hop_without_recursive_traversal",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_support_fetch_does_not_expand_projection"
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_dependencies_mode_fetches_only_dependency_direction",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_dependents_mode_does_not_reverse_through_dependency_support",
+            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_directional_selection_refresh_replays_persisted_rules",
+            "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_title_prefixes_annotate_projected_node_ids",
+            "tests/test_lane_render.py::LaneRenderTests.test_excluded_graph_appends_selection_expression",
+            "tests/test_lane_projection.py::LaneProjectionTests.test_selection_expression_is_compact_and_deterministic"
           ]
         },
         {
@@ -408,7 +407,7 @@
         "hidden_continuation_rendering": "DL-16",
         "real_provider_cache_routing_certification": "DL-17",
         "combined_inspection_flags": "DL-17",
-        "focus_seed_component_expansion": "DL-21",
+        "explicit_seed_projection_modes": "DL-21",
         "route_quality_refinement": "DL-18",
         "forced_colour_backend_contract": "DL-18",
         "reachability_preserving_display_reduction": "DL-19",
@@ -419,12 +418,12 @@
         "canonical_graph_full_render": "DL-17",
         "assembled_current_graph_smoke": "DL-17",
         "renderer_certification_binding": "DL-22",
-        "group_boundary_follow": "DL-23",
-        "follow_policy_persistence": "DL-23",
-        "follow_refresh_budget_preservation": "DL-23",
-        "show_children_context": "DL-24",
-        "show_children_refresh_persistence": "DL-24",
-        "show_children_support_acquisition": "DL-24",
+        "projection_rule_persistence": "DL-23",
+        "projection_rule_add_remove_exclude": "DL-23",
+        "legacy_projection_rule_migration": "DL-23",
+        "directional_provider_acquisition": "DL-24",
+        "bug_refactor_node_prefixes": "DL-24",
+        "exclusion_selection_expression": "DL-24",
         "projection_count_without_render": "DL-25"
       },
       "stateful": true,
@@ -644,6 +643,34 @@
         "invalid_transition": "HR-2"
       },
       "provider_boundary": false
+    },
+    {
+      "id": "FU-UNIFIED-TEST",
+      "status": "gap",
+      "scope": [
+        "rwf test RED",
+        "rwf test temporary",
+        "rwf test GREEN",
+        "rwf test regression",
+        "rwf test integration",
+        "rwf test results"
+      ],
+      "minimum_state": "current issue branch and authoritative test catalogue, initially without a selected RED/GREEN group or shared results",
+      "prohibited_shortcuts": [
+        "fabricating local PASS evidence",
+        "claiming provider success from an unverified JSONL file",
+        "running hosted CI on ordinary source pushes"
+      ],
+      "gap_issue": 543,
+      "stateful": true,
+      "provider_boundary": true,
+      "acceptance": [
+        {
+          "id": "FU-TEST-PENDING-1",
+          "requirement": "Certify all six shipped test commands, local/hosted execution, durable candidate-bound evidence and remote retrieval",
+          "deferred_issue": 543
+        }
+      ]
     }
   ],
   "audited_issue_count": 191,
@@ -659,7 +686,8 @@
     "what-next": "FU-LIFECYCLE",
     "validate": "FU-LIFECYCLE",
     "issue": "FU-DEPS-LANES",
-    "high-risk": "FU-HIGH-RISK"
+    "high-risk": "FU-HIGH-RISK",
+    "test": "FU-UNIFIED-TEST"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."

@@ -138,22 +138,12 @@ move ISSUE to-lane LANE
 ```
 
 A repeatable parameterized switch is represented without losing either
-cardinality:
+cardinality. For example, a generic command may define:
 
 ```python
-"--follow": {
+"--label": {
   "_params": [
-    {
-      "initiative": "Follow initiative boundary",
-      "epic": "Follow epic boundary",
-      "feature": "Follow feature boundary",
-      "group": "Follow any group boundary",
-      "back-only": "Traverse toward dependencies/root only",
-    },
-    {
-      "<N>": count_completion_fn,
-      "_quantifier": "?",
-    },
+    {"<NAME>": label_completion_fn},
   ],
   "_quantifier": "*",
 }

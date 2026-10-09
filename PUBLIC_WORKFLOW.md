@@ -25,15 +25,14 @@ rwf
 │   │   [--compare|--replace|--replace-title|--replace-dependencies]
 │   ├── start N
 │   └── abort
-├── tdd
-│   ├── red group NAME
-│   └── green
 ├── high-risk <SECTION> [<SECTION> ...]
-├── validate
-│   ├── regression [--fast] [--group NAME]
-│   └── integration [--automatic|--manual] [--group NAME]
-│       ├── succeeded
-│       └── failed
+├── test
+│   ├── RED [<issue-N-group>] [--remote]
+│   ├── temporary [--remote]
+│   ├── GREEN [--remote]
+│   ├── regression [--remote]
+│   ├── integration [--remote]
+│   └── results [--remote]
 └── done
     ├── patch
     ├── minor
@@ -234,60 +233,75 @@ without discarding durable evidence/history.
 
 ## 7. Dependencies, lanes, and multiple agents
 
-Lane planning uses only explicit direct ticket dependencies:
+Lane planning uses only explicit direct ticket dependencies.
 
 ```text
-rwf lanes select <issues...>
+rwf lanes select <issues...> [--dependencies|--dependents|--single]
+rwf lanes select add <issues...> [--dependencies|--dependents|--single]
+rwf lanes select remove <issues...> [--dependencies|--dependents|--single]
+rwf lanes select exclude <issues...> [--dependencies|--dependents|--single]
 rwf lanes list
 rwf lanes view
 ```
 
-The issues passed to `lanes select` are focus seeds.  Ordinary tickets expand
-through both direct dependencies and direct dependants.  Encountered
-`Feature:`, `Epic:`, and `Initiative:` tickets are included but stop
-component discovery by default; an explicitly selected group seed is not stopped
-merely because it is a group.  Only the explicit focus seeds receive the `*`
-marker.  Dependency direction itself is unchanged: direct dependency edges
-remain the sole scheduling and topology authority.
+Each explicit seed has one projection mode:
 
-Group boundaries may be crossed explicitly:
+- `--single`: include only the seed;
+- `--dependencies`: include the seed and its transitive dependencies;
+- `--dependents`: include the seed and its transitive dependents;
+- no directional flag: include the union of the dependency and dependent
+  closures started independently at the seed.
+
+The default is therefore not an undirected connected component. Traversal never
+changes direction after leaving a seed merely because another node was reached.
+
+The worktree-local selection persists explicit include and exclude rules.
+`select` replaces include rules, `add` adds include rules, and `remove`
+removes the matching seed-plus-mode include rule. `exclude` adds subtraction
+rules. The visible working set is:
 
 ```text
---follow group [N]
---follow feature [N]
---follow epic [N]
---follow initiative [N]
+union(include projections) - union(exclude projections)
 ```
 
-`N` defaults to 1 and must be positive.  Type-specific allowances compose and
-are counted independently per traversal path.  `group N` uses one shared
-per-path allowance across Feature/Epic/Initiative boundaries.  The same node may
-therefore be visited with different remaining traversal allowances while still
-appearing only once in the projected graph.
+When exclusions exist, graph output ends with a compact expression derived from
+those persisted rules, for example:
 
-Stopped group boundaries may expose one adjacent context layer with
-`--show-children group|feature|epic|initiative`.  It applies only to matching
-unfollowed boundaries: shown nodes do not restart traversal, while an independent
-ordinary path to the same node remains traversable.  Repeated type flags compose;
-`group` matches Feature/Epic/Initiative.
+```text
+Selection:
+(inc_both(#413) ∪ #521) − inc_dependents(#456)
+```
 
 Large selections can be sized without graph layout or rendering:
 
 ```text
-rwf lanes select <issues...> --count
+rwf lanes select <issues...> [projection mode] --count
 ```
 
-`--count` uses the same traversal/projection semantics as the equivalent
-selection, including group stopping, `--follow`, and `--show-children`.
-It counts each projected issue once, prints only the decimal count on stdout,
-does not render the graph, and does not replace the persisted lane selection.
-When #454 adds `--max-depend-depth`, that limit applies through the same
-shared projection path.
+`--count` uses exactly the same projection semantics as normal selection,
+counts each final projected issue once, prints only the decimal count on stdout,
+does not render the graph, and does not replace persisted selection state.
 
 The durable synchronized ticket state contains issue number, exact title, and
-direct dependencies. Repeated lane operations use that local state. A missing
-ticket is acquired from the configured provider, including title and direct
-dependencies. `--refresh` explicitly rereads the relevant provider closure.
+direct dependencies. Repeated lane operations use that local state. Missing
+state is acquired only in the direction required by the projection rule;
+support-only prerequisite records needed to keep synchronized state valid do
+not silently enter the visible projection. `--refresh` rereads the same
+directional rule scope.
+
+Ticket title prefixes are presentation classifications only:
+
+```text
+Initiative: -> I:
+Epic:       -> E:
+Feature:    -> F:
+Bug:        -> B:
+Refactor:   -> R:
+```
+
+They do not change projection traversal. Only explicit include seeds receive
+the `*` marker when they are visible.
+
 
 RepoWorkflow does not store a second relationship graph for container
 ownership, membership, or attachment. Branch-parent identity is also outside
@@ -310,32 +324,29 @@ ticket-creation workflow are defined by [TICKET_STATE.md](TICKET_STATE.md).
 Repository-neutral decomposition guidance remains in
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
-## 8. Optional TDD workflow
+## 8. RED/GREEN testing
 
-```text
-rwf tdd red group NAME
-rwf tdd green
-```
+The unified public testing command is `rwf test`.  For active issue N,
+`rwf test RED <issue-N-group>` validates a group declared in `.ci/tests.json`,
+then commits that single selection to tracked `.ci/red-green.txt`.  Repeated
+RED and GREEN operations consume the same selection; selecting another valid
+group replaces it.  The file contains exactly one non-empty group name.
 
-For active issue N, TDD group names must already exist in the repository's test
-catalogue/Rosetta mapping and follow `issue-N-...`.
+Only groups belonging to the current issue are valid.  Completion filters
+those groups and reports actionable catalogue/naming errors.  A missing
+selection emits a warning and appends SKIPPED evidence without running tests
+or claiming PASS.  Malformed or stale selections fail.
 
-`rwf tdd red group <TAB>` completes only groups for the active issue.  Normal
-completion may insert the shared `issue-N-` prefix when several groups match.
+RED records its actual execution result, but a nonzero exit is not an
+authoritative RED PASS until the expected failure is distinguished from an
+infrastructure error.  GREEN reuses only eligible unchanged PASS evidence for
+the selected group and executes missing or invalidated test units.
 
-A custom `on-tab` handler may provide specific actionable diagnostics when no
-group for the active issue exists or a different issue's group is selected.
-The diagnostic should identify the expected naming rule and the catalogue or
-configuration location that must be changed.
+`rwf test temporary` reads `.ci/temp-tests.json`, using the normal test
+catalogue format.  Integration requires removal of the current issue's
+temporary sandbox.  All test stages use the existing per-issue JSONL log.
 
-Double Tab and `--help` explain command usage, naming rules, and catalogue
-location; they do not merely repeat a contextual runtime error.
-
-RED runs the selected group and records RED only when the documented RED
-expectations are satisfied.  GREEN runs the issue's required TDD groups that
-are not already satisfied by reusable unchanged evidence.
-
-Issue #54 owns this command family.
+Issue #545 owns migration to the unified command family.
 
 ## 9. Reusable validation evidence
 
@@ -368,34 +379,30 @@ evidence according to a deterministic fingerprint contract.
 Issue #16 owns durable evidence, reuse, invalidation, and local/hosted-provider
 equivalence.
 
-## 10. Validation commands
+## 10. Testing commands
 
-Regression:
-
-```text
-rwf validate regression
-rwf validate regression --fast
-rwf validate regression --group NAME
-```
-
-Integration:
+The supported public testing interface is:
 
 ```text
-rwf validate integration
-rwf validate integration --automatic
-rwf validate integration --manual
-rwf validate integration --group NAME
-rwf validate integration --group NAME --automatic
-rwf validate integration --group NAME --manual
-rwf validate integration succeeded
-rwf validate integration failed
+rwf test RED [<issue-N-group>] [--remote]
+rwf test temporary [--remote]
+rwf test GREEN [--remote]
+rwf test regression [--remote]
+rwf test integration [--remote]
+rwf test results [--remote]
 ```
 
-A manual integration result may only resolve an actual pending manual test
-requirement.  Automated integration runners may record their own results.
+Without `--remote`, stages execute locally and record observations in
+`.repoworkflow/validation/testResults-<issue#>.jsonl`.  With `--remote`,
+the stage creates a dedicated `.ci/run` invocation commit containing the
+stage marker and immediate pre-invocation candidate SHA.  Hosted execution
+uses the same authoritative stage selection and testing log.
 
-Partial validation contributes reusable evidence but does not bypass missing
-required coverage.
+`rwf test results` reads existing local evidence; `rwf test results
+--remote` retrieves previously published hosted evidence without starting
+another CI cycle.  A PASS is reusable only with applicable matching
+candidate, test definition, inputs and environment, and complete evidence.
+Missing, failed, dirty or stale observations must not satisfy required tests.
 
 ### 10.1 CI validation tiers
 
@@ -470,34 +477,5 @@ Issue #56 owns the public `done` workflow.  Existing #17 owns prelim
 integration/reintegration/PRELIM mechanics and #18 owns protected-server
 enforcement.
 
-## 14. Existing lower-level work
 
-The revised public workflow reuses rather than discards existing lower-level
-mechanisms where they still satisfy the new architecture:
-
-- #5 — authoritative candidate bookkeeping and terminal tagging;
-- #16 — validation evidence and reuse;
-- #17 — prelim integration/reintegration/PRELIM tags;
-- #18 — protected server enforcement;
-- #19 — local Git guards;
-- #27 — initialization.
-
-Internal commands may remain temporarily for machine compatibility, but they
-must not define the normal human-facing workflow or force GitHub-specific
-semantics into the portable engine.
-
-## 15. Remaining design work
-
-The major unsettled details are tracked explicitly rather than hidden in this
-synopsis:
-
-- exact durable/shared versus clone-local `.repoworkflow/` schema (#57);
-- multi-agent active-work representation (#57);
-- synchronized ticket-state and direct-dependency representation (#57);
-- authorization representation/lifetime (#56/#57);
-- exact `done patch|minor|major` integration transitions (#56);
-- test-evidence fingerprint/invalidation rules (#16);
-- portable `repo-ci` adapter contract (#55).
-
-These items must be documented and RED-tested before their production
-implementation.
+Continuation: [Sections 14–15](PUBLIC_WORKFLOW_CONTINUED.md).

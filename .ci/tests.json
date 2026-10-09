@@ -67,6 +67,158 @@
       "issue-543-on-demand-ci-certification": {
         "type": "regression",
         "name": "tests.test_on_demand_ci_certification"
+      },
+      "issue-543-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
+      "issue-528-lane-projection-algebra": {
+        "type": "regression",
+        "name": "tests.test_lane_projection"
+      },
+      "issue-529-lane-selection-rules": {
+        "type": "regression",
+        "name": "tests.test_lane_selection"
+      },
+      "issue-530-lane-projection-cli": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_cli"
+      },
+      "issue-531-directional-acquisition": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-532-bug-refactor-prefixes": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-533-selection-expression": {
+        "type": "regression",
+        "name": "tests.test_lane_render"
+      },
+      "issue-535-explicit-lane-projection-certification": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-527-explicit-lane-projections": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-537-partial-direction-cache": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-550-public-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
+      },
+      "issue-545-unified-test-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli"
+      },
+      "issue-545-workflow-cli-migration": {
+        "type": "regression",
+        "name": "tests.test_workflow_cli"
+      },
+      "issue-545-bash-completion-migration": {
+        "type": "regression",
+        "name": "tests.test_completion"
+      },
+      "issue-545-red-evidence": {
+        "type": "regression",
+        "name": "tests.test_red_evidence"
+      },
+      "issue-545-integration-preflight": {
+        "type": "regression",
+        "name": "tests.test_integration_preflight"
+      },
+      "issue-545-regression-temporary": {
+        "type": "regression",
+        "name": "tests.test_regression_temporary"
+      },
+      "issue-545-dedicated-test-commits": {
+        "type": "regression",
+        "name": "tests.test_dedicated_test_commits"
+      },
+      "issue-545-history-mutation": {
+        "type": "regression",
+        "name": "tests.test_test_execution_mutation"
+      },
+      "issue-541-hosted-plan-binding": {
+        "type": "regression",
+        "name": "tests.test_on_demand_plan"
+      },
+      "issue-541-hosted-result-evidence": {
+        "type": "regression",
+        "name": "tests.test_hosted_result"
+      },
+      "issue-545-engine-regression": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
+      },
+      "issue-543-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
+      },
+      "issue-543-provider-refresh-order": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes"
+      },
+      "issue-543-bootstrap-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
+      },
+      "issue-543-first-use-owner": {
+        "type": "regression",
+        "name": "tests.test_first_use_workflows"
+      },
+      "issue-543-source-size": {
+        "type": "regression",
+        "name": "tests.test_source_size"
+      },
+      "issue-543-lane-graph-adapter": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-543-graph-layout-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_layout_semantics"
+      },
+      "issue-543-rendered-graph": {
+        "type": "regression",
+        "name": "tests.test_graph_render"
+      },
+      "issue-543-generated-dag-semantics": {
+        "type": "regression",
+        "name": "tests.test_generated_graph_semantics"
+      },
+      "issue-543-lane-display-reduction": {
+        "type": "regression",
+        "name": "tests.test_lane_display_reduction"
+      },
+      "issue-543-hosted-remote-result-workflow": {
+        "type": "regression",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-542-canonical-evidence": {
+        "type": "regression",
+        "name": "tests.test_canonical_integration_evidence"
+      },
+      "issue-542-github-provider-evidence": {
+        "type": "regression",
+        "name": "tests.test_github_evidence"
+      },
+      "issue-545-cache-evidence": {
+        "type": "regression",
+        "name": "tests.test_test_cache_evidence"
+      },
+      "issue-543-github-cache-origin": {
+        "type": "regression",
+        "name": "tests.test_github_cache"
+      },
+      "issue-543-shared-hosted-cache": {
+        "type": "regression",
+        "name": "tests.test_shared_hosted_cache"
       }
     }
   ],

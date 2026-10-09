@@ -3,6 +3,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.pre_merge_gate import (
   PreMergeGateError,
@@ -31,6 +32,24 @@ class PreMergeGateTests(unittest.TestCase):
     self.results = self.root / "test-logs"
     self.results.mkdir()
     self.write_result("PASS")
+    self.canonical_log = (
+      self.root / ".repoworkflow/validation/testResults-542.jsonl"
+    )
+    self.canonical_log.parent.mkdir(parents=True)
+    self.write_canonical("succeeded")
+
+  def write_canonical(self, result):
+    self.canonical_log.write_text(json.dumps({
+      "kind": "integration",
+      "testSHA": self.candidate,
+      "result": result,
+      "runner": "local",
+      "reusable": result == "succeeded",
+      "uncommittedChanges": [],
+      "headChangedDuringTest": False,
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
+    }) + "\n")
+
 
   def tearDown(self):
     self.tmp.cleanup()
@@ -57,12 +76,50 @@ class PreMergeGateTests(unittest.TestCase):
       "results_dir": self.results,
       "config": self.config,
       "version": "1.0.0",
+      "canonical_log": self.canonical_log,
+      "required_platforms": ("Linux",),
     }
     values.update(kwargs)
     return check_pre_merge_candidate(self.root, **values)
 
   def test_current_parent_and_exact_candidate_logs_pass(self):
     self.assertIsNone(self.check())
+
+  def test_legacy_pass_without_canonical_record_is_rejected(self):
+    self.canonical_log.unlink()
+    with self.assertRaisesRegex(PreMergeGateError, "canonical"):
+      self.check()
+
+  def test_canonical_failure_blocks_even_if_legacy_passes(self):
+    self.write_canonical("failed")
+    with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
+      self.check()
+
+  def test_hosted_record_requires_verified_provider_lookup(self):
+    record = json.loads(self.canonical_log.read_text())
+    record.update({
+      "runner": "github-actions",
+      "providerRunId": 123,
+      "providerCandidateSHA": self.candidate,
+      "providerInvocationSHA": "b" * 40,
+      "providerStage": "integration-testing",
+    })
+    self.canonical_log.write_text(json.dumps(record) + "\n")
+    with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
+      self.check()
+    with patch(
+      "repo_workflow.pre_merge_gate.verify_hosted_integration",
+      return_value=False,
+    ) as verify:
+      with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
+        self.check(provider_repo="Ma-XX-oN/RepoWorkflow")
+      verify.assert_called_once()
+    with patch(
+      "repo_workflow.pre_merge_gate.verify_hosted_integration",
+      return_value=True,
+    ) as verify:
+      self.check(provider_repo="Ma-XX-oN/RepoWorkflow")
+      verify.assert_called_once()
 
   def test_second_actor_rejected_after_parent_advances(self):
     with self.assertRaisesRegex(PreMergeGateError, "tip advanced"):
