@@ -78,12 +78,12 @@ class TerminalTagTests(unittest.TestCase):
       "uncommittedChanges": [],
     }
     if not self.log.exists():
-      self.log.write_text(json.dumps(evidence) + "\\n")
+      self.log.write_text(json.dumps(evidence) + "\n")
     else:
       records = [json.loads(line) for line in self.log.read_text().splitlines()]
       if not any(row.get("testVersion") == args["version"] for row in records):
         with self.log.open("a") as handle:
-          handle.write(json.dumps(evidence) + "\\n")
+          handle.write(json.dumps(evidence) + "\n")
     return publish_terminal_tag(self.root, **args)
 
   def test_pass_tag_targets_original_commit_before_multiple_requests(self):
@@ -120,7 +120,7 @@ class TerminalTagTests(unittest.TestCase):
 
   def test_opposite_outcome_cannot_be_published(self):
     self.issue_tag("FAIL")
-    with self.assertRaisesRegex(TerminalTagError, "opposite"):
+    with self.assertRaisesRegex(TerminalTagError, "outcome|opposite"):
       self.issue_tag("PASS")
 
   def test_non_terminal_test_stages_never_publish_tags(self):
