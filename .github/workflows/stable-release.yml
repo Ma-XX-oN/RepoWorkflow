@@ -1,0 +1,84 @@
+name: RepoWorkflow Stable Release
+
+on:
+  workflow_run:
+    workflows:
+      - RepoWorkflow Self CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repoworkflow-stable-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish exact verified stable tag
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+          VERIFIED_RUN_ID: ${{ github.event.workflow_run.id }}
+          VERIFIED_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The run must have completed the full main integration tier.
+          # Read the immutable run jobs instead of assuming a green aggregate
+          # means that the required integration jobs actually executed.
+          jobs="$(gh api --paginate "repos/$GH_REPO/actions/runs/$VERIFIED_RUN_ID/attempts/$VERIFIED_RUN_ATTEMPT/jobs" --jq '.jobs[] | [.name,.conclusion] | @tsv')"
+          for required in classify plan validate; do
+            matches="$(printf '%s\n' "$jobs" | awk -F '\t' -v name="$required" '$1 == name && $2 == "success" {count++} END {print count+0}')"
+            if [ "$matches" -ne 1 ]; then
+              echo "expected exactly one successful $required job" >&2
+              exit 1
+            fi
+          done
+          for required in "Probe argv limits" "Probe graph renderer" "Probe ticket merge"; do
+            count="$(printf '%s\n' "$jobs" | awk -F '\t' -v prefix="$required (" 'index($1,prefix)==1 && $2=="success" {count++} END {print count+0}')"
+            if [ "$count" -ne 3 ]; then
+              echo "expected three successful $required jobs" >&2
+              exit 1
+            fi
+          done
+          version="$(tr -d '\r\n' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION is not a plain stable semantic version: $version" >&2
+            exit 1
+          fi
+          head_sha="$(git rev-parse HEAD)"
+          if [ "$head_sha" != "$VERIFIED_SHA" ]; then
+            echo "checkout does not match verified CI candidate" >&2
+            exit 1
+          fi
+          remote_head="$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')"
+          if [ -z "$remote_head" ] || [ "$remote_head" != "$head_sha" ]; then
+            echo "verified candidate is no longer authoritative main" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
+            echo "stable release tag already exists: $tag" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$head_sha" -m "$tag"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)" push origin "refs/tags/$tag"
