@@ -12,47 +12,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from repo_workflow.ci_invocation import CiInvocationError, verify_invocation
-
-
-def _git(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    capture_output=True, text=True, check=False,
-  )
-  if result.returncode:
-    raise CiInvocationError("cannot resolve hosted candidate ancestry")
-  return result.stdout.strip()
-
-
-def _original_candidate(root: Path, previous_tip: str) -> str:
-  """Skip only verified request and canonical-result publication commits."""
-  sha = previous_tip
-  while True:
-    parents = _git(root, "rev-list", "--parents", "-n", "1", sha).split()
-    if len(parents) != 2:
-      return sha
-    parent = parents[1]
-    changed = _git(
-      root, "diff-tree", "--no-commit-id", "--name-only", "-r", sha,
-    ).splitlines()
-    if changed == [".ci/run"]:
-      marker = _git(root, "show", sha + ":.ci/run")
-      from repo_workflow.ci_invocation import parse_invocation
-      request = parse_invocation(marker)
-      if request.previous_tip != parent:
-        raise CiInvocationError("historical CI invocation ancestry mismatch")
-    elif (len(changed) == 1 and re.fullmatch(
-      r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl",
-      changed[0],
-    ) and _git(root, "show", "-s", "--format=%s", sha).startswith(
-      "test: publish hosted evidence from run "
-    )):
-      pass
-    else:
-      return sha
-    sha = parent
-
+from repo_workflow.ci_invocation import (
+  CiInvocationError, original_candidate, verify_invocation,
+)
 
 
 def plan_invocation(root: Path) -> dict[str, str]:
@@ -64,7 +26,7 @@ def plan_invocation(root: Path) -> dict[str, str]:
   return {
     "stage": request.stage,
     "previous_tip": request.previous_tip,
-    "tested_sha": _original_candidate(root, request.previous_tip),
+    "tested_sha": original_candidate(root, request.previous_tip),
     "invocation_sha": invocation_sha,
   }
 
