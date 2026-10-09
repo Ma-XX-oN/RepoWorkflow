@@ -203,6 +203,10 @@
       "issue-542-github-provider-evidence": {
         "type": "regression",
         "name": "tests.test_github_evidence"
+      },
+      "issue-545-cache-evidence": {
+        "type": "regression",
+        "name": "tests.test_test_cache_evidence"
       }
     }
   ],
