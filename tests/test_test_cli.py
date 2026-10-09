@@ -422,6 +422,12 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(evidence["warning"], result.stderr.strip())
     self.assertEqual(evidence["testSHA"], self.source)
 
+  def test_red_help_does_not_require_registered_issue_tests(self):
+    result = self.cli("test", "RED", "--help")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertIn("Run an issue-N- RED test group", result.stdout)
+    self.assertIn("--remote", result.stdout)
+
   def test_missing_and_malformed_selection_fail_closed(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-one",
