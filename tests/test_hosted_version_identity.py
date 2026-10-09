@@ -250,12 +250,14 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
                      VERSION)
 
-  def test_same_version_cannot_claim_two_terminal_phases(self):
+  def test_same_task_version_has_distinct_phase_terminal_namespaces(self):
     sha = self.invoke()
     self.evidence()
     self.evidence(kind="integration")
-    with self.assertRaisesRegex(HostedVersionError, "different candidate or phase"):
-      resolve_hosted_version(self.root, sha, self.log)
+    self.assertEqual(
+      resolve_hosted_version(self.root, sha, self.log)["test_version"],
+      VERSION,
+    )
 
   def test_different_version_other_phase_does_not_conflict(self):
     sha = self.invoke()
