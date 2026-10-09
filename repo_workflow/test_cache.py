@@ -37,7 +37,8 @@ def reusable_local_group_passes(
         and record.get("uncommittedChanges") == []
         and record.get("headChangedDuringTest") is False
         and record.get("platform") == {
-          "os": platform.system(), "runtime": platform.python_version(),
+          "os": platform.system(), "architecture": platform.machine(),
+          "runtime": platform.python_version(),
         }
       )
       for group in groups:
