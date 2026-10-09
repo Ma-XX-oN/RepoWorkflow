@@ -19,7 +19,7 @@ def _git(root: Path, *args: str) -> str:
   )
   if result.returncode:
     raise ValueError("git " + args[0] + " failed: " + result.stderr.strip())
-  return result.stdout.strip()
+  return result.stdout.rstrip("\n")
 
 
 def publish(
