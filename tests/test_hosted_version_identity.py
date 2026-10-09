@@ -46,6 +46,7 @@ class HostedIdentityTests(unittest.TestCase):
       "testSHA": self.candidate, "kind": "regression",
       "branch": "issue-570-source", "testVersion": VERSION,
       "result": "succeeded", "runner": "hosted",
+      "headChangedDuringTest": False, "uncommittedChanges": [],
     }
     record.update(changes)
     with self.log.open("a") as out:
@@ -95,6 +96,30 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence(testVersion="0.1.121-issue.570.0.2")
     with self.assertRaisesRegex(HostedVersionError, "conflicting"):
       resolve_hosted_version(self.root, sha, self.log)
+
+  def test_dirty_terminal_evidence_cannot_allocate_version(self):
+    sha = self.invoke()
+    self.evidence(uncommittedChanges=["source"])
+    with self.assertRaisesRegex(HostedVersionError, "dirty"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_moved_head_terminal_evidence_cannot_allocate_version(self):
+    sha = self.invoke()
+    self.evidence(headChangedDuringTest=True)
+    with self.assertRaisesRegex(HostedVersionError, "moved"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_incomplete_only_does_not_allocate_terminal_version(self):
+    sha = self.invoke()
+    self.evidence(result="incomplete")
+    self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
+
+  def test_incomplete_followed_by_complete_preserves_same_version(self):
+    sha = self.invoke()
+    self.evidence(result="incomplete")
+    self.evidence(result="succeeded")
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
+                     VERSION)
 
   def test_wrong_issue_or_branch_evidence_is_rejected(self):
     sha = self.invoke()
