@@ -370,6 +370,7 @@ def run_test(
       "testResults-" + match.group(1) + ".jsonl"
     )
     before = _uncommitted_inputs(root, path)
+    red_candidate = head_sha(root)
     result = subprocess.run(
       command, cwd=root, text=True, capture_output=True, check=False,
       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
@@ -381,7 +382,8 @@ def run_test(
     dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
     record = {
       "timestamp": datetime.now(timezone.utc).isoformat(),
-      "testSHA": head_sha(root),
+      "testSHA": red_candidate,
+      "headChangedDuringTest": head_sha(root) != red_candidate,
       "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
       "kind": "RED",
       "result": "incomplete",
