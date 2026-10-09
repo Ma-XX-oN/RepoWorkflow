@@ -27,7 +27,7 @@ class ProtectedMergeTests(unittest.TestCase):
       },
       BASE + "/branches/main/protection": {
         "required_status_checks": {
-          "strict": True, "contexts": ["authoritative-candidate"],
+          "strict": True, "contexts": ["repo-workflow/exact-candidate"],
         },
         "enforce_admins": {"enabled": True},
         "required_pull_request_reviews": {"required_approving_review_count": 1},
@@ -74,6 +74,8 @@ class ProtectedMergeTests(unittest.TestCase):
        ("required_status_checks", "strict"), False),
       (BASE + "/branches/main/protection",
        ("required_status_checks", "contexts"), []),
+      (BASE + "/branches/main/protection",
+       ("required_status_checks", "contexts"), ["unrelated-check"]),
       (BASE + "/branches/main/protection",
        ("enforce_admins", "enabled"), False),
       (BASE + "/branches/main/protection",
