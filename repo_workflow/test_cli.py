@@ -185,6 +185,20 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
   return hashlib.sha256(catalogue_bytes).hexdigest()
 
 
+def _candidate_is_clean_for_reuse(root: Path, evidence_path: Path) -> bool:
+  # Committed SHA equality alone ignores local modifications to test code.
+  # The canonical evidence file may be dirty because it is append-only.
+  status = _git(root, "status", "--porcelain", "--untracked-files=all")
+  relative_evidence = evidence_path.relative_to(root).as_posix()
+  for line in status.splitlines():
+    if not line:
+      continue
+    changed = line[3:]
+    if changed != relative_evidence:
+      return False
+  return True
+
+
 def _reusable_group_passes(
   path: Path, *, stage: str, revision: str, fingerprint: str,
 ) -> set[str]:
@@ -237,8 +251,12 @@ def _run_group_set(
   path = root / ".repoworkflow" / "validation" / (
     "testResults-" + match.group(1) + ".jsonl"
   )
-  reusable = _reusable_group_passes(
-    path, stage=stage, revision=revision, fingerprint=fingerprint,
+  reusable = (
+    _reusable_group_passes(
+      path, stage=stage, revision=revision, fingerprint=fingerprint,
+    )
+    if _candidate_is_clean_for_reuse(root, path)
+    else set()
   )
   failures = []
   evidence = []
