@@ -114,11 +114,14 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
       raise HostedVersionError("invocation changed non-marker inputs")
     if depth == 0:
       stage = current_stage
+      previous_stage = current_stage
       first_parent = parent
-    elif current_stage == stage and transitions == 0:
-      same_stage_retries += 1
-    elif current_stage != stage:
-      transitions += 1
+    else:
+      if current_stage != previous_stage:
+        transitions += 1
+      elif transitions == 0:
+        same_stage_retries += 1
+      previous_stage = current_stage
     current = parent
     depth += 1
     if depth > 100:
