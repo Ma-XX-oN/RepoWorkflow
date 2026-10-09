@@ -83,46 +83,11 @@ jobs:
       - name: Verify authoritative stage result evidence
         if: ${{ success() }}
         shell: bash
-        env:
-          TESTED_SHA: ${{ needs.plan.outputs.tested_sha }}
-          REQUESTED_STAGE: ${{ needs.plan.outputs.stage }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import re
-          import sys
-
-          match = re.fullmatch(
-            r"issue-([1-9][0-9]*)(?:-.*)?", os.environ["GITHUB_REF_NAME"],
-          )
-          if match is None:
-            sys.exit("hosted result requires an issue branch")
-          kind = {
-            "RED-testing": "RED",
-            "temp-testing": "temporary",
-            "GREEN-testing": "GREEN",
-            "regression-testing": "regression",
-            "integration-testing": "integration",
-          }[os.environ["REQUESTED_STAGE"]]
-          path = Path(".repoworkflow/validation") / (
-            "testResults-" + match.group(1) + ".jsonl"
-          )
-          try:
-            raw = path.read_text(encoding="utf-8").splitlines()
-            record = json.loads(raw[-1])
-          except (OSError, ValueError, IndexError):
-            sys.exit("missing or malformed hosted test result")
-          candidate = os.environ["TESTED_SHA"]
-          if (
-            not isinstance(record, dict)
-            or record.get("testSHA") != candidate
-            or record.get("kind") != kind
-            or record.get("result") != "succeeded"
-          ):
-            sys.exit("incomplete or skipped hosted testing")
-          PY
+        run: >-
+          python scripts/validate-hosted-result.py
+          "${{ needs.plan.outputs.stage }}"
+          "${{ needs.plan.outputs.tested_sha }}"
+          "$GITHUB_REF_NAME"
       - name: Verify only canonical test-results log changed
         if: ${{ always() }}
         shell: bash
