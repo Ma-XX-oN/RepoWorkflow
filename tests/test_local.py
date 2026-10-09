@@ -88,15 +88,16 @@ class LocalVerifyTests(unittest.TestCase):
       observed = []
       result = verify_local(
         root, engine_root=root / "RepoWorkflow",
-        candidate_observer=observed.append,
+        candidate_observer=lambda sha, version: observed.append((sha, version)),
       )
       self.assertEqual(result, "PASS")
       self.assertEqual(len(observed), 1)
-      self.assertNotEqual(observed[0], source)
-      self.assertEqual(observed[0], fx.head())
+      self.assertNotEqual(observed[0][0], source)
+      self.assertEqual(observed[0][0], fx.head())
+      self.assertEqual(observed[0][1], fx.version)
       self.assertEqual(
         fx._run("rev-parse", f"v{fx.version}^{{commit}}").stdout.strip(),
-        observed[0],
+        observed[0][0],
       )
 
   def test_local_verify_rebinds_request_after_source_commit(self):
