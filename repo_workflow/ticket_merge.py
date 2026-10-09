@@ -7,7 +7,8 @@ import shlex
 import subprocess
 import sys
 
-from .relationship_store import _parse_csv, _render_csv
+from .relationship_store import _parse_ticket_csv, _render_csv, TicketState
+from .lifecycle_store import LifecycleStore
 from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import issue_info, resolve_info_config
 
@@ -61,11 +62,10 @@ def merge_ticket_csv(
   ours_text: str,
   theirs_text: str,
 ) -> str:
-  inputs = MergeInputs(
-    _parse_csv(base_text),
-    _parse_csv(ours_text),
-    _parse_csv(theirs_text),
-  )
+  base_graph, base_states = _parse_ticket_csv(base_text)
+  ours_graph, ours_states = _parse_ticket_csv(ours_text)
+  theirs_graph, theirs_states = _parse_ticket_csv(theirs_text)
+  inputs = MergeInputs(base_graph, ours_graph, theirs_graph)
   issues: dict[str, IssueRelationships] = {}
   for issue in sorted(
     set(inputs.base.issues)
@@ -86,7 +86,45 @@ def merge_ticket_csv(
     if merged is not None:
       issues[issue] = merged
 
-  return _render_csv(RelationshipGraph(issues))
+  all_states = None
+  if any(x is not None for x in (base_states, ours_states, theirs_states)):
+    all_states = {}
+    lifecycle = LifecycleStore(root)
+    for issue in sorted(issues, key=int):
+      def lookup(values):
+        return None if values is None else values.get(issue)
+      value = _merge_state(
+        issue,
+        lookup(base_states),
+        lookup(ours_states),
+        lookup(theirs_states),
+      )
+      if value is None:
+        current = lifecycle.read(issue)
+        value = TicketState(current.lifecycle.state, current.revision)
+      all_states[issue] = value
+  return _render_csv(RelationshipGraph(issues), all_states)
+
+
+def _merge_state(
+  issue: str,
+  base: TicketState | None,
+  ours: TicketState | None,
+  theirs: TicketState | None,
+) -> TicketState | None:
+  if ours == theirs:
+    return ours
+  if ours == base:
+    return theirs
+  if theirs == base:
+    return ours
+  if ours is None:
+    return theirs
+  if theirs is None:
+    return ours
+  raise TicketMergeError(
+    f'ticket #{issue} has divergent lifecycle projections'
+  )
 
 
 def _merge_record(
