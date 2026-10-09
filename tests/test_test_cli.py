@@ -199,10 +199,10 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(json.loads(result.stdout), record)
     self.assertEqual(self.git("rev-parse", "HEAD"), current)
 
-  def test_unimplemented_integration_cannot_fake_success(self):
+  def test_consumer_integration_without_adapter_cannot_fake_success(self):
     result = self.cli("test", "integration")
     self.assertEqual(result.returncode, 2)
-    self.assertIn("not yet implemented", result.stderr)
+    self.assertIn("environment adapter", result.stderr)
 
   def test_failed_green_not_reusable_and_has_audit_identity(self):
     self._catalogue(
