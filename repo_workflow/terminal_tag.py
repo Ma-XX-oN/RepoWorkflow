@@ -71,7 +71,7 @@ def verify_phase_evidence(
 ) -> None:
   """Require matching issue, phase, candidate and terminal result evidence."""
   issue = re.fullmatch(
-    r"testResults-([1-9][0-9]*)\\.jsonl", canonical_log.name,
+    r"testResults-([1-9][0-9]*)\.jsonl", canonical_log.name,
   )
   version_issue = _VERSION_RE.fullmatch(version)
   if issue is None or version_issue is None:
