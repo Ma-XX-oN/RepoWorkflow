@@ -29,6 +29,33 @@ Rows are ordered by issue number. Dependencies are sorted positive issue
 numbers separated by semicolons. An empty dependency field means the ticket is
 known to have no direct dependencies.
 
+## 1.1 Cached lifecycle state (six-state migration)
+
+A first explicit graph `--current` refresh migrates the canonical CSV to:
+
+```text
+issue,title,dependencies,state,state_revision
+```
+
+`state` is one of `not_started`, `active`, `in_review`, `accepted`,
+`completed`, or `aborted`. `state_revision` is the authoritative durable
+lifecycle-record revision sampled by that refresh. It is empty only for a
+`not_started` issue proven to have no prior durable lifecycle record.
+
+The lifecycle store remains the sole authority for state transitions.
+The CSV is an intentionally cached projection, not an independent lifecycle
+mutation source. Ordinary graph rendering reads this cached state without
+contacting lifecycle storage or any remote provider. `rwf lanes view --current`
+explicitly refreshes the saved state snapshot, verifies the update, and
+renders it. The snapshot is allowed to become older than the lifecycle store
+until the next explicit refresh.
+
+For migration, legacy three-column CSV remains parseable. Graphing without
+cached state renders the explicit unknown-state indicator `?`; it must not
+infer RWF completion from the provider's open/closed status. A failed
+refresh must not partially rewrite a state snapshot.
+
+
 ## 2. Authority
 
 Title authority is unconditional:
