@@ -71,6 +71,10 @@
       "issue-542-atomic-acceptance": {
         "type": "regression",
         "name": "tests.test_pre_merge_acceptance"
+      },
+      "issue-542-git-acceptance": {
+        "type": "regression",
+        "name": "tests.test_git_acceptance"
       }
     }
   ],
