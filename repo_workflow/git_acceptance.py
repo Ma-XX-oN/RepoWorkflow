@@ -100,6 +100,10 @@ def accept_git_candidate(
       "integration blocked: server protection is not verified"
     )
   _check_target(destination_ref)
+  if destination_ref == "refs/heads/main":
+    raise PreMergeGateError(
+      "integration blocked: protected main requires the GitHub PR merge gate"
+    )
   accept_pre_merge_candidate(
     root,
     candidate_sha=candidate_sha,
