@@ -135,7 +135,11 @@ def resolve_hosted_version(
   if not canonical_log.exists():
     return identity
   versions = set()
-  for line in canonical_log.read_text(encoding="utf-8").splitlines():
+  try:
+    lines = canonical_log.read_text(encoding="utf-8").splitlines()
+  except (OSError, UnicodeError) as error:
+    raise HostedVersionError("cannot read canonical version evidence") from error
+  for line in lines:
     try:
       record = json.loads(line)
     except ValueError as error:
@@ -161,6 +165,12 @@ def resolve_hosted_version(
       "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
     ) is None:
       raise HostedVersionError("version evidence belongs to another branch")
+    if record.get("result") == "incomplete":
+      continue  # An unfinished attempt does not allocate a version.
+    if record.get("headChangedDuringTest") is not False:
+      raise HostedVersionError("version evidence candidate moved during test")
+    if record.get("uncommittedChanges") != []:
+      raise HostedVersionError("version evidence used dirty inputs")
     versions.add(version)
   if len(versions) > 1:
     raise HostedVersionError("conflicting development versions")
