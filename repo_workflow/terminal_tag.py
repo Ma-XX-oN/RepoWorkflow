@@ -98,7 +98,7 @@ def verify_phase_evidence(
       raise TerminalTagError("canonical testing log is malformed") from error
     if not isinstance(record, dict):
       raise TerminalTagError("canonical testing log contains a non-object")
-    if record.get("testVersion") == version:
+    if record.get("testVersion") == version and record.get("kind") == stage:
       observed.append(record)
   if not observed:
     raise TerminalTagError("no canonical evidence for development version")
