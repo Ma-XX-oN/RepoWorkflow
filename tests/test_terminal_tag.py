@@ -177,6 +177,25 @@ class TerminalTagTests(unittest.TestCase):
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
     )
 
+  def test_failed_push_can_retry_without_moving_local_tag(self):
+    actual_git = terminal_tag._git
+
+    def failed_push(root, *args, **kw):
+      if args and args[0] == "push":
+        return subprocess.CompletedProcess(args, 1, "", "network interruption")
+      return actual_git(root, *args, **kw)
+
+    with patch("repo_workflow.terminal_tag._git", side_effect=failed_push):
+      with self.assertRaisesRegex(TerminalTagError, "publication failed"):
+        self.issue_tag("PASS")
+    tag = "v" + VERSION
+    first = self.git("rev-parse", "refs/tags/" + tag)
+    self.assertEqual(self.issue_tag("PASS"), tag)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), first)
+    self.assertEqual(
+      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
+    )
+
   def test_unreachable_remote_does_not_create_local_tag(self):
     with self.assertRaises(TerminalTagError):
       self.issue_tag("PASS", remote="not-a-remote")
