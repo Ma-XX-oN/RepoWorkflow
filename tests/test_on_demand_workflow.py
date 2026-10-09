@@ -81,6 +81,12 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("unexpected hosted test side effect", self.text)
     self.assertNotIn("Verify validation did not change checkout", self.text)
 
+  def test_side_effect_check_runs_after_test_failure(self):
+    section = self.text.split(
+      "      - name: Verify only canonical test-results log changed", 1,
+    )[1].split("\n  argv-limits:", 1)[0]
+    self.assertIn("if: ${{ always() }}", section)
+
   def test_unimplemented_stages_fail_closed(self):
     for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
       self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
