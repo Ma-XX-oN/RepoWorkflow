@@ -202,15 +202,16 @@ def resolve_hosted_version(
       raise HostedVersionError("version evidence has no valid result")
     if record.get("result") == "incomplete":
       continue  # No terminal allocation and no version consumed.
-    prior = version_owners.get(version)
+    namespace = (version, kind)
+    prior = version_owners.get(namespace)
     if prior is not None and prior != owner:
       raise HostedVersionError("version evidence claimed by different candidate or phase")
-    version_owners[version] = owner
+    version_owners[namespace] = owner
     terminal_result = record["result"]
-    earlier_result = terminal_outcomes.get(version)
+    earlier_result = terminal_outcomes.get(namespace)
     if earlier_result is not None and earlier_result != terminal_result:
       raise HostedVersionError("conflicting terminal version outcomes")
-    terminal_outcomes[version] = terminal_result
+    terminal_outcomes[namespace] = terminal_result
     if owner[0] != identity["candidate_sha"]:
       continue
     source_branch = record.get("branch")
