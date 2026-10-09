@@ -87,6 +87,10 @@
       "issue-537-partial-direction-cache": {
         "type": "regression",
         "name": "tests.test_lane_projection_verification"
+      },
+      "issue-550-public-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
       }
     }
   ],
