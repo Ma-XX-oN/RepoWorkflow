@@ -24,7 +24,8 @@ class TestCacheEvidenceTests(unittest.TestCase):
       "runner": "local",
       "uncommittedChanges": [], "headChangedDuringTest": False,
       "platform": {
-        "os": platform.system(), "runtime": platform.python_version(),
+        "os": platform.system(), "architecture": platform.machine(),
+          "runtime": platform.python_version(),
       },
       "groups": [{"group": "issue-545-green", "exit_code": 0}],
     }
