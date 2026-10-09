@@ -41,24 +41,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # The run must have completed the full main integration tier.
-          # Read the immutable run jobs instead of assuming a green aggregate
-          # means that the required integration jobs actually executed.
-          jobs="$(gh api --paginate "repos/$GH_REPO/actions/runs/$VERIFIED_RUN_ID/attempts/$VERIFIED_RUN_ATTEMPT/jobs" --jq '.jobs[] | [.name,.conclusion] | @tsv')"
-          for required in classify plan validate; do
-            matches="$(printf '%s\n' "$jobs" | awk -F '\t' -v name="$required" '$1 == name && $2 == "success" {count++} END {print count+0}')"
-            if [ "$matches" -ne 1 ]; then
-              echo "expected exactly one successful $required job" >&2
-              exit 1
-            fi
-          done
-          for required in "Probe argv limits" "Probe graph renderer" "Probe ticket merge"; do
-            count="$(printf '%s\n' "$jobs" | awk -F '\t' -v prefix="$required (" 'index($1,prefix)==1 && $2=="success" {count++} END {print count+0}')"
-            if [ "$count" -ne 3 ]; then
-              echo "expected three successful $required jobs" >&2
-              exit 1
-            fi
-          done
+          # Require the complete exact-attempt job set, including docs-only
+          # fast paths. No historical run can authorise this candidate.
+          gh api --paginate \
+            "repos/$GH_REPO/actions/runs/$VERIFIED_RUN_ID/attempts/$VERIFIED_RUN_ATTEMPT/jobs" \
+            --jq '.jobs[] | [.name,.conclusion] | @tsv' \
+            | python scripts/release-gate.py
           version="$(tr -d '\r\n' < VERSION)"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "VERSION is not a plain stable semantic version: $version" >&2
