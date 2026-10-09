@@ -119,6 +119,24 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("providerRunId", self.text)
     self.assertIn("Publish canonical hosted testing observations", self.text)
 
+  def test_terminal_tag_step_is_after_successful_canonical_publication(self):
+    publishing = self.text.split(
+      "name: Publish canonical hosted testing observations", 1,
+    )[1]
+    self.assertIn("name: Publish authoritative terminal version tag",
+                  publishing)
+    terminal = publishing.split(
+      "name: Publish authoritative terminal version tag", 1,
+    )[1].split("      - name:", 1)[0]
+    self.assertIn("steps.publish.outcome == 'success'", terminal)
+    self.assertIn("needs.plan.outputs.stage == 'regression-testing'",
+                  terminal)
+    self.assertIn("needs.plan.outputs.stage == 'integration-testing'",
+                  terminal)
+    self.assertIn("python scripts/publish-hosted-terminal.py", terminal)
+    self.assertNotIn("needs.plan.outputs.stage == 'RED-testing'", terminal)
+    self.assertNotIn("needs.plan.outputs.stage == 'GREEN-testing'", terminal)
+
   def test_no_separate_unsupported_stage_job(self):
     self.assertNotIn("\n  unsupported-stage:", self.text)
 
