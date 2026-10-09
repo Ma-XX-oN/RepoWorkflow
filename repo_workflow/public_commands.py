@@ -31,6 +31,7 @@ def _integration_results(context: Context) -> dict:
 
 def _integration_node() -> dict:
   return {
+    "_description": "Report an integration test outcome",
     "_values": _integration_results,
   }
 
@@ -97,6 +98,7 @@ def _lane_select_switches(*, include_count: bool = False) -> dict:
 
 def _dependency_direction_node() -> dict:
   return {
+    "_description": "Choose metadata synchronization direction",
     "to-tickets": {
       "": "Synchronize RWF title/dependencies to tickets",
       "_switches": {
@@ -118,6 +120,7 @@ def _dependency_direction_node() -> dict:
 
 def _issue_sync_target_node() -> dict:
   return {
+    "_description": "Synchronize issue metadata with tickets",
     "dependency": _dependency_direction_node(),
     "_values": _issue_sync_target,
     "_value_description": "Additional issue number",
@@ -147,6 +150,7 @@ def _workspace_ids(context: Context) -> list[str]:
 
 def _workspace_value() -> dict:
   return {
+    "_description": "Operate on an identified workspace",
     "_values": _workspace_ids,
     "_value_description": "Workspace ID",
   }
@@ -154,9 +158,11 @@ def _workspace_value() -> dict:
 
 def _workspace_commands() -> dict:
   return {
+    "_description": "Manage local workspaces and their issue claims",
     "ready": "Show canonical issue readiness and blockers",
     "list": "List local workspaces",
     "create": {
+      "_description": "Create a workspace for an issue",
       "_values": _issue_number,
       "_value_description": "Issue number",
     },
@@ -197,6 +203,7 @@ def _workspace_commands() -> dict:
 #
 #   "<cmd>": "<help>"
 #   "<cmd>": {
+#     "_description": "Help for a non-terminal command",
 #     "_values": completion_fn,
 #     "_value_description": "<help>",
 #     "_quantifier": "...",
@@ -242,13 +249,16 @@ COMMANDS = {
     "zsh": "Emit Zsh shell initialization",
   },
   "lanes": {
+    "_description": "Select, list, and render issue lanes",
     "select": {
+      "_description": "Select issue focus roots",
       "": "Select issue focus roots",
       "_values": _issue_number,
       "_value_description": "Issue number",
       "_quantifier": "+",
       "_switches": _lane_select_switches(include_count=True),
       "add": {
+        "_description": "Add issue focus roots",
         "": "Add issue focus roots",
         "_values": _issue_number,
         "_value_description": "Issue number",
@@ -256,6 +266,7 @@ COMMANDS = {
         "_switches": _lane_select_switches(),
       },
       "remove": {
+        "_description": "Remove issue focus roots",
         "": "Remove issue focus roots",
         "_values": _issue_number,
         "_value_description": "Issue number",
@@ -263,6 +274,7 @@ COMMANDS = {
         "_switches": _lane_select_switches(),
       },
       "exclude": {
+        "_description": "Exclude projected issues from the selection",
         "": "Exclude projected issues from the selection",
         "_values": _issue_number,
         "_value_description": "Issue number",
@@ -293,13 +305,16 @@ COMMANDS = {
     "clear": "Clear local lane selection",
   },
   "settings": {
+    "_description": "Configure RepoWorkflow display settings",
     "color": {
+      "_description": "Choose when to colour terminal output",
       "auto": "Use color when output is a terminal",
       "always": "Always use color",
       "never": "Never use color",
     },
   },
   "issue": {
+    "_description": "Inspect, start, and synchronize issues",
     "_values": _issue_sync_target,
     "_value_description": "Issue number for dependency synchronization",
     "info": {
@@ -318,12 +333,14 @@ COMMANDS = {
       },
     },
     "start": {
+      "_description": "Start work on an issue",
       "_values": _issue_number,
       "_value_description": "Issue number",
     },
   },
   "workspace": _workspace_commands(),
   "high-risk": {
+    "_description": "Associate high-risk test sections with an issue",
     "_values": _high_risk_aliases,
     "_value_description": "Test-catalogue alias section",
     "_quantifier": "+",
@@ -335,6 +352,7 @@ COMMANDS = {
     },
   },
   "validate": {
+    "_description": "Run or record validation stages",
     "_values": _validate_commands,
   },
   "version": {
@@ -343,13 +361,17 @@ COMMANDS = {
       "--json": "Output the repository version as JSON",
     },
     "task": {
+      "_description": "Manage task-specific version transitions",
       "issue": {
+        "_description": "Set the development version for an issue",
         "_values": _issue_number,
         "_value_description": "Issue number",
       },
     },
     "integrate": {
+      "_description": "Select the stable integration version increment",
       "increment": {
+        "_description": "Select patch or minor integration increment",
         "patch": "Request a patch integration version",
         "minor": "Request a minor integration version",
       },

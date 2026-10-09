@@ -6,6 +6,9 @@ import tempfile
 import unittest
 
 from repo_workflow.public_commands import COMMANDS
+from repo_workflow.command_grammar import (
+  CommandGrammarError, Context, parse_tokens,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +74,122 @@ class BootstrapCliTests(unittest.TestCase):
           self.assertEqual(completed.returncode, 0, completed.stderr)
           self.assertNotIn("repoworkflow.json", completed.stderr)
           self.assertNotIn("missing RepoWorkflow configuration", completed.stderr)
+
+  def test_root_help_describes_every_public_command(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      completed = self.run_cli(root, "--help")
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      rows = {
+        parts[0]: parts[1]
+        for line in completed.stdout.splitlines()
+        if len(parts := line.split(maxsplit=1)) == 2
+      }
+      for command in COMMANDS:
+        with self.subTest(command=command):
+          self.assertIn(command, rows)
+          self.assertTrue(rows[command].strip())
+
+  def test_every_static_command_and_option_has_help(self):
+    """All authored command descriptions must survive future grammar edits."""
+    def walk(node, prefix=()):
+      for token, entry in node.items():
+        if not token or token.startswith("_"):
+          continue
+        current = (*prefix, token)
+        if isinstance(entry, dict):
+          description = entry.get("_description", entry.get(""))
+          self.assertIsInstance(description, str, current)
+          self.assertTrue(description.strip(), current)
+          yield current, entry
+          yield from walk(entry, current)
+        elif isinstance(entry, str):
+          self.assertTrue(entry.strip(), current)
+
+    list(walk(COMMANDS))
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      for prefix in ((), *static_prefixes(COMMANDS)):
+        with self.subTest(prefix=prefix):
+          completed = self.run_cli(root, *prefix, "--help")
+          self.assertEqual(completed.returncode, 0, completed.stderr)
+          children = [
+            (token, entry)
+            for token, entry in self._static_help_children(prefix)
+          ]
+          displayed = {
+            parts[0]: parts[1]
+            for line in completed.stdout.splitlines()
+            if len(parts := line.split(maxsplit=1)) == 2
+          }
+          for token, entry in children:
+            with self.subTest(prefix=prefix, token=token):
+              expected = (
+                entry if isinstance(entry, str)
+                else entry.get("_description", entry.get(""))
+              )
+              self.assertEqual(displayed.get(token), expected)
+
+  @staticmethod
+  def _static_help_children(prefix):
+    node = COMMANDS
+    for token in prefix:
+      if not isinstance(node, dict) or token not in node:
+        return ()
+      node = node[token]
+    if not isinstance(node, dict):
+      return ()
+    children = [
+      (token, entry)
+      for token, entry in node.items()
+      if token and not token.startswith("_")
+    ]
+    switches = node.get("_switches", {})
+    if isinstance(switches, dict):
+      children += list(switches.items())
+    return children
+
+  def test_description_metadata_never_makes_parent_executable(self):
+    """Adding help must not silently change command legality."""
+    with tempfile.TemporaryDirectory() as td:
+      context = Context(Path(td), legal_only=False)
+      with self.assertRaises(CommandGrammarError):
+        parse_tokens(COMMANDS, context, ("lanes",))
+      with self.assertRaises(CommandGrammarError):
+        parse_tokens(COMMANDS, context, ("workspace",))
+      self.assertEqual(
+        parse_tokens(COMMANDS, context, ("lanes", "clear")),
+        ("lanes", "clear"),
+      )
+
+  def test_dynamic_help_and_argument_hints_are_described(self):
+    """Dynamic command choices and parameter hints need usable help too."""
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      cases = (
+        (("validate",), ("regression", "integration")),
+        (("high-risk",), ("<value>",)),
+        (("issue", "start"), ("<value>",)),
+        (("lanes", "select"), ("<value>",)),
+      )
+      for prefix, names in cases:
+        with self.subTest(prefix=prefix):
+          result = self.run_cli(root, *prefix, "--help")
+          self.assertEqual(result.returncode, 0, result.stderr)
+          rows = {
+            parts[0]: parts[1]
+            for line in result.stdout.splitlines()
+            if len(parts := line.split(maxsplit=1)) == 2
+          }
+          for name in names:
+            self.assertIn(name, rows)
+            self.assertTrue(rows[name].strip())
 
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
