@@ -77,6 +77,15 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "not a hosted invocation"):
       resolve_invocation(self.root, self.candidate)
 
+  def test_invalid_utf8_marker_is_controlled_failure(self):
+    path = self.root / ".ci/run"
+    path.parent.mkdir(exist_ok=True)
+    path.write_bytes(bytes([0xff, 0xfe]))
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "undecodable marker")
+    with self.assertRaisesRegex(HostedVersionError, "cannot decode"):
+      resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
+
   def test_malformed_marker_extra_field_rejected(self):
     parent = self.git("rev-parse", "HEAD")
     path = self.root / ".ci/run"
