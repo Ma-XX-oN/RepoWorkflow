@@ -20,6 +20,9 @@ class HostedTerminalBindingTests(unittest.TestCase):
     temp = tempfile.TemporaryDirectory()
     self.addCleanup(temp.cleanup)
     self.root = Path(temp.name)
+    remote_temp = tempfile.TemporaryDirectory()
+    self.addCleanup(remote_temp.cleanup)
+    self.remote_root = Path(remote_temp.name)
     self.git("init", "-qb", "issue-572-cert")
     self.git("config", "user.name", "Test")
     self.git("config", "user.email", "test@example.invalid")
@@ -66,7 +69,7 @@ class HostedTerminalBindingTests(unittest.TestCase):
     return bind_hosted_terminal(**args)
 
   def prepare_published_remote(self):
-    remote = self.root.parent / "remote.git"
+    remote = self.remote_root / "remote.git"
     subprocess.check_call(
       ["git", "init", "--bare", "-q", str(remote)],
     )
