@@ -73,7 +73,7 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
     with td:
       result = self.run_bash(
         root, wrapper,
-        'COMP_WORDS=(rwf test RED "")\n'
+        'COMP_WORDS=(rwf test RED issue-1-)\n'
         "COMP_CWORD=3\n_repo_workflow_complete\n"
         'printf "REPLY:%s\\n" "${COMPREPLY[@]}"\n',
       )
