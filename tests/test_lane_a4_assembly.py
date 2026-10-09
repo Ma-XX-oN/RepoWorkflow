@@ -8,6 +8,9 @@ from tests import (
   test_hosted_version_identity,
   test_phase_terminal,
   test_terminal_tag,
+  test_on_demand_plan,
+  test_publish_hosted_result,
+  test_on_demand_workflow,
 )
 
 
@@ -19,6 +22,9 @@ def load_tests(loader, standard_tests, pattern):
     test_hosted_version_identity,
     test_phase_terminal,
     test_terminal_tag,
+    test_on_demand_plan,
+    test_publish_hosted_result,
+    test_on_demand_workflow,
   ):
     combined.addTests(loader.loadTestsFromModule(module))
   return combined
