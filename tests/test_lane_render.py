@@ -215,7 +215,7 @@ class LaneRenderTests(unittest.TestCase):
     rendered = "\n".join(
       render_lanes(self.root, diagnostics=diagnostics)
     )
-    for value in ("A145", "A185", "*A216"):
+    for value in ("A145", "A185", "*?A216"):
       self.assertIn(value, rendered)
     routes = {
       (item["source"], item["target"])
