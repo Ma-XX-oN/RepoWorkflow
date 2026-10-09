@@ -131,6 +131,30 @@ class TerminalTagTests(unittest.TestCase):
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
     )
 
+  def test_successive_phase_versions_preserve_both_exact_targets(self):
+    first_tag = self.issue_tag("PASS")
+    first_sha = self.candidate
+    (self.root / "source.txt").write_text("integration revision\n")
+    self.git("add", "source.txt")
+    self.git("commit", "-m", "prepare next versioned phase candidate")
+    second_sha = self.git("rev-parse", "HEAD")
+    self.candidate = second_sha
+    second_tag = self.issue_tag("PASS", version="0.1.121-issue.545.0.2")
+    self.assertNotEqual(first_tag, second_tag)
+    self.assertEqual(
+      self.published(first_tag)["refs/tags/" + first_tag + "^{}"], first_sha,
+    )
+    self.assertEqual(
+      self.published(second_tag)["refs/tags/" + second_tag + "^{}"],
+      second_sha,
+    )
+
+  def test_unreachable_remote_does_not_create_local_tag(self):
+    with self.assertRaises(TerminalTagError):
+      self.issue_tag("PASS", remote="not-a-remote")
+    self.assertEqual(self.git("tag", "--list"), "")
+
+
 
 if __name__ == "__main__":
   unittest.main()
