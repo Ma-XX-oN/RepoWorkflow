@@ -29,7 +29,7 @@ integrates Git, the public test CLI, canonical evidence and hosted workflows.
 | regression | FAIL | `vX.Y.Z-issue.N.Q.R-CI-FAIL` | R+1 |
 | regression | INCOMPLETE | none | unchanged |
 | integration | PASS | `vX.Y.Z-PRELIM-N.Q.R` | unchanged |
-| integration | FAIL | proposed `vX.Y.Z-PRELIM-N.Q.R-CI-FAIL` | Q+1, R=1 |
+| integration | FAIL | `vX.Y.Z-PRELIM-N.Q.R-CI-FAIL` | Q+1, R=1 |
 | integration | INCOMPLETE | none | unchanged |
 
 For a given exact phase/version/candidate, a terminal result is immutable.
