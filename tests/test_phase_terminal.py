@@ -127,6 +127,8 @@ class PhaseTerminalTests(unittest.TestCase):
       "", "1.2.3", "1.2.3-issue.0.0.1",
       "1.2.3-issue.571.2.0", "1.2.3-issue.571.2.7-extra",
       "1.2.3-issue.571.2.-1",
+      "01.2.3-issue.571.2.7", "1.02.3-issue.571.2.7",
+      "1.2.3-issue.0571.2.7", "1.2.3-issue.571.02.7",
     ):
       with self.subTest(version=version):
         with self.assertRaises(PhaseTransitionError):
