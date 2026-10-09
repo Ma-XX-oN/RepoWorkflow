@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
+from repo_workflow.test_cli import request_remote
 from repo_workflow.engine_remote import (
   EnginePreparationError, prepare_engine_request,
 )
@@ -38,6 +39,40 @@ class EngineRemotePreparationTests(unittest.TestCase):
   def publish(self, name):
     self.git("tag", "-a", name, "-m", name)
     self.git("push", "-q", "origin", "refs/tags/" + name)
+
+  def test_public_remote_command_commits_version_before_marker(self):
+    original = self.git("rev-parse", "HEAD")
+    self.assertEqual(
+      request_remote(self.root, "regression", engine_root=self.root), 0,
+    )
+    marker = self.git("rev-parse", "HEAD")
+    prepared = self.git("rev-parse", "HEAD^")
+    self.assertNotEqual(prepared, original)
+    self.assertEqual(
+      self.git("show", prepared + ":.ci/engine-version"),
+      "0.1.121-issue.572.0.1",
+    )
+    self.assertEqual(
+      self.git("show", marker + ":.ci/run"),
+      "regression-testing " + prepared,
+    )
+    self.assertEqual(
+      self.git("ls-remote", "origin", "refs/heads/issue-572-work").split()[0],
+      marker,
+    )
+    self.assertEqual(
+      request_remote(self.root, "regression", engine_root=self.root), 0,
+    )
+    self.assertEqual(
+      self.git("show", "HEAD:.ci/engine-version"),
+      "0.1.121-issue.572.0.1",
+    )
+
+  def test_nonterminal_remote_command_does_not_prepare_version(self):
+    self.assertEqual(
+      request_remote(self.root, "GREEN", engine_root=self.root), 0,
+    )
+    self.assertFalse((self.root / ".ci/engine-version").exists())
 
   def test_first_request_prepares_committed_dev_version(self):
     previous = self.git("rev-parse", "HEAD")
