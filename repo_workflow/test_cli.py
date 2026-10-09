@@ -275,9 +275,11 @@ def _run_group_set(
   head_changed = head_sha(root) != revision
   path.parent.mkdir(parents=True, exist_ok=True)
   record = {
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "branch": current_branch(root),
     "uncommittedChanges": uncommitted,
     "headChangedDuringTest": head_changed,
-    "reusable": not uncommitted and not head_changed,
+    "reusable": not failures and not uncommitted and not head_changed,
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
