@@ -115,6 +115,10 @@
       "issue-545-regression-temporary": {
         "type": "regression",
         "name": "tests.test_regression_temporary"
+      },
+      "issue-545-dedicated-test-commits": {
+        "type": "regression",
+        "name": "tests.test_dedicated_test_commits"
       }
     }
   ],
