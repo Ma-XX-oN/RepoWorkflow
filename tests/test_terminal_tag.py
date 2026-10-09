@@ -146,7 +146,9 @@ class TerminalTagTests(unittest.TestCase):
     self.git("commit", "-m", "prepare next versioned phase candidate")
     second_sha = self.git("rev-parse", "HEAD")
     self.candidate = second_sha
-    second_tag = self.issue_tag("PASS", version="0.1.121-issue.545.0.2")
+    second_tag = self.issue_tag(
+      "PASS", stage="integration", version="0.1.121-issue.545.0.2",
+    )
     self.assertNotEqual(first_tag, second_tag)
     self.assertEqual(
       self.published(first_tag)["refs/tags/" + first_tag + "^{}"], first_sha,
