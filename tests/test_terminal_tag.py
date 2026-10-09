@@ -32,7 +32,8 @@ class TerminalTagTests(unittest.TestCase):
     self.candidate = self.git("rev-parse", "HEAD")
     self.git("remote", "add", "origin", str(self.remote))
     self.git("push", "origin", "HEAD:refs/heads/issue-545-test")
-    self.log = base / "canonical.jsonl"
+    self.log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    self.log.parent.mkdir(parents=True, exist_ok=True)
 
   def git_in(self, cwd, *args):
     result = subprocess.run(
@@ -71,6 +72,7 @@ class TerminalTagTests(unittest.TestCase):
     args.update(overrides)
     evidence = {
       "kind": args["stage"], "testVersion": args["version"],
+      "branch": "issue-545-test",
       "testSHA": args["candidate"],
       "result": {"PASS": "succeeded", "FAIL": "failed",
                  "INCOMPLETE": "incomplete"}.get(outcome, "incomplete"),
@@ -137,6 +139,7 @@ class TerminalTagTests(unittest.TestCase):
   def test_genuine_failure_not_reusable_still_receives_failure_tag(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "testVersion": VERSION,
+      "branch": "issue-545-test",
       "testSHA": self.candidate, "result": "failed",
       "reusable": False, "headChangedDuringTest": False,
       "uncommittedChanges": [],
