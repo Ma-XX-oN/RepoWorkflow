@@ -69,7 +69,7 @@ class HostedPlanCandidateTests(unittest.TestCase):
     self.invoke(stage="regression-testing")
     log = self.root / ".repoworkflow/validation/testResults-541.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
-    log.write_text('{"result":"incomplete"}\\n')
+    log.write_text('{"result":"incomplete"}\n')
     self.git("add", str(log.relative_to(self.root)))
     self.git("commit", "-qm", "test: publish hosted evidence from run 123")
     self.invoke(stage="integration-testing")
@@ -79,7 +79,7 @@ class HostedPlanCandidateTests(unittest.TestCase):
 
   def test_real_source_change_starts_new_candidate(self):
     self.invoke()
-    (self.root / "source.py").write_text("value = 2\\n")
+    (self.root / "source.py").write_text("value = 2\n")
     self.git("add", "source.py")
     self.git("commit", "-qm", "change source")
     changed_candidate = self.git("rev-parse", "HEAD")
@@ -91,7 +91,7 @@ class HostedPlanCandidateTests(unittest.TestCase):
   def test_malformed_historical_invocation_fails_closed(self):
     self.invoke()
     marker = self.root / ".ci/run"
-    marker.write_text("GREEN-testing " + "0" * 40 + "\\n")
+    marker.write_text("GREEN-testing " + "0" * 40 + "\n")
     self.git("add", ".ci/run")
     self.git("commit", "-qm", "malformed historical request")
     self.invoke(stage="integration-testing")
