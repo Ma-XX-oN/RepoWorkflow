@@ -18,10 +18,10 @@ class EngineRegressionTests(unittest.TestCase):
     script = self.root / "scripts" / "validate.py"
     script.parent.mkdir()
     script.write_text(
-      "import os, sys\\n"
-      "assert os.environ.get('PYTHONPYCACHEPREFIX')\\n"
-      "print('self-regression executed')\\n"
-      f"sys.exit({exit_code})\\n"
+      "import os, sys\n"
+      "assert os.environ.get('PYTHONPYCACHEPREFIX')\n"
+      "print('self-regression executed')\n"
+      f"sys.exit({exit_code})\n"
     )
 
   def test_engine_checkout_runs_self_suite_and_records_exact_sha(self):
