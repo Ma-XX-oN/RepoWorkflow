@@ -59,7 +59,7 @@ class TerminalTagTests(unittest.TestCase):
 
   def issue_tag(self, outcome, **overrides):
     args = {
-      "remote": "origin", "version": VERSION,
+      "stage": "regression", "remote": "origin", "version": VERSION,
       "candidate": self.candidate, "outcome": outcome,
     }
     args.update(overrides)
@@ -101,6 +101,13 @@ class TerminalTagTests(unittest.TestCase):
     self.issue_tag("FAIL")
     with self.assertRaisesRegex(TerminalTagError, "opposite"):
       self.issue_tag("PASS")
+
+  def test_non_terminal_test_stages_never_publish_tags(self):
+    for stage in ("RED", "temporary", "GREEN", "results"):
+      with self.subTest(stage=stage):
+        with self.assertRaisesRegex(TerminalTagError, "regression or integration"):
+          self.issue_tag("PASS", stage=stage)
+    self.assertEqual(self.git("tag", "--list"), "")
 
   def test_malformed_version_or_candidate_fails_without_tag(self):
     with self.assertRaisesRegex(TerminalTagError, "development version"):
