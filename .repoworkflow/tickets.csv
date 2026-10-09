@@ -262,3 +262,10 @@ issue,title,dependencies
 518,"Epic: Record, replay, and test executable interface behaviour",519
 519,Feature: Add issue-scoped temporary transformation-fidelity test sandboxes,
 521,Fix nested command descriptions in generated help,456
+538,Document on-demand CI invocation and pre-merge evidence contract,
+540,Define CI marker parser and invocation invariants,538
+545,Specify RED/temp/GREEN hosted selector execution against test catalogue,540
+541,Run on-demand hosted stages without ordinary-push CI,540;545
+542,Verify test logs and current destination tip before integration,540
+548,Authenticate testing-log evidence for local and external pre-merge validation,542
+543,Certify on-demand CI workflow end to end,541;542;545;548
