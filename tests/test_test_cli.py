@@ -218,7 +218,7 @@ class TestCliContract(unittest.TestCase):
     result = self.cli("test", "GREEN")
     self.assertEqual(result.returncode, 0, result.stderr)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-    record = json.loads(audit.read_text().strip())
+    record = json.loads(audit.read_text().splitlines()[-1])
     self.assertEqual(record["testSHA"], self.git("rev-parse", "HEAD"))
     self.assertEqual(record["kind"], "GREEN")
     self.assertEqual(record["result"], "succeeded")
@@ -238,9 +238,9 @@ class TestCliContract(unittest.TestCase):
     self.assertIn("Reusing valid PASS evidence", second.stdout)
     path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     records = [json.loads(line) for line in path.read_text().splitlines()]
-    self.assertEqual(len(records), 2)
-    self.assertFalse(records[0]["groups"][0]["reused"])
-    self.assertTrue(records[1]["groups"][0]["reused"])
+    self.assertEqual(len(records), 3)
+    self.assertFalse(records[-2]["groups"][0]["reused"])
+    self.assertTrue(records[-1]["groups"][0]["reused"])
 
   def test_green_does_not_reuse_pass_after_uncommitted_test_change(self):
     self._catalogue(
@@ -281,7 +281,7 @@ class TestCliContract(unittest.TestCase):
     first = self.cli("test", "GREEN")
     self.assertEqual(first.returncode, 0, first.stderr)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-    first_record = json.loads(audit.read_text().strip())
+    first_record = json.loads(audit.read_text().splitlines()[-1])
     self.assertEqual(first_record["result"], "succeeded")
     self.assertFalse(first_record["reusable"])
     self.assertIn("smoke_case.py", first_record["uncommittedChanges"])
@@ -326,7 +326,7 @@ class TestCliContract(unittest.TestCase):
     self.cli("test", "RED", "issue-545-green")
     self.assertEqual(self.cli("test", "GREEN").returncode, 0)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-    baseline = json.loads(audit.read_text().strip())
+    baseline = json.loads(audit.read_text().splitlines()[-1])
     for field, value in (
       ("runner", "unverified-external"),
       ("platform", {"os": "wrong-os", "runtime": "0.0"}),
@@ -350,7 +350,7 @@ class TestCliContract(unittest.TestCase):
     self.cli("test", "RED", "issue-545-green")
     self.assertEqual(self.cli("test", "GREEN").returncode, 0)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-    valid = json.loads(audit.read_text().strip())
+    valid = json.loads(audit.read_text().splitlines()[-1])
     valid["result"] = "failed"
     audit.write_text(json.dumps(valid) + "\n")
     failed = self.cli("test", "GREEN")
