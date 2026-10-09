@@ -43,6 +43,7 @@ class SelfCiTests(unittest.TestCase):
       self.assertIn(name, text)
     self.assertIn('if [ "$count" -ne 3 ]', text)
     self.assertIn("VERIFIED_RUN_ATTEMPT", text)
+    self.assertIn("actions: read", text)
 
   def test_release_preserves_exact_candidate_and_immutable_tag_contract(self):
     text = self.release_text()
