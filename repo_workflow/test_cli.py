@@ -389,11 +389,17 @@ def run_test(
     if remote:
       return request_remote(root, stage)
     return _run_group_set(root, stage, (selected,))
-  if not remote and stage == "temporary":
+  if stage == "temporary":
     manifest = Path(".ci/temp-tests.json")
     groups = tuple(sorted(load_test_catalogue(
       root, catalogue_path=manifest,
     ).groups))
+    if not groups:
+      raise TestCommandError("no temporary test groups in .ci/temp-tests.json")
+    if remote:
+      for name in groups:
+        group_command(root, name, manifest)
+      return request_remote(root, stage)
     return _run_group_set(root, stage, groups, catalogue_path=manifest)
   if remote:
     return request_remote(root, stage)
