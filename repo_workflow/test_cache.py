@@ -8,10 +8,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import platform
+from typing import Callable
 
 
 def reusable_local_group_passes(
   path: Path, *, stage: str, revision: str, fingerprint: str,
+  verify_hosted: Callable[[dict], bool] | None = None,
 ) -> set[str]:
   if not path.exists():
     return set()
@@ -33,7 +35,14 @@ def reusable_local_group_passes(
       valid = (
         record.get("result") == "succeeded"
         and record.get("reusable") is True
-        and record.get("runner") == "local"
+        and (
+          record.get("runner") == "local"
+          or (
+            record.get("runner") == "github-actions"
+            and verify_hosted is not None
+            and verify_hosted(record)
+          )
+        )
         and record.get("uncommittedChanges") == []
         and record.get("headChangedDuringTest") is False
         and record.get("platform") == {
