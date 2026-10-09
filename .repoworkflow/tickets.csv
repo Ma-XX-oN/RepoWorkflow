@@ -262,4 +262,9 @@ issue,title,dependencies
 518,"Epic: Record, replay, and test executable interface behaviour",519
 519,Feature: Add issue-scoped temporary transformation-fidelity test sandboxes,
 521,Fix nested command descriptions in generated help,456
-577,Add six-state ticket lifecycle and graph --current indicators with synchronized CSV state,
+577,Add six-state ticket lifecycle and graph --current indicators with synchronized CSV state,583
+579,Specify six-state lifecycle and authoritative CSV state projection,
+580,Implement six-state lifecycle transitions and lossless migration,579
+581,Project authoritative lifecycle state into synchronized tickets CSV,580
+582,Add read-only graph --current state glyphs,581
+583,Certify six-state lifecycle CSV migration and graph status integration,582
