@@ -52,6 +52,35 @@ class HostedIdentityTests(unittest.TestCase):
     with self.log.open("a") as out:
       out.write(json.dumps(record) + "\n")
 
+  def test_nonexistent_and_malformed_invocation_sha(self):
+    for candidate in ("not-sha", "A" * 40, "f" * 40):
+      with self.subTest(candidate=candidate):
+        with self.assertRaises(HostedVersionError):
+          resolve_invocation(self.root, candidate)
+
+  def test_non_invocation_source_commit_rejected(self):
+    with self.assertRaisesRegex(HostedVersionError, "not a hosted invocation"):
+      resolve_invocation(self.root, self.candidate)
+
+  def test_malformed_marker_extra_field_rejected(self):
+    parent = self.git("rev-parse", "HEAD")
+    path = self.root / ".ci/run"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("regression-testing " + parent + " third\n")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "bad request")
+    with self.assertRaisesRegex(HostedVersionError, "invalid two-field"):
+      resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
+
+  def test_empty_marker_rejected(self):
+    path = self.root / ".ci/run"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "empty request")
+    with self.assertRaisesRegex(HostedVersionError, "invalid two-field"):
+      resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
+
   def test_first_request_binds_immediate_parent_and_original_candidate(self):
     sha = self.invoke()
     result = resolve_invocation(self.root, sha)
