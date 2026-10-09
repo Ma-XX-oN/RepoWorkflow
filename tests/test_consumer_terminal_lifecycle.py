@@ -87,6 +87,36 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
         self.assertEqual(len({r["testSHA"] for r in records}), 1)
 
+  def test_tracked_baseline_log_preserves_all_retry_observations(self):
+    helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = helper.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
+    )
+    with td:
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      path.parent.mkdir(parents=True, exist_ok=True)
+      baseline = {
+        "testSHA": fx.head(), "kind": "regression",
+        "result": "incomplete", "runner": "local",
+      }
+      path.write_text(json.dumps(baseline) + "\n")
+      fx.commit("track prior canonical testing result")
+      prepared = fx.head()
+      for count in (2, 3):
+        self.assertEqual(
+          run_test(
+            root, "regression", remote=False,
+            engine_root=root / "RepoWorkflow",
+          ), 2,
+        )
+        entries = [json.loads(line) for line in path.read_text().splitlines()]
+        self.assertEqual(len(entries), count)
+        self.assertEqual(entries[0], baseline)
+        self.assertEqual(fx.head(), prepared)
+        self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
   def test_dirty_source_blocks_retry_preserving_canonical_records(self):
     helper = LocalVerifyTests()
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
