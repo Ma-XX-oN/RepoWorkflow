@@ -66,6 +66,22 @@ class RetryEvidenceTests(unittest.TestCase):
         self.fail("must not enter")
     self.assertEqual(self.log.read_bytes(), original)
 
+  def test_staged_log_change_is_rejected(self):
+    self.write_record()
+    self.git("add", ".repoworkflow/validation/testResults-569.jsonl")
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("staged index must never be hidden")
+    self.assertTrue(self.log.exists())
+
+  def test_symlink_replacement_inside_context_is_detected(self):
+    self.write_record()
+    with self.assertRaisesRegex(RetryEvidenceError, "symlink"):
+      with isolate_retry_evidence(self.root, 569):
+        target = self.root / "outside.txt"
+        target.write_text("foreign\n")
+        self.log.symlink_to(target)
+
   def test_malformed_log_is_not_hidden(self):
     self.log.write_text("{broken\n")
     with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
