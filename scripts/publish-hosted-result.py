@@ -11,6 +11,10 @@ import re
 import subprocess
 import sys
 
+from repo_workflow.ci_invocation import (
+  CiInvocationError, original_candidate, parse_invocation,
+)
+
 
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
@@ -77,8 +81,20 @@ def publish(
   _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
   if _git(root, "rev-parse", "FETCH_HEAD") != invocation:
     raise ValueError("remote branch moved since hosted invocation")
-  if _git(root, "rev-parse", "FETCH_HEAD^") != candidate:
-    raise ValueError("remote invocation parent differs from tested candidate")
+  parent = _git(root, "rev-parse", "FETCH_HEAD^")
+  changed = _git(
+    root, "diff-tree", "--no-commit-id", "--name-only", "-r", invocation,
+  ).splitlines()
+  if changed != [".ci/run"]:
+    raise ValueError("remote invocation changes more than the CI marker")
+  try:
+    request = parse_invocation(_git(root, "show", invocation + ":.ci/run"))
+    if request.previous_tip != parent or request.stage != stage:
+      raise ValueError("remote invocation marker differs from requested stage")
+    if original_candidate(root, parent) != candidate:
+      raise ValueError("remote invocation history changes tested candidate")
+  except CiInvocationError as error:
+    raise ValueError("invalid remote invocation ancestry") from error
   _git(root, "merge", "--ff-only", "FETCH_HEAD")
   # The evidence file is the only publication change. Preserve all observations.
   path.parent.mkdir(parents=True, exist_ok=True)
