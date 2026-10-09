@@ -27,9 +27,17 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("fetch-depth: 0", self.text)
     self.assertIn("python scripts/on-demand-ci-plan.py", self.text)
 
-  def test_regression_and_integration_select_distinct_platform_coverage(self):
-    self.assertIn("needs.plan.outputs.stage == 'regression-testing'", self.text)
-    self.assertIn("needs.plan.outputs.stage == 'integration-testing'", self.text)
+  def test_all_five_stages_select_public_runner(self):
+    for stage in ("RED", "temp", "GREEN", "regression", "integration"):
+      self.assertIn(
+        "needs.plan.outputs.stage == '" + stage + "-testing'",
+        self.text,
+      )
+    self.assertIn("./rwf test RED", self.text)
+    self.assertIn("./rwf test temporary", self.text)
+    self.assertIn("./rwf test GREEN", self.text)
+    self.assertIn("./rwf test regression", self.text)
+    self.assertIn("./rwf test integration", self.text)
     self.assertEqual(self.text.count(
       "if: needs.plan.outputs.stage == 'integration-testing'"
     ), 3)
@@ -87,10 +95,8 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     )[1].split("\n  argv-limits:", 1)[0]
     self.assertIn("if: ${{ always() }}", section)
 
-  def test_unimplemented_stages_fail_closed(self):
-    for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
-      self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
-    self.assertIn("exit 1", self.text)
+  def test_no_separate_unsupported_stage_job(self):
+    self.assertNotIn("\\n  unsupported-stage:", self.text)
 
   def test_no_release_job_is_started_by_selector_push(self):
     self.assertNotIn("\n  release:", self.text)
