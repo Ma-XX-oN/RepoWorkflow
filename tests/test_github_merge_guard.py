@@ -1,8 +1,11 @@
 """Provider contract tests for protected GitHub PR merge acceptance."""
 from copy import deepcopy
+import io
+import json
 import unittest
+from unittest.mock import patch
 
-from repo_workflow.github_merge_guard import merge_protected_pr
+from repo_workflow.github_merge_guard import merge_protected_pr, _github_request
 from repo_workflow.pre_merge_gate import PreMergeGateError
 
 
@@ -127,6 +130,40 @@ class ProtectedMergeTests(unittest.TestCase):
       with self.subTest(response=response):
         with self.assertRaises(PreMergeGateError):
           self.run_guard(response=response)
+
+
+class GitHubTransportTests(unittest.TestCase):
+  def test_missing_credential_blocks_without_network_call(self):
+    with patch.dict("os.environ", {}, clear=True):
+      with patch("repo_workflow.github_merge_guard.urlopen") as network:
+        with self.assertRaises(ValueError):
+          _github_request(BASE + "/pulls/42")
+        network.assert_not_called()
+
+  def test_get_and_merge_put_include_authenticated_credential(self):
+    class Response:
+      def __init__(self, value):
+        self.buffer = io.BytesIO(json.dumps(value).encode())
+      def __enter__(self):
+        return self.buffer
+      def __exit__(self, *args):
+        self.buffer.close()
+
+    requests = []
+    def fake_open(request, timeout):
+      requests.append(request)
+      return Response({"merged": True, "sha": MERGED})
+
+    with patch.dict("os.environ", {"GITHUB_TOKEN": "dummy-token"}):
+      with patch("repo_workflow.github_merge_guard.urlopen",
+                 side_effect=fake_open):
+        self.assertTrue(_github_request(BASE + "/pulls/42")["merged"])
+        self.assertTrue(_github_request(BASE + "/pulls/42/merge",
+                                        {"sha": CANDIDATE})["merged"])
+    self.assertEqual([req.get_method() for req in requests], ["GET", "PUT"])
+    self.assertEqual([req.get_header("Authorization") for req in requests],
+                     ["Bearer dummy-token", "Bearer dummy-token"])
+    self.assertEqual(json.loads(requests[1].data), {"sha": CANDIDATE})
 
 
 if __name__ == "__main__":
