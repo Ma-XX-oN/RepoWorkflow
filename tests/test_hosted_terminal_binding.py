@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 import unittest
 
+from repo_workflow.hosted_terminal_publication import publish_hosted_terminal
+
 from repo_workflow.hosted_terminal_binding import (
   HostedTerminalError, bind_hosted_terminal,
 )
@@ -62,6 +64,52 @@ class HostedTerminalBindingTests(unittest.TestCase):
     }
     args.update(changes)
     return bind_hosted_terminal(**args)
+
+  def prepare_published_remote(self):
+    remote = self.root.parent / "remote.git"
+    subprocess.check_call(
+      ["git", "init", "--bare", "-q", str(remote)],
+    )
+    self.git("remote", "add", "origin", str(remote))
+    self.git("add", ".repoworkflow/validation/testResults-572.jsonl")
+    self.git("commit", "-qm", "test: publish hosted evidence from run 123")
+    self.git("push", "-q", "origin", "HEAD:refs/heads/issue-572-cert")
+    return remote
+
+  def test_real_remote_publication_creates_immutable_prelim_tag(self):
+    self.record()
+    self.prepare_published_remote()
+    args = {
+      "root": self.root, "branch": "issue-572-cert",
+      "stage": "integration-testing", "invocation": self.invocation,
+      "candidate": self.candidate, "run_id": 123,
+    }
+    tag = publish_hosted_terminal(**args)
+    self.assertEqual(tag, "v0.1.121-PRELIM-572.0.1")
+    self.assertEqual(publish_hosted_terminal(**args), tag)
+    refs = self.git("ls-remote", "--tags", "origin", "refs/tags/" + tag + "^{}")
+    self.assertEqual(refs.split()[0], self.candidate)
+
+  def test_real_remote_failure_uses_immutable_prelim_fail_tag(self):
+    self.record(result="failed", reusable=False)
+    self.prepare_published_remote()
+    tag = publish_hosted_terminal(
+      self.root, branch="issue-572-cert", stage="integration-testing",
+      invocation=self.invocation, candidate=self.candidate, run_id=123,
+    )
+    self.assertEqual(tag, "v0.1.121-PRELIM-572.0.1-CI-FAIL")
+
+  def test_remote_movement_prevents_tag_publication(self):
+    self.record()
+    self.prepare_published_remote()
+    self.git("push", "-q", "origin", self.candidate + ":refs/heads/issue-572-cert",
+             "--force")
+    with self.assertRaisesRegex(HostedTerminalError, "stale"):
+      publish_hosted_terminal(
+        self.root, branch="issue-572-cert", stage="integration-testing",
+        invocation=self.invocation, candidate=self.candidate, run_id=123,
+      )
+    self.assertEqual(self.git("tag", "--list"), "")
 
   def test_integration_pass_returns_exact_prepared_tag_identity(self):
     self.record()
