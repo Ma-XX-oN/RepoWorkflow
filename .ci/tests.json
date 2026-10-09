@@ -112,6 +112,10 @@
         "type": "regression",
         "name": "tests.test_integration_preflight"
       },
+      "issue-545-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
       "issue-545-regression-temporary": {
         "type": "regression",
         "name": "tests.test_regression_temporary"
