@@ -127,6 +127,29 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertEqual(record["providerCandidateSHA"], self.candidate)
     self.assertNotEqual(record["providerCandidateSHA"], self.invocation)
 
+  def test_publication_after_previous_publication_preserves_both_results(self):
+    first = self._publish()
+    self.assertEqual(first.returncode, 0, first.stderr)
+    first_record = self.log.read_text().splitlines()[-1]
+    prior_published = self._git("rev-parse", "HEAD")
+    marker = self.root / ".ci/run"
+    marker.write_text(
+      "integration-testing " + prior_published + "\n",
+    )
+    self._git("add", ".ci/run")
+    self._git("commit", "-m", "retry hosted integration after evidence")
+    retry = self._git("rev-parse", "HEAD")
+    self._git("push", "origin", "HEAD:refs/heads/issue-543-probe")
+    self._git("reset", "--hard", self.candidate)
+    self.observation["kind"] = "integration"
+    self._record()
+    second = self._publish(stage="integration-testing", invocation=retry)
+    self.assertEqual(second.returncode, 0, second.stderr)
+    records = self.log.read_text().splitlines()
+    self.assertEqual(len(records), 2)
+    self.assertEqual(records[0], first_record)
+    self.assertEqual(json.loads(records[-1])["providerCandidateSHA"], self.candidate)
+
   def test_stale_remote_branch_rejected_without_publication(self):
     self._git("merge", "--ff-only", self.invocation)
     other = self.root / "other.txt"
