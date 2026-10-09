@@ -191,6 +191,10 @@
       "issue-543-lane-display-reduction": {
         "type": "regression",
         "name": "tests.test_lane_display_reduction"
+      },
+      "issue-543-hosted-remote-result-workflow": {
+        "type": "regression",
+        "name": "tests.test_on_demand_workflow"
       }
     }
   ],
