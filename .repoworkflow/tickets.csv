@@ -264,14 +264,14 @@ issue,title,dependencies
 478,Advance stable version after quantified-grammar release collision,456
 482,Allow completion_fn to return strings or dynamic command grammar,506;507
 487,Epic: Faster code generation through speculative parallel task completion,498;518
-488,Finalize executable interface contract design for speculative task completion,
-489,Implement deterministic executable-interface comparing stream,488
-490,Implement provider preverify/postverify interface verification,489
-491,Implement deterministic consumer replay for predefined interfaces,489
+488,Finalize executable interface contract design for speculative task completion,518
+489,Implement deterministic executable-interface comparing stream,
+490,Implement provider preverify/postverify interface verification,
+491,Implement deterministic consumer replay for predefined interfaces,
 492,Define and persist speculative task-completion state and contract binding,488
 493,Schedule eligible serial dependents for speculative parallel execution,492;488
-494,Invalidate and revalidate speculative work when interface contracts change,492;489;490;491
-495,Gate speculative work retirement on prerequisite and real integration success,490;491;492;494
+494,Invalidate and revalidate speculative work when interface contracts change,492;518
+495,Gate speculative work retirement on prerequisite and real integration success,518;492;494
 496,"Expose speculative readiness, completion, staleness, and blockers in RWF output",493;492;494
 497,Integrate predefined-interface speculation into work-graph methodology,488;492;493
 498,Certify correctness and code-generation latency gains from speculative parallel completion,493;494;495;496;497;499
