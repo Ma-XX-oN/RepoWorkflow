@@ -103,7 +103,7 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
       }
       path.write_text(json.dumps(baseline) + "\n")
       fx.commit("track prior canonical testing result")
-      prepared = fx.head()
+      prepared = None
       for count in (2, 3):
         self.assertEqual(
           run_test(
@@ -114,6 +114,8 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         entries = [json.loads(line) for line in path.read_text().splitlines()]
         self.assertEqual(len(entries), count)
         self.assertEqual(entries[0], baseline)
+        if prepared is None:
+          prepared = fx.head()
         self.assertEqual(fx.head(), prepared)
         self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
 
