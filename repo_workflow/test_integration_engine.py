@@ -15,7 +15,6 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from .git import current_branch, head_sha
-from .local import verify_local
 from .test_regression_engine import self_regression
 
 PROBES = (
