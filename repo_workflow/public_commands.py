@@ -250,7 +250,7 @@ COMMANDS = {
   "lanes": {
     "_description": "Select, list, and render issue lanes",
     "select": {
-      "_description": "Select and manage issue focus roots",
+      "_description": "Select issue focus roots",
       "": "Select issue focus roots",
       "_values": _issue_number,
       "_value_description": "Issue number",
