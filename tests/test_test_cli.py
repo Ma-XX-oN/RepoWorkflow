@@ -132,13 +132,13 @@ class TestCliContract(unittest.TestCase):
 
   def test_remote_request_and_retry_use_previous_tip(self):
     bare = self.remote()
-    for stage in ("RED", "RED"):
+    for stage in ("regression", "regression"):
       previous = self.git("rev-parse", "HEAD")
       request = self.cli("test", stage, "--remote")
       self.assertEqual(request.returncode, 0, request.stderr)
       self.assertEqual(
         (self.root / ".ci/run").read_text(),
-        "RED-testing " + previous + "\n",
+        "regression-testing " + previous + "\n",
       )
       head = self.git("rev-parse", "HEAD")
       self.assertNotEqual(head, previous)
@@ -187,6 +187,7 @@ class TestCliContract(unittest.TestCase):
     self.assertIn("not yet implemented", result.stderr)
 
   def _catalogue(self, path, *, issue_group):
+    (self.root / "smoke_case.py").write_text(\n      "import unittest\\n"\n      "class Smoke(unittest.TestCase):\\n"\n      "  def test_pass(self): self.assertTrue(True)\\n"\n    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({
       "test-harnesses": {
@@ -197,7 +198,7 @@ class TestCliContract(unittest.TestCase):
       },
       "tests": [{
         "test-harness": "unittest",
-        issue_group: {"type": "regression", "name": "tests.test_self_ci"},
+        issue_group: {"type": "regression", "name": "smoke_case"},
       }],
       "aliases": {},
     }))
