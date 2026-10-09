@@ -48,7 +48,7 @@ def _local_target(root: Path, tag: str) -> str | None:
 
 def _remote_target(root: Path, remote: str, tag: str) -> str | None:
   ref = "refs/tags/" + tag
-  result = _git(root, "ls-remote", "--tags", remote, ref)
+  result = _git(root, "ls-remote", "--tags", remote, ref, ref + "^{}")
   observed = dict(
     (line.split("\t", 1)[1], line.split("\t", 1)[0])
     for line in result.stdout.splitlines()
