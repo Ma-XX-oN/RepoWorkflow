@@ -41,16 +41,23 @@ def validate_result(
     raise ValueError("hosted result must be an object")
   if (
     record.get("testSHA") != candidate
+    or record.get("branch") != branch
     or record.get("kind") != kind
     or record.get("result") != "succeeded"
   ):
     raise ValueError("incomplete or skipped hosted testing")
   if (
-    record.get("headChangedDuringTest") is True
-    or record.get("uncommittedChanges", []) != []
+    record.get("headChangedDuringTest") is not False
+    or record.get("uncommittedChanges") != []
     or record.get("reusable") is not True
   ):
     raise ValueError("hosted PASS does not bind to clean candidate")
+  platform = record.get("platform")
+  if not isinstance(platform, dict) or any(
+    not isinstance(platform.get(field), str) or not platform[field]
+    for field in ("os", "architecture", "runtime")
+  ):
+    raise ValueError("hosted result lacks complete platform identity")
   if kind in {"GREEN", "temporary", "RED"}:
     groups = record.get("groups")
     if not isinstance(groups, list) or not groups:
@@ -58,7 +65,8 @@ def validate_result(
     if not all(
       isinstance(group, dict)
       and isinstance(group.get("group"), str)
-      and group.get("exit_code") == 0
+      and type(group.get("exit_code")) is int
+      and group["exit_code"] == 0
       for group in groups
     ):
       raise ValueError("hosted group evidence is incomplete")
