@@ -221,6 +221,13 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence(result="incomplete")
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
 
+  def test_incomplete_after_terminal_version_is_invalid(self):
+    sha = self.invoke()
+    self.evidence(result="succeeded")
+    self.evidence(result="incomplete")
+    with self.assertRaisesRegex(HostedVersionError, "after terminal"):
+      resolve_hosted_version(self.root, sha, self.log)
+
   def test_incomplete_followed_by_complete_preserves_same_version(self):
     sha = self.invoke()
     self.evidence(result="incomplete")
