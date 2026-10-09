@@ -87,7 +87,7 @@ def verify_hosted_stage(
   ):
     return False
   try:
-    request = base64.b64decode(marker["content"], validate=False)
+    request = base64.b64decode(marker["content"], validate=True)
     request_text = request.decode("utf-8")
   except (ValueError, UnicodeError):
     return False
