@@ -15,6 +15,7 @@ import sys
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
 from .test_regression_engine import self_regression
+from .test_cache import reusable_local_group_passes
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 
@@ -219,48 +220,6 @@ def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
   })
 
 
-def _reusable_group_passes(
-  path: Path, *, stage: str, revision: str, fingerprint: str,
-) -> set[str]:
-  if not path.exists():
-    return set()
-  latest: dict[str, bool] = {}
-  try:
-    for line in path.read_text(encoding="utf-8").splitlines():
-      record = json.loads(line)
-      if not isinstance(record, dict):
-        return set()
-      if (
-        record.get("kind") != stage
-        or record.get("testSHA") != revision
-        or record.get("catalogueSHA256") != fingerprint
-      ):
-        continue
-      groups = record.get("groups")
-      if not isinstance(groups, list):
-        return set()
-      valid_record = (
-        record.get("result") == "succeeded"
-        and record.get("reusable") is True
-        and record.get("runner") == "local"
-        and record.get("platform") == {
-          "os": platform.system(), "runtime": platform.python_version(),
-        }
-      )
-      for group in groups:
-        if (
-          not isinstance(group, dict)
-          or not isinstance(group.get("group"), str)
-        ):
-          return set()
-        latest[group["group"]] = (
-          valid_record and group.get("exit_code") == 0
-        )
-  except (ValueError, TypeError):
-    return set()
-  return {name for name, passed in latest.items() if passed}
-
-
 def _run_group_set(
   root: Path, stage: str, groups: tuple[str, ...], *,
   catalogue_path: Path = Path(".ci/tests.json"),
@@ -281,7 +240,7 @@ def _run_group_set(
   )
   uncommitted_before = _uncommitted_inputs(root, path)
   reusable = (
-    _reusable_group_passes(
+    reusable_local_group_passes(
       path, stage=stage, revision=revision, fingerprint=fingerprint,
     )
     if not uncommitted_before
