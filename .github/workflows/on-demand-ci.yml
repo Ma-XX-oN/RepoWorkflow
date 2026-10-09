@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       stage: ${{ steps.select.outputs.stage }}
+      tested_sha: ${{ steps.select.outputs.tested_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +39,8 @@ jobs:
           cat plan.json
           stage="$(python -c 'import json; print(json.load(open("plan.json"))["stage"])')"
           echo "stage=$stage" >> "$GITHUB_OUTPUT"
+          tested_sha="$(python -c 'import json; print(json.load(open("plan.json"))["tested_sha"])')"
+          echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
 
   validate:
     needs: plan
@@ -47,6 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -68,6 +73,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -83,6 +90,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -99,6 +108,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
