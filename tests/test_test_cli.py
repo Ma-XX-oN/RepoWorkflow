@@ -187,7 +187,11 @@ class TestCliContract(unittest.TestCase):
     self.assertIn("not yet implemented", result.stderr)
 
   def _catalogue(self, path, *, issue_group):
-    (self.root / "smoke_case.py").write_text(\n      "import unittest\\n"\n      "class Smoke(unittest.TestCase):\\n"\n      "  def test_pass(self): self.assertTrue(True)\\n"\n    )
+    (self.root / "smoke_case.py").write_text(
+      "import unittest\\n"
+      "class Smoke(unittest.TestCase):\\n"
+      "  def test_pass(self): self.assertTrue(True)\\n"
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({
       "test-harnesses": {
