@@ -38,10 +38,10 @@ class SelfCiTests(unittest.TestCase):
 
   def test_release_requires_full_integration_matrix(self):
     text = self.release_text()
-    self.assertIn("for required in classify plan validate;", text)
+    self.assertIn("python scripts/release-gate.py", text)
     for name in ("Probe argv limits", "Probe graph renderer", "Probe ticket merge"):
       self.assertIn(name, text)
-    self.assertIn('if [ "$count" -ne 3 ]', text)
+    self.assertIn('VERIFIED_RUN_ID', text)
     self.assertIn("VERIFIED_RUN_ATTEMPT", text)
     self.assertIn("actions: read", text)
 
