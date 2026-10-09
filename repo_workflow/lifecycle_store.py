@@ -12,9 +12,19 @@ from .state_store import (
 )
 
 
-SCHEMA_VERSION = 2
-STATES = {"unstarted", "active", "aborted", "accepted", "completed"}
+SCHEMA_VERSION = 3
+STATES = {"not_started", "active", "in_review", "accepted", "completed", "aborted"}
 TRANSITIONS = {
+  ("not_started", "start"): "active",
+  ("active", "submit-review"): "in_review",
+  ("in_review", "accept"): "accepted",
+  ("in_review", "reject/reopen"): "active",
+  ("accepted", "reject/reopen"): "active",
+  ("active", "abort"): "aborted",
+  ("aborted", "re-enter"): "active",
+  ("accepted", "complete"): "completed",
+}
+LEGACY_TRANSITIONS = {
   ("unstarted", "start"): "active",
   ("active", "abort"): "aborted",
   ("aborted", "re-enter"): "active",
@@ -55,12 +65,13 @@ class IssueLifecycle:
   history: tuple[LifecycleEvent, ...]
   high_risk_aliases: tuple[str, ...] = ()
   schema_version: int = SCHEMA_VERSION
+  legacy_event_count: int = 0
 
   @classmethod
-  def unstarted(cls, issue: str | int) -> "IssueLifecycle":
+  def not_started(cls, issue: str | int) -> "IssueLifecycle":
     return cls(
       issue=_issue_id(issue),
-      state="unstarted",
+      state="not_started",
       dependency_satisfied=False,
       relationship_revision=None,
       history=(),
@@ -72,7 +83,7 @@ class IssueLifecycle:
     if not isinstance(value, dict):
       raise LifecycleError("lifecycle value must be an object")
     version = value.get("schema_version")
-    if version not in {1, SCHEMA_VERSION}:
+    if version not in {1, 2, SCHEMA_VERSION}:
       raise LifecycleError(
         f"unsupported lifecycle schema version: {version!r}"
       )
@@ -84,14 +95,18 @@ class IssueLifecycle:
       "relationship_revision",
       "history",
     }
-    if version == SCHEMA_VERSION:
+    if version >= 2:
       expected.add("high_risk_aliases")
+    if version == SCHEMA_VERSION:
+      expected.add("legacy_event_count")
     if set(value) != expected:
       raise LifecycleError("lifecycle value has missing or unsupported fields")
     issue = _issue_id(value["issue"])
     state = value["state"]
-    if state not in STATES:
+    if state not in (STATES if version == SCHEMA_VERSION else STATES | {"unstarted"}):
       raise LifecycleError(f"unsupported lifecycle state: {state!r}")
+    if version < SCHEMA_VERSION and state == "unstarted":
+      state = "not_started"
     satisfied = value["dependency_satisfied"]
     if not isinstance(satisfied, bool):
       raise LifecycleError("dependency_satisfied must be Boolean")
@@ -103,11 +118,15 @@ class IssueLifecycle:
     raw_history = value["history"]
     if not isinstance(raw_history, list):
       raise LifecycleError("history must be an array")
+    legacy_count = len(raw_history) if version < SCHEMA_VERSION else value["legacy_event_count"]
+    if (isinstance(legacy_count, bool) or not isinstance(legacy_count, int)
+        or legacy_count < 0 or legacy_count > len(raw_history)):
+      raise LifecycleError("invalid legacy_event_count")
     history = tuple(
-      _event(raw, sequence)
+      _event(raw, sequence, sequence < legacy_count)
       for sequence, raw in enumerate(raw_history)
     )
-    _validate_history(state, history)
+    _validate_history(state, history, legacy_count)
     aliases = () if version == 1 else _aliases(value["high_risk_aliases"])
     return cls(
       issue=issue,
@@ -116,6 +135,7 @@ class IssueLifecycle:
       relationship_revision=relationship_revision,
       history=history,
       high_risk_aliases=aliases,
+      legacy_event_count=legacy_count,
     )
 
   def to_json_value(self) -> dict:
@@ -127,6 +147,7 @@ class IssueLifecycle:
       "relationship_revision": self.relationship_revision,
       "history": [event.to_json_value() for event in self.history],
       "high_risk_aliases": list(self.high_risk_aliases),
+      "legacy_event_count": self.legacy_event_count,
     }
 
 
@@ -156,7 +177,7 @@ class LifecycleStore:
           f"lifecycle record for issue {issue_id} is missing but exists in "
           "repository history"
         ) from error
-      return LifecycleSnapshot(IssueLifecycle.unstarted(issue_id), None)
+      return LifecycleSnapshot(IssueLifecycle.not_started(issue_id), None)
 
     try:
       lifecycle = IssueLifecycle.from_json_value(record["value"])
@@ -209,6 +230,7 @@ class LifecycleStore:
       relationship_revision=relationship_revision,
       history=current.lifecycle.history + (event,),
       high_risk_aliases=current.lifecycle.high_risk_aliases,
+      legacy_event_count=current.lifecycle.legacy_event_count,
     )
     try:
       if current.revision is None:
@@ -249,6 +271,7 @@ class LifecycleStore:
       relationship_revision=current.lifecycle.relationship_revision,
       history=current.lifecycle.history,
       high_risk_aliases=normalized,
+      legacy_event_count=current.lifecycle.legacy_event_count,
     )
     try:
       if current.revision is None:
@@ -330,7 +353,7 @@ def _optional_text(value: str | None, field: str) -> str | None:
   return value
 
 
-def _event(value: dict, expected_sequence: int) -> LifecycleEvent:
+def _event(value: dict, expected_sequence: int, legacy: bool) -> LifecycleEvent:
   if not isinstance(value, dict):
     raise LifecycleError("history event must be an object")
   if set(value) != {"sequence", "transition", "from", "to", "candidate"}:
@@ -342,7 +365,8 @@ def _event(value: dict, expected_sequence: int) -> LifecycleEvent:
   to_state = value["to"]
   if not isinstance(transition, str):
     raise LifecycleError("history transition must be text")
-  if TRANSITIONS.get((from_state, transition)) != to_state:
+  rules = LEGACY_TRANSITIONS if legacy else TRANSITIONS
+  if rules.get((from_state, transition)) != to_state:
     raise LifecycleError("history contains an illegal lifecycle transition")
   return LifecycleEvent(
     sequence=expected_sequence,
@@ -356,12 +380,15 @@ def _event(value: dict, expected_sequence: int) -> LifecycleEvent:
 def _validate_history(
   state: str,
   history: tuple[LifecycleEvent, ...],
+  legacy_count: int,
 ) -> None:
-  current = "unstarted"
+  current = "unstarted" if legacy_count else "not_started"
   for event in history:
     if event.from_state != current:
       raise LifecycleError("history state chain is not contiguous")
     current = event.to_state
+  if current == "unstarted":
+    current = "not_started"
   if current != state:
     raise LifecycleError(
       f"history ends in {current!r}, lifecycle state is {state!r}"
