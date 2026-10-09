@@ -171,6 +171,26 @@
       "issue-543-source-size": {
         "type": "regression",
         "name": "tests.test_source_size"
+      },
+      "issue-543-lane-graph-adapter": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-543-graph-layout-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_layout_semantics"
+      },
+      "issue-543-rendered-graph": {
+        "type": "regression",
+        "name": "tests.test_graph_render"
+      },
+      "issue-543-generated-dag-semantics": {
+        "type": "regression",
+        "name": "tests.test_generated_graph_semantics"
+      },
+      "issue-543-lane-display-reduction": {
+        "type": "regression",
+        "name": "tests.test_lane_display_reduction"
       }
     }
   ],
