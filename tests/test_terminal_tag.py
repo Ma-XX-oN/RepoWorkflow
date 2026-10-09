@@ -114,6 +114,35 @@ class TerminalTagTests(unittest.TestCase):
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
     )
 
+  def test_missing_canonical_evidence_blocks_publication(self):
+    with self.assertRaisesRegex(TerminalTagError, "unavailable"):
+      publish_terminal_tag(
+        self.root, stage="regression", remote="origin",
+        version=VERSION, candidate=self.candidate, outcome="PASS",
+        canonical_log=self.log,
+      )
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_cross_phase_version_reuse_is_rejected(self):
+    self.issue_tag("PASS")
+    with self.assertRaisesRegex(TerminalTagError, "another phase"):
+      self.issue_tag("PASS", stage="integration")
+    self.assertEqual(len(self.git("tag", "--list").splitlines()), 1)
+
+  def test_false_pass_without_success_evidence_is_rejected(self):
+    self.issue_tag("FAIL")
+    with self.assertRaisesRegex(TerminalTagError, "outcome"):
+      self.issue_tag("PASS")
+
+  def test_invalid_canonical_record_blocks_publication(self):
+    self.log.write_text("{bad json\n")
+    with self.assertRaisesRegex(TerminalTagError, "malformed"):
+      publish_terminal_tag(
+        self.root, stage="integration", remote="origin",
+        version=VERSION, candidate=self.candidate, outcome="PASS",
+        canonical_log=self.log,
+      )
+
   def test_incomplete_never_creates_a_tag(self):
     self.assertIsNone(self.issue_tag("INCOMPLETE"))
     self.assertEqual(self.git("tag", "--list"), "")
