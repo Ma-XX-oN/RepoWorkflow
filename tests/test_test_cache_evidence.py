@@ -98,6 +98,15 @@ class TestCacheEvidenceTests(unittest.TestCase):
     self.write({**hosted, "platform": {"os": "incompatible"}})
     self.assertEqual(check(True), set())
 
+  def test_boolean_and_fractional_exit_codes_are_not_success(self):
+    for invalid in (False, 0.0, "0", None):
+      with self.subTest(exit_code=invalid):
+        record = {**self.base, "groups": [
+          {"group": "issue-545-green", "exit_code": invalid},
+        ]}
+        self.write(record)
+        self.assertEqual(self.reusable(), set())
+
   def test_later_failure_supersedes_old_pass(self):
     self.write(self.base, {**self.base, "result": "failed"})
     self.assertEqual(self.reusable(), set())
