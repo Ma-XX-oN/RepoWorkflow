@@ -154,11 +154,24 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence()
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
 
-  def test_changed_stage_retry_is_rejected(self):
-    self.invoke()
-    sha = self.invoke(stage="integration")
-    with self.assertRaisesRegex(HostedVersionError, "stage"):
-      resolve_invocation(self.root, sha)
+  def test_different_hosted_stage_after_request_is_valid(self):
+    self.invoke(stage="GREEN")
+    sha = self.invoke(stage="regression")
+    result = resolve_invocation(self.root, sha)
+    self.assertEqual(result["stage"], "regression")
+    self.assertEqual(result["candidate_sha"], self.candidate)
+    self.assertEqual(result["retry_depth"], 0)
+    self.assertEqual(result["stage_transition_count"], 1)
+
+  def test_stage_transition_then_same_stage_retry(self):
+    self.invoke(stage="GREEN")
+    self.invoke(stage="regression")
+    sha = self.invoke(stage="regression")
+    result = resolve_invocation(self.root, sha)
+    self.assertEqual(result["stage"], "regression")
+    self.assertEqual(result["candidate_sha"], self.candidate)
+    self.assertEqual(result["retry_depth"], 1)
+    self.assertEqual(result["stage_transition_count"], 1)
 
   def test_inherited_marker_on_head_is_not_new_invocation(self):
     self.invoke()
