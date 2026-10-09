@@ -195,6 +195,10 @@
       "issue-543-hosted-remote-result-workflow": {
         "type": "regression",
         "name": "tests.test_on_demand_workflow"
+      },
+      "issue-542-canonical-evidence": {
+        "type": "regression",
+        "name": "tests.test_canonical_integration_evidence"
       }
     }
   ],
