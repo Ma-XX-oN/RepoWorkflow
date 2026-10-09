@@ -65,6 +65,13 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("./rwf test integration", self.text)
     self.assertNotIn("python scripts/validate.py", self.text)
 
+  def test_public_runner_restores_issue_branch_after_sha_checkout(self):
+    section = self.text.split(
+      "      - name: Restore issue branch identity at verified candidate", 1,
+    )[1].split("      - name: Run selected stage", 1)[0]
+    self.assertIn('git switch -c "$GITHUB_REF_NAME"', section)
+    self.assertIn("hosted testing requires an issue branch", section)
+
   def test_unimplemented_stages_fail_closed(self):
     for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
       self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
