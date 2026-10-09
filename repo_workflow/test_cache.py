@@ -62,7 +62,10 @@ def reusable_local_group_passes(
           or not isinstance(group.get("group"), str)
         ):
           return set()
-        latest[group["group"]] = valid and group.get("exit_code") == 0
+        exit_code = group.get("exit_code")
+        latest[group["group"]] = (
+          valid and type(exit_code) is int and exit_code == 0
+        )
   except (ValueError, TypeError):
     return set()
   return {group for group, passed in latest.items() if passed}
