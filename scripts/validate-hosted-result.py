@@ -46,8 +46,8 @@ def validate_result(
   ):
     raise ValueError("incomplete or skipped hosted testing")
   if (
-    record.get("headChangedDuringTest") is True
-    or record.get("uncommittedChanges", []) != []
+    record.get("headChangedDuringTest") is not False
+    or record.get("uncommittedChanges") != []
     or record.get("reusable") is not True
   ):
     raise ValueError("hosted PASS does not bind to clean candidate")
@@ -58,7 +58,8 @@ def validate_result(
     if not all(
       isinstance(group, dict)
       and isinstance(group.get("group"), str)
-      and group.get("exit_code") == 0
+      and type(group.get("exit_code")) is int
+      and group["exit_code"] == 0
       for group in groups
     ):
       raise ValueError("hosted group evidence is incomplete")
