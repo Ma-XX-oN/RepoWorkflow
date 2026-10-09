@@ -212,7 +212,7 @@ issue,title,dependencies
 403,Epic: Formalize repo-info typed object classification and error contract,408
 404,"Specify repo-info v2 result, object-kind, and error schema",
 405,Implement GitHub repo-info issue object classification,404
-406,Preserve typed repo-info failures through core RWF layers,404;405
+406,Preserve typed repo-info failures through core RWF layers,404
 407,Validate issue roots before dependency and metadata refresh,406
 408,Certify repo-info classification and mistyped issue smoke cases,404;405;406;407
 409,Epic: Restore lane selection move workflow and correct select grammar/help,413
