@@ -41,12 +41,16 @@ def reusable_local_group_passes(
           "runtime": platform.python_version(),
         }
       )
+      seen: set[str] = set()
       for group in groups:
         if (
           not isinstance(group, dict)
           or not isinstance(group.get("group"), str)
+          or not group["group"]
+          or group["group"] in seen
         ):
           return set()
+        seen.add(group["group"])
         exit_code = group.get("exit_code")
         latest[group["group"]] = (
           valid and type(exit_code) is int and exit_code == 0
