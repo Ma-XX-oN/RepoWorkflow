@@ -1,6 +1,7 @@
 """Real-Git contract tests for immutable regression/integration result tags."""
 
 from pathlib import Path
+import json
 import subprocess
 import tempfile
 import unittest
@@ -31,6 +32,7 @@ class TerminalTagTests(unittest.TestCase):
     self.candidate = self.git("rev-parse", "HEAD")
     self.git("remote", "add", "origin", str(self.remote))
     self.git("push", "origin", "HEAD:refs/heads/issue-545-test")
+    self.log = base / "canonical.jsonl"
 
   def git_in(self, cwd, *args):
     result = subprocess.run(
@@ -64,8 +66,24 @@ class TerminalTagTests(unittest.TestCase):
     args = {
       "stage": "regression", "remote": "origin", "version": VERSION,
       "candidate": self.candidate, "outcome": outcome,
+      "canonical_log": self.log,
     }
     args.update(overrides)
+    evidence = {
+      "kind": args["stage"], "testVersion": args["version"],
+      "testSHA": args["candidate"],
+      "result": {"PASS": "succeeded", "FAIL": "failed",
+                 "INCOMPLETE": "incomplete"}.get(outcome, "incomplete"),
+      "reusable": True, "headChangedDuringTest": False,
+      "uncommittedChanges": [],
+    }
+    if not self.log.exists():
+      self.log.write_text(json.dumps(evidence) + "\\n")
+    else:
+      records = [json.loads(line) for line in self.log.read_text().splitlines()]
+      if not any(row.get("testVersion") == args["version"] for row in records):
+        with self.log.open("a") as handle:
+          handle.write(json.dumps(evidence) + "\\n")
     return publish_terminal_tag(self.root, **args)
 
   def test_pass_tag_targets_original_commit_before_multiple_requests(self):
