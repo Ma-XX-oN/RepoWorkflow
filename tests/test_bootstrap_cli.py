@@ -89,6 +89,67 @@ class BootstrapCliTests(unittest.TestCase):
           self.assertIn(command, rows)
           self.assertTrue(rows[command].strip())
 
+  def test_every_static_command_and_option_has_help(self):
+    """All authored command descriptions must survive future grammar edits."""
+    def walk(node, prefix=()):
+      for token, entry in node.items():
+        if not token or token.startswith("_"):
+          continue
+        current = (*prefix, token)
+        if isinstance(entry, dict):
+          description = entry.get("_description", entry.get(""))
+          self.assertIsInstance(description, str, current)
+          self.assertTrue(description.strip(), current)
+          yield current, entry
+          yield from walk(entry, current)
+        elif isinstance(entry, str):
+          self.assertTrue(entry.strip(), current)
+
+    list(walk(COMMANDS))
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      for prefix in ((), *static_prefixes(COMMANDS)):
+        with self.subTest(prefix=prefix):
+          completed = self.run_cli(root, *prefix, "--help")
+          self.assertEqual(completed.returncode, 0, completed.stderr)
+          children = [
+            (token, entry)
+            for token, entry in self._static_help_children(prefix)
+          ]
+          displayed = {
+            parts[0]: parts[1]
+            for line in completed.stdout.splitlines()
+            if len(parts := line.split(maxsplit=1)) == 2
+          }
+          for token, entry in children:
+            with self.subTest(prefix=prefix, token=token):
+              expected = (
+                entry if isinstance(entry, str)
+                else entry.get("_description", entry.get(""))
+              )
+              self.assertEqual(displayed.get(token), expected)
+
+  @staticmethod
+  def _static_help_children(prefix):
+    node = COMMANDS
+    for token in prefix:
+      if not isinstance(node, dict) or token not in node:
+        return ()
+      node = node[token]
+    if not isinstance(node, dict):
+      return ()
+    children = [
+      (token, entry)
+      for token, entry in node.items()
+      if token and not token.startswith("_")
+    ]
+    switches = node.get("_switches", {})
+    if isinstance(switches, dict):
+      children += list(switches.items())
+    return children
+
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
