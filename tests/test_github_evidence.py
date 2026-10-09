@@ -142,6 +142,12 @@ class HostedIntegrationProviderTests(unittest.TestCase):
         ] = base64.b64encode(marker_text.encode()).decode()
         self.assertFalse(self.verify(responses=responses))
 
+  def test_marker_base64_rejects_non_alphabet_bytes(self):
+    responses = deepcopy(self.responses)
+    url = BASE + "/contents/.ci/run?ref=" + INVOCATION
+    responses[url]["content"] += "!!"
+    self.assertFalse(self.verify(responses=responses))
+
   def test_missing_provider_fields_and_inaccessible_reads_fail_closed(self):
     for field in ("providerRunId", "providerCandidateSHA",
                   "providerInvocationSHA", "providerStage"):
