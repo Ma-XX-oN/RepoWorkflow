@@ -219,6 +219,10 @@ def _reusable_group_passes(
         or record.get("catalogueSHA256") != fingerprint
         or record.get("result") != "succeeded"
         or record.get("reusable") is not True
+        or record.get("runner") != "local"
+        or record.get("platform") != {
+          "os": platform.system(), "runtime": platform.python_version(),
+        }
       ):
         continue
       groups = record.get("groups")
