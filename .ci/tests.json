@@ -74,7 +74,7 @@
       },
       "issue-583-lifecycle-certification": {
         "type": "regression",
-        "name": "tests.test_lifecycle_store"
+        "name": "tests.test_six_state_integration"
       },
       "issue-582-geometry-regression": {
         "type": "regression",
