@@ -203,6 +203,7 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return run_test(
       root, words[1], remote="--remote" in words,
       engine_root=engine_root,
+      group=next((value for value in words[2:] if value != "--remote"), None),
     )
 
   if command == "version":
