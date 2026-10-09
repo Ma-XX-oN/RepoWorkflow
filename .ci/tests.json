@@ -159,6 +159,18 @@
       "issue-543-provider-refresh-order": {
         "type": "regression",
         "name": "tests.test_first_use_lanes"
+      },
+      "issue-543-bootstrap-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
+      },
+      "issue-543-first-use-owner": {
+        "type": "regression",
+        "name": "tests.test_first_use_workflows"
+      },
+      "issue-543-source-size": {
+        "type": "regression",
+        "name": "tests.test_source_size"
       }
     }
   ],
