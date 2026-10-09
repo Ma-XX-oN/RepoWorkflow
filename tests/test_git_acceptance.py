@@ -1,5 +1,7 @@
 """Integration tests of the Git acceptance transport against a bare remote."""
+from concurrent.futures import ThreadPoolExecutor
 import json
+import threading
 from pathlib import Path
 import subprocess
 import tempfile
@@ -94,6 +96,33 @@ class RemoteAcceptanceTests(unittest.TestCase):
     with self.assertRaisesRegex(PreMergeGateError, "tip advanced"):
       self.accept(self.second, self.two)
     self.assertEqual(self.tip(), self.one)
+
+  def test_two_real_remote_writers_race_same_expected_tip(self):
+    actual_read = read_remote_tip
+    barrier = threading.Barrier(2)
+    results = []
+
+    def simultaneous_read(root, remote, ref):
+      tip = actual_read(root, remote, ref)
+      barrier.wait(timeout=5)
+      return tip
+
+    def worker(root, candidate):
+      try:
+        self.accept(root, candidate)
+        return "accepted"
+      except PreMergeGateError:
+        return "rejected"
+
+    with patch("repo_workflow.git_acceptance.read_remote_tip",
+               side_effect=simultaneous_read):
+      with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(
+          lambda pair: worker(*pair),
+          ((self.first, self.one), (self.second, self.two)),
+        ))
+    self.assertEqual(sorted(results), ["accepted", "rejected"])
+    self.assertIn(self.tip(), (self.one, self.two))
 
   def test_lost_lease_after_preflight_is_rejected_without_mutation(self):
     with patch("repo_workflow.git_acceptance.push_if_parent") as cas:
