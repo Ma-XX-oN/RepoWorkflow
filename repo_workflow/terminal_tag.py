@@ -65,10 +65,12 @@ def _remote_target(root: Path, remote: str, tag: str) -> str | None:
 
 
 def publish_terminal_tag(
-  root: Path, *, remote: str, version: str,
+  root: Path, *, stage: str, remote: str, version: str,
   candidate: str, outcome: str,
 ) -> str | None:
   """Publish exactly one immutable result, or reuse the identical result."""
+  if stage not in {"regression", "integration"}:
+    raise TerminalTagError("terminal tags require regression or integration")
   if outcome == "INCOMPLETE":
     return None
   if outcome not in {"PASS", "FAIL"}:
