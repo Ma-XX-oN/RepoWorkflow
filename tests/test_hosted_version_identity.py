@@ -294,6 +294,15 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(result["retry_depth"], 0)
     self.assertEqual(result["stage_transition_count"], 1)
 
+  def test_repeated_stage_across_separate_cycles_counts_both_transitions(self):
+    self.invoke(stage="regression")
+    self.invoke(stage="GREEN")
+    sha = self.invoke(stage="regression")
+    observed = resolve_invocation(self.root, sha)
+    self.assertEqual(observed["candidate_sha"], self.candidate)
+    self.assertEqual(observed["stage_transition_count"], 2)
+    self.assertEqual(observed["retry_depth"], 0)
+
   def test_stage_transition_then_same_stage_retry(self):
     self.invoke(stage="GREEN")
     self.invoke(stage="regression")
