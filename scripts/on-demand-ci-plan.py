@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 import sys
@@ -41,21 +42,17 @@ def _original_candidate(root: Path, previous_tip: str) -> str:
       request = parse_invocation(marker)
       if request.previous_tip != parent:
         raise CiInvocationError("historical CI invocation ancestry mismatch")
-    elif changed == [".repoworkflow/validation/testResults-" +
-                     _issue_number(root) + ".jsonl"]:
+    elif (len(changed) == 1 and re.fullmatch(
+      r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl",
+      changed[0],
+    ) and _git(root, "show", "-s", "--format=%s", sha).startswith(
+      "test: publish hosted evidence from run "
+    )):
       pass
     else:
       return sha
     sha = parent
 
-
-def _issue_number(root: Path) -> str:
-  import re
-  branch = _git(root, "symbolic-ref", "--short", "HEAD")
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
-  if match is None:
-    raise CiInvocationError("hosted candidate requires an issue branch")
-  return match.group(1)
 
 
 def plan_invocation(root: Path) -> dict[str, str]:
