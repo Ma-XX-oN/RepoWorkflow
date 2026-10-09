@@ -103,5 +103,39 @@ class ExecutionMutationTests(unittest.TestCase):
 
 
 
+  def test_red_catalogue_mutation_preserves_pre_execution_fingerprint(self):
+    import hashlib
+
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-mutation",
+    )
+    source = self.root / "smoke_case.py"
+    source.write_text(
+      "import unittest\\n"
+      "from pathlib import Path\\n"
+      "class Smoke(unittest.TestCase):\\n"
+      "  def test_modify_catalogue(self):\\n"
+      "    path = Path('.ci/tests.json')\\n"
+      "    path.write_bytes(path.read_bytes() + b' ')\\n"
+      "    self.fail('RED defect observed')\\n"
+    )
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-545-mutation\\n")
+    self.git("add", ".ci/tests.json", "smoke_case.py", ".ci/red-green.txt")
+    self.git("commit", "-m", "fixture RED catalogue mutation")
+    catalogue = self.root / ".ci/tests.json"
+    expected = hashlib.sha256(catalogue.read_bytes()).hexdigest()
+    result = self.cli("test", "RED")
+    self.assertEqual(result.returncode, 2)
+    self.assertNotEqual(
+      hashlib.sha256(catalogue.read_bytes()).hexdigest(), expected,
+    )
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(audit.read_text().splitlines()[-1])
+    self.assertEqual(record["catalogueSHA256"], expected)
+    self.assertIn(".ci/tests.json", record["uncommittedChanges"])
+    self.assertFalse(record["reusable"])
+
+
 if __name__ == "__main__":
   unittest.main()
