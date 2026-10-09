@@ -62,7 +62,94 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         record["testSHA"],
       )
 
-  def test_incomplete_evidence_fails_closed_on_dirty_retry(self):
+  def test_incomplete_retries_preserve_candidate_version_and_all_evidence(self):
+    helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = helper.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
+    )
+    with td:
+      original = fx.head()
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      for attempt in range(3):
+        self.assertEqual(
+          run_test(
+            root, "regression", remote=False,
+            engine_root=root / "RepoWorkflow",
+          ), 2,
+        )
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        self.assertEqual(len(records), attempt + 1)
+        self.assertTrue(all(r["result"] == "incomplete" for r in records))
+        self.assertEqual(fx.head(), original)
+        self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
+        self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+        self.assertEqual(len({r["testSHA"] for r in records}), 1)
+
+  def test_tracked_baseline_log_preserves_all_retry_observations(self):
+    helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = helper.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
+    )
+    with td:
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      path.parent.mkdir(parents=True, exist_ok=True)
+      baseline = {
+        "testSHA": fx.head(), "kind": "regression",
+        "result": "incomplete", "runner": "local",
+      }
+      path.write_text(json.dumps(baseline) + "\n")
+      fx.commit("track prior canonical testing result")
+      prepared = None
+      for count in (2, 3):
+        self.assertEqual(
+          run_test(
+            root, "regression", remote=False,
+            engine_root=root / "RepoWorkflow",
+          ), 2,
+        )
+        entries = [json.loads(line) for line in path.read_text().splitlines()]
+        self.assertEqual(len(entries), count)
+        self.assertEqual(entries[0], baseline)
+        if prepared is None:
+          prepared = fx.head()
+        self.assertEqual(fx.head(), prepared)
+        self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
+  def test_committed_source_change_establishes_new_incomplete_candidate(self):
+    helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = helper.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
+    )
+    with td:
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      self.assertEqual(
+        run_test(
+          root, "regression", remote=False,
+          engine_root=root / "RepoWorkflow",
+        ), 2,
+      )
+      first = json.loads(path.read_text().splitlines()[-1])
+      (root / "source.txt").write_text("committed new source\n")
+      committed = fx.commit("change source between incomplete attempts")
+      self.assertEqual(
+        run_test(
+          root, "regression", remote=False,
+          engine_root=root / "RepoWorkflow",
+        ), 2,
+      )
+      records = [json.loads(line) for line in path.read_text().splitlines()]
+      self.assertEqual(len(records), 2)
+      self.assertNotEqual(records[1]["testSHA"], first["testSHA"])
+      self.assertEqual(records[1]["testSHA"], fx.head())
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
+  def test_dirty_source_blocks_retry_preserving_canonical_records(self):
     helper = LocalVerifyTests()
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
     td, root, fx = helper.make_consumer(
@@ -77,13 +164,16 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         ), 2,
       )
       before = fx.head()
-      with self.assertRaisesRegex(GuardError, "not clean"):
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      evidence = path.read_bytes()
+      (root / "source.txt").write_text("uncommitted mutation\n")
+      with self.assertRaisesRegex(Exception, "dirty"):
         run_test(
           root, "regression", remote=False,
           engine_root=root / "RepoWorkflow",
         )
       self.assertEqual(fx.head(), before)
-      self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
+      self.assertEqual(path.read_bytes(), evidence)
       self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
 
   def test_real_consumer_incomplete_creates_no_terminal_tag(self):
