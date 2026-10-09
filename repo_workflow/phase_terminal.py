@@ -53,7 +53,11 @@ def plan_phase(
     raise PhaseTransitionError("only regression and integration are terminal")
   if outcome not in _TERMINAL:
     raise PhaseTransitionError("invalid terminal outcome")
-  components = (*match.group("base").split("."), match.group("issue"),\n                match.group("q"), match.group("r"))\n  if any(len(item) > 1 and item.startswith("0") for item in components):\n    raise PhaseTransitionError("noncanonical numeric version component")\n  base = match.group("base")
+  components = (*match.group("base").split("."), match.group("issue"),
+                match.group("q"), match.group("r"))
+  if any(len(item) > 1 and item.startswith("0") for item in components):
+    raise PhaseTransitionError("noncanonical numeric version component")
+  base = match.group("base")
   issue = int(match.group("issue"))
   q = int(match.group("q"))
   r = int(match.group("r"))
