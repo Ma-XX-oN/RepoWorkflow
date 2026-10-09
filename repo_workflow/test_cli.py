@@ -14,6 +14,8 @@ import sys
 
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
+from .config import load_config
+from .terminal_tag import publish_terminal_tag
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
@@ -423,7 +425,7 @@ def run_test(
       self_regression(root)
       if root.resolve() == engine_root.resolve()
       else verify_local(
-        root, engine_root=engine_root, push=False,
+        root, engine_root=engine_root, push=False, tag_result=False,
         candidate_observer=lambda sha, version: prepared.append((sha, version)),
       )
     )
@@ -469,5 +471,14 @@ def run_test(
     }
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
+    if prepared and outcome in {"PASS", "FAIL"} and not (
+      uncommitted or head_changed
+    ):
+      remote_name = load_config(root)["repository"]["authoritativeRemote"]
+      publish_terminal_tag(
+        root, stage="regression", remote=remote_name,
+        version=prepared[0][1], candidate=tested_sha,
+        outcome=outcome, canonical_log=path, push=False,
+      )
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")
