@@ -102,6 +102,24 @@ class TestCliContract(unittest.TestCase):
         result = self.cli("test", "results")
         self.assertEqual(result.returncode, 2)
 
+  def test_results_reject_invalid_later_record_without_partial_output(self):
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    path.parent.mkdir(parents=True)
+    valid = {
+      "testSHA": self.source, "kind": "GREEN",
+      "result": "succeeded", "runner": "local",
+    }
+    path.write_text(json.dumps(valid) + "\n" + "{broken")
+    result = self.cli("test", "results")
+    self.assertEqual(result.returncode, 2)
+    self.assertEqual(result.stdout, "")
+    self.assertIn("invalid testing log record", result.stderr)
+    path.write_text(json.dumps(valid) + "\n" + '{"testSHA":"x"}')
+    result = self.cli("test", "results")
+    self.assertEqual(result.returncode, 2)
+    self.assertEqual(result.stdout, "")
+    self.assertIn("incomplete testing log record", result.stderr)
+
   def test_red_completion_lists_only_current_issue_groups(self):
     path = self.root / ".ci/tests.json"
     path.parent.mkdir(parents=True, exist_ok=True)
