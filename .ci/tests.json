@@ -95,6 +95,14 @@
       "issue-545-unified-test-cli": {
         "type": "regression",
         "name": "tests.test_test_cli"
+      },
+      "issue-545-workflow-cli-migration": {
+        "type": "regression",
+        "name": "tests.test_workflow_cli"
+      },
+      "issue-545-bash-completion-migration": {
+        "type": "regression",
+        "name": "tests.test_completion"
       }
     }
   ],
