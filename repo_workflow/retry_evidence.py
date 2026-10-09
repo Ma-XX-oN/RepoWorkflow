@@ -68,8 +68,9 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
   finally:
     # Fail closed if the operation itself wrote new canonical evidence.
     unexpected = None
-    if log.is_symlink():
-      raise RetryEvidenceError("operation replaced canonical log with symlink")
+    substituted_symlink = log.is_symlink()
+    if substituted_symlink:
+      log.unlink()
     if log.exists():
       current = log.read_bytes()
       if committed.returncode != 0 or current != committed.stdout.encode("utf-8"):
@@ -82,5 +83,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
       ) as conflict:
         conflict.write(unexpected)
     log.write_bytes(original)
+    if substituted_symlink:
+      raise RetryEvidenceError("operation replaced canonical log with symlink")
     if unexpected is not None:
       raise RetryEvidenceError("operation changed isolated canonical evidence")
