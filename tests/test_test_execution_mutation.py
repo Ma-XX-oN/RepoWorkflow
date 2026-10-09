@@ -111,16 +111,16 @@ class ExecutionMutationTests(unittest.TestCase):
     )
     source = self.root / "smoke_case.py"
     source.write_text(
-      "import unittest\\n"
-      "from pathlib import Path\\n"
-      "class Smoke(unittest.TestCase):\\n"
-      "  def test_modify_catalogue(self):\\n"
-      "    path = Path('.ci/tests.json')\\n"
-      "    path.write_bytes(path.read_bytes() + b' ')\\n"
-      "    self.fail('RED defect observed')\\n"
+      "import unittest\n"
+      "from pathlib import Path\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_modify_catalogue(self):\n"
+      "    path = Path('.ci/tests.json')\n"
+      "    path.write_bytes(path.read_bytes() + b' ')\n"
+      "    self.fail('RED defect observed')\n"
     )
     selection = self.root / ".ci/red-green.txt"
-    selection.write_text("issue-545-mutation\\n")
+    selection.write_text("issue-545-mutation\n")
     self.git("add", ".ci/tests.json", "smoke_case.py", ".ci/red-green.txt")
     self.git("commit", "-m", "fixture RED catalogue mutation")
     catalogue = self.root / ".ci/tests.json"
