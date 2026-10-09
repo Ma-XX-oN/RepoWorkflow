@@ -181,12 +181,60 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(json.loads(result.stdout), record)
     self.assertEqual(self.git("rev-parse", "HEAD"), current)
 
-  def test_unimplemented_local_stages_cannot_fake_success(self):
-    for stage in ("RED", "temporary", "GREEN", "integration"):
-      with self.subTest(stage=stage):
-        result = self.cli("test", stage)
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("not yet implemented", result.stderr)
+  def test_unimplemented_integration_cannot_fake_success(self):
+    result = self.cli("test", "integration")
+    self.assertEqual(result.returncode, 2)
+    self.assertIn("not yet implemented", result.stderr)
+
+  def _catalogue(self, path, *, issue_group):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+      "test-harnesses": {
+        "unittest": {
+          "command": "python",
+          "layout": ["-m", "unittest", "$test"],
+        },
+      },
+      "tests": [{
+        "test-harness": "unittest",
+        issue_group: {"type": "regression", "name": "tests.test_self_ci"},
+      }],
+      "aliases": {},
+    }))
+
+  def test_green_runs_only_current_issue_groups_and_records_log(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    result = self.cli("test", "GREEN")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(audit.read_text().strip())
+    self.assertEqual(record["testSHA"], self.source)
+    self.assertEqual(record["kind"], "GREEN")
+    self.assertEqual(record["result"], "succeeded")
+    self.assertEqual(record["groups"][0]["group"], "issue-545-green")
+
+  def test_temporary_catalogue_runs_identical_harness_format(self):
+    self._catalogue(
+      self.root / ".ci/temp-tests.json",
+      issue_group="issue-545-temporary",
+    )
+    result = self.cli("test", "temporary")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(audit.read_text().strip())
+    self.assertEqual(record["kind"], "temporary")
+    self.assertEqual(record["result"], "succeeded")
+
+  def test_empty_temporary_manifest_never_claims_pass(self):
+    (self.root / ".ci").mkdir(exist_ok=True)
+    (self.root / ".ci/temp-tests.json").write_text(json.dumps({
+      "test-harnesses": {}, "tests": [], "aliases": {},
+    }))
+    result = self.cli("test", "temporary")
+    self.assertNotEqual(result.returncode, 0)
+    self.assertIn("no temporary test groups", result.stderr)
 
 
 if __name__ == "__main__":
