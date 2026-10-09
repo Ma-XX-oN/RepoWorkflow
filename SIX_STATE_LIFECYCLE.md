@@ -86,9 +86,11 @@ Current three-column CSV format:
 `issue,title,dependencies`.
 
 New format:
-`issue,title,dependencies,state`.
+`issue,title,dependencies,state,state_revision`.
 
-The fourth field must be one of the six canonical state identifiers; no
+The fourth field must be one of the six canonical state identifiers; the fifth
+records the lifecycle revision sampled during explicit refresh (empty only
+for a provably not-started issue). No
 empty or unrecognized value is accepted for fully migrated records. Migration
 must read canonical lifecycle authority for each ticket, refuse inconsistent
 history or unreadable state, and write a complete verified snapshot. The
