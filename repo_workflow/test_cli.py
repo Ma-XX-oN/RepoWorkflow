@@ -364,13 +364,18 @@ def run_test(
       print(result.stdout, end="")
     if result.stderr:
       print(result.stderr, end="", file=sys.stderr)
-    dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
-    demonstrated = assertion_failure(command, result.returncode, result.stderr)
+    after_dirty = _uncommitted_inputs(root, path)
+    dirty = sorted(set(before) | set(after_dirty))
+    head_changed = head_sha(root) != red_candidate
+    demonstrated = (
+      assertion_failure(command, result.returncode, result.stderr)
+      and not head_changed and set(after_dirty).issubset(before)
+    )
     record = {
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "testSHA": red_candidate,
       "branch": current_branch(root),
-      "headChangedDuringTest": head_sha(root) != red_candidate,
+      "headChangedDuringTest": head_changed,
       "catalogueSHA256": red_catalogue,
       "kind": "RED",
       "result": "succeeded" if demonstrated else "incomplete",
