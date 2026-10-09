@@ -351,9 +351,32 @@ COMMANDS = {
       "--json": "Output workflow guidance as JSON",
     },
   },
-  "validate": {
-    "_description": "Run or record validation stages",
-    "_values": _validate_commands,
+  "test": {
+    "_description": "Run tests or inspect testing-log results",
+    "RED": {
+      "": "Run the selected TDD RED tests locally",
+      "_switches": {"--remote": "Request RED tests through hosted CI"},
+    },
+    "temporary": {
+      "": "Run applicable temporary fidelity tests locally",
+      "_switches": {"--remote": "Request temporary tests through hosted CI"},
+    },
+    "GREEN": {
+      "": "Run required TDD GREEN tests locally",
+      "_switches": {"--remote": "Request GREEN tests through hosted CI"},
+    },
+    "regression": {
+      "": "Run regression tests locally",
+      "_switches": {"--remote": "Request regression tests through hosted CI"},
+    },
+    "integration": {
+      "": "Run integration tests locally",
+      "_switches": {"--remote": "Request integration tests through hosted CI"},
+    },
+    "results": {
+      "": "Show recorded testing-log results",
+      "_switches": {"--remote": "Retrieve recorded hosted test results"},
+    },
   },
   "version": {
     "": "Show the repository version",
