@@ -64,7 +64,10 @@ class HostedIdentityTests(unittest.TestCase):
     target.write_text("regression-testing " + parent + "\n")
     marker = self.root / ".ci/run"
     marker.parent.mkdir(exist_ok=True)
-    marker.symlink_to(target)
+    try:
+      marker.symlink_to(target)
+    except (OSError, NotImplementedError):
+      self.skipTest("filesystem cannot create symlinks")
     self.git("add", ".ci/run")
     self.git("commit", "-qm", "symlink marker")
     with self.assertRaisesRegex(HostedVersionError, "regular file"):
@@ -235,7 +238,10 @@ class HostedIdentityTests(unittest.TestCase):
     sha = self.invoke()
     outside = self.root / "external.jsonl"
     outside.write_text("{}\n")
-    self.log.symlink_to(outside)
+    try:
+      self.log.symlink_to(outside)
+    except (OSError, NotImplementedError):
+      self.skipTest("filesystem cannot create symlinks")
     with self.assertRaisesRegex(HostedVersionError, "canonical"):
       resolve_hosted_version(self.root, sha, self.log)
 
