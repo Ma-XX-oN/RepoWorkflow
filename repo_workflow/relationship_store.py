@@ -53,8 +53,8 @@ class TicketState:
       isinstance(revision, bool) or not isinstance(revision, int) or revision < 0
     ):
       raise RelationshipSchemaError('invalid ticket lifecycle revision')
-    if (self.state == 'not_started') != (revision is None):
-      raise RelationshipSchemaError('ticket state and revision disagree')
+    if self.state != 'not_started' and revision is None:
+      raise RelationshipSchemaError('noninitial ticket requires lifecycle revision')
 
 
 class RelationshipStore:
