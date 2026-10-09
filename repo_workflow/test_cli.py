@@ -438,7 +438,7 @@ def run_test(
     # Consumer verify prepares and validates the resulting candidate commit.
     # The original pre-preparation source SHA remains separately auditable.
     consumer = root.resolve() != engine_root.resolve()
-    tested_sha = after if consumer and outcome != "INCOMPLETE" else before
+    tested_sha = after if consumer else before
     head_changed = (
       head_sha(root) != after
       if consumer else head_sha(root) != before
