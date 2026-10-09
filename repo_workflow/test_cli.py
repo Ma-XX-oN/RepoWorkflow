@@ -185,18 +185,14 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
   return hashlib.sha256(catalogue_bytes).hexdigest()
 
 
-def _candidate_is_clean_for_reuse(root: Path, evidence_path: Path) -> bool:
-  # Committed SHA equality alone ignores local modifications to test code.
-  # The canonical evidence file may be dirty because it is append-only.
+def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
+  # The append-only evidence log does not count as a changed test input.
   status = _git(root, "status", "--porcelain", "--untracked-files=all")
   relative_evidence = evidence_path.relative_to(root).as_posix()
-  for line in status.splitlines():
-    if not line:
-      continue
-    changed = line[3:]
-    if changed != relative_evidence:
-      return False
-  return True
+  return sorted({
+    line[3:] for line in status.splitlines()
+    if line and line[3:] != relative_evidence
+  })
 
 
 def _reusable_group_passes(
@@ -215,6 +211,7 @@ def _reusable_group_passes(
         or record.get("testSHA") != revision
         or record.get("catalogueSHA256") != fingerprint
         or record.get("result") != "succeeded"
+        or record.get("reusable") is not True
       ):
         continue
       groups = record.get("groups")
@@ -251,11 +248,12 @@ def _run_group_set(
   path = root / ".repoworkflow" / "validation" / (
     "testResults-" + match.group(1) + ".jsonl"
   )
+  uncommitted_before = _uncommitted_inputs(root, path)
   reusable = (
     _reusable_group_passes(
       path, stage=stage, revision=revision, fingerprint=fingerprint,
     )
-    if _candidate_is_clean_for_reuse(root, path)
+    if not uncommitted_before
     else set()
   )
   failures = []
@@ -281,8 +279,13 @@ def _run_group_set(
     })
     if completed.returncode:
       failures.append(group)
+  uncommitted = sorted(set(uncommitted_before) | set(
+    _uncommitted_inputs(root, path)
+  ))
   path.parent.mkdir(parents=True, exist_ok=True)
   record = {
+    "uncommittedChanges": uncommitted,
+    "reusable": not bool(uncommitted),
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
