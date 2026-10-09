@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -175,6 +176,49 @@ def results(root: Path, *, remote: bool) -> int:
   return 0
 
 
+def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
+  path = root / catalogue_path
+  try:
+    catalogue_bytes = path.read_bytes()
+  except OSError as error:
+    raise TestCommandError("test catalogue cannot be fingerprinted") from error
+  return hashlib.sha256(catalogue_bytes).hexdigest()
+
+
+def _reusable_group_passes(
+  path: Path, *, stage: str, revision: str, fingerprint: str,
+) -> set[str]:
+  if not path.exists():
+    return set()
+  reusable = set()
+  try:
+    raw = path.read_text(encoding="utf-8")
+    for line in raw.splitlines():
+      record = json.loads(line)
+      if (
+        not isinstance(record, dict)
+        or record.get("kind") != stage
+        or record.get("testSHA") != revision
+        or record.get("catalogueSHA256") != fingerprint
+        or record.get("result") != "succeeded"
+      ):
+        continue
+      groups = record.get("groups")
+      if not isinstance(groups, list):
+        continue
+      for group in groups:
+        if (
+          isinstance(group, dict)
+          and isinstance(group.get("group"), str)
+          and group.get("exit_code") == 0
+        ):
+          reusable.add(group["group"])
+  except (ValueError, TypeError):
+    # Corrupt or incomplete evidence must never suppress execution.
+    return set()
+  return reusable
+
+
 def _run_group_set(
   root: Path, stage: str, groups: tuple[str, ...], *,
   catalogue_path: Path = Path(".ci/tests.json"),
@@ -186,9 +230,25 @@ def _run_group_set(
       if stage == "GREEN" else "no temporary test groups in .ci/temp-tests.json"
     )
   revision = head_sha(root)
+  fingerprint = _group_fingerprint(root, catalogue_path)
+  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
+  if match is None:
+    raise TestCommandError("testing log requires an issue branch")
+  path = root / ".repoworkflow" / "validation" / (
+    "testResults-" + match.group(1) + ".jsonl"
+  )
+  reusable = _reusable_group_passes(
+    path, stage=stage, revision=revision, fingerprint=fingerprint,
+  )
   failures = []
   evidence = []
   for group in groups:
+    if group in reusable:
+      print("Reusing valid PASS evidence for " + group)
+      evidence.append({
+        "group": group, "exit_code": 0, "reused": True,
+      })
+      continue
     command = group_command(root, group, catalogue_path)
     completed = subprocess.run(
       command, cwd=root, capture_output=True, text=True, check=False,
@@ -197,20 +257,16 @@ def _run_group_set(
     if completed.stdout:
       print(completed.stdout, end="")
     if completed.stderr:
-      import sys
       print(completed.stderr, end="", file=sys.stderr)
-    evidence.append({"group": group, "exit_code": completed.returncode})
+    evidence.append({
+      "group": group, "exit_code": completed.returncode, "reused": False,
+    })
     if completed.returncode:
       failures.append(group)
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise TestCommandError("testing log requires an issue branch")
-  path = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
-  )
   path.parent.mkdir(parents=True, exist_ok=True)
   record = {
     "testSHA": revision,
+    "catalogueSHA256": fingerprint,
     "kind": stage,
     "result": "failed" if failures else "succeeded",
     "runner": "local",
