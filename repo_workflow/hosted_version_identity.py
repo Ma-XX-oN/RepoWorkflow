@@ -12,12 +12,12 @@ import subprocess
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _MARKER = re.compile(
-  r"(RED|temp|GREEN|regression|integration)-testing ([0-9a-f]{40})\n?\Z"
+  r"(RED|temporary|GREEN|regression|integration)-testing ([0-9a-f]{40})\n?\Z"
 )
 _VERSION = re.compile(
   r"[0-9]+\.[0-9]+\.[0-9]+-issue\.([1-9][0-9]*)\.[0-9]+\.[0-9]+\Z"
 )
-_STAGES = {"RED", "temp", "GREEN", "regression", "integration"}
+_STAGES = {"RED", "temporary", "GREEN", "regression", "integration"}
 
 
 class HostedVersionError(ValueError):
@@ -65,16 +65,17 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
     if current in observed:
       raise HostedVersionError("cyclic invocation lineage")
     observed.add(current)
-    parent = _single_parent(root, current) if depth == 0 else None
     marker = _marker(root, current)
     if depth and marker is not None:
-      # An ordinary source commit can inherit a .ci/run file unchanged.
-      candidate_parents = _git(root, "rev-list", "--parents", "-n", "1", current).split()
-      if len(candidate_parents) != 2 or ".ci/run" not in _git(
+      parents = _git(root, "rev-list", "--parents", "-n", "1", current).split()
+      if len(parents) != 2:
+        raise HostedVersionError("ambiguous candidate history")
+      changed = _git(
         root, "diff-tree", "--no-commit-id", "--name-only", "-r",
-        candidate_parents[1], current,
-      ).splitlines():
-        marker = None
+        parents[1], current,
+      ).splitlines()
+      if ".ci/run" not in changed:
+        marker = None  # The marker is inherited, not a request.
     if marker is None:
       if depth == 0:
         raise HostedVersionError("not a hosted invocation")
@@ -152,6 +153,8 @@ def resolve_hosted_version(
     version_match = _VERSION.fullmatch(version)
     if not version_match or version_match.group(1) != match.group(1):
       raise HostedVersionError("version issue does not match results log")
+    if record.get("result") not in {"succeeded", "failed", "incomplete"}:
+      raise HostedVersionError("version evidence has no valid result")
     source_branch = record.get("branch")
     if not isinstance(source_branch, str) or re.fullmatch(
       "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
