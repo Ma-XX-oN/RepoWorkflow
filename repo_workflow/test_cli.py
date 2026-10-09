@@ -420,22 +420,18 @@ def run_test(
       "not yet implemented"
     )
   if stage == "regression":
-    temporary = Path(".ci/temp-tests.json")
-    if (root / temporary).exists():
-      selected = tuple(sorted(load_test_catalogue(
-        root, catalogue_path=temporary,
-      ).groups))
-      if selected:
-        temporary_rc = _run_group_set(
-          root, "temporary", selected, catalogue_path=temporary,
-        )
-        if temporary_rc:
-          raise TestCommandError(
-            "regression failed: required temporary fidelity tests failed"
-          )
     before = head_sha(root)
     outcome = verify_local(root, engine_root=engine_root, push=False)
     after = head_sha(root)
+    temporary = Path(".ci/temp-tests.json")
+    if outcome == "PASS" and (root / temporary).exists():
+      selected = tuple(sorted(load_test_catalogue(
+        root, catalogue_path=temporary,
+      ).groups))
+      if selected and _run_group_set(
+        root, "temporary", selected, catalogue_path=temporary,
+      ):
+        outcome = "FAIL"
     match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
     if match is None:
       raise TestCommandError("regression evidence requires an issue branch")
