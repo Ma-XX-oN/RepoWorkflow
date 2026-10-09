@@ -78,9 +78,6 @@ def publish(
   record["providerInvocationSHA"] = invocation
   record["providerCandidateSHA"] = candidate
   record["providerStage"] = stage
-  original = "\n".join([
-    *lines[:-1], json.dumps(record, sort_keys=True),
-  ]) + "\n"
   _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
   if _git(root, "rev-parse", "FETCH_HEAD") != invocation:
     raise ValueError("remote branch moved since hosted invocation")
@@ -98,10 +95,28 @@ def publish(
       raise ValueError("remote invocation history changes tested candidate")
   except CiInvocationError as error:
     raise ValueError("invalid remote invocation ancestry") from error
+  # The runner's dirty result log belongs to the tested checkout.
+  # Reconstruct the authoritative base from the verified remote invocation.
+  tracked = bool(_git(root, "ls-files", "--", relative))
+  _git(root, "reset", "--hard", "HEAD")
+  if not tracked:
+    path.unlink(missing_ok=True)
   _git(root, "merge", "--ff-only", "FETCH_HEAD")
-  # The evidence file is the only publication change. Preserve all observations.
+  try:
+    previous = path.read_text(encoding="utf-8").splitlines()
+  except FileNotFoundError:
+    previous = []
+  for line in previous:
+    try:
+      if not isinstance(json.loads(line), dict):
+        raise ValueError("remote test log has a non-object record")
+    except json.JSONDecodeError as error:
+      raise ValueError("remote test log is malformed") from error
   path.parent.mkdir(parents=True, exist_ok=True)
-  path.write_text(original, encoding="utf-8")
+  path.write_text(
+    "\n".join([*previous, json.dumps(record, sort_keys=True)]) + "\n",
+    encoding="utf-8",
+  )
   _git(root, "config", "user.name", "github-actions[bot]")
   _git(root, "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
   _git(root, "add", "--", relative)
