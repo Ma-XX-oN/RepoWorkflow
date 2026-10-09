@@ -50,7 +50,7 @@ def _remote_target(root: Path, remote: str, tag: str) -> str | None:
   ref = "refs/tags/" + tag
   result = _git(root, "ls-remote", "--tags", remote, ref)
   observed = dict(
-    line.split("\t", 1)
+    (line.split("\t", 1)[1], line.split("\t", 1)[0])
     for line in result.stdout.splitlines()
     if "\t" in line
   )
