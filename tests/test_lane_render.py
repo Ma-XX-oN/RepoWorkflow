@@ -1,4 +1,7 @@
 from pathlib import Path
+from contextlib import redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 import re
 import tempfile
 import unittest
@@ -293,6 +296,40 @@ class LaneRenderTests(unittest.TestCase):
         "aborted": "✕",
       },
     )
+
+  def test_opt_in_legend_is_after_graph_and_read_only(self):
+    from repo_workflow.public_cli import _handle_lanes
+    from repo_workflow.public_commands import COMMANDS
+    from repo_workflow.command_grammar import Context, parse_tokens
+    from repo_workflow.lane_diagnostics import LaneDiagnostics
+
+    expected = (
+      "Legend: ○ not_started  ● active  ◎ in_review  "
+      "✓ accepted  ♥ completed  ✕ aborted"
+    )
+    parse_tokens(
+      COMMANDS,
+      Context(self.root, legal_only=False),
+      ["lanes", "view", "--legend"],
+    )
+    original = RelationshipStore(self.root).path.read_bytes()
+    def invoke(tokens):
+      output = StringIO()
+      with redirect_stdout(output):
+        _handle_lanes(
+          self.root, tokens,
+          LaneDiagnostics(self.root, tuple(tokens)),
+        )
+      return output.getvalue()
+
+    plain = invoke(["lanes", "view"])
+    self.assertNotIn("Legend:", plain)
+    with_legend = invoke(["lanes", "view", "--legend"])
+    self.assertEqual(with_legend, plain + "\\n" + expected + "\\n")
+    self.assertEqual(RelationshipStore(self.root).path.read_bytes(), original)
+    self.assertTrue(invoke(["lanes", "view", "B", "--legend"]).endswith(
+      "\\n" + expected + "\\n"
+    ))
 
   def test_invalid_color_fails(self):
     with self.assertRaisesRegex(Exception, "auto, always, or never"):
