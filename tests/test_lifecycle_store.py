@@ -278,6 +278,31 @@ class LifecycleStoreTests(unittest.TestCase):
     resumed = self.transition(1, "re-enter", aborted.revision)
     self.assertEqual(resumed.lifecycle.state, "active")
 
+  def test_review_candidate_cannot_change_at_acceptance_or_completion(self):
+    started = self.transition(1, "start", None, candidate="candidate-A")
+    with self.assertRaisesRegex(LifecycleError, "requires an exact candidate"):
+      self.transition(
+        1, "submit-review", started.revision, candidate=None,
+      )
+    review = self.transition(
+      1, "submit-review", started.revision, candidate="candidate-A",
+    )
+    with self.assertRaisesRegex(LifecycleError, "candidate does not match"):
+      self.transition(
+        1, "accept", review.revision, candidate="candidate-B",
+      )
+    accepted = self.transition(
+      1, "accept", review.revision, candidate="candidate-A",
+    )
+    with self.assertRaisesRegex(LifecycleError, "candidate does not match"):
+      self.transition(
+        1, "complete", accepted.revision, candidate="candidate-B",
+      )
+    completed = self.transition(
+      1, "complete", accepted.revision, candidate="candidate-A",
+    )
+    self.assertTrue(completed.lifecycle.dependency_satisfied)
+
   def test_new_active_to_accepted_without_review_is_illegal(self):
     started = self.transition(1, "start", None)
     with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
