@@ -63,8 +63,6 @@ class PreMergeGateTests(unittest.TestCase):
       "schema": 1,
       "environment": "linux",
       "version": "1.0.0",
-      "canonical_log": self.canonical_log,
-      "required_platforms": ("Linux",),
       "commit": commit or self.candidate,
       "status": status,
     }), encoding="utf-8")
@@ -77,6 +75,8 @@ class PreMergeGateTests(unittest.TestCase):
       "results_dir": self.results,
       "config": self.config,
       "version": "1.0.0",
+      "canonical_log": self.canonical_log,
+      "required_platforms": ("Linux",),
     }
     values.update(kwargs)
     return check_pre_merge_candidate(self.root, **values)
