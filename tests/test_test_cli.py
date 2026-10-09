@@ -211,13 +211,15 @@ class TestCliContract(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
     )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
     selected = self.cli("test", "RED", "issue-545-green")
     self.assertEqual(selected.returncode, 2)
     result = self.cli("test", "GREEN")
     self.assertEqual(result.returncode, 0, result.stderr)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     record = json.loads(audit.read_text().strip())
-    self.assertEqual(record["testSHA"], self.source)
+    self.assertEqual(record["testSHA"], self.git("rev-parse", "HEAD"))
     self.assertEqual(record["kind"], "GREEN")
     self.assertEqual(record["result"], "succeeded")
     self.assertEqual(record["groups"][0]["group"], "issue-545-green")
@@ -226,6 +228,8 @@ class TestCliContract(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-selected",
     )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
     first = self.cli("test", "RED", "issue-545-selected")
     self.assertEqual(first.returncode, 2)
     selection = self.root / ".ci/red-green.txt"
