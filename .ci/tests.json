@@ -43,6 +43,10 @@
       "issue-553-interface-playback": {
         "type": "regression",
         "name": "tests.test_interface_playback"
+      },
+      "issue-553-interface-playback-objects": {
+        "type": "regression",
+        "name": "tests.test_interface_playback_objects"
       }
     }
   ],
