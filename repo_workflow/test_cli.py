@@ -11,6 +11,8 @@ import subprocess
 
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
+from .self_ci import group_command
+from .test_catalogue import load_test_catalogue
 
 STAGES = {
   "RED": "RED-testing",
@@ -82,11 +84,46 @@ def results(root: Path, *, remote: bool) -> int:
   return 0
 
 
-def run_test(root: Path, stage: str, *, remote: bool, engine_root: Path) -> int:
+def run_test(
+  root: Path, stage: str, *, remote: bool, engine_root: Path,
+  group: str | None = None,
+) -> int:
   if stage == "results":
     return results(root, remote=remote)
   if stage not in STAGES:
     raise TestCommandError("unknown test stage")
+  if stage == "RED":
+    if group is None:
+      raise TestCommandError(
+        "select an issue-N- RED test group from .ci/tests.json"
+      )
+    match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
+    if match is None:
+      raise TestCommandError("RED requires a current issue branch")
+    prefix = "issue-" + match.group(1) + "-"
+    groups = load_test_catalogue(root).groups
+    if group not in groups or not group.startswith(prefix):
+      raise TestCommandError(
+        "RED/GREEN tests do not exist for this selection. "
+        "Build and register issue-N- groups in .ci/tests.json."
+      )
+    if remote:
+      raise TestCommandError(
+        "remote RED requires candidate-bound group selection; "
+        "hosted RED is not yet implemented"
+      )
+    command = group_command(root, group)
+    result = subprocess.run(
+      command, cwd=root, text=True, capture_output=True, check=False,
+    )
+    if result.returncode == 0:
+      raise TestCommandError("RED did not demonstrate the expected failure")
+    raise TestCommandError(
+      "RED test exited unsuccessfully; expected RED failure has not "
+      "been distinguished from infrastructure error"
+    )
+  if group is not None:
+    raise TestCommandError("test group is only supported for RED")
   if remote:
     return request_remote(root, stage)
   if stage == "regression":
