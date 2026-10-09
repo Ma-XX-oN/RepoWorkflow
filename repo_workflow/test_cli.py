@@ -420,6 +420,19 @@ def run_test(
       "not yet implemented"
     )
   if stage == "regression":
+    temporary = Path(".ci/temp-tests.json")
+    if (root / temporary).exists():
+      selected = tuple(sorted(load_test_catalogue(
+        root, catalogue_path=temporary,
+      ).groups))
+      if selected:
+        temporary_rc = _run_group_set(
+          root, "temporary", selected, catalogue_path=temporary,
+        )
+        if temporary_rc:
+          raise TestCommandError(
+            "regression failed: required temporary fidelity tests failed"
+          )
     before = head_sha(root)
     outcome = verify_local(root, engine_root=engine_root, push=False)
     after = head_sha(root)
