@@ -55,6 +55,10 @@
       "issue-543-release-ownership": {
         "type": "regression",
         "name": "tests.test_self_ci"
+      },
+      "issue-543-release-gate": {
+        "type": "regression",
+        "name": "tests.test_release_gate"
       }
     }
   ],
