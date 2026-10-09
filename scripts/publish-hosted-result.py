@@ -11,6 +11,9 @@ import re
 import subprocess
 import sys
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
 from repo_workflow.ci_invocation import (
   CiInvocationError, original_candidate, parse_invocation,
 )
