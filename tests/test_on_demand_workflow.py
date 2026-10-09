@@ -96,7 +96,7 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("if: ${{ always() }}", section)
 
   def test_no_separate_unsupported_stage_job(self):
-    self.assertNotIn("\\n  unsupported-stage:", self.text)
+    self.assertNotIn("\n  unsupported-stage:", self.text)
 
   def test_no_release_job_is_started_by_selector_push(self):
     self.assertNotIn("\n  release:", self.text)
