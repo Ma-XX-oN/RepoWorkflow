@@ -207,6 +207,10 @@
       "issue-545-cache-evidence": {
         "type": "regression",
         "name": "tests.test_test_cache_evidence"
+      },
+      "issue-543-github-cache-origin": {
+        "type": "regression",
+        "name": "tests.test_github_cache"
       }
     }
   ],
