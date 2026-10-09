@@ -6,6 +6,9 @@ import tempfile
 import unittest
 
 from repo_workflow.public_commands import COMMANDS
+from repo_workflow.command_grammar import (
+  CommandGrammarError, Context, parse_tokens,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -149,6 +152,19 @@ class BootstrapCliTests(unittest.TestCase):
     if isinstance(switches, dict):
       children += list(switches.items())
     return children
+
+  def test_description_metadata_never_makes_parent_executable(self):
+    """Adding help must not silently change command legality."""
+    with tempfile.TemporaryDirectory() as td:
+      context = Context(Path(td), legal_only=False)
+      with self.assertRaises(CommandGrammarError):
+        parse_tokens(COMMANDS, context, ("lanes",))
+      with self.assertRaises(CommandGrammarError):
+        parse_tokens(COMMANDS, context, ("workspace",))
+      self.assertEqual(
+        parse_tokens(COMMANDS, context, ("lanes", "clear")),
+        ("lanes", "clear"),
+      )
 
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
