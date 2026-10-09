@@ -61,6 +61,7 @@ class PublishHostedResultTests(unittest.TestCase):
     return self._run(self.root, "git", *args)
 
   def _record(self):
+    self.log.parent.mkdir(parents=True, exist_ok=True)
     self.log.write_text(json.dumps(self.observation) + "\n")
 
   def _publish(self, **kw):
