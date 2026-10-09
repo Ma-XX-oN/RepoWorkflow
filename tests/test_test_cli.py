@@ -207,6 +207,22 @@ class TestCliContract(unittest.TestCase):
       "aliases": {},
     }))
 
+  def test_selection_accepts_single_line_without_final_newline(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-selected",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-545-selected")
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-m", "select without final newline")
+    result = self.cli("test", "GREEN")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["groups"][0]["group"], "issue-545-selected")
+
   def test_green_runs_only_current_issue_groups_and_records_log(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
