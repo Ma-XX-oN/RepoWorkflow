@@ -97,6 +97,16 @@ class ProtectedMergeTests(unittest.TestCase):
           self.run_guard(documents=docs)
         self.assertFalse(any(c[0] == "merge" for c in self.calls))
 
+  def test_malformed_protection_fails_closed(self):
+    for malformed in (None, "not-a-map", {"allow_force_pushes": None}):
+      with self.subTest(malformed=malformed):
+        docs = deepcopy(self.documents)
+        docs[BASE + "/branches/main/protection"] = malformed
+        self.calls.clear()
+        with self.assertRaises(PreMergeGateError):
+          self.run_guard(documents=docs)
+        self.assertFalse(any(c[0] == "merge" for c in self.calls))
+
   def test_inaccessible_protection_fails_closed(self):
     self.calls.clear()
     docs = deepcopy(self.documents)
