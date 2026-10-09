@@ -394,6 +394,7 @@ COMMANDS = {
       "_description": "Run an issue-N- RED test group",
       "_values": _red_group_values,
       "_value_description": "Current issue RED test-group name",
+      "_quantifier": "?",
       "_switches": {"--remote": "Request RED tests through hosted CI"},
     },
     "temporary": {
