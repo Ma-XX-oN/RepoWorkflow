@@ -79,14 +79,18 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
     marker = _marker(root, current)
     if depth and marker is not None:
       parents = _git(root, "rev-list", "--parents", "-n", "1", current).split()
-      if len(parents) != 2:
-        raise HostedVersionError("ambiguous candidate history")
-      changed = _git(
-        root, "diff-tree", "--no-commit-id", "--name-only", "-r",
-        parents[1], current,
-      ).splitlines()
-      if ".ci/run" not in changed:
-        marker = None  # The marker is inherited, not a request.
+      if len(parents) < 2 or parents[0] != current:
+        # Root commits can contain a marker but are never retry commits.
+        marker = None
+      else:
+        changed = _git(
+          root, "diff-tree", "--no-commit-id", "--name-only", "-r",
+          parents[1], current,
+        ).splitlines()
+        if ".ci/run" not in changed:
+          marker = None  # An inherited marker does not make a request.
+        elif len(parents) != 2:
+          raise HostedVersionError("marker-changing merge cannot be a request")
     if marker is None:
       if depth == 0:
         raise HostedVersionError("not a hosted invocation")
