@@ -439,7 +439,14 @@ requirements below:
 5. pilot one consumer before broad migration;
 6. preserve existing authoritative validation coverage during migration;
 7. remove old standalone/duplicate workflows only after equivalence has been
-   established.
+   established;
+8. for all coding and code-review work, if any requirement, behaviour,
+   interface, representation, structure, naming, workflow, or design choice is
+   not known with confidence from an authoritative source or explicit user
+   direction, do not guess, invent, or fill in the gap.  Stop and ask the user
+   before writing code, tests, documentation, tickets, or plans that depend on
+   that choice.  Resolve uncertainty at the point it is discovered so later
+   work does not need to revisit avoidable assumptions.
 
 Authoritative source and documentation files have a practical hard ceiling of
 about 500 lines.  Size pressure is an architectural signal, not a content
