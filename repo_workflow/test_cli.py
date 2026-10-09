@@ -11,10 +11,10 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
 
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
+from .test_regression_engine import self_regression
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 
@@ -332,21 +332,6 @@ def _run_group_set(
   return 1 if failures else 0
 
 
-def _self_regression(root: Path) -> str:
-  """Run the engine's authoritative self-regression suite in its own checkout."""
-  with tempfile.TemporaryDirectory(prefix="rwf-self-regression-cache-") as cache:
-    result = subprocess.run(
-      [sys.executable, str(root / "scripts" / "validate.py")],
-      cwd=root, capture_output=True, text=True, check=False,
-      env={**os.environ, "PYTHONPYCACHEPREFIX": cache},
-    )
-  if result.stdout:
-    print(result.stdout, end="")
-  if result.stderr:
-    print(result.stderr, end="", file=sys.stderr)
-  return "PASS" if result.returncode == 0 else "FAIL"
-
-
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
   match = re.fullmatch(
     r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -464,7 +449,7 @@ def run_test(
         group_command(root, name, temporary)
     before = head_sha(root)
     outcome = (
-      _self_regression(root)
+      self_regression(root)
       if root.resolve() == engine_root.resolve()
       else verify_local(root, engine_root=engine_root, push=False)
     )
