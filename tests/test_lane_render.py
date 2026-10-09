@@ -328,7 +328,7 @@ class LaneRenderTests(unittest.TestCase):
     self.assertEqual(with_legend, plain + "\n" + expected + "\n")
     self.assertEqual(RelationshipStore(self.root).path.read_bytes(), original)
     self.assertTrue(invoke(["lanes", "view", "B", "--legend"]).endswith(
-      "\\n" + expected + "\\n"
+      "\n" + expected + "\n"
     ))
 
   def test_invalid_color_fails(self):
