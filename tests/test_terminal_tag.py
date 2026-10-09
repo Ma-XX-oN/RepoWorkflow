@@ -121,6 +121,19 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("SKIPPED")
     self.assertEqual(self.git("tag", "--list"), "")
 
+  def test_well_formed_but_nonexistent_candidate_cannot_be_tagged(self):
+    with self.assertRaises(TerminalTagError):
+      self.issue_tag("PASS", candidate="f" * 40)
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_remote_lightweight_tag_is_not_accepted_as_terminal_evidence(self):
+    tag = "v" + VERSION
+    self.git("tag", tag, self.candidate)
+    self.git("push", "origin", "refs/tags/" + tag)
+    self.git("tag", "-d", tag)
+    with self.assertRaisesRegex(TerminalTagError, "not annotated"):
+      self.issue_tag("PASS")
+
   def test_existing_remote_different_target_is_rejected(self):
     self.issue_marker()
     self.git("tag", "-a", "v" + VERSION, "HEAD", "-m", "conflict")
