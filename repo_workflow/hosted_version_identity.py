@@ -25,10 +25,13 @@ class HostedVersionError(ValueError):
 
 
 def _git(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args], capture_output=True,
-    text=True, check=False,
-  )
+  try:
+    result = subprocess.run(
+      ["git", "-C", str(root), *args], capture_output=True,
+      text=True, check=False,
+    )
+  except (OSError, UnicodeError) as error:
+    raise HostedVersionError("cannot decode hosted Git request") from error
   if result.returncode:
     raise HostedVersionError("cannot verify hosted Git request")
   return result.stdout
