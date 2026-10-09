@@ -68,6 +68,10 @@
         "type": "regression",
         "name": "tests.test_on_demand_ci_certification"
       },
+      "issue-543-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
       "issue-528-lane-projection-algebra": {
         "type": "regression",
         "name": "tests.test_lane_projection"
