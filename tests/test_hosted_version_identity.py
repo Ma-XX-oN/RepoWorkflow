@@ -135,6 +135,30 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "stage"):
       resolve_invocation(self.root, sha)
 
+  def test_inherited_marker_on_head_is_not_new_invocation(self):
+    self.invoke()
+    (self.root / "source").write_text("next source\n")
+    self.git("add", "source")
+    self.git("commit", "-qm", "source with unchanged marker")
+    with self.assertRaisesRegex(HostedVersionError, "non-marker"):
+      resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
+
+  def test_temporary_marker_uses_public_stage_spelling(self):
+    sha = self.invoke(stage="temporary")
+    self.assertEqual(resolve_invocation(self.root, sha)["stage"], "temporary")
+
+  def test_malformed_version_record_without_result_fails_closed(self):
+    sha = self.invoke()
+    self.evidence(result=None)
+    with self.assertRaisesRegex(HostedVersionError, "valid result"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_non_object_log_entry_rejected(self):
+    sha = self.invoke()
+    self.log.write_text("[]\n")
+    with self.assertRaisesRegex(HostedVersionError, "non-object"):
+      resolve_hosted_version(self.root, sha, self.log)
+
   def test_inherited_marker_on_source_commit_does_not_become_retry(self):
     self.invoke()
     (self.root / "source").write_text("next source\n")
