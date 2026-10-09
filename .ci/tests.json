@@ -155,6 +155,10 @@
       "issue-543-hosted-publication": {
         "type": "regression",
         "name": "tests.test_publish_hosted_result"
+      },
+      "issue-543-provider-refresh-order": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes"
       }
     }
   ],
