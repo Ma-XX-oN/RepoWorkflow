@@ -13,6 +13,7 @@ from ._grammar import (
   validate_interaction,
   validate_interactions,
   validate_recording,
+  validate_reference_order,
   write_json_array,
 )
 from ._values import InterfaceMismatch, ValueEngine, resolve_type, type_name
@@ -39,6 +40,7 @@ class InterfacePlayback:
     self._cursor = 0
     self._pending: dict[str, Any] | None = None
     self._values = ValueEngine()
+    self._record_bound: set[str] = set()
     if source is not None:
       self.load(source)
 
@@ -62,6 +64,12 @@ class InterfacePlayback:
 
   def save(self, filename: str | Path) -> None:
     """Write the complete recording as an incrementally emitted JSON array."""
+    target = Path(filename)
+    if (
+      self._loaded_path is not None
+      and target.resolve() == self._loaded_path.resolve()
+    ):
+      return
     if self._loaded_path is not None:
       interactions = validate_interactions(
         iter(JsonArrayReader(self._loaded_path))
@@ -244,7 +252,11 @@ class InterfacePlayback:
     }
 
     filtered = normalize_python(filter_fn(deepcopy(observation)))
-    validate_interaction(filtered, len(self._recording))
+    index = len(self._recording)
+    validate_interaction(filtered, index)
+    bound = set(self._record_bound)
+    validate_reference_order(filtered, bound, index)
+    self._record_bound = bound
     self._recording.append(filtered)
 
     if actual_error is not None:
@@ -257,6 +269,7 @@ class InterfacePlayback:
     self._reader = None
     self._cursor = 0
     self._pending = None
+    self._record_bound = set()
     self._values.reset()
 
   def _peek(self) -> dict[str, Any]:
