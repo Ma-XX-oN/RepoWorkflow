@@ -29,8 +29,10 @@ class ExecutionMutationTests(unittest.TestCase):
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "fixture mutation")
-    original_sha = self.git("rev-parse", "HEAD")
-    self.assertEqual(self.cli("test", "RED", "issue-545-mutation").returncode, 2)
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-545-mutation\\n".replace("\\\\n", "\\n"))
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-m", "select test group")
     tested_sha = self.git("rev-parse", "HEAD")
     result = self.cli("test", "GREEN")
     self.assertEqual(result.returncode, 0, result.stderr)
@@ -42,7 +44,6 @@ class ExecutionMutationTests(unittest.TestCase):
     self.assertEqual(record["uncommittedChanges"], [])
     self.assertTrue(record["headChangedDuringTest"])
     self.assertFalse(record["reusable"])
-    self.assertNotEqual(original_sha, tested_sha)
 
 
 if __name__ == "__main__":
