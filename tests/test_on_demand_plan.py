@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,7 @@ class HostedPlanCandidateTests(unittest.TestCase):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     self.plan = module.plan_invocation
+    self.module = module
 
   def tearDown(self):
     self.temp.cleanup()
@@ -76,6 +78,26 @@ class HostedPlanCandidateTests(unittest.TestCase):
     result = self.plan(self.root)
     self.assertEqual(result["tested_sha"], self.candidate)
     self.assertEqual(result["stage"], "integration-testing")
+
+  def test_conflicting_independent_identity_is_rejected(self):
+    self.invoke(stage="regression-testing")
+    actual = self.module.resolve_invocation(
+      self.root, self.git("rev-parse", "HEAD"),
+    )
+    forged = dict(actual, candidate_sha="f" * 40)
+    with patch.object(self.module, "resolve_invocation", return_value=forged):
+      with self.assertRaisesRegex(Exception, "resolvers disagree"):
+        self.plan(self.root)
+
+  def test_invalid_independent_identity_fails_closed(self):
+    self.invoke(stage="integration-testing")
+    from repo_workflow.hosted_version_identity import HostedVersionError
+    with patch.object(
+      self.module, "resolve_invocation",
+      side_effect=HostedVersionError("invalid history"),
+    ):
+      with self.assertRaisesRegex(Exception, "identity proof failed"):
+        self.plan(self.root)
 
   def test_real_source_change_starts_new_candidate(self):
     self.invoke()
