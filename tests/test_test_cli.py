@@ -265,6 +265,36 @@ class TestCliContract(unittest.TestCase):
     records = [json.loads(line) for line in log.read_text().splitlines()]
     self.assertEqual(records[-1]["result"], "failed")
     self.assertFalse(records[-1]["groups"][0]["reused"])
+    self.assertFalse(records[-1]["reusable"])
+    self.assertIn("smoke_case.py", records[-1]["uncommittedChanges"])
+
+  def test_passing_dirty_local_evidence_is_recorded_but_never_reused(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    source = self.root / "smoke_case.py"
+    original = source.read_text()
+    source.write_text(original + "# uncommitted local change\n")
+    first = self.cli("test", "GREEN")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    first_record = json.loads(audit.read_text().strip())
+    self.assertEqual(first_record["result"], "succeeded")
+    self.assertFalse(first_record["reusable"])
+    self.assertIn("smoke_case.py", first_record["uncommittedChanges"])
+    source.write_text(original)
+    second = self.cli("test", "GREEN")
+    self.assertEqual(second.returncode, 0, second.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", second.stdout)
+    records = [json.loads(line) for line in audit.read_text().splitlines()]
+    self.assertEqual(records[-1]["uncommittedChanges"], [])
+    self.assertTrue(records[-1]["reusable"])
+    third = self.cli("test", "GREEN")
+    self.assertEqual(third.returncode, 0, third.stderr)
+    self.assertIn("Reusing valid PASS evidence", third.stdout)
 
   def test_green_changed_catalogue_or_candidate_reexecutes(self):
     self._catalogue(
