@@ -65,7 +65,16 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
     if current in observed:
       raise HostedVersionError("cyclic invocation lineage")
     observed.add(current)
+    parent = _single_parent(root, current) if depth == 0 else None
     marker = _marker(root, current)
+    if depth and marker is not None:
+      # An ordinary source commit can inherit a .ci/run file unchanged.
+      candidate_parents = _git(root, "rev-list", "--parents", "-n", "1", current).split()
+      if len(candidate_parents) != 2 or ".ci/run" not in _git(
+        root, "diff-tree", "--no-commit-id", "--name-only", "-r",
+        candidate_parents[1], current,
+      ).splitlines():
+        marker = None
     if marker is None:
       if depth == 0:
         raise HostedVersionError("not a hosted invocation")
@@ -110,8 +119,6 @@ def resolve_hosted_version(
   identity["test_version"] = None
   if identity["stage"] not in {"regression", "integration"}:
     return identity
-  branch = _git(root, "branch", "--contains", identity["candidate_sha"])
-  del branch  # Branch labels are not authorities; version must bind issue log.
   match = re.fullmatch(
     r"testResults-([1-9][0-9]*)\.jsonl", canonical_log.name,
   )
