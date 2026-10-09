@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import sys
 import unittest
 
 from repo_workflow.test_cli import run_test
@@ -62,8 +63,10 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
 
   def test_real_consumer_incomplete_creates_no_terminal_tag(self):
     helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
     td, root, fx = helper.make_consumer(
-      validation_body="raise SystemExit(2)\n",
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
     )
     with td:
       result = run_test(
@@ -72,10 +75,9 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
       )
       path = root / ".repoworkflow/validation/testResults-1.jsonl"
       record = json.loads(path.read_text().splitlines()[-1])
-      self.assertNotEqual(record["result"], "succeeded")
-      if record["result"] == "incomplete":
-        self.assertEqual(result, 2)
-        self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+      self.assertEqual(record["result"], "incomplete")
+      self.assertEqual(result, 2)
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
 
 
 if __name__ == "__main__":
