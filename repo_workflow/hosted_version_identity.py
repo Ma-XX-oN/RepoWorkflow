@@ -166,14 +166,16 @@ def resolve_hosted_version(
     owner = (record.get("testSHA"), kind)
     if not isinstance(owner[0], str) or not _SHA.fullmatch(owner[0]):
       raise HostedVersionError("invalid version candidate identity")
+    if record.get("result") not in {"succeeded", "failed", "incomplete"}:
+      raise HostedVersionError("version evidence has no valid result")
+    if record.get("result") == "incomplete":
+      continue  # No terminal allocation and no version consumed.
     prior = version_owners.get(version)
     if prior is not None and prior != owner:
       raise HostedVersionError("version evidence claimed by different candidate or phase")
     version_owners[version] = owner
     if owner[0] != identity["candidate_sha"]:
       continue
-    if record.get("result") not in {"succeeded", "failed", "incomplete"}:
-      raise HostedVersionError("version evidence has no valid result")
     source_branch = record.get("branch")
     if not isinstance(source_branch, str) or re.fullmatch(
       "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
@@ -181,8 +183,6 @@ def resolve_hosted_version(
       raise HostedVersionError("version evidence belongs to another branch")
     if kind != identity["stage"]:
       continue
-    if record.get("result") == "incomplete":
-      continue  # An unfinished attempt does not allocate a version.
     if record.get("headChangedDuringTest") is not False:
       raise HostedVersionError("version evidence candidate moved during test")
     if record.get("uncommittedChanges") != []:
