@@ -187,11 +187,23 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
 
-  def test_cross_phase_version_reuse_is_rejected(self):
-    self.issue_tag("PASS")
-    with self.assertRaisesRegex(TerminalTagError, "another phase"):
-      self.issue_tag("PASS", stage="integration")
-    self.assertEqual(len(self.git("tag", "--list").splitlines()), 1)
+  def test_same_task_version_produces_distinct_regression_and_prelim_tags(self):
+    regression = self.issue_tag("PASS")
+    record = {
+      "kind": "integration", "testVersion": VERSION,
+      "branch": "issue-545-test", "testSHA": self.candidate,
+      "result": "succeeded", "reusable": True,
+      "headChangedDuringTest": False, "uncommittedChanges": [],
+    }
+    with self.log.open("a") as handle:
+      handle.write(json.dumps(record) + "\n")
+    integration = self.issue_tag("PASS", stage="integration")
+    self.assertNotEqual(regression, integration)
+    self.assertEqual(integration, "v0.1.121-PRELIM-545.0.1")
+    self.assertEqual(
+      self.published(integration)["refs/tags/" + integration + "^{}"],
+      self.candidate,
+    )
 
   def test_false_pass_without_success_evidence_is_rejected(self):
     self.issue_tag("FAIL")
