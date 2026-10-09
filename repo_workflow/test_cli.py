@@ -325,6 +325,15 @@ def run_test(
     if remote:
       return request_remote(root, stage)
     command = group_command(root, selected)
+    match = re.fullmatch(
+      r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
+    )
+    if match is None:
+      raise TestCommandError("RED evidence requires an issue branch")
+    path = root / ".repoworkflow" / "validation" / (
+      "testResults-" + match.group(1) + ".jsonl"
+    )
+    before = _uncommitted_inputs(root, path)
     result = subprocess.run(
       command, cwd=root, text=True, capture_output=True, check=False,
       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
@@ -332,8 +341,33 @@ def run_test(
     if result.stdout:
       print(result.stdout, end="")
     if result.stderr:
-      import sys
       print(result.stderr, end="", file=sys.stderr)
+    dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
+    record = {
+      "timestamp": datetime.now(timezone.utc).isoformat(),
+      "testSHA": head_sha(root),
+      "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
+      "kind": "RED",
+      "result": "incomplete",
+      "reason": (
+        "expected-red-failure-not-demonstrated"
+        if result.returncode == 0
+        else "failure-not-classified-as-expected-red"
+      ),
+      "runner": "local",
+      "platform": {
+        "os": platform.system(), "runtime": platform.python_version(),
+      },
+      "uncommittedChanges": dirty,
+      "reusable": False,
+      "groups": [{
+        "group": selected, "exit_code": result.returncode,
+        "reused": False,
+      }],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+      handle.write(json.dumps(record, sort_keys=True) + "\n")
     if result.returncode == 0:
       raise TestCommandError("RED did not demonstrate the expected failure")
     raise TestCommandError(
