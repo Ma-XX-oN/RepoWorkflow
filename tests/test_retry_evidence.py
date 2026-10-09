@@ -89,11 +89,17 @@ class RetryEvidenceTests(unittest.TestCase):
         raise RuntimeError("failure")
     self.assertEqual(self.log.read_bytes(), original)
 
-  def test_operation_writing_new_evidence_fails_closed(self):
+  def test_operation_writing_new_evidence_fails_closed_without_data_loss(self):
     self.write_record()
+    original = self.log.read_bytes()
+    changed = json.dumps({"result": "unexpected"}) + "\n"
     with self.assertRaisesRegex(RetryEvidenceError, "changed"):
       with isolate_retry_evidence(self.root, 569):
-        self.write_record()
+        self.log.write_text(changed)
+    self.assertEqual(self.log.read_bytes(), original)
+    conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
+    self.assertEqual(len(conflicts), 1)
+    self.assertEqual(conflicts[0].read_text(), changed)
 
 
 if __name__ == "__main__":
