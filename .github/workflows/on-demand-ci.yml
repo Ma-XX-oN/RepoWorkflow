@@ -57,6 +57,14 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m pip install -r requirements.txt
+      - name: Restore issue branch identity at verified candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF_NAME" in
+            issue-[1-9]*) git switch -c "$GITHUB_REF_NAME" ;;
+            *) echo 'hosted testing requires an issue branch' >&2; exit 1 ;;
+          esac
       - name: Run selected stage through public test CLI
         shell: bash
         run: |
