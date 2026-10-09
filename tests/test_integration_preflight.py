@@ -30,8 +30,8 @@ class IntegrationPreflightTests(unittest.TestCase):
     sandbox.rmdir()
     advanced = self.cli("test", "integration")
     self.assertEqual(advanced.returncode, 2)
-    self.assertIn("preflight passed", advanced.stderr)
-    self.assertIn("not yet implemented", advanced.stderr)
+    self.assertIn("environment adapter", advanced.stderr)
+    self.assertNotIn("succeeded", advanced.stdout)
 
   def test_another_issues_sandbox_is_not_owned_by_current_issue(self):
     sandbox = self.root / ".ci" / "temp-tests" / "544"
@@ -39,7 +39,7 @@ class IntegrationPreflightTests(unittest.TestCase):
     (sandbox / "fixture.bin").write_bytes(b"x")
     result = self.cli("test", "integration")
     self.assertEqual(result.returncode, 2)
-    self.assertIn("preflight passed", result.stderr)
+    self.assertIn("environment adapter", result.stderr)
 
 
 if __name__ == "__main__":
