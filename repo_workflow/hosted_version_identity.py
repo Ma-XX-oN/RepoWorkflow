@@ -140,7 +140,7 @@ def resolve_hosted_version(
   if not canonical_log.exists():
     return identity
   versions = set()
-  phase_owners: dict[str, str] = {}
+  version_owners: dict[str, tuple[str, str]] = {}
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except (OSError, UnicodeError) as error:
@@ -152,8 +152,6 @@ def resolve_hosted_version(
       raise HostedVersionError("malformed version evidence") from error
     if not isinstance(record, dict):
       raise HostedVersionError("non-object version evidence")
-    if record.get("testSHA") != identity["candidate_sha"]:
-      continue
     kind = record.get("kind")
     if kind not in {"regression", "integration"}:
       continue
@@ -165,6 +163,15 @@ def resolve_hosted_version(
     version_match = _VERSION.fullmatch(version)
     if not version_match or version_match.group(1) != match.group(1):
       raise HostedVersionError("version issue does not match results log")
+    owner = (record.get("testSHA"), kind)
+    if not isinstance(owner[0], str) or not _SHA.fullmatch(owner[0]):
+      raise HostedVersionError("invalid version candidate identity")
+    prior = version_owners.get(version)
+    if prior is not None and prior != owner:
+      raise HostedVersionError("version evidence claimed by different candidate or phase")
+    version_owners[version] = owner
+    if owner[0] != identity["candidate_sha"]:
+      continue
     if record.get("result") not in {"succeeded", "failed", "incomplete"}:
       raise HostedVersionError("version evidence has no valid result")
     source_branch = record.get("branch")
@@ -172,10 +179,6 @@ def resolve_hosted_version(
       "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
     ) is None:
       raise HostedVersionError("version evidence belongs to another branch")
-    existing_phase = phase_owners.get(version)
-    if existing_phase is not None and existing_phase != kind:
-      raise HostedVersionError("version evidence reused across phases")
-    phase_owners[version] = kind
     if kind != identity["stage"]:
       continue
     if record.get("result") == "incomplete":
