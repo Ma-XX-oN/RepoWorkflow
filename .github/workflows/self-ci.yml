@@ -71,7 +71,7 @@ jobs:
         id: plan
         shell: bash
         env:
-          REQUESTED_TIER: ${{ github.event_name == 'workflow_dispatch' && inputs.validation_tier || '' }}
+          REQUESTED_TIER: ${{ github.head_ref == 'issue-583-platform-certification' && 'integration' || (github.event_name == 'workflow_dispatch' && inputs.validation_tier || '') }}
         run: |
           result="$(python scripts/self-ci-plan.py             --event "${{ github.event_name }}"             --ref "${{ github.ref }}"             --head-ref "${{ github.head_ref }}"             --classification "${{ needs.classify.outputs.validation }}"             --requested-tier "$REQUESTED_TIER")"
           echo "$result"
