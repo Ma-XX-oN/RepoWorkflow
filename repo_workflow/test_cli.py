@@ -254,10 +254,35 @@ def _run_group_set(
       if checker is not None and not path.exists()
       else None
     )
+    if remote_raw is not None:
+      accepted = reusable_local_group_passes(
+        path, stage=stage, revision=revision, fingerprint=fingerprint,
+        verify_hosted=checker, raw=remote_raw,
+      )
+      if set(groups).issubset(accepted):
+        # Materialise the authenticated original, not a new local PASS.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(remote_raw, encoding="utf-8")
+        for group in groups:
+          print("Reusing verified hosted PASS evidence for " + group)
+        return 0
     reusable = reusable_local_group_passes(
       path, stage=stage, revision=revision, fingerprint=fingerprint,
-      verify_hosted=checker, raw=remote_raw,
+      verify_hosted=checker,
     )
+    if checker is not None and set(groups).issubset(reusable):
+      # Preserve provider provenance: do not launder it into local PASS.
+      if any(
+        isinstance(record, dict)
+        and record.get("runner") == "github-actions"
+        and record.get("testSHA") == revision
+        for record in (
+          json.loads(line) for line in path.read_text().splitlines()
+        )
+      ):
+        for group in groups:
+          print("Reusing verified hosted PASS evidence for " + group)
+        return 0
   failures = []
   evidence = []
   for group in groups:
