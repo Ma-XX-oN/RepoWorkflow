@@ -63,6 +63,10 @@
       "issue-541-on-demand-workflow": {
         "type": "regression",
         "name": "tests.test_on_demand_workflow"
+      },
+      "issue-543-on-demand-ci-certification": {
+        "type": "regression",
+        "name": "tests.test_on_demand_ci_certification"
       }
     }
   ],
