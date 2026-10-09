@@ -92,7 +92,9 @@ class ExecutionMutationTests(unittest.TestCase):
       return "PASS"
 
     with patch("repo_workflow.test_cli.verify_local", side_effect=mutating_verify):
-      rc = run_test(self.root, "regression", remote=False, engine_root=self.root)
+      rc = run_test(
+        self.root, "regression", remote=False, engine_root=self.root / "engine",
+      )
     self.assertEqual(rc, 0)
     self.assertNotEqual(self.git("rev-parse", "HEAD"), candidate)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
