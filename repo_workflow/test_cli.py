@@ -72,7 +72,7 @@ def read_selection(root: Path) -> str | None:
   except FileNotFoundError:
     return None
   lines = raw.splitlines()
-  if len(lines) != 1 or raw != lines[0] + "\n" or not lines[0]:
+  if len(lines) != 1 or raw not in (lines[0], lines[0] + "\n") or not lines[0]:
     raise TestCommandError(
       ".ci/red-green.txt must contain exactly one test-group name"
     )
