@@ -1,5 +1,7 @@
 from pathlib import Path
 import runpy
+import subprocess
+import shutil
 import unittest
 
 GATE = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "release-gate.py"))
@@ -22,6 +24,21 @@ def lines(data):
   return [f"{name}\t{status}\n" for name, status in data.items()]
 
 class ReleaseGateTests(unittest.TestCase):
+  def test_release_shell_parses(self):
+    path = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "stable-release.yml"
+    content = path.read_text(encoding="utf-8")
+    marker = "        run: |\\n"
+    self.assertEqual(content.count(marker), 1)
+    script = content.split(marker, 1)[1]
+    self.assertTrue(script.startswith("          set -euo pipefail"))
+    if shutil.which("bash") is None:
+      self.skipTest("bash executable unavailable")
+    result = subprocess.run(
+      ["bash", "-n"], input=script, text=True, capture_output=True,
+      check=False,
+    )
+    self.assertEqual(result.returncode, 0, result.stderr)
+
   def test_integration_and_docs_pass(self):
     self.assertEqual(release_tier(lines(jobs())), "integration")
     self.assertEqual(release_tier(lines(jobs("docs"))), "docs")
