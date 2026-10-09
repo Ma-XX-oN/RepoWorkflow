@@ -103,6 +103,18 @@ class TerminalTagTests(unittest.TestCase):
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
     )
 
+  def test_local_only_tag_then_remote_publication_reuses_same_object(self):
+    tag = self.issue_tag("PASS", push=False)
+    local_ref = self.git("rev-parse", "refs/tags/" + tag)
+    self.assertEqual(self.published(tag), {})
+    self.assertEqual(self.issue_tag("PASS", push=False), tag)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), local_ref)
+    self.assertEqual(self.issue_tag("PASS", push=True), tag)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), local_ref)
+    self.assertEqual(
+      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
+    )
+
   def test_repeating_same_outcome_is_idempotent(self):
     tag = self.issue_tag("PASS")
     first = self.git("rev-parse", "refs/tags/" + tag)
