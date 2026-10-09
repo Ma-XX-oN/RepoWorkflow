@@ -238,7 +238,8 @@ def _handle_lanes(
     links = "--links" in tail
     debug = "--debug" in tail
     current_states = "--current" in tail
-    ignored = {"--refresh", "--current", "--links", "--debug"}
+    legend = "--legend" in tail
+    ignored = {"--refresh", "--current", "--legend", "--links", "--debug"}
     lane = next((x for x in tail if x not in ignored), None)
     if refresh:
       if words[1] == "list":
@@ -283,6 +284,9 @@ def _handle_lanes(
       ):
         print(line)
       diagnostics.phase("render", started)
+      if legend:
+        print()
+        print("Legend: ○ not_started  ● active  ◎ in_review  ✓ accepted  ♥ completed  ✕ aborted")
       _record_semantic_edges(root, diagnostics)
       if debug:
         print()
