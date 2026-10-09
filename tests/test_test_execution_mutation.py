@@ -52,14 +52,14 @@ class ExecutionMutationTests(unittest.TestCase):
     )
     source = self.root / "smoke_case.py"
     source.write_text(
-      "import subprocess\\n"
-      "import unittest\\n"
-      "from pathlib import Path\\n"
-      "class Smoke(unittest.TestCase):\\n"
-      "  def test_commit(self):\\n"
-      "    Path('generated.txt').write_text('changed\\\\n')\\n"
-      "    subprocess.run(['git','add','generated.txt'],check=True)\\n"
-      "    subprocess.run(['git','commit','-qm','generated'],check=True)\\n"
+      "import subprocess\n"
+      "import unittest\n"
+      "from pathlib import Path\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_commit(self):\n"
+      "    Path('generated.txt').write_text('changed\\n')\n"
+      "    subprocess.run(['git','add','generated.txt'],check=True)\n"
+      "    subprocess.run(['git','commit','-qm','generated'],check=True)\n"
     )
     selection = self.root / ".ci/red-green.txt"
     selection.write_text("issue-545-mutation\\n")
