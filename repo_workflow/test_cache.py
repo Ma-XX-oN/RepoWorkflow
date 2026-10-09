@@ -14,12 +14,18 @@ from typing import Callable
 def reusable_local_group_passes(
   path: Path, *, stage: str, revision: str, fingerprint: str,
   verify_hosted: Callable[[dict], bool] | None = None,
+  raw: str | None = None,
 ) -> set[str]:
-  if not path.exists():
-    return set()
+  if raw is None:
+    if not path.exists():
+      return set()
+    try:
+      raw = path.read_text(encoding="utf-8")
+    except OSError:
+      return set()
   latest: dict[str, bool] = {}
   try:
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in raw.splitlines():
       record = json.loads(line)
       if not isinstance(record, dict):
         return set()
