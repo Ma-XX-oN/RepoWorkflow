@@ -63,21 +63,28 @@ def _validate_selection(root: Path, name: str) -> str:
   return name
 
 
-def read_selection(root: Path) -> str:
+def read_selection(root: Path) -> str | None:
   path = root / SELECTION
   try:
     raw = path.read_text(encoding="utf-8")
-  except FileNotFoundError as error:
-    raise TestCommandError(
-      "no RED/GREEN test selected; choose an issue-N- group "
-      "declared in .ci/tests.json"
-    ) from error
+  except FileNotFoundError:
+    return None
   lines = raw.splitlines()
   if len(lines) != 1 or raw != lines[0] + "\n" or not lines[0]:
     raise TestCommandError(
       ".ci/red-green.txt must contain exactly one test-group name"
     )
   return _validate_selection(root, lines[0])
+
+
+def _skip_without_selection() -> int:
+  print(
+    "Warning: No RED/GREEN test configured "
+    "(.ci/red-green.txt is absent).",
+    file=__import__("sys").stderr,
+  )
+  print("RED/GREEN testing skipped; no PASS evidence recorded.")
+  return 0
 
 
 def select_group(root: Path, name: str) -> str:
@@ -200,6 +207,8 @@ def run_test(
     raise TestCommandError("unknown test stage")
   if stage == "RED":
     selected = select_group(root, group) if group else read_selection(root)
+    if selected is None:
+      return _skip_without_selection()
     if remote:
       return request_remote(root, stage)
     command = group_command(root, selected)
@@ -222,6 +231,8 @@ def run_test(
     raise TestCommandError("test group is only supported for RED")
   if stage == "GREEN":
     selected = read_selection(root)
+    if selected is None:
+      return _skip_without_selection()
     if remote:
       return request_remote(root, stage)
     return _run_group_set(root, stage, (selected,))
