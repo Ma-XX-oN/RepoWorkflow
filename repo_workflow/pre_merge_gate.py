@@ -10,6 +10,9 @@ import re
 import subprocess
 
 from .results import collect_results, evaluate_results
+from .test_evidence_gate import (
+  CanonicalEvidenceError, require_integration_evidence,
+)
 
 
 _SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -37,6 +40,8 @@ def check_pre_merge_candidate(
   results_dir: Path,
   config: dict,
   version: str,
+  canonical_log: Path,
+  required_platforms: tuple[str, ...],
 ) -> None:
   """Check facts without changing repository state.
 
@@ -68,6 +73,17 @@ def check_pre_merge_candidate(
   )
   if ancestry.returncode:
     raise PreMergeGateError("integration blocked: candidate excludes parent tip")
+
+  try:
+    require_integration_evidence(
+      canonical_log,
+      candidate=candidate_sha,
+      required_platforms=required_platforms,
+    )
+  except CanonicalEvidenceError as error:
+    raise PreMergeGateError(
+      "integration blocked: " + str(error)
+    ) from error
 
   outcome, _tag, warnings = evaluate_results(
     config,
