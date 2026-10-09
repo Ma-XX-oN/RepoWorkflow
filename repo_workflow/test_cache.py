@@ -28,7 +28,7 @@ def reusable_local_group_passes(
       ):
         continue
       groups = record.get("groups")
-      if not isinstance(groups, list):
+      if not isinstance(groups, list) or not groups:
         return set()
       valid = (
         record.get("result") == "succeeded"
