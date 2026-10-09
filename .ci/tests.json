@@ -107,6 +107,10 @@
       "issue-545-red-evidence": {
         "type": "regression",
         "name": "tests.test_red_evidence"
+      },
+      "issue-545-integration-preflight": {
+        "type": "regression",
+        "name": "tests.test_integration_preflight"
       }
     }
   ],
