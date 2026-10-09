@@ -99,7 +99,7 @@ def merge_protected_pr(
     return merged_sha
   except PreMergeGateError:
     raise
-  except (KeyError, TypeError, ValueError, OSError) as error:
+  except (AttributeError, KeyError, TypeError, ValueError, OSError) as error:
     raise PreMergeGateError(
       "integration blocked: GitHub protection/merge unavailable"
     ) from error
