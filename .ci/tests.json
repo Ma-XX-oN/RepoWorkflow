@@ -144,6 +144,14 @@
         "type": "regression",
         "name": "tests.test_consumer_terminal_lifecycle"
       },
+      "issue-570-hosted-version-identity": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_identity"
+      },
+      "issue-571-terminal-phase": {
+        "type": "regression",
+        "name": "tests.test_phase_terminal"
+      },
       "issue-569-retry-evidence": {
         "type": "regression",
         "name": "tests.test_retry_evidence"
