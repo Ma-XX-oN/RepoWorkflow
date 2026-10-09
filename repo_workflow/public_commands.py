@@ -344,6 +344,7 @@ COMMANDS = {
       "_switches": {
         "--refresh": "Refresh selected lane data before rendering",
         "--current": "Refresh ticket lifecycle states into tickets.csv",
+        "--legend": "Show the six lifecycle symbols beneath the graph",
         "--debug": "Show lane data sources, timings, and semantic edges",
       },
     },
