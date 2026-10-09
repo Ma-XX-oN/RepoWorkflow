@@ -37,3 +37,28 @@ def hosted_cache_checker(root: Path, stage: str) -> Callable[[dict], bool] | Non
   return lambda record: verify_hosted_stage(
     record, repo=repo, stage=provider_stage,
   )
+
+
+def read_remote_published_log(
+  root: Path, *, branch: str, relative: str,
+) -> str | None:
+  """Read already published results without requesting another test cycle."""
+  if re.fullmatch(r"issue-[1-9][0-9]*(?:-[A-Za-z0-9_.-]+)?", branch) is None:
+    return None
+  if re.fullmatch(
+    r"[.]repoworkflow/validation/testResults-[1-9][0-9]*[.]jsonl",
+    relative,
+  ) is None:
+    return None
+  fetched = subprocess.run(
+    ["git", "-C", str(root), "fetch", "--no-tags", "origin",
+     "refs/heads/" + branch],
+    text=True, capture_output=True, check=False,
+  )
+  if fetched.returncode:
+    return None
+  showed = subprocess.run(
+    ["git", "-C", str(root), "show", "FETCH_HEAD:" + relative],
+    text=True, capture_output=True, check=False,
+  )
+  return showed.stdout if showed.returncode == 0 else None
