@@ -52,6 +52,8 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
         field in record for field in ("testSHA", "kind", "result", "runner")
       ):
         raise RetryEvidenceError("canonical log record is incomplete")
+  except RetryEvidenceError:
+    raise
   except (OSError, UnicodeError, ValueError) as error:
     raise RetryEvidenceError("canonical retry evidence is invalid") from error
 
