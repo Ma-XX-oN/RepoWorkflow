@@ -78,6 +78,19 @@ class TicketStateTests(unittest.TestCase):
     self.assertEqual(changed.states["10"].lifecycle_revision, 0)
     self.assertEqual(changed.states["20"].state, "not_started")
 
+  def test_unstarted_alias_record_has_a_valid_cached_revision(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    lifecycle = LifecycleStore(self.root)
+    tagged = lifecycle.set_high_risk_aliases(
+      10, ["graph-renderer"], self.writer, None,
+    )
+    self.assertEqual(tagged.lifecycle.state, "not_started")
+    self.assertEqual(tagged.revision, 0)
+    refreshed = store.refresh_states(self.writer)
+    self.assertEqual(refreshed.states["10"].state, "not_started")
+    self.assertEqual(refreshed.states["10"].lifecycle_revision, 0)
+
   def test_graph_replacement_preserves_cached_status(self):
     store = RelationshipStore(self.root)
     store.create(self.graph(), self.writer)
