@@ -187,11 +187,18 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
 
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
   # The append-only evidence log does not count as a changed test input.
-  status = _git(root, "status", "--porcelain", "--untracked-files=all")
+  status = subprocess.run(
+    ["git", "-C", str(root), "status", "--porcelain", "-z",
+     "--untracked-files=all"],
+    capture_output=True, check=False,
+  )
+  if status.returncode:
+    raise TestCommandError("cannot inspect working-tree changes")
   relative_evidence = evidence_path.relative_to(root).as_posix()
+  entries = status.stdout.decode("utf-8", errors="surrogateescape").split("\0")
   return sorted({
-    line[3:] for line in status.splitlines()
-    if line and line[3:] != relative_evidence
+    entry[3:] for entry in entries
+    if entry and entry[3:] != relative_evidence
   })
 
 
