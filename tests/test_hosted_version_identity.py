@@ -119,6 +119,20 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence(kind="integration", testVersion="0.1.121-issue.570.0.3")
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
 
+  def test_conflicting_pass_and_fail_for_same_terminal_version(self):
+    sha = self.invoke()
+    self.evidence(result="succeeded")
+    self.evidence(result="failed")
+    with self.assertRaisesRegex(HostedVersionError, "conflicting terminal"):
+      resolve_hosted_version(self.root, sha, self.log)
+
+  def test_repeated_identical_terminal_outcome_is_idempotent(self):
+    sha = self.invoke()
+    self.evidence(result="succeeded")
+    self.evidence(result="succeeded")
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
+                     VERSION)
+
   def test_conflicting_versions_are_rejected(self):
     sha = self.invoke()
     self.evidence()
