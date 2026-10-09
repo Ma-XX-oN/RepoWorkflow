@@ -91,7 +91,7 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
 
   def test_side_effect_check_runs_after_test_failure(self):
     section = self.text.split(
-      "      - name: Verify only canonical test-results log changed", 1,
+      "        name: Verify only canonical test-results log changed", 1,
     )[1].split("\n  argv-limits:", 1)[0]
     self.assertIn("if: ${{ always() }}", section)
 
