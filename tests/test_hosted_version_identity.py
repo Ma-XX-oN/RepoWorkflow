@@ -140,7 +140,7 @@ class HostedIdentityTests(unittest.TestCase):
     (self.root / "source").write_text("next source\n")
     self.git("add", "source")
     self.git("commit", "-qm", "source with unchanged marker")
-    with self.assertRaisesRegex(HostedVersionError, "non-marker"):
+    with self.assertRaisesRegex(HostedVersionError, "immediate parent|non-marker"):
       resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
 
   def test_temporary_marker_uses_public_stage_spelling(self):
