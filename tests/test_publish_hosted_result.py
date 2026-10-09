@@ -90,6 +90,7 @@ class PublishHostedResultTests(unittest.TestCase):
     self._git("commit", "-m", "previous accepted result")
     self.candidate = self._git("rev-parse", "HEAD")
     marker = self.root / ".ci/run"
+    marker.parent.mkdir(exist_ok=True)
     marker.write_text("GREEN-testing " + self.candidate + "\n")
     self._git("add", ".ci/run")
     self._git("commit", "-m", "invoke second test")
