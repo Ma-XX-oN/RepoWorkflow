@@ -261,11 +261,12 @@ def ensure_relationship_rules(
         if dependant not in seen:
           pending.append(dependant)
 
-  # Refresh provider calls in stable issue order, independent of seed input order.
-  visit_rules = (
-    tuple(sorted(all_rules, key=lambda rule: int(rule.seed)))
-    if refresh else all_rules
-  )
+  # On refresh, reconcile already-known closure before walking seed rules.
+  # This avoids seed traversal order determining the provider's read order.
+  if refresh:
+    for issue in sorted(issues, key=int):
+      load(issue, force_provider=True)
+  visit_rules = all_rules
   for rule in visit_rules:
     force_provider = refresh or (
       partial
