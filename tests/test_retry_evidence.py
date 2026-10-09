@@ -93,7 +93,7 @@ class RetryEvidenceTests(unittest.TestCase):
 
   def test_valid_json_with_missing_fields_is_rejected(self):
     self.log.write_text(json.dumps({"result": "incomplete"}) + "\n")
-    with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
+    with self.assertRaisesRegex(RetryEvidenceError, "incomplete"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("missing required provenance must fail")
 
