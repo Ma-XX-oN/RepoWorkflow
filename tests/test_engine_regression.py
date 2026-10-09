@@ -24,6 +24,34 @@ class EngineRegressionTests(unittest.TestCase):
       f"sys.exit({exit_code})\n"
     )
 
+  def test_consumer_prepared_commit_is_the_tested_candidate(self):
+    before = self.git("rev-parse", "HEAD")
+    prepared = []
+
+    def prepare_and_verify(*args, **kwargs):
+      (self.root / "prepared.txt").write_text("candidate prepared\n")
+      self.git("add", "prepared.txt")
+      self.git("commit", "-qm", "prepare authoritative candidate")
+      prepared.append(self.git("rev-parse", "HEAD"))
+      return "PASS"
+
+    with patch(
+      "repo_workflow.test_cli.verify_local",
+      side_effect=prepare_and_verify,
+    ):
+      result = run_test(
+        self.root, "regression", remote=False,
+        engine_root=self.root.parent / "consumer-engine",
+      )
+    self.assertEqual(result, 0)
+    self.assertNotEqual(prepared[0], before)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    entry = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(entry["testSHA"], prepared[0])
+    self.assertEqual(entry["sourceSHA"], before)
+    self.assertFalse(entry["headChangedDuringTest"])
+    self.assertTrue(entry["reusable"])
+
   def test_engine_checkout_runs_self_suite_and_records_exact_sha(self):
     self._script(0)
     before = self.git("rev-parse", "HEAD")
