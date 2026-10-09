@@ -5,6 +5,10 @@ CI, branch policy, validation, generated artifacts, candidate bookkeeping, and
 terminal result tagging. It is consumed as a Git submodule named `RepoWorkflow`
 in each repository.
 
+[REPOWORKFLOW_OVERVIEW.md](REPOWORKFLOW_OVERVIEW.md) explains the broader RWF
+model: what it is, the engineering disciplines it combines, and how those
+ideas improve decomposition, testing, scheduling, integration, and completion.
+
 The central boundary is:
 
 > GitHub workflow YAML is only a bootstrap. Repository workflow logic must remain
@@ -210,6 +214,8 @@ methodology.
 
 ## Documentation
 
+- [REPOWORKFLOW_OVERVIEW.md](REPOWORKFLOW_OVERVIEW.md) explains what RWF is,
+  what it improves, and how it combines established engineering disciplines.
 - [DESIGN.md](DESIGN.md) defines the architecture and invariants.
 - [COLLABORATIVE_DESIGN_REVIEW.md](COLLABORATIVE_DESIGN_REVIEW.md) defines
   a project-neutral discipline for evaluating design proposals against accepted
@@ -227,6 +233,9 @@ methodology.
 - [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) defines the
   repository-neutral method for decomposing issues into testable interfaces,
   direct dependency interfaces, and executable dependency graphs.
+- [EXECUTABLE_INTERFACE_CONTRACTS.md](EXECUTABLE_INTERFACE_CONTRACTS.md)
+  proposes deterministic executable interface contracts for parallel
+  provider/consumer work, verification, and replay.
 - [TICKET_STATE.md](TICKET_STATE.md) defines the canonical synchronized
   ticket file and the mandatory ticket-creation/dependency-recording workflow.
 - [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md) defines the versioned direct

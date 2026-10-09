@@ -29,23 +29,55 @@ Contract tests should precede provider implementations where practical.
 Provider implementations should be tested against the same semantic contract,
 not only against provider-specific examples.
 
+## 1.1 Interface-first provider/consumer testing
+
+When a direct dependency exists only because a consumer needs a provider
+interface, consider extracting that interface before implementation.
+
+A predefined executable interface can then support three separate test layers:
+
+1. provider conformance tests against the real implementation;
+2. consumer tests against deterministic replay of the same interface;
+3. real integration tests after both sides independently conform.
+
+This can make tests smaller and more diagnostic while also allowing provider
+and consumer implementation work to proceed in parallel.
+
+More importantly, defining the interface before implementation creates an
+independent test basis before either side can bias the oracle toward its own
+code.  Designing scenarios early can expose ambiguous responsibilities,
+missing states, invalid cases, awkward sequencing, and incomplete failure
+semantics before those problems become implementation defects.
+
+The technique remains useful when work ultimately executes serially.  Its
+design and testing value does not depend on speculative execution.
+
+The executable contract proposal is defined in
+[EXECUTABLE_INTERFACE_CONTRACTS.md](EXECUTABLE_INTERFACE_CONTRACTS.md).
+Universal adequacy requirements in [TEST_ADEQUACY.md](TEST_ADEQUACY.md) still
+apply.
+
 ## 2. A practical decomposition procedure
 
 When restructuring an existing backlog:
 
 1. Write the outcome of each broad ticket in one sentence.
-2. Identify independently testable contracts or state transitions inside it.
-3. Turn those contracts/transitions into candidate executable tickets.
-4. For each executable ticket, write interface, preconditions, postconditions,
+2. Inspect inside each ticket for multiple independently testable contracts,
+   state transitions, or coding boundaries.
+3. Split when doing so improves test isolation, implementation decoupling,
+   independent verification, interface clarity, or reduces reasoning
+   complexity; never split for size alone.
+4. Turn the resulting contracts/transitions into candidate executable tickets.
+5. For each executable ticket, write interface, preconditions, postconditions,
    invariants, failure behaviour, and direct blockers.
-5. Inspect every dependency that is difficult to state directly.
-6. Extract missing interfaces or shared prerequisites where necessary.
-7. Add only direct dependencies that represent exact required inputs/results.
-8. Remove redundant transitive dependency edges.
-9. Recalculate ready, blocked, and parallel-ready tickets.
-10. Check whether cleanup/reconciliation is represented explicitly.
-11. Check whether local context has been confused with durable shared state.
-12. Re-run the decomposition test until every executable ticket has a clean
+6. Inspect every dependency that is difficult to state directly.
+7. Extract missing interfaces or shared prerequisites where necessary.
+8. Add only direct dependencies that represent exact required inputs/results.
+9. Remove redundant transitive dependency edges.
+10. Recalculate ready, blocked, and parallel-ready tickets.
+11. Check whether cleanup/reconciliation is represented explicitly.
+12. Check whether local context has been confused with durable shared state.
+13. Re-run the decomposition test until every executable ticket has a clean
     completion boundary.
 
 Descriptive `Initiative:`, `Epic:`, and `Feature:` tickets may document
@@ -64,8 +96,11 @@ Before accepting a ticket as executable work, ask:
 - Is failure/rollback behaviour defined?
 - Can it be tested without first implementing an unrelated presentation layer?
 - Does it depend only on exact interfaces it consumes?
-- Would splitting it further reveal a genuinely reusable/testable contract,
-  rather than merely making smaller tickets?
+- Does it contain more than one independently testable contract or coding
+  boundary?
+- Would splitting improve test isolation, implementation decoupling,
+  independent verification, interface clarity, or reduce the amount of state
+  and interacting behaviour that must be reasoned about at once?
 
 If the final answer is no, the ticket likely needs another decomposition pass.
 

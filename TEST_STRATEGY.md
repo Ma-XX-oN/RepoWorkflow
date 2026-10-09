@@ -72,6 +72,21 @@ but issue or regression evidence must never masquerade as integration evidence.
 Every CI plan records the selected tier, selected groups where applicable, and
 the reason for that selection.
 
+### 1.2 Executable interface-contract testing
+
+RepoWorkflow may use executable interface contracts where a provider and
+consumer share a predefined boundary.
+
+Use the same contract in two directions:
+
+- verify the real provider with pre-call and post-call checks;
+- test the consumer with deterministic replay of scripted outputs/errors.
+
+These tests supplement, rather than replace, real integration coverage.  The
+repository-neutral adequacy rules are defined in
+[TEST_ADEQUACY.md](TEST_ADEQUACY.md), and the proposed mechanism is described
+in [EXECUTABLE_INTERFACE_CONTRACTS.md](EXECUTABLE_INTERFACE_CONTRACTS.md).
+
 ## 2. Cross-cutting tests
 
 These tests apply across implementation stages.

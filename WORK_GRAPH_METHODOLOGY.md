@@ -40,10 +40,11 @@ this remains the source for repository-neutral decomposition and graph semantics
 A leaf is well-formed when it owns one coherent contract or state transition
 with a clear completion boundary.
 
-A leaf may contain substantial implementation work and still be valid if its
-interface remains singular.  A small issue may still be poorly decomposed when
-it mixes several independently testable responsibilities.
-
+A leaf may contain substantial implementation work if its interface remains
+singular.  A small issue may still contain multiple independently testable
+contracts or coding boundaries.  Split when that improves isolation,
+decoupling, verification, interface clarity, or reduces reasoning/state-space
+complexity—not merely ticket size.
 Useful split boundaries include:
 
 - semantic contract versus implementation;
@@ -58,9 +59,8 @@ Useful split boundaries include:
 - candidate preparation versus result finalization;
 - creation versus later cleanup/reconciliation.
 
-When two responsibilities have different preconditions, postconditions,
-failure behaviour, or independent consumers, they are strong candidates for
-separate leaves.
+Different preconditions, postconditions, failure behaviour, or consumers are
+strong evidence for separate leaves.
 
 ## 3. The leaf contract
 
@@ -300,24 +300,33 @@ depend directly only on the concrete tickets whose outputs they require.
 This prevents duplicate implementations and unnecessary serialization without
 introducing a second machine-readable ownership graph.
 
-## 8. Separate contract, dispatcher, and provider implementation
+## 8. Use interfaces to improve design, testing, and execution
 
-Provider boundaries are especially prone to poor decomposition.
+During decomposition, actively look for a provider/consumer interface that can
+be defined before implementation.  It may already exist or be newly designed.
 
-Prefer:
+Interface-first decomposition is valuable even before scheduling is considered.
+It forces responsibilities, assumptions, inputs, outputs, failure behaviour,
+and invariants to be stated early enough to expose design ambiguity before code
+is written.  The same contract can provide an independent basis for provider
+tests, consumer tests, and later integration tests.
+
+A predefined interface may also turn a serial dependency into independently
+testable work and enable speculative execution.
 
 ```text
 semantic contract
-   ├── dispatcher / invocation layer
+   ├── dispatcher / consumer implementation
    ├── provider A implementation
    └── provider B implementation
 ```
 
-Once the contract is frozen, dispatcher and provider implementations may often
-proceed in parallel.
+A decomposition boundary may be provisional.  After any related serial or
+parallel ticket sequence converges, review whether to retain the interface,
+consolidate code paths, or expose a higher-level durable interface that hides
+fragile sequencing.  The grouping need not have had a Feature/Epic label.
 
-The portable contract must not leak provider-specific payloads, names, runner
-labels, event structures, or authentication mechanics.
+The portable contract must not leak provider-specific payloads or mechanics.
 
 ## 9. Separate presentation from semantics
 
