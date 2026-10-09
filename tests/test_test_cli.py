@@ -255,9 +255,21 @@ class TestCliContract(unittest.TestCase):
           self.assertEqual(missing.returncode, 0, missing.stderr)
           self.assertIn("Warning:", missing.stderr)
           self.assertIn("testing skipped", missing.stdout)
-          self.assertFalse(
-            (self.root / ".repoworkflow/validation/testResults-545.jsonl").exists()
-          )
+          log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+          self.assertTrue(log.exists())
+          records = [json.loads(line) for line in log.read_text().splitlines()]
+          self.assertEqual(len(records), (
+            ("RED", "GREEN").index(command) * 2 + int(remote) + 1
+          ))
+          record = records[-1]
+          self.assertEqual(record["result"], "SKIPPED")
+          self.assertEqual(record["kind"], command)
+          self.assertEqual(record["testSHA"], self.source)
+          self.assertEqual(record["warning"], missing.stderr.strip())
+          self.assertEqual(record["reason"], "selection-file-absent")
+          self.assertEqual(record["requested_remote"], remote)
+          self.assertEqual(record["groups"], [])
+          self.assertTrue(all(x["result"] != "succeeded" for x in records))
           self.assertFalse((self.root / ".ci/run").exists())
           self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
     selection = self.root / ".ci/red-green.txt"
