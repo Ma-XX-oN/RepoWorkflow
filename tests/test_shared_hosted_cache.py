@@ -103,6 +103,22 @@ class SharedHostedCacheTests(unittest.TestCase):
     self.assertFalse(json.loads(log.read_text().splitlines()[-1])[
       "groups"][0]["reused"])
 
+  def test_dirty_worktree_cannot_reuse_verified_remote_pass(self):
+    self.prepare()
+    (self.root / "README").write_text("dirty source edit\n")
+    with patch(
+      "repo_workflow.test_cli.hosted_cache_checker",
+      return_value=lambda record: True,
+    ):
+      self.assertEqual(run_test(
+        self.root, "GREEN", remote=False, engine_root=self.root,
+      ), 0)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    result = json.loads(log.read_text().splitlines()[-1])
+    self.assertFalse(result["groups"][0]["reused"])
+    self.assertFalse(result["reusable"])
+    self.assertIn("README", result["uncommittedChanges"])
+
   def test_mismatched_candidate_does_not_reuse_remote_pass(self):
     self.prepare(stale=True)
     with patch(
