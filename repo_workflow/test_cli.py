@@ -181,6 +181,7 @@ def results(root: Path, *, remote: bool) -> int:
       raise TestCommandError("testing log is unavailable") from error
   if not raw.strip():
     raise TestCommandError("testing log has no recorded results")
+  validated = []
   for line in raw.splitlines():
     try:
       record = json.loads(line)
@@ -190,6 +191,8 @@ def results(root: Path, *, remote: bool) -> int:
       field in record for field in ("testSHA", "kind", "result", "runner")
     ):
       raise TestCommandError("incomplete testing log record")
+    validated.append(record)
+  for record in validated:
     print(json.dumps(record, sort_keys=True))
   return 0
 
