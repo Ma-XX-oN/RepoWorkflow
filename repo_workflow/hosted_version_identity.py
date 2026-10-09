@@ -201,6 +201,8 @@ def resolve_hosted_version(
     if record.get("result") not in {"succeeded", "failed", "incomplete"}:
       raise HostedVersionError("version evidence has no valid result")
     if record.get("result") == "incomplete":
+      if (version, kind) in terminal_outcomes:
+        raise HostedVersionError("incomplete result after terminal outcome")
       continue  # No terminal allocation and no version consumed.
     namespace = (version, kind)
     prior = version_owners.get(namespace)
