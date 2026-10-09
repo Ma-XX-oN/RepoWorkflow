@@ -63,6 +63,57 @@ class PhaseTerminalTests(unittest.TestCase):
     self.assertEqual(first, plan_phase(VERSION, phase="regression", outcome="FAIL"))
     self.assertEqual(first.current_version, VERSION)
 
+  def test_full_regression_integration_retry_lifecycle(self):
+    first = plan_phase(VERSION, phase="regression", outcome="FAIL")
+    self.assertEqual(first.terminal_tag, "v" + VERSION + "-CI-FAIL")
+    second = plan_phase(first.next_version, phase="regression", outcome="PASS")
+    self.assertEqual(second.next_version, "1.2.3-issue.571.2.8")
+    third = plan_phase(second.next_version, phase="integration", outcome="FAIL")
+    self.assertEqual(third.terminal_tag, "v1.2.3-PRELIM-571.2.8-CI-FAIL")
+    self.assertEqual(third.next_version, "1.2.3-issue.571.3.1")
+    fourth = plan_phase(third.next_version, phase="regression", outcome="PASS")
+    fifth = plan_phase(fourth.next_version, phase="integration", outcome="PASS")
+    self.assertEqual(fifth.terminal_tag, "v1.2.3-PRELIM-571.3.1")
+    self.assertEqual(fifth.next_version, fourth.next_version)
+    self.assertEqual(len({
+      first.terminal_tag, second.terminal_tag,
+      third.terminal_tag, fourth.terminal_tag, fifth.terminal_tag,
+    }), 5)
+
+  def test_immutable_terminal_repeat_and_opposite_outcome(self):
+    for phase in ("regression", "integration"):
+      for terminal in ("PASS", "FAIL"):
+        with self.subTest(phase=phase, terminal=terminal):
+          first = plan_phase(VERSION, phase=phase, outcome=terminal)
+          repeat = plan_phase(
+            VERSION, phase=phase, outcome=terminal, prior_terminal=terminal,
+          )
+          self.assertEqual(first, repeat)
+          opposite = "FAIL" if terminal == "PASS" else "PASS"
+          with self.assertRaisesRegex(PhaseTransitionError, "immutable"):
+            plan_phase(
+              VERSION, phase=phase, outcome=opposite, prior_terminal=terminal,
+            )
+          with self.assertRaisesRegex(PhaseTransitionError, "immutable"):
+            plan_phase(
+              VERSION, phase=phase, outcome="INCOMPLETE",
+              prior_terminal=terminal,
+            )
+
+  def test_non_terminal_retry_can_complete_without_increment(self):
+    for phase in ("regression", "integration"):
+      first = plan_phase(VERSION, phase=phase, outcome="INCOMPLETE")
+      terminal = plan_phase(
+        first.next_version, phase=phase, outcome="PASS",
+      )
+      self.assertIsNone(first.terminal_tag)
+      self.assertEqual(terminal.next_version, VERSION)
+      with self.assertRaisesRegex(PhaseTransitionError, "prior"):
+        plan_phase(
+          VERSION, phase=phase, outcome="PASS",
+          prior_terminal="INCOMPLETE",
+        )
+
   def test_invalid_phase_outcome_and_version_fail(self):
     for phase in ("RED", "GREEN", "temporary", "results", ""):
       with self.subTest(phase=phase):
