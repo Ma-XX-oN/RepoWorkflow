@@ -5,7 +5,9 @@ import base64
 from copy import deepcopy
 import unittest
 
-from repo_workflow.github_evidence import verify_hosted_integration
+from repo_workflow.github_evidence import (
+  verify_hosted_integration, verify_hosted_stage,
+)
 
 
 SHA = "a" * 40
@@ -76,6 +78,34 @@ class HostedIntegrationProviderTests(unittest.TestCase):
         responses = deepcopy(self.responses)
         responses[BASE + "/actions/runs/123"][field] = value
         self.assertFalse(self.verify(responses=responses))
+
+  def test_green_and_temporary_provider_are_verifiable_without_matrix(self):
+    jobs_url = BASE + "/actions/runs/123/jobs?per_page=100"
+    marker_url = BASE + "/contents/.ci/run?ref=" + INVOCATION
+    for stage in ("GREEN-testing", "temp-testing", "regression-testing"):
+      with self.subTest(stage=stage):
+        record = {**self.record, "providerStage": stage}
+        responses = deepcopy(self.responses)
+        responses[jobs_url]["jobs"] = [
+          {"name": "plan", "conclusion": "success"},
+          {"name": "validate", "conclusion": "success"},
+        ]
+        responses[jobs_url]["total_count"] = 2
+        responses[marker_url]["content"] = base64.b64encode(
+          (stage + " " + SHA + "\n").encode(),
+        ).decode()
+        self.assertTrue(verify_hosted_stage(
+          record, repo=REPO, stage=stage,
+          read=lambda url: responses[url],
+        ))
+        self.assertFalse(verify_hosted_integration(
+          record, repo=REPO, read=lambda url: responses[url],
+        ))
+        responses[jobs_url]["jobs"][1]["conclusion"] = "failure"
+        self.assertFalse(verify_hosted_stage(
+          record, repo=REPO, stage=stage,
+          read=lambda url: responses[url],
+        ))
 
   def test_missing_skipped_or_duplicate_matrix_job_fails(self):
     jobs_url = BASE + "/actions/runs/123/jobs?per_page=100"
