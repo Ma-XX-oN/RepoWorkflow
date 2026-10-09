@@ -72,6 +72,15 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn('git switch -c "$GITHUB_REF_NAME"', section)
     self.assertIn("hosted testing requires an issue branch", section)
 
+  def test_hosted_runner_allows_only_canonical_evidence_side_effect(self):
+    self.assertIn("Verify only canonical test-results log changed", self.text)
+    self.assertIn(
+      '".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"',
+      self.text,
+    )
+    self.assertIn("unexpected hosted test side effect", self.text)
+    self.assertNotIn("Verify validation did not change checkout", self.text)
+
   def test_unimplemented_stages_fail_closed(self):
     for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
       self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
