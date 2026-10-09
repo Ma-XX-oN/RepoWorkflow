@@ -142,6 +142,13 @@ class HostedIntegrationProviderTests(unittest.TestCase):
         ] = base64.b64encode(marker_text.encode()).decode()
         self.assertFalse(self.verify(responses=responses))
 
+  def test_github_line_wrapped_base64_marker_is_accepted(self):
+    responses = deepcopy(self.responses)
+    url = BASE + "/contents/.ci/run?ref=" + INVOCATION
+    raw = responses[url]["content"]
+    responses[url]["content"] = raw[:20] + "\n" + raw[20:] + "\n"
+    self.assertTrue(self.verify(responses=responses))
+
   def test_marker_base64_rejects_non_alphabet_bytes(self):
     responses = deepcopy(self.responses)
     url = BASE + "/contents/.ci/run?ref=" + INVOCATION
