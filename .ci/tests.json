@@ -92,6 +92,10 @@
         "type": "regression",
         "name": "tests.test_bootstrap_cli"
       },
+      "issue-545-red-provider-negative": {
+        "type": "regression",
+        "name": "tests.test_hosted_red_probe"
+      },
       "issue-545-unified-test-cli": {
         "type": "regression",
         "name": "tests.test_test_cli"
