@@ -93,6 +93,13 @@ class TestCacheEvidenceTests(unittest.TestCase):
     self.write(self.base, {**self.base, "result": "failed"}, self.base)
     self.assertEqual(self.reusable(), {"issue-545-green"})
 
+  def test_duplicate_group_in_one_record_is_not_reusable(self):
+    self.write({**self.base, "groups": [
+      {"group": "issue-545-green", "exit_code": 1},
+      {"group": "issue-545-green", "exit_code": 0},
+    ]})
+    self.assertEqual(self.reusable(), set())
+
   def test_empty_matching_observation_invalidates_earlier_pass(self):
     self.write(self.base, {
       **self.base, "result": "failed", "groups": [],
