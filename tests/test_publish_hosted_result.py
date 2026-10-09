@@ -107,6 +107,26 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertEqual(record["providerInvocationSHA"], self.invocation)
     self.assertEqual(self._git("rev-parse", "HEAD^"), self.invocation)
 
+  def test_retry_publication_keeps_original_candidate(self):
+    self._git("merge", "--ff-only", self.invocation)
+    marker = self.root / ".ci/run"
+    marker.write_text(
+      "integration-testing " + self.invocation + "\n",
+    )
+    self._git("add", ".ci/run")
+    self._git("commit", "-m", "retry hosted integration")
+    retry = self._git("rev-parse", "HEAD")
+    self._git("push", "origin", "HEAD:refs/heads/issue-543-probe")
+    self._git("reset", "--hard", self.candidate)
+    self.observation["kind"] = "integration"
+    self._record()
+    result = self._publish(stage="integration-testing", invocation=retry)
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(self._git("rev-parse", "HEAD^"), retry)
+    record = json.loads(self.log.read_text().splitlines()[-1])
+    self.assertEqual(record["providerCandidateSHA"], self.candidate)
+    self.assertNotEqual(record["providerCandidateSHA"], self.invocation)
+
   def test_stale_remote_branch_rejected_without_publication(self):
     self._git("merge", "--ff-only", self.invocation)
     other = self.root / "other.txt"
