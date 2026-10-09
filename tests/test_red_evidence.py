@@ -41,3 +41,31 @@ class RedEvidenceTests(unittest.TestCase):
     self.assertFalse(recorded["reusable"])
 
 
+
+  def test_newer_green_failure_supersedes_earlier_pass(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    first = self.cli("test", "GREEN")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    passed = json.loads(log.read_text().splitlines()[-1])
+    failed = dict(passed)
+    failed["result"] = "failed"
+    failed["groups"] = [{
+      "group": "issue-545-green", "exit_code": 1, "reused": False,
+    }]
+    with log.open("a") as handle:
+      handle.write(json.dumps(failed) + "\n")
+    retried = self.cli("test", "GREEN")
+    self.assertEqual(retried.returncode, 0, retried.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", retried.stdout)
+    actual = json.loads(log.read_text().splitlines()[-1])
+    self.assertFalse(actual["groups"][0]["reused"])
+    again = self.cli("test", "GREEN")
+    self.assertEqual(again.returncode, 0, again.stderr)
+    self.assertIn("Reusing valid PASS evidence", again.stdout)
+
