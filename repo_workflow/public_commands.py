@@ -1,9 +1,46 @@
 from __future__ import annotations
 
+import re
+from .git import current_branch
+
 from .command_grammar import Context, validate_node
 from .test_catalogue import TestCatalogueError, load_test_catalogue
 from .workflow_state import derive_plan, discover_facts
 from .workspace_store import WorkspaceStore
+
+
+def _red_group_values(context: Context) -> dict:
+  match = re.fullmatch(
+    r"issue-([1-9][0-9]*)(?:-.*)?",
+    current_branch(context.root),
+  )
+  issue = match.group(1) if match else None
+  groups = ()
+  if issue is not None:
+    try:
+      catalogue = load_test_catalogue(context.root)
+      groups = tuple(sorted(
+        name for name in catalogue.groups
+        if name.startswith("issue-" + issue + "-")
+      ))
+    except TestCatalogueError:
+      pass
+  if groups:
+    return {
+      "completions": [
+        {name: "Run current issue RED test group " + name}
+        for name in groups
+      ],
+    }
+
+  def unavailable(request):
+    return request.error(
+      "RED/GREEN tests do not exist for the current issue. "
+      "Build the tests and register them in .ci/tests.json "
+      "with a test name prefix of issue-N-."
+    )
+
+  return {"completions": [], "on-tab": unavailable}
 
 
 def _plan(context: Context):
@@ -354,7 +391,9 @@ COMMANDS = {
   "test": {
     "_description": "Run tests or inspect testing-log results",
     "RED": {
-      "": "Run the selected TDD RED tests locally",
+      "_description": "Run an issue-N- RED test group",
+      "_values": _red_group_values,
+      "_value_description": "Current issue RED test-group name",
       "_switches": {"--remote": "Request RED tests through hosted CI"},
     },
     "temporary": {
