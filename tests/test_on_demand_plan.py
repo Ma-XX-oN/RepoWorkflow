@@ -71,7 +71,7 @@ class HostedPlanCandidateTests(unittest.TestCase):
     log.parent.mkdir(parents=True, exist_ok=True)
     log.write_text('{"result":"incomplete"}\\n')
     self.git("add", str(log.relative_to(self.root)))
-    self.git("commit", "-qm", "test: publish hosted evidence")
+    self.git("commit", "-qm", "test: publish hosted evidence from run 123")
     self.invoke(stage="integration-testing")
     result = self.plan(self.root)
     self.assertEqual(result["tested_sha"], self.candidate)
