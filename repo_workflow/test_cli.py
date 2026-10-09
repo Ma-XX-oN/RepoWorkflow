@@ -18,6 +18,7 @@ from .config import load_config
 from .terminal_tag import publish_terminal_tag
 from .retry_evidence import isolate_retry_evidence
 from .engine_remote import prepare_engine_request
+from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
@@ -35,7 +36,6 @@ STAGES = {
 class TestCommandError(ValueError):
   pass
 
-
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
@@ -45,9 +45,7 @@ def _git(root: Path, *args: str) -> str:
     raise TestCommandError(result.stderr.strip() or "git operation failed")
   return result.stdout.strip()
 
-
 SELECTION = Path(".ci/red-green.txt")
-
 
 def _issue_prefix(root: Path) -> str:
   match = re.fullmatch(
@@ -56,7 +54,6 @@ def _issue_prefix(root: Path) -> str:
   if match is None:
     raise TestCommandError("RED/GREEN requires a current issue branch")
   return "issue-" + match.group(1) + "-"
-
 
 def _validate_selection(root: Path, name: str) -> str:
   prefix = _issue_prefix(root)
@@ -469,7 +466,10 @@ def run_test(
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
-      **({"testVersion": prepared[0][1]} if prepared else {}),
+      **({"testVersion": prepared[0][1]} if prepared else
+         {"testVersion": read_engine_version(root)}
+         if root.resolve() == engine_root.resolve()
+         and (root / ".ci/engine-version").is_file() else {}),
       "result": {
         "PASS": "succeeded",
         "FAIL": "failed",
