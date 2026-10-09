@@ -71,6 +71,23 @@ class HostedResultTests(unittest.TestCase):
         self.write(**{field: value})
         self.assertNotEqual(self.invoke().returncode, 0)
 
+  def test_missing_freshness_fields_fail_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for missing in ("uncommittedChanges", "headChangedDuringTest", "reusable"):
+      with self.subTest(missing=missing):
+        self.write()
+        record = json.loads(self.log.read_text())
+        del record[missing]
+        self.log.write_text(json.dumps(record) + "\n")
+        self.assertNotEqual(self.invoke().returncode, 0)
+
+  def test_non_integer_group_exit_codes_fail_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for invalid in (False, 0.0, "0", None):
+      with self.subTest(exit_code=invalid):
+        self.write(groups=[{"group": "issue-541-unit", "exit_code": invalid}])
+        self.assertNotEqual(self.invoke().returncode, 0)
+
   def test_latest_observation_controls_outcome(self):
     self.select.write_text("issue-541-unit\n")
     self.write()
