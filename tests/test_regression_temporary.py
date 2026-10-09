@@ -1,6 +1,9 @@
 """Temporary fidelity groups must gate local regression."""
 import json
 import unittest
+from unittest.mock import patch
+
+from repo_workflow.test_cli import run_test
 
 from tests import test_test_cli as fixture
 
@@ -21,13 +24,16 @@ class RegressionTemporaryTests(unittest.TestCase):
     source.write_text(source.read_text().replace(
       "self.assertTrue(True)", "self.assertTrue(False)",
     ))
-    result = self.cli("test", "regression")
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn("required temporary fidelity tests failed", result.stderr)
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
+      result = run_test(self.root, "regression", remote=False, engine_root=self.root)
+    self.assertEqual(result, 1)
+    verify.assert_called_once()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     observations = [json.loads(line) for line in log.read_text().splitlines()]
-    self.assertEqual(len(observations), 1)
+    self.assertEqual(len(observations), 2)
     self.assertEqual(observations[0]["kind"], "temporary")
+    self.assertEqual(observations[-1]["kind"], "regression")
+    self.assertEqual(observations[-1]["result"], "failed")
     self.assertEqual(observations[0]["result"], "failed")
     self.assertFalse(observations[0]["reusable"])
 
@@ -44,23 +50,37 @@ class RegressionTemporaryTests(unittest.TestCase):
       "type": "regression", "name": "fidelity_fail",
     }
     manifest.write_text(json.dumps(value))
-    result = self.cli("test", "regression")
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn("required temporary fidelity tests failed", result.stderr)
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS"):
+      result = run_test(self.root, "regression", remote=False, engine_root=self.root)
+    self.assertEqual(result, 1)
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-    record = json.loads(log.read_text().splitlines()[-1])
+    record = json.loads(log.read_text().splitlines()[0])
     groups = {entry["group"]: entry["exit_code"] for entry in record["groups"]}
     self.assertEqual(set(groups), {"issue-545-working", "issue-545-failing"})
     self.assertEqual(groups["issue-545-working"], 0)
     self.assertNotEqual(groups["issue-545-failing"], 0)
 
+  def test_successful_temporary_suite_and_permanent_pass_complete(self):
+    self._catalogue(
+      self.root / ".ci/temp-tests.json",
+      issue_group="issue-545-fidelity",
+    )
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
+      rc = run_test(self.root, "regression", remote=False, engine_root=self.root)
+    self.assertEqual(rc, 0)
+    verify.assert_called_once()
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    records = [json.loads(line) for line in log.read_text().splitlines()]
+    self.assertEqual([x["kind"] for x in records], ["temporary", "regression"])
+    self.assertEqual([x["result"] for x in records], ["succeeded", "succeeded"])
+
   def test_malformed_temporary_manifest_fails_before_regression(self):
     path = self.root / ".ci/temp-tests.json"
     path.parent.mkdir(parents=True)
     path.write_text("{invalid")
-    result = self.cli("test", "regression")
-    self.assertNotEqual(result.returncode, 0)
-    self.assertIn("invalid JSON", result.stderr)
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS"):
+      with self.assertRaisesRegex(Exception, "invalid JSON"):
+        run_test(self.root, "regression", remote=False, engine_root=self.root)
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     self.assertFalse(log.exists())
 
