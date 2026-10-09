@@ -317,6 +317,21 @@ def _run_group_set(
   return 1 if failures else 0
 
 
+def _assert_no_temporary_issue_sandbox(root: Path) -> None:
+  match = re.fullmatch(
+    r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
+  )
+  if match is None:
+    raise TestCommandError("integration requires a current issue branch")
+  sandbox = root / ".ci" / "temp-tests" / match.group(1)
+  if sandbox.exists() or sandbox.is_symlink():
+    raise TestCommandError(
+      "integration requires complete removal of temporary test sandbox "
+      + sandbox.relative_to(root).as_posix()
+      + " (including sources, fixtures and build files)"
+    )
+
+
 def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
@@ -398,6 +413,12 @@ def run_test(
     return _run_group_set(root, stage, groups, catalogue_path=manifest)
   if remote:
     return request_remote(root, stage)
+  if stage == "integration":
+    _assert_no_temporary_issue_sandbox(root)
+    raise TestCommandError(
+      "integration preflight passed; full local integration execution "
+      "not yet implemented"
+    )
   if stage == "regression":
     before = head_sha(root)
     outcome = verify_local(root, engine_root=engine_root, push=False)
