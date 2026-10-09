@@ -59,8 +59,11 @@ class TestCliContract(unittest.TestCase):
     ):
       self.assertIn(name, root.stdout)
       stage = self.cli("test", name, "--help")
-      self.assertEqual(stage.returncode, 0, stage.stderr)
-      self.assertIn("--remote", stage.stdout)
+      if name != "RED":
+        self.assertEqual(stage.returncode, 0, stage.stderr)
+        self.assertIn("--remote", stage.stdout)
+      else:
+        self.assertIn(".ci/tests.json", stage.stderr + stage.stdout)
 
   def test_legacy_validate_commands_are_not_public(self):
     for stage in ("regression", "integration"):
@@ -98,6 +101,34 @@ class TestCliContract(unittest.TestCase):
         path.write_text(value)
         result = self.cli("test", "results")
         self.assertEqual(result.returncode, 2)
+
+  def test_red_completion_lists_only_current_issue_groups(self):
+    path = self.root / ".ci/tests.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    value = {
+      "test-harnesses": {
+        "unittest": {"command": "python", "layout": ["-m", "unittest", "$test"]},
+      },
+      "tests": [{
+        "test-harness": "unittest",
+        "issue-545-one": {"type": "regression", "name": "tests.test_test_cli"},
+        "issue-544-other": {"type": "regression", "name": "tests.test_test_cli"},
+      }],
+    }
+    path.write_text(json.dumps(value))
+    completion = self.cli("complete", "test", "RED", "")
+    self.assertEqual(completion.returncode, 0, completion.stderr)
+    self.assertIn("issue-545-one", completion.stdout)
+    self.assertNotIn("issue-544-other", completion.stdout)
+    invalid = self.cli("test", "RED", "issue-544-other")
+    self.assertNotEqual(invalid.returncode, 0)
+
+  def test_red_completion_reports_missing_test_registration(self):
+    missing = self.cli("complete", "test", "RED", "")
+    self.assertNotEqual(missing.returncode, 0)
+    self.assertIn("RED/GREEN tests do not exist", missing.stderr)
+    self.assertIn(".ci/tests.json", missing.stderr)
+    self.assertIn("issue-N-", missing.stderr)
 
   def test_remote_request_and_retry_use_previous_tip(self):
     bare = self.remote()
