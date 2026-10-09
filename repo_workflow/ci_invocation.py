@@ -81,3 +81,32 @@ def verify_invocation(root: Path) -> CiInvocation:
   if changed != [".ci/run"]:
     raise CiInvocationError("invocation commit must change only .ci/run")
   return requested
+
+
+def original_candidate(root: Path, tip: str) -> str:
+  """Trace verified request/retry and canonical publication commits."""
+  if SHA_RE.fullmatch(tip) is None:
+    raise CiInvocationError("candidate history requires a full commit SHA")
+  sha = tip
+  while True:
+    parents = _git(root, "rev-list", "--parents", "-n", "1", sha).split()
+    if len(parents) != 2:
+      return sha
+    parent = parents[1]
+    changed = _git(
+      root, "diff-tree", "--no-commit-id", "--name-only", "-r", sha,
+    ).splitlines()
+    if changed == [".ci/run"]:
+      request = parse_invocation(_git(root, "show", sha + ":.ci/run"))
+      if request.previous_tip != parent:
+        raise CiInvocationError("historical CI invocation ancestry mismatch")
+    elif (len(changed) == 1 and re.fullmatch(
+      r"\\.repoworkflow/validation/testResults-[1-9][0-9]*\\.jsonl",
+      changed[0],
+    ) and _git(root, "show", "-s", "--format=%s", sha).startswith(
+      "test: publish hosted evidence from run "
+    )):
+      pass
+    else:
+      return sha
+    sha = parent
