@@ -118,7 +118,13 @@ def select_group(root: Path, name: str) -> str:
   path = root / SELECTION
   if path.exists() and path.read_text(encoding="utf-8") == name + "\n":
     return name
-  if _git(root, "status", "--porcelain", "--untracked-files=all"):
+  match = re.fullmatch(
+    r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
+  )
+  if match is None:
+    raise TestCommandError("RED selection requires an issue branch")
+  audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+  if any(changed != audit for changed in changed_files(root)):
     raise TestCommandError(
       "commit or discard working tree changes before selecting RED test"
     )
