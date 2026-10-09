@@ -45,6 +45,9 @@ jobs:
   validate:
     needs: plan
     if: >-
+      needs.plan.outputs.stage == 'RED-testing' ||
+      needs.plan.outputs.stage == 'temp-testing' ||
+      needs.plan.outputs.stage == 'GREEN-testing' ||
       needs.plan.outputs.stage == 'regression-testing' ||
       needs.plan.outputs.stage == 'integration-testing'
     runs-on: ubuntu-latest
@@ -70,6 +73,9 @@ jobs:
         run: |
           set -euo pipefail
           case '${{ needs.plan.outputs.stage }}' in
+            RED-testing) ./rwf test RED ;;
+            temp-testing) ./rwf test temporary ;;
+            GREEN-testing) ./rwf test GREEN ;;
             regression-testing) ./rwf test regression ;;
             integration-testing) ./rwf test integration ;;
             *) echo 'unsupported stage' >&2; exit 1 ;;
@@ -152,15 +158,3 @@ jobs:
           python-version: '3.13'
       - run: python scripts/probe-ticket-merge.py
 
-  unsupported-stage:
-    needs: plan
-    if: >-
-      needs.plan.outputs.stage == 'RED-testing' ||
-      needs.plan.outputs.stage == 'temp-testing' ||
-      needs.plan.outputs.stage == 'GREEN-testing'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Reject unimplemented stage rather than produce false GREEN
-        run: |
-          echo 'RED/temp/GREEN hosted selection is awaiting #545 contract.'
-          exit 1
