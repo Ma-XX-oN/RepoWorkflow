@@ -38,9 +38,15 @@ def github_json(endpoint: str) -> dict:
   return value
 
 
-def verify_hosted_integration(
-  record: dict, *, repo: str, read: Callable[[str], dict] = github_json,
+def verify_hosted_stage(
+  record: dict, *, repo: str, stage: str,
+  read: Callable[[str], dict] = github_json,
 ) -> bool:
+  if stage not in {
+    "RED-testing", "temp-testing", "GREEN-testing",
+    "regression-testing", "integration-testing",
+  }:
+    return False
   if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) is None:
     return False
   run_id = record.get("providerRunId")
@@ -51,7 +57,7 @@ def verify_hosted_integration(
     or not isinstance(invocation, str)
     or _SHA.fullmatch(invocation) is None
     or not isinstance(candidate, str) or _SHA.fullmatch(candidate) is None
-    or record.get("providerStage") != "integration-testing"
+    or record.get("providerStage") != stage
   ):
     return False
   base = "https://api.github.com/repos/" + repo
@@ -85,7 +91,7 @@ def verify_hosted_integration(
     request_text = request.decode("utf-8")
   except (ValueError, UnicodeError):
     return False
-  if request_text != "integration-testing " + candidate + "\n":
+  if request_text != stage + " " + candidate + "\n":
     return False
   jobs = jobs_page.get("jobs")
   if not isinstance(jobs, list) or jobs_page.get("total_count") != len(jobs):
@@ -98,7 +104,18 @@ def verify_hosted_integration(
       return False
     actual[job["name"]] = job.get("conclusion")
   required = {"plan", "validate"}
-  for group in ("argv-limits", "graph-renderer-platform", "ticket-merge-platform"):
-    for system in ("ubuntu-latest", "windows-latest", "macos-latest"):
-      required.add(group + " (" + system + ")")
+  if stage == "integration-testing":
+    for group in (
+      "argv-limits", "graph-renderer-platform", "ticket-merge-platform",
+    ):
+      for system in ("ubuntu-latest", "windows-latest", "macos-latest"):
+        required.add(group + " (" + system + ")")
   return all(actual.get(name) == "success" for name in required)
+
+
+def verify_hosted_integration(
+  record: dict, *, repo: str, read: Callable[[str], dict] = github_json,
+) -> bool:
+  return verify_hosted_stage(
+    record, repo=repo, stage="integration-testing", read=read,
+  )
