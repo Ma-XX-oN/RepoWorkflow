@@ -33,7 +33,8 @@ def plan_invocation(root: Path) -> dict[str, str]:
   if (
     verified["candidate_sha"] != tested_sha
     or verified["request_parent_sha"] != request.previous_tip
-    or verified["stage"] + "-testing" != request.stage
+    or (("temp" if verified["stage"] == "temporary" else verified["stage"])
+        + "-testing") != request.stage
   ):
     raise CiInvocationError("hosted identity resolvers disagree")
   return {
