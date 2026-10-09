@@ -148,6 +148,10 @@
         "type": "regression",
         "name": "tests.test_hosted_terminal_binding"
       },
+      "issue-572-engine-version-adapter": {
+        "type": "regression",
+        "name": "tests.test_engine_version_adapter"
+      },
       "issue-572-assembled-contracts": {
         "type": "regression",
         "name": "tests.test_lane_a4_assembly"
