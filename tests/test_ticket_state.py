@@ -64,7 +64,7 @@ class TicketStateTests(unittest.TestCase):
     self.assertIsNone(refreshed.states["10"].lifecycle_revision)
     text = store.path.read_text(encoding="utf-8")
     self.assertTrue(text.startswith(
-      "issue,title,dependencies,state,state_revision\\n"
+      "issue,title,dependencies,state,state_revision\n"
     ))
     self.assertEqual(store.read().states, refreshed.states)
 
