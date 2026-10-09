@@ -92,6 +92,10 @@
         "type": "regression",
         "name": "tests.test_bootstrap_cli"
       },
+      "issue-541-hosted-plan-binding": {
+        "type": "regression",
+        "name": "tests.test_on_demand_plan"
+      },
       "issue-545-unified-test-cli": {
         "type": "regression",
         "name": "tests.test_test_cli"
