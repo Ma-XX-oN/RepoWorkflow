@@ -33,7 +33,7 @@ class EngineRegressionTests(unittest.TestCase):
       self.git("add", "prepared.txt")
       self.git("commit", "-qm", "prepare trusted candidate")
       candidate = self.git("rev-parse", "HEAD")
-      kwargs["candidate_observer"](candidate)
+      kwargs["candidate_observer"](candidate, "1.0.0-issue.545.0.1")
       observed_sha.append(candidate)
       return "PASS"
 
@@ -50,6 +50,7 @@ class EngineRegressionTests(unittest.TestCase):
     record = json.loads(log.read_text().splitlines()[-1])
     self.assertEqual(record["testSHA"], observed_sha[0])
     self.assertEqual(record["sourceSHA"], source_sha)
+    self.assertEqual(record["testVersion"], "1.0.0-issue.545.0.1")
     self.assertFalse(record["headChangedDuringTest"])
     self.assertTrue(record["reusable"])
 
@@ -57,7 +58,7 @@ class EngineRegressionTests(unittest.TestCase):
     original = self.git("rev-parse", "HEAD")
 
     def mutate_after_preparation(*args, **kwargs):
-      kwargs["candidate_observer"](original)
+      kwargs["candidate_observer"](original, "1.0.0-issue.545.0.1")
       (self.root / "mutation.txt").write_text("unexpected commit\n")
       self.git("add", "mutation.txt")
       self.git("commit", "-qm", "unexpected verifier mutation")
