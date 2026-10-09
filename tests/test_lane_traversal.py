@@ -67,6 +67,12 @@ class LaneTraversalTests(unittest.TestCase):
     self.assertEqual(follow, FollowPolicy(epic=2))
     self.assertIsNone(show_children)
 
+  def test_legend_flag_is_removed_from_focus_arguments(self):
+    parsed = _selection_arguments(["9", "--legend", "--follow", "epic"])
+    self.assertEqual(parsed[0], ["9"])
+    self.assertTrue(parsed[-1])
+    self.assertEqual(parsed[4], FollowPolicy(epic=1))
+
   def test_selection_parser_keeps_omitted_follow_distinct_from_default(self):
     positional, as_json, count_only, refresh, follow, show_children, legend = _selection_arguments(["5"])
     self.assertEqual(positional, ["5"])
