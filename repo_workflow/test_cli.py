@@ -133,7 +133,11 @@ def request_remote(root: Path, stage: str) -> int:
   branch = current_branch(root)
   if branch in {"HEAD", "main"} or branch.startswith("prelim-main-"):
     raise TestCommandError("a work branch is required")
-  if changed_files(root) or _git(root, "status", "--porcelain", "--untracked-files=all"):
+  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
+  if match is None:
+    raise TestCommandError("a current issue branch is required")
+  audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+  if any(path != audit for path in changed_files(root)):
     raise TestCommandError("the working tree must be clean")
   previous_tip = head_sha(root)
   path = root / ".ci" / "run"
