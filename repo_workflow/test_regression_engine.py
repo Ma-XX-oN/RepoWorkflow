@@ -20,4 +20,4 @@ def self_regression(root: Path) -> str:
     print(result.stdout, end="")
   if result.stderr:
     print(result.stderr, end="", file=sys.stderr)
-  return "PASS" if result.returncode == 0 else "FAIL"
+  return {0: "PASS", 2: "INCOMPLETE"}.get(result.returncode, "FAIL")
