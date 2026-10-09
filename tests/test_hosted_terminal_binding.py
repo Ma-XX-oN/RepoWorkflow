@@ -102,6 +102,31 @@ class HostedTerminalBindingTests(unittest.TestCase):
     )
     self.assertEqual(tag, "v0.1.121-PRELIM-572.0.1-CI-FAIL")
 
+  def test_real_remote_missing_version_never_creates_terminal_tag(self):
+    self.record(testVersion=None)
+    self.prepare_published_remote()
+    with self.assertRaisesRegex(
+      HostedTerminalError, "no authoritative hosted development version",
+    ):
+      publish_hosted_terminal(
+        self.root, branch="issue-572-cert",
+        stage="integration-testing", invocation=self.invocation,
+        candidate=self.candidate, run_id=123,
+      )
+    self.assertEqual(self.git("tag", "--list"), "")
+    self.assertEqual(self.git("ls-remote", "--tags", "origin"), "")
+
+  def test_real_remote_incomplete_never_creates_terminal_tag(self):
+    self.record(result="incomplete", reusable=False, testVersion=None)
+    self.prepare_published_remote()
+    self.assertIsNone(publish_hosted_terminal(
+      self.root, branch="issue-572-cert",
+      stage="integration-testing", invocation=self.invocation,
+      candidate=self.candidate, run_id=123,
+    ))
+    self.assertEqual(self.git("tag", "--list"), "")
+    self.assertEqual(self.git("ls-remote", "--tags", "origin"), "")
+
   def test_remote_movement_prevents_tag_publication(self):
     self.record()
     self.prepare_published_remote()
