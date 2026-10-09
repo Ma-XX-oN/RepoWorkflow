@@ -101,8 +101,8 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
 
   def test_hosted_checkout_does_not_reuse_unverified_marker_code(self):
     # The marker-commit's own sources must not be tested as the candidate.
-    section = self.text.split("\\n  validate:\\n", 1)[1].split(
-      "\\n  argv-limits:\\n", 1,
+    section = self.text.split("\n  validate:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
     )[0]
     self.assertIn("ref: ${{ needs.plan.outputs.tested_sha }}", section)
     self.assertIn("Restore issue branch identity", section)
