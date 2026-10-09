@@ -459,12 +459,14 @@ def run_test(
       "testResults-" + match.group(1) + ".jsonl"
     )
     uncommitted = _uncommitted_inputs(root, path)
-    tested_sha = head_sha(root)
+    tested_sha = before
+    head_changed = head_sha(root) != before
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
       "uncommittedChanges": uncommitted,
+      "headChangedDuringTest": head_changed,
       "reusable": (
-        outcome == "PASS" and not uncommitted and tested_sha == after
+        outcome == "PASS" and not uncommitted and not head_changed
       ),
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "kind": "regression",
