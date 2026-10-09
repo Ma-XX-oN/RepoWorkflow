@@ -127,8 +127,11 @@ def verify_local(
   *,
   engine_root: Path,
   push: bool = False,
+  tag_result: bool = True,
   candidate_observer: Callable[[str, str], None] | None = None,
 ) -> str:
+  if push and not tag_result:
+    raise ValueError("remote verification push requires terminal tagging")
   root = root.resolve()
   before = repository_state(root)
   try:
@@ -136,7 +139,7 @@ def verify_local(
       root,
       engine_root=engine_root,
       stable=False,
-      do_tag=not push,
+      do_tag=tag_result and not push,
       push=push,
       candidate_observer=candidate_observer,
     )
