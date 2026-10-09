@@ -4,4 +4,4 @@ import unittest
 
 class RedFailureProbe(unittest.TestCase):
   def test_expected_assertion_failure(self):
-    self.assertEqual(1, 2, "intentional RED assertion fixture")
+    raise RuntimeError("intentional RED infrastructure/error fixture")
