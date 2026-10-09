@@ -24,6 +24,35 @@ class EngineRegressionTests(unittest.TestCase):
       f"sys.exit({exit_code})\n"
     )
 
+  def test_consumer_verified_preparation_records_exact_candidate(self):
+    source_sha = self.git("rev-parse", "HEAD")
+    observed_sha = []
+
+    def verified_preparation(*args, **kwargs):
+      (self.root / "prepared.txt").write_text("validated candidate\n")
+      self.git("add", "prepared.txt")
+      self.git("commit", "-qm", "prepare trusted candidate")
+      candidate = self.git("rev-parse", "HEAD")
+      kwargs["candidate_observer"](candidate)
+      observed_sha.append(candidate)
+      return "PASS"
+
+    with patch(
+      "repo_workflow.test_cli.verify_local",
+      side_effect=verified_preparation,
+    ):
+      result = run_test(
+        self.root, "regression", remote=False,
+        engine_root=self.root.parent / "consumer-engine",
+      )
+    self.assertEqual(result, 0)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["testSHA"], observed_sha[0])
+    self.assertEqual(record["sourceSHA"], source_sha)
+    self.assertFalse(record["headChangedDuringTest"])
+    self.assertTrue(record["reusable"])
+
   def test_engine_checkout_runs_self_suite_and_records_exact_sha(self):
     self._script(0)
     before = self.git("rev-parse", "HEAD")
