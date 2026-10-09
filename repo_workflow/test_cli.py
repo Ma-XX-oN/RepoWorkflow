@@ -9,6 +9,7 @@ import platform
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
@@ -77,13 +78,37 @@ def read_selection(root: Path) -> str | None:
   return _validate_selection(root, lines[0])
 
 
-def _skip_without_selection() -> int:
-  print(
+def _skip_without_selection(
+  root: Path, stage: str, *, remote: bool,
+) -> int:
+  warning = (
     "Warning: No RED/GREEN test configured "
-    "(.ci/red-green.txt is absent).",
-    file=__import__("sys").stderr,
+    "(.ci/red-green.txt is absent)."
   )
+  print(warning, file=sys.stderr)
   print("RED/GREEN testing skipped; no PASS evidence recorded.")
+  match = re.fullmatch(
+    r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
+  )
+  if match is None:
+    raise TestCommandError("testing evidence requires an issue branch")
+  record = {
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "testSHA": head_sha(root),
+    "kind": stage,
+    "result": "SKIPPED",
+    "runner": "local",
+    "requested_remote": remote,
+    "warning": warning,
+    "reason": "selection-file-absent",
+    "groups": [],
+  }
+  path = root / ".repoworkflow" / "validation" / (
+    "testResults-" + match.group(1) + ".jsonl"
+  )
+  path.parent.mkdir(parents=True, exist_ok=True)
+  with path.open("a", encoding="utf-8") as handle:
+    handle.write(json.dumps(record, sort_keys=True) + "\n")
   return 0
 
 
@@ -208,7 +233,7 @@ def run_test(
   if stage == "RED":
     selected = select_group(root, group) if group else read_selection(root)
     if selected is None:
-      return _skip_without_selection()
+      return _skip_without_selection(root, stage, remote=remote)
     if remote:
       return request_remote(root, stage)
     command = group_command(root, selected)
@@ -232,7 +257,7 @@ def run_test(
   if stage == "GREEN":
     selected = read_selection(root)
     if selected is None:
-      return _skip_without_selection()
+      return _skip_without_selection(root, stage, remote=remote)
     if remote:
       return request_remote(root, stage)
     return _run_group_set(root, stage, (selected,))
