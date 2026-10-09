@@ -39,8 +39,9 @@ class SelfCiTests(unittest.TestCase):
   def test_release_requires_full_integration_matrix(self):
     text = self.release_text()
     self.assertIn("python scripts/release-gate.py", text)
+    gate = (ROOT / "scripts" / "release-gate.py").read_text(encoding="utf-8")
     for name in ("Probe argv limits", "Probe graph renderer", "Probe ticket merge"):
-      self.assertIn(name, text)
+      self.assertIn(name, gate)
     self.assertIn('VERIFIED_RUN_ID', text)
     self.assertIn("VERIFIED_RUN_ATTEMPT", text)
     self.assertIn("actions: read", text)
