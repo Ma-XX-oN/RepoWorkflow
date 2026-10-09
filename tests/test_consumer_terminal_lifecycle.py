@@ -38,5 +38,45 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
       )
 
 
+  def test_real_consumer_failure_tags_exact_prepared_candidate(self):
+    helper = LocalVerifyTests()
+    td, root, fx = helper.make_consumer(
+      validation_body="raise SystemExit(1)\n",
+    )
+    with td:
+      self.assertEqual(
+        run_test(
+          root, "regression", remote=False,
+          engine_root=root / "RepoWorkflow",
+        ), 1,
+      )
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      record = json.loads(path.read_text().splitlines()[-1])
+      self.assertEqual(record["result"], "failed")
+      self.assertEqual(record["testVersion"], fx.version)
+      tag = "v" + fx.version + "-CI-FAIL"
+      self.assertEqual(
+        fx._run("rev-parse", tag + "^{commit}").stdout.strip(),
+        record["testSHA"],
+      )
+
+  def test_real_consumer_incomplete_creates_no_terminal_tag(self):
+    helper = LocalVerifyTests()
+    td, root, fx = helper.make_consumer(
+      validation_body="raise SystemExit(2)\n",
+    )
+    with td:
+      result = run_test(
+        root, "regression", remote=False,
+        engine_root=root / "RepoWorkflow",
+      )
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      record = json.loads(path.read_text().splitlines()[-1])
+      self.assertNotEqual(record["result"], "succeeded")
+      if record["result"] == "incomplete":
+        self.assertEqual(result, 2)
+        self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
+
 if __name__ == "__main__":
   unittest.main()
