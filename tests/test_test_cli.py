@@ -224,6 +224,45 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(record["result"], "succeeded")
     self.assertEqual(record["groups"][0]["group"], "issue-545-green")
 
+  def test_green_reuses_unchanged_pass_without_running_again(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    first = self.cli("test", "GREEN")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    second = self.cli("test", "GREEN")
+    self.assertEqual(second.returncode, 0, second.stderr)
+    self.assertIn("Reusing valid PASS evidence", second.stdout)
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    self.assertEqual(len(records), 2)
+    self.assertFalse(records[0]["groups"][0]["reused"])
+    self.assertTrue(records[1]["groups"][0]["reused"])
+
+  def test_green_changed_catalogue_or_candidate_reexecutes(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    self.assertEqual(self.cli("test", "GREEN").returncode, 0)
+    manifest = self.root / ".ci/tests.json"
+    manifest.write_text(manifest.read_text() + " ")
+    changed = self.cli("test", "GREEN")
+    self.assertEqual(changed.returncode, 0, changed.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", changed.stdout)
+    manifest.write_text(manifest.read_text().rstrip())
+    (self.root / "README").write_text("changed source\n")
+    self.git("add", "README")
+    self.git("commit", "-m", "change candidate")
+    changed_sha = self.cli("test", "GREEN")
+    self.assertEqual(changed_sha.returncode, 0, changed_sha.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", changed_sha.stdout)
+
   def test_selection_is_single_tracked_name_and_idempotent(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-selected",
