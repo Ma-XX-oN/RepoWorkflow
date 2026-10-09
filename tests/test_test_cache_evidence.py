@@ -82,6 +82,12 @@ class TestCacheEvidenceTests(unittest.TestCase):
     self.write(self.base, {**self.base, "result": "failed"}, self.base)
     self.assertEqual(self.reusable(), {"issue-545-green"})
 
+  def test_empty_matching_observation_invalidates_earlier_pass(self):
+    self.write(self.base, {
+      **self.base, "result": "failed", "groups": [],
+    })
+    self.assertEqual(self.reusable(), set())
+
   def test_two_groups_later_partial_failure(self):
     groups = [
       {"group": "issue-545-one", "exit_code": 0},
