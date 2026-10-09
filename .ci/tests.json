@@ -70,11 +70,15 @@
       },
       "issue-582-graph-current": {
         "type": "regression",
-        "name": "tests.test_graph_render"
+        "name": "tests.test_lane_render"
       },
       "issue-583-lifecycle-certification": {
         "type": "regression",
         "name": "tests.test_lifecycle_store"
+      },
+      "issue-582-geometry-regression": {
+        "type": "regression",
+        "name": "tests.test_graph_render"
       }
     }
   ],
