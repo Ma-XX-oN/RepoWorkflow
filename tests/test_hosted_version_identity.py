@@ -322,6 +322,23 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "non-object"):
       resolve_hosted_version(self.root, sha, self.log)
 
+  def test_merge_source_candidate_with_inherited_marker_is_valid(self):
+    self.invoke(stage="GREEN")
+    self.git("checkout", "-qb", "feature")
+    (self.root / "feature.txt").write_text("feature\n")
+    self.git("add", "feature.txt")
+    self.git("commit", "-qm", "feature work")
+    self.git("checkout", "-q", "issue-570-source")
+    (self.root / "other.txt").write_text("other\n")
+    self.git("add", "other.txt")
+    self.git("commit", "-qm", "separate work")
+    self.git("merge", "-q", "--no-ff", "-m", "candidate merge", "feature")
+    merge_candidate = self.git("rev-parse", "HEAD")
+    invocation = self.invoke(stage="regression")
+    observed = resolve_invocation(self.root, invocation)
+    self.assertEqual(observed["candidate_sha"], merge_candidate)
+    self.assertEqual(observed["retry_depth"], 0)
+
   def test_inherited_marker_on_source_commit_does_not_become_retry(self):
     self.invoke()
     (self.root / "source").write_text("next source\n")
