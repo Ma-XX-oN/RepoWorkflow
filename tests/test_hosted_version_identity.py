@@ -241,7 +241,7 @@ class HostedIdentityTests(unittest.TestCase):
 
   def test_non_utf8_version_log_fails_closed(self):
     sha = self.invoke()
-    self.log.write_bytes(b"\\xff\\xfe")
+    self.log.write_bytes(b"\xff\xfe")
     with self.assertRaisesRegex(HostedVersionError, "cannot read"):
       resolve_hosted_version(self.root, sha, self.log)
 
