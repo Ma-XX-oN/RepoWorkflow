@@ -15,11 +15,10 @@ integrates Git, the public test CLI, canonical evidence and hosted workflows.
 - #17 defines the immutable candidate namespace
   `vX.Y.Z-PRELIM-N.Q.R`.  It must never be mistaken for stable `vX.Y.Z`.
 - `-CI-FAIL` is the existing terminal FAIL suffix in terminal_tag.py;
-  combining that existing suffix with PRELIM identifies an unsuccessful
-  integration phase without inventing another suffix.  This combination is
-  an A3 proposed resolution; #17 directly specifies only PRELIM identity
-  for candidates, not an explicit PRELIM failure-tag form.  A4 must obtain
-  the authoritative policy decision before enabling remote failure tags.
+  the user explicitly confirmed that **all version tags** may carry
+  `-CI-FAIL` when CI reports failure, including PRELIM integration tags.
+  This resolves the former naming ambiguity; A4 must still require
+  authoritative failure evidence before publication.
 - INCOMPLETE produces no version or tag consumption in either phase.
 
 ## Transition matrix
