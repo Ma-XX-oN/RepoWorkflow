@@ -247,9 +247,19 @@ class TestCliContract(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-one",
     )
-    missing = self.cli("test", "GREEN")
-    self.assertEqual(missing.returncode, 2)
-    self.assertIn("no RED/GREEN test selected", missing.stderr)
+    for command in ("RED", "GREEN"):
+      for remote in (False, True):
+        with self.subTest(command=command, remote=remote):
+          args = ("test", command, "--remote") if remote else ("test", command)
+          missing = self.cli(*args)
+          self.assertEqual(missing.returncode, 0, missing.stderr)
+          self.assertIn("Warning:", missing.stderr)
+          self.assertIn("testing skipped", missing.stdout)
+          self.assertFalse(
+            (self.root / ".repoworkflow/validation/testResults-545.jsonl").exists()
+          )
+          self.assertFalse((self.root / ".ci/run").exists())
+          self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
     selection = self.root / ".ci/red-green.txt"
     for raw in ("", "issue-545-one\nissue-545-two\n",
                 "issue-544-other\n", "issue-545-unlisted\n"):
