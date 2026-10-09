@@ -154,6 +154,22 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
 
+  def test_incomplete_retry_before_pass_does_not_consume_version(self):
+    entries = [
+      {"kind": "regression", "testVersion": VERSION,
+       "testSHA": self.candidate, "result": result,
+       "reusable": result == "succeeded",
+       "headChangedDuringTest": False, "uncommittedChanges": []}
+      for result in ("incomplete", "succeeded")
+    ]
+    self.log.write_text(
+      "\n".join(json.dumps(item) for item in entries) + "\n",
+    )
+    tag = self.issue_tag("PASS")
+    self.assertEqual(
+      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate,
+    )
+
   def test_conflicting_results_for_same_version_are_rejected(self):
     self.issue_tag("INCOMPLETE")
     self.log.write_text("\n".join(json.dumps({
