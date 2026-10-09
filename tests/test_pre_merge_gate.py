@@ -31,6 +31,24 @@ class PreMergeGateTests(unittest.TestCase):
     self.results = self.root / "test-logs"
     self.results.mkdir()
     self.write_result("PASS")
+    self.canonical_log = (
+      self.root / ".repoworkflow/validation/testResults-542.jsonl"
+    )
+    self.canonical_log.parent.mkdir(parents=True)
+    self.write_canonical("succeeded")
+
+  def write_canonical(self, result):
+    self.canonical_log.write_text(json.dumps({
+      "kind": "integration",
+      "testSHA": self.candidate,
+      "result": result,
+      "runner": "local",
+      "reusable": result == "succeeded",
+      "uncommittedChanges": [],
+      "headChangedDuringTest": False,
+      "platform": {"os": "Linux"},
+    }) + "\n")
+
 
   def tearDown(self):
     self.tmp.cleanup()
@@ -45,6 +63,8 @@ class PreMergeGateTests(unittest.TestCase):
       "schema": 1,
       "environment": "linux",
       "version": "1.0.0",
+      "canonical_log": self.canonical_log,
+      "required_platforms": ("Linux",),
       "commit": commit or self.candidate,
       "status": status,
     }), encoding="utf-8")
@@ -63,6 +83,16 @@ class PreMergeGateTests(unittest.TestCase):
 
   def test_current_parent_and_exact_candidate_logs_pass(self):
     self.assertIsNone(self.check())
+
+  def test_legacy_pass_without_canonical_record_is_rejected(self):
+    self.canonical_log.unlink()
+    with self.assertRaisesRegex(PreMergeGateError, "canonical"):
+      self.check()
+
+  def test_canonical_failure_blocks_even_if_legacy_passes(self):
+    self.write_canonical("failed")
+    with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
+      self.check()
 
   def test_second_actor_rejected_after_parent_advances(self):
     with self.assertRaisesRegex(PreMergeGateError, "tip advanced"):
