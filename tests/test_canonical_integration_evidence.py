@@ -92,7 +92,17 @@ class CanonicalIntegrationEvidenceTests(unittest.TestCase):
       "providerStage": "integration-testing",
     }
     self.write(hosted)
-    self.verify()
+    with self.assertRaises(CanonicalEvidenceError):
+      self.verify()
+    require_integration_evidence(
+      self.path, candidate=self.sha, required_platforms=("Linux",),
+      verify_hosted=lambda record: record["providerRunId"] == 123,
+    )
+    with self.assertRaises(CanonicalEvidenceError):
+      require_integration_evidence(
+        self.path, candidate=self.sha, required_platforms=("Linux",),
+        verify_hosted=lambda record: False,
+      )
     for changed in (
       {"providerRunId": None},
       {"providerRunId": True},

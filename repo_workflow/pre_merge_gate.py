@@ -6,6 +6,7 @@ This is a local gate component, not an atomic server merge protection.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 import re
 import subprocess
 
@@ -42,6 +43,7 @@ def check_pre_merge_candidate(
   version: str,
   canonical_log: Path,
   required_platforms: tuple[str, ...],
+  verify_hosted: Callable[[dict], bool] | None = None,
 ) -> None:
   """Check facts without changing repository state.
 
@@ -79,6 +81,7 @@ def check_pre_merge_candidate(
       canonical_log,
       candidate=candidate_sha,
       required_platforms=required_platforms,
+      verify_hosted=verify_hosted,
     )
   except CanonicalEvidenceError as error:
     raise PreMergeGateError(

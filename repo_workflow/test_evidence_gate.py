@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
+from typing import Callable
 
 
 class CanonicalEvidenceError(ValueError):
@@ -16,6 +17,7 @@ class CanonicalEvidenceError(ValueError):
 
 def require_integration_evidence(
   log: Path, *, candidate: str, required_platforms: tuple[str, ...],
+  verify_hosted: Callable[[dict], bool] | None = None,
 ) -> None:
   if not required_platforms or any(
     not isinstance(name, str) or not name for name in required_platforms
@@ -65,6 +67,8 @@ def require_integration_evidence(
           r"[0-9a-f]{40}", str(record.get("providerInvocationSHA", "")),
         ) is not None
         and record.get("providerStage") == "integration-testing"
+        and verify_hosted is not None
+        and verify_hosted(record)
       )
     latest[os_name] = valid
   missing = [os_name for os_name in required_platforms if not latest.get(os_name)]
