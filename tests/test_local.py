@@ -68,6 +68,30 @@ class LocalVerifyTests(unittest.TestCase):
     fx.push()
     return td, root, fx
 
+  def test_deferred_tagging_preserves_verified_candidate_without_tag(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      observed = []
+      result = verify_local(
+        root, engine_root=root / "RepoWorkflow", tag_result=False,
+        candidate_observer=lambda sha, version: observed.append(
+          (sha, version)
+        ),
+      )
+      self.assertEqual(result, "PASS")
+      self.assertEqual(observed, [(fx.head(), fx.version)])
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
+  def test_remote_push_cannot_disable_terminal_tagging(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      with self.assertRaisesRegex(ValueError, "requires terminal tagging"):
+        verify_local(
+          root, engine_root=root / "RepoWorkflow",
+          push=True, tag_result=False,
+        )
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
   def test_local_verify_uses_same_guard_policy_and_tags_pass_automatically(self):
     td, root, fx = self.make_consumer()
     with td:
