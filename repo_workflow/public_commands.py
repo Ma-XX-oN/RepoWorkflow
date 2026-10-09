@@ -203,6 +203,7 @@ def _workspace_commands() -> dict:
 #
 #   "<cmd>": "<help>"
 #   "<cmd>": {
+#     "_description": "Help for a non-terminal command",
 #     "_values": completion_fn,
 #     "_value_description": "<help>",
 #     "_quantifier": "...",
