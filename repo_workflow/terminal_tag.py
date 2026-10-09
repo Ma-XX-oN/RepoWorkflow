@@ -66,7 +66,7 @@ def _remote_target(root: Path, remote: str, tag: str) -> str | None:
 
 
 def verify_phase_evidence(
-  canonical_log: Path, *, stage: str, version: str,
+  root: Path, canonical_log: Path, *, stage: str, version: str,
   candidate: str, outcome: str,
 ) -> None:
   """Require matching issue, phase, candidate and terminal result evidence."""
@@ -79,6 +79,11 @@ def verify_phase_evidence(
   expected_issue = version.split("-issue.", 1)[1].split(".", 1)[0]
   if issue.group(1) != expected_issue:
     raise TerminalTagError("test log issue differs from development version")
+  expected_path = (
+    root.resolve() / ".repoworkflow" / "validation" / canonical_log.name
+  )
+  if canonical_log.absolute() != expected_path or canonical_log.is_symlink():
+    raise TerminalTagError("canonical test log must use repository validation path")
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except OSError as error:
@@ -143,7 +148,7 @@ def publish_terminal_tag(
   if resolved != candidate:
     raise TerminalTagError("candidate does not identify an exact commit")
   verify_phase_evidence(
-    canonical_log, stage=stage, version=version,
+    root, canonical_log, stage=stage, version=version,
     candidate=candidate, outcome=outcome,
   )
   tag = "v" + version + ("-CI-FAIL" if outcome == "FAIL" else "")
