@@ -75,6 +75,7 @@ jobs:
             *) echo 'unsupported stage' >&2; exit 1 ;;
           esac
       - name: Verify only canonical test-results log changed
+        if: ${{ always() }}
         shell: bash
         run: |
           python - <<'PY'
