@@ -1,0 +1,118 @@
+name: RepoWorkflow On-Demand CI (candidate)
+
+# Staged implementation of #541. The existing self-ci.yml remains active until
+# the full five-stage runner, testing-log gate and branch protections are ready.
+on:
+  push:
+    branches-ignore:
+      - main
+      - 'prelim-main-*'
+    paths:
+      - '.ci/run'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repoworkflow-invocation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.select.outputs.stage }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - id: select
+        name: Validate dedicated CI invocation commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/on-demand-ci-plan.py > plan.json
+          cat plan.json
+          stage="$(python -c 'import json; print(json.load(open("plan.json"))["stage"])')"
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: plan
+    if: >-
+      needs.plan.outputs.stage == 'regression-testing' ||
+      needs.plan.outputs.stage == 'integration-testing'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run authoritative regression suite
+        run: python scripts/validate.py
+      - name: Verify validation did not change checkout
+        shell: bash
+        run: test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+  argv-limits:
+    needs: plan
+    if: needs.plan.outputs.stage == 'integration-testing'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python scripts/probe-argv-limits.py
+
+  graph-renderer-platform:
+    needs: plan
+    if: needs.plan.outputs.stage == 'integration-testing'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - run: python scripts/probe-graph-renderer.py
+
+  ticket-merge-platform:
+    needs: plan
+    if: needs.plan.outputs.stage == 'integration-testing'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python scripts/probe-ticket-merge.py
+
+  unsupported-stage:
+    needs: plan
+    if: >-
+      needs.plan.outputs.stage == 'RED-testing' ||
+      needs.plan.outputs.stage == 'temp-testing' ||
+      needs.plan.outputs.stage == 'GREEN-testing'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject unimplemented stage rather than produce false GREEN
+        run: |
+          echo 'RED/temp/GREEN hosted selection is awaiting #545 contract.'
+          exit 1
