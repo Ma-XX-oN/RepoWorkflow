@@ -105,3 +105,39 @@ def check_pre_merge_candidate(
       f"integration blocked: required test logs are {outcome}: "
       + "; ".join(warnings)
     )
+
+
+def accept_pre_merge_candidate(
+  root: Path,
+  *,
+  candidate_sha: str,
+  recorded_parent_tip: str,
+  read_authoritative_parent_tip: Callable[[], str],
+  accept_if_parent: Callable[[str, str], bool],
+  results_dir: Path,
+  config: dict,
+  version: str,
+  canonical_log: Path,
+  required_platforms: tuple[str, ...],
+  verify_hosted: Callable[[dict], bool] | None = None,
+  provider_repo: str | None = None,
+) -> None:
+  """Validate and atomically accept a candidate against one destination tip.\n\n  accept_if_parent is the hard mutation boundary.  It must perform one\n  compare-and-swap operation that changes the authoritative destination only\n  when its current tip still equals recorded_parent_tip.  Returning False\n  means the lease was lost and no destination mutation occurred.\n  """
+  authoritative_parent_tip = read_authoritative_parent_tip()
+  check_pre_merge_candidate(
+    root,
+    candidate_sha=candidate_sha,
+    recorded_parent_tip=recorded_parent_tip,
+    authoritative_parent_tip=authoritative_parent_tip,
+    results_dir=results_dir,
+    config=config,
+    version=version,
+    canonical_log=canonical_log,
+    required_platforms=required_platforms,
+    verify_hosted=verify_hosted,
+    provider_repo=provider_repo,
+  )
+  if not accept_if_parent(candidate_sha, recorded_parent_tip):
+    raise PreMergeGateError(
+      "integration blocked: destination tip advanced before acceptance"
+    )
