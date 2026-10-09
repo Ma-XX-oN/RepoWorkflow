@@ -53,6 +53,31 @@ class EngineRegressionTests(unittest.TestCase):
     self.assertEqual(entry["result"], "failed")
     self.assertFalse(entry["reusable"])
 
+  def test_engine_infrastructure_incomplete_is_not_failure(self):
+    self._script(2)
+    before = self.git("rev-parse", "HEAD")
+    result = run_test(
+      self.root, "regression", remote=False, engine_root=self.root,
+    )
+    self.assertEqual(result, 2)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    entry = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(entry["testSHA"], before)
+    self.assertEqual(entry["result"], "incomplete")
+    self.assertFalse(entry["reusable"])
+
+  def test_other_nonzero_exit_is_genuine_failure(self):
+    self._script(3)
+    result = run_test(
+      self.root, "regression", remote=False, engine_root=self.root,
+    )
+    self.assertEqual(result, 1)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    entry = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(entry["result"], "failed")
+
+
 
 if __name__ == "__main__":
   unittest.main()
