@@ -438,12 +438,18 @@ def run_test(
     path = root / ".repoworkflow" / "validation" / (
       "testResults-" + match.group(1) + ".jsonl"
     )
+    uncommitted = _uncommitted_inputs(root, path)
+    tested_sha = head_sha(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
+      "uncommittedChanges": uncommitted,
+      "reusable": (
+        outcome == "PASS" and not uncommitted and tested_sha == after
+      ),
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "kind": "regression",
       "branch": current_branch(root),
-      "testSHA": after,
+      "testSHA": tested_sha,
       "sourceSHA": before,
       "result": {
         "PASS": "succeeded",
