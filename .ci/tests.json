@@ -147,6 +147,10 @@
       "issue-545-cache-evidence": {
         "type": "regression",
         "name": "tests.test_test_cache_evidence"
+      },
+      "issue-570-hosted-version-identity": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_identity"
       }
     }
   ],
