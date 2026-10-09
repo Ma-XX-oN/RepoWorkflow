@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 import tempfile
 
 from .artifacts import (
@@ -38,6 +39,7 @@ def _verify_local(
   stable: bool,
   do_tag: bool,
   push: bool,
+  candidate_observer: Callable[[str], None] | None = None,
 ) -> str:
   root = root.resolve()
   engine_root = engine_root.resolve()
@@ -93,6 +95,9 @@ def _verify_local(
       commit=candidate.commit,
     )
 
+    if candidate_observer is not None:
+      candidate_observer(candidate.commit)
+
     for environment in config["environments"]:
       runner = run_stable_environment if stable else run_environment
       runner(
@@ -122,6 +127,7 @@ def verify_local(
   *,
   engine_root: Path,
   push: bool = False,
+  candidate_observer: Callable[[str], None] | None = None,
 ) -> str:
   root = root.resolve()
   before = repository_state(root)
@@ -132,6 +138,7 @@ def verify_local(
       stable=False,
       do_tag=not push,
       push=push,
+      candidate_observer=candidate_observer,
     )
     if push and outcome != "INCOMPLETE":
       config = load_config(root)
