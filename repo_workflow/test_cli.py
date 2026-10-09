@@ -131,7 +131,10 @@ def select_group(root: Path, name: str) -> str:
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(name + "\n", encoding="utf-8")
   _git(root, "add", "--", SELECTION.as_posix())
-  _git(root, "commit", "-m", "test: select RED/GREEN group " + name)
+  _git(
+    root, "commit", "--only", "-m",
+    "test: select RED/GREEN group " + name, "--", SELECTION.as_posix(),
+  )
   return name
 
 
@@ -151,7 +154,10 @@ def request_remote(root: Path, stage: str) -> int:
   request = STAGES[stage] + " " + previous_tip + "\n"
   path.write_text(request, encoding="utf-8")
   _git(root, "add", "--", ".ci/run")
-  _git(root, "commit", "-m", "test: request " + stage + " from hosted CI")
+  _git(
+    root, "commit", "--only", "-m",
+    "test: request " + stage + " from hosted CI", "--", ".ci/run",
+  )
   _git(root, "push", "origin", "HEAD:refs/heads/" + branch)
   print("Hosted request for " + stage + " committed after " + previous_tip)
   return 0
