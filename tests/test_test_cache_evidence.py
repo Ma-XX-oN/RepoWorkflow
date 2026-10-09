@@ -24,7 +24,8 @@ class TestCacheEvidenceTests(unittest.TestCase):
       "runner": "local",
       "uncommittedChanges": [], "headChangedDuringTest": False,
       "platform": {
-        "os": platform.system(), "runtime": platform.python_version(),
+        "os": platform.system(), "architecture": platform.machine(),
+          "runtime": platform.python_version(),
       },
       "groups": [{"group": "issue-545-green", "exit_code": 0}],
     }
@@ -71,6 +72,7 @@ class TestCacheEvidenceTests(unittest.TestCase):
       {"catalogueSHA256": "d" * 64},
       {"kind": "RED"},
       {"platform": {"os": "not-the-current-platform"}},
+      {"platform": {**self.base["platform"], "architecture": "wrong-arch"}},
     ):
       with self.subTest(change=change):
         self.write({**self.base, **change})
