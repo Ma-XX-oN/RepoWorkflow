@@ -101,10 +101,13 @@ class ValueEngine:
     name, fresh = self._record_identity(value)
     if not fresh:
       return {"$ref": name}
-    return {
-      "$new": name,
-      "$type": type_name(value),
-    }
+    result = {"$new": name, "$type": type_name(value)}
+    if hasattr(value, "__dict__"):
+      result.update({
+        key: self.observe(item)
+        for key, item in vars(value).items()
+      })
+    return result
 
   def observe_again(self, value: Any) -> Any:
     """Observe post-state, preserving identities already introduced."""
@@ -153,6 +156,11 @@ class ValueEngine:
     }
     if not fresh:
       result.pop("$type")
+    if hasattr(value, "__dict__"):
+      result.update({
+        key: self.observe_again(item)
+        for key, item in vars(value).items()
+      })
     return result
 
   def _mismatch(self, path: str, expected: Any, actual: Any) -> None:
