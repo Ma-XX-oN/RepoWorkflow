@@ -51,6 +51,10 @@
       "issue-516-lane-count": {
         "type": "regression",
         "name": "tests.test_lane_count_verification"
+      },
+      "issue-543-release-ownership": {
+        "type": "regression",
+        "name": "tests.test_self_ci"
       }
     }
   ],
