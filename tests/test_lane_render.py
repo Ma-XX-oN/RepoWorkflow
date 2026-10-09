@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
+from repo_workflow.lane_projection import ProjectionRule
 from repo_workflow.lane_render import (
   LaneRenderError,
   color_setting,
@@ -222,6 +223,27 @@ class LaneRenderTests(unittest.TestCase):
     }
     self.assertEqual(routes, {(145, 185), (185, 216)})
     self.assertNotIn((145, 216), routes)
+
+  def test_excluded_graph_appends_selection_expression(self):
+    selection_store = LaneSelectionStore(self.root)
+    current = selection_store.read()
+    selection_store.select_rules(
+      (ProjectionRule("107", "both"),),
+      self.writer,
+      expected_revision=current.revision,
+      excludes=(ProjectionRule("54", "single"),),
+    )
+
+    lines = render_lanes(self.root)
+    self.assertEqual(
+      lines[-3:],
+      (
+        "",
+        "Selection:",
+        "inc_both(#107) − #54",
+      ),
+    )
+    self.assertFalse(any("B54" in line for line in lines[:-3]))
 
   def test_graph_rejects_titles_and_links(self):
     with self.assertRaisesRegex(LaneRenderError, "lanes list"):

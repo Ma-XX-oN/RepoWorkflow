@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 import sys
 
@@ -13,22 +14,28 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import CiInvocationError, verify_invocation
 
 
+def plan_invocation(root: Path) -> dict[str, str]:
+  request = verify_invocation(root)
+  invocation_sha = subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"],
+    text=True,
+  ).strip()
+  return {
+    "stage": request.stage,
+    "previous_tip": request.previous_tip,
+    "tested_sha": request.previous_tip,
+    "invocation_sha": invocation_sha,
+  }
+
+
 def main() -> int:
   try:
-    request = verify_invocation(ROOT)
+    plan = plan_invocation(ROOT)
   except CiInvocationError as error:
     print(f"CI invocation rejected: {error}", file=sys.stderr)
     return 1
-  print(json.dumps({
-    "stage": request.stage,
-    "previous_tip": request.previous_tip,
-    "tested_sha": __import__("subprocess").check_output(
-      ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
-      text=True,
-    ).strip(),
-  }, sort_keys=True))
+  print(json.dumps(plan, sort_keys=True))
   return 0
-
 
 if __name__ == "__main__":
   raise SystemExit(main())

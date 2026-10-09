@@ -284,61 +284,7 @@ class FirstUseLanesTests(unittest.TestCase):
       self.assertIn("*A436", rendered.stdout)
       self.assertEqual(rendered.stdout.count("*"), 1)
 
-  def test_group_boundary_stops_provider_component_until_followed(self):
-    with tempfile.TemporaryDirectory() as td:
-      base = Path(td)
-      root = base / "repo"
-      root.mkdir()
-      self.make_repo(root)
-      dependencies = {
-        1: [],
-        2: [1],
-        3: [2],
-        4: [3],
-      }
-      env = self.fake_github(
-        base,
-        dependencies,
-        titles={
-          1: "Issue 1",
-          2: "Feature: Boundary",
-          3: "Issue 3",
-          4: "Issue 4",
-        },
-      )
-
-      stopped = self.run_rwf(
-        root,
-        env,
-        "lanes",
-        "select",
-        "1",
-        "--json",
-      )
-      self.assertEqual(stopped.returncode, 0, stopped.stderr)
-      self.assertEqual(json.loads(stopped.stdout)["closure"], ["1", "2"])
-      self.assertEqual(set(self.dependency_calls(env)), {1, 2})
-
-      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
-      followed = self.run_rwf(
-        root,
-        env,
-        "lanes",
-        "select",
-        "1",
-        "--follow",
-        "feature",
-        "--refresh",
-        "--json",
-      )
-      self.assertEqual(followed.returncode, 0, followed.stderr)
-      self.assertEqual(
-        json.loads(followed.stdout)["closure"],
-        ["1", "2", "3", "4"],
-      )
-      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4})
-
-  def test_show_children_fetches_one_hop_without_recursive_traversal(self):
+  def test_dependencies_mode_fetches_only_dependency_direction(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
       root = base / "repo"
@@ -350,13 +296,8 @@ class FirstUseLanesTests(unittest.TestCase):
           1: [],
           2: [1],
           3: [2],
-          4: [3],
-        },
-        titles={
-          1: "Issue 1",
-          2: "Feature: Boundary",
-          3: "Issue 3",
-          4: "Issue 4",
+          4: [1],
+          5: [3],
         },
       )
 
@@ -365,9 +306,8 @@ class FirstUseLanesTests(unittest.TestCase):
         env,
         "lanes",
         "select",
-        "1",
-        "--show-children",
-        "feature",
+        "3",
+        "--dependencies",
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
@@ -377,26 +317,7 @@ class FirstUseLanesTests(unittest.TestCase):
       )
       self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3})
 
-      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
-      refreshed = self.run_rwf(
-        root,
-        env,
-        "lanes",
-        "view",
-        "--refresh",
-      )
-      self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
-      self.assertNotIn(4, self.dependency_calls(env))
-
-      selection_path = (
-        root / ".git/repoworkflow/lane-selection/selection.json"
-      )
-      record = json.loads(selection_path.read_text(encoding="utf-8"))
-      self.assertTrue(
-        record["value"]["show_children"]["feature"],
-      )
-
-  def test_show_children_support_fetch_does_not_expand_projection(self):
+  def test_dependents_mode_does_not_reverse_through_dependency_support(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
       root = base / "repo"
@@ -408,13 +329,8 @@ class FirstUseLanesTests(unittest.TestCase):
           1: [],
           2: [1],
           3: [2],
-          4: [3],
-        },
-        titles={
-          1: "Issue 1",
-          2: "Issue 2",
-          3: "Feature: Boundary",
-          4: "Issue 4",
+          4: [1],
+          5: [3],
         },
       )
 
@@ -423,20 +339,19 @@ class FirstUseLanesTests(unittest.TestCase):
         env,
         "lanes",
         "select",
-        "4",
-        "--show-children",
-        "feature",
+        "2",
+        "--dependents",
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
       self.assertEqual(
         json.loads(selected.stdout)["closure"],
-        ["2", "3", "4"],
+        ["2", "3", "5"],
       )
-      self.assertNotIn("1", json.loads(selected.stdout)["closure"])
-      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 4})
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 5})
+      self.assertNotIn(4, self.dependency_calls(env))
 
-  def test_refresh_preserves_consumed_follow_budget(self):
+  def test_default_both_is_union_without_direction_reversal(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
       root = base / "repo"
@@ -448,33 +363,237 @@ class FirstUseLanesTests(unittest.TestCase):
           1: [],
           2: [1],
           3: [2],
-          4: [3],
-          5: [4],
-        },
-        titles={
-          1: "Issue 1",
-          2: "Feature: First",
-          3: "Issue 3",
-          4: "Feature: Second",
-          5: "Issue 5",
+          4: [1],
+          5: [3],
         },
       )
 
       selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--json",
+      )
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      self.assertEqual(
+        json.loads(selected.stdout)["closure"],
+        ["1", "2", "3", "5"],
+      )
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2, 3, 5})
+      self.assertNotIn(4, self.dependency_calls(env))
+
+  def test_partial_single_cache_widens_to_dependents_without_refresh(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+          4: [1],
+          5: [3],
+        },
+      )
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--single",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(json.loads(first.stdout)["closure"], ["2"])
+      before = list(self.dependency_calls(env))
+
+      widened = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependents",
+        "--json",
+      )
+      self.assertEqual(widened.returncode, 0, widened.stderr)
+      self.assertEqual(
+        json.loads(widened.stdout)["closure"],
+        ["2", "3", "5"],
+      )
+      self.assertGreater(len(self.dependency_calls(env)), len(before))
+      self.assertNotIn(4, json.loads(widened.stdout)["closure"])
+
+  def test_complete_baseline_extension_tracks_partial_new_seed(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+
+      ticket_path = root / ".repoworkflow" / "tickets.csv"
+      ticket_path.parent.mkdir(parents=True, exist_ok=True)
+      ticket_path.write_text(
+        "issue,title,dependencies\n"
+        "1,Existing synchronized issue,\n",
+        encoding="utf-8",
+      )
+
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+        },
+        titles={
+          1: "Existing synchronized issue",
+          2: "New seed",
+          3: "New dependant",
+        },
+      )
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--single",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+      self.assertEqual(json.loads(first.stdout)["closure"], ["2"])
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      widened = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependents",
+        "--json",
+      )
+      self.assertEqual(widened.returncode, 0, widened.stderr)
+      self.assertEqual(
+        json.loads(widened.stdout)["closure"],
+        ["2", "3"],
+      )
+      self.assertIn(2, self.dependency_calls(env))
+      self.assertIn(3, self.dependency_calls(env))
+
+      Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
+      baseline = self.run_rwf(
         root,
         env,
         "lanes",
         "select",
         "1",
-        "--follow",
-        "feature",
+        "--json",
+      )
+      self.assertEqual(baseline.returncode, 0, baseline.stderr)
+      self.assertEqual(self.dependency_calls(env), [])
+
+  def test_partial_cache_widening_failure_preserves_graph_and_selection(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+        },
+      )
+
+      first = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--single",
+        "--json",
+      )
+      self.assertEqual(first.returncode, 0, first.stderr)
+
+      graph_path = root / ".repoworkflow" / "tickets.csv"
+      selection_path = (
+        root
+        / ".git"
+        / "repoworkflow"
+        / "lane-selection"
+        / "selection.json"
+      )
+      graph_before = graph_path.read_text(encoding="utf-8")
+      selection_before = selection_path.read_text(encoding="utf-8")
+
+      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "print('provider unavailable', file=sys.stderr)\n"
+        "raise SystemExit(92)\n",
+        encoding="utf-8",
+      )
+      gh.chmod(0o755)
+
+      widened = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependents",
+        "--json",
+      )
+      self.assertEqual(widened.returncode, 2)
+      self.assertIn("provider unavailable", widened.stderr)
+      self.assertEqual(
+        graph_path.read_text(encoding="utf-8"),
+        graph_before,
+      )
+      self.assertEqual(
+        selection_path.read_text(encoding="utf-8"),
+        selection_before,
+      )
+
+  def test_directional_selection_refresh_replays_persisted_rules(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(
+        base,
+        {
+          1: [],
+          2: [1],
+          3: [2],
+        },
+      )
+
+      selected = self.run_rwf(
+        root,
+        env,
+        "lanes",
+        "select",
+        "2",
+        "--dependencies",
         "--json",
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
-      self.assertEqual(
-        json.loads(selected.stdout)["closure"],
-        ["1", "2", "3", "4"],
-      )
 
       Path(env["RWF_TEST_CALLS"]).write_text("", encoding="utf-8")
       refreshed = self.run_rwf(
@@ -485,17 +604,17 @@ class FirstUseLanesTests(unittest.TestCase):
         "--refresh",
       )
       self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
-      self.assertNotIn(5, self.dependency_calls(env))
+      self.assertEqual(set(self.dependency_calls(env)), {1, 2})
 
       selection_path = (
         root / ".git/repoworkflow/lane-selection/selection.json"
       )
       record = json.loads(selection_path.read_text(encoding="utf-8"))
       self.assertEqual(
-        record["value"]["closure"],
-        ["1", "2", "3", "4"],
+        record["value"]["includes"],
+        [{"seed": "2", "mode": "dependencies"}],
       )
-      self.assertEqual(record["value"]["follow"]["feature"], 1)
+      self.assertEqual(record["value"]["closure"], ["1", "2"])
 
   def test_human_select_renders_graph_and_list_uses_same_selection(self):
     with tempfile.TemporaryDirectory() as td:

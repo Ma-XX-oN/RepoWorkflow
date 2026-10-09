@@ -48,9 +48,9 @@ When restructuring an existing backlog:
 12. Re-run the decomposition test until every executable ticket has a clean
     completion boundary.
 
-Descriptive `Initiative:`, `Epic:`, and `Feature:` tickets may document
-larger outcomes, but their prefixes and prose are not machine-readable graph
-relationships.
+Descriptive `Initiative:`, `Epic:`, `Feature:`, `Bug:`, and
+`Refactor:` tickets may classify work for humans, but their prefixes and
+prose are not machine-readable graph relationships.
 
 ## 3. Completion test for an executable ticket
 

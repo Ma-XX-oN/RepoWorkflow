@@ -6,7 +6,7 @@ import time
 from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
 from .lane_selection import LaneSelectionSnapshot, LaneSelectionStore
-from .relationship_bootstrap import ensure_relationship_graph
+from .relationship_bootstrap import ensure_relationship_rules
 from .state_store import WriterIdentity
 
 
@@ -44,14 +44,13 @@ def refresh_current_lane_selection(
     raise ValueError("lane selection is missing")
 
   started = time.perf_counter()
-  relationships = ensure_relationship_graph(
+  relationships = ensure_relationship_rules(
     root,
-    current.value.roots,
+    current.value.includes,
+    current.value.excludes,
     writer,
     refresh=True,
     diagnostics=diagnostics,
-    follow=current.value.follow,
-    show_children=current.value.show_children,
   )
   if diagnostics is not None:
     diagnostics.phase("relationships", started)
@@ -68,12 +67,11 @@ def refresh_current_lane_selection(
     diagnostics.phase("metadata", started)
 
   started = time.perf_counter()
-  result = store.select(
-    current.value.roots,
+  result = store.select_rules(
+    current.value.includes,
     writer,
     expected_revision=current.revision,
-    follow=current.value.follow,
-    show_children=current.value.show_children,
+    excludes=current.value.excludes,
   )
   if diagnostics is not None:
     diagnostics.phase("decomposition", started)

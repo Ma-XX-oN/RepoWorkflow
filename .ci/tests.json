@@ -67,6 +67,86 @@
       "issue-543-on-demand-ci-certification": {
         "type": "regression",
         "name": "tests.test_on_demand_ci_certification"
+      },
+      "issue-528-lane-projection-algebra": {
+        "type": "regression",
+        "name": "tests.test_lane_projection"
+      },
+      "issue-529-lane-selection-rules": {
+        "type": "regression",
+        "name": "tests.test_lane_selection"
+      },
+      "issue-530-lane-projection-cli": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_cli"
+      },
+      "issue-531-directional-acquisition": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-532-bug-refactor-prefixes": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-533-selection-expression": {
+        "type": "regression",
+        "name": "tests.test_lane_render"
+      },
+      "issue-535-explicit-lane-projection-certification": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-527-explicit-lane-projections": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-537-partial-direction-cache": {
+        "type": "regression",
+        "name": "tests.test_lane_projection_verification"
+      },
+      "issue-550-public-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
+      },
+      "issue-545-unified-test-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli"
+      },
+      "issue-545-workflow-cli-migration": {
+        "type": "regression",
+        "name": "tests.test_workflow_cli"
+      },
+      "issue-545-bash-completion-migration": {
+        "type": "regression",
+        "name": "tests.test_completion"
+      },
+      "issue-545-red-evidence": {
+        "type": "regression",
+        "name": "tests.test_red_evidence"
+      },
+      "issue-545-integration-preflight": {
+        "type": "regression",
+        "name": "tests.test_integration_preflight"
+      },
+      "issue-545-regression-temporary": {
+        "type": "regression",
+        "name": "tests.test_regression_temporary"
+      },
+      "issue-545-dedicated-test-commits": {
+        "type": "regression",
+        "name": "tests.test_dedicated_test_commits"
+      },
+      "issue-545-history-mutation": {
+        "type": "regression",
+        "name": "tests.test_test_execution_mutation"
+      },
+      "issue-541-hosted-plan-binding": {
+        "type": "regression",
+        "name": "tests.test_on_demand_plan"
+      },
+      "issue-541-hosted-result-evidence": {
+        "type": "regression",
+        "name": "tests.test_hosted_result"
       }
     }
   ],

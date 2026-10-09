@@ -3,17 +3,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .lane_decomposition import dependency_component, dependency_states
-from .lane_traversal import (
-  FollowPolicy,
-  ShowChildrenPolicy,
-  TraversalState,
-  group_kind,
-)
-from .lane_diagnostics import LaneDiagnostics
 from .dependency_migration_certification import (
   DependencyMigrationCertificationError,
   require_dependency_migration_certified,
+)
+from .lane_diagnostics import LaneDiagnostics
+from .lane_projection import (
+  ProjectionRule,
+  normalize_rules,
+  project_rules,
+)
+from .lane_relationship_coverage import (
+  RelationshipCoverage,
+  RelationshipCoverageStore,
+  rule_is_covered,
 )
 from .relationship_store import (
   RelationshipSnapshot,
@@ -43,197 +46,293 @@ def ensure_relationship_graph(
   *,
   refresh: bool = False,
   diagnostics: LaneDiagnostics | None = None,
-  follow: FollowPolicy | None = None,
-  show_children: ShowChildrenPolicy | None = None,
+  **obsolete,
 ) -> RelationshipAcquisition:
-  """Ensure canonical ticket coverage using local state unless refresh/missing."""
+  """Compatibility wrapper for default-both explicit seed projection."""
+  del obsolete
+  rules = tuple(
+    ProjectionRule(str(int(value)), "both")
+    for value in roots
+  )
+  return ensure_relationship_rules(
+    root,
+    rules,
+    (),
+    writer,
+    refresh=refresh,
+    diagnostics=diagnostics,
+  )
+
+
+def ensure_relationship_rules(
+  root: Path,
+  includes: tuple[ProjectionRule, ...],
+  excludes: tuple[ProjectionRule, ...],
+  writer: WriterIdentity,
+  *,
+  refresh: bool = False,
+  diagnostics: LaneDiagnostics | None = None,
+) -> RelationshipAcquisition:
+  """Ensure synchronized relationship coverage for explicit projection rules."""
   try:
     require_dependency_migration_certified(root)
   except DependencyMigrationCertificationError as error:
     raise TicketDependencyError(str(error)) from error
 
+  include_rules = normalize_rules(includes)
+  exclude_rules = normalize_rules(excludes)
+  all_rules = normalize_rules((*include_rules, *exclude_rules))
+  if not include_rules:
+    raise TicketDependencyError("lane selection requires an include rule")
+
   store = RelationshipStore(root)
   snapshot = _read_optional(store)
   issues = {} if snapshot is None else dict(snapshot.graph.issues)
-  requested = tuple(sorted({str(int(value)) for value in roots}, key=int))
-  requested_set = set(requested)
-  policy = FollowPolicy() if follow is None else follow
-  context = ShowChildrenPolicy() if show_children is None else show_children
+  requested = {rule.seed for rule in all_rules}
+  initial_issue_ids = tuple(sorted(issues, key=int))
+  coverage_store = RelationshipCoverageStore(root)
+  coverage, coverage_revision = coverage_store.read()
+  partial = (
+    snapshot is None
+    or bool(requested - set(issues))
+    or (coverage is not None and coverage.partial)
+  )
+
+  locally_covered = (
+    coverage is None
+    or all(rule_is_covered(coverage, rule) for rule in all_rules)
+  )
+  if (
+    not refresh
+    and snapshot is not None
+    and requested <= set(issues)
+    and locally_covered
+  ):
+    projected = project_rules(
+      snapshot.graph,
+      include_rules,
+      exclude_rules,
+    )
+    return RelationshipAcquisition(
+      issues=tuple(int(issue) for issue in projected),
+      provider_reads=(),
+    )
+
   dependency_config = resolve_dependency_config(root)
   info_config = resolve_info_config(root)
-  if (
-    refresh
-    and snapshot is not None
-    and all(issue in issues for issue in requested)
-  ):
-    pending = [
-      (state, True)
-      for state in dependency_states(
-        snapshot.graph,
-        requested,
-        follow=policy,
-      )
-    ]
-  else:
-    pending = [
-      (TraversalState(issue, policy.remaining()), True)
-      for issue in requested
-    ]
-  visited: set[TraversalState] = set()
-  traversed_issues: set[str] = set()
-  context_issues: set[str] = set()
   provider_reads: list[int] = []
   fetched_info: dict[int, dict] = {}
   provider_cache: dict[
     str,
-    tuple[IssueRelationships, tuple[str, ...], dict],
+    tuple[IssueRelationships, tuple[str, ...]],
   ] = {}
   changed = snapshot is None
 
-  while pending:
-    state, traverse = pending.pop(0)
-    issue = state.issue
-    if traverse:
-      if state in visited:
-        continue
-      visited.add(state)
-      traversed_issues.add(issue)
-    else:
-      if issue in context_issues or issue in traversed_issues:
-        continue
-      context_issues.add(issue)
+  def local_dependents(issue: str) -> tuple[str, ...]:
+    return tuple(sorted(
+      (
+        candidate
+        for candidate, relation in issues.items()
+        if issue in relation.depends_on
+      ),
+      key=int,
+    ))
 
-    current = issues.get(issue)
-    provider: IssueRelationships | None = None
-    if refresh or current is None:
-      cached_provider = provider_cache.get(issue)
-      if cached_provider is not None:
-        provider, provider_dependants, info = cached_provider
-      else:
-        number = int(issue)
-        provider_reads.append(number)
-        if diagnostics is not None:
-          diagnostics.miss("relationships")
-          diagnostics.miss("metadata")
-          relationships = diagnostics.provider(
-            "dependencies",
-            number,
-            lambda: read_ticket_relationships(
-              root,
-              dependency_config,
-              number,
-            ),
-          )
-          info = diagnostics.provider(
-            "metadata",
-            number,
-            lambda: issue_info(root, info_config, number),
-          )
-        else:
-          relationships = read_ticket_relationships(
-            root,
-            dependency_config,
-            number,
-          )
-          info = issue_info(root, info_config, number)
-        fetched_info[number] = info
-        provider = IssueRelationships(
-          title=info["title"],
-          depends_on=tuple(str(value) for value in relationships.dependencies),
-        )
-        provider_dependants = tuple(
-          str(value) for value in relationships.dependants
-        )
-        provider_cache[issue] = (provider, provider_dependants, info)
-    else:
-      provider_dependants = ()
+  def load(
+    issue: str,
+    *,
+    force_provider: bool,
+  ) -> tuple[IssueRelationships, tuple[str, ...]]:
+    nonlocal changed
+
+    cached = provider_cache.get(issue)
+    if cached is not None:
+      return cached
+
+    if not force_provider and not refresh and issue in issues:
       if diagnostics is not None:
         diagnostics.hit("relationships")
+      return issues[issue], local_dependents(issue)
 
+    number = int(issue)
+    provider_reads.append(number)
+    if diagnostics is not None:
+      diagnostics.miss("relationships")
+      diagnostics.miss("metadata")
+      relationships = diagnostics.provider(
+        "dependencies",
+        number,
+        lambda: read_ticket_relationships(
+          root,
+          dependency_config,
+          number,
+        ),
+      )
+      info = diagnostics.provider(
+        "metadata",
+        number,
+        lambda: issue_info(root, info_config, number),
+      )
+    else:
+      relationships = read_ticket_relationships(
+        root,
+        dependency_config,
+        number,
+      )
+      info = issue_info(root, info_config, number)
+
+    fetched_info[number] = info
+    provider = IssueRelationships(
+      title=info["title"],
+      depends_on=tuple(str(value) for value in relationships.dependencies),
+    )
+    provider_dependents = tuple(
+      str(value) for value in relationships.dependants
+    )
+    provider_cache[issue] = (provider, provider_dependents)
+
+    current = issues.get(issue)
     if current is None:
-      assert provider is not None
       issues[issue] = provider
       changed = True
-      dependencies = provider.depends_on
-    elif provider is None:
-      dependencies = current.depends_on
-    else:
-      if current.depends_on == provider.depends_on:
-        replacement = provider
-      elif not current.depends_on and provider.depends_on:
-        replacement = provider
-      else:
-        raise TicketDependencyError(
-          "canonical dependencies conflict with native ticket dependencies "
-          f"for #{issue}: canonical={list(current.depends_on)!r}, "
-          f"provider={list(provider.depends_on)!r}; reconcile explicitly "
-          "before lane selection"
-        )
-      if replacement != current:
-        issues[issue] = replacement
+    elif current.depends_on == provider.depends_on:
+      if current != provider:
+        issues[issue] = provider
         changed = True
-      dependencies = replacement.depends_on
+    elif not current.depends_on and provider.depends_on:
+      issues[issue] = provider
+      changed = True
+    else:
+      raise TicketDependencyError(
+        "canonical dependencies conflict with native ticket dependencies "
+        f"for #{issue}: canonical={list(current.depends_on)!r}, "
+        f"provider={list(provider.depends_on)!r}; reconcile explicitly "
+        "before lane selection"
+      )
 
-    if not traverse:
-      for dependency in dependencies:
-        if dependency not in traversed_issues and dependency not in context_issues:
-          pending.append((
-            TraversalState(dependency, state.remaining),
-            False,
-          ))
-      continue
+    return issues[issue], provider_dependents
 
-    remaining = state.remaining
-    relation = issues[issue]
-    kind = group_kind(relation.title)
-    related = (*dependencies, *provider_dependants)
-    if issue not in requested_set:
-      crossed = policy.cross(kind, remaining)
-      if crossed is None:
-        if context.matches(kind):
-          for related_issue in related:
-            pending.append((
-              TraversalState(related_issue, remaining),
-              False,
-            ))
+  support_seen: set[tuple[str, bool]] = set()
+
+  def ensure_support(issue: str, *, force_provider: bool) -> None:
+    pending = [issue]
+    while pending:
+      current_issue = pending.pop()
+      key = (current_issue, force_provider)
+      if key in support_seen:
         continue
-      remaining = crossed
+      support_seen.add(key)
+      relation, _ = load(
+        current_issue,
+        force_provider=force_provider,
+      )
+      pending.extend(
+        dependency
+        for dependency in relation.depends_on
+        if dependency not in support_seen
+      )
 
-    for related_issue in related:
-      next_state = TraversalState(related_issue, remaining)
-      if next_state not in visited:
-        pending.append((next_state, True))
+  def walk_dependencies(seed: str, *, force_provider: bool) -> None:
+    pending = [seed]
+    seen: set[str] = set()
+    while pending:
+      issue = pending.pop()
+      if issue in seen:
+        continue
+      seen.add(issue)
+      relation, _ = load(issue, force_provider=force_provider)
+      pending.extend(
+        dependency
+        for dependency in relation.depends_on
+        if dependency not in seen
+      )
+
+  def walk_dependents(seed: str, *, force_provider: bool) -> None:
+    pending = [seed]
+    seen: set[str] = set()
+    while pending:
+      issue = pending.pop()
+      if issue in seen:
+        continue
+      seen.add(issue)
+      _, dependents = load(issue, force_provider=force_provider)
+      for dependant in dependents:
+        ensure_support(dependant, force_provider=force_provider)
+        if dependant not in seen:
+          pending.append(dependant)
+
+  for rule in all_rules:
+    force_provider = refresh or (
+      partial
+      and (
+        coverage is None
+        or not rule_is_covered(coverage, rule)
+      )
+    )
+    if rule.mode == "single":
+      ensure_support(rule.seed, force_provider=force_provider)
+    elif rule.mode == "dependencies":
+      walk_dependencies(rule.seed, force_provider=force_provider)
+    elif rule.mode == "dependents":
+      ensure_support(rule.seed, force_provider=force_provider)
+      walk_dependents(rule.seed, force_provider=force_provider)
+    else:
+      walk_dependencies(rule.seed, force_provider=force_provider)
+      walk_dependents(rule.seed, force_provider=force_provider)
+
+  graph = RelationshipGraph.from_json_value({
+    "schema_version": 3,
+    "issues": {
+      issue: relation.to_json_value()
+      for issue, relation in issues.items()
+    },
+  })
+
+  next_coverage = None
+  if partial:
+    prior_rules = () if coverage is None else coverage.rules
+    baseline = (
+      initial_issue_ids
+      if coverage is None and snapshot is not None
+      else (() if coverage is None else coverage.baseline_seeds)
+    )
+    next_coverage = RelationshipCoverage(
+      partial=True,
+      baseline_seeds=baseline,
+      rules=normalize_rules((*prior_rules, *all_rules)),
+    )
+
+  # Establish the first partial-coverage marker before mutating tickets.csv so
+  # a crash cannot leave a partially acquired graph looking complete.
+  if coverage is None and next_coverage is not None:
+    coverage_store.write(
+      next_coverage,
+      writer,
+      expected_revision=None,
+    )
+    coverage_revision = 0
 
   if changed:
-    graph = RelationshipGraph.from_json_value({
-      "schema_version": 3,
-      "issues": {
-        issue: relation.to_json_value()
-        for issue, relation in issues.items()
-      },
-    })
-
     if snapshot is None:
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
-  else:
-    assert snapshot is not None
-    graph = snapshot.graph
 
-  component = dependency_component(
-    graph,
-    requested,
-    follow=policy,
-    show_children=context,
-  )
+  if next_coverage is not None and coverage is not None:
+    coverage_store.write(
+      next_coverage,
+      writer,
+      expected_revision=coverage_revision,
+    )
+
+  projected = project_rules(graph, include_rules, exclude_rules)
 
   if fetched_info:
     from .issue_metadata import cache_issue_display_metadata
     cache_issue_display_metadata(root, fetched_info, writer)
 
   return RelationshipAcquisition(
-    issues=tuple(int(issue) for issue in component),
+    issues=tuple(int(issue) for issue in projected),
     provider_reads=tuple(provider_reads),
   )
 
