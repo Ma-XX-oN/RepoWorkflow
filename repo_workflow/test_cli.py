@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 import platform
 from pathlib import Path
@@ -159,6 +160,7 @@ def _run_group_set(
     command = group_command(root, group, catalogue_path)
     completed = subprocess.run(
       command, cwd=root, capture_output=True, text=True, check=False,
+      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     if completed.stdout:
       print(completed.stdout, end="")
@@ -203,6 +205,7 @@ def run_test(
     command = group_command(root, selected)
     result = subprocess.run(
       command, cwd=root, text=True, capture_output=True, check=False,
+      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     if result.stdout:
       print(result.stdout, end="")
