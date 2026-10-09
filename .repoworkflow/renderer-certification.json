@@ -1,11 +1,16 @@
 {
   "schema_version": 1,
   "purpose": "Bind current renderer certification to material graph and routing inputs.",
-  "issue": 447,
-  "certified_renderer_candidate": null,
+  "issue": 583,
+  "certified_renderer_candidate": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
   "evidence": {
-    "verification_status": "pending",
-    "note": "Material inputs reconciled to the assembled #583 branch for regression verification. Hosted cross-platform renderer certification remains REQUIRED; previous #1056 evidence is not applicable to these revised graph and CSV inputs."
+    "workflow_run_id": 37991412533,
+    "workflow_name": "RepoWorkflow Self CI",
+    "result": "success",
+    "tier": "integration",
+    "tested_head": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
+    "assembled_source_head": "9549f0955fa7228fa80437efe39384fc9b6f3697",
+    "note": "Exact content parity verified for lifecycle, graph, CSV, CLI, renderer manifest and tests between assembled feature and temporary platform certification branch; temporary PR has only the CI-tier and extra platform test override. Authoritative full validation, Ubuntu/Windows/macOS renderer (including six-state and legend), ticket merge, and argv jobs all GREEN in run 37991412533. No test-only workflow change is intended to merge."
   },
   "material_inputs": {
     ".repoworkflow/tickets.csv": "e3b2d421dc2fb9bb100d2e5d4d7c8ee53fe30544",
