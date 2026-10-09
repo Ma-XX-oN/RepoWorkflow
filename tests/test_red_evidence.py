@@ -42,6 +42,42 @@ class RedEvidenceTests(unittest.TestCase):
 
 
 
+  def test_change_selected_red_group_after_audit_without_committing_log(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-first",
+    )
+    catalogue = self.root / ".ci/tests.json"
+    value = json.loads(catalogue.read_text())
+    value["tests"][0]["issue-545-second"] = {
+      "type": "regression", "name": "smoke_case",
+    }
+    catalogue.write_text(json.dumps(value))
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "register two RED groups")
+    initial = self.cli("test", "RED", "issue-545-first")
+    self.assertEqual(initial.returncode, 2, initial.stderr)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    self.assertTrue(audit.exists())
+    change = self.cli("test", "RED", "issue-545-second")
+    self.assertEqual(change.returncode, 2, change.stderr)
+    self.assertEqual(
+      (self.root / ".ci/red-green.txt").read_text(),
+      "issue-545-second\n",
+    )
+    self.assertEqual(
+      self.git("show", "--format=", "--name-only", "HEAD"),
+      ".ci/red-green.txt",
+    )
+    self.assertEqual(len(audit.read_text().splitlines()), 2)
+    (self.root / "smoke_case.py").write_text("# uncommitted source edit\n")
+    refused = self.cli("test", "RED", "issue-545-first")
+    self.assertEqual(refused.returncode, 2)
+    self.assertIn("commit or discard", refused.stderr)
+    self.assertEqual(
+      (self.root / ".ci/red-green.txt").read_text(),
+      "issue-545-second\n",
+    )
+
   def test_newer_green_failure_supersedes_earlier_pass(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
