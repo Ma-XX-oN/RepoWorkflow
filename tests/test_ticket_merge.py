@@ -113,12 +113,12 @@ class TicketMergeTests(unittest.TestCase):
 
   def test_status_snapshot_preserved_in_semantic_merge(self):
     base = (
-      "issue,title,dependencies,state,state_revision\\n"
-      "10,Ten,,not_started,\\n"
+      "issue,title,dependencies,state,state_revision\n"
+      "10,Ten,,not_started,\n"
     )
     ours = (
-      "issue,title,dependencies,state,state_revision\\n"
-      "10,Ten,,active,0\\n"
+      "issue,title,dependencies,state,state_revision\n"
+      "10,Ten,,active,0\n"
     )
     theirs = base
     self.assertEqual(
@@ -128,16 +128,16 @@ class TicketMergeTests(unittest.TestCase):
 
   def test_divergent_status_snapshots_conflict(self):
     base = (
-      "issue,title,dependencies,state,state_revision\\n"
-      "10,Ten,,not_started,\\n"
+      "issue,title,dependencies,state,state_revision\n"
+      "10,Ten,,not_started,\n"
     )
     ours = (
-      "issue,title,dependencies,state,state_revision\\n"
-      "10,Ten,,active,0\\n"
+      "issue,title,dependencies,state,state_revision\n"
+      "10,Ten,,active,0\n"
     )
     theirs = (
-      "issue,title,dependencies,state,state_revision\\n"
-      "10,Ten,,completed,1\\n"
+      "issue,title,dependencies,state,state_revision\n"
+      "10,Ten,,completed,1\n"
     )
     with self.assertRaisesRegex(TicketMergeError, "divergent lifecycle"):
       merge_ticket_csv(self.root, base, ours, theirs)
