@@ -15,6 +15,7 @@ import sys
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
 from .test_regression_engine import self_regression
+from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
@@ -405,10 +406,7 @@ def run_test(
     return request_remote(root, stage)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    raise TestCommandError(
-      "integration preflight passed; full local integration execution "
-      "not yet implemented"
-    )
+    return run_local_integration(root, engine_root=engine_root)
   if stage == "regression":
     temporary = Path(".ci/temp-tests.json")
     selected = ()
