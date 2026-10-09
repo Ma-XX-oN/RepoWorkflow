@@ -166,6 +166,31 @@ class BootstrapCliTests(unittest.TestCase):
         ("lanes", "clear"),
       )
 
+  def test_dynamic_help_and_argument_hints_are_described(self):
+    """Dynamic command choices and parameter hints need usable help too."""
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      cases = (
+        (("validate",), ("regression", "integration")),
+        (("high-risk",), ("<value>",)),
+        (("issue", "start"), ("<value>",)),
+        (("lanes", "select"), ("<value>",)),
+      )
+      for prefix, names in cases:
+        with self.subTest(prefix=prefix):
+          result = self.run_cli(root, *prefix, "--help")
+          self.assertEqual(result.returncode, 0, result.stderr)
+          rows = {
+            parts[0]: parts[1]
+            for line in result.stdout.splitlines()
+            if len(parts := line.split(maxsplit=1)) == 2
+          }
+          for name in names:
+            self.assertIn(name, rows)
+            self.assertTrue(rows[name].strip())
+
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
