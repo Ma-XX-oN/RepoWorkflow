@@ -17,7 +17,7 @@ class CanonicalIntegrationEvidenceTests(unittest.TestCase):
     self.sha = "a" * 40
     self.base = {
       "kind": "integration", "testSHA": self.sha,
-      "platform": {"os": "Linux", "runtime": "3.13"},
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
       "runner": "local", "result": "succeeded",
       "reusable": True, "uncommittedChanges": [],
       "headChangedDuringTest": False,
@@ -78,7 +78,7 @@ class CanonicalIntegrationEvidenceTests(unittest.TestCase):
           self.verify()
 
   def test_required_environment_matrix_is_complete(self):
-    windows = {**self.base, "platform": {"os": "Windows"}}
+    windows = {**self.base, "platform": {"os": "Windows", "architecture": "AMD64", "runtime": "3.13"}}
     self.write(self.base, windows)
     self.verify("Linux", "Windows")
     with self.assertRaises(CanonicalEvidenceError):
@@ -112,6 +112,15 @@ class CanonicalIntegrationEvidenceTests(unittest.TestCase):
     ):
       with self.subTest(changed=changed):
         self.write({**hosted, **changed})
+        with self.assertRaises(CanonicalEvidenceError):
+          self.verify()
+
+  def test_missing_or_incomplete_platform_fails_closed(self):
+    for platform in (None, {}, {"os": "Linux"}, {
+      "os": "Linux", "architecture": "x86_64",
+    }, {"os": "Linux", "architecture": "", "runtime": "3.13"}):
+      with self.subTest(platform=platform):
+        self.write({**self.base, "platform": platform})
         with self.assertRaises(CanonicalEvidenceError):
           self.verify()
 
