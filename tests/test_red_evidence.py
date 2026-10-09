@@ -35,6 +35,7 @@ class RedEvidenceTests(unittest.TestCase):
     self.assertEqual(failure.returncode, 0, failure.stderr)
     recorded = json.loads(audit.read_text().splitlines()[-1])
     self.assertEqual(recorded["result"], "succeeded")
+    self.assertEqual(recorded["branch"], "issue-545-fixture")
     self.assertTrue(recorded["expectedFailure"])
     self.assertNotEqual(recorded["groups"][0]["exit_code"], 0)
     self.assertEqual(recorded["reason"], "expected-red-assertion-demonstrated")
