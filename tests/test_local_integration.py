@@ -106,6 +106,46 @@ class LocalIntegrationTests(unittest.TestCase):
     self.assertEqual(record["uncommittedChanges"], ["source.txt"])
     self.assertFalse(record["reusable"])
 
+  def test_history_mutation_is_not_reusable(self):
+    def advance(_root):
+      (self.root / "source.txt").write_text("changed\n")
+      subprocess.run(
+        ["git", "add", "source.txt"], cwd=self.root, check=True,
+        capture_output=True,
+      )
+      subprocess.run(
+        ["git", "commit", "-qm", "test mutation"],
+        cwd=self.root, check=True, capture_output=True,
+      )
+      return "PASS"
+
+    with (
+      patch(
+        "repo_workflow.test_integration_engine.self_regression",
+        side_effect=advance,
+      ),
+      patch(
+        "repo_workflow.test_integration_engine._probe",
+        return_value=0,
+      ),
+    ):
+      status = run_local_integration(self.root, engine_root=self.root)
+    record = json.loads(self.path.read_text().splitlines()[-1])
+    self.assertEqual(status, 0)
+    self.assertEqual(record["testSHA"], self.sha)
+    self.assertTrue(record["headChangedDuringTest"])
+    self.assertFalse(record["reusable"])
+
+  def test_repeated_integration_observations_append(self):
+    failed, _, _ = self.execute(regression="FAIL")
+    passed, _, _ = self.execute(regression="PASS")
+    records = [json.loads(x) for x in self.path.read_text().splitlines()]
+    self.assertEqual((failed, passed), (1, 0))
+    self.assertEqual([x["result"] for x in records], [
+      "failed", "succeeded",
+    ])
+    self.assertEqual({x["testSHA"] for x in records}, {self.sha})
+
   def test_consumer_without_adapter_fails_before_pass(self):
     with self.assertRaisesRegex(ValueError, "environment adapter"):
       run_local_integration(self.root, engine_root=self.root.parent)
