@@ -74,13 +74,17 @@ class RetryEvidenceTests(unittest.TestCase):
         self.fail("staged index must never be hidden")
     self.assertTrue(self.log.exists())
 
-  def test_symlink_replacement_inside_context_is_detected(self):
+  def test_symlink_replacement_inside_context_restores_original_evidence(self):
     self.write_record()
+    original = self.log.read_bytes()
+    target = self.root / "outside.txt"
+    target.write_text("foreign\n")
     with self.assertRaisesRegex(RetryEvidenceError, "symlink"):
       with isolate_retry_evidence(self.root, 569):
-        target = self.root / "outside.txt"
-        target.write_text("foreign\n")
         self.log.symlink_to(target)
+    self.assertFalse(self.log.is_symlink())
+    self.assertEqual(self.log.read_bytes(), original)
+    self.assertEqual(target.read_text(), "foreign\n")
 
   def test_malformed_log_is_not_hidden(self):
     self.log.write_text("{broken\n")
