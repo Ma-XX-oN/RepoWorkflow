@@ -9,12 +9,15 @@ sole authority for issue lifecycle state and dependency satisfaction.
 `.repoworkflow/tickets.csv` contains a materialized, validated state
 projection for offline graphing. It must not independently advance state.
 
-The CSV projection must be tied to the exact authoritative lifecycle revision
-for every represented issue. A consumer must reject stale, mismatched, missing,
-or malformed state rather than silently trusting the projection. Lifecycle and
-ticket-state changes requiring both stores use a recovery-safe transaction:
-they either produce a consistent committed snapshot or explicitly stop with
-a recoverable incomplete state. No partial update counts as completion.
+Normal graph rendering reads stored state from tickets.csv without refreshing
+lifecycle records. This is an intentional offline snapshot, which can be older
+than canonical lifecycle history. The CSV projection carries the revision of
+the lifecycle snapshot it represents; malformed or internally inconsistent
+snapshots fail closed. Only an explicit --current operation refreshes each
+displayed ticket state from authoritative lifecycle records and updates CSV.
+Refresh is transactional: either the entire requested state snapshot is written
+and verified, or the previous CSV snapshot is preserved. No partial update
+counts as successful refresh.
 
 GitHub issue `open` / `closed` is separate provider status; it cannot
 overwrite or satisfy an RWF lifecycle. Worktree-local `current` or selected
@@ -89,9 +92,8 @@ The fourth field must be one of the six canonical state identifiers; no
 empty or unrecognized value is accepted for fully migrated records. Migration
 must read canonical lifecycle authority for each ticket, refuse inconsistent
 history or unreadable state, and write a complete verified snapshot. The
-transaction also binds each projection to authoritative lifecycle revisions
-via the versioned synchronization evidence; a naked `state` cell is not
-sufficient evidence of freshness.
+refresh binds the projection to the lifecycle revisions sampled during that
+refresh. The stored state does not promise live freshness between refreshes.
 
 Title remains provider-owned; dependency synchronization retains its existing
 explicit authority by direction. Neither `from-tickets` nor `to-tickets`
@@ -104,15 +106,15 @@ lifecycle revisions. No last-writer-wins state merges.
 
 ## 6. Graph `--current`
 
-The switch annotates every displayed ticket with its authoritative lifecycle
-state and the glyph in section 2. It must not change dependency edges, node
-order, routing, or selected-worktree context. Without the switch, graph output
-must remain backward compatible. It is read-only: no provider calls, writes,
-implicit refresh, or lifecycle transitions.
-
-Missing, stale, inconsistent or corrupt authoritative state must produce an
-explicit diagnostic rather than a falsely complete graph. A valid absence
-historically proven by the lifecycle store is `not_started`.
+Normal graph commands render every visible ticket's stored state and glyph
+from tickets.csv without a lifecycle refresh, provider call or write.
+The --current switch explicitly reads canonical lifecycle state, refreshes
+the corresponding CSV state projection, verifies the persisted update and then
+renders the refreshed values. It must not modify relationships, titles,
+worktree selection or lifecycle transitions. Failure to read canonical state
+or commit the full refresh leaves the original CSV intact and reports an error.
+A valid historical absence proven by the lifecycle store is not_started.
+Do not infer fresh lifecycle truth from a stale cached CSV snapshot.
 
 ## 7. Verification gates
 
@@ -126,8 +128,8 @@ CSV tests cover zero/one/many tickets, strict schema versions, migration,
 round-trip, atomic failure/retry, provider sync independence, concurrent
 updates, three-way merge, cross-clone refresh and authoritative revision
 binding. Graph tests cover all glyphs, terminal widths/platforms, no-colour,
-read-only behaviour, all supported graph layouts, and legacy output without
-`--current`.
+normal-mode read-only behaviour, explicit --current update/readback/failure
+atomicity, and all supported graph layouts.
 
 Do not certify until issue-focused, regression, integration and repository CI
 checks are GREEN for the exact implementation candidate.
