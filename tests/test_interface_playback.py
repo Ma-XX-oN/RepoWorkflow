@@ -345,6 +345,47 @@ class InterfacePlaybackTests(unittest.TestCase):
       ):
         InterfacePlayback(path)
 
+  def test_full_dictionary_recording_preserves_deletion_and_order(self):
+    recorder = InterfacePlayback()
+    target = {"a": 1, "b": 2}
+
+    def real():
+      del target["a"]
+      target["c"] = 3
+
+    recorder.record(identity, real, Free, "mutate", target)
+
+    replay_target = {"a": 1, "b": 2}
+    InterfacePlayback(recorder._recording).replay(
+      Free,
+      "mutate",
+      replay_target,
+    )
+    self.assertEqual(list(replay_target), ["b", "c"])
+    self.assertEqual(replay_target, {"b": 2, "c": 3})
+
+  def test_empty_recording_saves_and_loads(self):
+    recorder = InterfacePlayback([])
+    with tempfile.TemporaryDirectory() as temp:
+      path = Path(temp) / "empty.json"
+      recorder.save(path)
+      self.assertEqual(json.loads(path.read_text(encoding="utf-8")), [])
+      playback = InterfacePlayback(path)
+      with self.assertRaisesRegex(InterfaceMismatch, "unexpected extra call"):
+        playback.replay(Free, "nothing")
+
+  def test_incremental_reader_handles_one_character_chunks(self):
+    from testing.python._grammar import JsonArrayReader
+
+    recorder = InterfacePlayback()
+    recorder.record(identity, lambda: "abc", Free, "f")
+    with tempfile.TemporaryDirectory() as temp:
+      path = Path(temp) / "tiny-chunks.json"
+      recorder.save(path)
+      interactions = list(JsonArrayReader(path, chunk_size=1))
+      self.assertEqual(len(interactions), 1)
+      self.assertEqual(interactions[0]["result"]["return"], "abc")
+
   def test_large_file_is_valid_incremental_json_array(self):
     recorder = InterfacePlayback()
     for value in range(1000):
