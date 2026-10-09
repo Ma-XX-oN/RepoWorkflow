@@ -36,16 +36,19 @@ def release_tier(lines: list[str]) -> str:
     name for name in jobs
     if any(name.startswith(prefix + " (") for prefix in MATRICES)
   }
-  if matrix != expected:
-    raise ValueError("integration matrix has missing or unexpected platforms")
-
   if jobs.get("validate") == "success":
+    if matrix != expected:
+      raise ValueError("integration matrix has missing or unexpected platforms")
     if any(jobs[name] != "success" for name in expected):
       raise ValueError("integration matrix did not fully pass")
     return "integration"
 
   if jobs.get("validate") == "skipped":
-    if any(jobs[name] != "skipped" for name in expected):
+    # GitHub reports one unexpanded placeholder job for a skipped matrix.
+    skipped = {f"{prefix} (${{{{ matrix.os }}}})" for prefix in MATRICES}
+    if matrix != skipped:
+      raise ValueError("docs-only matrix must be entirely skipped")
+    if any(jobs[name] != "skipped" for name in skipped):
       raise ValueError("docs-only release has executed integration jobs")
     return "docs"
 
