@@ -15,7 +15,15 @@ from .graph_render_model import (
 from .lane_selection import LaneSelection
 
 
-_LABEL = re.compile(r"^([*✓]*)(?:(I|E|F):)?([A-Z]+)([0-9]+)$")
+_LABEL = re.compile(r"^([*○●◎✓♥✕?]*)(?:(I|E|F):)?([A-Z]+)([0-9]+)$")
+_STATE_GLYPHS = {
+  "not_started": "○",
+  "active": "●",
+  "in_review": "◎",
+  "accepted": "✓",
+  "completed": "♥",
+  "aborted": "✕",
+}
 _TYPE_PREFIXES = {
   "Initiative:": "I:",
   "Epic:": "E:",
@@ -200,9 +208,12 @@ def _raw_label(
   issue: str,
   metadata: dict[str, dict],
 ) -> str:
+  state = metadata[issue].get("lifecycle_state")
+  if state is not None and state not in _STATE_GLYPHS:
+    raise LaneGraphProjectionError(f"unsupported lifecycle state: {state!r}")
   annotation = (
     ("*" if issue in set(selection.roots) else "")
-    + ("✓" if metadata[issue]["closed"] else "")
+    + _STATE_GLYPHS.get(state, "?")
   )
   kind = _type_prefix(metadata[issue]["title"])
   return f"{annotation}{kind}{selection.assignment[issue]}{issue}"
