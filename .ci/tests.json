@@ -119,6 +119,10 @@
       "issue-545-dedicated-test-commits": {
         "type": "regression",
         "name": "tests.test_dedicated_test_commits"
+      },
+      "issue-545-history-mutation": {
+        "type": "regression",
+        "name": "tests.test_test_execution_mutation"
       }
     }
   ],
