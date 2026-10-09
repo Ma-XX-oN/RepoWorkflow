@@ -46,5 +46,37 @@ class ExecutionMutationTests(unittest.TestCase):
     self.assertFalse(record["reusable"])
 
 
+  def test_red_that_commits_records_original_candidate_sha(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-mutation",
+    )
+    source = self.root / "smoke_case.py"
+    source.write_text(
+      "import subprocess\\n"
+      "import unittest\\n"
+      "from pathlib import Path\\n"
+      "class Smoke(unittest.TestCase):\\n"
+      "  def test_commit(self):\\n"
+      "    Path('generated.txt').write_text('changed\\\\n')\\n"
+      "    subprocess.run(['git','add','generated.txt'],check=True)\\n"
+      "    subprocess.run(['git','commit','-qm','generated'],check=True)\\n"
+    )
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-545-mutation\\n")
+    self.git("add", ".ci/tests.json", "smoke_case.py", ".ci/red-green.txt")
+    self.git("commit", "-m", "select RED mutation fixture")
+    tested_sha = self.git("rev-parse", "HEAD")
+    result = self.cli("test", "RED")
+    self.assertEqual(result.returncode, 2)
+    self.assertNotEqual(self.git("rev-parse", "HEAD"), tested_sha)
+    audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(audit.read_text().splitlines()[-1])
+    self.assertEqual(record["kind"], "RED")
+    self.assertEqual(record["testSHA"], tested_sha)
+    self.assertTrue(record["headChangedDuringTest"])
+    self.assertEqual(record["result"], "incomplete")
+    self.assertFalse(record["reusable"])
+
+
 if __name__ == "__main__":
   unittest.main()
