@@ -87,7 +87,10 @@ def verify_hosted_stage(
   ):
     return False
   try:
-    request = base64.b64decode(marker["content"], validate=True)
+    # GitHub Contents API wraps base64 at line boundaries.  Reject any
+    # other non-alphabet characters rather than silently discarding them.
+    encoded = marker["content"].replace("\n", "").replace("\r", "")
+    request = base64.b64decode(encoded, validate=True)
     request_text = request.decode("utf-8")
   except (ValueError, UnicodeError):
     return False
