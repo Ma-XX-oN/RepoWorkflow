@@ -199,6 +199,10 @@
       "issue-542-canonical-evidence": {
         "type": "regression",
         "name": "tests.test_canonical_integration_evidence"
+      },
+      "issue-542-github-provider-evidence": {
+        "type": "regression",
+        "name": "tests.test_github_evidence"
       }
     }
   ],

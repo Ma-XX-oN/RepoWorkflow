@@ -3,6 +3,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.pre_merge_gate import (
   PreMergeGateError,
@@ -93,6 +94,32 @@ class PreMergeGateTests(unittest.TestCase):
     self.write_canonical("failed")
     with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
       self.check()
+
+  def test_hosted_record_requires_verified_provider_lookup(self):
+    record = json.loads(self.canonical_log.read_text())
+    record.update({
+      "runner": "github-actions",
+      "providerRunId": 123,
+      "providerCandidateSHA": self.candidate,
+      "providerInvocationSHA": "b" * 40,
+      "providerStage": "integration-testing",
+    })
+    self.canonical_log.write_text(json.dumps(record) + "\n")
+    with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
+      self.check()
+    with patch(
+      "repo_workflow.pre_merge_gate.verify_hosted_integration",
+      return_value=False,
+    ) as verify:
+      with self.assertRaisesRegex(PreMergeGateError, "integration PASS"):
+        self.check(provider_repo="Ma-XX-oN/RepoWorkflow")
+      verify.assert_called_once()
+    with patch(
+      "repo_workflow.pre_merge_gate.verify_hosted_integration",
+      return_value=True,
+    ) as verify:
+      self.check(provider_repo="Ma-XX-oN/RepoWorkflow")
+      verify.assert_called_once()
 
   def test_second_actor_rejected_after_parent_advances(self):
     with self.assertRaisesRegex(PreMergeGateError, "tip advanced"):
