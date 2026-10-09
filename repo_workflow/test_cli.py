@@ -371,6 +371,7 @@ def run_test(
     )
     before = _uncommitted_inputs(root, path)
     red_candidate = head_sha(root)
+    red_catalogue = _group_fingerprint(root, Path(".ci/tests.json"))
     result = subprocess.run(
       command, cwd=root, text=True, capture_output=True, check=False,
       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
@@ -384,7 +385,7 @@ def run_test(
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "testSHA": red_candidate,
       "headChangedDuringTest": head_sha(root) != red_candidate,
-      "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
+      "catalogueSHA256": red_catalogue,
       "kind": "RED",
       "result": "incomplete",
       "reason": (
