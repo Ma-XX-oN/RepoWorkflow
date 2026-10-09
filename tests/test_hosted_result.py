@@ -39,6 +39,7 @@ class HostedResultTests(unittest.TestCase):
       "testSHA": SHA, "kind": "GREEN", "result": "succeeded",
       "reusable": True, "uncommittedChanges": [],
       "headChangedDuringTest": False,
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
       "groups": [{"group": "issue-541-unit", "exit_code": 0}],
     }
     record.update(fields)
@@ -79,6 +80,15 @@ class HostedResultTests(unittest.TestCase):
         record = json.loads(self.log.read_text())
         del record[missing]
         self.log.write_text(json.dumps(record) + "\n")
+        self.assertNotEqual(self.invoke().returncode, 0)
+
+  def test_missing_or_incomplete_platform_identity_fails_closed(self):
+    self.select.write_text("issue-541-unit\n")
+    for bad in (None, {}, {"os": "Linux"}, {
+      "os": "Linux", "architecture": "", "runtime": "3.13",
+    }):
+      with self.subTest(platform=bad):
+        self.write(platform=bad)
         self.assertNotEqual(self.invoke().returncode, 0)
 
   def test_non_integer_group_exit_codes_fail_closed(self):
