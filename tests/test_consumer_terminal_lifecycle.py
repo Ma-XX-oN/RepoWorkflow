@@ -119,6 +119,36 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         self.assertEqual(fx.head(), prepared)
         self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
 
+  def test_committed_source_change_establishes_new_incomplete_candidate(self):
+    helper = LocalVerifyTests()
+    mismatch = "windows" if not sys.platform.startswith("win") else "linux"
+    td, root, fx = helper.make_consumer(
+      validation_body="raise RuntimeError('must not run')\n",
+      platform=mismatch,
+    )
+    with td:
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
+      self.assertEqual(
+        run_test(
+          root, "regression", remote=False,
+          engine_root=root / "RepoWorkflow",
+        ), 2,
+      )
+      first = json.loads(path.read_text().splitlines()[-1])
+      (root / "source.txt").write_text("committed new source\n")
+      committed = fx.commit("change source between incomplete attempts")
+      self.assertEqual(
+        run_test(
+          root, "regression", remote=False,
+          engine_root=root / "RepoWorkflow",
+        ), 2,
+      )
+      records = [json.loads(line) for line in path.read_text().splitlines()]
+      self.assertEqual(len(records), 2)
+      self.assertNotEqual(records[1]["testSHA"], first["testSHA"])
+      self.assertEqual(records[1]["testSHA"], fx.head())
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
   def test_dirty_source_blocks_retry_preserving_canonical_records(self):
     helper = LocalVerifyTests()
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
