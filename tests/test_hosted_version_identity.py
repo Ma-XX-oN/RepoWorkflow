@@ -121,7 +121,7 @@ class HostedIdentityTests(unittest.TestCase):
     (self.root / "source").write_text("changed\n")
     self.git("add", ".ci/run", "source")
     self.git("commit", "-qm", "invalid multi-path invocation")
-    with self.assertRaisesRegex(HostedVersionError, "non-marker"):
+    with self.assertRaisesRegex(HostedVersionError, "immediate parent|non-marker"):
       resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
 
   def test_absent_terminal_version_for_nonterminal_phase(self):
