@@ -90,12 +90,16 @@ def verify_phase_evidence(
     if record.get("kind") != stage or record.get("testSHA") != candidate:
       raise TerminalTagError("development version belongs to another phase or candidate")
   expected = "succeeded" if outcome == "PASS" else "failed"
-  results = {record.get("result") for record in observed}
-  if results != {expected}:
+  terminal = {
+    record.get("result") for record in observed
+    if record.get("result") in {"succeeded", "failed"}
+  }
+  if terminal != {expected}:
     raise TerminalTagError("canonical evidence has conflicting terminal outcome")
   matching = [
     record for record in observed
-    if record.get("headChangedDuringTest") is False
+    if record.get("result") == expected
+    and record.get("headChangedDuringTest") is False
     and record.get("uncommittedChanges") == []
     and (outcome == "FAIL" or record.get("reusable") is True)
   ]
