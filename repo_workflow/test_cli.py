@@ -84,6 +84,52 @@ def results(root: Path, *, remote: bool) -> int:
   return 0
 
 
+def _run_group_set(
+  root: Path, stage: str, groups: tuple[str, ...], *,
+  catalogue_path: Path = Path(".ci/tests.json"),
+) -> int:
+  if not groups:
+    raise TestCommandError(
+      "RED/GREEN tests do not exist. Build and register "
+      "issue-N- test groups in .ci/tests.json."
+      if stage == "GREEN" else "no temporary test groups in .ci/temp-tests.json"
+    )
+  revision = head_sha(root)
+  failures = []
+  evidence = []
+  for group in groups:
+    command = group_command(root, group, catalogue_path)
+    completed = subprocess.run(
+      command, cwd=root, capture_output=True, text=True, check=False,
+    )
+    if completed.stdout:
+      print(completed.stdout, end="")
+    if completed.stderr:
+      import sys
+      print(completed.stderr, end="", file=sys.stderr)
+    evidence.append({"group": group, "exit_code": completed.returncode})
+    if completed.returncode:
+      failures.append(group)
+  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
+  if match is None:
+    raise TestCommandError("testing log requires an issue branch")
+  path = root / ".repoworkflow" / "validation" / (
+    "testResults-" + match.group(1) + ".jsonl"
+  )
+  path.parent.mkdir(parents=True, exist_ok=True)
+  record = {
+    "testSHA": revision,
+    "kind": stage,
+    "result": "failed" if failures else "succeeded",
+    "runner": "local",
+    "platform": {"os": platform.system(), "runtime": platform.python_version()},
+    "groups": evidence,
+  }
+  with path.open("a", encoding="utf-8") as handle:
+    handle.write(json.dumps(record, sort_keys=True) + "\n")
+  return 1 if failures else 0
+
+
 def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
@@ -124,6 +170,22 @@ def run_test(
     )
   if group is not None:
     raise TestCommandError("test group is only supported for RED")
+  if not remote and stage == "GREEN":
+    match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
+    if match is None:
+      raise TestCommandError("GREEN requires an issue branch")
+    prefix = "issue-" + match.group(1) + "-"
+    groups = tuple(sorted(
+      name for name in load_test_catalogue(root).groups
+      if name.startswith(prefix)
+    ))
+    return _run_group_set(root, stage, groups)
+  if not remote and stage == "temporary":
+    manifest = Path(".ci/temp-tests.json")
+    groups = tuple(sorted(load_test_catalogue(
+      root, catalogue_path=manifest,
+    ).groups))
+    return _run_group_set(root, stage, groups, catalogue_path=manifest)
   if remote:
     return request_remote(root, stage)
   if stage == "regression":
