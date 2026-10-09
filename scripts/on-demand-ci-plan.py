@@ -11,7 +11,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from repo_workflow.ci_invocation import CiInvocationError, verify_invocation
+from repo_workflow.ci_invocation import (
+  CiInvocationError, original_candidate, verify_invocation,
+)
 
 
 def plan_invocation(root: Path) -> dict[str, str]:
@@ -23,7 +25,7 @@ def plan_invocation(root: Path) -> dict[str, str]:
   return {
     "stage": request.stage,
     "previous_tip": request.previous_tip,
-    "tested_sha": request.previous_tip,
+    "tested_sha": original_candidate(root, request.previous_tip),
     "invocation_sha": invocation_sha,
   }
 
