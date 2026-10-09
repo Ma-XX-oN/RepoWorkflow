@@ -91,7 +91,20 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
           parents[1], current,
         ).splitlines()
         if ".ci/run" not in changed:
-          marker = None  # An inherited marker does not make a request.
+          # A canonical hosted publication preserves the earlier request
+          # marker but does not establish a new source candidate.
+          subject = _git(root, "show", "-s", "--format=%s", current).strip()
+          if (
+            len(parents) == 2 and len(changed) == 1
+            and re.fullmatch(
+              r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl",
+              changed[0],
+            )
+            and subject.startswith("test: publish hosted evidence from run ")
+          ):
+            current = parents[1]
+            continue
+          marker = None  # An inherited marker is not itself a request.
         elif len(parents) != 2:
           raise HostedVersionError("marker-changing merge cannot be a request")
     if marker is None:
