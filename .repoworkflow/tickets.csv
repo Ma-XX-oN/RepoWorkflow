@@ -281,4 +281,14 @@ issue,title,dependencies
 507,Make public command consumers use the resolved-grammar interface,505
 508,Implement pure lane-layout width estimation and spacing selection,470
 509,Implement terminal-width and edge-spacing override resolution,470
-518,Epic: Record replay and test executable interface behaviour,
+518,Epic: Record replay and test executable interface behaviour,519;561
+519,Feature: Add issue-scoped temporary transformation-fidelity test sandboxes,
+553,Specify streamable executable-interface recording grammar,
+554,Implement streaming recording codec and load/save operations,553
+555,Implement logical object identity and type binding for interface streams,553
+556,Implement consequential value comparison and interface mismatch diagnostics,553;555
+557,Implement consequential state mutation for interface replay,553;555
+558,Implement executable-interface replay operation,554;556;557
+559,Implement executable-interface test operation,554;556
+560,Implement filtered executable-interface recording operation,553;554;555
+561,Certify record-save-load-replay-test executable-interface lifecycle,558;559;560
