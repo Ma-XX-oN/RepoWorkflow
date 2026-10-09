@@ -261,6 +261,6 @@ def run_test(
       "hardware": None,
     }
     with path.open("a", encoding="utf-8") as handle:
-      handle.write(json.dumps(record, sort_keys=True) + "\\n")
+      handle.write(json.dumps(record, sort_keys=True) + "\n")
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")
