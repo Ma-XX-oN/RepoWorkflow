@@ -151,6 +151,10 @@
       "issue-545-engine-regression": {
         "type": "regression",
         "name": "tests.test_engine_regression"
+      },
+      "issue-543-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
       }
     }
   ],
