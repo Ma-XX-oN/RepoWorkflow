@@ -78,13 +78,27 @@ class RegressionTemporaryTests(unittest.TestCase):
     self.assertFalse(records[-1]["reusable"])
     self.assertIn(".ci/temp-tests.json", records[-1]["uncommittedChanges"])
 
+  def test_invalid_temporary_harness_fails_before_permanent_verifier(self):
+    path = self.root / ".ci/temp-tests.json"
+    self._catalogue(path, issue_group="issue-545-fidelity")
+    data = json.loads(path.read_text())
+    data["tests"][0]["issue-545-fidelity"]["name"] = ""
+    path.write_text(json.dumps(data))
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
+      with self.assertRaisesRegex(Exception, "native test name"):
+        run_test(self.root, "regression", remote=False, engine_root=self.root)
+    verify.assert_not_called()
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    self.assertFalse(log.exists())
+
   def test_malformed_temporary_manifest_fails_before_regression(self):
     path = self.root / ".ci/temp-tests.json"
     path.parent.mkdir(parents=True)
     path.write_text("{invalid")
-    with patch("repo_workflow.test_cli.verify_local", return_value="PASS"):
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS") as verify:
       with self.assertRaisesRegex(Exception, "invalid JSON"):
         run_test(self.root, "regression", remote=False, engine_root=self.root)
+    verify.assert_not_called()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     self.assertFalse(log.exists())
 
