@@ -57,8 +57,15 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m pip install -r requirements.txt
-      - name: Run authoritative regression suite
-        run: python scripts/validate.py
+      - name: Run selected stage through public test CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          case '${{ needs.plan.outputs.stage }}' in
+            regression-testing) ./rwf test regression ;;
+            integration-testing) ./rwf test integration ;;
+            *) echo 'unsupported stage' >&2; exit 1 ;;
+          esac
       - name: Verify validation did not change checkout
         shell: bash
         run: test -z "$(git status --porcelain=v1 --untracked-files=all)"
