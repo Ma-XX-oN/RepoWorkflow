@@ -541,6 +541,23 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(record["kind"], "temporary")
     self.assertEqual(record["result"], "succeeded")
 
+  def test_remote_temporary_requires_valid_nonempty_manifest(self):
+    self.remote()
+    for contents in (None, "{invalid", json.dumps({
+      "test-harnesses": {}, "tests": [], "aliases": {},
+    })):
+      with self.subTest(contents=contents):
+        manifest = self.root / ".ci/temp-tests.json"
+        manifest.parent.mkdir(exist_ok=True)
+        if contents is None:
+          manifest.unlink(missing_ok=True)
+        else:
+          manifest.write_text(contents)
+        result = self.cli("test", "temporary", "--remote")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
+        self.assertFalse((self.root / ".ci/run").exists())
+
   def test_empty_temporary_manifest_never_claims_pass(self):
     (self.root / ".ci").mkdir(exist_ok=True)
     (self.root / ".ci/temp-tests.json").write_text(json.dumps({
