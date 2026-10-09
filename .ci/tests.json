@@ -140,6 +140,10 @@
         "type": "regression",
         "name": "tests.test_consumer_terminal_lifecycle"
       },
+      "issue-569-retry-evidence": {
+        "type": "regression",
+        "name": "tests.test_retry_evidence"
+      },
       "issue-545-terminal-tag": {
         "type": "regression",
         "name": "tests.test_terminal_tag"
