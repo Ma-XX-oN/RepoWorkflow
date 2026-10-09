@@ -435,8 +435,14 @@ def run_test(
       "testResults-" + match.group(1) + ".jsonl"
     )
     uncommitted = _uncommitted_inputs(root, path)
-    tested_sha = before
-    head_changed = head_sha(root) != before
+    # Consumer verify prepares and validates the resulting candidate commit.
+    # The original pre-preparation source SHA remains separately auditable.
+    consumer = root.resolve() != engine_root.resolve()
+    tested_sha = after if consumer and outcome != "INCOMPLETE" else before
+    head_changed = (
+      head_sha(root) != after
+      if consumer else head_sha(root) != before
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
       "uncommittedChanges": uncommitted,
