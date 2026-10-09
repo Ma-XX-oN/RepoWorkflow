@@ -51,6 +51,30 @@
       "issue-516-lane-count": {
         "type": "regression",
         "name": "tests.test_lane_count_verification"
+      },
+      "issue-577-six-state-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
+      },
+      "issue-579-lifecycle-contract": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
+      },
+      "issue-580-lifecycle-transitions": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
+      },
+      "issue-581-csv-state-projection": {
+        "type": "regression",
+        "name": "tests.test_ticket_state"
+      },
+      "issue-582-graph-current": {
+        "type": "regression",
+        "name": "tests.test_graph_render"
+      },
+      "issue-583-lifecycle-certification": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
       }
     }
   ],
