@@ -7,6 +7,7 @@ creating an on-demand CI request. This module does not choose version numbers.
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import re
 import subprocess
 
@@ -64,9 +65,42 @@ def _remote_target(root: Path, remote: str, tag: str) -> str | None:
   return target
 
 
+def verify_phase_evidence(
+  canonical_log: Path, *, stage: str, version: str,
+  candidate: str, outcome: str,
+) -> None:
+  """Require a matching terminal result and prohibit cross-phase version reuse."""
+  try:
+    lines = canonical_log.read_text(encoding="utf-8").splitlines()
+  except OSError as error:
+    raise TerminalTagError("canonical testing log is unavailable") from error
+  observed = []
+  for line in lines:
+    try:
+      record = json.loads(line)
+    except json.JSONDecodeError as error:
+      raise TerminalTagError("canonical testing log is malformed") from error
+    if not isinstance(record, dict):
+      raise TerminalTagError("canonical testing log contains a non-object")
+    if record.get("testVersion") == version:
+      observed.append(record)
+  if not observed:
+    raise TerminalTagError("no canonical evidence for development version")
+  for record in observed:
+    if record.get("kind") != stage or record.get("testSHA") != candidate:
+      raise TerminalTagError("development version belongs to another phase or candidate")
+  matching = [record for record in observed if record.get("result") == (
+    "succeeded" if outcome == "PASS" else "failed"
+  ) and record.get("reusable") is not False
+    and record.get("headChangedDuringTest") is not True
+    and not record.get("uncommittedChanges")]
+  if not matching:
+    raise TerminalTagError("canonical evidence does not establish terminal outcome")
+
+
 def publish_terminal_tag(
   root: Path, *, stage: str, remote: str, version: str,
-  candidate: str, outcome: str,
+  candidate: str, outcome: str, canonical_log: Path,
 ) -> str | None:
   """Publish exactly one immutable result, or reuse the identical result."""
   if stage not in {"regression", "integration"}:
@@ -84,6 +118,10 @@ def publish_terminal_tag(
   ).stdout.strip()
   if resolved != candidate:
     raise TerminalTagError("candidate does not identify an exact commit")
+  verify_phase_evidence(
+    canonical_log, stage=stage, version=version,
+    candidate=candidate, outcome=outcome,
+  )
   tag = "v" + version + ("-CI-FAIL" if outcome == "FAIL" else "")
   opposite = "v" + version + ("" if outcome == "FAIL" else "-CI-FAIL")
   for other in (opposite,):
