@@ -132,6 +132,10 @@
         "type": "regression",
         "name": "tests.test_engine_regression"
       },
+      "issue-545-real-consumer-verify": {
+        "type": "regression",
+        "name": "tests.test_local"
+      },
       "issue-545-terminal-tag": {
         "type": "regression",
         "name": "tests.test_terminal_tag"
