@@ -42,10 +42,10 @@ class HostedResultTests(unittest.TestCase):
       "groups": [{"group": "issue-541-unit", "exit_code": 0}],
     }
     record.update(fields)
-    self.log.write_text(json.dumps(record) + "\\n")
+    self.log.write_text(json.dumps(record) + "\n")
 
   def test_matching_green_succeeds(self):
-    self.select.write_text("issue-541-unit\\n")
+    self.select.write_text("issue-541-unit\n")
     self.write()
     result = self.invoke()
     self.assertEqual(result.returncode, 0, result.stderr)
@@ -56,7 +56,7 @@ class HostedResultTests(unittest.TestCase):
     self.assertNotEqual(self.invoke().returncode, 0)
 
   def test_skip_failure_wrong_candidate_and_wrong_kind_fail(self):
-    self.select.write_text("issue-541-unit\\n")
+    self.select.write_text("issue-541-unit\n")
     for field, value in (
       ("result", "SKIPPED"), ("result", "failed"),
       ("result", "incomplete"), ("testSHA", "b" * 40),
@@ -72,7 +72,7 @@ class HostedResultTests(unittest.TestCase):
         self.assertNotEqual(self.invoke().returncode, 0)
 
   def test_latest_observation_controls_outcome(self):
-    self.select.write_text("issue-541-unit\\n")
+    self.select.write_text("issue-541-unit\n")
     self.write()
     previous = self.log.read_text()
     self.write(result="SKIPPED")
@@ -80,7 +80,7 @@ class HostedResultTests(unittest.TestCase):
     self.assertNotEqual(self.invoke().returncode, 0)
 
   def test_invalid_stage_branch_sha_fail(self):
-    self.select.write_text("issue-541-unit\\n")
+    self.select.write_text("issue-541-unit\n")
     self.write()
     for stage, sha, branch in (
       ("unknown", SHA, "issue-541-test"),
