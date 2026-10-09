@@ -16,6 +16,7 @@ class HostedPlanCandidateTests(unittest.TestCase):
     self.git("init", "-q")
     self.git("config", "user.email", "tests@example.invalid")
     self.git("config", "user.name", "Test Runner")
+    self.git("checkout", "-qb", "issue-541-test")
     (self.root / "source.py").write_text("value = 1\n")
     self.git("add", "source.py")
     self.git("commit", "-qm", "candidate")
@@ -53,14 +54,49 @@ class HostedPlanCandidateTests(unittest.TestCase):
     self.assertEqual(result["invocation_sha"], invocation_sha)
     self.assertNotEqual(result["tested_sha"], result["invocation_sha"])
 
-  def test_retry_binds_to_immediate_parent_not_first_request(self):
+  def test_retry_binds_to_original_candidate(self):
     self.invoke()
     first_request = self.git("rev-parse", "HEAD")
     self.invoke(stage="regression-testing")
     result = self.plan(self.root)
-    self.assertEqual(result["tested_sha"], first_request)
+    self.assertEqual(result["previous_tip"], first_request)
+    self.assertEqual(result["tested_sha"], self.candidate)
     self.assertEqual(result["stage"], "regression-testing")
     self.assertEqual(result["invocation_sha"], self.git("rev-parse", "HEAD"))
+
+  def test_multiple_retries_and_result_publication_retain_candidate(self):
+    self.invoke()
+    self.invoke(stage="regression-testing")
+    log = self.root / ".repoworkflow/validation/testResults-541.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text('{"result":"incomplete"}\\n')
+    self.git("add", str(log.relative_to(self.root)))
+    self.git("commit", "-qm", "test: publish hosted evidence from run 123")
+    self.invoke(stage="integration-testing")
+    result = self.plan(self.root)
+    self.assertEqual(result["tested_sha"], self.candidate)
+    self.assertEqual(result["stage"], "integration-testing")
+
+  def test_real_source_change_starts_new_candidate(self):
+    self.invoke()
+    (self.root / "source.py").write_text("value = 2\\n")
+    self.git("add", "source.py")
+    self.git("commit", "-qm", "change source")
+    changed_candidate = self.git("rev-parse", "HEAD")
+    self.invoke(stage="integration-testing")
+    result = self.plan(self.root)
+    self.assertEqual(result["tested_sha"], changed_candidate)
+    self.assertNotEqual(result["tested_sha"], self.candidate)
+
+  def test_malformed_historical_invocation_fails_closed(self):
+    self.invoke()
+    marker = self.root / ".ci/run"
+    marker.write_text("GREEN-testing " + "0" * 40 + "\\n")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "malformed historical request")
+    self.invoke(stage="integration-testing")
+    with self.assertRaisesRegex(Exception, "historical CI invocation"):
+      self.plan(self.root)
 
 
 if __name__ == "__main__":
