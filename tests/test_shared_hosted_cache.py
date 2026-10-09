@@ -86,9 +86,17 @@ class SharedHostedCacheTests(unittest.TestCase):
     ).strip(), published_before)
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     newest = json.loads(log.read_text().splitlines()[-1])
-    self.assertTrue(newest["groups"][0]["reused"])
     self.assertEqual(newest["testSHA"], candidate)
-    self.assertEqual(newest["runner"], "local")
+    self.assertEqual(newest["runner"], "github-actions")
+    original_log = log.read_text()
+    with patch(
+      "repo_workflow.test_cli.hosted_cache_checker",
+      return_value=lambda record: record.get("runner") == "github-actions",
+    ):
+      self.assertEqual(run_test(
+        self.root, "GREEN", remote=False, engine_root=self.root,
+      ), 0)
+    self.assertEqual(log.read_text(), original_log)
 
   def test_remote_pass_without_provider_verification_is_not_reused(self):
     self.prepare()
