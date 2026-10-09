@@ -104,6 +104,10 @@
         "type": "regression",
         "name": "tests.test_completion"
       },
+      "issue-545-red-provider-negative": {
+        "type": "regression",
+        "name": "tests.test_hosted_red_probe"
+      },
       "issue-545-red-classification": {
         "type": "regression",
         "name": "tests.test_red_expected"
