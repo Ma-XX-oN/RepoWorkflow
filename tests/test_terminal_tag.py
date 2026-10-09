@@ -134,6 +134,38 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "outcome"):
       self.issue_tag("PASS")
 
+  def test_genuine_failure_not_reusable_still_receives_failure_tag(self):
+    self.log.write_text(json.dumps({
+      "kind": "regression", "testVersion": VERSION,
+      "testSHA": self.candidate, "result": "failed",
+      "reusable": False, "headChangedDuringTest": False,
+      "uncommittedChanges": [],
+    }) + "\n")
+    self.assertEqual(self.issue_tag("FAIL"), "v" + VERSION + "-CI-FAIL")
+
+  def test_nonreusable_pass_cannot_receive_tag(self):
+    self.log.write_text(json.dumps({
+      "kind": "regression", "testVersion": VERSION,
+      "testSHA": self.candidate, "result": "succeeded",
+      "reusable": False, "headChangedDuringTest": False,
+      "uncommittedChanges": [],
+    }) + "\n")
+    with self.assertRaisesRegex(TerminalTagError, "does not establish"):
+      self.issue_tag("PASS")
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_conflicting_results_for_same_version_are_rejected(self):
+    self.issue_tag("INCOMPLETE")
+    self.log.write_text("\n".join(json.dumps({
+      "kind": "regression", "testVersion": VERSION,
+      "testSHA": self.candidate, "result": result,
+      "reusable": True, "headChangedDuringTest": False,
+      "uncommittedChanges": [],
+    }) for result in ("succeeded", "failed")) + "\n")
+    with self.assertRaisesRegex(TerminalTagError, "conflicting"):
+      self.issue_tag("PASS")
+    self.assertEqual(self.git("tag", "--list"), "")
+
   def test_invalid_canonical_record_blocks_publication(self):
     self.log.write_text("{bad json\n")
     with self.assertRaisesRegex(TerminalTagError, "malformed"):
