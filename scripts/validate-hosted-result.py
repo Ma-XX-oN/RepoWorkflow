@@ -41,6 +41,7 @@ def validate_result(
     raise ValueError("hosted result must be an object")
   if (
     record.get("testSHA") != candidate
+    or record.get("branch") != branch
     or record.get("kind") != kind
     or record.get("result") != "succeeded"
   ):
