@@ -11,6 +11,7 @@ import re
 import subprocess
 
 from .results import collect_results, evaluate_results
+from .github_evidence import verify_hosted_integration
 from .test_evidence_gate import (
   CanonicalEvidenceError, require_integration_evidence,
 )
@@ -44,6 +45,7 @@ def check_pre_merge_candidate(
   canonical_log: Path,
   required_platforms: tuple[str, ...],
   verify_hosted: Callable[[dict], bool] | None = None,
+  provider_repo: str | None = None,
 ) -> None:
   """Check facts without changing repository state.
 
@@ -77,6 +79,10 @@ def check_pre_merge_candidate(
     raise PreMergeGateError("integration blocked: candidate excludes parent tip")
 
   try:
+    if verify_hosted is None and provider_repo is not None:
+      verify_hosted = lambda record: verify_hosted_integration(
+        record, repo=provider_repo,
+      )
     require_integration_evidence(
       canonical_log,
       candidate=candidate_sha,
