@@ -103,6 +103,10 @@
       "issue-545-bash-completion-migration": {
         "type": "regression",
         "name": "tests.test_completion"
+      },
+      "issue-545-red-evidence": {
+        "type": "regression",
+        "name": "tests.test_red_evidence"
       }
     }
   ],
