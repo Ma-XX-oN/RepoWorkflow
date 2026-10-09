@@ -44,9 +44,14 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     return
   try:
     original = log.read_bytes()
+    if not original.strip():
+      raise RetryEvidenceError("canonical retry evidence is empty")
     for line in original.splitlines():
-      if not isinstance(json.loads(line), dict):
-        raise RetryEvidenceError("canonical log contains a non-object")
+      record = json.loads(line)
+      if not isinstance(record, dict) or not all(
+        field in record for field in ("testSHA", "kind", "result", "runner")
+      ):
+        raise RetryEvidenceError("canonical log record is incomplete")
   except (OSError, UnicodeError, ValueError) as error:
     raise RetryEvidenceError("canonical retry evidence is invalid") from error
 
