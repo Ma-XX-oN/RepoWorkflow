@@ -73,6 +73,13 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "regular file"):
       resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
 
+  def test_worktree_marker_tampering_cannot_change_committed_identity(self):
+    sha = self.invoke()
+    (self.root / ".ci/run").write_text("integration-testing " + ("f" * 40) + "\n")
+    identity = resolve_invocation(self.root, sha)
+    self.assertEqual(identity["stage"], "regression")
+    self.assertEqual(identity["candidate_sha"], self.candidate)
+
   def test_non_invocation_source_commit_rejected(self):
     with self.assertRaisesRegex(HostedVersionError, "not a hosted invocation"):
       resolve_invocation(self.root, self.candidate)
