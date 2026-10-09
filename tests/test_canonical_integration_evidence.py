@@ -34,6 +34,15 @@ class CanonicalIntegrationEvidenceTests(unittest.TestCase):
       self.path, candidate=self.sha, required_platforms=platforms or ("Linux",),
     )
 
+  def test_empty_required_platforms_cannot_vacuously_pass(self):
+    self.write(self.base)
+    with self.assertRaisesRegex(
+      CanonicalEvidenceError, "platforms unspecified",
+    ):
+      require_integration_evidence(
+        self.path, candidate=self.sha, required_platforms=(),
+      )
+
   def test_exact_clean_local_pass(self):
     self.write(self.base)
     self.verify()
