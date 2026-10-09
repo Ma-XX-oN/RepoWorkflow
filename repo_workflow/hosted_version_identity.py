@@ -42,11 +42,19 @@ def _single_parent(root: Path, sha: str) -> str:
 
 
 def _marker(root: Path, sha: str) -> tuple[str, str] | None:
-  path = ".ci/run"
-  try:
-    raw = _git(root, "show", sha + ":" + path)
-  except HostedVersionError:
+  # Absence is established by the Git tree, not by suppressing read failures.
+  entries = _git(root, "ls-tree", "-z", sha, "--", ".ci/run")
+  if not entries:
     return None
+  if entries.count("\0") != 1 or not entries.endswith("\0"):
+    raise HostedVersionError("ambiguous hosted marker tree entry")
+  header, separator, pathname = entries[:-1].partition("\t")
+  if (
+    separator != "\t" or pathname != ".ci/run"
+    or not header.startswith("100644 blob ")
+  ):
+    raise HostedVersionError("hosted invocation marker must be regular file")
+  raw = _git(root, "show", sha + ":.ci/run")
   match = _MARKER.fullmatch(raw)
   if match is None:
     raise HostedVersionError("invalid two-field hosted invocation marker")
