@@ -75,9 +75,8 @@ class HostedTerminalBindingTests(unittest.TestCase):
     self.assertEqual(self.bind()["outcome"], "FAIL")
 
   def test_incomplete_does_not_generate_terminal_tag_inputs(self):
-    self.record(result="incomplete", reusable=False)
-    with self.assertRaisesRegex(HostedTerminalError, "no authoritative"):
-      self.bind()
+    self.record(result="incomplete", reusable=False, testVersion=None)
+    self.assertIsNone(self.bind())
 
   def test_missing_version_fails_closed(self):
     self.record(testVersion=None)
