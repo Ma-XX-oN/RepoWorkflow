@@ -85,6 +85,7 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertEqual(record["providerCandidateSHA"], self.candidate)
 
   def test_stale_remote_branch_rejected_without_publication(self):
+    self._git("merge", "--ff-only", self.invocation)
     other = self.root / "other.txt"
     other.write_text("later")
     self._git("add", "other.txt")
