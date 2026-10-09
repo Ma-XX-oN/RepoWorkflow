@@ -113,6 +113,12 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("python scripts/validate-hosted-result.py", self.text)
     self.assertIn("if: ${{ success() }}", self.text)
 
+  def test_hosted_results_reader_uses_public_read_only_command(self):
+    self.assertIn("./rwf test results --remote", self.text)
+    self.assertIn("providerInvocationSHA", self.text)
+    self.assertIn("providerRunId", self.text)
+    self.assertIn("Publish canonical hosted testing observations", self.text)
+
   def test_no_separate_unsupported_stage_job(self):
     self.assertNotIn("\n  unsupported-stage:", self.text)
 
