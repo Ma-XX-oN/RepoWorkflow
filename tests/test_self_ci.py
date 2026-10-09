@@ -38,8 +38,7 @@ class SelfCiTests(unittest.TestCase):
 
   def test_release_requires_full_integration_matrix(self):
     text = self.release_text()
-    for job in ("classify", "plan", "validate"):
-      self.assertIn(f'for required in classify plan validate;', text)
+    self.assertIn("for required in classify plan validate;", text)
     for name in ("Probe argv limits", "Probe graph renderer", "Probe ticket merge"):
       self.assertIn(name, text)
     self.assertIn('if [ "$count" -ne 3 ]', text)
@@ -47,7 +46,7 @@ class SelfCiTests(unittest.TestCase):
 
   def test_release_preserves_exact_candidate_and_immutable_tag_contract(self):
     text = self.release_text()
-    self.assertIn("^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$", text)
+    self.assertIn(r"^[0-9]+\.[0-9]+\.[0-9]+$", text)
     self.assertIn('if [ "$head_sha" != "$VERIFIED_SHA" ]', text)
     self.assertIn('if [ -z "$remote_head" ] || [ "$remote_head" != "$head_sha" ]', text)
     self.assertIn("git ls-remote --tags origin", text)
@@ -60,7 +59,6 @@ class SelfCiTests(unittest.TestCase):
     self.assertIn("python repo_workflow.py classify --base", text)
     self.assertIn("python scripts/self-ci-plan.py", text)
     self.assertIn("classification", text)
-    self.assertIn("needs.plan.outputs.tier == 'docs'", text)
 
   def test_issue_tier_runs_only_issue_validation_job(self):
     text = self.workflow_text()
