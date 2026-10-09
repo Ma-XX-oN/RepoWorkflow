@@ -80,6 +80,25 @@ class LocalVerifyTests(unittest.TestCase):
         f"v{fx.version}",
       )
 
+  def test_candidate_observer_reports_real_prepared_commit_before_tests(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("new source\n")
+      source = fx.commit("modify source before verification")
+      observed = []
+      result = verify_local(
+        root, engine_root=root / "RepoWorkflow",
+        candidate_observer=observed.append,
+      )
+      self.assertEqual(result, "PASS")
+      self.assertEqual(len(observed), 1)
+      self.assertNotEqual(observed[0], source)
+      self.assertEqual(observed[0], fx.head())
+      self.assertEqual(
+        fx._run("rev-parse", f"v{fx.version}^{{commit}}").stdout.strip(),
+        observed[0],
+      )
+
   def test_local_verify_rebinds_request_after_source_commit(self):
     td, root, fx = self.make_consumer()
     with td:
