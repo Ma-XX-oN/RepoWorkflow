@@ -71,9 +71,9 @@ def publish(
   record["providerInvocationSHA"] = invocation
   record["providerCandidateSHA"] = candidate
   record["providerStage"] = stage
-  original = "\\n".join([
+  original = "\n".join([
     *lines[:-1], json.dumps(record, sort_keys=True),
-  ]) + "\\n"
+  ]) + "\n"
   _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
   if _git(root, "rev-parse", "FETCH_HEAD") != invocation:
     raise ValueError("remote branch moved since hosted invocation")
