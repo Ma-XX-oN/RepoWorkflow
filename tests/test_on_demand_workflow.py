@@ -34,6 +34,23 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       "if: needs.plan.outputs.stage == 'integration-testing'"
     ), 3)
 
+  def test_every_execution_job_checks_out_verified_candidate_sha(self):
+    self.assertIn(
+      "tested_sha: ${{ steps.select.outputs.tested_sha }}", self.text,
+    )
+    self.assertIn(
+      'echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"', self.text,
+    )
+    expected = "ref: ${{ needs.plan.outputs.tested_sha }}"
+    self.assertEqual(self.text.count(expected), 4)
+    for name in (
+      "validate", "argv-limits", "graph-renderer-platform",
+      "ticket-merge-platform",
+    ):
+      section = self.text.split("\n  " + name + ":\n", 1)[1]
+      checkout = section.split("      - uses: actions/checkout@v4", 1)[1]
+      self.assertIn(expected, checkout.split("      - uses:", 1)[0])
+
   def test_unimplemented_stages_fail_closed(self):
     for stage in ("RED-testing", "temp-testing", "GREEN-testing"):
       self.assertIn(f"needs.plan.outputs.stage == '{stage}'", self.text)
