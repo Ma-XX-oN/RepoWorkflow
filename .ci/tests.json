@@ -75,6 +75,10 @@
       "issue-542-git-acceptance": {
         "type": "regression",
         "name": "tests.test_git_acceptance"
+      },
+      "issue-542-protected-merge": {
+        "type": "regression",
+        "name": "tests.test_github_merge_guard"
       }
     }
   ],
