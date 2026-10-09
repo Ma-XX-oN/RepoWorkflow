@@ -62,7 +62,7 @@ class ExecutionMutationTests(unittest.TestCase):
       "    subprocess.run(['git','commit','-qm','generated'],check=True)\n"
     )
     selection = self.root / ".ci/red-green.txt"
-    selection.write_text("issue-545-mutation\\n")
+    selection.write_text("issue-545-mutation\n")
     self.git("add", ".ci/tests.json", "smoke_case.py", ".ci/red-green.txt")
     self.git("commit", "-m", "select RED mutation fixture")
     tested_sha = self.git("rev-parse", "HEAD")
