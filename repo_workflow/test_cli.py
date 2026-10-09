@@ -16,7 +16,7 @@ from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
 from .test_regression_engine import self_regression
 from .test_cache import reusable_local_group_passes
-from .github_cache import hosted_cache_checker
+from .github_cache import hosted_cache_checker, read_remote_published_log
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 
@@ -243,14 +243,21 @@ def _run_group_set(
     "testResults-" + match.group(1) + ".jsonl"
   )
   uncommitted_before = _uncommitted_inputs(root, path)
-  reusable = (
-    reusable_local_group_passes(
-      path, stage=stage, revision=revision, fingerprint=fingerprint,
-      verify_hosted=hosted_cache_checker(root, stage),
+  reusable = set()
+  if not uncommitted_before:
+    checker = hosted_cache_checker(root, stage)
+    remote_raw = (
+      read_remote_published_log(
+        root, branch=current_branch(root),
+        relative=path.relative_to(root).as_posix(),
+      )
+      if checker is not None and not path.exists()
+      else None
     )
-    if not uncommitted_before
-    else set()
-  )
+    reusable = reusable_local_group_passes(
+      path, stage=stage, revision=revision, fingerprint=fingerprint,
+      verify_hosted=checker, raw=remote_raw,
+    )
   failures = []
   evidence = []
   for group in groups:
