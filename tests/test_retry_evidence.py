@@ -34,7 +34,10 @@ class RetryEvidenceTests(unittest.TestCase):
     return result.stdout.strip()
 
   def write_record(self):
-    self.log.write_text(json.dumps({"result": "incomplete"}) + "\n")
+    self.log.write_text(json.dumps({
+      "testSHA": self.git("rev-parse", "HEAD"),
+      "kind": "regression", "result": "incomplete", "runner": "local",
+    }) + "\n")
 
   def test_untracked_log_temporarily_hidden_then_restored(self):
     self.write_record()
@@ -49,7 +52,9 @@ class RetryEvidenceTests(unittest.TestCase):
     self.git("add", ".")
     self.git("commit", "-qm", "baseline log")
     self.log.write_text(self.log.read_text() + json.dumps(
-      {"result": "incomplete", "attempt": 2}
+      {"testSHA": self.git("rev-parse", "HEAD"),
+       "kind": "regression", "result": "incomplete", "runner": "local",
+       "attempt": 2}
     ) + "\n")
     original = self.log.read_bytes()
     with isolate_retry_evidence(self.root, 569):
@@ -85,6 +90,18 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertFalse(self.log.is_symlink())
     self.assertEqual(self.log.read_bytes(), original)
     self.assertEqual(target.read_text(), "foreign\n")
+
+  def test_valid_json_with_missing_fields_is_rejected(self):
+    self.log.write_text(json.dumps({"result": "incomplete"}) + "\n")
+    with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("missing required provenance must fail")
+
+  def test_empty_evidence_is_rejected(self):
+    self.log.write_text("")
+    with self.assertRaisesRegex(RetryEvidenceError, "empty"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("empty evidence must fail")
 
   def test_malformed_log_is_not_hidden(self):
     self.log.write_text("{broken\n")
