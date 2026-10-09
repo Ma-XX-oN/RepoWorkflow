@@ -59,6 +59,18 @@
       "issue-542-premerge-evidence-gate": {
         "type": "regression",
         "name": "tests.test_pre_merge_gate"
+      },
+      "issue-541-on-demand-workflow": {
+        "type": "regression",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-541-hosted-plan-binding": {
+        "type": "regression",
+        "name": "tests.test_on_demand_plan"
+      },
+      "issue-541-hosted-result-evidence": {
+        "type": "regression",
+        "name": "tests.test_hosted_result"
       }
     }
   ],
