@@ -16,6 +16,7 @@ from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
 from .test_regression_engine import self_regression
 from .test_cache import reusable_local_group_passes
+from .github_cache import hosted_cache_checker
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 
@@ -245,6 +246,7 @@ def _run_group_set(
   reusable = (
     reusable_local_group_passes(
       path, stage=stage, revision=revision, fingerprint=fingerprint,
+      verify_hosted=hosted_cache_checker(root, stage),
     )
     if not uncommitted_before
     else set()
