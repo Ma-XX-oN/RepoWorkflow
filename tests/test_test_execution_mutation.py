@@ -129,6 +129,7 @@ class ExecutionMutationTests(unittest.TestCase):
     self.assertEqual(result.returncode, 2)
     self.assertNotEqual(
       hashlib.sha256(catalogue.read_bytes()).hexdigest(), expected,
+      result.stderr,
     )
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     record = json.loads(audit.read_text().splitlines()[-1])
