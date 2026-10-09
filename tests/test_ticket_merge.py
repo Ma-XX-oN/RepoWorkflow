@@ -110,6 +110,38 @@ class TicketMergeTests(unittest.TestCase):
     ):
       merge_ticket_csv(self.root, base, ours, theirs)
 
+
+  def test_status_snapshot_preserved_in_semantic_merge(self):
+    base = (
+      "issue,title,dependencies,state,state_revision\\n"
+      "10,Ten,,not_started,\\n"
+    )
+    ours = (
+      "issue,title,dependencies,state,state_revision\\n"
+      "10,Ten,,active,0\\n"
+    )
+    theirs = base
+    self.assertEqual(
+      merge_ticket_csv(self.root, base, ours, theirs),
+      ours,
+    )
+
+  def test_divergent_status_snapshots_conflict(self):
+    base = (
+      "issue,title,dependencies,state,state_revision\\n"
+      "10,Ten,,not_started,\\n"
+    )
+    ours = (
+      "issue,title,dependencies,state,state_revision\\n"
+      "10,Ten,,active,0\\n"
+    )
+    theirs = (
+      "issue,title,dependencies,state,state_revision\\n"
+      "10,Ten,,completed,1\\n"
+    )
+    with self.assertRaisesRegex(TicketMergeError, "divergent lifecycle"):
+      merge_ticket_csv(self.root, base, ours, theirs)
+
   def test_same_addition_is_idempotent(self):
     base = csv("10,Ten,")
     ours = csv("10,Ten,", "20,Twenty,10")
