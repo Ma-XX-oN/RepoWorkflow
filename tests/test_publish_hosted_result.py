@@ -84,6 +84,28 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertEqual(record["providerRunId"], 123)
     self.assertEqual(record["providerCandidateSHA"], self.candidate)
 
+  def test_publication_appends_to_already_tracked_results_log(self):
+    # Second hosted run: candidate already contains published test observations.
+    self._git("add", ".repoworkflow/validation/testResults-543.jsonl")
+    self._git("commit", "-m", "previous accepted result")
+    self.candidate = self._git("rev-parse", "HEAD")
+    marker = self.root / ".ci/run"
+    marker.write_text("GREEN-testing " + self.candidate + "\n")
+    self._git("add", ".ci/run")
+    self._git("commit", "-m", "invoke second test")
+    self.invocation = self._git("rev-parse", "HEAD")
+    # Fixture-only force push replaces the earlier synthetic invocation.
+    self._git("push", "--force", "origin", "HEAD:refs/heads/issue-543-probe")
+    self._git("reset", "--hard", self.candidate)
+    self.observation["testSHA"] = self.candidate
+    self._record()
+    result = self._publish()
+    self.assertEqual(result.returncode, 0, result.stderr)
+    record = json.loads(self.log.read_text().splitlines()[-1])
+    self.assertEqual(record["providerCandidateSHA"], self.candidate)
+    self.assertEqual(record["providerInvocationSHA"], self.invocation)
+    self.assertEqual(self._git("rev-parse", "HEAD^"), self.invocation)
+
   def test_stale_remote_branch_rejected_without_publication(self):
     self._git("merge", "--ff-only", self.invocation)
     other = self.root / "other.txt"
