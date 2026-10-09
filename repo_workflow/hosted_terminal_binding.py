@@ -31,8 +31,6 @@ def bind_hosted_terminal(
   if proof["candidate_sha"] != candidate or proof["stage"] != phase:
     raise HostedTerminalError("hosted terminal candidate or stage mismatch")
   version = proof["test_version"]
-  if version is None:
-    raise HostedTerminalError("no authoritative hosted development version")
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
     if not lines:
@@ -50,13 +48,16 @@ def bind_hosted_terminal(
     "providerInvocationSHA": invocation,
     "providerRunId": run_id,
     "providerStage": stage,
-    "testVersion": version,
   }.items():
     if record.get(name) != expected:
       raise HostedTerminalError("hosted provider evidence mismatch: " + name)
   status = record.get("result")
   if status == "incomplete":
     return None
+  if version is None:
+    raise HostedTerminalError("no authoritative hosted development version")
+  if record.get("testVersion") != version:
+    raise HostedTerminalError("hosted provider evidence mismatch: testVersion")
   if status not in {"succeeded", "failed"}:
     raise HostedTerminalError("hosted result is not a known terminal outcome")
   if (
