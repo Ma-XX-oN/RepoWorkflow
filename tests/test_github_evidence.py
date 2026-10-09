@@ -31,6 +31,23 @@ class HostedIntegrationProviderTests(unittest.TestCase):
       BASE + "/git/commits/" + INVOCATION: {
         "parents": [{"sha": SHA}],
       },
+      BASE + "/actions/runs/123/jobs?per_page=100": {
+        "total_count": 11,
+        "jobs": [
+          {"name": name, "conclusion": "success"}
+          for name in (
+            "plan", "validate",
+            *(
+              group + " (" + system + ")"
+              for group in (
+                "argv-limits", "graph-renderer-platform",
+                "ticket-merge-platform",
+              )
+              for system in ("ubuntu-latest", "windows-latest", "macos-latest")
+            ),
+          )
+        ],
+      },
       BASE + "/contents/.ci/run?ref=" + INVOCATION: {
         "encoding": "base64",
         "content": base64.b64encode(
@@ -59,6 +76,24 @@ class HostedIntegrationProviderTests(unittest.TestCase):
         responses = deepcopy(self.responses)
         responses[BASE + "/actions/runs/123"][field] = value
         self.assertFalse(self.verify(responses=responses))
+
+  def test_missing_skipped_or_duplicate_matrix_job_fails(self):
+    jobs_url = BASE + "/actions/runs/123/jobs?per_page=100"
+    for field in ("validate", "argv-limits (windows-latest)",
+                  "graph-renderer-platform (macos-latest)"):
+      with self.subTest(job=field):
+        changed = deepcopy(self.responses)
+        for job in changed[jobs_url]["jobs"]:
+          if job["name"] == field:
+            job["conclusion"] = "skipped"
+        self.assertFalse(self.verify(responses=changed))
+    changed = deepcopy(self.responses)
+    changed[jobs_url]["jobs"] = changed[jobs_url]["jobs"][:-1]
+    changed[jobs_url]["total_count"] -= 1
+    self.assertFalse(self.verify(responses=changed))
+    changed = deepcopy(self.responses)
+    changed[jobs_url]["jobs"][1]["name"] = "plan"
+    self.assertFalse(self.verify(responses=changed))
 
   def test_forged_marker_or_history_does_not_verify(self):
     for marker_text, parent in (
