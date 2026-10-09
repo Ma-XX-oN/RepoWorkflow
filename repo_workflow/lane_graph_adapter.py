@@ -213,7 +213,7 @@ def _raw_label(
     raise LaneGraphProjectionError(f"unsupported lifecycle state: {state!r}")
   annotation = (
     ("*" if issue in set(selection.roots) else "")
-    + _STATE_GLYPHS.get(state, "?")
+    + (_STATE_GLYPHS.get(state, "?") if "lifecycle_state" in metadata[issue] else "")
   )
   kind = _type_prefix(metadata[issue]["title"])
   return f"{annotation}{kind}{selection.assignment[issue]}{issue}"
