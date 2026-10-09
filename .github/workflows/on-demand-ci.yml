@@ -117,11 +117,25 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
-      - name: Publish canonical hosted testing observations
+      - id: publish
+        name: Publish canonical hosted testing observations
         if: ${{ always() && steps.audit.outcome == 'success' }}
         shell: bash
         run: >-
           python scripts/publish-hosted-result.py
+          "${{ needs.plan.outputs.stage }}"
+          "${{ needs.plan.outputs.tested_sha }}"
+          "$GITHUB_REF_NAME"
+          "$GITHUB_SHA"
+          "$GITHUB_RUN_ID"
+      - name: Publish authoritative terminal version tag
+        if: >-
+          ${{ always() && steps.publish.outcome == 'success' &&
+          (needs.plan.outputs.stage == 'regression-testing' ||
+          needs.plan.outputs.stage == 'integration-testing') }}
+        shell: bash
+        run: >-
+          python scripts/publish-hosted-terminal.py
           "${{ needs.plan.outputs.stage }}"
           "${{ needs.plan.outputs.tested_sha }}"
           "$GITHUB_REF_NAME"
