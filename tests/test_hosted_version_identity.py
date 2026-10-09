@@ -86,8 +86,8 @@ class HostedIdentityTests(unittest.TestCase):
 
   def test_wrong_candidate_and_phase_do_not_supply_version(self):
     sha = self.invoke()
-    self.evidence(testSHA="f" * 40)
-    self.evidence(kind="integration")
+    self.evidence(testSHA="f" * 40, testVersion="0.1.121-issue.570.0.2")
+    self.evidence(kind="integration", testVersion="0.1.121-issue.570.0.3")
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
 
   def test_conflicting_versions_are_rejected(self):
