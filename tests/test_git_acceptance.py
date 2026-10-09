@@ -97,7 +97,7 @@ class RemoteAcceptanceTests(unittest.TestCase):
 
   def test_lost_lease_after_preflight_is_rejected_without_mutation(self):
     with patch("repo_workflow.git_acceptance.push_if_parent") as cas:
-      def accept(candidate, expected):
+      def accept(root, remote, ref, candidate, expected):
         # Another actor advances the real remote immediately before CAS.
         self.assertTrue(push_if_parent(
           self.second, str(self.remote), self.ref, self.two, self.parent,
