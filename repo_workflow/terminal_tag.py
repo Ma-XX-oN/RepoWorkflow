@@ -130,6 +130,7 @@ def verify_phase_evidence(
 def publish_terminal_tag(
   root: Path, *, stage: str, remote: str, version: str,
   candidate: str, outcome: str, canonical_log: Path,
+  push: bool = True,
 ) -> str | None:
   """Publish exactly one immutable result, or reuse the identical result."""
   if stage not in {"regression", "integration"}:
@@ -165,13 +166,17 @@ def publish_terminal_tag(
   if published is not None:
     if published != candidate:
       raise TerminalTagError("remote terminal tag targets a different commit")
+    if local is None and not push:
+      _git(root, "tag", "-a", tag, candidate, "-m", tag)
     return tag
   if local is None:
     _git(root, "tag", "-a", tag, candidate, "-m", tag)
-  push = _git(
+  if not push:
+    return tag
+  pushed = _git(
     root, "push", remote, "refs/tags/" + tag, check=False,
   )
-  if push.returncode:
+  if pushed.returncode:
     # Concurrent identical publication is harmless; a different target is not.
     if _remote_target(root, remote, tag) != candidate:
       raise TerminalTagError("terminal tag publication failed")
