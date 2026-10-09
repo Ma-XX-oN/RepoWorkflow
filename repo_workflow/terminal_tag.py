@@ -157,10 +157,10 @@ def publish_terminal_tag(
   for other in (opposite,):
     if _local_target(root, other) is not None:
       raise TerminalTagError("opposite terminal outcome already exists")
-    if _remote_target(root, remote, other) is not None:
+    if push and _remote_target(root, remote, other) is not None:
       raise TerminalTagError("opposite remote terminal outcome already exists")
   local = _local_target(root, tag)
-  published = _remote_target(root, remote, tag)
+  published = _remote_target(root, remote, tag) if push else None
   if local is not None and local != candidate:
     raise TerminalTagError("local terminal tag targets a different commit")
   if published is not None:
