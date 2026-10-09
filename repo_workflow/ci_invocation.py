@@ -101,7 +101,7 @@ def original_candidate(root: Path, tip: str) -> str:
       if request.previous_tip != parent:
         raise CiInvocationError("historical CI invocation ancestry mismatch")
     elif (len(changed) == 1 and re.fullmatch(
-      r"\\.repoworkflow/validation/testResults-[1-9][0-9]*\\.jsonl",
+      r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl",
       changed[0],
     ) and _git(root, "show", "-s", "--format=%s", sha).startswith(
       "test: publish hosted evidence from run "
