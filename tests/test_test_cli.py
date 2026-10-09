@@ -242,6 +242,30 @@ class TestCliContract(unittest.TestCase):
     self.assertFalse(records[0]["groups"][0]["reused"])
     self.assertTrue(records[1]["groups"][0]["reused"])
 
+  def test_green_does_not_reuse_pass_after_uncommitted_test_change(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    first = self.cli("test", "GREEN")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    before = self.git("rev-parse", "HEAD")
+    (self.root / "smoke_case.py").write_text(
+      "import unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self): self.assertTrue(False)\n"
+    )
+    second = self.cli("test", "GREEN")
+    self.assertEqual(second.returncode, 1, second.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", second.stdout)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    records = [json.loads(line) for line in log.read_text().splitlines()]
+    self.assertEqual(records[-1]["result"], "failed")
+    self.assertFalse(records[-1]["groups"][0]["reused"])
+
   def test_green_changed_catalogue_or_candidate_reexecutes(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
