@@ -16,6 +16,7 @@ from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
+from .retry_evidence import isolate_retry_evidence
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
@@ -315,6 +316,20 @@ def _assert_no_temporary_issue_sandbox(root: Path) -> None:
     )
 
 
+def _consumer_retry_verify(
+  root: Path, engine_root: Path, prepared: list[tuple[str, str]],
+) -> str:
+  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?",
+                       current_branch(root))
+  if match is None:
+    raise TestCommandError("consumer regression requires an issue branch")
+  with isolate_retry_evidence(root, int(match.group(1))):
+    return verify_local(
+      root, engine_root=engine_root, push=False, tag_result=False,
+      candidate_observer=lambda sha, version: prepared.append((sha, version)),
+    )
+
+
 def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
@@ -424,10 +439,7 @@ def run_test(
     outcome = (
       self_regression(root)
       if root.resolve() == engine_root.resolve()
-      else verify_local(
-        root, engine_root=engine_root, push=False, tag_result=False,
-        candidate_observer=lambda sha, version: prepared.append((sha, version)),
-      )
+      else _consumer_retry_verify(root, engine_root, prepared)
     )
     after = head_sha(root)
     if outcome == "PASS" and selected and _run_group_set(
