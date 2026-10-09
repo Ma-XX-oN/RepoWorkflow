@@ -125,6 +125,33 @@ class TerminalTagTests(unittest.TestCase):
       )
     self.assertEqual(self.git("tag", "--list"), "")
 
+  def test_wrong_issue_results_file_cannot_certify_version(self):
+    other = self.log.with_name("testResults-546.jsonl")
+    other.write_text(json.dumps({
+      "kind": "regression", "branch": "issue-545-test",
+      "testVersion": VERSION, "testSHA": self.candidate,
+      "result": "succeeded", "reusable": True,
+      "headChangedDuringTest": False, "uncommittedChanges": [],
+    }) + "\n")
+    with self.assertRaisesRegex(TerminalTagError, "issue differs"):
+      publish_terminal_tag(
+        self.root, stage="regression", remote="origin",
+        version=VERSION, candidate=self.candidate, outcome="PASS",
+        canonical_log=other,
+      )
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_wrong_issue_branch_in_record_is_rejected(self):
+    self.log.write_text(json.dumps({
+      "kind": "regression", "branch": "issue-546-other",
+      "testVersion": VERSION, "testSHA": self.candidate,
+      "result": "succeeded", "reusable": True,
+      "headChangedDuringTest": False, "uncommittedChanges": [],
+    }) + "\n")
+    with self.assertRaisesRegex(TerminalTagError, "branch differs"):
+      self.issue_tag("PASS")
+    self.assertEqual(self.git("tag", "--list"), "")
+
   def test_cross_phase_version_reuse_is_rejected(self):
     self.issue_tag("PASS")
     with self.assertRaisesRegex(TerminalTagError, "another phase"):
