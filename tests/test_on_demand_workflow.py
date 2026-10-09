@@ -95,6 +95,18 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     )[1].split("\n  argv-limits:", 1)[0]
     self.assertIn("if: ${{ always() }}", section)
 
+  def test_plan_rejects_no_valid_candidate_or_invalid_stage(self):
+    self.assertIn("python scripts/on-demand-ci-plan.py", self.text)
+    self.assertIn("set -euo pipefail", self.text)
+
+  def test_hosted_checkout_does_not_reuse_unverified_marker_code(self):
+    # The marker-commit's own sources must not be tested as the candidate.
+    section = self.text.split("\\n  validate:\\n", 1)[1].split(
+      "\\n  argv-limits:\\n", 1,
+    )[0]
+    self.assertIn("ref: ${{ needs.plan.outputs.tested_sha }}", section)
+    self.assertIn("Restore issue branch identity", section)
+
   def test_no_separate_unsupported_stage_job(self):
     self.assertNotIn("\n  unsupported-stage:", self.text)
 
