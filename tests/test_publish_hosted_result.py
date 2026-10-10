@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
 from pathlib import Path
@@ -28,7 +29,13 @@ class PublishHostedResultTests(unittest.TestCase):
     (self.root / "test.txt").write_text("candidate")
     (self.root / ".ci").mkdir()
     (self.root / ".ci/red-green.txt").write_text("issue-543-demo\n")
-    self._git("add", "test.txt", ".ci/red-green.txt")
+    (self.root / ".ci/tests.json").write_text(json.dumps({
+      "test-harnesses": {"unittest": {"command": "python", "layout": []}},
+      "tests": [{"test-harness": "unittest",
+                 "issue-543-demo": {"type": "regression"}}],
+      "aliases": {},
+    }))
+    self._git("add", "test.txt", ".ci/red-green.txt", ".ci/tests.json")
     self._git("commit", "-m", "candidate")
     self.candidate = self._git("rev-parse", "HEAD")
     self._git("remote", "add", "origin", str(self.remote))
@@ -45,6 +52,9 @@ class PublishHostedResultTests(unittest.TestCase):
     self.log.parent.mkdir(parents=True)
     self.observation = {
       "kind": "GREEN", "testSHA": self.candidate,
+      "catalogueSHA256": hashlib.sha256(
+        (self.root / ".ci/tests.json").read_bytes()
+      ).hexdigest(),
       "branch": "issue-543-probe",
       "result": "succeeded", "runner": "local",
       "reusable": True, "uncommittedChanges": [],
