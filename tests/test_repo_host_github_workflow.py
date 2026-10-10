@@ -55,6 +55,24 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       },
     }
     helper.validate_environment(valid)
+    helper.validate_branch_policies({
+      "total_count": 1,
+      "branch_policies": [{
+        "name": "issue-97-github-host-mutation-adapter",
+      }],
+    })
+    for invalid in [
+      {"total_count": 0, "branch_policies": []},
+      {"total_count": 1, "branch_policies": [{"name": "*"}]},
+      {"total_count": 1, "branch_policies": [{"name": "main"}]},
+      {"total_count": 2, "branch_policies": [
+        {"name": "issue-97-github-host-mutation-adapter"},
+        {"name": "main"},
+      ]},
+    ]:
+      with self.subTest(invalid=invalid):
+        with self.assertRaises(RuntimeError):
+          helper.validate_branch_policies(invalid)
     for bad in [
       {**valid, "name": "production"},
       {**valid, "protection_rules": []},
