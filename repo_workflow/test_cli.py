@@ -19,7 +19,7 @@ from .terminal_tag import publish_terminal_tag
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
-from .self_ci import group_command
+from .self_ci import SelfCiError, group_command
 from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
 from .test_red_runner import record_red
@@ -344,7 +344,12 @@ def run_test(
         raise TestCommandError(declaration_error)
       return request_remote(root, stage)
     expectation, declaration_error = red_declaration(root, selected)
-    command = group_command(root, selected)
+    command = ()
+    if not declaration_error:
+      try:
+        command = group_command(root, selected)
+      except (SelfCiError, KeyError, TypeError, ValueError):
+        declaration_error = "selected-test-cannot-execute"
     match = re.fullmatch(
       r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
     )
