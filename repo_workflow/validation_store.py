@@ -13,8 +13,8 @@ from .validation_coverage import Evidence as CoverageEvidence
 
 
 SCHEMA = 1
-_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}\\Z")
-_SHA = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\\Z")
+_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}\Z")
+_SHA = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 
 
 class ValidationStoreError(RuntimeError):
