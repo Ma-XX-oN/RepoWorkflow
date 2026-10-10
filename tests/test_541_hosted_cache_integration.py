@@ -206,3 +206,5 @@ class HostedCacheTests(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+
+# Changed input invalidates previous hosted cache candidate.
