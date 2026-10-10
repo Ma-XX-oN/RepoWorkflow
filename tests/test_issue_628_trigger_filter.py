@@ -63,6 +63,18 @@ class TriggerFilterTests(unittest.TestCase):
         GOOD.replace("  push:", "  workflow_dispatch:\n  push:")
       )
 
+  def test_unknown_event_trigger_rejected(self):
+    with self.assertRaisesRegex(gate.TriggerFilterError, "unrequested"):
+      gate.validate_on_demand(
+        GOOD.replace("  push:", "  release:\n  push:")
+      )
+
+  def test_unrecognised_extra_push_filter_rejected(self):
+    with self.assertRaisesRegex(gate.TriggerFilterError, "additional"):
+      gate.validate_on_demand(
+        GOOD.replace("    paths:", "    paths-ignore:\n      - 'README.md'\n    paths:")
+      )
+
   def test_missing_path_filter_rejected(self):
     with self.assertRaises(gate.TriggerFilterError):
       gate.validate_on_demand(
