@@ -1,81 +1,89 @@
 # Issue #97 — GitHub Mutation Adapter Acceptance Audit
 
-Status: OPEN.  This document records tested implementation boundaries and
-unmet provider/security gates.  It is not a DONE certificate.
+Status: OPEN until real-provider acceptance is recorded.  This is not a DONE
+certificate.  The #97 prerequisite is #81; #85 and #542 are NOT prerequisites.
 
-## Contract and provenance
+## Frozen input contracts
 
-- #81: REPOSITORY_HOST_MUTATION_CONTRACT.md, v1, exact handoff
-  1241bcec7802a753f6ab3db43c335bba9f802fbc (PR #605).
-- #80: AUTHORIZATION_EVIDENCE_CONTRACT.md, v1, exact handoff
-  fdc3ee15b03173d6d2fbbd2bd71abf7314e3ca2e (PR #614).
-- This branch: issue-97-github-host-mutation-adapter.
-- Current draft PR: #616, base issue-81-host-mutation-contract.
+- #81: REPOSITORY_HOST_MUTATION_CONTRACT.md, PR #605, commit
+  1241bcec7802a753f6ab3db43c335bba9f802fbc.
+- #80: AUTHORIZATION_EVIDENCE_CONTRACT.md, PR #614, commit
+  fdc3ee15b03173d6d2fbbd2bd71abf7314e3ca2e.
+- Branch: issue-97-github-host-mutation-adapter; draft PR #616.
+- Neither contract was merged or bypassed by this adapter.
 
-## Current implementation
+## Implemented mutation behaviour
 
-- `adapters/repo-host-github.py` parses one strict JSON request from stdin.
-- The seven operation names are recognized.  `capabilities` is the only
-  successful operation and advertises all six mutations as unavailable.
-- It rejects malformed envelopes, duplicate JSON keys, unsupported schema,
-  invalid identity/ref/number/SHA types and unexpected parameters.
-- Errors have one structured JSON object on stderr, no success stdout and
-  a nonzero exit.  Success has one JSON object on stdout.
-- `adapters/repo_host_github_reads.py` provides normalized read-only GitHub
-  issue, PR and branch observations, with identity, type and error checking.
-- The two test modules have issue-scoped test catalogue groups.
-- No implemented operation currently creates, updates, merges or publishes
-  anything at GitHub.  This is an intentional safety restriction.
+- `adapters/repo-host-github.py`: bounded strict JSON stdin protocol;
+  exact request identity, semantic parameters and structured result/error.
+- `repo_host_github_authority.py`: independently configured absolute-path
+  verifier; exact request scope and actor proof bound to authenticated
+  GitHub token principal; deny when verifier is missing or untrusted.
+  Only verified non-consuming standing grants are presently accepted;
+  one-time grant consumption remains fail-closed.
+- `repo_host_github_provider.py`: authenticated GitHub REST/GraphQL
+  primitives, provider error classes, unique immutable tag reservation
+  per repository/operation/request ID and persisted request digest.
+- `repo_host_github_mutations.py`: issue.update, issue.comment,
+  pull_request.create and pull_request.update; exact ref/head checks,
+  result normalization, retry reconciliation and unknown-outcome refusal.
+  PR draft conversion uses GitHub GraphQL rather than unsupported REST PATCH.
+- `repo_host_github_reads.py`: normalized provider identity reads.
+- `pull_request.merge`: explicitly unsupported without atomic server-side
+  destination-tip enforcement and remote-finalizer authority.
+- `check.publish`: explicitly unsupported without authenticated evidence
+  and authorized required-context publication.
+- `capabilities`: advertises the four ordinary mutations only when a
+  verifier executable is configured.  Never treats capability as a grant.
 
-## Acceptance coverage
+## Verification state
 
-| Contract behavior | Status | Evidence / remaining work |
+| Criterion | State | Evidence / limitation |
 | --- | --- | --- |
-| JSON request/result/error envelopes | Partial | Unit + CLI tests |
-| Capability inquiry | Partial | Explicit all-false map |
-| Issue update | Missing | Trusted auth + mutation + live test |
-| Issue comment | Missing | Trusted auth + durable dedup + live test |
-| PR create | Missing | Exact head binding + dedup + live test |
-| PR update | Missing | Expected-head enforcement + live test |
-| PR merge | Missing | Atomic destination + protection + auth |
-| Check publish | Missing | Authenticated proof + protected context |
-| Provider identity observations | Partial | Mocked GET tests |
-| Real provider negative/positive tests | Missing | Live sandbox |
-| Cross-restart idempotency | Missing | Durable claim/reconciliation |
-| Concurrent writer race coverage | Missing | Provider transaction tests |
-| Windows/macOS/Linux acceptance | Missing | Hosted matrix |
+| Strict request/response grammar | Tested | issue-97-host-adapter |
+| Authorization rejection and identity | Mock-tested | issue-97-auth-boundary |
+| GitHub read normalization | Mock-tested | issue-97-github-provider-read |
+| Four ordinary mutation paths | Mock-tested | issue-97-provider-mutations |
+| Request reservation and retry | Mock-tested | issue-97-provider-transport |
+| Concurrent same-ID comment | Mock-tested | Single side effect |
+| Changed request with same ID | Mock-tested | Conflict in remote ledger |
+| CLI stdin/stdout/stderr | Tested | issue-97-host-adapter |
+| Real authenticated mutations | NOT VERIFIED | Provider sandbox needed |
+| Persistent restart/reconcile on GitHub | NOT VERIFIED | Real tag/issue/PR |
+| Scope policy issuer/revocation | NOT VERIFIED | Trusted verifier service |
+| Real provider permissions/denials | NOT VERIFIED | Scoped credentials |
+| Cross-platform acceptance | NOT VERIFIED | Hosted platform matrix |
+| Atomic protected-main merge | Denied | #542/#85 own enforcement |
+| Authenticated check publisher | Denied | Trusted evidence not active |
 
-## Provider boundaries verified against documentation
+The GitHub Actions Self CI workflow has read-only `contents` permission,
+and the default issue-tier job does not provision mutation credentials or a
+trusted authorization verifier.  Do not grant write access to an unreviewed
+pull-request workflow just to manufacture positive evidence.  A real-provider
+test must run in an independently approved sandbox or trusted CI context.
 
-The GitHub REST PR merge endpoint documents an optional `sha` for the
-expected PR *head*, but does not provide the contract's separately required
-`expected_destination_sha` parameter.  A GET of the destination followed
-by this merge endpoint is not an atomic destination compare-and-swap.
-See: https://docs.github.com/en/rest/pulls/pulls
+## Provider facts and limitations
 
-For issue comments, do not assume repeated POST requests with the same RWF
-request ID are deduplicated.  The documented comments endpoint does not
-specify an RWF idempotency key.  Implement durable reservation, proof of
-prior effect, and unknown-outcome reconciliation before activating comments.
-See: https://docs.github.com/en/rest/issues/comments
+The GitHub REST pull merge API accepts expected PR *head* `sha`, not the
+separate destination-tip compare-and-swap demanded by #81.  A local GET
+followed by an unprotected merge is not sufficient.  See
+https://docs.github.com/en/rest/pulls/pulls
 
-## Authorization and capability gate
+GitHub Git references can be created with a fully qualified ref and
+Contents-write permission.  Request reservations must be protected from
+later mutation/deletion by authorized deployment policy.  The adapter
+never silently replays non-idempotent comments or PR creation after an
+unknown outcome.  See https://docs.github.com/en/rest/git/refs
 
-#80 specifies canonical grants, trusted actor/issuer proofs, scope, expiry,
-revocation and CAS consumption semantics.  It is a contract, not an
-executable trusted issuer/verifier.  No Git author, session, token possession,
-local claim or security-administrator role alone is a grant.
+## Completion gate
 
-The adapter must independently verify that authority at mutation time.
-A trusted verifier, durable reconciliation and protected provider acceptance
-must be implemented and independently tested before any capability becomes
-true.  #85 owns actual protected-main enforcement; #542 owns acceptance-time
-destination freshness.  Neither the unmerged #80 contract nor a passing
-local test is proof that those remote gates are active.
+#97 must independently test ordinary mutations against real GitHub using
+trusted verifier output, exact candidate and provider credentials, and a
+durable sandbox ledger.  Exercise no/one/many requests, retries after process
+restart, same-ID races, stale source/head, expired/revoked/missing grants,
+permission denials, provider errors and malformed responses.
 
-## Completion criteria
-
-Do not post DONE or close #97 until all six required mutations have valid
-provider normalization, rights checking, idempotency and failure behavior,
-real-provider tests, exact-candidate CI evidence, and an auditable handoff.
-Do not merge this draft PR or enable risky calls as a workaround.
+The final remote-protection acceptance of #85 and destination freshness of
+#542 are downstream, NOT #97 prerequisites.  Do not add reverse edges.
+Keep #97 OPEN and PR #616 DRAFT until its own real provider tests are GREEN.
+No merge, required-check publication or production cutover is authorized.
