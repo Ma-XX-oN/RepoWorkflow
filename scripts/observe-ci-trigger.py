@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from datetime import datetime, timezone
 import json
 import os
+import sys
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -51,6 +54,34 @@ def all_pages(path, collection, token, fetch=github_get):
   raise ObservationError("provider pagination not exhausted")
 
 
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from repo_workflow.ci_invocation import CiInvocationError, parse_invocation
+
+
+def verify_provider_request(root, sha, token, fetch=github_get):
+  """Independently bind provider invocation SHA to its committed parent."""
+  commit = fetch(root + "/commits/" + sha, token)
+  parents = commit.get("parents", [])
+  files = commit.get("files", [])
+  if len(parents) != 1 or [f.get("filename") for f in files] != [".ci/run"]:
+    raise ObservationError("provider commit is not a dedicated single-parent request")
+  contents = fetch(
+    root + "/contents/.ci/run?ref=" + quote(sha, safe=""), token,
+  )
+  if contents.get("encoding") != "base64":
+    raise ObservationError("provider marker is not base64 content")
+  try:
+    marker = base64.b64decode(contents["content"], validate=False).decode("utf-8")
+    request = parse_invocation(marker)
+  except (KeyError, ValueError, UnicodeError, CiInvocationError) as error:
+    raise ObservationError("invalid committed provider marker") from error
+  if request.previous_tip != parents[0].get("sha"):
+    raise ObservationError("provider candidate SHA does not match request parent")
+  return {"stage": request.stage, "tested_sha": request.previous_tip,
+          "invocation_sha": sha}
+
 def observe(repo, workflow, branch, start, end, token, fetch=github_get):
   if utc(start) > utc(end):
     raise ObservationError("observation window reversed")
@@ -75,6 +106,9 @@ def observe(repo, workflow, branch, start, end, token, fetch=github_get):
       raise ObservationError("provider returned mismatched branch/event")
     if run.get("status") != "completed":
       raise ObservationError("run still pending; cannot certify final count")
+    invocation = verify_provider_request(
+      "/repos/" + quote(repo, safe="/"), run["head_sha"], token, fetch,
+    )
     jobs = all_pages(
       root + "/runs/" + str(run["id"]) + "/jobs",
       "jobs", token, fetch,
@@ -82,9 +116,18 @@ def observe(repo, workflow, branch, start, end, token, fetch=github_get):
     selected.append({
       "run_id": run["id"],
       "run_url": run["html_url"],
-      "head_sha": run["head_sha"],
+      "invocation_sha": invocation["invocation_sha"],
+      "tested_sha": invocation["tested_sha"],
+      "stage": invocation["stage"],
       "conclusion": run.get("conclusion"),
       "job_count": len(jobs),
+      "executed_test_job_count": sum(
+        job.get("conclusion") != "skipped"
+        and job.get("name", "").split(" (", 1)[0]
+        in {"validate", "argv-limits", "graph-renderer-platform",
+            "ticket-merge-platform"}
+        for job in jobs
+      ),
       "jobs": [{
         "id": job["id"],
         "name": job["name"],
@@ -101,6 +144,9 @@ def observe(repo, workflow, branch, start, end, token, fetch=github_get):
     "observed_at": observed_at.isoformat(),
     "run_count": len(selected),
     "job_count": sum(item["job_count"] for item in selected),
+    "executed_test_job_count": sum(
+      item["executed_test_job_count"] for item in selected
+    ),
     "runs": selected,
   }
 
