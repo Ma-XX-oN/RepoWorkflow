@@ -155,6 +155,25 @@ class SignedPolicyTests(TestCase):
           "github-actions[bot]", datetime.now(timezone.utc),
         )
       self.assertEqual(decision["decision"], "allow")
+      revocation_path = home / "revoked.json"
+      signer.revoke(Namespace(
+        private_key=key_path, issuer_id="owner-approved-issuer",
+        grant_id=document["grant"]["grant_id"],
+        revision=1, output=revocation_path,
+      ))
+      revoked = verifier.verify_document(
+        json.loads(revocation_path.read_text()), key
+      )
+      with patch.dict(os.environ, {
+        "RWF97_ISSUER_AUTHORITY": "owner-approved-issuer",
+        "RWF97_APPROVED_SHA": CANDIDATE,
+        "RWF97_APPROVED_GRANT_ID": document["grant"]["grant_id"],
+      }):
+        with self.assertRaisesRegex(ValueError, "revoked grant"):
+          verifier.evaluate(
+            evidence()[2], document, revoked, REPOSITORY,
+            "github-actions[bot]", datetime.now(timezone.utc),
+          )
       with self.assertRaises(FileExistsError):
         signer.issue(Namespace(
           private_key=key_path, issuer_id="owner-approved-issuer",
