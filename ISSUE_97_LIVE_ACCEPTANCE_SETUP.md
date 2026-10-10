@@ -1,166 +1,124 @@
-# Issue #97 — Disposable-000 Live Acceptance Setup
+# Issue #97 — Disposable-000 Functional Acceptance
 
-Status: setup implemented; authenticated positive writes still PENDING.
-Claim: 6099480122.  Existing draft PR: #616.  Never merge.
+Status: functional acceptance IN PROGRESS.  #97 directly depends on #81.
+Existing V3 claim 6099480122; draft PR #616; NEVER MERGE.
 
-## Actual provider-confirmed state (2026-10-10)
+## Binding issue-level contract
 
-Sandbox: https://github.com/Ma-XX-oN/Disposable-000
-Visibility: PRIVATE.  Admin rights verified through connected GitHub.
-Default branch: main; no #97 adapter writes permitted there.
-Issue: #1, open, exact title `RWF #97 SANDBOX live-mutation fixture`.
-Branches: `rwf97-sandbox-source`, `rwf97-sandbox-target`, distinct
-commits.  Source SHA: `9bf44e1aaac2e49fe26949df3369c4fc10b462fc`.
-Draft PR #2: created, updated, then closed UNMERGED as fixture test.
+Authoritative #81: `REPOSITORY_HOST_MUTATION_CONTRACT.md`.
 
-- Read-only private Actions probe completed:
-  https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38093124379
-  The actual environment list returned `total_count: 0`.
-- Actual Python adapter denial verification completed:
-  https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38093785174
-  It exercised all six operations.  Four were unauthorized and two
-  unsupported; remote before/after GitHub state was unchanged.
-- GitHub REST Rulesets API returned HTTP 403 with
-  "Upgrade to GitHub Pro or make this repository public to enable
-  this feature."  Keep the sandbox PRIVATE unless user says otherwise.
-- GitHub Free/Pro/Team required deployment reviewers are for PUBLIC
-  repositories.  Upgrading only to Pro would NOT provide independent
-  required environment reviewers on this private repository.
-- DO NOT purchase Enterprise or make the sandbox public solely to run
-  this isolated test.  The selected trust boundary is an OFFLINE-signed
-  #80 grant plus administrator-controlled GitHub Actions variables.
+- Implement and test ordinary `issue.update`, `issue.comment`,
+  `pull_request.create` and `pull_request.update`.
+- Strict input/output, stale-head refusal, idempotent retry and
+  unknown-outcome reconciliation remain mandatory.
+- An actual unauthorized request must fail closed, per #81 section 6.
+- No implicit PR close, merge or check publication.  The last two
+  operations report `unsupported` while their independent owners'
+  enforcement is unavailable.
+- #80 owns authorisation EVIDENCE FORMAT, not a separately deployable
+  online issuer prerequisite for completion of #97.
+- #85 owns protected-main enforcement.  No rulesets, protected
+  environment, offline signing ceremony, special runner or administrator
+  grant are issue #97 completion prerequisites.
 
-## Already installed; no dedicated runner or App key
+## Explicitly owner-authorized test scope
 
-Sandbox's trusted main contains:
+Private repository: https://github.com/Ma-XX-oN/Disposable-000
 
-- `.github/workflows/issue-97-sandbox-acceptance.yml`;
-- `trusted/rwf97/verify-authority`;
-- `trusted/rwf97/verify-environment.py` (optional richer plan);
-- `.github/workflows/rwf97-capability-audit.yml`;
-- `ACCEPTANCE.md` with fixture/provider observations.
+The owner explicitly authorized disposable issue/PR/branch mutations.
+The separate sandbox-main test authority records this authorization as
+a short-lived, scoped, outside-candidate executable.  It verifies the
+actual GitHub Actions actor `github-actions[bot]`, run identity,
+repository, operation, expiration and exact fixture scope.  It cannot
+authorize changes to RepoWorkflow production main, production release
+tags, arbitrary issues, PR merges or success checks.  The shipped
+adapter's authorization consumer is NOT bypassed.
 
-PR #616 ships the candidate adapter, live provider acceptance probe,
-the offline issuer script and the test-only Ed25519 verifier.
-The sandbox workflow uses `ubuntu-latest` and its own short-lived
-`GITHUB_TOKEN` with `actions:read`, `contents:write`,
-`issues:write`, and `pull-requests:write`; that token is scoped
-to Disposable-000 and cannot write RepoWorkflow main.
+Sandbox fixtures:
+- Issue #1: `RWF #97 SANDBOX live-mutation fixture`.
+- Source: `refs/heads/rwf97-sandbox-source`,
+  SHA `9bf44e1aaac2e49fe26949df3369c4fc10b462fc`.
+- Target: `refs/heads/rwf97-sandbox-target`.
+- Draft PR #2: separately created fixture for actual Python PR updates;
+  restored and closed without merge.
+- Temporary reservation tags and the two marked bot-authored issue
+  comments remain as immutable provider evidence.
 
-## Minimum administrator action — no credentials in ChatGPT
+## Actual GitHub-hosted Python results
 
-The person issuing the #80 grant must independently review BOTH the
-sandbox-main trusted workflow/verifier and the exact final PR #616
-candidate commit.  A SHA match does not replace substantive review.
-Keep the signing private key OFFLINE, not in GitHub or in this chat.
+1. Run 38095457391:
+   https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38095457391
 
-1. On your own trusted computer, obtain/review
-   `examples/issue-97-admin-sign-authority.py` from PR #616.
-   With Python 3.13 and `cryptography==45.0.7` installed, run:
+   The REAL shipped adapter updated issue #1, verified idempotent replay,
+   added one uniquely marked comment, rejected changed same-ID content,
+   and raced two independently launched Python comment mutations to one
+   uniquely marked persisted comment.  It then attempted PR creation.
+   PR creation failed at the GitHub provider with `unauthorized`.
+   Finally, the issue title was restored.  The run is not an overall
+   PASS; its completed stages have durable provider readback evidence.
 
-   ```sh
-   python examples/issue-97-admin-sign-authority.py generate-key \
-     --private-key rwf97-issuer.pem
-   ```
+2. Run 38095621430:
+   https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38095621430
 
-   It creates a private Ed25519 PEM (mode 0600) and a public
-   `rwf97-issuer.public.b64`.  Never commit the PEM.
+   REAL shipped Python `pull_request.update` PASS on disposable PR #2:
+   first write applied, fresh-process replay unchanged, changed same-ID
+   request conflict, stale-head denial, exact remote readback.  PR #2
+   was restored and closed without merge.
 
-2. After choosing the exact final tested #616 candidate SHA, issue
-   a 2-hour SANDBOX-only non-consuming CI grant:
+3. Run 38093785174:
+   https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38093785174
 
-   ```sh
-   python examples/issue-97-admin-sign-authority.py issue \
-     --private-key rwf97-issuer.pem \
-     --issuer-id rwf97-independent-issuer \
-     --candidate-sha FULL_FINAL_PR_616_SHA \
-     --source-sha 9bf44e1aaac2e49fe26949df3369c4fc10b462fc \
-     --issue 1 --hours 2 --output signed-rwf97
-   ```
+   Six real Python operations without authorization correctly denied
+   or declared unsupported.  Remote issue, comments, PR, branch SHAs
+   and reservation tag state were identical before and after.
 
-   This produces only signed non-secret documents `grant.json` and
-   `revocations.json` plus a grant ID printed by the issuer tool.
-   Publish the signed JSON through reviewed commits to the sandbox's
-   `trusted/rwf97/` directory on main.  Do not alter signatures.
+4. Run 38095551998:
+   https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38095551998
 
-3. Open sandbox Settings -> Secrets and variables -> Actions ->
-   Variables:
-   https://github.com/Ma-XX-oN/Disposable-000/settings/variables/actions
+   Independent GitHub-hosted POST to the real PR-creation endpoint
+   definitively returned HTTP 403:
+   "GitHub Actions is not permitted to create or approve pull requests."
+   This is an actual provider permission gate, not a #80 security
+   infrastructure dependency.
 
-   Create/update these repository variables, controlled by GitHub
-   administration rather than by the job's native GITHUB_TOKEN:
+## Only actual GitHub setting preventing positive PR creation
 
-   | Variable | Exact required source |
-   | --- | --- |
-   | RWF97_ENABLE | `true` ONLY for approved execution |
-   | RWF97_APPROVED_SHA | Exact tested final PR #616 head SHA |
-   | RWF97_TRUSTED_MAIN_SHA | Sandbox main HEAD AFTER signed files |
-   | RWF97_VERIFIER_SHA256 | SHA-256 of trusted verifier file bytes |
-   | RWF97_ISSUER_AUTHORITY | `rwf97-independent-issuer` |
-   | RWF97_ISSUER_PUBLIC_KEY | Public .b64 file, single line |
-   | RWF97_APPROVED_GRANT_ID | Exact issuer-printed grant ID |
-   | RWF97_SIGNED_REVOCATIONS | Full signed JSON, one line |
-   | RWF97_SANDBOX_ISSUE | `1` |
-   | RWF97_SANDBOX_SOURCE_REF | `refs/heads/rwf97-sandbox-source` |
-   | RWF97_SANDBOX_TARGET_REF | `refs/heads/rwf97-sandbox-target` |
+Open:
+https://github.com/Ma-XX-oN/Disposable-000/settings/actions
 
-   The trusted verifier SHA-256 is printed by the read-only
-   sandbox capability audit job after checkout.  Re-run that safe
-   audit on main if the verifier file changes.  Ensure final
-   `RWF97_TRUSTED_MAIN_SHA` matches the reviewed workflow commit.
+Under **Workflow permissions**, enable:
 
-4. Open sandbox -> Actions, select
-   `Issue 97 sandbox-hosted Python adapter acceptance`, choose
-   `Run workflow` on `main`.  The job must reject a changed trusted
-   main SHA, candidate SHA, unsigned policy, missing issuer key,
-   changed grant ID or mismatched revocation mirror before any write.
+  Allow GitHub Actions to create and approve pull requests
 
-5. Confirm the actual GitHub issue/comment/PR state and immutable
-   reservation tags/commit messages after provider execution.
-   Prove replay, fresh-process restart, concurrent request collision,
-   changed same-ID content, stale-head denial, unsupported merge/check,
-   and adapter-mediated PR closure/issue restoration.
+Then select **Save**.  Keep the repository PRIVATE and do not modify
+RepoWorkflow or production protection rules.  No token, issuer
+certificate, personal key, paid plan or privileged runner is needed.
 
-6. To test authenticated REVOKED policy, use the offline issuer:
+This setting is necessary because #81's section 8 expressly requires
+a REAL provider-backed PR creation, and the authenticated native
+sandbox-token POST returned HTTP 403 before the write.  No connector
+endpoint available in this ChatGPT session can change that Actions
+administrative setting.
 
-   ```sh
-   python examples/issue-97-admin-sign-authority.py revoke \
-     --private-key rwf97-issuer.pem \
-     --issuer-id rwf97-independent-issuer \
-     --grant-id EXACT_GRANT_ID --revision 1 \
-     --output revoked-rwf97.json
-   ```
+After enablement, the existing
+`.github/workflows/rwf97-functional-acceptance.yml` in sandbox main
+can be triggered by a new reviewed commit to that file.  It checks
+the exact #97 candidate SHA and runs the shipped Python CLI end-to-end
+using only the sandbox-native, short-lived `GITHUB_TOKEN`.
+Do not run arbitrary unreviewed code with GitHub write credentials.
 
-   Publish the signed file as `trusted/rwf97/revocations.json` on
-   main and set RWF97_SIGNED_REVOCATIONS to its exact JSON.
-   An old grant must then be rejected by the shipped adapter.
-   Re-pinning the trusted main SHA requires independent review.
+## Remaining actual acceptance after changing one setting
 
-7. Turn `RWF97_ENABLE=false` after acceptance and retain evidence.
-   Never paste keys, GitHub tokens or issuer secrets into a chat.
+- Re-run functional probe to actual PR creation and update.
+- Verify persisted exact PR head, title, draft, target and creator.
+- Verify idempotent create/replay after restart, stale-head and
+  same-ID conflicts, exact provider reservation hashes.
+- Verify temporary PR close and issue restoration are complete.
+- Run exact-head CI regression; record issue-level evidence.
+- Close #97 only when every owned requirement is genuinely met.
+- Do not merge PR #616.  Do not activate #85 or other deferred
+  protected-main enforcement.
 
-## Security boundary and optional stronger protection
-
-The signed issuer public key, approved grant ID, current signed
-revocation state and exact SHA variables are controlled via GitHub
-administration, separate from GITHUB_TOKEN's repository permissions.
-The verifier obtains current signed revocation facts each time and
-cross-checks the main-branch audit mirror.  A stale or forged signed
-record denies.  One-time grant consumption is unsupported and denies.
-
-No normal RepoWorkflow workflow is granted write access.  No main or
-release tags in RepoWorkflow are touched.
-
-GitHub Free private repositories lack the requested server rulesets
-and required environment reviewers.  These features cannot simply
-be assumed.  GitHub Pro enables private rulesets, while private
-required environment reviewers need a higher eligible plan.  They
-remain optional defense-in-depth for THIS disposable positive test,
-not substitutes for #80 cryptographic authorization.  Without rules,
-this harness is NOT safe for executing arbitrary malicious candidate
-code with the sandbox write token; use only independently reviewed
-exact candidate SHA.  Production enforcement would require stronger
-provider-side isolation.
-
-Issue #97 is NOT DONE until the positive live Python write path and
-all authoritative security/negative gates have been evidenced.
+Optional offline-signed authority scripts added in an earlier design
+are NOT acceptance prerequisites for #97 and should not be mistaken
+for operational security deployment requirements.
