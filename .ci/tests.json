@@ -101,6 +101,10 @@
       "issue-629-selection-acceptance": {
         "type": "regression",
         "name": "tests.test_issue629_selection_acceptance"
+      },
+      "issue-629-invocation-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_invocation_acceptance"
       }
     },
     {
