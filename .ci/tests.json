@@ -185,6 +185,17 @@
         "type": "regression",
         "name": "tests.test_541_hosted_cache_integration"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-latest-red-probe": {
+        "type": "regression",
+        "name": "tests.test_541_latest_red_probe",
+        "expected-red": {
+          "exit-code": 1,
+          "output-contains": "issue-541-latest-provider-RED-behaviour"
+        }
+      }
     }
   ],
   "aliases": {
