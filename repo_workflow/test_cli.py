@@ -177,6 +177,10 @@ def _unique_test_log_fields(pairs: list[tuple[str, object]]) -> dict:
   return record
 
 
+def _reject_nonfinite_test_log_value(value: str) -> None:
+  raise TestCommandError("nonfinite testing log value: " + value)
+
+
 def results(root: Path, *, remote: bool) -> int:
   match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
   if match is None:
@@ -196,7 +200,11 @@ def results(root: Path, *, remote: bool) -> int:
   validated = []
   for line in raw.splitlines():
     try:
-      record = json.loads(line, object_pairs_hook=_unique_test_log_fields)
+      record = json.loads(
+        line,
+        object_pairs_hook=_unique_test_log_fields,
+        parse_constant=_reject_nonfinite_test_log_value,
+      )
     except json.JSONDecodeError as error:
       raise TestCommandError("invalid testing log record") from error
     if not isinstance(record, dict) or not all(
