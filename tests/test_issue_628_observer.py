@@ -205,6 +205,30 @@ class ObserverTests(unittest.TestCase):
         "/repos/example/repo", "a" * 40, "token", tampered,
       )
 
+  def test_published_evidence_retry_resolves_original_candidate(self):
+    def chain(path, token):
+      if "/commits/" in path:
+        if path.endswith("/" + "c" * 40):
+          return {
+            "parents": [{"sha": "b" * 40}],
+            "files": [{"filename":
+                      ".repoworkflow/validation/testResults-628.jsonl"}],
+            "commit": {"message": "test: publish hosted evidence from run 22"},
+          }
+        if path.endswith("/" + "b" * 40):
+          return {"parents": [{"sha": "d" * 40}],
+                  "files": [{"filename": "source.py"}]}
+        return {"parents": [{"sha": "c" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      return {"encoding": "base64", "content": base64.b64encode(
+        ("regression-testing " + "c" * 40 + "\n").encode()
+      ).decode()}
+    result = observer.verify_provider_request(
+      "/repos/example/repo", "a" * 40, "token", chain,
+    )
+    self.assertEqual(result["previous_tip"], "c" * 40)
+    self.assertEqual(result["tested_sha"], "b" * 40)
+
   def test_incomplete_run_rejected(self):
     def pending(path, token):
       if path.endswith("/workflows/on-demand-ci.yml"):
