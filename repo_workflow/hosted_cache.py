@@ -84,6 +84,15 @@ def verified_hosted_passes(
     previous = _git(root, "show", prior + ":" + relative)
     if not previous:
       return set()
+    published_rows = previous.splitlines()
+    if not published_rows:
+      return set()
+    terminal_record = json.loads(published_rows[-1])
+    if (
+      not isinstance(terminal_record, dict)
+      or terminal_record.get("providerRunId") != published_run_id
+    ):
+      return set()
     latest: dict[str, bool] = {}
     for line in previous.splitlines():
       record = json.loads(line)
@@ -102,7 +111,6 @@ def verified_hosted_passes(
         or type(run_id) is not int or run_id < 1
         or not isinstance(invoked, str)
         or not re.fullmatch(r"[0-9a-f]{40}", invoked)
-        or run_id != published_run_id
         or record.get("providerCandidateSHA") != revision
         or record.get("providerStage") !=
           ("GREEN-testing" if stage == "GREEN" else "temp-testing")
