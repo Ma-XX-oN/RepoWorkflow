@@ -179,6 +179,10 @@
       "issue-545-red-runner": {
         "type": "regression",
         "name": "tests.test_test_red_runner"
+      },
+      "issue-545-expected-red-cli": {
+        "type": "regression",
+        "name": "tests.test_expected_red_cli"
       }
     }
   ],
