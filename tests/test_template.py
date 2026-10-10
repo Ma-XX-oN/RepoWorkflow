@@ -15,11 +15,16 @@ class TemplateTests(unittest.TestCase):
     ):
       self.assertNotIn(product, text)
     for command in (
-      "repository-policy", "branch-policy", "github-mode", "github-matrix",
-      "preflight", "materialize-artifacts", "run", "finalize",
-      "stable-preflight", "stable-run", "stable-finalize",
+      "repository-policy", "branch-policy", "preflight",
+      "materialize-artifacts", "finalize", "stable-preflight",
+      "stable-finalize", "repo_ci_github_machine.py mode",
+      "repo_ci_github_machine.py matrix",
+      "repo_ci_github_machine.py prepare-context",
+      '"repo-ci", "execute"',
     ):
       self.assertIn(command, text)
+    provider = (ROOT / "repo_workflow" / "repo_ci_github_provider.py").read_text()
+    self.assertIn('"stable-run" if inputs["mode"] == "stable" else "run"', provider)
     self.assertIn("submodules: recursive", text)
     self.assertIn("fetch-depth: 0", text)
 
