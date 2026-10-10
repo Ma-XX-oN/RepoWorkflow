@@ -185,6 +185,25 @@ class LocalStageCardinalityTests(unittest.TestCase):
     self.assertNotEqual(result.returncode, 0)
     self.assertFalse(any(row.get("result") == "succeeded" for row in self.log()))
 
+  def test_integration_refuses_unremoved_temporary_sandbox(self):
+    self.catalogue(["issue-629-temp-a"], temporary=True)
+    owned = self.root / ".ci/temp-tests/629"
+    owned.mkdir(parents=True)
+    (owned / "old-build.tmp").write_text("artifact")
+    result = self.cli("test", "integration")
+    self.assertNotEqual(result.returncode, 0)
+    self.assertIn(".ci/temp-tests/629", result.stdout + result.stderr)
+    self.assertFalse(any(row.get("kind") == "integration"
+                         and row.get("result") == "succeeded"
+                         for row in self.log()))
+
+  def test_missing_unconfigured_integration_adapter_cannot_pass(self):
+    result = self.cli("test", "integration")
+    self.assertNotEqual(result.returncode, 0)
+    self.assertFalse(any(row.get("kind") == "integration"
+                         and row.get("result") == "succeeded"
+                         for row in self.log()))
+
 
 if __name__ == "__main__":
   unittest.main()
