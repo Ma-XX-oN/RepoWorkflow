@@ -105,6 +105,27 @@ class RegressionTemporaryTests(unittest.TestCase):
     self.assertFalse(records[-1]["reusable"])
 
 
+  def test_permanent_incomplete_does_not_run_temporary_or_tag(self):
+    manifest = self.root / ".ci/temp-tests.json"
+    self._catalogue(manifest, issue_group="issue-545-temp")
+    with (
+      patch("repo_workflow.test_cli.verify_local", return_value="INCOMPLETE"),
+      patch("repo_workflow.test_cli._run_group_set") as runner,
+      patch("repo_workflow.test_cli.publish_terminal_tag") as tag,
+    ):
+      status = run_test(
+        self.root, "regression", remote=False,
+        engine_root=self.root / "engine",
+      )
+    self.assertEqual(status, 2)
+    runner.assert_not_called()
+    tag.assert_not_called()
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["kind"], "regression")
+    self.assertEqual(record["result"], "incomplete")
+
+
   def test_invalid_temporary_harness_fails_before_permanent_verifier(self):
     path = self.root / ".ci/temp-tests.json"
     self._catalogue(path, issue_group="issue-545-fidelity")
