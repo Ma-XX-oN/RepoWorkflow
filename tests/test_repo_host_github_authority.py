@@ -58,6 +58,17 @@ class AuthorizationBoundaryTests(unittest.TestCase):
         }):
           self.assertIsNone(authority.verifier_command())
 
+  def test_workspace_verifier_is_not_authoritative(self):
+    workspace = Path(__file__).resolve().parents[1]
+    path = str(workspace / "scripts" / "claim-verifier.py")
+    with patch.dict("os.environ", {
+      "RWF_REPO_HOST_AUTH_COMMAND": json.dumps([path]),
+    }):
+      self.assertIsNone(authority.verifier_command())
+      with self.assertRaises(ProviderError) as caught:
+        authority.authorize(REQUEST, Backend())
+    self.assertEqual(caught.exception.code, "unauthorized")
+
   def test_windows_absolute_verifier_path_is_supported(self):
     with patch.dict("os.environ", {
       "RWF_REPO_HOST_AUTH_COMMAND":
@@ -69,7 +80,7 @@ class AuthorizationBoundaryTests(unittest.TestCase):
     response = SimpleNamespace(
       returncode=0, stdout=json.dumps(decision()), stderr="",
     )
-    trusted_path = str(Path.cwd() / "trusted-check-auth")
+    trusted_path = sys.executable
     with patch.dict("os.environ", {
       "RWF_REPO_HOST_AUTH_COMMAND": json.dumps([trusted_path]),
     }):
