@@ -130,6 +130,8 @@ def _pr_observed(backend, number: int, expected_sha: str | None = None):
   sha = _sha(head.get("sha"))
   if expected_sha is not None and sha != expected_sha:
     raise ProviderError("conflict", "PR head changed")
+  if not isinstance(head.get("ref"), str) or not head["ref"]:
+    raise ProviderError("invalid_response", "invalid PR source")
   if not isinstance(base.get("ref"), str) or not base["ref"]:
     raise ProviderError("invalid_response", "invalid PR destination")
   return pr, sha
@@ -174,9 +176,9 @@ def _pr_create(backend, request: dict, fresh: bool):
     ):
       raise ProviderError("conflict", "PR creator identity mismatch")
     observed, sha = _pr_observed(backend, number, expected)
-    if observed["base"].get("ref") != target_short or (
-      observed.get("draft") != p["draft"]
-    ):
+    if observed["head"].get("ref") != source_short or (
+      observed["base"].get("ref") != target_short
+    ) or observed.get("draft") != p["draft"]:
       raise ProviderError("conflict", "replayed PR identity differs")
     return "unchanged", {
       "number": number, "source_ref": source,
@@ -193,9 +195,9 @@ def _pr_create(backend, request: dict, fresh: bool):
     raise ProviderError("unknown_outcome", "invalid PR create response")
   number = _number(result.get("number"))
   observed, head_sha = _pr_observed(backend, number, expected)
-  if observed["base"].get("ref") != target_short or (
-    observed.get("draft") != p["draft"]
-  ):
+  if observed["head"].get("ref") != source_short or (
+    observed["base"].get("ref") != target_short
+  ) or observed.get("draft") != p["draft"]:
     raise ProviderError("unknown_outcome", "created PR identity mismatch")
   if observed.get("body") != p["body"] + "\n" + marker:
     raise ProviderError("unknown_outcome", "PR marker missing")
