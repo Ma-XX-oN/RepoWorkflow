@@ -95,7 +95,7 @@ class ExpectedRedCliTests(unittest.TestCase):
         self.assertIsNone(self.last()["groups"][0]["exit_code"])
 
   def test_matching_signature_in_stdout(self):
-    self.configure({"exit-code": 1, "output-contains": "unique stdout invariant"})
+    self.configure({"exit-code": 3, "output-contains": "unique stdout invariant"})
     source = self.root / "smoke_case.py"
     source.write_text(
       "import sys, unittest\nclass Smoke(unittest.TestCase):\n"
