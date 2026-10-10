@@ -18,12 +18,32 @@ This document distinguishes staged provider wiring from actual CI cutover.
 - Existing hosted workflows are not silently rewritten. No production, main
   branch, terminal tag or release mutation is authorized by this migration.
 
+## V3 continuation (2026-10-10)
+
+- Provider `execute` now selects only named, repository-catalogued groups,
+  verifies that the requested commit matches the actual checked-out HEAD and
+  that the explicit base equals the immutable candidate base, and reports
+  genuine process-exit observations without terminal classification.
+- Stage/group mismatch, duplicate stage, missing checkout or mismatched
+  candidate/base fail closed. Execution timeout is recorded as incomplete.
+- The hosted dispatcher acceptance workflow now runs a declared test stage
+  and publishes the structured observation in one job; a separate job
+  downloads and verifies the exact candidate, base, invocation and outcome.
+- Added negative tests for stage declarations, identities and genuine failure
+  observations. The previous execute-unavailable assertion was updated.
+- The initial updated hosted workflow failed due to missing `os` import in
+  the *fetch assertion harness*, not due to a provider failure. The targeted
+  correction was committed; the corrected run needs independent verification.
+- This does not yet reroute the production legacy validate/finalize machine
+  paths or establish full regression and FAIL/INCOMPLETE hosted equivalence.
+  Do not mark the ticket DONE on an issue-tier success.
+
 ## Explicit outstanding acceptance gates
 
 1. Implement and verify `execute` under the provider interface, including
    required stage enumeration, exact input candidate and base binding,
    stage-specific genuine FAIL observations, missing/corrupt INCOMPLETE, and
-   deterministic retry behaviour. It currently reports execution-unavailable.
+   deterministic retry behaviour. The catalogue-backed operation is implemented, but hosted negative cases and complete migration remain unverified.
 2. Redirect the *actual* hosted GitHub CI machine paths through the assembled
    dispatcher/provider, not only through compatibility wrappers. Preserve old
    event, runner, materialize, validate and finalization behaviour until all
