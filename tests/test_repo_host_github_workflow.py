@@ -34,6 +34,7 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       "secrets.RWF97_SANDBOX_GH_TOKEN",
       "vars.RWF97_SANDBOX_REPOSITORY",
       "vars.RWF97_AUTH_EXECUTABLE",
+      "vars.RWF97_AUTH_SHA256",
       'test "$SANDBOX_REPOSITORY" != "Ma-XX-oN/RepoWorkflow"',
       "scripts/probe-repo-host-github.py",
     ):
