@@ -42,6 +42,29 @@ class RedEvidenceTests(unittest.TestCase):
 
 
 
+  def test_missing_red_executable_records_incomplete_evidence(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-missing-bin",
+    )
+    path = self.root / ".ci/tests.json"
+    catalogue = json.loads(path.read_text())
+    catalogue["test-harnesses"]["unittest"]["command"] = (
+      "executable-that-does-not-exist-rwf-545"
+    )
+    path.write_text(json.dumps(catalogue))
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture missing test executable")
+    result = self.cli("test", "RED", "issue-545-missing-bin")
+    self.assertEqual(result.returncode, 2, result.stderr)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["kind"], "RED")
+    self.assertEqual(record["result"], "incomplete")
+    self.assertEqual(record["reason"], "selected-test-cannot-execute")
+    self.assertIsNone(record["groups"][0]["exit_code"])
+    self.assertFalse(record["reusable"])
+
+
   def test_change_selected_red_group_after_audit_without_committing_log(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-first",
