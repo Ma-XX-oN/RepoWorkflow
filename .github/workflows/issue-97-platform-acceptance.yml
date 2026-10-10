@@ -22,7 +22,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - name: Verify exact PR source candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python -c "import os,subprocess;
+          assert subprocess.check_output(['git','rev-parse','HEAD'],
+          text=True).strip()==os.environ['EXPECTED_SHA']"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -57,7 +65,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - name: Verify exact PR source candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python -c "import os,subprocess;
+          assert subprocess.check_output(['git','rev-parse','HEAD'],
+          text=True).strip()==os.environ['EXPECTED_SHA']"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -81,7 +97,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - name: Verify exact PR source candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python -c "import os,subprocess;
+          assert subprocess.check_output(['git','rev-parse','HEAD'],
+          text=True).strip()==os.environ['EXPECTED_SHA']"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
