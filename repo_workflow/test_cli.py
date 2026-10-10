@@ -19,6 +19,7 @@ from .terminal_tag import publish_terminal_tag
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
+from .hosted_cache import verified_hosted_passes
 from .self_ci import SelfCiError, group_command
 from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
@@ -246,13 +247,20 @@ def _run_group_set(
     "testResults-" + match.group(1) + ".jsonl"
   )
   uncommitted_before = _uncommitted_inputs(root, path)
-  reusable = (
-    reusable_local_group_passes(
+  reusable = set()
+  if not uncommitted_before:
+    reusable = reusable_local_group_passes(
       path, stage=stage, revision=revision, fingerprint=fingerprint,
     )
-    if not uncommitted_before
-    else set()
-  )
+    token = os.environ.get("GITHUB_TOKEN", "")
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    invocation = os.environ.get("GITHUB_SHA", "")
+    if token and repository and invocation:
+      reusable.update(verified_hosted_passes(
+        root, stage=stage, revision=revision, fingerprint=fingerprint,
+        invocation=invocation, branch=current_branch(root),
+        repository=repository, token=token,
+      ))
   failures = []
   launch_missing = False
   evidence = []
