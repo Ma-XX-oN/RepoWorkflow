@@ -72,6 +72,33 @@ class TestLaunchFailures(unittest.TestCase):
     self.assertLess(record["groups"][0]["exit_code"], 0)
 
 
+  def test_signalled_green_runner_is_incomplete_not_failed(self):
+    import os
+    if os.name == "nt":
+      self.skipTest("negative signal return codes are POSIX-specific")
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-signal-green",
+    )
+    (self.root / "smoke_case.py").write_text(
+      "import os, signal, unittest\\n"
+      "class Smoke(unittest.TestCase):\\n"
+      "  def test_pass(self):\\n"
+      "    os.kill(os.getpid(), signal.SIGTERM)\\n"
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "signalled GREEN group")
+    self.assertEqual(
+      self.cli("test", "RED", "issue-545-signal-green").returncode, 2,
+    )
+    result = self.cli("test", "GREEN")
+    self.assertEqual(result.returncode, 2, result.stderr)
+    record = self._log()
+    self.assertEqual(record["kind"], "GREEN")
+    self.assertEqual(record["result"], "incomplete")
+    self.assertFalse(record["reusable"])
+    self.assertLess(record["groups"][0]["exit_code"], 0)
+
+
   def test_temporary_missing_executable_is_incomplete_evidence(self):
     self._missing_executable_catalogue(
       self.root / ".ci/temp-tests.json", "issue-545-temp-missing",
