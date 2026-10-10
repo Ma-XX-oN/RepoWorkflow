@@ -37,6 +37,8 @@ jobs:
           python -c "import os,subprocess;
           assert subprocess.check_output(['git','rev-parse','HEAD'],
           text=True).strip()==os.environ['EXPECTED_SHA']"
+      - name: Install signed-verifier test runtime
+        run: python -m pip install 'cryptography==45.0.7'
       - name: Run black-box and provider contract tests
         env:
           RWF_REPO_HOST_AUTH_COMMAND: ''
@@ -51,6 +53,7 @@ jobs:
           tests.test_repo_host_github_provider
           tests.test_repo_host_github_live_probe
           tests.test_repo_host_github_workflow
+          tests.test_repo_host_github_signed_verifier
       - name: Compile adapter and tests
         run: >-
           python -m py_compile
@@ -66,6 +69,8 @@ jobs:
           tests/test_repo_host_github_provider.py
           tests/test_repo_host_github_live_probe.py
           tests/test_repo_host_github_workflow.py
+          tests/test_repo_host_github_signed_verifier.py
+          examples/issue-97-verify-authority.py
           scripts/probe-repo-host-github.py
           scripts/probe-repo-host-github-deny.py
   repository-regression:
