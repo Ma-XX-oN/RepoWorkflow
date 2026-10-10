@@ -55,6 +55,22 @@
       "issue-540-on-demand-ci-marker": {
         "type": "regression",
         "name": "tests.test_ci_invocation"
+      },
+      "issue-628-trigger-probe-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue_628_trigger_matrix"
+      },
+      "issue-628-provider-observer": {
+        "type": "regression",
+        "name": "tests.test_issue_628_observer"
+      },
+      "issue-628-workflow-trigger-filter": {
+        "type": "regression",
+        "name": "tests.test_issue_628_trigger_filter"
+      },
+      "issue-628-real-hosted-snapshots": {
+        "type": "regression",
+        "name": "tests.test_issue_628_hosted_samples"
       }
     }
   ],
