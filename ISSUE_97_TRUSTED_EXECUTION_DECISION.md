@@ -26,16 +26,12 @@ not semantic authorization.
 
 ## Architecture comparison
 
-| Option | Privilege and independence | Cost / limitation |
+| Option | Privilege | Limitation |
 | --- | --- | --- |
-| A. GitHub-hosted within RepoWorkflow | Protected environment plus | Native token cannot |
-| | separate sandbox-only credential | write another repo |
-| B. GitHub-hosted with App token | App installed only in sandbox, | App/key configuration |
-| | ephemeral installation token | and extra secret |
-| C. Dedicated self-hosted | Independently installed verifier | Extra machine; public |
-| | and separately scoped credential | repository runner risk |
-| D. GitHub-hosted within sandbox | Native sandbox-only token, | Requires disposable repo, |
-| | protected main workflow and grant | trusted policy and reviewer |
+| A. Repo hosted | Env + sandbox token | Extra credential |
+| B. App token | Sandbox-only App | App/key setup |
+| C. Self-hosted | Installed verifier | Machine/risk |
+| D. Sandbox hosted | Sandbox GITHUB_TOKEN | Sandbox repo |
 
 **Selected D**: GitHub-hosted Ubuntu runner within the disposable sandbox,
 not a dedicated runner.  It uses only the sandbox's job-scoped
