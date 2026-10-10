@@ -73,3 +73,27 @@ def read_host_facts(repository, source, destination, candidate, token, *, fetch=
     raise
   except (OSError, KeyError, ValueError, TypeError, AttributeError) as error:
     raise HostFactsError("provider facts unavailable") from error
+
+
+def decide_with_github_host(facts, repository, source, destination, token, *, fetch=None):
+  """One-shot provider-fact binding for the portable #104 semantic decision.
+
+  Re-query at each invocation. Never cache an ALLOW result. #542 must enforce
+  a separate final acceptance-time check against the live destination.
+  """
+  from dataclasses import replace
+  from .candidate_eligibility import Facts, decide
+
+  if not isinstance(facts, Facts):
+    return decide(facts)
+  try:
+    host = read_host_facts(
+      repository, source, destination, facts.candidate, token, fetch=fetch,
+    )
+  except HostFactsError:
+    return False, ("host-facts-unavailable",)
+  return decide(replace(
+    facts, head=host.head, current_base=host.current_base,
+    candidate_exists=host.candidate_exists,
+    base_is_ancestor=host.base_is_ancestor,
+  ))
