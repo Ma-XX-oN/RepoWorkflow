@@ -170,23 +170,38 @@ def main() -> int:
     }, sort_keys=True))
     return 0
   finally:
-    # Clean up only the issue title and temporary PR.  Preserve the test
-    # comment and immutable idempotency audit reservations deliberately.
+    # Preserve the immutable reservations and audit comment.  A failed
+    # cleanup is a failed probe, never a silent PASS.
+    errors = []
     if created_pr is not None:
-      subprocess.run(
+      close = subprocess.run(
         ["gh", "api", "--method", "PATCH",
          f"repos/{args.repository}/pulls/{created_pr}",
          "-f", "state=closed"],
         capture_output=True, text=True, check=False, timeout=30,
       )
+      if close.returncode:
+        errors.append("temporary PR close failed")
+      else:
+        try:
+          if gh(args.repository, "pulls/" + str(created_pr))[
+            "state"
+          ] != "closed":
+            errors.append("temporary PR remained open")
+        except Exception:
+          errors.append("temporary PR closure not verified")
     if original_title != changed_title:
       try:
         invoke(args.repository, "issue.update", run + "-restore",
                {"number": args.sandbox_issue, "title": original_title})
+        if gh(args.repository, "issues/" + str(args.sandbox_issue))[
+          "title"
+        ] != original_title:
+          errors.append("sandbox issue title not restored")
       except Exception:
-        print("sandbox issue title requires manual restoration",
-              file=sys.stderr)
-
+        errors.append("sandbox issue title requires manual restoration")
+    if errors:
+      raise RuntimeError("; ".join(errors))
 
 if __name__ == "__main__":
   raise SystemExit(main())
