@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -32,7 +34,37 @@ jobs:
           import json, os
           from pathlib import Path
           Path("producer").mkdir()
-          Path("producer/evidence").write_bytes(b"genuine FAIL remains observation\n")
+          import subprocess
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          assert head == os.environ["RWF_CANDIDATE"], (head, os.environ["RWF_CANDIDATE"])
+          execution = {
+            "contract_version": 1,
+            "operation": "execute",
+            "invocation_id": os.environ["RWF_INVOCATION"],
+            "candidate": {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": head,
+              "base": os.environ["RWF_BASE"],
+            },
+            "requirements": {
+              "stages": ["ci-self-contract"], "capabilities": [], "artifacts": [],
+            },
+            "inputs": {
+              "base": os.environ["RWF_BASE"],
+              "stage_groups": {"ci-self-contract": "invariant-self-ci-contract"},
+            },
+          }
+          observed = subprocess.run(
+            ["python", "-m", "repo_workflow.repo_ci_dispatcher", "execute"],
+            input=json.dumps(execution), text=True, capture_output=True, check=True,
+          )
+          actual = json.loads(observed.stdout)
+          assert actual["status"] == "ok", actual
+          stages = actual["observations"]["stages"]
+          assert len(stages) == 1 and stages[0]["stage"] == "ci-self-contract"
+          assert stages[0]["complete"] and stages[0]["outcome"] == "succeeded"
+          Path("producer/evidence").write_text(json.dumps(actual))
+
           request = {
             "contract_version": 1,
             "operation": "publish",
@@ -112,7 +144,11 @@ jobs:
           from pathlib import Path
           result = json.loads(Path("reply.json").read_text())
           assert result["status"] == "ok", result
-          assert Path("accepted/evidence").read_bytes() == b"genuine FAIL remains observation\n"
+          observed = json.loads(Path("accepted/evidence").read_text())
+          assert observed["candidate"]["commit"] == os.environ["RWF_CANDIDATE"]
+          assert observed["candidate"]["base"] == os.environ["RWF_BASE"]
+          assert observed["invocation_id"] == os.environ["RWF_INVOCATION"]
+          assert observed["observations"]["stages"][0]["outcome"] == "succeeded"
           stale = json.loads(Path("stale-reply.json").read_text())
           assert stale["status"] == "error", stale
           assert stale["diagnostics"][0]["code"] == "identity-mismatch", stale
