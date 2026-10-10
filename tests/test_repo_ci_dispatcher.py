@@ -228,6 +228,41 @@ class RepoCiDispatcherTests(unittest.TestCase):
       (self.root / "received.bin").read_bytes(), request_bytes(),
     )
 
+  def test_valid_request_missing_config_has_normalized_error_envelope(self):
+    root = Path(__file__).resolve().parents[1]
+    process = subprocess.run(
+      [sys.executable, str(root / "repo_workflow.py"),
+       "--root", str(self.root), "repo-ci", "execute"],
+      input=request_bytes(), capture_output=True, check=False,
+    )
+    self.assertEqual(process.returncode, 2)
+    result = json.loads(process.stdout)
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(result["operation"], "execute")
+    self.assertEqual(result["candidate"], REQUEST["candidate"])
+    self.assertEqual(
+      result["diagnostics"][0]["code"], "prerequisite-unavailable",
+    )
+    self.assertEqual(result["artifacts"], [])
+
+  @unittest.skipUnless(os.name == "posix", "POSIX executable entrypoint")
+  def test_executable_error_envelope_matches_routed_cli(self):
+    script = Path(__file__).resolve().parents[1] / "repo-ci"
+    process = subprocess.run(
+      [str(script), "execute"],
+      cwd=self.root,
+      input=request_bytes(),
+      capture_output=True,
+      check=False,
+    )
+    self.assertEqual(process.returncode, 2)
+    result = json.loads(process.stdout)
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(result["candidate"], REQUEST["candidate"])
+    self.assertEqual(
+      result["diagnostics"][0]["code"], "prerequisite-unavailable",
+    )
+
   def test_cli_entrypoint_preserves_exact_input(self):
     self.success_provider()
     root = Path(__file__).resolve().parents[1]
