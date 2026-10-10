@@ -21,6 +21,7 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
   def test_default_and_preliminary_main_are_excluded(self):
     self.assertIn("branches-ignore:", self.text)
     self.assertIn("      - main", self.text)
+    self.assertIn("      - prelim-main\n", self.text)
     self.assertIn("      - 'prelim-main-*'", self.text)
 
   def test_workflow_verifies_the_full_invocation_history(self):
