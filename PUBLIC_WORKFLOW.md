@@ -339,14 +339,13 @@ or claiming PASS.  Malformed or stale selections fail.
 
 RED requires `expected-red` on the selected `.ci/tests.json` group:
 `{"exit-code":1,"output-contains":"specific invariant violated"}`.
-The exit code must be a positive non-boolean integer.  The signature must be
+The exit code must be positive and non-boolean; the signature must be
 a nonempty, specific literal UTF-8 substring of combined stdout/stderr;
 generic `FAILED` or `Error` alone is invalid.  Validate before execution.
 Matching nonzero exit and signature yields RED; zero yields NOT_RED; other
 nonzero failures yield FAIL.  Missing/malformed declarations, process launch
 failures, signal termination and infrastructure errors yield INCOMPLETE.
-Preserve the committed selection, catalogue fingerprint, canonical per-issue
-JSONL and repository-version lifecycle.
+Preserve the selection, fingerprints, canonical log and version lifecycle.
 
 GREEN reuses only eligible unchanged PASS evidence for the selected group
 and executes missing or invalidated test units.
