@@ -55,6 +55,10 @@
       "issue-540-on-demand-ci-marker": {
         "type": "regression",
         "name": "tests.test_ci_invocation"
+      },
+      "issue-628-trigger-probe-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue_628_trigger_matrix"
       }
     }
   ],
