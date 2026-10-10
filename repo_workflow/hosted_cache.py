@@ -52,7 +52,9 @@ class _NoRedirect(HTTPRedirectHandler):
     return None
 
 
-def _provider_attestation(repo: str, run_id: int, token: str) -> dict:
+def _provider_attestation(
+  repo: str, run_id: int, token: str, _record: dict,
+) -> dict:
   """Retrieve immutable workflow-run artifact, never the mutable Git branch."""
   url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts"
   headers = {
@@ -216,7 +218,7 @@ def verified_hosted_passes(
           str(provider.get("path", ""))
       ):
         return set()
-      if attest(repository, run_id, token) != _original_observation(record):
+      if attest(repository, run_id, token, record) != _original_observation(record):
         return set()
       valid = (
         record.get("result") == "succeeded"
