@@ -33,11 +33,13 @@ class LiveProbeCleanupTests(unittest.TestCase):
       if path == "":
         return {"default_branch": "main"}
       if path.startswith("issues/3/comments?"):
-        identity = "owner/sandbox\\0issue.comment\\0acceptance-comment"
+        identity = chr(0).join([
+          "owner/sandbox", "issue.comment", "acceptance-comment",
+        ])
         marker = "<!-- RWF-HOST-REQUEST-V1:" + hashlib.sha256(
-          identity.replace("\\\\0", "\\0").encode("utf-8")
+          identity.encode("utf-8")
         ).hexdigest() + " -->"
-        return [{"id": 9, "body": "RWF probe acceptance\\n" + marker}]
+        return [{"id": 9, "body": "RWF probe acceptance\n" + marker}]
       if path.startswith("issues/"):
         return {"state": "open", "title": state["title"]}
       if path.startswith("git/ref/heads/"):
