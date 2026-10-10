@@ -268,7 +268,10 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
     grant["grant_id"]
   ) or type(grant["revision"]) is not int or grant["revision"] < 0:
     raise ValueError("invalid grant identity or revision")
-  request_digest = hashlib.sha256(canonical(request)).hexdigest()
+  # Must match the adapter's exact JSON scope_digest implementation.
+  request_digest = hashlib.sha256(json.dumps(
+    request, sort_keys=True, separators=(",", ":")
+  ).encode("utf-8")).hexdigest()
   return {
     "schema_version": 1,
     "request_id": request["request_id"],
