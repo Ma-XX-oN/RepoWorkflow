@@ -205,6 +205,11 @@ class DispatcherContractTests(unittest.TestCase):
       Completed("{}", 1, ""),
       Completed("", 1, "not-json"),
       Completed("", 1, '{"error":"conflict"}'),
+      Completed("", 1, json.dumps(dict(
+        schema_version=1, operation=req["operation"],
+        repository=req["repository"], request_id=req["request_id"],
+        error=[], message="malformed",
+      ))),
     ):
       def runner(received):
         if received["operation"] == "capabilities":
