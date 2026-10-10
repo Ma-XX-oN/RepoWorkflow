@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Probe a write transport request without affecting existing issues.
+"""Probe issue-create permission with a missing required title.
 
-The target issue number is impossible within this repository.  This
-probe never addresses an existing issue, pull request, branch or tag.
-The call exercises GitHubBackend's actual transport and classification.
+GitHub requires title for issue creation.  This invalid request cannot
+create an issue, and distinguishes explicit permission rejection from
+provider-side validation without granting write credentials to PR CI.
 """
 from __future__ import annotations
 
@@ -21,12 +21,9 @@ from repo_host_github_provider import GitHubBackend, ProviderError
 def main() -> int:
   backend = GitHubBackend("Ma-XX-oN/RepoWorkflow")
   try:
-    backend.patch(
-      "issues/2147483647",
-      {"title": "NO EXISTING ISSUE MUST BE MUTATED"},
-    )
+    backend.post("issues", {})
   except ProviderError as exc:
-    if exc.code not in {"unauthorized", "not_found"}:
+    if exc.code not in {"unauthorized", "not_found", "conflict"}:
       raise RuntimeError(
         "unexpected read-only token write outcome: " + exc.code
       ) from exc
@@ -36,7 +33,7 @@ def main() -> int:
         else "PERMISSION_UNVERIFIED"
       ),
       "error": exc.code,
-      "target": "nonexistent issue 2147483647",
+      "target": "issue-create with missing required title",
       "no_persisted_mutation": True,
     }, sort_keys=True))
     return 0
