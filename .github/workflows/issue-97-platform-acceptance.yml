@@ -123,6 +123,10 @@ jobs:
           --pull 616
           --branch issue-97-github-host-mutation-adapter
           --expected-sha ${{ github.event.pull_request.head.sha }}
+      - name: Discover authenticated GitHub App identity interfaces
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/probe-repo-host-github-identity.py
       - name: Real CLI denies unauthorized mutation before GitHub write
         env:
           GH_TOKEN: ${{ github.token }}
