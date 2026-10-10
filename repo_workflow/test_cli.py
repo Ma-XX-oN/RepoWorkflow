@@ -341,13 +341,16 @@ def run_test(
     before = _uncommitted_inputs(root, path)
     red_candidate = head_sha(root)
     red_catalogue = _group_fingerprint(root, Path(".ci/tests.json"))
-    result = subprocess.run(
-      command, cwd=root, text=True, capture_output=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-    if result.stdout:
+    try:
+      result = subprocess.run(
+        command, cwd=root, text=True, capture_output=True, check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+      )
+    except (OSError, UnicodeError):
+      result = None
+    if result is not None and result.stdout:
       print(result.stdout, end="")
-    if result.stderr:
+    if result is not None and result.stderr:
       print(result.stderr, end="", file=sys.stderr)
     dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
     record = {
@@ -358,9 +361,9 @@ def run_test(
       "kind": "RED",
       "result": "incomplete",
       "reason": (
-        "expected-red-failure-not-demonstrated"
-        if result.returncode == 0
-        else "failure-not-classified-as-expected-red"
+        "selected-test-cannot-execute" if result is None else
+        "expected-red-failure-not-demonstrated" if result.returncode == 0 else
+        "failure-not-classified-as-expected-red"
       ),
       "runner": "local",
       "platform": {
@@ -370,13 +373,17 @@ def run_test(
       "uncommittedChanges": dirty,
       "reusable": False,
       "groups": [{
-        "group": selected, "exit_code": result.returncode,
+        "group": selected, "exit_code": (
+          result.returncode if result is not None else None
+        ),
         "reused": False,
       }],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
+    if result is None:
+      raise TestCommandError("RED selected test could not execute")
     if result.returncode == 0:
       raise TestCommandError("RED did not demonstrate the expected failure")
     raise TestCommandError(
