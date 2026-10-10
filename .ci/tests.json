@@ -171,6 +171,10 @@
       "issue-545-launch-failures": {
         "type": "regression",
         "name": "tests.test_test_launch_failures"
+      },
+      "issue-545-shipped-launcher": {
+        "type": "regression",
+        "name": "tests.test_test_launcher"
       }
     }
   ],
