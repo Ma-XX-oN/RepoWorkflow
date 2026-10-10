@@ -109,7 +109,7 @@ class LiveProbeCleanupTests(unittest.TestCase):
                       module.main()
                   else:
                     self.assertEqual(module.main(), 0)
-                self.assertEqual(ledger.call_count, 4)
+                self.assertEqual(ledger.call_count, 5)
                 race.assert_called_once_with(
                   "owner/sandbox", 3, "acceptance"
                 )
