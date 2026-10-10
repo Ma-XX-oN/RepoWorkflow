@@ -57,6 +57,7 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       "on:\n  workflow_dispatch:",
       "runs-on: ubuntu-latest",
       "environment: rwf97-acceptance",
+      "actions: read",
       "contents: write",
       "issues: write",
       "pull-requests: write",
