@@ -50,8 +50,8 @@ This is not an authorization check and does not consume a mutation request ID.
 `issue.update`: takes positive issue number, optional title, and optional
 open/closed state.  At least one field must change or the provider confirms
 `unchanged`.  Returns exactly `{number, title, state}` with positive
-integer number, non-empty title and `open|closed` state.  It may never create a missing issue
-implicitly.  Reopening/closing is a transition, not evidence of authorization.
+integer number, non-empty title and `open|closed` state.  It may
+never create a missing issue implicitly.  Reopening/closing is a transition, not evidence of authorization.
 
 `issue.comment`: takes positive issue number and non-empty comment body.
 Returns exactly `{number, comment_id}`; number matches the requested issue,
@@ -60,8 +60,8 @@ not create a second comment.
 
 `pull_request.create`: takes exact source ref, target ref, expected source
 head SHA, title, body, and draft boolean.  Returns a positive PR number,
-exact source/target refs, and the provider-observed head SHA.  Result fields are exactly
-`{number, source_ref, target_ref, head_sha, draft}`.  It never merges.
+exact source/target refs, and the provider-observed head SHA.  Result fields
+are exactly `{number, source_ref, target_ref, head_sha, draft}`.  It never merges.
 The request ID is bound to the exact source/target and initial head identity;
 changed head on replay is a conflict, not implicit PR retargeting.
 The adapter must check the exact expected source head at creation time.
@@ -146,7 +146,8 @@ for that operation.  `capabilities` has an empty object.  `issue.update` has
 `number` and one or more of `title`/`state`; `issue.comment` has `number` and
 `body`; `pull_request.create` has `source_ref`, `target_ref`,
 `expected_source_sha`, `title`, `body`, and `draft`;
-`pull_request.update` has `number`, `expected_head_sha`, and one or more of `title`, `body`, `draft`, `state`, `target_ref`;
+`pull_request.update` has `number`, `expected_head_sha`, and one or more of
+`title`, `body`, `draft`, `state`, `target_ref`;
 `pull_request.merge` has `number`, `tested_head_sha`,
 `expected_destination_sha`, `eligibility_ref`, `authorization_ref`;
 `check.publish` has `candidate_sha`, `context`, `verification_ref`, and
@@ -161,8 +162,8 @@ conflict, never an alternative use of the identity.
 An issue or PR number is a positive integer, not a boolean or numeric
 string.  A Git commit identity is exactly 40 lowercase hexadecimal
 characters.  `title` and `body` are UTF-8 strings; required titles,
-comment bodies, refs and contexts are non-empty.  `draft` is a JSON boolean.  `state` is
-`open|closed`; `conclusion` is `success|failure`.  `repository` is a non-empty
+comment bodies, refs and contexts are non-empty.  `draft` is a JSON
+boolean.  `state` is `open|closed`; `conclusion` is `success|failure`.  `repository` is a non-empty
 canonical `owner/name` from `repo-info`.  Source and target refs must be
 explicit and unambiguous; a raw branch display name alone conveys no trust.
 For update operations the caller must distinguish an omitted field (leave
