@@ -75,6 +75,7 @@ jobs:
           scripts/probe-repo-host-github-deny.py
           scripts/probe-repo-host-github-private-sandbox-deny.py
           scripts/probe-repo-host-github-private-sandbox-signed-deny.py
+          scripts/probe-repo-host-github-pr-create.py
           examples/issue-97-admin-sign-authority.py
   repository-regression:
     name: Full repository regression (ubuntu-latest)
