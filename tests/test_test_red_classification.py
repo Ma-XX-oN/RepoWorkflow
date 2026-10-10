@@ -1,8 +1,11 @@
 """Black-box decision-table coverage for predeclared RED expectations."""
 import unittest
+import sys
+import tempfile
+from pathlib import Path
 
 from repo_workflow.test_red_classification import (
-  RedExpectation, RedObservation, classify_red,
+  RedExpectation, RedObservation, classify_red, execute_red,
 )
 
 
@@ -66,6 +69,34 @@ class RedClassificationContract(unittest.TestCase):
       self.decide(RedExpectation(1, "expected"), -9).status,
       "INCOMPLETE",
     )
+
+  def test_real_selected_command_with_declared_failure(self):
+    with tempfile.TemporaryDirectory() as directory:
+      result = execute_red(
+        (sys.executable, "-c",
+         "import sys;sys.stderr.write('required failure');sys.exit(1)"),
+        cwd=Path(directory),
+        expectation=RedExpectation(1, "required failure"),
+      )
+    self.assertEqual(result.status, "RED")
+
+  def test_missing_executable_cannot_be_red(self):
+    with tempfile.TemporaryDirectory() as directory:
+      result = execute_red(
+        ("executable-that-does-not-exist-rwf-545",),
+        cwd=Path(directory),
+        expectation=RedExpectation(1, "required failure"),
+      )
+    self.assertEqual(result.status, "INCOMPLETE")
+
+  def test_real_unexpected_success_is_not_red(self):
+    with tempfile.TemporaryDirectory() as directory:
+      result = execute_red(
+        (sys.executable, "-c", "print('pass')"),
+        cwd=Path(directory),
+        expectation=RedExpectation(1, "required failure"),
+      )
+    self.assertEqual(result.status, "NOT_RED")
 
   def test_signature_can_be_in_stdout(self):
     self.assertEqual(
