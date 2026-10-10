@@ -7,7 +7,7 @@ from repo_workflow.candidate_eligibility import Facts, decide
 class CandidateEligibilityTests(unittest.TestCase):
   def setUp(self):
     self.facts = Facts("a"*40, "a"*40, "a"*40, "b"*40, "b"*40,
-                       True, True, True, True)
+                       True, True, True, True, True, True)
 
   def test_exact_authenticated_complete_pass(self):
     self.assertEqual(decide(self.facts), (True, ()))
@@ -21,6 +21,8 @@ class CandidateEligibilityTests(unittest.TestCase):
       ("complete", False, "missing-complete"),
       ("passed", False, "missing-passed"),
       ("inputs_current", False, "missing-inputs_current"),
+      ("required_checks_complete", False, "missing-required_checks_complete"),
+      ("applicable", False, "missing-applicable"),
     ):
       with self.subTest(field=field):
         ok, reasons = decide(replace(self.facts, **{field: value}))
