@@ -186,7 +186,7 @@ class HostedCacheTests(unittest.TestCase):
         entry = {**base, "groups": [
           {"group": name, "exit_code": 0} for name in names
         ]}
-        path.write_text(json.dumps(entry) + "\\n")
+        path.write_text(json.dumps(entry) + "\n")
         if should_pass:
           validate(self.root, stage="temp-testing", candidate=self.candidate,
                    branch="issue-545-cache")
