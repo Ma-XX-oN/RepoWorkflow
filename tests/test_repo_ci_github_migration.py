@@ -116,6 +116,82 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
     self.assertEqual(result["observations"]["stages"][0]["exit_code"], 1)
     self.assertNotIn("classification", result["observations"])
 
+  def test_consumer_execute_preserves_core_statuses_and_evidence(self):
+    from tests.support import RepoFixture
+
+    for rc, status in ((0, "PASS"), (7, "FAIL"), (2, "INCOMPLETE")):
+      with self.subTest(status=status), tempfile.TemporaryDirectory() as td:
+        workspace = Path(td) / "consumer"
+        workspace.mkdir()
+        fixture = RepoFixture(workspace, validation_body=f"raise SystemExit({rc})\\n")
+        destination = Path(td) / "observations" / "local.json"
+        value = request("execute")
+        value["candidate"]["commit"] = fixture.head()
+        value["requirements"]["stages"] = ["local"]
+        value["inputs"] = {
+          "consumer_workspace": str(workspace),
+          "result_path": str(destination),
+          "mode": "development",
+          "base": value["candidate"]["base"],
+        }
+        with patch.dict(os.environ, {
+          "RWF_REPO_CI_WORKSPACE": str(workspace),
+          "RWF_REPO_CI_RESULT_ROOT": str(destination.parent),
+        }):
+          result = handle_request(value, ROOT)
+        self.assertEqual(result["status"], "ok", result)
+        self.assertEqual(result["candidate"], value["candidate"])
+        self.assertEqual(result["observations"]["stages"][0]["core_result"]["status"],
+                         status)
+        self.assertEqual(json.loads(destination.read_text())["status"], status)
+        self.assertEqual(
+          result["observations"]["stages"][0]["core_exit_code"],
+          0 if status == "PASS" else 1 if status == "FAIL" else 2,
+        )
+
+  def test_consumer_execute_rejects_changed_identity_and_unsafe_result(self):
+    from tests.support import RepoFixture
+
+    with tempfile.TemporaryDirectory() as td:
+      workspace = Path(td) / "consumer"
+      workspace.mkdir()
+      fixture = RepoFixture(workspace)
+      destination = Path(td) / "observations" / "local.json"
+      value = request("execute")
+      value["candidate"]["commit"] = fixture.head()
+      value["requirements"]["stages"] = ["local"]
+      value["inputs"] = {
+        "consumer_workspace": str(workspace),
+        "result_path": str(destination),
+        "mode": "development",
+        "base": value["candidate"]["base"],
+      }
+      env = {
+        "RWF_REPO_CI_WORKSPACE": str(workspace),
+        "RWF_REPO_CI_RESULT_ROOT": str(destination.parent),
+      }
+      with patch.dict(os.environ, env):
+        wrong = json.loads(json.dumps(value))
+        wrong["candidate"]["commit"] = "f" * 40
+        self.assertEqual(handle_request(wrong, ROOT)["diagnostics"][0]["code"],
+                         "identity-mismatch")
+        wrong = json.loads(json.dumps(value))
+        wrong["inputs"]["result_path"] = str(Path(td) / "outside.json")
+        self.assertEqual(handle_request(wrong, ROOT)["diagnostics"][0]["code"],
+                         "invalid-request")
+        wrong = json.loads(json.dumps(value))
+        wrong["inputs"]["base"] = "wrong"
+        self.assertEqual(handle_request(wrong, ROOT)["diagnostics"][0]["code"],
+                         "identity-mismatch")
+        self.assertFalse(destination.exists())
+
+  def test_consumer_workflow_routes_validation_but_keeps_core_finalizer(self):
+    workflow = (ROOT / ".github" / "workflows" / "consumer-ci.yml").read_text()
+    self.assertIn("repo-ci\", \"execute", workflow)
+    self.assertIn("RWF_REPO_CI_WORKSPACE", workflow)
+    self.assertIn("python RepoWorkflow/repo_workflow.py finalize", workflow)
+    self.assertIn("python RepoWorkflow/repo_workflow.py stable-finalize", workflow)
+
   def test_publish_fetch_integrity_and_identity(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
