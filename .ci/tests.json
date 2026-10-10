@@ -55,6 +55,30 @@
       "issue-540-on-demand-ci-marker": {
         "type": "regression",
         "name": "tests.test_ci_invocation"
+      },
+      "issue-542-premerge-evidence-gate": {
+        "type": "regression",
+        "name": "tests.test_pre_merge_gate"
+      },
+      "issue-542-canonical-evidence": {
+        "type": "regression",
+        "name": "tests.test_canonical_integration_evidence"
+      },
+      "issue-542-github-provider-evidence": {
+        "type": "regression",
+        "name": "tests.test_github_evidence"
+      },
+      "issue-542-atomic-acceptance": {
+        "type": "regression",
+        "name": "tests.test_pre_merge_acceptance"
+      },
+      "issue-542-git-acceptance": {
+        "type": "regression",
+        "name": "tests.test_git_acceptance"
+      },
+      "issue-542-protected-merge": {
+        "type": "regression",
+        "name": "tests.test_github_merge_guard"
       }
     }
   ],
