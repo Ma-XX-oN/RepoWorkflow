@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import unittest
+import importlib.util
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +36,37 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       "scripts/probe-repo-host-github.py",
     ):
       self.assertIn(required, source)
+
+  def test_environment_policy_requires_independent_review(self):
+    path = ROOT / "scripts/probe-repo-host-github-environment.py"
+    spec = importlib.util.spec_from_file_location(
+      "issue97_environment", path
+    )
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    valid = {
+      "name": "rwf97-sandbox",
+      "protection_rules": [{
+        "type": "required_reviewers", "prevent_self_review": True,
+        "reviewers": [{"type": "User", "reviewer": {"login": "owner"}}],
+      }],
+      "deployment_branch_policy": {
+        "protected_branches": False, "custom_branch_policies": True,
+      },
+    }
+    helper.validate_environment(valid)
+    for bad in [
+      {**valid, "name": "production"},
+      {**valid, "protection_rules": []},
+      {**valid, "protection_rules": [{
+        "type": "required_reviewers", "prevent_self_review": False,
+        "reviewers": [{"type": "User"}],
+      }]},
+      {**valid, "deployment_branch_policy": None},
+    ]:
+      with self.subTest(bad=bad):
+        with self.assertRaises(RuntimeError):
+          helper.validate_environment(bad)
 
   def test_cross_platform_workflow_remains_read_only(self):
     source = SAFE.read_text(encoding="utf-8")
