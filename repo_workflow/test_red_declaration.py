@@ -13,11 +13,21 @@ GENERIC_SIGNATURES = frozenset({
 })
 
 
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict:
+  result = {}
+  for key, value in pairs:
+    if key in result:
+      raise ValueError("duplicate RED catalogue field")
+    result[key] = value
+  return result
+
+
 def red_declaration(root: Path, group: str) -> tuple[RedExpectation | None, str]:
   """Never derive expectations from the observed subprocess response."""
   try:
     catalogue = json.loads(
       (root / ".ci/tests.json").read_text(encoding="utf-8"),
+      object_pairs_hook=_unique_json_object,
     )
   except (OSError, ValueError, UnicodeError):
     return None, "invalid-expected-failure-declaration"
@@ -32,9 +42,9 @@ def red_declaration(root: Path, group: str) -> tuple[RedExpectation | None, str]
   ]
   if len(matches) != 1 or not isinstance(matches[0], dict):
     return None, "invalid-expected-failure-declaration"
-  declared = matches[0].get("expected-red")
-  if declared is None:
+  if "expected-red" not in matches[0]:
     return None, "expected-failure-declaration-missing"
+  declared = matches[0]["expected-red"]
   if (
     not isinstance(declared, dict)
     or set(declared) != {"exit-code", "output-contains"}
