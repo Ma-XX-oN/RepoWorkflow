@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 import unittest
 
@@ -165,6 +167,40 @@ class GitHubHostBootstrapTests(unittest.TestCase):
         params = {"number": number, "body": "test"}
         result = MODULE.run(request("issue.comment", params))
         self.assertEqual(json.loads(result[2])["error"], "invalid_request")
+
+
+  def test_rejects_relative_and_ambiguous_git_refs(self):
+    good = VALID_PARAMS["pull_request.create"]
+    for bad in [
+      "main", "refs/tags/v1", "refs/heads/../main",
+      "refs/heads/a//b", "refs/heads/", "refs/heads/a.lock",
+      "refs/heads/-bad;rm", 23, None,
+    ]:
+      with self.subTest(ref=bad):
+        params = {**good, "source_ref": bad}
+        status, stdout, stderr = MODULE.run(
+          request("pull_request.create", params)
+        )
+        self.assertNotEqual(status, 0)
+        self.assertEqual(stdout, "")
+        self.assertEqual(json.loads(stderr)["error"], "invalid_request")
+
+  def test_cli_stdin_stdout_stderr_and_exit_codes(self):
+    valid = subprocess.run(
+      [sys.executable, str(PATH)], input=request(),
+      capture_output=True, text=True, check=False,
+    )
+    self.assertEqual(valid.returncode, 0)
+    self.assertEqual(valid.stderr, "")
+    self.assertEqual(json.loads(valid.stdout)["status"], "unchanged")
+    denied = subprocess.run(
+      [sys.executable, str(PATH)],
+      input=request("issue.comment", VALID_PARAMS["issue.comment"]),
+      capture_output=True, text=True, check=False,
+    )
+    self.assertNotEqual(denied.returncode, 0)
+    self.assertEqual(denied.stdout, "")
+    self.assertEqual(json.loads(denied.stderr)["error"], "unsupported")
 
   def test_deterministic_retries_are_read_only(self):
     original = request(request_id="repeat-1")
