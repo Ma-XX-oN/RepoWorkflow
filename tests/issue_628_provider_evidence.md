@@ -103,9 +103,12 @@ or replayed webhook delivery.
 | T14 | Static #541 filter audit and GitHub run listing | FAIL: exact `prelim-main` missing |
 | T15 | Duplicate-delivery observer rejection unit test | Mock PASS; live idempotency not observed |
 
-**Closure gate:** #628 cannot be called DONE until the outstanding real
-trigger exclusion/retry observations are established and the exact
-`prelim-main` defect is corrected and verified.  These live tests are
-not inferred from green static/mock CI.  The worker retains its V3 claim;
-this evidence is a resumable integration handoff to #541, not a merge or
-production workflow activation.
+**Separation of acceptance:** #628 delivers an independent executable
+verification matrix, real provider observations where available, explicit
+negative findings, and an evidence handoff to #541.  This preparatory
+verification can be DONE without claiming that the hosted product passes.
+#541/#543 must correct the exact `prelim-main` defect and complete the
+remaining live exclusion/replay/cutover gates before declaring the hosted
+implementation or umbrella DONE.  A green #628 test harness never turns a
+failed/untested hosted product criterion into PASS.  No merge or production
+workflow activation occurred.
