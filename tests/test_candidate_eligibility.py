@@ -71,5 +71,32 @@ class CandidateEligibilityTests(unittest.TestCase):
           self.assertIn("missing-" + flag, result[1])
 
 
+  def test_repeated_reassessment_invalidates_prior_allow(self):
+    original = self.facts
+    self.assertEqual(decide(original), (True, ()))
+    for field, changed in (
+      ("candidate", "c" * 40),
+      ("head", "c" * 40),
+      ("tested", "c" * 40),
+      ("current_base", "c" * 40),
+      ("recorded_base", "c" * 40),
+    ):
+      with self.subTest(field=field):
+        self.assertFalse(decide(replace(original, **{field: changed}))[0])
+        self.assertEqual(decide(original), (True, ()))
+
+  def test_complete_success_requires_every_independent_authority_flag(self):
+    flags = (
+      "authenticated", "complete", "passed", "inputs_current",
+      "required_checks_complete", "applicable", "candidate_exists",
+      "base_is_ancestor",
+    )
+    for flag in flags:
+      with self.subTest(flag=flag):
+        deny = replace(self.facts, **{flag: False})
+        self.assertEqual(decide(deny), (False, ("missing-" + flag,)))
+        self.assertEqual(decide(self.facts), (True, ()))
+
+
 if __name__ == "__main__":
   unittest.main()
