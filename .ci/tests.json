@@ -85,6 +85,26 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      },
+      "issue-97-host-adapter": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github"
+      },
+      "issue-97-github-provider-read": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_reads"
+      },
+      "issue-97-provider-mutations": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_mutations"
+      },
+      "issue-97-auth-boundary": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_authority"
+      },
+      "issue-97-provider-transport": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_provider"
       }
     },
     {
