@@ -3,6 +3,10 @@ import json
 import subprocess
 import sys
 import unittest
+import tempfile
+from pathlib import Path
+from repo_workflow.config import ConfigError, load_config
+from repo_workflow.host_mutation_dispatch import dispatch_configured
 from unittest.mock import patch
 
 from repo_workflow.host_mutation_dispatch import HostMutationError, dispatch
@@ -256,6 +260,79 @@ class DispatcherContractTests(unittest.TestCase):
     )
     actual = dispatch([sys.executable, "-c", script], request())
     self.assertEqual(actual["result"]["comment_id"], "real")
+
+
+  def test_configured_command_is_resolved_without_invented_default(self):
+    req = request()
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      ci = root / ".ci"
+      ci.mkdir()
+      conf = {
+        "schema": 1, "versionCommand": ["python", "version.py"],
+        "repository": {
+          "integrationBranch": "main", "authoritativeRemote": "origin",
+        },
+        "environments": [{
+          "id": "linux", "validationCommand": ["python", "validate.py"],
+        }],
+        "hostCommand": ["configured-provider", "host"],
+      }
+      path = ci / "repoworkflow.json"
+      path.write_text(json.dumps(conf), encoding="utf-8")
+      self.assertEqual(load_config(root)["hostCommand"], conf["hostCommand"])
+      seen = []
+      def execute(argv, **kwargs):
+        seen.append(argv)
+        return provider_success(json.loads(kwargs["input"]))
+      with patch(
+        "repo_workflow.host_mutation_dispatch.subprocess.run",
+        side_effect=execute,
+      ):
+        reply = dispatch_configured(root, req)
+      self.assertEqual(reply["result"]["number"], 11)
+      self.assertEqual(seen, [conf["hostCommand"]] * 2)
+
+      del conf["hostCommand"]
+      path.write_text(json.dumps(conf), encoding="utf-8")
+      with patch(
+        "repo_workflow.host_mutation_dispatch.subprocess.run",
+      ) as run:
+        with self.assertRaises(HostMutationError):
+          dispatch_configured(root, req)
+        run.assert_not_called()
+
+      conf["hostCommand"] = "shell string"
+      path.write_text(json.dumps(conf), encoding="utf-8")
+      with self.assertRaises(ConfigError):
+        load_config(root)
+      with patch(
+        "repo_workflow.host_mutation_dispatch.subprocess.run",
+      ) as run:
+        with self.assertRaises(HostMutationError):
+          dispatch_configured(root, req)
+        run.assert_not_called()
+
+  def test_response_identity_contradictions_fail_closed(self):
+    for operation, change in (
+      ("issue.comment", {"number": 12, "comment_id": "other"}),
+      ("pull_request.create", {
+        "number": 11, "source_ref": "refs/heads/other",
+        "target_ref": "refs/heads/main", "head_sha": SHA, "draft": True,
+      }),
+      ("check.publish", {
+        "candidate_sha": "b" * 40, "context": "required",
+        "check_id": "ok", "conclusion": "success",
+      }),
+    ):
+      req = request(operation)
+      def runner(received):
+        if received["operation"] == "capabilities":
+          return provider_success(received)
+        return provider_success(received, result=change)
+      with self.subTest(operation=operation):
+        with self.assertRaises(HostMutationError):
+          self.run_provider(req, runner)
 
 
 if __name__ == "__main__":
