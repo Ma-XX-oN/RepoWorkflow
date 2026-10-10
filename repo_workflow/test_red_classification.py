@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import subprocess
 
 
@@ -112,13 +113,14 @@ def execute_red(
     return RedDecision("INCOMPLETE", "invalid-selected-test-command")
   try:
     completed = subprocess.run(
-      command, cwd=cwd, capture_output=True, text=True, check=False,
+      command, cwd=cwd, capture_output=True, check=False,
+      env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
+    stdout = completed.stdout.decode("utf-8", errors="strict")
+    stderr = completed.stderr.decode("utf-8", errors="strict")
   except (OSError, UnicodeError):
     return RedDecision("INCOMPLETE", "selected-test-cannot-execute")
   return classify_red(
     expectation,
-    RedObservation(
-      completed.returncode, completed.stdout, completed.stderr, True,
-    ),
+    RedObservation(completed.returncode, stdout, stderr, True),
   )
