@@ -80,7 +80,9 @@ def _valid_parameters(operation: str, params: dict) -> None:
     elif key == "draft":
       valid = type(value) is bool
     elif key == "state":
-      valid = isinstance(value, str) and value == "open"
+      valid = isinstance(value, str) and value in (
+        {"open", "closed"} if operation == "issue.update" else {"open"}
+      )
     elif key == "conclusion":
       valid = isinstance(value, str) and value in {"success", "failure"}
     elif key == "body":
@@ -93,9 +95,18 @@ def _valid_parameters(operation: str, params: dict) -> None:
       raise ProtocolError("invalid_request", f"invalid parameter: {key}")
 
 
+def _unique_object(pairs: list[tuple[str, object]]) -> dict:
+  result = {}
+  for name, value in pairs:
+    if name in result:
+      raise ProtocolError("invalid_request", "duplicate JSON object key")
+    result[name] = value
+  return result
+
+
 def _parse(raw: str) -> dict:
   try:
-    value = json.loads(raw)
+    value = json.loads(raw, object_pairs_hook=_unique_object)
   except (json.JSONDecodeError, ValueError) as exc:
     raise ProtocolError("invalid_request", "invalid JSON request") from exc
   if not isinstance(value, dict) or set(value) != REQUEST_FIELDS:
