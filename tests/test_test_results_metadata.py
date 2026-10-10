@@ -166,6 +166,26 @@ class ResultsMetadataTests(unittest.TestCase):
         self.assertIn("nonfinite testing log value", output.stderr)
 
 
+  def test_nested_numeric_overflow_rejected_atomically(self):
+    first = json.dumps(self.valid)
+    for fragment in ('{"elapsed":1e999}', '[0, {"time":-1e999}]'):
+      with self.subTest(nested=fragment):
+        record = (
+          '{"testSHA":"' + "a" * 40
+          + '","kind":"GREEN","result":"succeeded",'
+          + '"runner":"local","metrics":' + fragment + '}'
+        )
+        self.log.write_text(first + "\n" + record + "\n")
+        output = subprocess.run(
+          [sys.executable, str(CLI), "--root", str(self.root),
+           "test", "results"],
+          text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(output.returncode, 2)
+        self.assertEqual(output.stdout, "")
+        self.assertIn("nonfinite testing log value", output.stderr)
+
+
   def test_nonfinite_json_constants_rejected_atomically(self):
     first = json.dumps(self.valid)
     for token in ("NaN", "Infinity", "-Infinity"):
