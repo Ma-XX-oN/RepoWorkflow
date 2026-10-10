@@ -14,6 +14,8 @@ import re
 import subprocess
 from urllib.request import Request, urlopen
 
+from .ci_invocation import original_candidate
+
 
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
@@ -73,8 +75,25 @@ def verified_hosted_passes(
     if _git(root, "diff-tree", "--no-commit-id", "--name-only",
             "-r", prior).splitlines() != [relative]:
       return set()
+    published_subject = _git(root, "show", "-s", "--format=%s", prior)
+    publication_run = re.fullmatch(
+      r"test: publish hosted evidence from run ([1-9][0-9]*)",
+      published_subject,
+    )
+    if publication_run is None:
+      return set()
+    published_run_id = int(publication_run.group(1))
     previous = _git(root, "show", prior + ":" + relative)
     if not previous:
+      return set()
+    published_rows = previous.splitlines()
+    if not published_rows:
+      return set()
+    terminal_record = json.loads(published_rows[-1])
+    if (
+      not isinstance(terminal_record, dict)
+      or terminal_record.get("providerRunId") != published_run_id
+    ):
       return set()
     latest: dict[str, bool] = {}
     for line in previous.splitlines():
@@ -98,6 +117,17 @@ def verified_hosted_passes(
         or record.get("providerStage") !=
           ("GREEN-testing" if stage == "GREEN" else "temp-testing")
         or record.get("branch") != branch
+      ):
+        return set()
+      invocation_parent = _git(root, "rev-parse", invoked + "^")
+      if original_candidate(root, invocation_parent) != revision:
+        return set()
+      if _git(root, "diff-tree", "--no-commit-id", "--name-only",
+              "-r", invoked).splitlines() != [".ci/run"]:
+        return set()
+      if _git(root, "show", invoked + ":.ci/run") != (
+        ("GREEN-testing" if stage == "GREEN" else "temp-testing")
+        + " " + invocation_parent
       ):
         return set()
       provider = lookup(repository, run_id, token)
