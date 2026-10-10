@@ -69,15 +69,16 @@ class AuthorizationBoundaryTests(unittest.TestCase):
     response = SimpleNamespace(
       returncode=0, stdout=json.dumps(decision()), stderr="",
     )
+    trusted_path = str(Path.cwd() / "trusted-check-auth")
     with patch.dict("os.environ", {
-      "RWF_REPO_HOST_AUTH_COMMAND": '["/opt/trusted/check-auth"]',
+      "RWF_REPO_HOST_AUTH_COMMAND": json.dumps([trusted_path]),
     }):
       with patch.object(
         authority.subprocess, "run", return_value=response
       ) as run:
         result = authority.authorize(REQUEST, Backend())
     self.assertEqual(result["actor_id"], "operator")
-    self.assertEqual(run.call_args.args[0], ["/opt/trusted/check-auth"])
+    self.assertEqual(run.call_args.args[0], [trusted_path])
     envelope = json.loads(run.call_args.kwargs["input"])
     self.assertEqual(envelope["request"]["request_id"], "one")
     self.assertTrue(envelope["require_non_consuming_policy"])
