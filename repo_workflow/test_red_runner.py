@@ -32,7 +32,7 @@ def record_red(
       expectation, RedObservation(None, "", "", False),
     )
     if preflight.reason == "invalid-expected-failure-declaration":
-      raise TestCommandError(preflight.reason)
+      declaration_error = preflight.reason
   before = dirty_inputs(root, path)
   candidate = head_sha(root)
   if declaration_error:
