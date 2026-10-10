@@ -46,6 +46,58 @@ certificate.  The #97 prerequisite is #81; #85 and #542 are NOT prerequisites.
   replay, mismatched provider source after creation, and missing title write.
 - These are mock-provider regression tests, not live adapter certification.
 
+## Cross-platform executable evidence (2026-10-10)
+
+- Dedicated least-privilege GitHub Actions workflow:
+  `.github/workflows/issue-97-platform-acceptance.yml`.
+- Exact head: `79a21795909aac074b6dd0ac4dd9ee2fac1b1890`.
+- Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38081833496
+- Ubuntu, Windows and macOS: each completed SUCCESS with 57 tests,
+  exercising subprocess CLI behaviour, authorization decisions against
+  fakes, four provider mutation paths, reads, reservations and errors.
+- An initial Windows failure resulted from a POSIX-only absolute verifier
+  path in a test fixture.  Corrected the fixture to use a runner-native
+  absolute path, then reran all three platforms to GREEN.
+- The workflow has `contents: read`, no checkout-persisted credentials,
+  and explicitly empties GitHub authentication variables; it cannot mutate
+  hosted repositories.  Mock/provider-neutral execution is not live
+  authenticated Python-adapter certification.
+
+## #80 and available credential mechanism
+
+- Closed #80 published PR #614 at
+  `fdc3ee15b03173d6d2fbbd2bd71abf7314e3ca2e`.
+- That handoff consists of the authorization evidence semantic contract and
+  acceptance matrix; it does not install an executable trusted verifier,
+  provision authorization issuer records or activate remote enforcement.
+- Connected GitHub tools authenticate provider actions and support issue
+  comments/changes, PR metadata and repository file commits.  Their
+  credentials are kept inside the connector and are not exported to a local
+  subprocess or GitHub CLI.  Thus provider smoke tests are meaningful but
+  cannot run the shipped `adapters/repo-host-github.py` path.
+- Live ordinary operations need both independently validated #80 standing
+  authorization through `RWF_REPO_HOST_AUTH_COMMAND`, plus a GitHub CLI
+  authentication source with Issues/Pull requests write and Contents write
+  for durable reservation refs on an approved sandbox repository.
+- Production finalization remains denied: the provider's merge endpoint has
+  no required destination-tip atomic predicate, and check publishing lacks
+  independent authenticated evidence authority.  These are not prerequisites
+  of the four ordinary mutation paths and must never be reported as passed.
+
+## Smallest safe external enablement
+
+Use an approved isolated sandbox with a protected trusted verifier deployed
+outside the unreviewed PR checkout and independently issued non-consuming
+standing-policy authorization.  Supply a repository-scoped GitHub App
+installation token or equally scoped ephemeral credential **through a trusted
+runner/environment or local secret store**, never in comments/chat and never
+to untrusted pull-request jobs.  Run
+`scripts/probe-repo-host-github.py` in that protected environment with a
+disposable issue and two non-main source/target branches.  Retain immutable
+GitHub request tags and the exact commit/run evidence.  The user only needs
+to approve/provision that protected test environment if it is not already
+available; no secret values belong in the conversation.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
@@ -62,7 +114,7 @@ certificate.  The #97 prerequisite is #81; #85 and #542 are NOT prerequisites.
 | Persistent restart/reconcile on GitHub | NOT VERIFIED | Real tag/issue/PR |
 | Scope policy issuer/revocation | NOT VERIFIED | Trusted verifier service |
 | Real provider permissions/denials | NOT VERIFIED | Scoped credentials |
-| Cross-platform acceptance | NOT VERIFIED | Hosted platform matrix |
+| Cross-platform acceptance | PASSED | Run 38081833496, 3 OS |
 | Atomic protected-main merge | Denied | #542/#85 own enforcement |
 | Authenticated check publisher | Denied | Trusted evidence not active |
 
