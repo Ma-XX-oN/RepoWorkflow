@@ -136,6 +136,41 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(remote_head, head)
 
 
+  def test_shipped_red_uses_predeclared_behavioural_failure(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-expected",
+    )
+    source = self.root / "smoke_case.py"
+    source.write_text(
+      "import unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self):\n"
+      "    self.fail('domain invariant ABC-545 violated')\n"
+    )
+    catalogue = self.root / ".ci/tests.json"
+    value = json.loads(catalogue.read_text())
+    value["tests"][0]["issue-545-expected"]["expected-red"] = {
+      "exit-code": 1,
+      "output-contains": "domain invariant ABC-545 violated",
+    }
+    catalogue.write_text(json.dumps(value))
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "explicit behavioural expectation")
+    for attempt in range(2):
+      with self.subTest(attempt=attempt):
+        words = (
+          ("test", "RED", "issue-545-expected") if attempt == 0
+          else ("test", "RED")
+        )
+        out = self.launcher(*words)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+        record = json.loads(log.read_text().splitlines()[-1])
+        self.assertEqual(record["redStatus"], "RED")
+        self.assertEqual(record["result"], "succeeded")
+        self.assertFalse(record["reusable"])
+
+
   def test_integration_remote_request_is_a_dedicated_commit(self):
     bare = self.remote()
     before = self.git("rev-parse", "HEAD")
