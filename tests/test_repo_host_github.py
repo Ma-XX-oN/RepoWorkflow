@@ -74,7 +74,9 @@ class GitHubHostBootstrapTests(unittest.TestCase):
   def test_every_mutation_fails_closed(self):
     for operation in MODULE.OPERATIONS:
       with self.subTest(operation=operation):
-        status, stdout, stderr = MODULE.run(request(operation, VALID_PARAMS[operation]))
+        status, stdout, stderr = MODULE.run(
+          request(operation, VALID_PARAMS[operation])
+        )
         self.assertNotEqual(status, 0)
         self.assertEqual(stdout, "")
         self.assertEqual(json.loads(stderr)["error"], "unsupported")
