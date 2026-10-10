@@ -15,11 +15,13 @@ from .graph_render_model import (
 from .lane_selection import LaneSelection
 
 
-_LABEL = re.compile(r"^([*✓]*)(?:(I|E|F):)?([A-Z]+)([0-9]+)$")
+_LABEL = re.compile(r"^([*✓]*)(?:(I|E|F|B|R):)?([A-Z]+)([0-9]+)$")
 _TYPE_PREFIXES = {
   "Initiative:": "I:",
   "Epic:": "E:",
   "Feature:": "F:",
+  "Bug:": "B:",
+  "Refactor:": "R:",
 }
 
 
