@@ -52,6 +52,7 @@ class ProtectedMergeTests(unittest.TestCase):
       self.calls.append(("evidence",))
       if evidence is not None:
         raise evidence
+      return True, ()
     return merge_protected_pr(
       repo=REPO, pr_number=42,
       candidate_sha=CANDIDATE, recorded_parent_tip=PARENT,
