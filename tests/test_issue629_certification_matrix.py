@@ -37,7 +37,10 @@ class IndependentMatrixTests(unittest.TestCase):
     self.assertEqual(len(self.entries), len(EXPECTED))
     for row in self.entries:
       self.assertTrue(row["requirement"])
-      self.assertTrue(row["test"].startswith("test_"))
+      self.assertTrue(row["test"])
+      self.assertEqual(type(row["implemented"]), bool)
+      if not row["implemented"]:
+        self.assertTrue(row["pending_reason"])
       self.assertIn(row["environment"], {"CLI", "provider", "integration"})
       self.assertEqual(row["status"], "pending")
       self.assertIsNone(row["evidence"])
