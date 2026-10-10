@@ -67,6 +67,10 @@
       "issue-628-workflow-trigger-filter": {
         "type": "regression",
         "name": "tests.test_issue_628_trigger_filter"
+      },
+      "issue-628-real-hosted-snapshots": {
+        "type": "regression",
+        "name": "tests.test_issue_628_hosted_samples"
       }
     }
   ],
