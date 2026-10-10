@@ -56,6 +56,13 @@ class AuthorizationBoundaryTests(unittest.TestCase):
         }):
           self.assertIsNone(authority.verifier_command())
 
+  def test_windows_absolute_verifier_path_is_supported(self):
+    with patch.dict("os.environ", {
+      "RWF_REPO_HOST_AUTH_COMMAND":
+        json.dumps(["C:\\\\trusted\\\\verify.exe"]),
+    }):
+      self.assertIsNotNone(authority.verifier_command())
+
   def test_verified_actor_and_scope_are_accepted(self):
     response = SimpleNamespace(
       returncode=0, stdout=json.dumps(decision()), stderr="",
