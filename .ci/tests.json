@@ -85,6 +85,10 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      },
+      "issue-94-github-policy": {
+        "type": "regression",
+        "name": "tests.test_repo_ci_github_policy"
       }
     },
     {
