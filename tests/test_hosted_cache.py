@@ -97,11 +97,15 @@ class HostedCacheTests(unittest.TestCase):
   def test_authenticated_exact_pass_is_reused(self):
     self.assertEqual(self.reusable(self.record), {"issue-545-one"})
 
-  def test_boolean_provider_run_id_is_not_authenticated(self):
+  def test_provider_run_id_requires_exact_integer_type(self):
     self.record["providerRunId"] = 1
-    self.remote["id"] = True
+    self.remote["id"] = 1
     self.publish(self.record, run_number=1)
-    self.assertEqual(self.reusable(), set())
+    self.assertEqual(self.reusable(), {"issue-545-one"})
+    for invalid in (True, 1.0, "1", None):
+      with self.subTest(invalid=invalid):
+        self.remote["id"] = invalid
+        self.assertEqual(self.reusable(), set())
 
   def test_malformed_provider_response_is_cache_miss(self):
     self.publish(self.record)
