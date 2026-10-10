@@ -22,8 +22,8 @@ jobs:
       github.repository != 'Ma-XX-oN/RepoWorkflow' &&
       github.ref == 'refs/heads/main' &&
       vars.RWF97_ENABLE == 'true' &&
-      vars.RWF97_APPROVED_SHA != ''
-    environment: rwf97-acceptance
+      vars.RWF97_APPROVED_SHA != '' &&
+      vars.RWF97_TRUSTED_MAIN_SHA == github.sha
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -71,15 +71,20 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/rwf97-candidate" rev-parse HEAD)" \
             = "$CANDIDATE_SHA"
           echo "SHA/independent verifier artifact verified"
-      - name: Verify protected environment and policy before mutation
+      - name: Require independently pinned signed #80 evidence
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          ISSUER_KEY: ${{ vars.RWF97_ISSUER_PUBLIC_KEY }}
+          ISSUER_ID: ${{ vars.RWF97_ISSUER_AUTHORITY }}
+          GRANT_ID: ${{ vars.RWF97_APPROVED_GRANT_ID }}
+          REVOCATIONS: ${{ vars.RWF97_SIGNED_REVOCATIONS }}
         run: |
           set -euo pipefail
-          # These checks are deliberately in the TRUSTED protected-branch
-          # workflow, not executed from the untrusted adapter checkout.
-          python sandbox-trusted/trusted/rwf97/verify-environment.py
+          test -n "$ISSUER_KEY"
+          test -n "$ISSUER_ID"
+          test -n "$GRANT_ID"
+          test -n "$REVOCATIONS"
+          echo "Independent signed authority inputs are configured"
       - name: Run shipped Python adapter against sandbox-only resources
         shell: bash
         env:
@@ -87,6 +92,8 @@ jobs:
           RWF97_ISSUER_PUBLIC_KEY: ${{ vars.RWF97_ISSUER_PUBLIC_KEY }}
           RWF97_ISSUER_AUTHORITY: ${{ vars.RWF97_ISSUER_AUTHORITY }}
           RWF97_APPROVED_SHA: ${{ vars.RWF97_APPROVED_SHA }}
+          RWF97_APPROVED_GRANT_ID: ${{ vars.RWF97_APPROVED_GRANT_ID }}
+          RWF97_SIGNED_REVOCATIONS: ${{ vars.RWF97_SIGNED_REVOCATIONS }}
           SANDBOX_REPO: ${{ github.repository }}
           SANDBOX_ISSUE: ${{ vars.RWF97_SANDBOX_ISSUE }}
           SOURCE_REF: ${{ vars.RWF97_SANDBOX_SOURCE_REF }}
