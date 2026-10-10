@@ -38,7 +38,9 @@ class GitHubHostBootstrapTests(unittest.TestCase):
     })
     self.assertEqual(response["status"], "unchanged")
     self.assertEqual(response["request_id"], "req-1")
-    self.assertEqual(\n      set(response["result"]["operations"]), set(MODULE.OPERATIONS)\n    )
+    self.assertEqual(
+      set(response["result"]["operations"]), set(MODULE.OPERATIONS)
+    )
     self.assertFalse(any(response["result"]["operations"].values()))
 
   def test_every_mutation_fails_closed(self):
