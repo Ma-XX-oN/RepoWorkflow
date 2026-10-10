@@ -121,5 +121,30 @@ class ResultsMetadataTests(unittest.TestCase):
         self.assertIn("invalid testing log groups", output.stderr)
 
 
+  def test_duplicate_json_fields_rejected_without_partial_output(self):
+    first = json.dumps(self.valid)
+    duplicate_top = (
+      '{"testSHA":"' + "a" * 40 + '","kind":"GREEN",'
+      '"result":"failed","result":"succeeded","runner":"local"}'
+    )
+    duplicate_nested = (
+      '{"testSHA":"' + "a" * 40 + '","kind":"GREEN",'
+      '"result":"succeeded","runner":"local",'
+      '"groups":[{"group":"issue-545-one","group":"issue-545-two",'
+      '"exit_code":0}]}'
+    )
+    for invalid in (duplicate_top, duplicate_nested):
+      with self.subTest(invalid=invalid):
+        self.log.write_text(first + "\\n" + invalid + "\\n")
+        output = subprocess.run(
+          [sys.executable, str(CLI), "--root", str(self.root),
+           "test", "results"],
+          text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(output.returncode, 2)
+        self.assertEqual(output.stdout, "")
+        self.assertIn("duplicate testing log field", output.stderr)
+
+
 if __name__ == "__main__":
   unittest.main()
