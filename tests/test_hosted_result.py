@@ -143,11 +143,12 @@ class HostedResultTests(unittest.TestCase):
       {"groups": [{"group": "issue-541-unit", "exit_code": False}]},
     ):
       with self.subTest(change=change):
-        self.write(
-          kind="RED", reusable=False, redStatus="RED",
-          groups=[{"group": "issue-541-unit", "exit_code": 1}],
-          **change,
-        )
+        fields = {
+          "kind": "RED", "reusable": False, "redStatus": "RED",
+          "groups": [{"group": "issue-541-unit", "exit_code": 1}],
+        }
+        fields.update(change)
+        self.write(**fields)
         self.assertNotEqual(self.invoke("RED-testing").returncode, 0)
 
   def test_regression_accepts_complete_result_without_groups(self):
