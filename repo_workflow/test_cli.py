@@ -339,6 +339,9 @@ def run_test(
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
     if remote:
+      expectation, declaration_error = red_declaration(root, selected)
+      if declaration_error:
+        raise TestCommandError(declaration_error)
       return request_remote(root, stage)
     expectation, declaration_error = red_declaration(root, selected)
     command = group_command(root, selected)
