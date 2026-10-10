@@ -22,6 +22,7 @@ from .test_cache import reusable_local_group_passes
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
+from .test_red_runner import record_red
 
 STAGES = {
   "RED": "RED-testing",
@@ -345,57 +346,10 @@ def run_test(
     path = root / ".repoworkflow" / "validation" / (
       "testResults-" + match.group(1) + ".jsonl"
     )
-    before = _uncommitted_inputs(root, path)
-    red_candidate = head_sha(root)
-    red_catalogue = _group_fingerprint(root, Path(".ci/tests.json"))
-    try:
-      result = subprocess.run(
-        command, cwd=root, text=True, capture_output=True, check=False,
-        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-      )
-    except (OSError, UnicodeError):
-      result = None
-    if result is not None and result.stdout:
-      print(result.stdout, end="")
-    if result is not None and result.stderr:
-      print(result.stderr, end="", file=sys.stderr)
-    dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
-    record = {
-      "timestamp": datetime.now(timezone.utc).isoformat(),
-      "testSHA": red_candidate,
-      "headChangedDuringTest": head_sha(root) != red_candidate,
-      "catalogueSHA256": red_catalogue,
-      "kind": "RED",
-      "result": "incomplete",
-      "reason": (
-        "selected-test-cannot-execute" if result is None else
-        "expected-red-failure-not-demonstrated" if result.returncode == 0 else
-        "failure-not-classified-as-expected-red"
-      ),
-      "runner": "local",
-      "platform": {
-        "os": platform.system(), "architecture": platform.machine(),
-        "runtime": platform.python_version(),
-      },
-      "uncommittedChanges": dirty,
-      "reusable": False,
-      "groups": [{
-        "group": selected, "exit_code": (
-          result.returncode if result is not None else None
-        ),
-        "reused": False,
-      }],
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-      handle.write(json.dumps(record, sort_keys=True) + "\n")
-    if result is None:
-      raise TestCommandError("RED selected test could not execute")
-    if result.returncode == 0:
-      raise TestCommandError("RED did not demonstrate the expected failure")
-    raise TestCommandError(
-      "RED failed; expected RED failure has not been distinguished "
-      "from infrastructure error"
+    return record_red(
+      root, selected, command, path,
+      _group_fingerprint(root, Path(".ci/tests.json")),
+      dirty_inputs=_uncommitted_inputs,
     )
   if group is not None:
     raise TestCommandError("test group is only supported for RED")
