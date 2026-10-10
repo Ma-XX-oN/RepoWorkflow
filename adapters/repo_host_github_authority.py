@@ -12,6 +12,7 @@ import hashlib
 import json
 import ntpath
 import os
+from pathlib import Path
 import subprocess
 
 from repo_host_github_provider import ProviderError
@@ -41,6 +42,13 @@ def verifier_command() -> list[str] | None:
     return None
   if ".." in executable.replace("\\", "/").split("/"):
     return None
+  # A verifier shipped by an unreviewed PR cannot issue trusted grants.
+  # Resolve symlinks so a checked-out alias cannot bypass this boundary.
+  if os.path.isabs(executable):
+    workspace = Path(__file__).resolve().parents[1]
+    target = Path(executable).resolve()
+    if target == workspace or workspace in target.parents:
+      return None
   return command
 
 
