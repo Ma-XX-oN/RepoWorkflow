@@ -42,7 +42,7 @@ def parse_invocation(text: str) -> CiInvocation:
   return CiInvocation(parts[0], parts[1])
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str, raw: bool = False) -> str:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
     capture_output=True,
@@ -53,13 +53,13 @@ def _git(root: Path, *args: str) -> str:
     raise CiInvocationError(
       f"cannot verify CI invocation commit: {result.stderr.strip()}"
     )
-  return result.stdout.strip()
+  return result.stdout if raw else result.stdout.strip()
 
 
 def verify_invocation(root: Path) -> CiInvocation:
   """Require HEAD to be a dedicated request commit on its direct parent."""
   # Verify the committed request, never mutable working-tree contents.
-  requested = parse_invocation(_git(root, "show", "HEAD:.ci/run") + "\n")
+  requested = parse_invocation(_git(root, "show", "HEAD:.ci/run", raw=True))
 
   parents = _git(root, "rev-list", "--parents", "-n", "1", "HEAD").split()
   if len(parents) != 2:
