@@ -128,7 +128,7 @@ jobs:
           assert match is not None
           path = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-            output.write("log_path=" + path + "\\n")
+            output.write("log_path=" + path + "\n")
           PY
       - name: Export canonical observation artifact
         if: ${{ always() && steps.audit.outcome == 'success' }}
