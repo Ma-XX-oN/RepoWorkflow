@@ -92,7 +92,12 @@ def merge_protected_pr(
       or protection.get("allow_deletions", {}).get("enabled") is not False
     ):
       raise PreMergeGateError("integration blocked: server protection incomplete")
-    evidence_gate()
+    verdict = evidence_gate()
+    if (
+      not isinstance(verdict, tuple) or len(verdict) != 2
+      or verdict[0] is not True or verdict[1] != ()
+    ):
+      raise PreMergeGateError("integration blocked: exact-candidate evidence denied")
     # Evidence validation can take time.  Refuse a destination/head that
     # changed during that work, before asking the server to merge.
     final_pr = read(base + "/pulls/" + str(pr_number))
