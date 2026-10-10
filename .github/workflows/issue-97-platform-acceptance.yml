@@ -103,6 +103,7 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
