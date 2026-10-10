@@ -50,10 +50,10 @@ class RedEvidenceTests(unittest.TestCase):
       self.root / ".ci/tests.json", issue_group="issue-545-signal-red",
     )
     (self.root / "smoke_case.py").write_text(
-      "import os, signal, unittest\\n"
-      "class Smoke(unittest.TestCase):\\n"
-      "  def test_pass(self):\\n"
-      "    os.kill(os.getpid(), signal.SIGTERM)\\n"
+      "import os, signal, unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self):\n"
+      "    os.kill(os.getpid(), signal.SIGTERM)\n"
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "signalled RED case")
