@@ -1,6 +1,10 @@
 """Independent read-only GitHub policy evidence classification for issue 627."""
 
 import unittest
+import json
+import runpy
+from pathlib import Path
+from urllib.error import HTTPError
 
 
 CASES = (
@@ -79,6 +83,57 @@ class ProviderProtectionContractTests(unittest.TestCase):
     self.assertEqual(classify({"status": 200},
                               {"id": 7, "enabled": True}, "a", proof),
                      "NOT_ENFORCED")
+
+  def test_readonly_probe_observes_provider_and_never_writes(self):
+    module = runpy.run_path(str(Path(__file__).resolve().parents[1] /
+                                "scripts" / "probe-provider-protection.py"),
+                            run_name="issue_627_probe")
+    seen = []
+
+    class Response:
+      status = 200
+
+      def __init__(self, obj):
+        self.data = json.dumps(obj).encode("utf-8")
+
+      def __enter__(self):
+        return self
+
+      def __exit__(self, *_):
+        return False
+
+      def read(self):
+        return self.data
+
+    def transport(request, timeout):
+      seen.append((request.get_method(), request.full_url,
+                   request.get_header("Authorization"), timeout))
+      if request.full_url.endswith("/protection"):
+        raise HTTPError(request.full_url, 403, "Forbidden", {}, None)
+      if request.full_url.endswith("/rulesets"):
+        return Response([])
+      if request.full_url.endswith("/branches/main"):
+        return Response({"protected": False, "commit": {"sha": "abc"},
+                         "protection": {"enabled": False}})
+      return Response({"id": 1, "default_branch": "main",
+                       "permissions": {"admin": True}})
+
+    observed = module["inspect"]("some-owner/some-repo", "secret", transport)
+    self.assertEqual(len(seen), 4)
+    self.assertTrue(all(method == "GET" for method, *_ in seen))
+    self.assertTrue(all(auth == "Bearer secret" for _, _, auth, _ in seen))
+    self.assertEqual(observed["main"]["protected"], False)
+    self.assertEqual(observed["rulesets"]["ruleset_ids"], [])
+    self.assertEqual(observed["protection"]["status"], 403)
+    self.assertEqual(observed["protection"]["classification"], "INCOMPLETE")
+    self.assertNotIn("secret", json.dumps(observed))
+
+  def test_readonly_probe_rejects_invalid_repo_before_any_call(self):
+    module = runpy.run_path(str(Path(__file__).resolve().parents[1] /
+                                "scripts" / "probe-provider-protection.py"),
+                            run_name="issue_627_probe")
+    with self.assertRaises(AssertionError):
+      module["inspect"]("../injection", "", lambda *_: None)
 
 
 if __name__ == "__main__":
