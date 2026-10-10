@@ -134,6 +134,38 @@ class GitHubHostBootstrapTests(unittest.TestCase):
         self.assertEqual(stdout, "")
         self.assertEqual(json.loads(stderr)["error"], "invalid_request")
 
+
+  def test_duplicate_json_keys_fail_including_nested_parameters(self):
+    raw = request().replace('"request_id": "req-1"', (
+      '"request_id": "req-1", "request_id": "shadow"'
+    ))
+    for bad in [raw, request().replace('"parameters": {}', (
+      '"parameters": {"number": 1, "number": 2}'
+    ))]:
+      with self.subTest(bad=bad):
+        status, stdout, stderr = MODULE.run(bad)
+        self.assertNotEqual(status, 0)
+        self.assertEqual(stdout, "")
+        self.assertEqual(json.loads(stderr)["error"], "invalid_request")
+
+  def test_issue_close_is_valid_but_pr_close_is_refused(self):
+    issue = MODULE.run(request(
+      "issue.update", {"number": 7, "state": "closed"}
+    ))
+    self.assertEqual(json.loads(issue[2])["error"], "unsupported")
+    pr = MODULE.run(request(
+      "pull_request.update",
+      {"number": 7, "expected_head_sha": SHA, "state": "closed"}
+    ))
+    self.assertEqual(json.loads(pr[2])["error"], "invalid_request")
+
+  def test_zero_boolean_and_string_numbers_are_rejected(self):
+    for number in [0, -1, True, False, "1", None, [], 1.5]:
+      with self.subTest(number=number):
+        params = {"number": number, "body": "test"}
+        result = MODULE.run(request("issue.comment", params))
+        self.assertEqual(json.loads(result[2])["error"], "invalid_request")
+
   def test_deterministic_retries_are_read_only(self):
     original = request(request_id="repeat-1")
     self.assertEqual(MODULE.run(original), MODULE.run(original))
