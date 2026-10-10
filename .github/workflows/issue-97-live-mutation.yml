@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: issue-97-isolated-live-mutation
@@ -33,6 +34,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Verify independent environment review protections
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/probe-repo-host-github-environment.py
       - name: Require protected sandbox authority
         shell: bash
         env:
