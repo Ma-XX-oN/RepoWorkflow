@@ -39,7 +39,7 @@ and is checked by the shipped adapter authorization consumer.
 | PR changed same-ID conflict | Run 38095621430 | PASS |
 | PR stale-head denial | Run 38095621430 | PASS |
 | Provider readback of PR and no merge | Run 38095621430, PR #2 closed | PASS |
-| Atomic persistent request reservation | Live six tag refs, commit digests | PASS |
+| Atomic request reservation | Six live tag refs and digests | PASS |
 | Unknown outcome/collision reconciliation | Hosted spec tests | PASS |
 | Unauthorized merge and check publish | Live run 38093785174 | PASS |
 | Fail-closed cleanup | Hosted tests and live restoration | PASS |
