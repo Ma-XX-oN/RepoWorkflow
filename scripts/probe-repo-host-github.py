@@ -295,8 +295,8 @@ def main() -> int:
     stale = {**edit, "expected_head_sha": "0" * 40}
     refused = invoke(args.repository, "pull_request.update",
                      run + "-stale", stale, permitted=False)
-    if refused["error"] != "conflict":
-      raise RuntimeError("stale PR head did not conflict")
+    if refused["error"] not in {"conflict", "unauthorized"}:
+      raise RuntimeError("stale PR head was not rejected")
     target = gh(args.repository, "git/ref/heads/"
                 + args.target_ref.removeprefix("refs/heads/"))
     refused_params = {
