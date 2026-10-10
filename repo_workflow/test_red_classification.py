@@ -31,6 +31,21 @@ class RedDecision:
   reason: str
 
 
+def generic_red_signature(signature: str) -> bool:
+  """Reject framework-only markers without an identifying behaviour."""
+  normalized = signature.strip().casefold().rstrip(":.! -")
+  return (
+    normalized in {
+      "error", "failed", "failure", "fail", "traceback", "exception",
+      "assertionerror", "test failed", "tests failed",
+    }
+    or (
+      normalized.startswith(("failed (", "error ("))
+      and normalized.endswith(")")
+    )
+  )
+
+
 def _expectation_issue(expectation: RedExpectation | None) -> str | None:
   if expectation is None:
     return "expected-failure-declaration-missing"
@@ -40,7 +55,8 @@ def _expectation_issue(expectation: RedExpectation | None) -> str | None:
     type(expectation.exit_code) is not int
     or expectation.exit_code <= 0
     or not isinstance(expectation.output_contains, str)
-    or not expectation.output_contains
+    or not expectation.output_contains.strip()
+    or generic_red_signature(expectation.output_contains)
   ):
     return "invalid-expected-failure-declaration"
   return None
