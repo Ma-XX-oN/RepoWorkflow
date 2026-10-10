@@ -16,6 +16,12 @@ class RedEvidenceTests(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-red",
     )
+    declaration = self.root / ".ci/tests.json"
+    value = json.loads(declaration.read_text())
+    value["tests"][0]["issue-545-red"]["expected-red"] = {
+      "exit-code": 1, "output-contains": "False is not true",
+    }
+    declaration.write_text(json.dumps(value))
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "fixture catalogue")
     first = self.cli("test", "RED", "issue-545-red")
@@ -23,20 +29,22 @@ class RedEvidenceTests(unittest.TestCase):
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     successful_test = json.loads(audit.read_text().splitlines()[-1])
     self.assertEqual(successful_test["kind"], "RED")
-    self.assertEqual(successful_test["result"], "incomplete")
+    self.assertEqual(successful_test["result"], "failed")
+    self.assertEqual(successful_test["redStatus"], "NOT_RED")
     self.assertEqual(successful_test["groups"][0]["exit_code"], 0)
     self.assertFalse(successful_test["reusable"])
-    self.assertEqual(successful_test["reason"], "expected-red-failure-not-demonstrated")
+    self.assertEqual(successful_test["reason"], "selected-test-unexpectedly-passed")
     source = self.root / "smoke_case.py"
     source.write_text(source.read_text().replace(
       "self.assertTrue(True)", "self.assertTrue(False)",
     ))
     failure = self.cli("test", "RED")
-    self.assertEqual(failure.returncode, 2, failure.stderr)
+    self.assertEqual(failure.returncode, 0, failure.stderr)
     recorded = json.loads(audit.read_text().splitlines()[-1])
-    self.assertEqual(recorded["result"], "incomplete")
+    self.assertEqual(recorded["result"], "succeeded")
+    self.assertEqual(recorded["redStatus"], "RED")
     self.assertNotEqual(recorded["groups"][0]["exit_code"], 0)
-    self.assertEqual(recorded["reason"], "failure-not-classified-as-expected-red")
+    self.assertEqual(recorded["reason"], "declared-behavioural-failure-observed")
     self.assertIn("smoke_case.py", recorded["uncommittedChanges"])
     self.assertFalse(recorded["reusable"])
 
@@ -55,6 +63,12 @@ class RedEvidenceTests(unittest.TestCase):
       "  def test_pass(self):\n"
       "    os.kill(os.getpid(), signal.SIGTERM)\n"
     )
+    catalogue = self.root / ".ci/tests.json"
+    data = json.loads(catalogue.read_text())
+    data["tests"][0]["issue-545-signal-red"]["expected-red"] = {
+      "exit-code": 1, "output-contains": "specific failure sentinel",
+    }
+    catalogue.write_text(json.dumps(data))
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "signalled RED case")
     result = self.cli("test", "RED", "issue-545-signal-red")
@@ -77,6 +91,10 @@ class RedEvidenceTests(unittest.TestCase):
     catalogue["test-harnesses"]["unittest"]["command"] = (
       "executable-that-does-not-exist-rwf-545"
     )
+    path.write_text(json.dumps(catalogue))
+    catalogue["tests"][0]["issue-545-missing-bin"]["expected-red"] = {
+      "exit-code": 1, "output-contains": "specific missing-bin failure",
+    }
     path.write_text(json.dumps(catalogue))
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "fixture missing test executable")
