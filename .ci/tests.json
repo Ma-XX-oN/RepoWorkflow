@@ -178,6 +178,13 @@
         "type": "regression",
         "name": "tests.test_publish_hosted_result"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-cache-attestation": {
+        "type": "regression",
+        "name": "tests.test_541_hosted_cache_integration"
+      }
     }
   ],
   "aliases": {
