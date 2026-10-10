@@ -230,6 +230,14 @@ class SignedPolicyTests(TestCase):
         evaluation["request"]
       )).hexdigest(),
     )
+    non_ascii = evidence()[2]
+    non_ascii["request"]["parameters"]["body"] = "caf\u00e9"
+    observed = check(query=non_ascii)
+    import hashlib
+    expected_unicode_scope = hashlib.sha256(json.dumps(
+      non_ascii["request"], sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    self.assertEqual(observed["scope_digest"], expected_unicode_scope)
     for name, change in [
       ("revoked", lambda g, r, e: r["revoked_grants"].append(
         g["grant"]["grant_id"]
