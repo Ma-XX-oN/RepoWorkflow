@@ -33,6 +33,32 @@ def gh(repository: str, path: str) -> dict:
   return value
 
 
+def verify_reservation(repository: str, operation: str,
+                       request_id: str, parameters: dict) -> None:
+  """Independently verify GitHub's persisted request digest and tag."""
+  identity = repository + "\\0" + operation + "\\0" + request_id
+  ref_name = "rwf-host-request-" + hashlib.sha256(
+    identity.replace("\\\\0", "\\0").encode("utf-8")
+  ).hexdigest()
+  expected = {
+    "schema_version": 1, "operation": operation,
+    "repository": repository, "request_id": request_id,
+    "parameters": parameters,
+  }
+  digest = hashlib.sha256(json.dumps(
+    expected, sort_keys=True, separators=(",", ":")
+  ).encode("utf-8")).hexdigest()
+  observed_ref = gh(repository, "git/ref/tags/" + ref_name)
+  if observed_ref.get("ref") != "refs/tags/" + ref_name:
+    raise RuntimeError("remote reservation reference mismatch")
+  item = observed_ref.get("object")
+  if not isinstance(item, dict) or not isinstance(item.get("sha"), str):
+    raise RuntimeError("remote reservation commit missing")
+  commit = gh(repository, "git/commits/" + item["sha"])
+  if commit.get("message") != "RWF-HOST-RESERVATION-V1 " + digest:
+    raise RuntimeError("remote reservation request digest mismatch")
+
+
 def verify_remote_comment(repository: str, number: int,
                           request_id: str, comment_id: str,
                           body: str) -> None:
@@ -161,6 +187,9 @@ def main() -> int:
       "title"
     ] != changed_title:
       raise RuntimeError("provider did not persist issue title")
+    verify_reservation(args.repository, "issue.update",
+                       run + "-issue",
+                       {"number": args.sandbox_issue, "title": changed_title})
     params = {"number": args.sandbox_issue, "body": "RWF probe " + run}
     comment = invoke(args.repository, "issue.comment",
                      run + "-comment", params)
@@ -176,6 +205,8 @@ def main() -> int:
     verify_remote_comment(args.repository, args.sandbox_issue,
                           run + "-comment", comment["result"]["comment_id"],
                           params["body"])
+    verify_reservation(args.repository, "issue.comment",
+                       run + "-comment", params)
     pr_data = {
       "source_ref": args.source_ref, "target_ref": args.target_ref,
       "expected_source_sha": head_sha, "title": "RWF live probe " + run,
@@ -195,6 +226,8 @@ def main() -> int:
       "refs/heads/"
     ) or observed_pr["draft"] is not True:
       raise RuntimeError("provider PR creation identity mismatch")
+    verify_reservation(args.repository, "pull_request.create",
+                       run + "-create", pr_data)
     edit = {
       "number": created_pr, "expected_head_sha": head_sha,
       "title": "RWF live probe updated " + run,
@@ -208,6 +241,8 @@ def main() -> int:
       "title"
     ] != edit["title"]:
       raise RuntimeError("provider did not persist PR update")
+    verify_reservation(args.repository, "pull_request.update",
+                       run + "-update", edit)
     stale = {**edit, "expected_head_sha": "0" * 40}
     refused = invoke(args.repository, "pull_request.update",
                      run + "-stale", stale, permitted=False)
