@@ -176,8 +176,10 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
     raise ValueError("untrusted grant issuer")
   if delegation.get("authority_id") != issuer_id or (
     delegation.get("repository") != repository
-  ) or "ci_test_runner" not in delegation.get("roles", []) or (
-    operation not in delegation.get("capabilities", [])
+  ) or not isinstance(delegation.get("roles"), list) or (
+    delegation["roles"] != ["ci_test_runner"]
+  ) or not isinstance(delegation.get("capabilities"), list) or (
+    operation not in delegation["capabilities"]
   ) or clock >= instant(delegation.get("expires_at")):
     raise ValueError("insufficient authenticated issuer delegation")
   capabilities = grant["capabilities"]
@@ -204,6 +206,12 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
     "candidate_sha"
   ) != scope["candidate_sha"]:
     raise ValueError("signed sandbox scope mismatch")
+  explicit_nulls = [
+    "destination_ref", "expected_destination_sha",
+    "integration_id", "release_class",
+  ]
+  if sandbox.get("authorized_null_dimensions") != explicit_nulls:
+    raise ValueError("null scope breadth not independently authorized")
   number = sandbox.get("issue")
   if type(number) is not int or number <= 0 or (
     scope["issue_numbers"] != [number]
@@ -228,9 +236,8 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
   if not (instant(grant["not_before"]) <= clock
           < instant(grant["expires_at"])):
     raise ValueError("grant not yet valid or expired")
-  if now := instant(grant["issued_at"]):
-    if now > clock:
-      raise ValueError("grant issued in future")
+  if instant(grant["issued_at"]) > clock:
+    raise ValueError("grant issued in future")
   if revocations.get("issuer") != issuer_id or (
     revocations.get("schema_version") != 1
   ):
