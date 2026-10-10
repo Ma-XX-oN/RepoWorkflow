@@ -48,6 +48,30 @@ class TestLaunchFailures(unittest.TestCase):
     self.assertEqual(read.returncode, 0, read.stderr)
     self.assertEqual(json.loads(read.stdout.splitlines()[-1]), record)
 
+  def test_signalled_temporary_runner_is_incomplete_not_failed(self):
+    import os
+    if os.name == "nt":
+      self.skipTest("negative signal return codes are POSIX-specific")
+    self._catalogue(
+      self.root / ".ci/temp-tests.json", issue_group="issue-545-signal",
+    )
+    (self.root / "smoke_case.py").write_text(
+      "import os, signal, unittest\\n"
+      "class Smoke(unittest.TestCase):\\n"
+      "  def test_pass(self):\\n"
+      "    os.kill(os.getpid(), signal.SIGTERM)\\n"
+    )
+    self.git("add", ".ci/temp-tests.json", "smoke_case.py")
+    self.git("commit", "-m", "signalled temporary test")
+    result = self.cli("test", "temporary")
+    self.assertEqual(result.returncode, 2, result.stderr)
+    record = self._log()
+    self.assertEqual(record["kind"], "temporary")
+    self.assertEqual(record["result"], "incomplete")
+    self.assertFalse(record["reusable"])
+    self.assertLess(record["groups"][0]["exit_code"], 0)
+
+
   def test_temporary_missing_executable_is_incomplete_evidence(self):
     self._missing_executable_catalogue(
       self.root / ".ci/temp-tests.json", "issue-545-temp-missing",
