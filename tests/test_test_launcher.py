@@ -90,8 +90,14 @@ class ShippedTestLauncher(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-remote-red",
     )
+    catalogue = self.root / ".ci/tests.json"
+    data = json.loads(catalogue.read_text())
+    data["tests"][0]["issue-545-remote-red"]["expected-red"] = {
+      "exit-code": 1, "output-contains": "specific hosted invariant",
+    }
+    catalogue.write_text(json.dumps(data))
     self.git("add", ".ci/tests.json", "smoke_case.py")
-    self.git("commit", "-m", "register RED test")
+    self.git("commit", "-m", "register declared RED test")
     bare = self.remote()
     out = self.launcher("test", "RED", "issue-545-remote-red", "--remote")
     self.assertEqual(out.returncode, 0, out.stderr)
@@ -111,6 +117,24 @@ class ShippedTestLauncher(unittest.TestCase):
       text=True, capture_output=True, check=True,
     ).stdout.strip()
     self.assertEqual(remote_head, head)
+
+  def test_missing_red_declaration_prevents_remote_publication(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-missing-remote",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "undeclared RED test")
+    self.remote()
+    initial = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "RED", "issue-545-missing-remote", "--remote")
+    self.assertEqual(out.returncode, 2, out.stderr)
+    selected = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(selected, initial)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), initial)
+    self.assertFalse((self.root / ".ci/run").exists())
+    after = self.git("ls-remote", "origin", "refs/heads/issue-545-fixture")
+    self.assertEqual(after.split()[0], initial)
+
 
   def test_temporary_remote_request_with_valid_manifest(self):
     self._catalogue(
