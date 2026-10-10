@@ -1,0 +1,42 @@
+name: Evidence-aware hosted provider planning acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.ci/tests.json'
+      - 'repo_workflow/evidence_identity.py'
+      - 'repo_workflow/validation_*.py'
+      - 'tests/test_validation_*.py'
+      - '.github/workflows/repo-ci-evidence-planner-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-plan:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Check independently specified evidence and planner contracts
+        run: >-
+          python -m unittest -v
+          tests.test_evidence_identity
+          tests.test_validation_coverage
+          tests.test_validation_store
+          tests.test_validation_import
+          tests.test_validation_plan
+      - name: Confirm validation did not modify checkout or refs
+        shell: bash
+        run: test -z "$(git status --porcelain=v1 --untracked-files=all)"
