@@ -151,7 +151,7 @@ class HostedResultTests(unittest.TestCase):
         )
 
   def test_expected_red_requires_positive_failure_and_classification(self):
-    self.select.write_text("issue-541-unit\\n")
+    self.select.write_text("issue-541-unit\n")
     self.write(
       kind="RED", reusable=False, redStatus="RED",
       reason="declared-behavioural-failure-observed",
