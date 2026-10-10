@@ -5,9 +5,10 @@ claims GitHub provenance. Hosted reuse needs independently verified authority.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import platform
+
+from .test_results_reader import parse_testing_log
 
 
 def reusable_local_group_passes(
@@ -17,8 +18,7 @@ def reusable_local_group_passes(
     return set()
   latest: dict[str, bool] = {}
   try:
-    for line in path.read_text(encoding="utf-8").splitlines():
-      record = json.loads(line)
+    for record in parse_testing_log(path.read_text(encoding="utf-8")):
       if not isinstance(record, dict):
         return set()
       if (
@@ -55,6 +55,6 @@ def reusable_local_group_passes(
         latest[group["group"]] = (
           valid and type(exit_code) is int and exit_code == 0
         )
-  except (ValueError, TypeError):
+  except (OSError, ValueError, TypeError):
     return set()
   return {group for group, passed in latest.items() if passed}
