@@ -322,17 +322,20 @@ def main() -> int:
     errors = []
     if created_pr is not None:
       try:
-        closing = {"number": created_pr,
-                   "expected_head_sha": head_sha, "state": "closed"}
-        invoke(args.repository, "pull_request.update",
-               run + "-close", closing)
-        if gh(args.repository, "pulls/" + str(created_pr))[
-          "state"
-        ] != "closed":
+        # #81 explicitly prohibits implicit PR closure by the
+        # pull_request.update semantic operation. This is TEST FIXTURE
+        # cleanup, performed with the sandbox-only job token, not
+        # a portable adapter mutation or remotely finalizing merge.
+        closed = subprocess.run(
+          ["gh", "api", "--method", "PATCH",
+           f"repos/{args.repository}/pulls/{created_pr}",
+           "-f", "state=closed"],
+          capture_output=True, text=True, check=False, timeout=30,
+        )
+        if closed.returncode or gh(
+          args.repository, "pulls/" + str(created_pr)
+        )["state"] != "closed":
           errors.append("temporary PR close failed")
-        else:
-          verify_reservation(args.repository, "pull_request.update",
-                             run + "-close", closing)
       except Exception:
         errors.append("temporary PR close failed")
     if original_title != changed_title:
