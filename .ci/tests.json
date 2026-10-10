@@ -171,6 +171,13 @@
         "type": "regression",
         "name": "tests.test_issue_545_acceptance"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
+      }
     }
   ],
   "aliases": {
