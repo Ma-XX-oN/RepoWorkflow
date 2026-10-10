@@ -62,6 +62,31 @@ class HostMutationDispatcherTests(unittest.TestCase):
             dispatch(["provider"], {**BASE, **change})
       run.assert_not_called()
 
+  def test_all_semantic_operations_preserve_identity(self):
+    for operation in (
+      "capabilities", "issue.update", "issue.comment",
+      "pull_request.create", "pull_request.update",
+      "pull_request.merge", "check.publish",
+    ):
+      request = {**BASE, "operation": operation}
+      with self.subTest(operation=operation):
+        with patch("repo_workflow.host_mutation_dispatch.subprocess.run",
+                   return_value=FakeCompleted(self.reply(request))):
+          self.assertEqual(dispatch(["provider"], request)["operation"], operation)
+
+  def test_malformed_successful_envelopes_fail_closed(self):
+    cases = (
+      {"schema_version": 2}, {"repository": "other/repo"},
+      {"operation": "issue.update"}, {"request_id": "other"},
+      {"result": []}, {"status": "pending"}, {"extra": 1},
+    )
+    for changed in cases:
+      with self.subTest(changed=changed):
+        with patch("repo_workflow.host_mutation_dispatch.subprocess.run",
+                   return_value=FakeCompleted(self.reply(**changed))):
+          with self.assertRaises(HostMutationError):
+            dispatch(["provider"], BASE)
+
   def test_missing_adapter_and_provider_failures_are_never_success(self):
     with self.assertRaises(HostMutationError):
       dispatch([], BASE)
