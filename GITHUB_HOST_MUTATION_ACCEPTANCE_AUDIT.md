@@ -98,6 +98,83 @@ GitHub request tags and the exact commit/run evidence.  The user only needs
 to approve/provision that protected test environment if it is not already
 available; no secret values belong in the conversation.
 
+## V3 authenticated Actions investigation and hardened handoff
+
+- Inspected all relevant current workflows.  Self CI uses read-only
+  contents except for its release job on `main`; the existing native
+  dependency migration workflow requests `issues: write` only on its
+  dedicated migration branch.  No production workflow grants all three
+  adapter mutation permissions as a combined trusted test capability.
+- The linked GitHub account has repository administrator access.  That
+  is NOT evidence of a GitHub Actions job token's write authority.
+- The existing #97 workflow explicitly requests read permissions.
+  Real Python `GitHubBackend` calls succeeded with the hosted
+  `GH_TOKEN: github.token` installation credential.  An invalid
+  issue-create POST (missing required title) was rejected with an
+  `unauthorized` provider error.  This demonstrates issue-write
+  refusal for the currently read-scoped job without creating an issue.
+- Installation token `GET /user` failed.  Live GraphQL
+  `query { viewer { login } }` returned `github-actions[bot]`.
+  The adapter now uses that verified provider identity fallback only
+  when REST user lookup was unauthorized.  A null, malformed, or
+  denied GraphQL viewer never becomes actor authority.
+- #80 PR #614 contains two contract/matrix documents; no runtime
+  trusted verifier, independent policy issuer or standing grant is
+  present in that handoff.  Production actor, issuer, delegation,
+  current revocation and scope cannot be invented in this adapter.
+- The verifier consumer refuses relative paths, PR-workspace
+  executables and argument-injected interpreter commands.  Its
+  deployment contract requires one independently protected absolute
+  executable outside the checkout; a file in this PR is NOT authority.
+- The live probe now refuses production RepoWorkflow, requires two
+  `rwf97-sandbox-` branch refs and a marked disposable sandbox issue,
+  requires distinct source/destination SHAs, independently reads back
+  persisted issue/PR state and records PASS only after cleanup.
+- Credential-independent tests cover unauthorized operations, strict
+  parser errors, persistence/retry logic via provider doubles,
+  concurrent reservation races, failed cleanup, protected workflow
+  configuration, and exact candidate identities.
+- Dedicated optional `.github/workflows/issue-97-live-mutation.yml`
+  is committed on the same #97 branch, without authorizing a merge.
+  It has read-only native token permissions; execution requires the
+  separately set `RWF97_ENABLE=true` repository variable, a protected
+  `rwf97-sandbox` environment, a trusted `rwf97-trusted` runner,
+  a sandbox-only installation credential in environment secrets,
+  external trusted verifier and marked sandbox fixture variables.
+  If these are absent, mutation acceptance has not been performed.
+- GitHub Actions native `GITHUB_TOKEN` is scoped to the workflow
+  repository, so a token from RepoWorkflow cannot grant mutation
+  rights in a different dedicated sandbox repository.  The sandbox
+  credential must be independently scoped to that sandbox; no token
+  value is placed into source code, issue comments, logs or chat.
+- No repository or organization security configuration was changed.
+  Connector tools do not expose installed environment secret contents,
+  approval/ruleset settings or a means to deploy the verifier.
+  Treat those settings as UNVERIFIED, not as configured or absent.
+
+### Minimum remaining externally authorized setup
+
+A security/workflow operator must designate an isolated sandbox
+repository (or create one), configure an approved protected environment
+with trusted runner label `rwf97-trusted`, deploy a real #80-compatible
+verifier outside the PR checkout with authenticated issuer/actor and
+current scope/expiry/revocation evidence, and configure a sandbox-only
+GitHub App token via `RWF97_SANDBOX_GH_TOKEN` environment secret
+(Issues write, Pull requests write, Contents write for reservation refs).
+Set the four sandbox fixture variables and explicitly enable
+`RWF97_ENABLE` only after approval.  A push of the dedicated live
+workflow trigger marker can then run the shipped Python adapter using
+the existing issue #97 branch, without changing production `main`.
+No secret is requested in chat.  Protected sandbox reservation tags
+require a verified immutable-ref policy before acceptance is claimed.
+
+The current project tools cannot provision/test the protected runner,
+environment secrets and independently issued #80 grants.  They also
+cannot prove that provider protection policies are installed.  Until
+those are verified, four ordinary live mutation operations remain
+NOT CERTIFIED; remote merge/check publishing stay explicitly DENIED
+under their separate downstream gates.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
