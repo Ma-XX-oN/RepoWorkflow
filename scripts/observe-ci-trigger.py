@@ -98,14 +98,18 @@ def observe(repo, workflow, branch, start, end, token, fetch=github_get):
     "workflow_runs", token, fetch,
   )
   selected = []
+  seen_invocations = set()
   for run in runs:
     created = utc(run["created_at"])
     if not utc(start) <= created <= utc(end):
       continue
     if run.get("head_branch") != branch or run.get("event") != "push":
       raise ObservationError("provider returned mismatched branch/event")
-    if run.get("status") != "completed":
+    if run.get("status") != "completed" or not run.get("conclusion"):
       raise ObservationError("run still pending; cannot certify final count")
+    if run["head_sha"] in seen_invocations:
+      raise ObservationError("duplicate hosted run for one invocation SHA")
+    seen_invocations.add(run["head_sha"])
     invocation = verify_provider_request(
       "/repos/" + quote(repo, safe="/"), run["head_sha"], token, fetch,
     )
@@ -158,6 +162,8 @@ def main():
   parser.add_argument("--branch", required=True)
   parser.add_argument("--start", required=True)
   parser.add_argument("--end", required=True)
+  parser.add_argument("--expected-test-jobs", type=int)
+  parser.add_argument("--expected-runs", type=int)
   args = parser.parse_args()
   token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
   if not token:
@@ -169,6 +175,14 @@ def main():
   except ObservationError as error:
     parser.exit(2, str(error) + "\n")
   print(json.dumps(result, indent=2, sort_keys=True))
+  if args.expected_test_jobs is not None and (
+    result["executed_test_job_count"] != args.expected_test_jobs
+  ):
+    parser.exit(1, "hosted test-job count did not match expectation\n")
+  if args.expected_runs is not None and (
+    result["run_count"] != args.expected_runs
+  ):
+    parser.exit(1, "hosted run count did not match expectation\n")
 
 
 if __name__ == "__main__":
