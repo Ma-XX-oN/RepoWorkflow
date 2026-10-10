@@ -137,6 +137,16 @@ class LocalIntegrationTests(unittest.TestCase):
       if item["group"] == "ticket-merge-platform"
     ), -9)
 
+  def test_unlaunchable_probe_returns_incomplete_observation(self):
+    scripts = self.root / "scripts"
+    scripts.mkdir()
+    (scripts / "broken-probe.py").write_text("pass\n")
+    with patch(
+      "repo_workflow.test_integration_engine.subprocess.run",
+      side_effect=OSError("cannot launch"),
+    ):
+      self.assertIsNone(_probe(self.root, "broken-probe.py"))
+
   def test_missing_probe_script_is_infrastructure_incomplete(self):
     self.assertIsNone(_probe(self.root, "missing-probe.py"))
 
