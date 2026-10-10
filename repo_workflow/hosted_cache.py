@@ -73,6 +73,14 @@ def verified_hosted_passes(
     if _git(root, "diff-tree", "--no-commit-id", "--name-only",
             "-r", prior).splitlines() != [relative]:
       return set()
+    published_subject = _git(root, "show", "-s", "--format=%s", prior)
+    publication_run = re.fullmatch(
+      r"test: publish hosted evidence from run ([1-9][0-9]*)",
+      published_subject,
+    )
+    if publication_run is None:
+      return set()
+    published_run_id = int(publication_run.group(1))
     previous = _git(root, "show", prior + ":" + relative)
     if not previous:
       return set()
@@ -94,10 +102,21 @@ def verified_hosted_passes(
         or type(run_id) is not int or run_id < 1
         or not isinstance(invoked, str)
         or not re.fullmatch(r"[0-9a-f]{40}", invoked)
+        or run_id != published_run_id
         or record.get("providerCandidateSHA") != revision
         or record.get("providerStage") !=
           ("GREEN-testing" if stage == "GREEN" else "temp-testing")
         or record.get("branch") != branch
+      ):
+        return set()
+      if _git(root, "rev-parse", invoked + "^") != revision:
+        return set()
+      if _git(root, "diff-tree", "--no-commit-id", "--name-only",
+              "-r", invoked).splitlines() != [".ci/run"]:
+        return set()
+      if _git(root, "show", invoked + ":.ci/run") != (
+        ("GREEN-testing" if stage == "GREEN" else "temp-testing")
+        + " " + _git(root, "rev-parse", invoked + "^")
       ):
         return set()
       provider = lookup(repository, run_id, token)
