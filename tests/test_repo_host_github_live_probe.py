@@ -78,15 +78,14 @@ class LiveProbeCleanupTests(unittest.TestCase):
         state["pr_title"] = params["title"]
         return {"result": {"number": 17}, "status": "unchanged"}
       if operation == "pull_request.update":
-        state["pr_title"] = params["title"]
+        if "title" in params:
+          state["pr_title"] = params["title"]
+        if params.get("state") == "closed":
+          sequence.append("CLOSE PR")
+          if cleanup_code == 0:
+            state["pr_state"] = "closed"
         return {"result": {}, "status": "unchanged"}
       raise AssertionError("unrecognized operation " + operation)
-
-    def cleanup(*args, **kwargs):
-      sequence.append("CLOSE PR")
-      if cleanup_code == 0:
-        state["pr_state"] = "closed"
-      return SimpleNamespace(returncode=cleanup_code)
 
     args = [
       "probe", "--repository", "owner/sandbox",
@@ -100,19 +99,18 @@ class LiveProbeCleanupTests(unittest.TestCase):
         with patch.object(module, "invoke", side_effect=adapter):
           with patch.object(module, "verify_reservation") as ledger:
             with patch.object(module, "verify_concurrent_comment") as race:
-              with patch.object(module.subprocess, "run", side_effect=cleanup):
-                with contextlib.redirect_stdout(output):
-                  if cleanup_code:
-                    with self.assertRaisesRegex(
-                      RuntimeError, "temporary PR close failed"
-                    ):
-                      module.main()
-                  else:
-                    self.assertEqual(module.main(), 0)
-                self.assertEqual(ledger.call_count, 5)
-                race.assert_called_once_with(
-                  "owner/sandbox", 3, "acceptance"
-                )
+              with contextlib.redirect_stdout(output):
+                if cleanup_code:
+                  with self.assertRaisesRegex(
+                    RuntimeError, "temporary PR close failed"
+                  ):
+                    module.main()
+                else:
+                  self.assertEqual(module.main(), 0)
+              self.assertEqual(ledger.call_count, 5 if cleanup_code else 6)
+              race.assert_called_once_with(
+                "owner/sandbox", 3, "acceptance"
+              )
     return sequence, output.getvalue()
 
   def test_persisted_reservation_sha_and_digest_are_exact(self):
