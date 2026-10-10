@@ -82,7 +82,9 @@ class GitHubHostBootstrapTests(unittest.TestCase):
         )
         self.assertNotEqual(status, 0)
         self.assertEqual(stdout, "")
-        self.assertIn(json.loads(stderr)["error"], {"unauthorized", "unsupported"})
+        self.assertIn(
+          json.loads(stderr)["error"], {"unauthorized", "unsupported"}
+        )
 
   def test_invalid_envelopes_never_succeed(self):
     bad = [
