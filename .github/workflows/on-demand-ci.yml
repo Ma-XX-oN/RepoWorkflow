@@ -72,6 +72,8 @@ jobs:
           esac
       - name: Run selected stage through public test CLI
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           case '${{ needs.plan.outputs.stage }}' in
