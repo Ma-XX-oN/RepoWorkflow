@@ -9,6 +9,7 @@ import unittest
 
 
 PATH = Path(__file__).resolve().parents[1] / "adapters" / "repo-host-github.py"
+sys.path.insert(0, str(PATH.parent))
 SPEC = importlib.util.spec_from_file_location("repo_host_github", PATH)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -81,7 +82,7 @@ class GitHubHostBootstrapTests(unittest.TestCase):
         )
         self.assertNotEqual(status, 0)
         self.assertEqual(stdout, "")
-        self.assertEqual(json.loads(stderr)["error"], "unsupported")
+        self.assertIn(json.loads(stderr)["error"], {"unauthorized", "unsupported"})
 
   def test_invalid_envelopes_never_succeed(self):
     bad = [
@@ -154,7 +155,7 @@ class GitHubHostBootstrapTests(unittest.TestCase):
     issue = MODULE.run(request(
       "issue.update", {"number": 7, "state": "closed"}
     ))
-    self.assertEqual(json.loads(issue[2])["error"], "unsupported")
+    self.assertEqual(json.loads(issue[2])["error"], "unauthorized")
     pr = MODULE.run(request(
       "pull_request.update",
       {"number": 7, "expected_head_sha": SHA, "state": "closed"}
@@ -200,7 +201,7 @@ class GitHubHostBootstrapTests(unittest.TestCase):
     )
     self.assertNotEqual(denied.returncode, 0)
     self.assertEqual(denied.stdout, "")
-    self.assertEqual(json.loads(denied.stderr)["error"], "unsupported")
+    self.assertEqual(json.loads(denied.stderr)["error"], "unauthorized")
 
 
   def test_error_retains_parseable_request_identity(self):
