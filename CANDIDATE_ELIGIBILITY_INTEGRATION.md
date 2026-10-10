@@ -33,6 +33,11 @@ store read checks payload integrity, not independent adversarial publisher
 identity. When #548's advanced role enforcement is activated, this boundary
 must consume that enforced publisher authority before allowing integration.
 
+Hosted or other non-local #69 observations require a positive result from
+an independently configured #548 provider verifier. Without that verifier,
+external records are denied, even when their stored verdict claims PASS.
+Local records follow the current trusted-publisher assumption.
+
 The requirements manifest must come from an authoritative complete
 configuration, not an arbitrary incomplete selection. The coverage evaluator
 must be the #95 implementation; the durability store must be the #69 store.
