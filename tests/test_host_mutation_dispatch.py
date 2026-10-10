@@ -78,6 +78,24 @@ class HostMutationDispatcherTests(unittest.TestCase):
           with self.assertRaises(HostMutationError):
             dispatch(["provider"], BASE)
 
+  def test_retry_identity_is_unchanged_and_dispatcher_does_not_invent_ids(self):
+    seen = []
+    def fake_run(argv, **kwargs):
+      seen.append(json.loads(kwargs["input"]))
+      return FakeCompleted(self.reply(status="unchanged"))
+    with patch("repo_workflow.host_mutation_dispatch.subprocess.run",
+               side_effect=fake_run):
+      for _ in range(2):
+        self.assertEqual(dispatch(["provider"], BASE)["status"], "unchanged")
+    self.assertEqual(seen, [BASE, BASE])
+
+  def test_failed_provider_is_not_retried_automatically(self):
+    with patch("repo_workflow.host_mutation_dispatch.subprocess.run",
+               return_value=FakeCompleted(self.reply(), 1)) as run:
+      with self.assertRaises(HostMutationError):
+        dispatch(["provider"], BASE)
+      self.assertEqual(run.call_count, 1)
+
   def test_timeout_is_unknown_not_idempotent_success(self):
     with patch("repo_workflow.host_mutation_dispatch.subprocess.run",
                side_effect=subprocess.TimeoutExpired(["provider"], 1)):
