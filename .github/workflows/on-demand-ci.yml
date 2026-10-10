@@ -45,6 +45,8 @@ jobs:
 
   validate:
     needs: plan
+    outputs:
+      audit_ok: ${{ steps.audit.outcome }}
     if: >-
       needs.plan.outputs.stage == 'RED-testing' ||
       needs.plan.outputs.stage == 'temp-testing' ||
@@ -53,7 +55,7 @@ jobs:
       needs.plan.outputs.stage == 'integration-testing'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,8 +120,38 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
-      - name: Publish canonical hosted testing observations
+      - name: Export canonical observation artifact
         if: ${{ always() && steps.audit.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-result-${{ github.run_id }}
+          path: .repoworkflow/validation/testResults-*.jsonl
+          if-no-files-found: error
+
+  publish:
+    needs: [plan, validate]
+    if: >-
+      always() &&
+      needs.plan.result == 'success' &&
+      needs.validate.outputs.audit_ok == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Restore candidate issue branch for readback
+        shell: bash
+        run: git switch -c "$GITHUB_REF_NAME"
+      - uses: actions/download-artifact@v4
+        with:
+          name: hosted-result-${{ github.run_id }}
+      - name: Publish canonical hosted testing observations
         shell: bash
         run: >-
           python scripts/publish-hosted-result.py
@@ -149,6 +181,7 @@ jobs:
           assert latest["providerRunId"] == int(os.environ["GITHUB_RUN_ID"])
           assert latest["providerInvocationSHA"] == os.environ["GITHUB_SHA"]
           PY
+
 
   argv-limits:
     needs: plan
