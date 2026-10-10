@@ -202,6 +202,23 @@ class GitHubHostBootstrapTests(unittest.TestCase):
     self.assertEqual(denied.stdout, "")
     self.assertEqual(json.loads(denied.stderr)["error"], "unsupported")
 
+
+  def test_error_retains_parseable_request_identity(self):
+    raw = request("issue.comment", {"number": 0, "body": "bad"})
+    status, stdout, stderr = MODULE.run(raw)
+    self.assertNotEqual(status, 0)
+    self.assertEqual(stdout, "")
+    value = json.loads(stderr)
+    self.assertEqual(value["operation"], "issue.comment")
+    self.assertEqual(value["repository"], "owner/repo")
+    self.assertEqual(value["request_id"], "req-1")
+
+  def test_concatenated_requests_are_invalid_not_partially_executed(self):
+    status, stdout, stderr = MODULE.run(request() + request())
+    self.assertNotEqual(status, 0)
+    self.assertEqual(stdout, "")
+    self.assertEqual(json.loads(stderr)["error"], "invalid_request")
+
   def test_deterministic_retries_are_read_only(self):
     original = request(request_id="repeat-1")
     self.assertEqual(MODULE.run(original), MODULE.run(original))
