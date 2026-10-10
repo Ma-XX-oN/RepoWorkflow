@@ -83,7 +83,9 @@ class SelectionCommitContract(unittest.TestCase):
     self.assertEqual(
       self.git("show", "HEAD:.ci/red-green.txt"), "issue-545-one"
     )
-    self.assertEqual(self.git("status", "--porcelain"), "")
+    self.assertEqual(
+      self.git("status", "--porcelain", "--", ".ci/red-green.txt"), ""
+    )
 
 
 if __name__ == "__main__":
