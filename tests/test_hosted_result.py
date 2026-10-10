@@ -128,6 +128,28 @@ class HostedResultTests(unittest.TestCase):
           self.invoke(stage, sha, branch).returncode, 0,
         )
 
+  def test_expected_red_requires_positive_failure_and_classification(self):
+    self.write(
+      kind="RED", reusable=False, redStatus="RED",
+      groups=[{"group": "issue-541-unit", "exit_code": 1}],
+    )
+    self.assertEqual(self.invoke("RED-testing").returncode, 0)
+    for change in (
+      {"redStatus": "FAIL"},
+      {"redStatus": "NOT_RED"},
+      {"redStatus": None},
+      {"reusable": True},
+      {"groups": [{"group": "issue-541-unit", "exit_code": 0}]},
+      {"groups": [{"group": "issue-541-unit", "exit_code": False}]},
+    ):
+      with self.subTest(change=change):
+        self.write(
+          kind="RED", reusable=False, redStatus="RED",
+          groups=[{"group": "issue-541-unit", "exit_code": 1}],
+          **change,
+        )
+        self.assertNotEqual(self.invoke("RED-testing").returncode, 0)
+
   def test_regression_accepts_complete_result_without_groups(self):
     self.write(kind="regression", groups=[])
     self.assertEqual(
