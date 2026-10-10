@@ -165,22 +165,70 @@ jobs:
         if: matrix.nodeVersion != ''
         with:
           node-version: ${{ matrix.nodeVersion }}
-      - name: Run repository-owned validation entry point
+      - name: Run core validation through configured repo-ci adapter
         id: validation
         continue-on-error: true
         shell: bash
+        env:
+          RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+          RWF_REPO_CI_RESULT_ROOT: ${{ runner.temp }}/repoworkflow-result
+          RWF_STAGE: ${{ matrix.id }}
+          RWF_CANDIDATE: ${{ needs.prepare.outputs.tested_sha }}
+          RWF_BASE: ${{ inputs.head_sha }}
+          RWF_MODE: ${{ needs.policy.outputs.mode }}
         run: |
-          if [ "${{ needs.policy.outputs.mode }}" = "stable" ]; then
-            python RepoWorkflow/repo_workflow.py stable-run \
-              --environment "${{ matrix.id }}" \
-              --expected-sha "${{ needs.prepare.outputs.tested_sha }}" \
-              --result "${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json"
-          else
-            python RepoWorkflow/repo_workflow.py run \
-              --environment "${{ matrix.id }}" \
-              --expected-sha "${{ needs.prepare.outputs.tested_sha }}" \
-              --result "${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json"
-          fi
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          result_path = str(Path(os.environ["RWF_REPO_CI_RESULT_ROOT"]) /
+                            (os.environ["RWF_STAGE"] + ".json"))
+          request = {
+            "contract_version": 1,
+            "operation": "execute",
+            "invocation_id": os.environ["GITHUB_RUN_ID"] + "-" +
+                             os.environ["GITHUB_RUN_ATTEMPT"] + "-" +
+                             os.environ["RWF_STAGE"],
+            "candidate": {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": os.environ["RWF_CANDIDATE"],
+              "base": os.environ["RWF_BASE"],
+            },
+            "requirements": {
+              "stages": [os.environ["RWF_STAGE"]],
+              "capabilities": [], "artifacts": [],
+            },
+            "inputs": {
+              "consumer_workspace": os.environ["RWF_REPO_CI_WORKSPACE"],
+              "result_path": result_path,
+              "mode": "stable" if os.environ["RWF_MODE"] == "stable" else "development",
+              "base": os.environ["RWF_BASE"],
+            },
+          }
+          process = subprocess.run(
+            [sys.executable, "RepoWorkflow/repo_workflow.py", "repo-ci", "execute"],
+            input=json.dumps(request), text=True, capture_output=True, check=False,
+          )
+          if process.stderr:
+            print(process.stderr, file=sys.stderr)
+          try:
+            response = json.loads(process.stdout)
+          except ValueError:
+            print("repo-ci adapter returned malformed response", file=sys.stderr)
+            raise SystemExit(2)
+          if process.returncode or response.get("status") != "ok":
+            print(json.dumps(response), file=sys.stderr)
+            raise SystemExit(2)
+          observed = response["observations"]["stages"]
+          if len(observed) != 1 or observed[0]["stage"] != os.environ["RWF_STAGE"]:
+            print("repo-ci stage identity mismatch", file=sys.stderr)
+            raise SystemExit(2)
+          print(json.dumps({"stage": observed[0]["stage"],
+                            "core_exit_code": observed[0]["core_exit_code"]}))
+          PY
       - name: Upload structured environment result
         if: always()
         uses: actions/upload-artifact@v4
