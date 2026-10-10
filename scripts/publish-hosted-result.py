@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import (
   CiInvocationError, original_candidate, parse_invocation,
 )
+from repo_workflow.test_results_reader import parse_testing_log
 
 
 def _git(root: Path, *args: str) -> str:
@@ -52,13 +53,22 @@ def publish(
   )
   path = root / relative
   try:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    record = json.loads(lines[-1])
+    records = parse_testing_log(path.read_text(encoding="utf-8"))
+    record = records[-1]
   except (OSError, ValueError, IndexError) as error:
     raise ValueError("cannot publish absent or malformed observations") from error
   if (
     not isinstance(record, dict)
     or record.get("testSHA") != candidate
+    or record.get("branch") != branch
+    or record.get("runner") != "local"
+    or record.get("result") not in {"succeeded", "failed", "incomplete"}
+    or record.get("headChangedDuringTest") is not False
+    or record.get("uncommittedChanges") != []
+    or any(key in record for key in (
+      "providerRunId", "providerInvocationSHA",
+      "providerCandidateSHA", "providerStage",
+    ))
     or record.get("kind") != {
       "RED-testing": "RED",
       "temp-testing": "temporary",
@@ -106,11 +116,10 @@ def publish(
     previous = path.read_text(encoding="utf-8").splitlines()
   except FileNotFoundError:
     previous = []
-  for line in previous:
+  if previous:
     try:
-      if not isinstance(json.loads(line), dict):
-        raise ValueError("remote test log has a non-object record")
-    except json.JSONDecodeError as error:
+      parse_testing_log("\n".join(previous))
+    except ValueError as error:
       raise ValueError("remote test log is malformed") from error
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
