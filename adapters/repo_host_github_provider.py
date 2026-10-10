@@ -28,8 +28,8 @@ def _json_call(method: str, route: str, payload: dict | None = None):
       capture_output=True, text=True, check=False, timeout=30,
     )
   except (OSError, subprocess.TimeoutExpired) as exc:
-    raise ProviderError("unknown_outcome" if method != "GET"
-                        else "transport_failure", "GitHub request unavailable") from exc
+    category = "unknown_outcome" if method != "GET" else "transport_failure"
+    raise ProviderError(category, "GitHub request unavailable") from exc
   if p.returncode:
     # Do not expose untrusted provider diagnostics or potentially secret data.
     detail = p.stderr.lower()
@@ -184,7 +184,9 @@ class GitHubBackend:
                     {"number", "head", "base", "state", "draft"})
     if _number(value["number"]) != number:
       raise ProviderError("invalid_response", "PR number mismatch")
-    if not isinstance(value["head"], dict) or not isinstance(value["base"], dict):
+    if not isinstance(value["head"], dict) or not isinstance(
+      value["base"], dict
+    ):
       raise ProviderError("invalid_response", "missing PR identities")
     if type(value["draft"]) is not bool or value["state"] not in (
       "open", "closed"
