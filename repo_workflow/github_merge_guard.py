@@ -91,9 +91,11 @@ def merge_protected_pr(
     # changed during that work, before asking the server to merge.
     final_pr = read(base + "/pulls/" + str(pr_number))
     final_branch = read(base + "/branches/main")
+    final_protection = read(base + "/branches/main/protection")
     if (
       not isinstance(final_pr, dict)
       or not isinstance(final_branch, dict)
+      or final_protection != protection
       or final_pr.get("base", {}).get("sha") != recorded_parent_tip
       or final_pr.get("head", {}).get("sha") != candidate_sha
       or final_pr.get("state") != "open"
