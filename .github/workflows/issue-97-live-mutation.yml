@@ -22,7 +22,9 @@ jobs:
   live-mutation:
     if: >-
       github.repository == 'Ma-XX-oN/RepoWorkflow' &&
-      vars.RWF97_ENABLE == 'true'
+      vars.RWF97_ENABLE == 'true' &&
+      vars.RWF97_APPROVED_SHA != '' &&
+      vars.RWF97_APPROVED_SHA == github.sha
     environment: rwf97-sandbox
     runs-on: [self-hosted, rwf97-trusted]
     timeout-minutes: 15
@@ -34,6 +36,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Verify exact independently approved test candidate
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ vars.RWF97_APPROVED_SHA }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "${#APPROVED_SHA}" -eq 40
+          test "$APPROVED_SHA" = "$RUN_SHA"
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
       - name: Verify independent environment review protections
         env:
           GH_TOKEN: ${{ github.token }}
