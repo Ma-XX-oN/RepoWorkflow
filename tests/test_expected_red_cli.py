@@ -152,6 +152,20 @@ class ExpectedRedCliTests(unittest.TestCase):
     self.assertEqual(self.last()["redStatus"], "INCOMPLETE")
 
 
+  def test_malformed_native_harness_is_incomplete_not_traceback(self):
+    self.configure({"exit-code": 1, "output-contains": "case invariant violated"})
+    manifest = self.root / ".ci/tests.json"
+    data = json.loads(manifest.read_text())
+    data["test-harnesses"]["unittest"]["layout"] = 17
+    manifest.write_text(json.dumps(data))
+    out = self.cli("test", "RED", "issue-545-declared")
+    self.assertEqual(out.returncode, 2, out.stderr)
+    record = self.last()
+    self.assertEqual(record["redStatus"], "INCOMPLETE")
+    self.assertEqual(record["reason"], "selected-test-cannot-execute")
+    self.assertIsNone(record["groups"][0]["exit_code"])
+
+
   def test_unexpected_pass_classifies_not_red(self):
     self.configure({"exit-code": 1, "output-contains": "case invariant violated"})
     path = self.root / "smoke_case.py"
