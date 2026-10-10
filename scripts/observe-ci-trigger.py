@@ -60,6 +60,39 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import CiInvocationError, parse_invocation
 
 
+def original_candidate_provider(root, starting_sha, token, fetch=github_get):
+  """Walk an exact verified marker-only retry chain to its source candidate."""
+  sha = starting_sha
+  seen = set()
+  for _ in range(1000):
+    if sha in seen:
+      raise ObservationError("cycle in provider invocation ancestry")
+    seen.add(sha)
+    commit = fetch(root + "/commits/" + sha, token)
+    files = [item.get("filename") for item in commit.get("files", [])]
+    if files != [".ci/run"]:
+      return sha
+    parents = commit.get("parents", [])
+    if len(parents) != 1:
+      raise ObservationError("retry marker has invalid ancestry")
+    marker_response = fetch(
+      root + "/contents/.ci/run?ref=" + quote(sha, safe=""), token,
+    )
+    if marker_response.get("encoding") != "base64":
+      raise ObservationError("retry marker is not base64 content")
+    try:
+      text = base64.b64decode(
+        marker_response["content"], validate=False,
+      ).decode("utf-8")
+      request = parse_invocation(text)
+    except (KeyError, ValueError, UnicodeError, CiInvocationError) as error:
+      raise ObservationError("malformed retry marker") from error
+    if request.previous_tip != parents[0].get("sha"):
+      raise ObservationError("retry marker parent SHA mismatch")
+    sha = request.previous_tip
+  raise ObservationError("retry chain depth exceeded")
+
+
 def verify_provider_request(root, sha, token, fetch=github_get):
   """Independently bind provider invocation SHA to its committed parent."""
   commit = fetch(root + "/commits/" + sha, token)
@@ -79,8 +112,13 @@ def verify_provider_request(root, sha, token, fetch=github_get):
     raise ObservationError("invalid committed provider marker") from error
   if request.previous_tip != parents[0].get("sha"):
     raise ObservationError("provider candidate SHA does not match request parent")
-  return {"stage": request.stage, "tested_sha": request.previous_tip,
-          "invocation_sha": sha}
+  tested_sha = original_candidate_provider(
+    root, request.previous_tip, token, fetch,
+  )
+  return {
+    "stage": request.stage, "previous_tip": request.previous_tip,
+    "tested_sha": tested_sha, "invocation_sha": sha,
+  }
 
 def observe(repo, workflow, branch, start, end, token, fetch=github_get):
   if utc(start) > utc(end):
@@ -121,6 +159,7 @@ def observe(repo, workflow, branch, start, end, token, fetch=github_get):
       "run_id": run["id"],
       "run_url": run["html_url"],
       "invocation_sha": invocation["invocation_sha"],
+      "previous_tip": invocation["previous_tip"],
       "tested_sha": invocation["tested_sha"],
       "stage": invocation["stage"],
       "conclusion": run.get("conclusion"),
