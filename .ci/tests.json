@@ -91,6 +91,13 @@
         "type": "regression",
         "name": "tests.test_github_host_facts"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-104-durable-evidence": {
+        "type": "regression",
+        "name": "tests.test_candidate_evidence"
+      }
     }
   ],
   "aliases": {
