@@ -153,6 +153,7 @@ class HostedCacheTests(unittest.TestCase):
     self.assertEqual(self.reusable(), set())
 
   def test_hosted_red_requires_exact_selected_group(self):
+    import hashlib
     import runpy
 
     validate = runpy.run_path(
@@ -162,10 +163,18 @@ class HostedCacheTests(unittest.TestCase):
     selection = self.root / ".ci/red-green.txt"
     selection.parent.mkdir(parents=True, exist_ok=True)
     selection.write_text("issue-545-one\n")
+    manifest = self.root / ".ci/tests.json"
+    manifest.write_text(json.dumps({
+      "test-harnesses": {"unittest": {"command": "python", "layout": []}},
+      "tests": [{"test-harness": "unittest",
+                 "issue-545-one": {"type": "regression"}}],
+      "aliases": {},
+    }))
     path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     base = {
       **self.record, "kind": "RED", "result": "succeeded",
+      "catalogueSHA256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
       "reusable": False, "expectedFailure": True,
       "reason": "expected-red-assertion-demonstrated",
     }
@@ -189,6 +198,7 @@ class HostedCacheTests(unittest.TestCase):
                      branch="issue-545-cache")
 
   def test_hosted_temporary_requires_complete_unique_catalogue(self):
+    import hashlib
     import runpy
     from pathlib import Path
 
@@ -210,6 +220,7 @@ class HostedCacheTests(unittest.TestCase):
     path.parent.mkdir(parents=True, exist_ok=True)
     base = {
       **self.record, "kind": "temporary", "result": "succeeded",
+      "catalogueSHA256": hashlib.sha256(catalogue.read_bytes()).hexdigest(),
       "reusable": True, "runner": "local",
     }
     for names, should_pass in (
