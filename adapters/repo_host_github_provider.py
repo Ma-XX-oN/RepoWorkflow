@@ -32,10 +32,18 @@ def _json_call(method: str, route: str, payload: dict | None = None):
                         else "transport_failure", "GitHub request unavailable") from exc
   if p.returncode:
     # Do not expose untrusted provider diagnostics or potentially secret data.
-    raise ProviderError(
-      "not_found" if method == "GET" else "provider_failure",
-      "GitHub request failed",
-    )
+    detail = p.stderr.lower()
+    if "http 401" in detail:
+      category = "unauthenticated"
+    elif "http 403" in detail or "http 429" in detail:
+      category = "rate_limited" if "rate limit" in detail else "unauthorized"
+    elif "http 404" in detail:
+      category = "not_found"
+    elif "http 409" in detail or "http 422" in detail:
+      category = "conflict"
+    else:
+      category = "transport_failure" if method == "GET" else "unknown_outcome"
+    raise ProviderError(category, "GitHub request failed")
   try:
     return json.loads(p.stdout)
   except (TypeError, ValueError) as exc:
@@ -90,6 +98,31 @@ class GitHubBackend:
 
   def patch(self, path: str, body: dict):
     return _json_call("PATCH", self.prefix + path, body)
+
+
+  def set_draft(self, number: int, draft: bool) -> None:
+    pr = self.pull(number)
+    node_id = pr.get("node_id")
+    if not isinstance(node_id, str) or not node_id:
+      raise ProviderError("invalid_response", "missing GitHub PR node identity")
+    mutation = (
+      "convertPullRequestToDraft" if draft
+      else "markPullRequestReadyForReview"
+    )
+    query = (
+      "mutation($id:ID!){" + mutation
+      + "(input:{pullRequestId:$id}){pullRequest{id,isDraft}}}"
+    )
+    response = _object(_json_call("POST", "graphql", {
+      "query": query, "variables": {"id": node_id},
+    }))
+    if response.get("errors"):
+      raise ProviderError("unknown_outcome", "GitHub draft change failed")
+    data = _object(response.get("data"), {mutation})
+    result = _object(data[mutation], {"pullRequest"})
+    item = _object(result["pullRequest"], {"id", "isDraft"})
+    if item["id"] != node_id or item["isDraft"] is not draft:
+      raise ProviderError("unknown_outcome", "draft change not confirmed")
 
   def reserve(self, request: dict) -> bool:
     """Return true only for an atomically newly created reservation."""
