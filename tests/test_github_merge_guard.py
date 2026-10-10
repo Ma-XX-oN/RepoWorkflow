@@ -84,6 +84,8 @@ class ProtectedMergeTests(unittest.TestCase):
       (BASE + "/branches/main/protection",
        ("required_pull_request_reviews",), None),
       (BASE + "/branches/main/protection",
+       ("required_pull_request_reviews", "required_approving_review_count"), 0),
+      (BASE + "/branches/main/protection",
        ("allow_force_pushes", "enabled"), True),
       (BASE + "/branches/main/protection",
        ("allow_deletions", "enabled"), True),
