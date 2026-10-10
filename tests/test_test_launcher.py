@@ -15,6 +15,7 @@ class ShippedTestLauncher(unittest.TestCase):
   setUp = fixture.TestCliContract.setUp
   tearDown = fixture.TestCliContract.tearDown
   git = fixture.TestCliContract.git
+  remote = fixture.TestCliContract.remote
 
   def launcher(self, *args):
     if not shutil.which("sh"):
@@ -43,6 +44,25 @@ class ShippedTestLauncher(unittest.TestCase):
         self.assertEqual(out.returncode, 2, out.stderr)
         self.assertEqual(self.git("rev-parse", "HEAD"), before)
         self.assertFalse((self.root / ".ci/run").exists())
+
+  def test_real_bare_remote_marker_uses_immediate_parent(self):
+    bare = self.remote()
+    previous = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "regression", "--remote")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    current = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(current, previous)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), previous)
+    self.assertEqual(
+      (self.root / ".ci/run").read_text(),
+      "regression-testing " + previous + "\n",
+    )
+    remote_tip = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(remote_tip, current)
 
   def test_absent_red_selection_records_skipped_and_not_pass(self):
     out = self.launcher("test", "RED")
