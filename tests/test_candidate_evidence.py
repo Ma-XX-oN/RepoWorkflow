@@ -152,6 +152,18 @@ class EvidenceHandoffTests(unittest.TestCase):
       False, ("host-facts-unavailable",),
     ))
 
+
+  def test_corrupt_durable_store_denied(self):
+    class Broken:
+      def read(self, record_id):
+        raise RuntimeError("invalid record")
+    with self.assertRaises(EvidenceGateError):
+      read_evidence_gate(
+        Broken(), self.required, ["one"],
+        candidate=self.candidate, version="v1", branch="feature",
+        coverage_evaluator=evaluate,
+      )
+
   def test_manifest_requires_all_units(self):
     self.assertFalse(self.check(ids=["one"]).passed)
 
