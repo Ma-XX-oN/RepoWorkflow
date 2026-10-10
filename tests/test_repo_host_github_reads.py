@@ -59,8 +59,14 @@ class GitHubReadBoundaryTests(unittest.TestCase):
 
   def test_pr_exact_head_destination_and_result(self):
     payload = {
-      "number": 9, "head": {"sha": SHA},
-      "base": {"sha": "a" * 40, "ref": "main"},
+      "number": 9, "head": {
+        "sha": SHA, "ref": "work",
+        "repo": {"full_name": "owner/repo"},
+      },
+      "base": {
+        "sha": "a" * 40, "ref": "main",
+        "repo": {"full_name": "owner/repo"},
+      },
       "draft": False, "state": "open",
     }
     with patch.object(MODULE.subprocess, "run", return_value=result(payload)):
@@ -69,17 +75,27 @@ class GitHubReadBoundaryTests(unittest.TestCase):
     self.assertEqual(value["destination_sha"], "a" * 40)
     self.assertEqual(value["number"], 9)
     self.assertEqual(value["target_ref"], "refs/heads/main")
+    self.assertEqual(value["source_ref"], "refs/heads/work")
+    self.assertEqual(value["source_repository"], "owner/repo")
 
   def test_pr_rejects_missing_or_malformed_identity(self):
     good = {
-      "number": 9, "head": {"sha": SHA},
-      "base": {"sha": "a" * 40, "ref": "main"},
+      "number": 9, "head": {
+        "sha": SHA, "ref": "work",
+        "repo": {"full_name": "owner/repo"},
+      },
+      "base": {
+        "sha": "a" * 40, "ref": "main",
+        "repo": {"full_name": "owner/repo"},
+      },
       "draft": False, "state": "open",
     }
     mutations = [
       {"number": 8}, {"head": {}}, {"base": {}},
       {"draft": 0}, {"state": "merged"},
       {"base": {"sha": "x", "ref": "main"}},
+      {"base": {"sha": "a" * 40, "ref": "main",
+                "repo": {"full_name": "other/repo"}}},
     ]
     for mutation in mutations:
       with self.subTest(mutation=mutation):
