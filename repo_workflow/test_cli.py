@@ -67,17 +67,29 @@ def _validate_selection(root: Path, name: str) -> str:
   return name
 
 
+def _committed_selection(root: Path) -> str | None:
+  outcome = subprocess.run(
+    ["git", "-C", str(root), "show", "HEAD:.ci/red-green.txt"],
+    capture_output=True, text=True, check=False,
+  )
+  return outcome.stdout if outcome.returncode == 0 else None
+
+
 def read_selection(root: Path) -> str | None:
   path = root / SELECTION
   try:
     raw = path.read_text(encoding="utf-8")
   except FileNotFoundError:
+    if _committed_selection(root) is not None:
+      raise TestCommandError("committed RED/GREEN selection is missing")
     return None
   lines = raw.splitlines()
   if len(lines) != 1 or raw not in (lines[0], lines[0] + "\n") or not lines[0]:
     raise TestCommandError(
       ".ci/red-green.txt must contain exactly one test-group name"
     )
+  if raw != _committed_selection(root):
+    raise TestCommandError("RED/GREEN selection must match committed state")
   return _validate_selection(root, lines[0])
 
 
@@ -118,7 +130,11 @@ def _skip_without_selection(
 def select_group(root: Path, name: str) -> str:
   name = _validate_selection(root, name)
   path = root / SELECTION
-  if path.exists() and path.read_text(encoding="utf-8") == name + "\n":
+  if (
+    path.exists()
+    and path.read_text(encoding="utf-8") == name + "\n"
+    and _committed_selection(root) == name + "\n"
+  ):
     return name
   match = re.fullmatch(
     r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -126,7 +142,10 @@ def select_group(root: Path, name: str) -> str:
   if match is None:
     raise TestCommandError("RED selection requires an issue branch")
   audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-  if any(changed != audit for changed in changed_files(root)):
+  if any(
+    changed not in {audit, SELECTION.as_posix()}
+    for changed in changed_files(root)
+  ):
     raise TestCommandError(
       "commit or discard working tree changes before selecting RED test"
     )
