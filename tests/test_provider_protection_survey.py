@@ -132,7 +132,7 @@ class ProviderProtectionContractTests(unittest.TestCase):
     module = runpy.run_path(str(Path(__file__).resolve().parents[1] /
                                 "scripts" / "probe-provider-protection.py"),
                             run_name="issue_627_probe")
-    with self.assertRaises(AssertionError):
+    with self.assertRaises(ValueError):
       module["inspect"]("../injection", "", lambda *_: None)
 
 
