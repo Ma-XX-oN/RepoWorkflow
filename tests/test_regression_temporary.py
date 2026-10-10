@@ -86,12 +86,16 @@ class RegressionTemporaryTests(unittest.TestCase):
       "rwf-executable-does-not-exist-545"
     )
     manifest.write_text(json.dumps(data))
-    with patch("repo_workflow.test_cli.verify_local", return_value="PASS"):
+    with (
+      patch("repo_workflow.test_cli.verify_local", return_value="PASS"),
+      patch("repo_workflow.test_cli.publish_terminal_tag") as tag,
+    ):
       outcome = run_test(
         self.root, "regression", remote=False,
         engine_root=self.root / "engine",
       )
     self.assertEqual(outcome, 2)
+    tag.assert_not_called()
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     records = [json.loads(x) for x in log.read_text().splitlines()]
     self.assertEqual(
