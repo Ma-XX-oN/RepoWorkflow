@@ -73,6 +73,9 @@ jobs:
           examples/issue-97-verify-authority.py
           scripts/probe-repo-host-github.py
           scripts/probe-repo-host-github-deny.py
+          scripts/probe-repo-host-github-private-sandbox-deny.py
+          scripts/probe-repo-host-github-private-sandbox-signed-deny.py
+          examples/issue-97-admin-sign-authority.py
   repository-regression:
     name: Full repository regression (ubuntu-latest)
     runs-on: ubuntu-latest
