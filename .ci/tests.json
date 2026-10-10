@@ -194,7 +194,7 @@
       },
       "issue-548-hosted-cache-provenance": {
         "type": "regression",
-        "name": "tests.test_hosted_cache"
+        "name": "tests.test_test_cache_evidence"
       }
     }
   ],
