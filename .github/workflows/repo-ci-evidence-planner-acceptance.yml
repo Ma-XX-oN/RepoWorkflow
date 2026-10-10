@@ -37,6 +37,7 @@ jobs:
           tests.test_validation_store
           tests.test_validation_import
           tests.test_validation_plan
+          tests.test_validation_plan_live
       - name: Confirm validation did not modify checkout or refs
         shell: bash
         run: test -z "$(git status --porcelain=v1 --untracked-files=all)"
