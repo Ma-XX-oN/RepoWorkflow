@@ -69,6 +69,19 @@ class AuthorizationBoundaryTests(unittest.TestCase):
         authority.authorize(REQUEST, Backend())
     self.assertEqual(caught.exception.code, "unauthorized")
 
+  def test_verifier_interpreter_flags_cannot_inject_decisions(self):
+    examples = [
+      [sys.executable, "-c", "print('allow')"],
+      [sys.executable, "-m", "unreviewed_verifier"],
+      [sys.executable, str(Path(__file__).resolve())],
+    ]
+    for command in examples:
+      with self.subTest(command=command):
+        with patch.dict("os.environ", {
+          "RWF_REPO_HOST_AUTH_COMMAND": json.dumps(command),
+        }):
+          self.assertIsNone(authority.verifier_command())
+
   def test_windows_absolute_verifier_path_is_supported(self):
     with patch.dict("os.environ", {
       "RWF_REPO_HOST_AUTH_COMMAND":
