@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone, timedelta
 import json
 import sys
 from pathlib import Path
@@ -30,13 +31,14 @@ def decision(request=REQUEST, actor="operator", outcome="allow"):
     json.dumps(request, sort_keys=True, separators=(",", ":")).encode()
   ).hexdigest()
   return {
-    "schema_version": 1, "operation": request["operation"],
-    "repository": request["repository"],
-    "request_id": request["request_id"],
+    "schema_version": 1, "request_id": request["request_id"],
     "scope_digest": digest,
     "actor_id": actor, "decision": outcome,
-    "authority_ref": "verified-grant-1",
-    "grant_kind": "standing", "max_uses": None,
+    "grant_id": "verified-grant-1", "grant_revision": 0,
+    "capability": request["operation"], "policy_revision": "policy-v1",
+    "evaluated_at": datetime.now(timezone.utc).strftime(
+      "%Y-%m-%dT%H:%M:%SZ"
+    ), "reason": "authorized",
   }
 
 
@@ -76,9 +78,9 @@ class AuthorizationBoundaryTests(unittest.TestCase):
         result = authority.authorize(REQUEST, Backend())
     self.assertEqual(result["actor_id"], "operator")
     self.assertEqual(run.call_args.args[0], ["/opt/trusted/check-auth"])
-    self.assertEqual(
-      json.loads(run.call_args.kwargs["input"])["request_id"], "one"
-    )
+    envelope = json.loads(run.call_args.kwargs["input"])
+    self.assertEqual(envelope["request"]["request_id"], "one")
+    self.assertTrue(envelope["require_non_consuming_policy"])
 
   def test_untrusted_verdicts_cannot_authorize(self):
     cases = [
@@ -86,12 +88,14 @@ class AuthorizationBoundaryTests(unittest.TestCase):
       decision(outcome="deny"),
       {**decision(), "scope_digest": "wrong"},
       {**decision(), "request_id": "other"},
-      {**decision(), "repository": "other/repo"},
-      {**decision(), "operation": "issue.comment"},
-      {**decision(), "authority_ref": ""},
+      {**decision(), "capability": "issue.comment"},
+      {**decision(), "grant_id": ""},
       {**decision(), "extra": "claim"},
-      {**decision(), "grant_kind": "one_time"},
-      {**decision(), "max_uses": 1},
+      {**decision(), "grant_revision": True},
+      {**decision(), "evaluated_at": "2000-01-01T00:00:00Z"},
+      {**decision(), "evaluated_at": (
+        datetime.now(timezone.utc) + timedelta(minutes=5)
+      ).strftime("%Y-%m-%dT%H:%M:%SZ")},
     ]
     with patch.dict("os.environ", {
       "RWF_REPO_HOST_AUTH_COMMAND": '["/opt/trusted/check-auth"]',
