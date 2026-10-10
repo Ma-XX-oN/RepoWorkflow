@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-cache-attestation-fixture": {
+        "type": "temporary",
+        "name": "tests.test_541_hosted_cache_integration"
+      }
+    }
+  ],
   "aliases": {}
 }
