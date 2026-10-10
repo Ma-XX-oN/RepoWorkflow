@@ -36,6 +36,16 @@ certificate.  The #97 prerequisite is #81; #85 and #542 are NOT prerequisites.
 - `capabilities`: advertises the four ordinary mutations only when a
   verifier executable is configured.  Never treats capability as a grant.
 
+## Additional independent negative acceptance
+
+- PR creation now checks the source branch, source repository and head SHA
+  together, rejecting other branches or fork repositories even when commit
+  objects are identical.  On a newly created PR, the adapter also confirms
+  the provider persisted the exact requested title.
+- Tests exercise same-SHA foreign branch replay, same-SHA foreign repository
+  replay, mismatched provider source after creation, and missing title write.
+- These are mock-provider regression tests, not live adapter certification.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
