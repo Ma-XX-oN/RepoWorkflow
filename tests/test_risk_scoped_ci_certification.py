@@ -9,11 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RiskScopedCiCertificationTests(unittest.TestCase):
-  def test_tdd_green_public_contract_remains_argumentless(self):
+  def test_unified_green_public_contract_remains_argumentless(self):
     text = (ROOT / "PUBLIC_WORKFLOW.md").read_text(encoding="utf-8")
-    self.assertIn("rwf tdd green", text)
-    self.assertNotIn("rwf tdd green --group", text)
-    self.assertNotIn("rwf tdd green group", text)
+    self.assertIn("rwf test GREEN [--remote]", text)
+    self.assertNotIn("rwf tdd green", text)
+    self.assertNotIn("rwf validate regression", text)
 
   def test_catalogue_aliases_are_real_groups_and_self_ci_alias_is_targeted(self):
     catalogue = load_test_catalogue(ROOT)

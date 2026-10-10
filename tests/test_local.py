@@ -11,6 +11,7 @@ from repo_workflow.guard import GuardError
 from repo_workflow.git import GitError, git as git_command
 from repo_workflow.results import ResultError
 from repo_workflow.local import verify_local
+from repo_workflow.terminal_tag import publish_terminal_tag
 from tests.support import RepoFixture
 
 
@@ -68,6 +69,73 @@ class LocalVerifyTests(unittest.TestCase):
     fx.push()
     return td, root, fx
 
+  def test_deferred_tagging_preserves_verified_candidate_without_tag(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      observed = []
+      result = verify_local(
+        root, engine_root=root / "RepoWorkflow", tag_result=False,
+        candidate_observer=lambda sha, version: observed.append(
+          (sha, version)
+        ),
+      )
+      self.assertEqual(result, "PASS")
+      self.assertEqual(observed, [(fx.head(), fx.version)])
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
+  def test_deferred_result_can_be_tagged_after_canonical_log(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      observed = []
+      self.assertEqual(
+        verify_local(
+          root, engine_root=root / "RepoWorkflow", tag_result=False,
+          candidate_observer=lambda sha, version: observed.append(
+            (sha, version)
+          ),
+        ),
+        "PASS",
+      )
+      candidate, version = observed[0]
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+      log = root / ".repoworkflow/validation/testResults-1.jsonl"
+      log.parent.mkdir(parents=True, exist_ok=True)
+      log.write_text(json.dumps({
+        "kind": "regression",
+        "branch": "issue-1-test",
+        "testVersion": version,
+        "testSHA": candidate,
+        "result": "succeeded",
+        "reusable": True,
+        "headChangedDuringTest": False,
+        "uncommittedChanges": [],
+      }) + "\n")
+      tag = publish_terminal_tag(
+        root, stage="regression", remote="origin",
+        version=version, candidate=candidate, outcome="PASS",
+        canonical_log=log,
+      )
+      self.assertEqual(tag, "v" + version)
+      self.assertEqual(
+        fx._run("rev-parse", tag + "^{commit}").stdout.strip(), candidate,
+      )
+      self.assertEqual(
+        fx._run(
+          "ls-remote", "--tags", "origin", "refs/tags/" + tag + "^{}",
+        ).stdout.split()[0],
+        candidate,
+      )
+
+  def test_remote_push_cannot_disable_terminal_tagging(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      with self.assertRaisesRegex(ValueError, "requires terminal tagging"):
+        verify_local(
+          root, engine_root=root / "RepoWorkflow",
+          push=True, tag_result=False,
+        )
+      self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
+
   def test_local_verify_uses_same_guard_policy_and_tags_pass_automatically(self):
     td, root, fx = self.make_consumer()
     with td:
@@ -78,6 +146,26 @@ class LocalVerifyTests(unittest.TestCase):
       self.assertEqual(
         fx._run("tag", "--list", f"v{fx.version}").stdout.strip(),
         f"v{fx.version}",
+      )
+
+  def test_candidate_observer_reports_real_prepared_commit_before_tests(self):
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "source.txt").write_text("new source\n")
+      source = fx.commit("modify source before verification")
+      observed = []
+      result = verify_local(
+        root, engine_root=root / "RepoWorkflow",
+        candidate_observer=lambda sha, version: observed.append((sha, version)),
+      )
+      self.assertEqual(result, "PASS")
+      self.assertEqual(len(observed), 1)
+      self.assertNotEqual(observed[0][0], source)
+      self.assertEqual(observed[0][0], fx.head())
+      self.assertEqual(observed[0][1], fx.version)
+      self.assertEqual(
+        fx._run("rev-parse", f"v{fx.version}^{{commit}}").stdout.strip(),
+        observed[0][0],
       )
 
   def test_local_verify_rebinds_request_after_source_commit(self):

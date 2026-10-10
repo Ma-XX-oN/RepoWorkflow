@@ -91,6 +91,94 @@
       "issue-550-public-help": {
         "type": "regression",
         "name": "tests.test_bootstrap_cli"
+      },
+      "issue-545-unified-test-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli"
+      },
+      "issue-545-workflow-cli-migration": {
+        "type": "regression",
+        "name": "tests.test_workflow_cli"
+      },
+      "issue-545-bash-completion-migration": {
+        "type": "regression",
+        "name": "tests.test_completion"
+      },
+      "issue-545-red-evidence": {
+        "type": "regression",
+        "name": "tests.test_red_evidence"
+      },
+      "issue-545-integration-preflight": {
+        "type": "regression",
+        "name": "tests.test_integration_preflight"
+      },
+      "issue-545-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
+      "issue-545-regression-temporary": {
+        "type": "regression",
+        "name": "tests.test_regression_temporary"
+      },
+      "issue-545-dedicated-test-commits": {
+        "type": "regression",
+        "name": "tests.test_dedicated_test_commits"
+      },
+      "issue-545-history-mutation": {
+        "type": "regression",
+        "name": "tests.test_test_execution_mutation"
+      },
+      "issue-545-engine-regression": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
+      },
+      "issue-545-real-consumer-verify": {
+        "type": "regression",
+        "name": "tests.test_local"
+      },
+      "issue-545-consumer-terminal-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_consumer_terminal_lifecycle"
+      },
+      "issue-545-terminal-tag": {
+        "type": "regression",
+        "name": "tests.test_terminal_tag"
+      },
+      "issue-545-cache-evidence": {
+        "type": "regression",
+        "name": "tests.test_test_cache_evidence"
+      },
+      "issue-545-results-metadata": {
+        "type": "regression",
+        "name": "tests.test_test_results_metadata"
+      },
+      "issue-545-dirty-rename": {
+        "type": "regression",
+        "name": "tests.test_test_dirty_rename"
+      },
+      "issue-545-remote-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli_remote"
+      },
+      "issue-545-selection-commit": {
+        "type": "regression",
+        "name": "tests.test_test_selection_commit"
+      },
+      "issue-545-red-classification": {
+        "type": "regression",
+        "name": "tests.test_test_red_classification"
+      },
+      "issue-545-launch-failures": {
+        "type": "regression",
+        "name": "tests.test_test_launch_failures"
+      },
+      "issue-545-shipped-launcher": {
+        "type": "regression",
+        "name": "tests.test_test_launcher"
+      },
+      "issue-545-red-runner": {
+        "type": "regression",
+        "name": "tests.test_test_red_runner"
       }
     }
   ],

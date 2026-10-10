@@ -43,18 +43,22 @@ def issue_from_head_ref(head_ref: str) -> str:
   return str(int(match.group(1)))
 
 
-def _catalogue_value(root: Path) -> dict:
-  path = Path(root) / ".ci" / "tests.json"
+def _catalogue_value(
+  root: Path, catalogue_path: Path = Path(".ci/tests.json"),
+) -> dict:
+  path = Path(root) / catalogue_path
   try:
     value = json.loads(path.read_text(encoding="utf-8"))
   except (OSError, json.JSONDecodeError) as error:
     raise SelfCiError(f"cannot read authoritative test catalogue: {error}") from error
-  load_test_catalogue(root)
+  load_test_catalogue(root, catalogue_path=catalogue_path)
   return value
 
 
-def _group_records(root: Path) -> dict[str, tuple[dict, dict]]:
-  value = _catalogue_value(root)
+def _group_records(
+  root: Path, catalogue_path: Path = Path(".ci/tests.json"),
+) -> dict[str, tuple[dict, dict]]:
+  value = _catalogue_value(root, catalogue_path)
   harnesses = value["test-harnesses"]
   records: dict[str, tuple[dict, dict]] = {}
   for declaration in value["tests"]:
@@ -166,15 +170,18 @@ def _substitute(template: str, target: str, delim: str | None) -> str:
   return template.replace("$test", target)
 
 
-def group_command(root: Path, group: str) -> tuple[str, ...]:
-  records = _group_records(root)
+def group_command(
+  root: Path, group: str,
+  catalogue_path: Path = Path(".ci/tests.json"),
+) -> tuple[str, ...]:
+  records = _group_records(root, catalogue_path)
   try:
     declaration, metadata = records[group]
   except KeyError as error:
     raise SelfCiError(f"unknown selected test group: {group}") from error
 
   harness_name = declaration["test-harness"]
-  value = _catalogue_value(root)
+  value = _catalogue_value(root, catalogue_path)
   harness = value["test-harnesses"][harness_name]
   declaration_command = declaration.get("command")
   harness_command = harness.get("command")

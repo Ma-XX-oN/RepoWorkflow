@@ -1,63 +1,45 @@
 from __future__ import annotations
 
+import re
+from .git import current_branch
+
 from .command_grammar import Context, validate_node
 from .test_catalogue import TestCatalogueError, load_test_catalogue
-from .workflow_state import derive_plan, discover_facts
 from .workspace_store import WorkspaceStore
 
 
-def _plan(context: Context):
-  return derive_plan(discover_facts(context.root))
-
-
-def _integration_results(context: Context) -> dict:
-  descriptions = {
-    "succeeded": "Report integration tests succeeded",
-    "failed": "Report integration tests failed",
-  }
-  if not context.legal_only:
-    names = ("failed", "succeeded")
-  else:
-    allowed = set(_plan(context).transitions)
-    names = tuple(
-      name
-      for name in ("failed", "succeeded")
-      if f"validate integration {name}" in allowed
-    )
-  return {
-    "completions": [{name: descriptions[name]} for name in names],
-  }
-
-
-def _integration_node() -> dict:
-  return {
-    "_description": "Report an integration test outcome",
-    "_values": _integration_results,
-  }
-
-
-def _regression_node() -> dict:
-  return {
-    "": "Run all regression tests",
-  }
-
-
-def _validate_commands(context: Context) -> dict:
-  if not context.legal_only:
+def _red_group_values(context: Context) -> dict:
+  match = re.fullmatch(
+    r"issue-([1-9][0-9]*)(?:-.*)?",
+    current_branch(context.root),
+  )
+  issue = match.group(1) if match else None
+  groups = ()
+  if issue is not None:
+    try:
+      catalogue = load_test_catalogue(context.root)
+      groups = tuple(sorted(
+        name for name in catalogue.groups
+        if name.startswith("issue-" + issue + "-")
+      ))
+    except TestCatalogueError:
+      pass
+  if groups:
     return {
       "completions": [
-        {"regression": _regression_node()},
-        {"integration": _integration_node()},
+        {name: "Run current issue RED test group " + name}
+        for name in groups
       ],
     }
 
-  transitions = _plan(context).transitions
-  fragments: list[dict] = []
-  if "validate regression" in transitions:
-    fragments.append({"regression": _regression_node()})
-  if any(item.startswith("validate integration ") for item in transitions):
-    fragments.append({"integration": _integration_node()})
-  return {"completions": fragments}
+  def unavailable(request):
+    return request.error(
+      "RED/GREEN tests do not exist for the current issue. "
+      "Build the tests and register them in .ci/tests.json "
+      "with a test name prefix of issue-N-."
+    )
+
+  return {"completions": [], "on-tab": unavailable}
 
 
 def _issue_number(context: Context) -> list[str]:
@@ -351,9 +333,35 @@ COMMANDS = {
       "--json": "Output workflow guidance as JSON",
     },
   },
-  "validate": {
-    "_description": "Run or record validation stages",
-    "_values": _validate_commands,
+  "test": {
+    "_description": "Run tests or inspect testing-log results",
+    "RED": {
+      "_description": "Run an issue-N- RED test group",
+      "_values": _red_group_values,
+      "_value_description": "Current issue RED test-group name",
+      "_quantifier": "?",
+      "_switches": {"--remote": "Request RED tests through hosted CI"},
+    },
+    "temporary": {
+      "": "Run applicable temporary fidelity tests locally",
+      "_switches": {"--remote": "Request temporary tests through hosted CI"},
+    },
+    "GREEN": {
+      "": "Run required TDD GREEN tests locally",
+      "_switches": {"--remote": "Request GREEN tests through hosted CI"},
+    },
+    "regression": {
+      "": "Run regression tests locally",
+      "_switches": {"--remote": "Request regression tests through hosted CI"},
+    },
+    "integration": {
+      "": "Run integration tests locally",
+      "_switches": {"--remote": "Request integration tests through hosted CI"},
+    },
+    "results": {
+      "": "Show recorded testing-log results",
+      "_switches": {"--remote": "Retrieve recorded hosted test results"},
+    },
   },
   "version": {
     "": "Show the repository version",

@@ -1,0 +1,14 @@
+{
+  "test-harnesses": {
+    "unittest": {
+      "command": "python",
+      "layout": [
+        "-m",
+        "unittest",
+        "$test"
+      ]
+    }
+  },
+  "tests": [],
+  "aliases": {}
+}

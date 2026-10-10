@@ -261,7 +261,14 @@ def ensure_relationship_rules(
         if dependant not in seen:
           pending.append(dependant)
 
-  for rule in all_rules:
+  # On refresh, reconcile already-known closure before walking seed rules.
+  # This avoids seed traversal order determining the provider's read order.
+  if refresh and snapshot is not None:
+    scoped = project_rules(snapshot.graph, include_rules, exclude_rules)
+    for issue in scoped:
+      load(issue, force_provider=True)
+  visit_rules = all_rules
+  for rule in visit_rules:
     force_provider = refresh or (
       partial
       and (
