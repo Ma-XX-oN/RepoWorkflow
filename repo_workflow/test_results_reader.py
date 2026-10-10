@@ -27,6 +27,11 @@ def _reject_nonfinite_test_log_value(value: str) -> None:
   raise TestCommandError("nonfinite testing log value: " + value)
 
 
+def parse_testing_log(raw: str) -> list[dict]:
+  """Parse all canonical records before any result can be consumed."""
+  return validated
+
+
 def results(root: Path, *, remote: bool, git_cmd) -> int:
   match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
   if match is None:
@@ -101,7 +106,7 @@ def results(root: Path, *, remote: bool, git_cmd) -> int:
           ensure_finite(nested)
     ensure_finite(record)
     validated.append(record)
-  for record in validated:
+  for record in parse_testing_log(raw):
     print(json.dumps(record, sort_keys=True))
   return 0
 
