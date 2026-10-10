@@ -209,7 +209,7 @@ class PublishHostedResultTests(unittest.TestCase):
       raw[:-1] + ', "unexpected": NaN}',
     ):
       with self.subTest(raw=malformed[-40:]):
-        self.log.write_text(malformed + "\\n")
+        self.log.write_text(malformed + "\n")
         result = self._publish()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self._git("rev-parse", "HEAD"), self.candidate)
