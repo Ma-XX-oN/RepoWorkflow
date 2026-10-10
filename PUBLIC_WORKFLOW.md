@@ -404,6 +404,16 @@ another CI cycle.  A PASS is reusable only with applicable matching
 candidate, test definition, inputs and environment, and complete evidence.
 Missing, failed, dirty or stale observations must not satisfy required tests.
 
+A testing invocation is identified independently by its requested stage,
+source candidate, dedicated invocation commit (for hosted requests), and
+result evidence.  These observations do not themselves allocate a new
+repository version.  Canonical version changes occur only through the
+applicable R/Q and integration lifecycle transitions defined in
+[REPO_VERSION_ADAPTER.md](REPO_VERSION_ADAPTER.md) and
+[WORKFLOW_LIFECYCLE.md](WORKFLOW_LIFECYCLE.md).  An actual failed ART or
+rejected integration must still follow those existing transitions; ordinary
+retries or result reads do not create new version semantics.
+
 ### 10.1 CI validation tiers
 
 Hosted Self CI uses the same validation hierarchy:
