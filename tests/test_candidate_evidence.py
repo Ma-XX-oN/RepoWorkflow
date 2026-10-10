@@ -111,6 +111,47 @@ class EvidenceHandoffTests(unittest.TestCase):
         with self.assertRaises(EvidenceGateError):
           self.check(ids=ids, required=required)
 
+
+  def test_host_and_durable_evidence_join_with_fresh_reassessment(self):
+    from repo_workflow.github_host_facts import decide_with_verified_sources
+
+    base = "b" * 40
+    candidate = self.candidate
+
+    def provider(head=candidate, current_base=base):
+      def fetch(path):
+        if path == "/branches/feature":
+          return {"commit": {"sha": head}}
+        if path == "/branches/main":
+          return {"commit": {"sha": current_base}}
+        if path == "/compare/" + current_base + "..." + candidate:
+          return {"base_commit": {"sha": current_base}, "status": "ahead"}
+        raise AssertionError(path)
+      return fetch
+
+    def decide(records=None, fetch=None):
+      return decide_with_verified_sources(
+        Store(self.records if records is None else records),
+        self.required, ["one", "two"],
+        candidate=candidate, version="v1", source="feature",
+        destination="main", recorded_base=base,
+        repository="owner/repo", token="test-token",
+        coverage_evaluator=evaluate, fetch=fetch or provider(),
+      )
+
+    self.assertEqual(decide(), (True, ()))
+    self.assertEqual(decide(fetch=provider(head="c" * 40)), (
+      False, ("head-changed",),
+    ))
+    self.assertEqual(decide(fetch=provider(current_base="d" * 40)), (
+      False, ("stale-base",),
+    ))
+    changed = [self.records[0], replace(self.records[1], verdict="FAIL")]
+    self.assertFalse(decide(records=changed)[0])
+    self.assertEqual(decide(fetch=lambda _: None), (
+      False, ("host-facts-unavailable",),
+    ))
+
   def test_manifest_requires_all_units(self):
     self.assertFalse(self.check(ids=["one"]).passed)
 
