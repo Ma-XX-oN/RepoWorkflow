@@ -105,8 +105,13 @@ def _legacy_context(request: dict, root: Path) -> dict:
 
   inputs = request.get("inputs")
   candidate = request.get("candidate")
+  requirements = request.get("requirements")
   if not isinstance(inputs, dict) or not isinstance(candidate, dict):
     return _error(request, "invalid-request", "invalid consumer context")
+  if not isinstance(requirements, dict) or any(
+    requirements.get(k) != [] for k in ("stages", "capabilities", "artifacts")
+  ):
+    return _error(request, "invalid-request", "unexpected consumer context requirements")
   allowed = os.environ.get("RWF_REPO_CI_WORKSPACE")
   workspace_name = inputs.get("consumer_workspace")
   if not allowed or not isinstance(workspace_name, str) or (
@@ -170,6 +175,8 @@ def _execute_consumer(request: dict, root: Path) -> dict:
   if set(inputs) != {"consumer_workspace", "result_path", "mode", "base"}:
     return _error(request, "invalid-request", "invalid consumer execution inputs")
   stages = requirements.get("stages")
+  if requirements.get("capabilities") != [] or requirements.get("artifacts") != []:
+    return _error(request, "invalid-request", "undeclared consumer requirement")
   if not isinstance(stages, list) or len(stages) != 1 or (
     not isinstance(stages[0], str) or not stages[0]
   ):
@@ -262,6 +269,8 @@ def _execute(request: dict, root: Path) -> dict:
     return _error(request, "invalid-request", "invalid execute envelope")
   stages = requirements.get("stages")
   groups = inputs.get("stage_groups")
+  if requirements.get("capabilities") != [] or requirements.get("artifacts") != []:
+    return _error(request, "invalid-request", "undeclared stage requirement")
   if (not isinstance(stages, list) or not isinstance(groups, dict)
       or len(stages) != len(set(x for x in stages if isinstance(x, str)))
       or not all(isinstance(x, str) and x for x in stages)
