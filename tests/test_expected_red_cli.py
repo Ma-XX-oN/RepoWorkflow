@@ -42,6 +42,12 @@ class ExpectedRedCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.last()["redStatus"], "RED")
         self.assertFalse(self.last()["reusable"])
+        if attempt == 0:
+          initial_fingerprint = self.last()["catalogueSHA256"]
+        else:
+          self.assertEqual(
+            self.last()["catalogueSHA256"], initial_fingerprint,
+          )
     source = self.root / ".ci/tests.json"
     data = json.loads(source.read_text())
     data["tests"][0]["issue-545-declared"]["expected-red"]["output-contains"] = "a different invariant"
@@ -49,6 +55,9 @@ class ExpectedRedCliTests(unittest.TestCase):
     changed = self.cli("test", "RED")
     self.assertEqual(changed.returncode, 2)
     self.assertEqual(self.last()["redStatus"], "FAIL")
+    self.assertNotEqual(
+      self.last()["catalogueSHA256"], initial_fingerprint,
+    )
     self.assertEqual(len((self.root / ".repoworkflow/validation/testResults-545.jsonl").read_text().splitlines()), 3)
 
   def test_missing_declaration_does_not_run_selected_test(self):
