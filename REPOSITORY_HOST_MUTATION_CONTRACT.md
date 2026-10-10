@@ -1,7 +1,8 @@
 # Portable Repository-Host Mutation Contract
 
 Status: authoritative v1 contract for #81.  This is distinct from read-only
-`REPO_INFO_CONTRACT.md` and the native dependency adapter.
+`REPO_INFO_CONTRACT.md`, the native dependency adapter, and `repo-ci`
+execution/transport.  Mutation uses its own `repo-host` adapter entrypoint.
 
 ## 1. Boundary
 
