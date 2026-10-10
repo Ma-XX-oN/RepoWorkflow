@@ -25,6 +25,34 @@ def request(operation="capabilities", parameters=None, **overrides):
   return json.dumps(value)
 
 
+
+SHA = "a" * 40
+VALID_PARAMS = {
+  "issue.update": {"number": 12, "title": "New title"},
+  "issue.comment": {"number": 12, "body": "Comment"},
+  "pull_request.create": {
+    "source_ref": "refs/heads/work",
+    "target_ref": "refs/heads/main",
+    "expected_source_sha": SHA,
+    "title": "Proposal",
+    "body": "",
+    "draft": True,
+  },
+  "pull_request.update": {
+    "number": 13, "expected_head_sha": SHA, "draft": False,
+  },
+  "pull_request.merge": {
+    "number": 13, "tested_head_sha": SHA,
+    "expected_destination_sha": SHA,
+    "eligibility_ref": "verified-eligibility",
+    "authorization_ref": "verified-authorization",
+  },
+  "check.publish": {
+    "candidate_sha": SHA, "context": "trusted/context",
+    "verification_ref": "verified-proof", "conclusion": "failure",
+  },
+}
+
 class GitHubHostBootstrapTests(unittest.TestCase):
 
   def test_capabilities_denies_every_mutation(self):
@@ -46,7 +74,7 @@ class GitHubHostBootstrapTests(unittest.TestCase):
   def test_every_mutation_fails_closed(self):
     for operation in MODULE.OPERATIONS:
       with self.subTest(operation=operation):
-        status, stdout, stderr = MODULE.run(request(operation))
+        status, stdout, stderr = MODULE.run(request(operation, VALID_PARAMS[operation]))
         self.assertNotEqual(status, 0)
         self.assertEqual(stdout, "")
         self.assertEqual(json.loads(stderr)["error"], "unsupported")
@@ -74,6 +102,35 @@ class GitHubHostBootstrapTests(unittest.TestCase):
           "schema_version", "operation", "repository", "request_id",
           "error", "message",
         })
+
+
+  def test_exact_mutation_parameter_grammar(self):
+    for operation, params in VALID_PARAMS.items():
+      with self.subTest(operation=operation):
+        status, stdout, stderr = MODULE.run(request(operation, params))
+        self.assertEqual(status, 2)
+        self.assertEqual(stdout, "")
+        self.assertEqual(json.loads(stderr)["error"], "unsupported")
+        for mutation in [
+          {**params, "unexpected": "x"},
+          {key: value for key, value in params.items()
+           if key != next(iter(params))},
+        ]:
+          result = MODULE.run(request(operation, mutation))
+          self.assertEqual(result[0], 2)
+          self.assertEqual(json.loads(result[2])["error"], "invalid_request")
+
+  def test_untrusted_sha_types_and_values_are_rejected(self):
+    for bad in ["A" * 40, "a" * 39, "g" * 40, True, 1, None, []]:
+      with self.subTest(bad=bad):
+        params = {**VALID_PARAMS["pull_request.merge"],
+                  "tested_head_sha": bad}
+        status, stdout, stderr = MODULE.run(
+          request("pull_request.merge", params)
+        )
+        self.assertEqual(status, 2)
+        self.assertEqual(stdout, "")
+        self.assertEqual(json.loads(stderr)["error"], "invalid_request")
 
   def test_deterministic_retries_are_read_only(self):
     original = request(request_id="repeat-1")
