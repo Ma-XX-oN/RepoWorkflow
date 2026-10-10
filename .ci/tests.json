@@ -151,6 +151,10 @@
       "issue-545-results-metadata": {
         "type": "regression",
         "name": "tests.test_test_results_metadata"
+      },
+      "issue-545-dirty-rename": {
+        "type": "regression",
+        "name": "tests.test_test_dirty_rename"
       }
     }
   ],
