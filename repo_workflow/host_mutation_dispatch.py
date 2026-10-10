@@ -184,11 +184,12 @@ def _validate_result(reply, request):
   return reply
 
 
-def _invoke(command, request, timeout):
+def _invoke(command, request, timeout, cwd=None):
   try:
     run = subprocess.run(
       command, input=json.dumps(request, sort_keys=True) + "\n",
       capture_output=True, text=True, timeout=timeout, check=False,
+      cwd=cwd,
     )
   except (OSError, subprocess.TimeoutExpired) as error:
     raise HostMutationError(
@@ -220,7 +221,7 @@ def _invoke(command, request, timeout):
   return _validate_result(reply, request)
 
 
-def dispatch(command, request, *, timeout=30):
+def dispatch(command, request, *, timeout=30, cwd=None):
   """Preserve semantic request and fail closed on provider errors."""
   _validate_request(request)
   if type(command) is not list or not command or any(
@@ -230,10 +231,10 @@ def dispatch(command, request, *, timeout=30):
   if request["operation"] != "capabilities":
     capability = dict(request, operation="capabilities", parameters={})
     _validate_request(capability)
-    caps = _invoke(command, capability, timeout)["result"]["operations"]
+    caps = _invoke(command, capability, timeout, cwd=cwd)["result"]["operations"]
     if not caps[request["operation"]]:
       raise HostMutationError("capability unavailable", "unsupported")
-  return _invoke(command, request, timeout)
+  return _invoke(command, request, timeout, cwd=cwd)
 
 
 def dispatch_configured(root, request, *, timeout=30):
@@ -261,7 +262,7 @@ def dispatch_configured(root, request, *, timeout=30):
       "cannot establish local repository state", "invalid_request",
     ) from error
   try:
-    return dispatch(command, request, timeout=timeout)
+    return dispatch(command, request, timeout=timeout, cwd=root)
   finally:
     try:
       after = repository_state(root)
