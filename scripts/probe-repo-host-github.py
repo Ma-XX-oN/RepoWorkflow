@@ -13,7 +13,6 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-import uuid
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,9 +143,25 @@ def main() -> int:
                      run + "-stale", stale, permitted=False)
     if refused["error"] != "conflict":
       raise RuntimeError("stale PR head did not conflict")
-    for op in ("pull_request.merge", "check.publish"):
-      invoke(args.repository, op, run + "-" + op,
-             {}, permitted=False)
+    target = gh(args.repository, "git/ref/heads/"
+                + args.target_ref.removeprefix("refs/heads/"))
+    refused_params = {
+      "pull_request.merge": {
+        "number": created_pr, "tested_head_sha": head_sha,
+        "expected_destination_sha": target["object"]["sha"],
+        "eligibility_ref": "unverified-probe",
+        "authorization_ref": "unverified-probe",
+      },
+      "check.publish": {
+        "candidate_sha": head_sha, "context": "rwf/probe",
+        "verification_ref": "unverified-probe", "conclusion": "success",
+      },
+    }
+    for op, params in refused_params.items():
+      refused = invoke(args.repository, op, run + "-" + op,
+                       params, permitted=False)
+      if refused["error"] != "unsupported":
+        raise RuntimeError(op + " did not fail closed")
     print(json.dumps({
       "result": "PASS", "repository": args.repository,
       "issue": args.sandbox_issue, "pr": created_pr,
