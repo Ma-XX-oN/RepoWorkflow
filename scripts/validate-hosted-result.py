@@ -82,9 +82,9 @@ def validate_result(
       raw = selection.read_text(encoding="utf-8")
     except OSError as error:
       raise ValueError("hosted RED/GREEN selection missing") from error
-    selected = raw.removesuffix("\\n")
-    if not selected or raw not in {selected, selected + "\\n"} or (
-      "\\n" in selected or "\\r" in selected
+    selected = raw.removesuffix("\n")
+    if not selected or raw not in {selected, selected + "\n"} or (
+      "\n" in selected or "\r" in selected
     ):
       raise ValueError("hosted RED/GREEN selection is malformed")
     if [group["group"] for group in groups] != [selected]:
