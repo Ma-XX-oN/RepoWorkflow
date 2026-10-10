@@ -85,6 +85,10 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      },
+      "issue-629-certification-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue629_certification_matrix"
       }
     },
     {
