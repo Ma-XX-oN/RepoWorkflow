@@ -29,6 +29,7 @@ class FakeGitHub:
     self.issue_state = {"number": 3, "title": "Old", "state": "open"}
     self.comments = []
     self.pr = {
+      "user": {"login": "trusted"},
       "number": 7, "head": {"sha": SHA, "ref": "work"},
       "base": {"sha": OTHER, "ref": "main"}, "state": "open",
       "draft": True, "title": "Original", "body": "",
@@ -96,11 +97,12 @@ class FakeGitHub:
   def post(self, path, body):
     self.writes.append(("POST", path, dict(body)))
     if path == "issues/3/comments":
-      item = {"id": 123, **body}
+      item = {"id": 123, "user": {"login": "trusted"}, **body}
       self.comments.append(item)
       return item
     if path == "pulls":
       self.pr = {
+        "user": {"login": "trusted"},
         "number": 7, "head": {"sha": SHA, "ref": "work"},
         "base": {"sha": OTHER, "ref": "main"},
         "state": "open", "title": body["title"],
