@@ -90,21 +90,19 @@
       "id": "M10",
       "requirement": "Canonical per-issue testing log write",
       "environment": "CLI",
-      "test": "test_canonical_log_write",
-      "implemented": false,
+      "test": "tests.test_issue629_stage_cardinality.LocalStageCardinalityTests.test_one_temporary_group_runs_and_records_exact_source",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "pending_reason": "Executable CLI integration not present in #629 source branch"
+      "evidence": null
     },
     {
       "id": "M11",
       "requirement": "Local results reads canonical log",
       "environment": "CLI",
-      "test": "test_local_results_read",
-      "implemented": false,
+      "test": "tests.test_issue629_stage_cardinality.LocalStageCardinalityTests.test_one_real_local_record_returned_exactly",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "pending_reason": "Executable CLI integration not present in #629 source branch"
+      "evidence": null
     },
     {
       "id": "M12",
@@ -158,11 +156,10 @@
       "id": "M17",
       "requirement": "Expected RED vs unexpected exit and infrastructure failures",
       "environment": "CLI",
-      "test": "test_expected_red_classification",
-      "implemented": false,
+      "test": "tests.test_issue629_red_outcome.RedOutcomeAcceptanceTests.test_expected_exit_and_stderr_or_stdout_signature_is_red",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "pending_reason": "Executable CLI integration not present in #629 source branch"
+      "evidence": null
     },
     {
       "id": "M18",
