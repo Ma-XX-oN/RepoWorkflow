@@ -23,7 +23,7 @@ class RedClassificationContract(unittest.TestCase):
     self.assertEqual(result.status, "RED")
 
   def test_unexpected_pass_is_not_red(self):
-    result = self.decide(RedExpectation(1, "AssertionError"), 0)
+    result = self.decide(RedExpectation(1, "AssertionError: intended invariant"), 0)
     self.assertEqual(result.status, "NOT_RED")
 
   def test_missing_declaration_is_incomplete_even_with_failure(self):
@@ -36,6 +36,10 @@ class RedClassificationContract(unittest.TestCase):
       RedExpectation(-1, "AssertionError"),
       RedExpectation(True, "AssertionError"),
       RedExpectation(1, ""),
+      RedExpectation(1, " "),
+      RedExpectation(1, "FAILED"),
+      RedExpectation(1, "FAILED (failures=1)"),
+      RedExpectation(1, "Error:"),
     ):
       with self.subTest(declaration=declaration):
         self.assertEqual(
