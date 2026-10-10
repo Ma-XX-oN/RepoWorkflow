@@ -54,9 +54,16 @@ Existing claim: 6099480122.  Existing draft PR: #616.  Never merge.
      `refs/heads/rwf97-sandbox-source`;
    - `RWF97_SANDBOX_TARGET_REF`:
      `refs/heads/rwf97-sandbox-target`;
-   - `RWF97_AUTH_EXECUTABLE`: absolute trusted verifier path.
+   - `RWF97_AUTH_EXECUTABLE`: absolute trusted verifier path;
+   - `RWF97_AUTH_SHA256`: lowercase SHA-256 of the reviewed verifier.
 
 ## Trusted authorization is separate from the GitHub token
+
+The protected external verifier must be owned by a different OS
+identity than the job runner, not writable by the runner, and installed
+outside the PR checkout.  The job validates its administrator-pinned
+SHA-256 before invoking it.  Keep issuer private keys and policy writes
+in a separate protection domain that the runner cannot modify.
 
 The protected external verifier must resolve the #80 grant against a
 trusted issuer, authenticated actor, delegation, standing non-consuming
