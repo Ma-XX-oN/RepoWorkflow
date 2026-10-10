@@ -93,7 +93,7 @@ def original_candidate_provider(root, starting_sha, token, fetch=github_get):
     elif (
       len(files) == 1
       and re.fullmatch(
-        r"\\.repoworkflow/validation/testResults-[1-9][0-9]*\\.jsonl",
+        r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl",
         files[0],
       )
       and commit.get("commit", {}).get("message", "").split("\n", 1)[0].startswith(
