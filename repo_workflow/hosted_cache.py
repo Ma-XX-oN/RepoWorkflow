@@ -14,6 +14,8 @@ import re
 import subprocess
 from urllib.request import Request, urlopen
 
+from .ci_invocation import original_candidate
+
 
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
@@ -117,14 +119,15 @@ def verified_hosted_passes(
         or record.get("branch") != branch
       ):
         return set()
-      if _git(root, "rev-parse", invoked + "^") != revision:
+      invocation_parent = _git(root, "rev-parse", invoked + "^")
+      if original_candidate(root, invocation_parent) != revision:
         return set()
       if _git(root, "diff-tree", "--no-commit-id", "--name-only",
               "-r", invoked).splitlines() != [".ci/run"]:
         return set()
       if _git(root, "show", invoked + ":.ci/run") != (
         ("GREEN-testing" if stage == "GREEN" else "temp-testing")
-        + " " + _git(root, "rev-parse", invoked + "^")
+        + " " + invocation_parent
       ):
         return set()
       provider = lookup(repository, run_id, token)
