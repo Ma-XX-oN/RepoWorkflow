@@ -105,6 +105,10 @@
       "issue-94-github-policy": {
         "type": "regression",
         "name": "tests.test_repo_ci_github_policy"
+      },
+      "issue-67-github-migration": {
+        "type": "regression",
+        "name": "tests.test_repo_ci_github_migration"
       }
     },
     {
