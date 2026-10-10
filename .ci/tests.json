@@ -97,6 +97,10 @@
       "issue-69-durable-evidence": {
         "type": "regression",
         "name": "tests.test_validation_store"
+      },
+      "issue-70-evidence-import": {
+        "type": "regression",
+        "name": "tests.test_validation_import"
       }
     },
     {
