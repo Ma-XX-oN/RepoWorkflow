@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "tests" / "fixtures" / "issue629_matrix.json"
-EXPECTED = {f"M{i:02d}" for i in range(1, 13)}
+EXPECTED = {f"M{i:02d}" for i in range(1, 30)}
 PROVIDER = {"provider", "integration"}
 
 
