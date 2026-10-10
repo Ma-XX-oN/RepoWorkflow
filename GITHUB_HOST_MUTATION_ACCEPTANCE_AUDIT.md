@@ -237,6 +237,40 @@ treat connector administration or authenticated reads as job write access.
   remain pending; do not claim certification merely from CI mock
   tests or a successful read-only configuration probe.
 
+## Architectural simplification: sandbox-native hosted execution
+
+The earlier instructions requesting a dedicated self-hosted runner and an
+external cross-repository App/PAT are now SUPERSEDED as the minimum setup.
+The selected least-infrastructure path is:
+
+- Host a small, independently reviewed workflow on the disposable
+  sandbox repository's protected main branch using `ubuntu-latest`.
+- Grant only that SANDBOX job's native `GITHUB_TOKEN` `contents:write`,
+  `issues:write`, `pull-requests:write`.  No token from RepoWorkflow
+  needs permission to write the sandbox.
+- Gate the job with a separate protected `rwf97-acceptance` environment,
+  independent reviewer, prevent-self-review and exact main branch.
+- Fetch #97's PUBLIC candidate by exact independently approved SHA;
+  run the shipped Python adapter with the sandbox's token, and never
+  run the candidate's workflow definitions.
+- Resolve a #80 verifier from the sandbox's independently protected
+  branch, verify its administrator-pinned SHA-256, and place it outside
+  the adapter checkout.  Verifier artifact identity alone is NOT
+  authorization: the verifier must validate independently issued
+  scope, issuer/authentication, current revocation, lifetime, standing
+  grant and complete request digest for EACH mutation.
+- No new production token secret, GitHub App, separate trusted machine
+  or issuer *service* is inherently required.  An authenticated,
+  authoritative standing-policy verifier/source IS required and has
+  not yet been proven to exist.
+- Tested templates: `examples/issue-97-sandbox-hosted.workflow.yml`
+  and `examples/issue-97-sandbox-verify-environment.py`.
+  Exact setup: `ISSUE_97_LIVE_ACCEPTANCE_SETUP.md`.
+
+The existing opt-in RepoWorkflow workflow remains as a more complex
+OPTIONAL architecture.  Do not provision its self-hosted runner/token
+merely to satisfy #97.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
