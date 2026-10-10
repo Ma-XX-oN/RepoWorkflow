@@ -70,6 +70,31 @@ contract-mandated capability advantage and adds persistent runner risk.
    Source and target are dedicated non-main sandbox branches and the
    issue is explicitly marked disposable.
 
+## Limits of process-level isolation
+
+This design does NOT allow arbitrary hostile PR code to be trusted with
+a GitHub write credential.  The tested adapter process receives the
+sandbox-scoped token.  Malicious code at that approved commit could
+ignore verifier decisions, alter its own source, modify same-user
+temporary files or call `gh api` directly.  A verifier file moved out
+of the checkout and checked by SHA-256 does NOT make it inaccessible
+to that process.  A dedicated runner alone would not solve this:
+the malicious process would still have its provider token.
+
+The independent reviewer must review the COMPLETE exact candidate
+commit and trusted workflow, not just approve an environment.  Keep
+the token restricted to a disposable sandbox and enforce protected
+main/tag rules in GitHub; the resulting provider blast radius is
+bounded.  Never use this test mode to certify that unreviewed code
+cannot bypass authorization in production.
+
+If the threat model requires provider-side authorization despite
+malicious candidate code, a separate trusted credential-owning
+broker/enforcer and no raw GitHub write token in the candidate process
+are necessary.  That is a materially different subsystem, not
+satisfied by merely registering a self-hosted runner.  It is NOT
+introduced or falsely certified by this #97 acceptance harness.
+
 ## Missing authority is still real, but smaller than a runner
 
 #80 completed documentation and an acceptance matrix.  We have not
