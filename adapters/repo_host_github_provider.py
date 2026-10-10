@@ -79,6 +79,9 @@ class GitHubBackend:
     self.repository = repository
     self.prefix = "repos/" + repository + "/"
 
+  def identity(self) -> dict:
+    return _object(_json_call("GET", "user"), {"login"})
+
   def get(self, path: str):
     return _json_call("GET", self.prefix + path)
 
