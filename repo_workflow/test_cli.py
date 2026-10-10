@@ -348,7 +348,7 @@ def run_test(
     if not declaration_error:
       try:
         command = group_command(root, selected)
-      except (SelfCiError, KeyError, TypeError, ValueError):
+      except (SelfCiError, AttributeError, KeyError, TypeError, ValueError):
         declaration_error = "selected-test-cannot-execute"
     match = re.fullmatch(
       r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
