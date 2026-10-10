@@ -44,6 +44,9 @@ class TestLaunchFailures(unittest.TestCase):
     self.assertEqual(record["result"], "incomplete")
     self.assertFalse(record["reusable"])
     self.assertIsNone(record["groups"][0]["exit_code"])
+    read = self.cli("test", "results")
+    self.assertEqual(read.returncode, 0, read.stderr)
+    self.assertEqual(json.loads(read.stdout.splitlines()[-1]), record)
 
   def test_temporary_missing_executable_is_incomplete_evidence(self):
     self._missing_executable_catalogue(
@@ -58,6 +61,9 @@ class TestLaunchFailures(unittest.TestCase):
     self.assertEqual(record["result"], "incomplete")
     self.assertFalse(record["reusable"])
     self.assertIsNone(record["groups"][0]["exit_code"])
+    read = self.cli("test", "results")
+    self.assertEqual(read.returncode, 0, read.stderr)
+    self.assertEqual(json.loads(read.stdout.splitlines()[-1]), record)
 
 
 if __name__ == "__main__":
