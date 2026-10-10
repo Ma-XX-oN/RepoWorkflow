@@ -66,12 +66,13 @@ class HostedCacheTests(unittest.TestCase):
     self.git("commit", "-qm", "invoke")
     return self.git("rev-parse", "HEAD")
 
-  def publish(self, *records):
+  def publish(self, *records, run_number=1234):
     path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(x) + "\n" for x in records))
     self.git("add", str(path.relative_to(self.root)))
-    self.git("commit", "-qm", "test: publish hosted evidence from run 1234")
+    self.git("commit", "-qm",
+             f"test: publish hosted evidence from run {run_number}")
     self.second_invocation = self.invoke("GREEN-testing")
 
   def reusable(self, record_override=None, provider_override=None):
@@ -127,6 +128,18 @@ class HostedCacheTests(unittest.TestCase):
       "result": "failed",
       "groups": [{"group": "issue-545-two", "exit_code": 1}]})
     self.assertEqual(self.reusable(), {"issue-545-one"})
+
+  def test_publication_run_must_match_provider_record(self):
+    self.publish(self.record, run_number=4321)
+    self.assertEqual(self.reusable(), set())
+
+  def test_invocation_parent_must_be_original_candidate(self):
+    forged = {**self.record}
+    self.publish(forged)
+    # Existing provider run identity alone must not authorise an unrelated
+    # original-candidate ancestry.  The real Git parent is independently checked.
+    self.candidate = "f" * 40
+    self.assertEqual(self.reusable(), set())
 
   def test_first_request_without_publication_is_cache_miss(self):
     self.assertEqual(verified_hosted_passes(
