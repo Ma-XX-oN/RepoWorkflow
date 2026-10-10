@@ -194,6 +194,15 @@ def results(root: Path, *, remote: bool) -> int:
       field in record for field in ("testSHA", "kind", "result", "runner")
     ):
       raise TestCommandError("incomplete testing log record")
+    if (
+      not isinstance(record["testSHA"], str)
+      or re.fullmatch(r"[0-9a-f]{40}", record["testSHA"]) is None
+      or any(
+        not isinstance(record[field], str) or not record[field].strip()
+        for field in ("kind", "result", "runner")
+      )
+    ):
+      raise TestCommandError("invalid testing log metadata")
     validated.append(record)
   for record in validated:
     print(json.dumps(record, sort_keys=True))
