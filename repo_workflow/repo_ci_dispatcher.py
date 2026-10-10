@@ -163,7 +163,7 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
       cwd=config_root,
-      timeout=120,
+      timeout=3600 if operation == "execute" else 120,
       check=False,
     )
   except (OSError, subprocess.TimeoutExpired) as exc:
