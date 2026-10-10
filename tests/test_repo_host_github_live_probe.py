@@ -24,19 +24,24 @@ class LiveProbeCleanupTests(unittest.TestCase):
   def run_probe(self, cleanup_code=0):
     sequence = []
     seen_issues = set()
+    state = {"title": "RWF #97 SANDBOX Before",
+             "pr_title": "Uncreated", "pr_state": "open"}
 
     def provider_read(repository, path):
       sequence.append("GET " + path)
       if path == "":
         return {"default_branch": "main"}
       if path.startswith("issues/"):
-        return {"state": "open", "title": "RWF #97 SANDBOX Before"}
+        return {"state": "open", "title": state["title"]}
       if path.startswith("git/ref/heads/"):
         return {"object": {"sha": (
           "b" * 40 if path.endswith("target") else SHA
         )}}
       if path == "pulls/17":
-        return {"state": "closed"}
+        return {"state": state["pr_state"],
+                "title": state["pr_title"], "draft": True,
+                "head": {"sha": SHA, "ref": "rwf97-sandbox-source"},
+                "base": {"ref": "rwf97-sandbox-target"}}
       raise AssertionError("unexpected provider read " + path)
 
     def adapter(repository, operation, identity, params, permitted=True):
@@ -53,18 +58,23 @@ class LiveProbeCleanupTests(unittest.TestCase):
       if operation == "issue.update":
         status = "unchanged" if identity in seen_issues else "applied"
         seen_issues.add(identity)
+        state["title"] = params["title"]
         return {"result": {"title": params["title"]},
                 "status": status}
       if operation == "issue.comment":
         return {"result": {"comment_id": "9"}, "status": "unchanged"}
       if operation == "pull_request.create":
+        state["pr_title"] = params["title"]
         return {"result": {"number": 17}, "status": "unchanged"}
       if operation == "pull_request.update":
+        state["pr_title"] = params["title"]
         return {"result": {}, "status": "unchanged"}
       raise AssertionError("unrecognized operation " + operation)
 
     def cleanup(*args, **kwargs):
       sequence.append("CLOSE PR")
+      if cleanup_code == 0:
+        state["pr_state"] = "closed"
       return SimpleNamespace(returncode=cleanup_code)
 
     args = [
