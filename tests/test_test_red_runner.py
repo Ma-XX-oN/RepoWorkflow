@@ -46,6 +46,7 @@ class RedRunnerContract(unittest.TestCase):
     self.assertEqual(evidence["redStatus"], "RED")
     self.assertEqual(evidence["groups"][0]["exit_code"], 3)
     self.assertFalse(evidence["reusable"])
+    self.assertEqual(evidence["branch"], self.git("branch", "--show-current"))
 
   def test_unexpected_success_is_not_red(self):
     status, evidence, _ = self.run_group(
