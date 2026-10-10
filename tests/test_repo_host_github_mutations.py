@@ -30,7 +30,8 @@ class FakeGitHub:
     self.comments = []
     self.pr = {
       "user": {"login": "trusted"},
-      "number": 7, "head": {"sha": SHA, "ref": "work"},
+      "number": 7, "head": {"sha": SHA, "ref": "work",
+               "repo": {"full_name": "owner/repo"}},
       "base": {"sha": OTHER, "ref": "main"}, "state": "open",
       "draft": True, "title": "Original", "body": "",
     }
@@ -103,7 +104,8 @@ class FakeGitHub:
     if path == "pulls":
       self.pr = {
         "user": {"login": "trusted"},
-        "number": 7, "head": {"sha": SHA, "ref": "work"},
+        "number": 7, "head": {"sha": SHA, "ref": "work",
+               "repo": {"full_name": "owner/repo"}},
         "base": {"sha": OTHER, "ref": "main"},
         "state": "open", "title": body["title"],
         "body": body["body"], "draft": body["draft"],
@@ -256,6 +258,20 @@ class OrdinaryMutationTests(unittest.TestCase):
     with self.assertRaises(ProviderError) as caught:
       apply(req("pull_request.create", p), self.backend)
     self.assertEqual(caught.exception.code, "unknown_outcome")
+    self.assertEqual(len(self.backend.writes), 1)
+
+  def test_pr_replay_rejects_foreign_repository_same_ref_and_sha(self):
+    p = {
+      "source_ref": "refs/heads/work", "target_ref": "refs/heads/main",
+      "expected_source_sha": SHA, "title": "New PR",
+      "body": "", "draft": True,
+    }
+    request = req("pull_request.create", p)
+    apply(request, self.backend)
+    self.backend.pr["head"]["repo"]["full_name"] = "other/repo"
+    with self.assertRaises(ProviderError) as caught:
+      apply(request, self.backend)
+    self.assertEqual(caught.exception.code, "conflict")
     self.assertEqual(len(self.backend.writes), 1)
 
   def test_pr_create_rejects_stale_source(self):
