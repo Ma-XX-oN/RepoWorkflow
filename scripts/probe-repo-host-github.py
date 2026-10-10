@@ -36,9 +36,9 @@ def gh(repository: str, path: str) -> dict:
 def verify_reservation(repository: str, operation: str,
                        request_id: str, parameters: dict) -> None:
   """Independently verify GitHub's persisted request digest and tag."""
-  identity = repository + "\\0" + operation + "\\0" + request_id
+  identity = chr(0).join((repository, operation, request_id))
   ref_name = "rwf-host-request-" + hashlib.sha256(
-    identity.replace("\\\\0", "\\0").encode("utf-8")
+    identity.encode("utf-8")
   ).hexdigest()
   expected = {
     "schema_version": 1, "operation": operation,
