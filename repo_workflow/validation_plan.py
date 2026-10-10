@@ -203,8 +203,9 @@ def dispatch_missing(
     if stage["outcome"] != "unavailable" and not stage["complete"]:
       raise ValidationPlanError("inconsistent provider completeness")
     if stage["outcome"] == "unavailable":
-      if "exit_code" in stage:
-        raise ValidationPlanError("unavailable stage has a process result")
+      if ("exit_code" in stage
+          and type(stage["exit_code"]) is not int):
+        raise ValidationPlanError("invalid unavailable process exit code")
     elif type(stage.get("exit_code")) is not int:
       raise ValidationPlanError("completed stage lacks an exact exit code")
     elif (stage["outcome"] == "succeeded") != (stage["exit_code"] == 0):
