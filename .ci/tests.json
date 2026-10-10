@@ -191,6 +191,10 @@
       "issue-541-hosted-plan-binding": {
         "type": "regression",
         "name": "tests.test_on_demand_plan"
+      },
+      "issue-548-hosted-cache-provenance": {
+        "type": "regression",
+        "name": "tests.test_hosted_cache"
       }
     }
   ],
