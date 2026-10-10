@@ -23,7 +23,8 @@ class ExpectedRedCliTests(unittest.TestCase):
       "class Smoke(unittest.TestCase):\n"
       "  def test_pass(self):\n"
       f"    sys.stderr.write({output!r})\n"
-      f"    sys.exit({exit_code})\n"
+      f"    sys.exit({exit_code})\n",
+      encoding="utf-8",
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "declare RED source")
