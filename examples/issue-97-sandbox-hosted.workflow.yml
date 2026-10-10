@@ -5,6 +5,12 @@ name: Issue 97 sandbox-hosted Python adapter acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: accept
+        options: [accept, deny]
 
 concurrency:
   group: rwf97-sandbox-hosted
@@ -86,6 +92,7 @@ jobs:
           test -n "$REVOCATIONS"
           echo "Independent signed authority inputs are configured"
       - name: Run shipped Python adapter against sandbox-only resources
+        if: inputs.mode == 'accept'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,3 +123,26 @@ jobs:
             --source-ref "$SOURCE_REF" \
             --target-ref "$TARGET_REF" \
             --run-id "rwf97-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Test signed revocation or expired policy rejection
+        if: inputs.mode == 'deny'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RWF97_ISSUER_PUBLIC_KEY: ${{ vars.RWF97_ISSUER_PUBLIC_KEY }}
+          RWF97_ISSUER_AUTHORITY: ${{ vars.RWF97_ISSUER_AUTHORITY }}
+          RWF97_APPROVED_SHA: ${{ vars.RWF97_APPROVED_SHA }}
+          RWF97_APPROVED_GRANT_ID: ${{ vars.RWF97_APPROVED_GRANT_ID }}
+          RWF97_SIGNED_REVOCATIONS: ${{ vars.RWF97_SIGNED_REVOCATIONS }}
+        run: |
+          set -euo pipefail
+          RWF_REPO_HOST_AUTH_COMMAND="$(python - <<'PY'
+          import json
+          import os
+          print(json.dumps([
+            os.environ["RUNNER_TEMP"] +
+            "/rwf97-trusted/verify-authority",
+          ]))
+          PY
+          )"
+          export RWF_REPO_HOST_AUTH_COMMAND
+          python "$RUNNER_TEMP/rwf97-candidate/scripts/probe-repo-host-github-private-sandbox-signed-deny.py"
