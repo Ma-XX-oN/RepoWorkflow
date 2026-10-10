@@ -151,6 +151,28 @@ def _parse(raw: str) -> dict:
   return value
 
 
+
+def _recovered_identities(raw: str) -> dict:
+  try:
+    value = json.loads(raw, object_pairs_hook=_unique_object)
+  except (json.JSONDecodeError, ValueError, ProtocolError):
+    value = {}
+  if not isinstance(value, dict):
+    value = {}
+  operation = value.get("operation")
+  repository = value.get("repository")
+  request_id = value.get("request_id")
+  return {
+    "operation": operation if isinstance(operation, str) else None,
+    "repository": repository if isinstance(repository, str) and (
+      bool(REPOSITORY.fullmatch(repository))
+    ) else None,
+    "request_id": request_id if isinstance(request_id, str) and (
+      bool(REQUEST_ID.fullmatch(request_id))
+    ) else None,
+  }
+
+
 def run(raw: str) -> tuple[int, str, str]:
   request = None
   try:
@@ -172,11 +194,12 @@ def run(raw: str) -> tuple[int, str, str]:
     }
     return 0, json.dumps(result, separators=(",", ":")) + "\n", ""
   except ProtocolError as exc:
+    identity = request if request is not None else _recovered_identities(raw)
     result = {
       "schema_version": 1,
-      "operation": request["operation"] if request else None,
-      "repository": request["repository"] if request else None,
-      "request_id": request["request_id"] if request else None,
+      "operation": identity["operation"],
+      "repository": identity["repository"],
+      "request_id": identity["request_id"],
       "error": exc.category,
       "message": str(exc),
     }
