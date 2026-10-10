@@ -247,13 +247,6 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
   revision = revocations.get("revision")
   if type(revision) is not int or revision < 0:
     raise ValueError("invalid policy revision")
-  binding = grant["binding"]
-  if not isinstance(binding, dict) or (
-    binding.get("policy_revision") != revision
-  ) or not binding.get("issuer_signature_ref") or not (
-    binding.get("source_record_sha")
-  ):
-    raise ValueError("stale or unbound standing policy")
   revoked = revocations.get("revoked_grants")
   if not isinstance(revoked, list) or not all(
     isinstance(item, str) for item in revoked
@@ -261,6 +254,13 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
     raise ValueError("invalid revocation facts")
   if grant["grant_id"] in revoked:
     raise ValueError("revoked grant")
+  binding = grant["binding"]
+  if not isinstance(binding, dict) or (
+    binding.get("policy_revision") != revision
+  ) or not binding.get("issuer_signature_ref") or not (
+    binding.get("source_record_sha")
+  ):
+    raise ValueError("stale or unbound standing policy")
   approved_grant = os.environ.get("RWF97_APPROVED_GRANT_ID")
   if not approved_grant or grant["grant_id"] != approved_grant:
     raise ValueError("grant not independently approved")
