@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -267,6 +268,48 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
           actual = (completed.stdout.strip() if subcommand == "mode"
                     else json.loads(completed.stdout))
           self.assertEqual(actual, expected)
+
+      transport_root = Path(td)
+      publish_source = transport_root / "repoworkflow-result"
+      publish_source.mkdir()
+      shutil.copyfile(result_dir / "local.json", publish_source / "local.json")
+      env.update({
+        "RWF_REPO_CI_TRANSPORT_ROOT": str(transport_root),
+        "RWF_CANDIDATE": fixture.head(),
+        "RWF_BASE": value["candidate"]["base"],
+        "RWF_MATRIX": json.dumps({"include": [{"id": "local"}]}),
+      })
+      transport_cli = str(
+        ROOT / "repo_workflow" / "repo_ci_github_result_machine.py"
+      )
+      published = subprocess.run(
+        [sys.executable, transport_cli, "publish", "--stage", "local"],
+        cwd=workspace, env=env, text=True, capture_output=True, timeout=30,
+      )
+      self.assertEqual(published.returncode, 0, published.stderr)
+      downloaded = (
+        transport_root / "downloaded-provider" /
+        "repoworkflow-provider-result-local"
+      )
+      downloaded.parent.mkdir()
+      shutil.copytree(
+        transport_root / "repoworkflow-provider-bundles" / "local", downloaded,
+      )
+      fetched = subprocess.run(
+        [sys.executable, transport_cli, "fetch-all"],
+        cwd=workspace, env=env, text=True, capture_output=True, timeout=30,
+      )
+      self.assertEqual(fetched.returncode, 0, fetched.stderr)
+      accepted = transport_root / "repoworkflow-results" / "stage-local" / "local.json"
+      self.assertEqual(accepted.read_bytes(), (result_dir / "local.json").read_bytes())
+      shutil.rmtree(accepted.parent)
+      (downloaded / "local.json").write_bytes(b"corrupted")
+      rejected = subprocess.run(
+        [sys.executable, transport_cli, "fetch-all"],
+        cwd=workspace, env=env, text=True, capture_output=True, timeout=30,
+      )
+      self.assertNotEqual(rejected.returncode, 0)
+      self.assertFalse(accepted.exists())
 
   def test_consumer_execute_rejects_changed_identity_and_unsafe_result(self):
     from tests.support import RepoFixture
