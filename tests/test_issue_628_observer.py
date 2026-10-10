@@ -1,4 +1,5 @@
 """Contract tests for the read-only GitHub-hosted #628 observer."""
+import base64
 from datetime import datetime, timedelta, timezone
 import importlib.util
 from pathlib import Path
@@ -80,11 +81,58 @@ class ObserverTests(unittest.TestCase):
           "html_url": "https://github.com/example/repo/actions/runs/88",
           "conclusion": "success",
         }]}
+      if "/commits/" in path:
+        return {"parents": [{"sha": "b" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      if "/contents/.ci/run" in path:
+        marker = "regression-testing " + "b" * 40 + "\n"
+        return {"encoding": "base64",
+                "content": base64.b64encode(marker.encode()).decode()}
       return {"jobs": [{"id": 9, "name": "validate",
                         "conclusion": "success"}]}
     report = self.invoke(response)
     self.assertEqual((report["run_count"], report["job_count"]), (1, 1))
-    self.assertEqual(report["runs"][0]["head_sha"], "a" * 40)
+    self.assertEqual(report["runs"][0]["invocation_sha"], "a" * 40)
+    self.assertEqual(report["runs"][0]["tested_sha"], "b" * 40)
+    self.assertEqual(report["executed_test_job_count"], 1)
+
+  def test_provider_commit_rejects_mixed_change(self):
+    def mixed(path, token):
+      return {"parents": [{"sha": "b" * 40}],
+              "files": [{"filename": ".ci/run"}, {"filename": "source"}]}
+    with self.assertRaisesRegex(observer.ObservationError, "dedicated"):
+      observer.verify_provider_request("/repos/example/repo",
+                                       "a" * 40, "token", mixed)
+
+  def test_provider_commit_rejects_merge(self):
+    def merge(path, token):
+      return {"parents": [{"sha": "b" * 40}, {"sha": "c" * 40}],
+              "files": [{"filename": ".ci/run"}]}
+    with self.assertRaisesRegex(observer.ObservationError, "single-parent"):
+      observer.verify_provider_request("/repos/example/repo",
+                                       "a" * 40, "token", merge)
+
+  def test_provider_marker_rejects_stale_candidate(self):
+    def stale(path, token):
+      if "/commits/" in path:
+        return {"parents": [{"sha": "b" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      return {"encoding": "base64", "content": base64.b64encode(
+        ("regression-testing " + "c" * 40 + "\n").encode()).decode()}
+    with self.assertRaisesRegex(observer.ObservationError, "candidate SHA"):
+      observer.verify_provider_request("/repos/example/repo",
+                                       "a" * 40, "token", stale)
+
+  def test_provider_marker_rejects_tamper(self):
+    def tampered(path, token):
+      if "/commits/" in path:
+        return {"parents": [{"sha": "b" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      return {"encoding": "base64", "content": base64.b64encode(
+        b"RED-testing wrong\n").decode()}
+    with self.assertRaisesRegex(observer.ObservationError, "invalid committed"):
+      observer.verify_provider_request("/repos/example/repo",
+                                       "a" * 40, "token", tampered)
 
   def test_incomplete_run_rejected(self):
     def pending(path, token):
