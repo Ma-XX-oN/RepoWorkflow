@@ -101,6 +101,10 @@
       "issue-97-auth-boundary": {
         "type": "regression",
         "name": "tests.test_repo_host_github_authority"
+      },
+      "issue-97-provider-transport": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_provider"
       }
     },
     {
