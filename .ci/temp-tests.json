@@ -9,6 +9,26 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-workflow-acceptance": {
+        "type": "temporary",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-541-hosted-plan-acceptance": {
+        "type": "temporary",
+        "name": "tests.test_on_demand_plan"
+      },
+      "issue-541-hosted-evidence-acceptance": {
+        "type": "temporary",
+        "name": "tests.test_hosted_result"
+      },
+      "issue-541-hosted-publisher-acceptance": {
+        "type": "temporary",
+        "name": "tests.test_publish_hosted_result"
+      }
+    }
+  ],
   "aliases": {}
 }
