@@ -112,6 +112,22 @@ class LocalIntegrationTests(unittest.TestCase):
       1,
     )
 
+  def test_unavailable_probe_records_incomplete_without_pass_evidence(self):
+    status, record, calls = self.execute(
+      probes={"probe-argv-limits.py": None},
+    )
+    self.assertEqual(status, 2)
+    self.assertEqual(calls, (1, 3))
+    self.assertEqual(record["result"], "incomplete")
+    self.assertFalse(record["reusable"])
+    self.assertIsNone(next(
+      item["exit_code"] for item in record["groups"]
+      if item["group"] == "argv-limits"
+    ))
+
+  def test_missing_probe_script_is_infrastructure_incomplete(self):
+    self.assertIsNone(_probe(self.root, "missing-probe.py"))
+
   def test_dirty_local_inputs_never_reusable(self):
     (self.root / "source.txt").write_text("dirty\n")
     status, record, _ = self.execute()
