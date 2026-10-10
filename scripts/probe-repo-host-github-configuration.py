@@ -13,6 +13,8 @@ import subprocess
 
 
 ROUTES = {
+  "repository_environments":
+    "repos/Ma-XX-oN/RepoWorkflow/environments",
   "sandbox_environment":
     "repos/Ma-XX-oN/RepoWorkflow/environments/rwf97-sandbox",
   "deployment_branches":
@@ -61,6 +63,14 @@ def main() -> int:
       except ValueError:
         observations[key]["status"] = "INVALID_PROVIDER_RESPONSE"
         continue
+      if key == "repository_environments" and isinstance(payload, dict):
+        observations[key]["total_count"] = payload.get("total_count")
+        items = payload.get("environments", [])
+        if isinstance(items, list):
+          observations[key]["sandbox_listed"] = any(
+            item.get("name") == "rwf97-sandbox"
+            for item in items if isinstance(item, dict)
+          )
       if key == "sandbox_environment" and isinstance(payload, dict):
         observations[key]["name_matches"] = (
           payload.get("name") == "rwf97-sandbox"
