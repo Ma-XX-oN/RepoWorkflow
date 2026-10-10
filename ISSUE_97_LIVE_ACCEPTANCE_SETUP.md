@@ -1,173 +1,166 @@
-# Issue #97 — Minimum Trusted Live Acceptance Architecture
+# Issue #97 — Disposable-000 Live Acceptance Setup
 
-Status: NOT DONE.  Claim 6099480122, draft PR #616; never merge.
+Status: setup implemented; authenticated positive writes still PENDING.
+Claim: 6099480122.  Existing draft PR: #616.  Never merge.
 
-## Decision (2026-10-10)
+## Actual provider-confirmed state (2026-10-10)
 
-Preferred: a GitHub-hosted Ubuntu runner in a disposable *sandbox*
-repository, invoked by a protected `workflow_dispatch` on sandbox
-`main`.  The job's own short-lived `GITHUB_TOKEN` has only
-`contents: write`, `issues: write`, and `pull-requests: write`
-within that sandbox.  No self-hosted runner, PAT or separately
-registered GitHub App is needed for this preferred path.  This
-requires actual provider write acceptance before we claim success.
+Sandbox: https://github.com/Ma-XX-oN/Disposable-000
+Visibility: PRIVATE.  Admin rights verified through connected GitHub.
+Default branch: main; no #97 adapter writes permitted there.
+Issue: #1, open, exact title `RWF #97 SANDBOX live-mutation fixture`.
+Branches: `rwf97-sandbox-source`, `rwf97-sandbox-target`, distinct
+commits.  Source SHA: `9bf44e1aaac2e49fe26949df3369c4fc10b462fc`.
+Draft PR #2: created, updated, then closed UNMERGED as fixture test.
 
-Workflow template:
-`examples/issue-97-sandbox-hosted.workflow.yml`.
-Trusted environment check template:
-`examples/issue-97-sandbox-verify-environment.py`.
+- Read-only private Actions probe completed:
+  https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38093124379
+  The actual environment list returned `total_count: 0`.
+- Actual Python adapter denial verification completed:
+  https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38093785174
+  It exercised all six operations.  Four were unauthorized and two
+  unsupported; remote before/after GitHub state was unchanged.
+- GitHub REST Rulesets API returned HTTP 403 with
+  "Upgrade to GitHub Pro or make this repository public to enable
+  this feature."  Keep the sandbox PRIVATE unless user says otherwise.
+- GitHub Free/Pro/Team required deployment reviewers are for PUBLIC
+  repositories.  Upgrading only to Pro would NOT provide independent
+  required environment reviewers on this private repository.
+- DO NOT purchase Enterprise or make the sandbox public solely to run
+  this isolated test.  The selected trust boundary is an OFFLINE-signed
+  #80 grant plus administrator-controlled GitHub Actions variables.
 
-The prior `.github/workflows/issue-97-live-mutation.yml` remains an
-OPTIONAL alternative.  It uses a separate sandbox credential and
-trusted runner, but those are NOT architectural prerequisites.
-Do not provision them just to use the preferred sandbox-native path.
+## Already installed; no dedicated runner or App key
 
-## Verified facts versus assumptions
+Sandbox's trusted main contains:
 
-- GitHub Actions in RepoWorkflow reported zero environments through
-  authenticated GET /environments with actions:read.  No protected
-  `rwf97-sandbox` environment currently exists in RepoWorkflow.
-  This says nothing about a future disposable sandbox repository.
-- The ordinary read-scoped PR token denied issue/PR create attempts.
-  It does NOT disprove a specifically approved sandbox job's
-  Issues/Pull requests/Contents write permissions.
-- The #80 source PR #614 supplies only the semantic authorization
-  contract and acceptance matrix.  No operational trusted issuer,
-  standing grant, revocation service or verifier was established.
-- A GitHub-hosted runner can execute Python and GitHub CLI.  A
-  separately registered self-hosted runner is not necessary.
-- A sandbox-owned GITHUB_TOKEN is repository-scoped; the template
-  never grants write access to RepoWorkflow/main or its real issues.
+- `.github/workflows/issue-97-sandbox-acceptance.yml`;
+- `trusted/rwf97/verify-authority`;
+- `trusted/rwf97/verify-environment.py` (optional richer plan);
+- `.github/workflows/rwf97-capability-audit.yml`;
+- `ACCEPTANCE.md` with fixture/provider observations.
 
-## Exact GitHub UI procedure — minimal preferred path
+PR #616 ships the candidate adapter, live provider acceptance probe,
+the offline issuer script and the test-only Ed25519 verifier.
+The sandbox workflow uses `ubuntu-latest` and its own short-lived
+`GITHUB_TOKEN` with `actions:read`, `contents:write`,
+`issues:write`, and `pull-requests:write`; that token is scoped
+to Disposable-000 and cannot write RepoWorkflow main.
 
-1. Use a NEW disposable GitHub repository, for example
-   `Ma-XX-oN/rwf97-acceptance-sandbox`.  Do not use RepoWorkflow,
-   an existing working repository or an unrelated testing project.
-   Set its default branch to `main`.  Ensure Actions is enabled.
-2. Open sandbox -> Settings -> Rules -> Rulesets and protect `main`.
-   Reject force pushes and deletion; require independent review for
-   changes to the trusted workflow, verifier, policy and fixtures.
-   Protect `rwf-host-request-*` tags against update/deletion while
-   allowing their initial creation.  Verify rules apply to the
-   GITHUB_TOKEN installation principal, not only human writers.
-3. Open sandbox -> Settings -> Environments -> New environment.
-   Name it `rwf97-acceptance`.  Require an independent reviewer and
-   Prevent self-review.  Restrict deployments to exactly `main`.
-   Disable administrative bypass if the plan permits it.
-4. On the sandbox's protected `main`, install the reviewed files:
-   - `.github/workflows/issue-97-sandbox-acceptance.yml`, copied
-     from `examples/issue-97-sandbox-hosted.workflow.yml`;
-   - `trusted/rwf97/verify-environment.py`, copied from
-     `examples/issue-97-sandbox-verify-environment.py`;
-   - `trusted/rwf97/verify-authority`, an independently reviewed
-     and functioning #80 authorization verifier.  Its code and grant
-     issuer must be independent of the untrusted #97 PR checkout.
-5. Add a marked sandbox issue titled `RWF #97 SANDBOX <identifier>`
-   and two separate branch refs `rwf97-sandbox-source` and
-   `rwf97-sandbox-target` with distinct commits.  Neither may be
-   the default branch.  No production release tag may be targeted.
-6. Sandbox -> Settings -> Secrets and variables -> Actions ->
-   Variables: set:
-   - `RWF97_ENABLE=true` only during the approved test;
-   - `RWF97_APPROVED_SHA` to the EXACT independently reviewed #616
-     commit (40 lowercase hex characters);
-   - `RWF97_VERIFIER_SHA256` to the pinned SHA-256 of the trusted
-     verifier file as installed on sandbox main;
-   - `RWF97_SANDBOX_ISSUE` to the disposable issue number;
-   - `RWF97_SANDBOX_SOURCE_REF` to
-     `refs/heads/rwf97-sandbox-source`;
-   - `RWF97_SANDBOX_TARGET_REF` to
-     `refs/heads/rwf97-sandbox-target`.
-   No App key, PAT or cross-repo token secret is required.
-7. Sandbox -> Actions -> Issue 97 sandbox-hosted Python adapter
-   acceptance -> Run workflow, choose protected `main`, and obtain
-   independent environment approval.  The job fetches the public #97
-   branch without credentials and rejects a different exact SHA.
+## Minimum administrator action — no credentials in ChatGPT
 
-The sandbox's protected workflow must remain on a trusted main SHA,
-distinct from the candidate branch under test.  Do not checkout PR
-workflow YAML into the privileged job.  Do not give the candidate a
-GitHub token for RepoWorkflow itself.
+The person issuing the #80 grant must independently review BOTH the
+sandbox-main trusted workflow/verifier and the exact final PR #616
+candidate commit.  A SHA match does not replace substantive review.
+Keep the signing private key OFFLINE, not in GitHub or in this chat.
 
-## Independently authorized #80 verifier — not an approval shortcut
+1. On your own trusted computer, obtain/review
+   `examples/issue-97-admin-sign-authority.py` from PR #616.
+   With Python 3.13 and `cryptography==45.0.7` installed, run:
 
-Environment review authenticates the deployment approval, NOT the #80
-grant.  A trusted verifier needs an independently authenticated issuer
-and delegation, a verified actor (the GitHub App installation actor),
-canonical requested capability and exact sandbox scope, grant
-`not_before`/`expires_at`, live revocation and policy revisions,
-and a validated binding to the complete request digest.
+   ```sh
+   python examples/issue-97-admin-sign-authority.py generate-key \
+     --private-key rwf97-issuer.pem
+   ```
 
-The verifier must reject caller-supplied unsigned grants, missing or
-unavailable policy/revocation, incorrect scope/issuer/actor, expired
-authentication, changed inputs and unsupported consumption semantics.
-#97's existing adapter only consumes independently verified,
-non-consuming standing-policy decisions.  A one-time grant requires
-separate atomic consumption; it must NOT be silently promoted to a
-standing policy.  The verifier must recheck current authoritative
-state on EACH protected request, including restart/retry.
+   It creates a private Ed25519 PEM (mode 0600) and a public
+   `rwf97-issuer.public.b64`.  Never commit the PEM.
 
-The sandbox's protected `trusted/rwf97/verify-authority` is
-installation material, not an authorization record by itself.
-An issuer must independently issue and authenticate a scoped standing
-policy with authoritative revision/revocation proof.  No working
-verifier or issuer has yet been found in #80 or in connected tooling.
-The setup is not complete until its positive AND negative decisions
-pass independent tests.  Do not install an allow-all verifier.
+2. After choosing the exact final tested #616 candidate SHA, issue
+   a 2-hour SANDBOX-only non-consuming CI grant:
 
-## Exact reviewed-code trust requirement
+   ```sh
+   python examples/issue-97-admin-sign-authority.py issue \
+     --private-key rwf97-issuer.pem \
+     --issuer-id rwf97-independent-issuer \
+     --candidate-sha FULL_FINAL_PR_616_SHA \
+     --source-sha 9bf44e1aaac2e49fe26949df3369c4fc10b462fc \
+     --issue 1 --hours 2 --output signed-rwf97
+   ```
 
-The live adapter process receives the disposable SANDBOX write token.
-Neither an environment approval nor moving the verifier file outside
-the adapter checkout mechanically prevents malicious candidate code
-from bypassing calls or invoking GitHub directly.  The reviewer must
-inspect the exact candidate SHA (including adapter, tests, workflow
-and imports) independently before approval.  Any changed SHA is a
-new review, not an automatic continuation.
+   This produces only signed non-secret documents `grant.json` and
+   `revocations.json` plus a grant ID printed by the issuer tool.
+   Publish the signed JSON through reviewed commits to the sandbox's
+   `trusted/rwf97/` directory on main.  Do not alter signatures.
 
-The sandbox's provider-enforced default-branch and immutable-tag
-rules must apply to the GitHub Actions installation actor.  A
-self-hosted runner would not fix token bypass by hostile code.
-This is an acceptance harness for specifically reviewed code, not
-a safe execution service for arbitrary untrusted PRs.  For the
-stronger hostile-code threat model, a separate trusted broker owning
-the write token would be needed.
+3. Open sandbox Settings -> Secrets and variables -> Actions ->
+   Variables:
+   https://github.com/Ma-XX-oN/Disposable-000/settings/variables/actions
 
-## Provider-backed acceptance and teardown
+   Create/update these repository variables, controlled by GitHub
+   administration rather than by the job's native GITHUB_TOKEN:
 
-The template's job runs the actual shipped Python adapter through
-`scripts/probe-repo-host-github.py`.  It checks GitHub's persisted
-issue/PR state, unique comment marker/body, request tag/commit digest,
-idempotent replay from fresh processes, changed-ID conflict,
-simultaneous requests, rejected unsupported merge/check, and cleanup.
-It never targets RepoWorkflow/main or a production issue.
+   | Variable | Exact required source |
+   | --- | --- |
+   | RWF97_ENABLE | `true` ONLY for approved execution |
+   | RWF97_APPROVED_SHA | Exact tested final PR #616 head SHA |
+   | RWF97_TRUSTED_MAIN_SHA | Sandbox main HEAD AFTER signed files |
+   | RWF97_VERIFIER_SHA256 | SHA-256 of trusted verifier file bytes |
+   | RWF97_ISSUER_AUTHORITY | `rwf97-independent-issuer` |
+   | RWF97_ISSUER_PUBLIC_KEY | Public .b64 file, single line |
+   | RWF97_APPROVED_GRANT_ID | Exact issuer-printed grant ID |
+   | RWF97_SIGNED_REVOCATIONS | Full signed JSON, one line |
+   | RWF97_SANDBOX_ISSUE | `1` |
+   | RWF97_SANDBOX_SOURCE_REF | `refs/heads/rwf97-sandbox-source` |
+   | RWF97_SANDBOX_TARGET_REF | `refs/heads/rwf97-sandbox-target` |
 
-Before issue DONE, separately execute and record the remaining live
-authorization negatives: missing/wrong/expired/revoked standing policy,
-permission rejection, changed scope, concurrent revocation, provider
-unknown-outcome and recovery.  Do not treat a mocked negative as a
-real-provider authorization result.  Ensure the sandbox's default
-branch and reservation-ref protection rules were actually enforced.
+   The trusted verifier SHA-256 is printed by the read-only
+   sandbox capability audit job after checkout.  Re-run that safe
+   audit on main if the verifier file changes.  Ensure final
+   `RWF97_TRUSTED_MAIN_SHA` matches the reviewed workflow commit.
 
-After testing: sandbox -> Settings -> Secrets and variables ->
-Actions -> Variables: set `RWF97_ENABLE=false`.  Preserve audit
-records; close the disposable PR and restore the issue title.  The
-sandbox may then be archived or deleted by its owner after evidence
-retention.
+4. Open sandbox -> Actions, select
+   `Issue 97 sandbox-hosted Python adapter acceptance`, choose
+   `Run workflow` on `main`.  The job must reject a changed trusted
+   main SHA, candidate SHA, unsigned policy, missing issuer key,
+   changed grant ID or mismatched revocation mirror before any write.
 
-## Alternative architectures (not required for preferred path)
+5. Confirm the actual GitHub issue/comment/PR state and immutable
+   reservation tags/commit messages after provider execution.
+   Prove replay, fresh-process restart, concurrent request collision,
+   changed same-ID content, stale-head denial, unsupported merge/check,
+   and adapter-mediated PR closure/issue restoration.
 
-A GitHub-hosted RepoWorkflow job with a protected environment can
-use a sandbox-scoped credential to reach a different repository.
-A GitHub App installation token requires an app identity/private key
-and creates more configuration than the sandbox-owned GITHUB_TOKEN.
-A fine-grained sandbox PAT also adds an expiring secret.  Both avoid
-a dedicated runner but are unnecessary when the approved workflow
-runs *inside the sandbox repository*.
+6. To test authenticated REVOKED policy, use the offline issuer:
 
-A dedicated self-hosted runner is needed only for a separately
-required on-premises issuer/HSM, private network or native hardware
-that GitHub-hosted runners cannot access.  None is established by #80
-or by the existing provider probes.  Hosted execution still needs a
-trusted verifier and independently issued grant; no runner changes that.
+   ```sh
+   python examples/issue-97-admin-sign-authority.py revoke \
+     --private-key rwf97-issuer.pem \
+     --issuer-id rwf97-independent-issuer \
+     --grant-id EXACT_GRANT_ID --revision 1 \
+     --output revoked-rwf97.json
+   ```
+
+   Publish the signed file as `trusted/rwf97/revocations.json` on
+   main and set RWF97_SIGNED_REVOCATIONS to its exact JSON.
+   An old grant must then be rejected by the shipped adapter.
+   Re-pinning the trusted main SHA requires independent review.
+
+7. Turn `RWF97_ENABLE=false` after acceptance and retain evidence.
+   Never paste keys, GitHub tokens or issuer secrets into a chat.
+
+## Security boundary and optional stronger protection
+
+The signed issuer public key, approved grant ID, current signed
+revocation state and exact SHA variables are controlled via GitHub
+administration, separate from GITHUB_TOKEN's repository permissions.
+The verifier obtains current signed revocation facts each time and
+cross-checks the main-branch audit mirror.  A stale or forged signed
+record denies.  One-time grant consumption is unsupported and denies.
+
+No normal RepoWorkflow workflow is granted write access.  No main or
+release tags in RepoWorkflow are touched.
+
+GitHub Free private repositories lack the requested server rulesets
+and required environment reviewers.  These features cannot simply
+be assumed.  GitHub Pro enables private rulesets, while private
+required environment reviewers need a higher eligible plan.  They
+remain optional defense-in-depth for THIS disposable positive test,
+not substitutes for #80 cryptographic authorization.  Without rules,
+this harness is NOT safe for executing arbitrary malicious candidate
+code with the sandbox write token; use only independently reviewed
+exact candidate SHA.  Production enforcement would require stronger
+provider-side isolation.
+
+Issue #97 is NOT DONE until the positive live Python write path and
+all authoritative security/negative gates have been evidenced.
