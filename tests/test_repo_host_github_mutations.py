@@ -84,6 +84,11 @@ class FakeGitHub:
       return dict(self.pr)
     raise AssertionError("unexpected patch")
 
+  def set_draft(self, number, draft):
+    assert number == 7
+    self.writes.append(("GRAPHQL", "draft", {"draft": draft}))
+    self.pr["draft"] = draft
+
   def post(self, path, body):
     self.writes.append(("POST", path, dict(body)))
     if path == "issues/3/comments":
@@ -171,6 +176,19 @@ class OrdinaryMutationTests(unittest.TestCase):
     self.assertEqual(apply(request, self.backend)[0], "unchanged")
     self.assertEqual(self.backend.pr["title"], "Changed")
     self.assertEqual(len(self.backend.writes), 1)
+
+
+  def test_pr_draft_transition_uses_provider_graphql(self):
+    request = req("pull_request.update", {
+      "number": 7, "expected_head_sha": SHA, "draft": False,
+    })
+    result = apply(request, self.backend)
+    self.assertEqual(result[0], "applied")
+    self.assertFalse(result[1]["draft"])
+    self.assertEqual(self.backend.writes, [
+      ("GRAPHQL", "draft", {"draft": False}),
+    ])
+    self.assertEqual(apply(request, self.backend)[0], "unchanged")
 
   def test_pr_update_rejects_stale_head(self):
     self.backend.pr["head"]["sha"] = OTHER
