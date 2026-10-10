@@ -7,6 +7,7 @@ on:
       - 'repo_workflow/github_transport_cli.py'
       - 'tests/test_github_result_transport.py'
       - 'tests/test_github_transport_cli.py'
+      - 'docs/REPO_CI_GITHUB_TRANSPORT.md'
       - '.github/workflows/repo-ci-transport-acceptance.yml'
   workflow_dispatch:
 
