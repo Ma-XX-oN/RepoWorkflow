@@ -281,22 +281,26 @@ class DispatcherContractTests(unittest.TestCase):
       path = ci / "repoworkflow.json"
       path.write_text(json.dumps(conf), encoding="utf-8")
       self.assertEqual(load_config(root)["hostCommand"], conf["hostCommand"])
-      seen = []
-      def execute(argv, **kwargs):
-        seen.append(argv)
-        return provider_success(json.loads(kwargs["input"]))
-      with patch(
-        "repo_workflow.host_mutation_dispatch.subprocess.run",
-        side_effect=execute,
+      for args in (
+        ("init", "-q"), ("config", "user.email", "test@example.invalid"),
+        ("config", "user.name", "Test"), ("add", "."),
+        ("commit", "-qm", "fixture"),
       ):
+        subprocess.run(["git", *args], cwd=root, check=True)
+      with patch(
+        "repo_workflow.host_mutation_dispatch.dispatch",
+        return_value={"result": RESULTS["issue.comment"]},
+      ) as invoked:
         reply = dispatch_configured(root, req)
       self.assertEqual(reply["result"]["number"], 11)
-      self.assertEqual(seen, [conf["hostCommand"]] * 2)
+      invoked.assert_called_once_with(
+        conf["hostCommand"], req, timeout=30,
+      )
 
       del conf["hostCommand"]
       path.write_text(json.dumps(conf), encoding="utf-8")
       with patch(
-        "repo_workflow.host_mutation_dispatch.subprocess.run",
+        "repo_workflow.host_mutation_dispatch.dispatch",
       ) as run:
         with self.assertRaises(HostMutationError):
           dispatch_configured(root, req)
@@ -307,7 +311,7 @@ class DispatcherContractTests(unittest.TestCase):
       with self.assertRaises(ConfigError):
         load_config(root)
       with patch(
-        "repo_workflow.host_mutation_dispatch.subprocess.run",
+        "repo_workflow.host_mutation_dispatch.dispatch",
       ) as run:
         with self.assertRaises(HostMutationError):
           dispatch_configured(root, req)
