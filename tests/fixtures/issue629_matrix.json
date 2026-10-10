@@ -1,0 +1,102 @@
+{
+  "issue": 629,
+  "parent": 543,
+  "entries": [
+    {
+      "id": "M01",
+      "requirement": "Six command families",
+      "environment": "CLI",
+      "test": "test_contract_command_families",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M02",
+      "requirement": "Selection cardinality and invalid values",
+      "environment": "CLI",
+      "test": "test_selection_partition",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M03",
+      "requirement": "Local and hosted evidence equivalence",
+      "environment": "provider",
+      "test": "test_evidence_equivalence",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M04",
+      "requirement": "Reject stale missing failed replayed evidence",
+      "environment": "provider",
+      "test": "test_evidence_rejection",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M05",
+      "requirement": "Exact candidate and catalogue identity",
+      "environment": "provider",
+      "test": "test_sha_binding",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M06",
+      "requirement": "Dedicated marker and no ordinary push CI",
+      "environment": "provider",
+      "test": "test_marker_contract",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M07",
+      "requirement": "Linux Windows macOS matrix",
+      "environment": "provider",
+      "test": "test_platform_coverage",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M08",
+      "requirement": "Protected main security refusal",
+      "environment": "provider",
+      "test": "test_protected_main_refusal",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M09",
+      "requirement": "Destination tip freshness",
+      "environment": "integration",
+      "test": "test_destination_freshness",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M10",
+      "requirement": "Accepted PASS reuse and changed-input invalidation",
+      "environment": "provider",
+      "test": "test_reuse_and_invalidation",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M11",
+      "requirement": "Failed incomplete unavailable provider outcomes",
+      "environment": "provider",
+      "test": "test_provider_failure_states",
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M12",
+      "requirement": "Immutable provider artifact attestation",
+      "environment": "provider",
+      "test": "test_provider_attestation",
+      "status": "pending",
+      "evidence": null
+    }
+  ]
+}
