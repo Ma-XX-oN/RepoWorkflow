@@ -9,6 +9,7 @@ a success check.  Do not run against a production issue or main destination.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -27,9 +28,34 @@ def gh(repository: str, path: str) -> dict:
   if result.returncode:
     raise RuntimeError("GitHub sandbox prerequisite read failed")
   value = json.loads(result.stdout)
-  if not isinstance(value, dict):
-    raise RuntimeError("expected GitHub JSON object")
+  if not isinstance(value, (dict, list)):
+    raise RuntimeError("expected GitHub JSON object or array")
   return value
+
+
+def verify_remote_comment(repository: str, number: int,
+                          request_id: str, comment_id: str,
+                          body: str) -> None:
+  identity = repository + "\0issue.comment\0" + request_id
+  marker = "<!-- RWF-HOST-REQUEST-V1:" + hashlib.sha256(
+    identity.encode("utf-8")
+  ).hexdigest() + " -->"
+  matches = []
+  for page in range(1, 1002):
+    items = gh(repository, f"issues/{number}/comments?"
+               f"per_page=100&page={page}")
+    if not isinstance(items, list):
+      raise RuntimeError("invalid remote comments page")
+    matches.extend(item for item in items if isinstance(item, dict)
+                   and marker in str(item.get("body", "")))
+    if len(items) < 100:
+      break
+  else:
+    raise RuntimeError("remote comment scan exceeded bound")
+  if len(matches) != 1 or str(matches[0].get("id")) != comment_id:
+    raise RuntimeError("provider persisted duplicate or wrong comment")
+  if matches[0].get("body") != body + "\n" + marker:
+    raise RuntimeError("provider persisted incorrect comment content")
 
 
 def invoke(repository: str, operation: str, identity: str,
@@ -147,6 +173,9 @@ def main() -> int:
                      run + "-comment", changed_comment, permitted=False)
     if refused["error"] != "conflict":
       raise RuntimeError("same request ID accepted changed comment body")
+    verify_remote_comment(args.repository, args.sandbox_issue,
+                          run + "-comment", comment["result"]["comment_id"],
+                          params["body"])
     pr_data = {
       "source_ref": args.source_ref, "target_ref": args.target_ref,
       "expected_source_sha": head_sha, "title": "RWF live probe " + run,
