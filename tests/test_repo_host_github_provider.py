@@ -30,6 +30,21 @@ def response(value, code=0):
 
 class GitHubProviderTests(unittest.TestCase):
 
+
+  def test_repository_metadata_route_has_no_trailing_slash(self):
+    with patch.object(
+      provider.subprocess, "run",
+      return_value=response({"default_branch": "main"}),
+    ) as call:
+      self.assertEqual(
+        provider.GitHubBackend("owner/repo").get("")["default_branch"],
+        "main",
+      )
+    self.assertEqual(
+      call.call_args.args[0][3], "GET"
+    )
+    self.assertEqual(call.call_args.args[0][4], "repos/owner/repo")
+
   def test_get_is_read_only_and_sends_no_payload(self):
     with patch.object(
       provider.subprocess, "run", return_value=response({"login": "actor"})
