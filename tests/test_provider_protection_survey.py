@@ -27,9 +27,13 @@ def classify(response, rule, actor, proof):
     return "INCOMPLETE"
   if proof.get("candidate_sha") is None:
     return "INCOMPLETE"
-  if (proof.get("rejected") is True\n      and proof.get("provider_status") in (403, 422)\n      and proof.get("provider_reason") == "repository_rule_violation"):
+  if (proof.get("rejected") is True
+      and proof.get("provider_status") in (403, 422)
+      and proof.get("provider_reason") == "repository_rule_violation"):
     return "ENFORCED"
-  if (proof.get("rejected") is False\n      and proof.get("provider_status") in (200, 201, 204)\n      and proof.get("mutation_verified") is True):
+  if (proof.get("rejected") is False
+      and proof.get("provider_status") in (200, 201, 204)
+      and proof.get("mutation_verified") is True):
     return "NOT_ENFORCED"
   return "INCOMPLETE"
 
@@ -54,7 +58,8 @@ class ProviderProtectionContractTests(unittest.TestCase):
 
   def test_missing_or_disabled_policy_cannot_certify(self):
     proof = {"actor": "a", "rule_id": 7, "candidate_sha": "abc",
-             "rejected": True, "provider_status": 403,\n             "provider_reason": "repository_rule_violation"}
+             "rejected": True, "provider_status": 403,
+             "provider_reason": "repository_rule_violation"}
     for policy in ({}, {"id": 7, "enabled": False}, None):
       with self.subTest(policy=policy):
         self.assertEqual(classify({"status": 200}, policy, "a", proof),
@@ -63,7 +68,8 @@ class ProviderProtectionContractTests(unittest.TestCase):
   def test_provenance_mismatch_cannot_certify(self):
     rule = {"id": 7, "enabled": True}
     base = {"actor": "a", "rule_id": 7, "candidate_sha": "abc",
-            "rejected": True, "provider_status": 403,\n             "provider_reason": "repository_rule_violation"}
+            "rejected": True, "provider_status": 403,
+             "provider_reason": "repository_rule_violation"}
     for change in ({"actor": "other"}, {"rule_id": 8},
                    {"candidate_sha": None}, {"provider_status": 500}):
       with self.subTest(change=change):
@@ -72,14 +78,23 @@ class ProviderProtectionContractTests(unittest.TestCase):
 
   def test_positive_provider_rejection_requires_exact_identity(self):
     proof = {"actor": "a", "rule_id": 7, "candidate_sha": "abc",
-             "rejected": True, "provider_status": 403,\n             "provider_reason": "repository_rule_violation"}
+             "rejected": True, "provider_status": 403,
+             "provider_reason": "repository_rule_violation"}
     self.assertEqual(classify({"status": 200},
                               {"id": 7, "enabled": True}, "a", proof),
                      "ENFORCED")
 
-  def test_generic_permission_403_is_not_protection_evidence(self):\n    proof = {"actor": "a", "rule_id": 7, "candidate_sha": "abc",\n             "rejected": True, "provider_status": 403}\n    self.assertEqual(classify({"status": 200},\n                              {"id": 7, "enabled": True}, "a", proof),\n                     "INCOMPLETE")\n\n  def test_verified_allowed_mutation_is_not_enforced(self):
+  def test_generic_permission_403_is_not_protection_evidence(self):
     proof = {"actor": "a", "rule_id": 7, "candidate_sha": "abc",
-             "rejected": False, "provider_status": 201,\n             "mutation_verified": True}
+             "rejected": True, "provider_status": 403}
+    self.assertEqual(classify({"status": 200},
+                              {"id": 7, "enabled": True}, "a", proof),
+                     "INCOMPLETE")
+
+  def test_verified_allowed_mutation_is_not_enforced(self):
+    proof = {"actor": "a", "rule_id": 7, "candidate_sha": "abc",
+             "rejected": False, "provider_status": 201,
+             "mutation_verified": True}
     self.assertEqual(classify({"status": 200},
                               {"id": 7, "enabled": True}, "a", proof),
                      "NOT_ENFORCED")
