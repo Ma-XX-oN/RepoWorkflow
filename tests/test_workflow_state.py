@@ -11,21 +11,21 @@ class WorkflowStateTests(unittest.TestCase):
   def test_task_before_regression_exposes_only_regression_transition(self):
     facts = WorkflowFacts(regression="missing")
     plan = derive_plan(facts)
-    self.assertEqual(plan.transitions, ("validate regression",))
+    self.assertEqual(plan.transitions, ("test regression",))
     self.assertEqual(state_name(facts), "regression required")
     self.assertIn("missing regression validation", plan.blocks[0])
 
   def test_regression_fail_retries_regression(self):
     facts = WorkflowFacts(regression="FAIL")
     plan = derive_plan(facts)
-    self.assertEqual(plan.transitions, ("validate regression",))
+    self.assertEqual(plan.transitions, ("test regression",))
     self.assertEqual(state_name(facts), "regression required")
     self.assertTrue(any("failed" in block for block in plan.blocks))
 
   def test_regression_incomplete_retries_regression(self):
     facts = WorkflowFacts(regression="INCOMPLETE")
     plan = derive_plan(facts)
-    self.assertEqual(plan.transitions, ("validate regression",))
+    self.assertEqual(plan.transitions, ("test regression",))
     self.assertEqual(state_name(facts), "regression required")
 
   def test_regression_pass_requires_integration_result(self):
@@ -33,7 +33,7 @@ class WorkflowStateTests(unittest.TestCase):
     plan = derive_plan(facts)
     self.assertEqual(
       plan.transitions,
-      ("validate integration succeeded", "validate integration failed"),
+      ("test integration",),
     )
     self.assertEqual(state_name(facts), "integration result pending")
 
@@ -69,7 +69,7 @@ class WorkflowStateTests(unittest.TestCase):
   def test_integration_failure_returns_to_regression(self):
     facts = WorkflowFacts(regression="PASS", integration_result="failed")
     plan = derive_plan(facts)
-    self.assertEqual(plan.transitions, ("validate regression",))
+    self.assertEqual(plan.transitions, ("test regression",))
     self.assertEqual(state_name(facts), "regression required")
 
 
