@@ -34,6 +34,8 @@ class RedDecision:
 def _expectation_issue(expectation: RedExpectation | None) -> str | None:
   if expectation is None:
     return "expected-failure-declaration-missing"
+  if not isinstance(expectation, RedExpectation):
+    return "invalid-expected-failure-declaration"
   if (
     type(expectation.exit_code) is not int
     or expectation.exit_code <= 0
@@ -52,6 +54,15 @@ def classify_red(
   issue = _expectation_issue(expectation)
   if issue is not None:
     return RedDecision("INCOMPLETE", issue)
+  if (
+    not isinstance(observation, RedObservation)
+    or type(observation.executed) is not bool
+    or not isinstance(observation.stdout, str)
+    or not isinstance(observation.stderr, str)
+  ):
+    return RedDecision("INCOMPLETE", "invalid-test-observation")
+  if observation.exit_code is not None and type(observation.exit_code) is not int:
+    return RedDecision("INCOMPLETE", "invalid-test-exit-code")
   if not observation.executed or observation.exit_code is None:
     return RedDecision("INCOMPLETE", "selected-test-not-executed")
   if observation.exit_code == 0:
