@@ -21,7 +21,7 @@ ADAPTER = ROOT / "adapters" / "repo-host-github.py"
 
 def gh(repository: str, path: str) -> dict:
   result = subprocess.run(
-    ["gh", "api", f"repos/{repository}/{path}"],
+    ["gh", "api", f"repos/{repository}/{path}".rstrip("/")],
     text=True, capture_output=True, check=False, timeout=30,
   )
   if result.returncode:
@@ -79,6 +79,19 @@ def main() -> int:
     parser.error("explicit branch refs are required")
   if args.source_ref == args.target_ref:
     parser.error("sandbox source and destination must differ")
+  if args.repository.lower() == "ma-xx-on/repoworkflow":
+    parser.error("production RepoWorkflow repository is not a sandbox")
+  prefix = "refs/heads/rwf97-sandbox-"
+  if not args.source_ref.startswith(prefix) or not (
+    args.target_ref.startswith(prefix)
+  ):
+    parser.error("dedicated rwf97-sandbox- branch refs are required")
+  metadata = gh(args.repository, "")
+  default = metadata.get("default_branch")
+  if args.source_ref == "refs/heads/" + str(default) or (
+    args.target_ref == "refs/heads/" + str(default)
+  ):
+    parser.error("default branch must never be used as a fixture")
   capabilities = invoke(args.repository, "capabilities",
                         args.run_id + "-cap", {})
   available = capabilities["result"]["operations"]
@@ -92,10 +105,18 @@ def main() -> int:
   issue = gh(args.repository, "issues/" + str(args.sandbox_issue))
   if "pull_request" in issue or issue["state"] != "open":
     raise RuntimeError("sandbox issue must be an open issue, not PR")
+  if not issue.get("title", "").startswith("RWF #97 SANDBOX "):
+    raise RuntimeError("sandbox issue lacks exact dedicated test title")
   original_title = issue["title"]
   source = gh(args.repository, "git/ref/heads/"
               + args.source_ref.removeprefix("refs/heads/"))
   head_sha = source["object"]["sha"]
+  target_preflight = gh(
+    args.repository, "git/ref/heads/"
+    + args.target_ref.removeprefix("refs/heads/")
+  )
+  if target_preflight["object"]["sha"] == head_sha:
+    raise RuntimeError("sandbox branches must have different commits")
   run = args.run_id
   changed_title = "RWF #97 live probe " + run
   created_pr = None
