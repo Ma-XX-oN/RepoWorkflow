@@ -118,7 +118,9 @@ class SignedPolicyTests(TestCase):
       home = Path(temp)
       key_path = home / "issuer.pem"
       signer.generate_key(key_path)
-      self.assertEqual(key_path.stat().st_mode & 0o777, 0o600)
+      self.assertTrue(key_path.is_file())
+      if os.name != "nt":
+        self.assertEqual(key_path.stat().st_mode & 0o777, 0o600)
       output = home / "signed"
       signer.issue(Namespace(
         private_key=key_path, issuer_id="owner-approved-issuer",
