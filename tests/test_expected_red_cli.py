@@ -82,8 +82,10 @@ class ExpectedRedCliTests(unittest.TestCase):
       "import unittest\nclass Smoke(unittest.TestCase):\n"
       "  def test_pass(self): self.assertTrue(True)\n"
     )
+    self.git("add", "smoke_case.py")
+    self.git("commit", "-m", "unexpected passing RED fixture")
     out = self.cli("test", "RED", "issue-545-declared")
-    self.assertEqual(out.returncode, 2)
+    self.assertEqual(out.returncode, 2, out.stderr)
     self.assertEqual(self.last()["redStatus"], "NOT_RED")
 
   def test_wrong_exit_and_signature_are_fail(self):
