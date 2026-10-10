@@ -321,22 +321,20 @@ def main() -> int:
     # cleanup is a failed probe, never a silent PASS.
     errors = []
     if created_pr is not None:
-      close = subprocess.run(
-        ["gh", "api", "--method", "PATCH",
-         f"repos/{args.repository}/pulls/{created_pr}",
-         "-f", "state=closed"],
-        capture_output=True, text=True, check=False, timeout=30,
-      )
-      if close.returncode:
+      try:
+        closing = {"number": created_pr,
+                   "expected_head_sha": head_sha, "state": "closed"}
+        invoke(args.repository, "pull_request.update",
+               run + "-close", closing)
+        if gh(args.repository, "pulls/" + str(created_pr))[
+          "state"
+        ] != "closed":
+          errors.append("temporary PR close failed")
+        else:
+          verify_reservation(args.repository, "pull_request.update",
+                             run + "-close", closing)
+      except Exception:
         errors.append("temporary PR close failed")
-      else:
-        try:
-          if gh(args.repository, "pulls/" + str(created_pr))[
-            "state"
-          ] != "closed":
-            errors.append("temporary PR remained open")
-        except Exception:
-          errors.append("temporary PR closure not verified")
     if original_title != changed_title:
       try:
         invoke(args.repository, "issue.update", run + "-restore",
