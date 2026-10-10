@@ -208,7 +208,8 @@ def verified_hosted_passes(
       if not isinstance(provider, dict):
         return set()
       if (
-        provider.get("id") != run_id
+        type(provider.get("id")) is not int
+        or provider["id"] != run_id
         or provider.get("status") != "completed"
         or provider.get("conclusion") != "success"
         or provider.get("head_sha") != invoked
