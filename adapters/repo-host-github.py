@@ -10,6 +10,9 @@ import json
 import re
 import sys
 
+from repo_host_github_provider import ProviderError
+from repo_host_github_mutations import apply, capabilities
+
 
 MAX_REQUEST_CHARS = 1048576
 
@@ -135,7 +138,9 @@ def _parse(raw: str) -> dict:
     raise ProtocolError("invalid_request", "invalid request envelope")
   if type(value["schema_version"]) is not int or value["schema_version"] != 1:
     raise ProtocolError("invalid_request", "unsupported request schema")
-  if value["operation"] not in (*OPERATIONS, "capabilities"):
+  if not isinstance(value["operation"], str) or value["operation"] not in (
+    *OPERATIONS, "capabilities"
+  ):
     raise ProtocolError("unsupported", "unsupported operation")
   if not isinstance(value["repository"], str) or not REPOSITORY.fullmatch(
     value["repository"]
@@ -182,29 +187,27 @@ def run(raw: str) -> tuple[int, str, str]:
   try:
     request = _parse(raw)
     operation = request["operation"]
-    if operation != "capabilities":
-      raise ProtocolError(
-        "unsupported",
-        "mutation disabled pending independent authorization and "
-        "provider-backed idempotency enforcement",
-      )
+    if operation == "capabilities":
+      status, payload = "unchanged", {"operations": capabilities()}
+    else:
+      status, payload = apply(request)
     result = {
       "schema_version": 1,
       "operation": operation,
       "repository": request["repository"],
       "request_id": request["request_id"],
-      "status": "unchanged",
-      "result": {"operations": {name: False for name in OPERATIONS}},
+      "status": status,
+      "result": payload,
     }
     return 0, json.dumps(result, separators=(",", ":")) + "\n", ""
-  except ProtocolError as exc:
+  except (ProtocolError, ProviderError) as exc:
     identity = request if request is not None else _recovered_identities(raw)
     result = {
       "schema_version": 1,
       "operation": identity["operation"],
       "repository": identity["repository"],
       "request_id": identity["request_id"],
-      "error": exc.category,
+      "error": exc.category if isinstance(exc, ProtocolError) else exc.code,
       "message": str(exc),
     }
     return 2, "", json.dumps(result, separators=(",", ":")) + "\n"
