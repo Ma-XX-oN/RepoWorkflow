@@ -44,10 +44,10 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
     self.assertEqual(result["status"], "error")
     self.assertEqual(result["diagnostics"][0]["code"], "capability-unavailable")
 
-  def test_unmigrated_execute_never_emits_success(self):
+  def test_execute_missing_declaration_never_emits_success(self):
     result = handle_request(request("execute"), ROOT)
     self.assertEqual(result["status"], "error")
-    self.assertEqual(result["diagnostics"][0]["code"], "execution-unavailable")
+    self.assertEqual(result["diagnostics"][0]["code"], "invalid-request")
     self.assertEqual(result["artifacts"], [])
 
   def test_execute_requires_exact_checkout_and_base(self):
@@ -87,7 +87,7 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
                        "stage_groups": {"selected": "invariant-self-ci-contract"}}
     with patch("repo_workflow.repo_ci_github_provider.subprocess.run") as run:
       run.side_effect = [
-        subprocess.CompletedProcess([], 0, head + "\\n", ""),
+        subprocess.CompletedProcess([], 0, head + "\n", ""),
         subprocess.CompletedProcess([], 1, b"", b"test failed"),
       ]
       result = handle_request(value, ROOT)
