@@ -97,3 +97,34 @@ def decide_with_github_host(facts, repository, source, destination, token, *, fe
     candidate_exists=host.candidate_exists,
     base_is_ancestor=host.base_is_ancestor,
   ))
+
+
+def decide_with_verified_sources(
+  store, requirements, record_ids, *, candidate, version, source,
+  destination, recorded_base, repository, token, coverage_evaluator,
+  fetch=None,
+):
+  """Combine #69/#95 trusted-publisher evidence and provider-observed host facts.
+
+  Callers must supply the authoritative complete requirements manifest. Both
+  observations are freshly read for every decision; #542 owns final acceptance.
+  """
+  from .candidate_eligibility import Facts
+  from .candidate_evidence import EvidenceGateError, read_evidence_gate
+
+  try:
+    evidence = read_evidence_gate(
+      store, requirements, record_ids, candidate=candidate,
+      version=version, branch=source, coverage_evaluator=coverage_evaluator,
+    )
+  except EvidenceGateError:
+    return False, ("validation-evidence-unavailable",)
+  facts = Facts(
+    candidate, evidence.tested, candidate, recorded_base, recorded_base,
+    evidence.authenticated, evidence.complete, evidence.passed,
+    evidence.inputs_current, evidence.required_checks_complete,
+    evidence.applicable, False, False,
+  )
+  return decide_with_github_host(
+    facts, repository, source, destination, token, fetch=fetch,
+  )
