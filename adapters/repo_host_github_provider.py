@@ -88,7 +88,24 @@ class GitHubBackend:
     self.prefix = "repos/" + repository + "/"
 
   def identity(self) -> dict:
-    return _object(_json_call("GET", "user"), {"login"})
+    try:
+      user = _object(_json_call("GET", "user"), {"login"})
+    except ProviderError as exc:
+      if exc.code != "unauthorized":
+        raise
+      # Installation tokens cannot GET /user.  GitHub GraphQL viewer is
+      # provider-authenticated and returns github-actions[bot] on Actions.
+      response = _object(_json_call("POST", "graphql", {
+        "query": "query { viewer { login } }",
+      }), {"data"})
+      if response.get("errors"):
+        raise ProviderError("unauthenticated", "GitHub viewer unavailable")
+      data = _object(response["data"], {"viewer"})
+      user = _object(data["viewer"], {"login"})
+    login = user["login"]
+    if not isinstance(login, str) or not login:
+      raise ProviderError("invalid_response", "missing GitHub actor login")
+    return {"login": login}
 
   def get(self, path: str):
     route = self.prefix + path if path else self.prefix.rstrip("/")
