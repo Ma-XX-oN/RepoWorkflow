@@ -1,0 +1,101 @@
+name: repo-ci GitHub transport acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'repo_workflow/github_result_transport.py'
+      - 'repo_workflow/github_transport_cli.py'
+      - 'tests/test_github_result_transport.py'
+      - 'tests/test_github_transport_cli.py'
+      - 'docs/REPO_CI_GITHUB_TRANSPORT.md'
+      - '.github/workflows/repo-ci-transport-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Generate exact-bound transport fixture
+        env:
+          RWF_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+          RWF_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+          RWF_INVOCATION: ${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          Path("records").mkdir()
+          Path("records/validation").write_bytes(b"FAIL is data, not authority\n")
+          request = {
+            "contract_version": 1,
+            "operation": "publish",
+            "invocation_id": os.environ["RWF_INVOCATION"],
+            "candidate": {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": os.environ["RWF_CANDIDATE"],
+              "base": os.environ["RWF_BASE"],
+            },
+            "requirements": {"artifacts": ["validation"]},
+          }
+          Path("transport-request.json").write_text(json.dumps(request))
+          PY
+          python -m repo_workflow.github_transport_cli publish \
+            --request transport-request.json --source records --destination bundle
+      - name: Upload immutable transport bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-ci-transport-fixture
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 1
+
+  fetch:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Fetch bundle from this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: repo-ci-transport-fixture
+          path: downloaded/
+      - name: Verify exact candidate and complete bytes
+        env:
+          RWF_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+          RWF_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+          RWF_INVOCATION: ${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          request = {
+            "contract_version": 1,
+            "operation": "fetch",
+            "invocation_id": os.environ["RWF_INVOCATION"],
+            "candidate": {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": os.environ["RWF_CANDIDATE"],
+              "base": os.environ["RWF_BASE"],
+            },
+            "requirements": {"artifacts": ["validation"]},
+          }
+          Path("transport-request.json").write_text(json.dumps(request))
+          PY
+          python -m repo_workflow.github_transport_cli fetch \
+            --request transport-request.json --source downloaded --destination verified
+          printf 'FAIL is data, not authority\n' | cmp - verified/validation
+          python -m unittest tests.test_github_result_transport tests.test_github_transport_cli -v
