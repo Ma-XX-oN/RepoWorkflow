@@ -31,7 +31,6 @@ STAGES = {
   "integration": "integration-testing",
 }
 
-
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
@@ -253,6 +252,7 @@ def _run_group_set(
     else set()
   )
   failures = []
+  launch_missing = False
   evidence = []
   for group in groups:
     if group in reusable:
@@ -262,18 +262,24 @@ def _run_group_set(
       })
       continue
     command = group_command(root, group, catalogue_path)
-    completed = subprocess.run(
-      command, cwd=root, capture_output=True, text=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-    if completed.stdout:
+    try:
+      completed = subprocess.run(
+        command, cwd=root, capture_output=True, text=True, check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+      )
+    except (OSError, UnicodeError):
+      completed = None
+      launch_missing = True
+    if completed is not None and completed.stdout:
       print(completed.stdout, end="")
-    if completed.stderr:
+    if completed is not None and completed.stderr:
       print(completed.stderr, end="", file=sys.stderr)
     evidence.append({
-      "group": group, "exit_code": completed.returncode, "reused": False,
+      "group": group, "exit_code": (
+        completed.returncode if completed is not None else None
+      ), "reused": False,
     })
-    if completed.returncode:
+    if completed is None or completed.returncode:
       failures.append(group)
   uncommitted = sorted(set(uncommitted_before) | set(
     _uncommitted_inputs(root, path)
@@ -289,7 +295,8 @@ def _run_group_set(
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
-    "result": "failed" if failures else "succeeded",
+    "result": ("incomplete" if launch_missing else
+               "failed" if failures else "succeeded"),
     "runner": "local",
     "platform": {"os": platform.system(), "architecture": platform.machine(),
                  "runtime": platform.python_version()},
@@ -297,7 +304,7 @@ def _run_group_set(
   }
   with path.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
-  return 1 if failures else 0
+  return 2 if launch_missing else 1 if failures else 0
 
 
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
