@@ -87,6 +87,18 @@ class TestCacheEvidenceTests(unittest.TestCase):
         self.write(record)
         self.assertEqual(self.reusable(), set())
 
+  def test_reader_rejected_metadata_cannot_be_reused_as_pass(self):
+    original = json.dumps(self.base)
+    for suffix in (
+      '"metrics":NaN',
+      '"metrics":{"elapsed":1e999}',
+      '"result":"succeeded"',
+    ):
+      with self.subTest(suffix=suffix):
+        self.path.write_text(original[:-1] + "," + suffix + "}\\n")
+        self.assertEqual(self.reusable(), set())
+
+
   def test_later_failure_supersedes_old_pass(self):
     self.write(self.base, {**self.base, "result": "failed"})
     self.assertEqual(self.reusable(), set())
