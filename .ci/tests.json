@@ -97,6 +97,10 @@
       "issue-629-provider-probe": {
         "type": "regression",
         "name": "tests.test_issue629_provider_probe"
+      },
+      "issue-629-selection-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_selection_acceptance"
       }
     },
     {
