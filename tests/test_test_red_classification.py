@@ -70,6 +70,20 @@ class RedClassificationContract(unittest.TestCase):
       "INCOMPLETE",
     )
 
+  def test_invalid_expectation_does_not_launch_process(self):
+    with tempfile.TemporaryDirectory() as directory:
+      sentinel = Path(directory) / "should-not-exist"
+      result = execute_red(
+        (
+          sys.executable, "-c",
+          "import pathlib;pathlib.Path(" + repr(str(sentinel)) + ").touch()",
+        ),
+        cwd=Path(directory),
+        expectation=RedExpectation(0, "invalid"),
+      )
+      self.assertEqual(result.status, "INCOMPLETE")
+      self.assertFalse(sentinel.exists())
+
   def test_real_selected_command_with_declared_failure(self):
     with tempfile.TemporaryDirectory() as directory:
       result = execute_red(
