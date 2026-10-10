@@ -233,3 +233,21 @@ def dispatch(command, request, *, timeout=30):
     if not caps[request["operation"]]:
       raise HostMutationError("capability unavailable", "unsupported")
   return _invoke(command, request, timeout)
+
+
+def dispatch_configured(root, request, *, timeout=30):
+  """Invoke the repository-owned adapter selected by validated config."""
+  from .config import ConfigError, load_config
+
+  try:
+    config = load_config(root)
+  except ConfigError as error:
+    raise HostMutationError(
+      "repository-host configuration unavailable", "invalid_request",
+    ) from error
+  command = config.get("hostCommand")
+  if command is None:
+    raise HostMutationError(
+      "repository-host adapter is not configured", "unsupported",
+    )
+  return dispatch(command, request, timeout=timeout)
