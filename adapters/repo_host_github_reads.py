@@ -42,6 +42,8 @@ def api_get(repository: str, route: str) -> dict:
     raise ProviderReadError("invalid repository component")
   if not route.startswith("repos/" + repository + "/"):
     raise ProviderReadError("invalid repository-scoped route")
+  if any(part in {".", ".."} for part in route.split("/")):
+    raise ProviderReadError("invalid provider route component")
   try:
     result = subprocess.run(
       ["gh", "api", "--method", "GET", route],
@@ -87,12 +89,24 @@ def pull_request_get(repository: str, number: int) -> dict:
   base = value.get("base")
   if not isinstance(head, dict) or not isinstance(base, dict):
     raise ProviderReadError("missing GitHub PR refs")
+  for label, item in (("head", head), ("base", base)):
+    ref = _text(item.get("ref"), f"PR {label} ref")
+    remote = item.get("repo")
+    if not isinstance(remote, dict):
+      raise ProviderReadError(f"missing GitHub PR {label} repository")
+    _text(remote.get("full_name"), f"PR {label} repository")
+    if ".." in ref or "//" in ref or ref.startswith("/"):
+      raise ProviderReadError(f"invalid GitHub PR {label} ref")
+  if base["repo"]["full_name"].lower() != repository.lower():
+    raise ProviderReadError("GitHub PR destination repository mismatch")
   state = value.get("state")
   if state not in ("open", "closed") or type(value.get("draft")) is not bool:
     raise ProviderReadError("invalid GitHub PR state")
   return {
     "number": returned,
     "head_sha": _sha(head.get("sha"), "PR head SHA"),
+    "source_repository": head["repo"]["full_name"],
+    "source_ref": "refs/heads/" + head["ref"],
     "target_ref": "refs/heads/" + _text(base.get("ref"), "PR base ref"),
     "destination_sha": _sha(base.get("sha"), "destination SHA"),
     "draft": value["draft"],
