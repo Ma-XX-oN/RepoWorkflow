@@ -9,6 +9,11 @@ from pathlib import Path
 import re
 import sys
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from repo_workflow.test_results_reader import parse_testing_log
+from repo_workflow.test_red_declaration import red_declaration
+
 STAGES = {
   "RED-testing": "RED",
   "temp-testing": "temporary",
@@ -33,8 +38,7 @@ def validate_result(
     "testResults-" + match.group(1) + ".jsonl"
   )
   try:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    record = json.loads(lines[-1])
+    record = parse_testing_log(path.read_text(encoding="utf-8"))[-1]
   except (OSError, ValueError, IndexError) as error:
     raise ValueError("missing or malformed hosted test result") from error
   if not isinstance(record, dict):
@@ -70,16 +74,44 @@ def validate_result(
       for group in groups
     ):
       raise ValueError("hosted group evidence is incomplete")
-  if kind == "RED" and record.get("redStatus") != "RED":
-    raise ValueError("hosted RED lacks expected failure classification")
-  if kind == "GREEN":
+  if record.get("runner") != "local":
+    raise ValueError("hosted pre-publication result is not local execution")
+  if kind in {"RED", "GREEN"}:
     selection = root / ".ci" / "red-green.txt"
     try:
-      selected = selection.read_text(encoding="utf-8").strip()
+      raw = selection.read_text(encoding="utf-8")
     except OSError as error:
-      raise ValueError("hosted GREEN selection missing") from error
+      raise ValueError("hosted RED/GREEN selection missing") from error
+    selected = raw.removesuffix("\\n")
+    if not selected or raw not in {selected, selected + "\\n"} or (
+      "\\n" in selected or "\\r" in selected
+    ):
+      raise ValueError("hosted RED/GREEN selection is malformed")
     if [group["group"] for group in groups] != [selected]:
-      raise ValueError("hosted GREEN selection does not match result")
+      raise ValueError("hosted RED/GREEN selection does not match result")
+    if kind == "RED":
+      expected, problem = red_declaration(root, selected)
+      if problem or expected is None or (
+        record.get("redStatus") != "RED"
+        or record.get("reason") != "declared-behavioural-failure-observed"
+        or groups[0]["exit_code"] != expected.exit_code
+      ):
+        raise ValueError("hosted RED expected failure evidence mismatch")
+  if kind == "temporary":
+    try:
+      manifest = json.loads(
+        (root / ".ci/temp-tests.json").read_text(encoding="utf-8")
+      )
+      declared = [
+        name for entry in manifest["tests"]
+        for name in entry if name not in {"test-harness", "command"}
+      ]
+    except (OSError, ValueError, KeyError, TypeError) as error:
+      raise ValueError("hosted temporary test manifest is malformed") from error
+    if not declared or sorted(declared) != sorted(
+      group["group"] for group in groups
+    ):
+      raise ValueError("hosted temporary test groups are incomplete")
 
 
 def main() -> int:
