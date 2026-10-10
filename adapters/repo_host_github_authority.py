@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ntpath
 import os
 import subprocess
 
@@ -26,7 +27,10 @@ def verifier_command() -> list[str] | None:
   ):
     return None
   # A relative executable may resolve to attacker-controlled worktree files.
-  if not command[0].startswith("/") or ".." in command[0].split("/"):
+  executable = command[0]
+  if not (os.path.isabs(executable) or ntpath.isabs(executable)):
+    return None
+  if ".." in executable.replace("\\", "/").split("/"):
     return None
   return command
 
