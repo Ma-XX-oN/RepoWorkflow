@@ -21,10 +21,7 @@ ENDPOINTS = {
 
 def inspect(repo, token, transport=urlopen):
   """Return policy read status and minimal public configuration evidence."""
-  assert isinstance(repo, str) and repo.count("/") == 1
-  assert all(part and part.replace("-", "").replace("_", "").isalnum()
-             for part in repo.split("/"))
-  results = {}
+  if not isinstance(repo, str) or repo.count("/") != 1:\n    raise ValueError("invalid repository name")\n  if not all(part and part.replace("-", "").replace("_", "").isalnum()\n             for part in repo.split("/")):\n    raise ValueError("invalid repository path")\n  results = {}
   for key, template in ENDPOINTS.items():
     url = "https://api.github.com" + template.format(repo=repo)
     headers = {"Accept": "application/vnd.github+json",
