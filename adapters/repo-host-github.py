@@ -80,9 +80,9 @@ def _valid_parameters(operation: str, params: dict) -> None:
     elif key == "draft":
       valid = type(value) is bool
     elif key == "state":
-      valid = value == "open"
+      valid = isinstance(value, str) and value == "open"
     elif key == "conclusion":
-      valid = value in {"success", "failure"}
+      valid = isinstance(value, str) and value in {"success", "failure"}
     elif key == "body":
       valid = isinstance(value, str) and (
         bool(value) if operation == "issue.comment" else True
