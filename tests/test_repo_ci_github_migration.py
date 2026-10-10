@@ -1,0 +1,109 @@
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from repo_workflow.repo_ci_github_provider import handle_request
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def request(operation, inputs=None, artifacts=None):
+  return {
+    "contract_version": 1,
+    "operation": operation,
+    "invocation_id": "invocation-67",
+    "candidate": {
+      "repository": "owner/repo", "commit": "a" * 40, "base": "b" * 40,
+    },
+    "requirements": {
+      "stages": [], "capabilities": [], "artifacts": artifacts or [],
+    },
+    "inputs": inputs if inputs is not None else {},
+  }
+
+
+class RepoCiGithubMigrationTests(unittest.TestCase):
+  def test_event_mapping_and_identity(self):
+    value = request("inspect-context", {"event": "pull_request", "platform": "linux"})
+    result = handle_request(value, ROOT)
+    self.assertEqual(result["status"], "ok")
+    self.assertEqual(result["candidate"], value["candidate"])
+    self.assertEqual(result["invocation_id"], value["invocation_id"])
+    self.assertEqual(result["observations"]["mode"], "automatic")
+
+  def test_missing_capability_fails_closed(self):
+    value = request("resolve-capabilities", {"platform": "linux"})
+    value["requirements"]["capabilities"] = ["unavailable-capability"]
+    result = handle_request(value, ROOT)
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(result["diagnostics"][0]["code"], "capability-unavailable")
+
+  def test_unmigrated_execute_never_emits_success(self):
+    result = handle_request(request("execute"), ROOT)
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(result["diagnostics"][0]["code"], "execution-unavailable")
+    self.assertEqual(result["artifacts"], [])
+
+  def test_publish_fetch_integrity_and_identity(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      (root / "input").mkdir()
+      (root / "input" / "result").write_bytes(b"failed-test-observation")
+      with patch.dict(os.environ, {"RWF_REPO_CI_TRANSPORT_ROOT": td}):
+        publication = request("publish", {"source_dir": "input",
+                                           "destination_dir": "bundle"}, ["result"])
+        self.assertEqual(handle_request(publication, ROOT)["status"], "ok")
+        retrieval = request("fetch", {"source_dir": "bundle",
+                                      "destination_dir": "output"}, ["result"])
+        self.assertEqual(handle_request(retrieval, ROOT)["status"], "ok")
+        self.assertEqual((root / "output" / "result").read_bytes(),
+                         b"failed-test-observation")
+        swapped = request("fetch", {"source_dir": "bundle",
+                                    "destination_dir": "stale"}, ["result"])
+        swapped["candidate"]["base"] = "c" * 40
+        rejected = handle_request(swapped, ROOT)
+        self.assertEqual(rejected["status"], "error")
+        self.assertEqual(rejected["diagnostics"][0]["code"], "identity-mismatch")
+        self.assertFalse((root / "stale").exists())
+        (root / "bundle" / "result").write_bytes(b"passed")
+        corrupt = handle_request(request("fetch", {"source_dir": "bundle",
+                                                    "destination_dir": "tampered"},
+                                          ["result"]), ROOT)
+        self.assertEqual(corrupt["diagnostics"][0]["code"], "integrity-failed")
+        self.assertFalse((root / "tampered").exists())
+
+  def test_transport_workspace_escape_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      with patch.dict(os.environ, {"RWF_REPO_CI_TRANSPORT_ROOT": td}):
+        result = handle_request(request("publish", {
+          "source_dir": "../outside", "destination_dir": "bundle",
+        }), ROOT)
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["artifacts"], [])
+
+  def test_policy_failure_is_observation_not_terminal_status(self):
+    result = handle_request(request("check-policy", {"policies": []}), ROOT)
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(result["diagnostics"][0]["code"], "invalid-request")
+
+  def test_dispatcher_routes_through_configured_github_provider(self):
+    value = request("inspect-context", {"event": "workflow_dispatch",
+                                         "platform": "linux"})
+    completed = subprocess.run(
+      [sys.executable, "-m", "repo_workflow.repo_ci_dispatcher", "inspect-context"],
+      input=json.dumps(value), capture_output=True, text=True, cwd=ROOT,
+    )
+    self.assertEqual(completed.returncode, 0, completed.stderr)
+    response = json.loads(completed.stdout)
+    self.assertEqual(response["observations"]["mode"], "manual")
+    self.assertEqual(response["candidate"], value["candidate"])
+
+
+if __name__ == "__main__":
+  unittest.main()
