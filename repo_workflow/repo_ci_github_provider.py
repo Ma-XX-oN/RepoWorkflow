@@ -96,6 +96,70 @@ def _transport(request: dict, root: Path) -> dict:
 
 
 
+def _legacy_context(request: dict, root: Path) -> dict:
+  """Provider-owned compatibility for hosted GitHub machine outputs."""
+  from .config import load_config
+  from .repo_ci_github_compat import (
+    github_matrix, github_mode, github_prepare_context, load_github_config,
+  )
+
+  inputs = request.get("inputs")
+  candidate = request.get("candidate")
+  if not isinstance(inputs, dict) or not isinstance(candidate, dict):
+    return _error(request, "invalid-request", "invalid consumer context")
+  allowed = os.environ.get("RWF_REPO_CI_WORKSPACE")
+  workspace_name = inputs.get("consumer_workspace")
+  if not allowed or not isinstance(workspace_name, str) or (
+    Path(workspace_name).resolve() != Path(allowed).resolve()
+  ):
+    return _error(request, "prerequisite-unavailable", "consumer workspace unbound")
+  workspace = Path(workspace_name).resolve()
+  try:
+    head = subprocess.run(
+      ["git", "rev-parse", "HEAD"], cwd=workspace, capture_output=True,
+      text=True, timeout=10, check=True,
+    ).stdout.strip()
+  except (OSError, subprocess.SubprocessError):
+    return _error(request, "prerequisite-unavailable", "consumer checkout unavailable")
+  if candidate.get("commit") != head:
+    return _error(request, "identity-mismatch", "consumer candidate differs")
+  if os.environ.get("GITHUB_REPOSITORY") not in (None, candidate.get("repository")):
+    return _error(request, "identity-mismatch", "repository identity mismatch")
+  operation = request["operation"]
+  legacy = inputs.get("legacy")
+  try:
+    if operation == "inspect-context" and legacy == "mode":
+      if set(inputs) != {
+        "consumer_workspace", "legacy", "event_name", "event_path", "branch",
+      }:
+        return _error(request, "invalid-request", "mode inputs invalid")
+      event_path = inputs["event_path"]
+      if not isinstance(event_path, str) or (
+        os.environ.get("GITHUB_EVENT_PATH") not in (None, event_path)
+      ):
+        return _error(request, "invalid-request", "event path mismatch")
+      config = load_config(workspace)
+      value = github_mode(
+        workspace, inputs["event_name"], Path(event_path), inputs["branch"],
+        config["repository"]["integrationBranch"],
+      )
+    elif operation == "resolve-capabilities" and legacy == "matrix":
+      if set(inputs) != {"consumer_workspace", "legacy"}:
+        return _error(request, "invalid-request", "matrix inputs invalid")
+      value = github_matrix(load_config(workspace), load_github_config(workspace))
+    elif operation == "prepare" and legacy == "prepare-context":
+      if set(inputs) != {"consumer_workspace", "legacy"}:
+        return _error(request, "invalid-request", "preparation inputs invalid")
+      value = github_prepare_context(
+        load_config(workspace), load_github_config(workspace),
+      )
+    else:
+      return _error(request, "invalid-request", "unsupported legacy context")
+  except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:
+    return _error(request, "prerequisite-unavailable", str(exc)[:300])
+  return _response(request, {"legacy_output": value}, [])
+
+
 def _execute_consumer(request: dict, root: Path) -> dict:
   """Invoke core's existing validator; transport its facts unchanged."""
   inputs = request.get("inputs")
@@ -249,6 +313,10 @@ def handle_request(request: dict, root: Path) -> dict:
   if operation not in _OPERATIONS:
     return _error(request, "unsupported-operation", "unsupported operation")
   if operation in {"inspect-context", "resolve-capabilities", "prepare"}:
+    if isinstance(request.get("inputs"), dict) and (
+      "legacy" in request["inputs"]
+    ):
+      return _legacy_context(request, root)
     source = root / "adapters" / "repo-ci-github-event.py"
     return runpy.run_path(str(source))["map_request"](request)
   if operation == "check-policy":
