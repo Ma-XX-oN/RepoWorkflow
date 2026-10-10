@@ -38,6 +38,8 @@ def merge_protected_pr(
   """
   if (
     not isinstance(repo, str) or not _REPO.fullmatch(repo)
+    or any(part in (".", "..") or part.startswith("-")
+           for part in repo.split("/"))
     or type(pr_number) is not int or pr_number < 1
     or not isinstance(candidate_sha, str) or not _SHA.fullmatch(candidate_sha)
     or not isinstance(required_check_name, str)
