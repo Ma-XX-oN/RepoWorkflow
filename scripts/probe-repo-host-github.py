@@ -131,6 +131,10 @@ def main() -> int:
       repeated["status"] != "unchanged"
     ):
       raise RuntimeError("issue idempotency contract violated")
+    if gh(args.repository, "issues/" + str(args.sandbox_issue))[
+      "title"
+    ] != changed_title:
+      raise RuntimeError("provider did not persist issue title")
     params = {"number": args.sandbox_issue, "body": "RWF probe " + run}
     comment = invoke(args.repository, "issue.comment",
                      run + "-comment", params)
@@ -150,6 +154,13 @@ def main() -> int:
                   run + "-create", pr_data)
     if same["result"]["number"] != created_pr:
       raise RuntimeError("PR creation replay duplicated provider state")
+    observed_pr = gh(args.repository, "pulls/" + str(created_pr))
+    if observed_pr["head"]["sha"] != head_sha or (
+      observed_pr["head"]["ref"] != args.source_ref.removeprefix("refs/heads/")
+    ) or observed_pr["base"]["ref"] != args.target_ref.removeprefix(
+      "refs/heads/"
+    ) or observed_pr["draft"] is not True:
+      raise RuntimeError("provider PR creation identity mismatch")
     edit = {
       "number": created_pr, "expected_head_sha": head_sha,
       "title": "RWF live probe updated " + run,
@@ -159,6 +170,10 @@ def main() -> int:
                    run + "-update", edit)
     if again["status"] != "unchanged":
       raise RuntimeError("PR update replay is not idempotent")
+    if gh(args.repository, "pulls/" + str(created_pr))[
+      "title"
+    ] != edit["title"]:
+      raise RuntimeError("provider did not persist PR update")
     stale = {**edit, "expected_head_sha": "0" * 40}
     refused = invoke(args.repository, "pull_request.update",
                      run + "-stale", stale, permitted=False)
