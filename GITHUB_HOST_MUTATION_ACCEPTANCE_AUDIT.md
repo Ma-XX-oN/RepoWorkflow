@@ -209,6 +209,34 @@ treat connector administration or authenticated reads as job write access.
   was inconclusive about Contents-write permission.  The optional
   protected sandbox workflow remains unactivated/uncertified.
 
+## Provider-verified Actions configuration (2026-10-10)
+
+- Actions:read token successfully called the actual GitHub GET
+  `repos/Ma-XX-oN/RepoWorkflow/environments` endpoint.  Provider
+  returned `total_count: 0`.  No protected environment exists yet,
+  including the required `rwf97-sandbox` environment.
+- Existing `issue-97-live-mutation.yml` is registered as a workflow.
+  GitHub Actions issued an authenticated job token, but its separately
+  attempted issue/PR writes were denied.  This read-scoped token does
+  NOT establish that a new trusted job could never receive narrower
+  write privileges for THIS repository.
+- The token cannot read repository variables, runner inventory or
+  default workflow-token policy (403).  A malformed Git-ref create
+  returned 422; Contents-write authority remains unverified.
+- For a DIFFERENT sandbox repository, GitHub's workflow token cannot
+  cross repository boundaries.  The existing protected live workflow
+  therefore requires a sandbox-only separately issued credential,
+  not broader permissions for routine RepoWorkflow PR jobs.
+- The live workflow's exact candidate SHA must match an independent
+  `RWF97_APPROVED_SHA` repository variable.  Its root-owned external
+  #80 verifier must match `RWF97_AUTH_SHA256`, and the job account
+  cannot own or write the verifier executable.  No issuer or standing
+  authorization can be inferred from that hash alone.
+- Exact operator steps and trigger sequencing are preserved in
+  `ISSUE_97_LIVE_ACCEPTANCE_SETUP.md`.  Actual live issue/PR writes
+  remain pending; do not claim certification merely from CI mock
+  tests or a successful read-only configuration probe.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
