@@ -85,6 +85,10 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      },
+      "issue-97-host-adapter": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github"
       }
     },
     {
