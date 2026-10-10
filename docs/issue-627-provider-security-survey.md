@@ -6,9 +6,7 @@
 - Connector methods inspected: get_profile, search_branches, fetch_file,
   fetch_issue, fetch_issue_comments.
 - Provider observations: main exists; repository test catalogue is readable.
-- The available connector methods do not expose branch-protection settings,
-  repository rulesets, effective actor permissions, token scopes or tag rules.
-  Therefore no protection enforcement is certified by these observations.
+- Provider read-only API results on 2026-10-10 (Toronto, afternoon):\n  - GET /repos/Ma-XX-oN/RepoWorkflow: repository ID 1383953640,\n    public, default branch main; caller permissions.admin=true.\n  - Collaborator permission for Ma-XX-oN: admin.\n  - GET /repos/Ma-XX-oN/RepoWorkflow/rulesets: HTTP 200, [] .\n  - GET /repos/Ma-XX-oN/RepoWorkflow/rulesets?includes_parents=true:\n    HTTP 200, [] .\n  - GET /repos/Ma-XX-oN/RepoWorkflow/branches/main/protection:\n    HTTP 403, Resource not accessible by integration.\n  - GET /repos/Ma-XX-oN/RepoWorkflow/branches/main: HTTP 200;\n    commit f2c5378af11cb6de966b65bad135fe2e1ff5515d.\n  - GET /repos/Ma-XX-oN/RepoWorkflow/rules/branches/main:\n    rejected by connector allowlist (HTTP 400 before provider request).\n  Authenticated user admin rights are NOT equivalent to GitHub App\n  installation administration permission. Branch protection state and\n  token authorization scopes remain unverified. No enforcement certified.
 
 ## Independent provider acceptance matrix
 
