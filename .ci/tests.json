@@ -178,6 +178,17 @@
         "type": "regression",
         "name": "tests.test_publish_hosted_result"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-verified-red": {
+        "type": "regression",
+        "name": "tests.test_541_verified_red",
+        "expected-red": {
+          "exit-code": 1,
+          "output-contains": "issue-541-provider-behavioural-failure"
+        }
+      }
     }
   ],
   "aliases": {
