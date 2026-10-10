@@ -94,7 +94,8 @@ class FakeGitHub:
       self.pr = {
         "number": 7, "head": {"sha": SHA, "ref": "work"},
         "base": {"sha": OTHER, "ref": "main"},
-        "state": "open", **body,
+        "state": "open", "title": body["title"],
+        "body": body["body"], "draft": body["draft"],
       }
       return dict(self.pr)
     raise AssertionError("unexpected post")
