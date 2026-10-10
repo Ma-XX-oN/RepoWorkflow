@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import runpy
+import subprocess
 import sys
 
 from .github_result_transport import TransportError, fetch_bundle, publish_bundle
@@ -93,6 +94,63 @@ def _transport(request: dict, root: Path) -> dict:
                    [{"name": name, "size": len(data)} for name, data in sorted(records.items())])
 
 
+
+
+def _execute(request: dict, root: Path) -> dict:
+  """Run explicitly declared catalogue groups; report facts, not PASS."""
+  from .self_ci import SelfCiError, group_command
+
+  requirements = request.get("requirements")
+  inputs = request.get("inputs")
+  candidate = request.get("candidate")
+  if not isinstance(requirements, dict) or not isinstance(inputs, dict):
+    return _error(request, "invalid-request", "invalid execute envelope")
+  stages = requirements.get("stages")
+  groups = inputs.get("stage_groups")
+  if (not isinstance(stages, list) or not isinstance(groups, dict)
+      or len(stages) != len(set(x for x in stages if isinstance(x, str)))
+      or not all(isinstance(x, str) and x for x in stages)
+      or set(groups) != set(stages)
+      or not all(isinstance(v, str) and v for v in groups.values())):
+    return _error(request, "invalid-request", "stage/group declaration mismatch")
+  if not isinstance(candidate, dict):
+    return _error(request, "invalid-request", "candidate identity required")
+  try:
+    head = subprocess.run(
+      ["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
+      text=True, check=True, timeout=10,
+    ).stdout.strip()
+  except (OSError, subprocess.SubprocessError):
+    return _error(request, "prerequisite-unavailable", "checkout unavailable")
+  if candidate.get("commit") != head:
+    return _error(request, "identity-mismatch", "candidate is not checked out")
+  base = inputs.get("base")
+  if not isinstance(base, str) or base != candidate.get("base"):
+    return _error(request, "identity-mismatch", "base identity mismatch")
+  observations = []
+  for stage in stages:
+    try:
+      command = group_command(root, groups[stage])
+    except (SelfCiError, OSError, ValueError) as exc:
+      return _error(request, "prerequisite-unavailable",
+                    f"unavailable declared test group for {stage}: {exc}")
+    try:
+      result = subprocess.run(
+        command, cwd=root, capture_output=True, timeout=120, check=False,
+      )
+    except (OSError, subprocess.TimeoutExpired):
+      observations.append({
+        "stage": stage, "candidate": candidate, "complete": False,
+        "outcome": "unavailable",
+      })
+      continue
+    observations.append({
+      "stage": stage, "candidate": candidate, "complete": True,
+      "outcome": "succeeded" if result.returncode == 0 else "failed",
+      "exit_code": result.returncode,
+    })
+  return _response(request, {"stages": observations}, [])
+
 def handle_request(request: dict, root: Path) -> dict:
   operation = request.get("operation")
   if operation not in _OPERATIONS:
@@ -103,8 +161,7 @@ def handle_request(request: dict, root: Path) -> dict:
   if operation == "check-policy":
     return check_github_policy(request, root=root, engine_root=root)
   if operation == "execute":
-    return _error(request, "execution-unavailable",
-                  "hosted execution migration not enabled")
+    return _execute(request, root)
   try:
     return _transport(request, root)
   except TransportError as exc:
