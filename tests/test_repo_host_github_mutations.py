@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -33,6 +35,7 @@ class FakeGitHub:
     }
     self.refs = {"refs/heads/work": SHA, "refs/heads/main": OTHER}
     self.reserved = set()
+    self.lock = threading.Lock()
     self.writes = []
 
   def identity(self):
@@ -42,10 +45,11 @@ class FakeGitHub:
     key = (
       request["repository"], request["operation"], request["request_id"]
     )
-    if key in self.reserved:
-      return False
-    self.reserved.add(key)
-    return True
+    with self.lock:
+      if key in self.reserved:
+        return False
+      self.reserved.add(key)
+      return True
 
   def issue(self, number):
     if number != 3:
@@ -132,6 +136,31 @@ class OrdinaryMutationTests(unittest.TestCase):
     self.assertEqual(again[0], "unchanged")
     self.assertEqual(first[1]["comment_id"], "123")
     self.assertEqual(again[1]["comment_id"], "123")
+    self.assertEqual(len(self.backend.comments), 1)
+
+
+  def test_many_unique_comments_are_independent(self):
+    for index in range(4):
+      request = req(
+        "issue.comment", {"number": 3, "body": "Comment " + str(index)},
+        request_id="unique-" + str(index),
+      )
+      self.assertEqual(apply(request, self.backend)[0], "applied")
+    self.assertEqual(len(self.backend.comments), 4)
+
+  def test_concurrent_same_id_has_at_most_one_comment(self):
+    request = req("issue.comment", {"number": 3, "body": "Concurrent"})
+    def execute():
+      try:
+        return apply(request, self.backend)[0]
+      except ProviderError as exc:
+        return exc.code
+    with ThreadPoolExecutor(max_workers=4) as pool:
+      results = list(pool.map(lambda _: execute(), range(4)))
+    self.assertEqual(results.count("applied"), 1)
+    self.assertTrue(
+      set(results) <= {"applied", "unchanged", "unknown_outcome"}
+    )
     self.assertEqual(len(self.backend.comments), 1)
 
   def test_uncertain_comment_does_not_repeat_mutation(self):
