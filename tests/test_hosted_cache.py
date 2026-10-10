@@ -152,6 +152,49 @@ class HostedCacheTests(unittest.TestCase):
     self.candidate = "f" * 40
     self.assertEqual(self.reusable(), set())
 
+  def test_hosted_temporary_requires_complete_unique_catalogue(self):
+    import runpy
+    from pathlib import Path
+
+    validate = runpy.run_path(
+      str(Path(__file__).resolve().parents[1]
+          / "scripts/validate-hosted-result.py")
+    )["validate_result"]
+    catalogue = self.root / ".ci/temp-tests.json"
+    catalogue.parent.mkdir(parents=True, exist_ok=True)
+    catalogue.write_text(json.dumps({
+      "test-harnesses": {"unittest": {"command": "python", "layout": []}},
+      "tests": [
+        {"test-harness": "unittest", "issue-545-one": {"type": "regression"}},
+        {"test-harness": "unittest", "issue-545-two": {"type": "regression"}},
+      ],
+      "aliases": {},
+    }))
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    base = {
+      **self.record, "kind": "temporary", "result": "succeeded",
+      "reusable": True, "runner": "local",
+    }
+    for names, should_pass in (
+      (["issue-545-one"], False),
+      (["issue-545-one", "issue-545-one"], False),
+      (["issue-545-one", "issue-545-unknown"], False),
+      (["issue-545-one", "issue-545-two"], True),
+    ):
+      with self.subTest(groups=names):
+        entry = {**base, "groups": [
+          {"group": name, "exit_code": 0} for name in names
+        ]}
+        path.write_text(json.dumps(entry) + "\\n")
+        if should_pass:
+          validate(self.root, stage="temp-testing", candidate=self.candidate,
+                   branch="issue-545-cache")
+        else:
+          with self.assertRaises(ValueError):
+            validate(self.root, stage="temp-testing", candidate=self.candidate,
+                     branch="issue-545-cache")
+
   def test_first_request_without_publication_is_cache_miss(self):
     self.assertEqual(verified_hosted_passes(
       self.root, stage="GREEN", revision=self.candidate,
