@@ -98,16 +98,53 @@ class LiveProbeCleanupTests(unittest.TestCase):
     with patch.object(sys, "argv", args):
       with patch.object(module, "gh", side_effect=provider_read):
         with patch.object(module, "invoke", side_effect=adapter):
-          with patch.object(module.subprocess, "run", side_effect=cleanup):
-            with contextlib.redirect_stdout(output):
-              if cleanup_code:
-                with self.assertRaisesRegex(
-                  RuntimeError, "temporary PR close failed"
-                ):
-                  module.main()
-              else:
-                self.assertEqual(module.main(), 0)
+          with patch.object(module, "verify_reservation") as ledger:
+            with patch.object(module.subprocess, "run", side_effect=cleanup):
+              with contextlib.redirect_stdout(output):
+                if cleanup_code:
+                  with self.assertRaisesRegex(
+                    RuntimeError, "temporary PR close failed"
+                  ):
+                    module.main()
+                else:
+                  self.assertEqual(module.main(), 0)
+              self.assertEqual(ledger.call_count, 4)
     return sequence, output.getvalue()
+
+  def test_persisted_reservation_sha_and_digest_are_exact(self):
+    request = {
+      "schema_version": 1,
+      "operation": "issue.comment",
+      "repository": "owner/sandbox",
+      "request_id": "once",
+      "parameters": {"number": 3, "body": "Exact"},
+    }
+    refhash = hashlib.sha256(chr(0).join((
+      "owner/sandbox", "issue.comment", "once",
+    )).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(json.dumps(
+      request, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    data = [
+      {"ref": "refs/tags/rwf-host-request-" + refhash,
+       "object": {"sha": SHA}},
+      {"message": "RWF-HOST-RESERVATION-V1 " + digest},
+    ]
+    with patch.object(module, "gh", side_effect=data) as read:
+      module.verify_reservation(
+        "owner/sandbox", "issue.comment", "once",
+        {"number": 3, "body": "Exact"},
+      )
+    self.assertIn(refhash, read.call_args_list[0].args[1])
+    self.assertEqual(read.call_args_list[1].args[1],
+                     "git/commits/" + SHA)
+    data[1] = {"message": "RWF-HOST-RESERVATION-V1 " + "0" * 64}
+    with patch.object(module, "gh", side_effect=data):
+      with self.assertRaisesRegex(RuntimeError, "digest mismatch"):
+        module.verify_reservation(
+          "owner/sandbox", "issue.comment", "once",
+          {"number": 3, "body": "Exact"},
+        )
 
   def test_remote_comment_requires_unique_exact_persisted_marker(self):
     identity = chr(0).join(["owner/sandbox", "issue.comment", "once"])
