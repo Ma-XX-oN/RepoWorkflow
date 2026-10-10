@@ -1,5 +1,6 @@
 """Independent, fail-closed #629 preparatory acceptance matrix checks."""
 
+import importlib
 import json
 from pathlib import Path
 import unittest
@@ -44,6 +45,38 @@ class IndependentMatrixTests(unittest.TestCase):
       self.assertIn(row["environment"], {"CLI", "provider", "integration"})
       self.assertEqual(row["status"], "pending")
       self.assertIsNone(row["evidence"])
+
+
+  def test_every_named_probe_resolves_to_real_callable_or_suite(self):
+    for row in self.entries:
+      with self.subTest(requirement=row["id"]):
+        name = row["test"]
+        if not name.startswith("tests."):
+          # Names without an implementation are provider-only pending.
+          self.assertFalse(row["implemented"])
+          self.assertIn(row["environment"], {"provider", "integration"})
+          continue
+        parts = name.split(".")
+        resolved = None
+        for split in range(len(parts) - 1, 0, -1):
+          try:
+            candidate = importlib.import_module(".".join(parts[:split]))
+          except ModuleNotFoundError:
+            continue
+          for segment in parts[split:]:
+            candidate = getattr(candidate, segment, None)
+            if candidate is None:
+              break
+          if candidate is not None:
+            resolved = candidate
+            break
+        self.assertIsNotNone(resolved, "Missing executable test: " + name)
+
+  def test_no_provider_row_has_synthetic_green_evidence(self):
+    for row in self.entries:
+      if row["environment"] in {"provider", "integration"}:
+        self.assertEqual(row["status"], "pending")
+        self.assertIsNone(row["evidence"])
 
   def test_unobserved_cases_are_never_green(self):
     self.assertEqual(evaluate(self.entries, {}), set())
