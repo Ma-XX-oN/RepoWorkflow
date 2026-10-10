@@ -52,6 +52,8 @@ jobs:
       needs.plan.outputs.stage == 'regression-testing' ||
       needs.plan.outputs.stage == 'integration-testing'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,7 +91,8 @@ jobs:
           "${{ needs.plan.outputs.stage }}"
           "${{ needs.plan.outputs.tested_sha }}"
           "$GITHUB_REF_NAME"
-      - name: Verify only canonical test-results log changed
+      - id: audit
+        name: Verify only canonical test-results log changed
         if: ${{ always() }}
         shell: bash
         run: |
@@ -114,6 +117,37 @@ jobs:
             changed = entry[3:].decode("utf-8", "surrogateescape")
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
+          PY
+      - name: Publish canonical hosted testing observations
+        if: ${{ always() && steps.audit.outcome == 'success' }}
+        shell: bash
+        run: >-
+          python scripts/publish-hosted-result.py
+          "${{ needs.plan.outputs.stage }}"
+          "${{ needs.plan.outputs.tested_sha }}"
+          "$GITHUB_REF_NAME"
+          "$GITHUB_SHA"
+          "$GITHUB_RUN_ID"
+      - name: Verify public remote results retrieval without a new CI request
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./rwf test results --remote > "$RUNNER_TEMP/hosted-results.jsonl"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "hosted-results.jsonl"
+          records = [
+            json.loads(line) for line in path.read_text().splitlines()
+            if line.strip()
+          ]
+          assert records, "remote testing log is empty"
+          latest = records[-1]
+          assert latest["providerRunId"] == int(os.environ["GITHUB_RUN_ID"])
+          assert latest["providerInvocationSHA"] == os.environ["GITHUB_SHA"]
           PY
 
   argv-limits:
