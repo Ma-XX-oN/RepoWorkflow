@@ -150,6 +150,36 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
           0 if status == "PASS" else 1 if status == "FAIL" else 2,
         )
 
+  def test_stable_consumer_execution_remains_core_authoritative(self):
+    from tests.support import RepoFixture
+
+    with tempfile.TemporaryDirectory() as td:
+      workspace = Path(td) / "consumer"
+      workspace.mkdir()
+      fixture = RepoFixture(workspace, version="1.2.3")
+      destination = Path(td) / "results" / "stable.json"
+      value = request("execute")
+      value["candidate"]["commit"] = fixture.head()
+      value["requirements"]["stages"] = ["local"]
+      value["inputs"] = {
+        "consumer_workspace": str(workspace),
+        "result_path": str(destination),
+        "mode": "stable",
+        "base": value["candidate"]["base"],
+      }
+      env = {
+        "RWF_REPO_CI_WORKSPACE": str(workspace),
+        "RWF_REPO_CI_RESULT_ROOT": str(destination.parent),
+        "GITHUB_REPOSITORY": "owner/repo",
+      }
+      with patch.dict(os.environ, env):
+        result = handle_request(value, ROOT)
+      self.assertEqual(result["status"], "ok", result)
+      self.assertEqual(result["observations"]["stages"][0]["core_result"]["status"],
+                       "PASS")
+      self.assertEqual(json.loads(destination.read_text())["version"], "1.2.3")
+      self.assertNotIn("terminal_classification", result["observations"])
+
   @unittest.skipIf(os.name == "nt", "symlinked hosted consumer fixture is POSIX-only")
   def test_consumer_dispatcher_roundtrip_uses_installed_provider(self):
     from tests.support import RepoFixture
