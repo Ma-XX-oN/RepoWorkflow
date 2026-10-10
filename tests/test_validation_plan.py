@@ -261,7 +261,11 @@ class EvidenceAwarePlanTests(unittest.TestCase):
 
   def test_plan_and_execute_refuses_untrusted_skips_without_dispatch(self):
     self.store.publish(observation(), self.writer)
-    with patch("repo_workflow.validation_plan.dispatch") as provider:
+    answer = {
+      "status": "ok", "candidate": envelope()["candidate"],
+      "observations": {"stages": [provider_observation()]},
+    }
+    with patch("repo_workflow.validation_plan.dispatch", return_value=answer) as provider:
       plan, execution = execute_from_store(
         ROOT, self.store, [requirement()], CANDIDATE, envelope(),
         {"unit/a": "invariant-self-ci-contract"},
