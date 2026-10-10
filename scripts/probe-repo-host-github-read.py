@@ -34,6 +34,9 @@ def main() -> int:
     parser.error("repository and branch identities required")
 
   backend = GitHubBackend(args.repository)
+  actor = backend.identity()
+  if not isinstance(actor.get("login"), str) or not actor["login"]:
+    raise RuntimeError("GitHub token principal could not be authenticated")
   issue = backend.issue(args.issue)
   pr = backend.pull(args.pull)
   remote = backend.get("git/ref/heads/" + args.branch)
@@ -55,6 +58,7 @@ def main() -> int:
     "repository": args.repository, "issue": issue["number"],
     "pull": pr["number"], "head_sha": observed,
     "mutation_authorization": "NOT_TESTED",
+    "observed_actor": actor["login"],
     "mutation_side_effects": 0,
   }, sort_keys=True))
   return 0
