@@ -100,14 +100,9 @@ class GitHubProviderTests(unittest.TestCase):
       },
     }
     with patch.object(backend, "get", side_effect=lambda path: records[path]):
-      with patch.object(
-        backend, "post",
-        side_effect=[
-          {"sha": RECORD},
-          provider.ProviderError("provider_failure", "already exists"),
-        ],
-      ):
+      with patch.object(backend, "post") as post:
         self.assertFalse(backend.reserve(REQUEST))
+        post.assert_not_called()
       changed = {**REQUEST, "parameters": {
         "number": 2, "body": "other",
       }}
@@ -115,6 +110,18 @@ class GitHubProviderTests(unittest.TestCase):
         backend.check_reservation(changed)
       self.assertEqual(caught.exception.code, "conflict")
 
+
+  def test_reservation_read_failure_does_not_create_commit(self):
+    backend = provider.GitHubBackend("owner/repo")
+    with patch.object(
+      backend, "get",
+      side_effect=provider.ProviderError("transport_failure", "unavailable"),
+    ):
+      with patch.object(backend, "post") as post:
+        with self.assertRaises(provider.ProviderError) as caught:
+          backend.reserve(REQUEST)
+        self.assertEqual(caught.exception.code, "transport_failure")
+        post.assert_not_called()
 
   def test_draft_graphql_transition_uses_observed_node_id(self):
     backend = provider.GitHubBackend("owner/repo")
@@ -164,9 +171,12 @@ class GitHubProviderTests(unittest.TestCase):
       "git/ref/heads/main": {"object": {"sha": SHA}},
       "git/commits/" + SHA: {"tree": {"sha": TREE}},
     }
-    with patch.object(
-      backend, "get", side_effect=lambda path: values[path]
-    ):
+    def lookup(path):
+      if path not in values:
+        raise provider.ProviderError("not_found", "reservation absent")
+      return values[path]
+
+    with patch.object(backend, "get", side_effect=lookup):
       with patch.object(
         backend, "post", side_effect=[
           {"sha": RECORD}, {"ref": provider.reservation_ref(REQUEST)},
