@@ -72,7 +72,7 @@ def read_evidence_gate(
     complete = all(status == "satisfied" for _, status in statuses)
   except EvidenceGateError:
     raise
-  except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+  except (OSError, RuntimeError, KeyError, TypeError, AttributeError) as error:
     raise EvidenceGateError("validation evidence unavailable") from error
   return EvidenceGate(
     tested=candidate, complete=complete, passed=complete,
