@@ -53,6 +53,8 @@ def _manifest(request: dict, records: dict[str, bytes]) -> dict:
   entries = []
   for name in sorted(records):
     _identity(name, "artifact name")
+    if name == "manifest.json":
+      raise TransportError("artifact name reserved for manifest")
     data = records[name]
     if not isinstance(data, bytes):
       raise TransportError("artifact contents must be bytes")
