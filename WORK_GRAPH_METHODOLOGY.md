@@ -33,16 +33,61 @@ Cross-repository managers can consume the same model.  WorkStack
 (https://github.com/Ma-XX-oN/WorkStack) coordinates multiple repositories;
 this remains the source for repository-neutral decomposition and graph semantics.
 
-## 2. Decompose by contract boundary, not task size
+## 2. Decompose to the smallest independently verifiable leaf
 
-"Too large" is not the primary test for whether an issue should be split.
+Prefer the **smallest useful, independently testable and ownable behaviour**,
+not merely a ticket with one broad interface.  A shared command or subsystem
+name does not justify grouping separately executable behaviours in one ticket.
+Small leaves reduce agent reasoning scope, speed feedback, expose failures
+precisely and create more safe parallelism.
 
-A leaf is well-formed when it owns one coherent contract or state transition
-with a clear completion boundary.
+Before creating an implementation ticket, repeatedly ask whether its proposed
+work can be divided into smaller deliverables with their own observable
+postconditions and independent test evidence.  Split again until every
+remaining leaf is an atomic, coherent behaviour and another split would produce
+only artificial handoffs, tightly coupled fragments or untestable busywork.
 
-A leaf may contain substantial implementation work and still be valid if its
-interface remains singular.  A small issue may still be poorly decomposed when
-it mixes several independently testable responsibilities.
+**Split by default** when a proposed ticket:
+
+- implements multiple commands, stages, providers or distinct failure modes;
+- spans separately testable parser, execution, persistence or retrieval layers;
+- mixes read-only validation with state-changing operations;
+- combines core behaviour with hosted/provider or platform certification;
+- has distinct ownership, lifecycle transitions or security boundaries;
+- can deliver useful tests or interfaces independently of other portions;
+- requires an agent to keep several unrelated contracts in working context;
+- repeatedly exhausts a 25-minute execution window with substantial unrelated
+  acceptance work still remaining.
+
+Every leaf should have one narrow outcome, a bounded input/output contract,
+specific negative cases, an isolated ownership surface and a short,
+requirements-derived acceptance-test checklist.  Size and testability are
+**separate gates**: one broad contract is not enough to justify a large leaf.
+
+The 25-minute window is an early warning, not a promise that any task can be
+completed in one window.  Prefer leaves that can normally be implemented,
+independently tested and handed off in a single window.  If not feasible,
+record why further splitting would make the work less independently testable.
+
+When splitting:
+
+1. Extract stable contracts and shared prerequisites before consumers.
+2. Assign exclusive file/state ownership or coordinate explicit interfaces.
+3. Express *real* direct dependencies; do not serialize independent leaves.
+4. Give each leaf a usable DONE artifact and reproducible acceptance evidence.
+5. Add a small explicit integration/convergence ticket only where needed.
+6. Keep parent acceptance requirements traceable across all split tickets.
+7. Update and validate the canonical ticket graph immediately.
+
+Do not split a single atomic state transition into implementation-only and
+test-only tickets if neither can independently satisfy meaningful acceptance
+criteria.  Do not substitute preparatory notes, mock-only GREEN, or ticket
+creation for independently verified completion.
+
+A newly discovered large ticket, or a worker repeatedly checkpointing on
+unrelated unfinished behaviours, triggers a **decomposition reassessment**.
+Preserve active claims and committed work; split remaining independent work
+only after inspecting actual ownership and diff boundaries.
 
 Useful split boundaries include:
 
@@ -57,10 +102,6 @@ Useful split boundaries include:
 - presentation/rendering versus semantic projection;
 - candidate preparation versus result finalization;
 - creation versus later cleanup/reconciliation.
-
-When two responsibilities have different preconditions, postconditions,
-failure behaviour, or independent consumers, they are strong candidates for
-separate leaves.
 
 ## 3. The leaf contract
 
