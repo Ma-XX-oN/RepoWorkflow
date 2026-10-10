@@ -123,6 +123,38 @@ class GitHubProviderTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "transport_failure")
         post.assert_not_called()
 
+  def test_concurrent_reservation_create_reconciles_winner(self):
+    backend = provider.GitHubBackend("owner/repo")
+    ref = provider.reservation_ref(REQUEST)
+    digest = provider.reservation_digest(REQUEST)
+    records = {
+      "": {"default_branch": "main"},
+      "git/ref/heads/main": {"object": {"sha": SHA}},
+      "git/commits/" + SHA: {"tree": {"sha": TREE}},
+      "git/ref/tags/" + ref.split("/")[-1]: {
+        "ref": ref, "object": {"sha": RECORD},
+      },
+      "git/commits/" + RECORD: {
+        "message": "RWF-HOST-RESERVATION-V1 " + digest,
+      },
+    }
+    first = True
+
+    def lookup(path):
+      nonlocal first
+      if path.startswith("git/ref/tags/") and first:
+        first = False
+        raise provider.ProviderError("not_found", "not created yet")
+      return records[path]
+
+    with patch.object(backend, "get", side_effect=lookup):
+      with patch.object(backend, "post", side_effect=[
+        {"sha": RECORD},
+        provider.ProviderError("conflict", "concurrent creation"),
+      ]) as post:
+        self.assertFalse(backend.reserve(REQUEST))
+        self.assertEqual(post.call_count, 2)
+
   def test_draft_graphql_transition_uses_observed_node_id(self):
     backend = provider.GitHubBackend("owner/repo")
     pr = {
