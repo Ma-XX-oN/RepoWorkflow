@@ -60,7 +60,9 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
-from repo_workflow.repo_ci_dispatcher import RepoCiError, OPERATIONS, dispatch
+from repo_workflow.repo_ci_dispatcher import (
+  RepoCiError, OPERATIONS, dispatch, error_envelope,
+)
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -223,7 +225,17 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = _root(args.root)
     if args.command == "repo-ci":
-      value = dispatch(root, args.operation, sys.stdin.buffer.read())
+      raw = sys.stdin.buffer.read()
+      try:
+        value = dispatch(root, args.operation, raw)
+      except RepoCiError as exc:
+        error = error_envelope(raw, args.operation, exc)
+        if error is None:
+          error = {"code": exc.code, "message": str(exc)}
+          print(json.dumps(error, separators=(",", ":")), file=sys.stderr)
+        else:
+          print(json.dumps(error, separators=(",", ":")))
+        return 2
       print(json.dumps(value, separators=(",", ":")))
       return 0
 
