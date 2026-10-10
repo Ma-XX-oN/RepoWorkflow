@@ -117,6 +117,18 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
   def test_no_separate_unsupported_stage_job(self):
     self.assertNotIn("\n  unsupported-stage:", self.text)
 
+  def test_validated_hosted_observation_is_published_and_read_back(self):
+    section = self.text.split("\n  validate:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
+    )[0]
+    self.assertIn("    permissions:\n      contents: write", section)
+    self.assertIn("scripts/publish-hosted-result.py", section)
+    self.assertIn("steps.audit.outcome == 'success'", section)
+    self.assertIn("./rwf test results --remote", section)
+    self.assertIn('latest["providerRunId"]', section)
+    self.assertIn('latest["providerInvocationSHA"]', section)
+    self.assertIn("permissions:\n  contents: read", self.text)
+
   def test_no_release_job_is_started_by_selector_push(self):
     self.assertNotIn("\n  release:", self.text)
 
