@@ -124,6 +124,33 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(self.git("rev-parse", "HEAD"), before)
     self.assertFalse((self.root / ".ci/run").exists())
 
+  def test_shipped_remote_results_fetches_without_new_request(self):
+    bare = self.remote()
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    log.parent.mkdir(parents=True)
+    expected = {
+      "testSHA": self.source, "kind": "regression",
+      "result": "succeeded", "runner": "github-actions",
+    }
+    log.write_text(json.dumps(expected) + "\n")
+    self.git("add", ".repoworkflow/validation/testResults-545.jsonl")
+    self.git("commit", "-m", "published provider observation")
+    self.git("push")
+    log.unlink()
+    before = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "results", "--remote")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    self.assertEqual(json.loads(out.stdout), expected)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    self.assertFalse((self.root / ".ci/run").exists())
+    remote_head = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(remote_head, before)
+
+
   def test_results_are_read_only_through_shipped_launcher(self):
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     log.parent.mkdir(parents=True)
