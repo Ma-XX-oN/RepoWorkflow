@@ -129,6 +129,13 @@ class GitHubBackend:
     """Return true only for an atomically newly created reservation."""
     ref = reservation_ref(request)
     payload_digest = reservation_digest(request)
+    try:
+      self.check_reservation(request)
+    except ProviderError as exc:
+      if exc.code != "not_found":
+        raise
+    else:
+      return False
     repository = _object(self.get(""), {"default_branch"})
     default_branch = repository["default_branch"]
     if not isinstance(default_branch, str) or not re.fullmatch(
