@@ -195,6 +195,46 @@
       "issue-548-hosted-cache-provenance": {
         "type": "regression",
         "name": "tests.test_hosted_cache"
+      },
+      "issue-629-certification-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue629_certification_matrix"
+      },
+      "issue-629-cli-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cli_acceptance"
+      },
+      "issue-629-provider-probe": {
+        "type": "regression",
+        "name": "tests.test_issue629_provider_probe"
+      },
+      "issue-629-selection-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_selection_acceptance"
+      },
+      "issue-629-cache-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cache_acceptance"
+      },
+      "issue-629-stage-cardinality": {
+        "type": "regression",
+        "name": "tests.test_issue629_stage_cardinality"
+      },
+      "issue-629-expected-red": {
+        "type": "regression",
+        "name": "tests.test_issue629_expected_red"
+      },
+      "issue-629-red-outcome": {
+        "type": "regression",
+        "name": "tests.test_issue629_red_outcome"
+      },
+      "issue-629-pending-provider": {
+        "type": "regression",
+        "name": "tests.test_issue629_pending_provider"
+      },
+      "issue-629-zz-invocation-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_invocation_acceptance"
       }
     }
   ],
