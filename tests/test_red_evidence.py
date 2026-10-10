@@ -42,6 +42,32 @@ class RedEvidenceTests(unittest.TestCase):
 
 
 
+  def test_signalled_red_runner_records_distinct_incomplete_reason(self):
+    import os
+    if os.name == "nt":
+      self.skipTest("POSIX signal return-code contract")
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-signal-red",
+    )
+    (self.root / "smoke_case.py").write_text(
+      "import os, signal, unittest\\n"
+      "class Smoke(unittest.TestCase):\\n"
+      "  def test_pass(self):\\n"
+      "    os.kill(os.getpid(), signal.SIGTERM)\\n"
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "signalled RED case")
+    result = self.cli("test", "RED", "issue-545-signal-red")
+    self.assertEqual(result.returncode, 2, result.stderr)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    record = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(record["kind"], "RED")
+    self.assertEqual(record["result"], "incomplete")
+    self.assertEqual(record["reason"], "test-process-terminated")
+    self.assertLess(record["groups"][0]["exit_code"], 0)
+    self.assertFalse(record["reusable"])
+
+
   def test_missing_red_executable_records_incomplete_evidence(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-missing-bin",
