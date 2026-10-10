@@ -1,0 +1,10 @@
+#!/bin/sh
+# Portable repo-ci entrypoint; provider mechanics remain in the adapter.
+for RWF_PYTHON in python3 python; do
+  if command -v "$RWF_PYTHON" >/dev/null 2>&1 &&
+      "$RWF_PYTHON" -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' >/dev/null 2>&1; then
+    exec "$RWF_PYTHON" "$(dirname "$0")/repo_workflow/repo_ci_dispatcher.py" "$@"
+  fi
+done
+echo "repo-ci: Python 3 is required" >&2
+exit 127
