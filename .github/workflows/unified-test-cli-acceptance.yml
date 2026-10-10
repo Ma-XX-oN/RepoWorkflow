@@ -1,0 +1,57 @@
+name: Unified Test CLI Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.ci/tests.json'
+      - 'repo_workflow/test_*.py'
+      - 'repo_workflow/public_cli.py'
+      - 'tests/test_expected_red_cli.py'
+      - 'tests/test_test_launcher.py'
+      - 'tests/test_red_evidence.py'
+      - '.github/workflows/unified-test-cli-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-cli-platforms:
+    name: Public CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install requirements
+        shell: bash
+        run: python -m pip install -r requirements.txt
+      - name: Verify Git Bash/POSIX launcher and acceptance contracts
+        shell: bash
+        run: |
+          command -v sh
+          python -m unittest \
+            tests.test_expected_red_cli \
+            tests.test_test_launcher \
+            tests.test_test_launch_failures \
+            tests.test_red_evidence \
+            tests.test_test_red_runner \
+            tests.test_test_red_classification
+
+  full-regression:
+    name: Authoritative full regression (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Run authoritative regression
+        run: python scripts/validate.py

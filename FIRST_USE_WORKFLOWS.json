@@ -643,6 +643,34 @@
         "invalid_transition": "HR-2"
       },
       "provider_boundary": false
+    },
+    {
+      "id": "FU-UNIFIED-TEST",
+      "status": "gap",
+      "scope": [
+        "rwf test RED",
+        "rwf test temporary",
+        "rwf test GREEN",
+        "rwf test regression",
+        "rwf test integration",
+        "rwf test results"
+      ],
+      "minimum_state": "current issue branch and authoritative test catalogue, initially without a selected RED/GREEN group or shared results",
+      "prohibited_shortcuts": [
+        "fabricating local PASS evidence",
+        "claiming provider success from an unverified JSONL file",
+        "running hosted CI on ordinary source pushes"
+      ],
+      "gap_issue": 543,
+      "stateful": true,
+      "provider_boundary": true,
+      "acceptance": [
+        {
+          "id": "FU-TEST-PENDING-1",
+          "requirement": "Certify all six shipped test commands, local/hosted execution, durable candidate-bound evidence and remote retrieval",
+          "deferred_issue": 543
+        }
+      ]
     }
   ],
   "audited_issue_count": 191,
@@ -658,7 +686,8 @@
     "what-next": "FU-LIFECYCLE",
     "validate": "FU-LIFECYCLE",
     "issue": "FU-DEPS-LANES",
-    "high-risk": "FU-HIGH-RISK"
+    "high-risk": "FU-HIGH-RISK",
+    "test": "FU-UNIFIED-TEST"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."

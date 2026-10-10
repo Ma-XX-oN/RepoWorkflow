@@ -187,29 +187,25 @@ returns to development.  The difference is how the result transition occurs:
 - MIT waits for the human result and exposes that result transition to the
   user.
 
-The concise integration-result commands are:
-
-```text
-repo-workflow validate integration succeeded
-repo-workflow validate integration failed
-```
-
-When AIT is pending, the automated runner invokes the appropriate command
-without user intervention.  When MIT is pending, the human invokes it.  The
-state machine must know which integration-test class is pending because AIT
-PASS may transition to required MIT, while MIT PASS completes the manual
-acceptance boundary.  An integration failure from either class has the same
-version consequence: `Q += 1` and `R` resets.
+Integration outcomes are internal lifecycle transitions, not separate public
+`validate integration succeeded/failed` commands.  The current public
+interface is `rwf test integration [--remote]`.  When AIT is pending, its
+runner records the result automatically.  When a repository requires MIT,
+acceptance evidence must be recorded through the applicable internal
+transition, not by reinstating the retired public `validate` grammar.
+The state machine distinguishes AIT and MIT because AIT PASS may advance to
+required MIT, while MIT PASS completes the acceptance boundary.  An
+integration failure from either class advances `Q` and resets `R`.
 
 The task lifecycle is:
 
 1. Create an `issue-*` branch from its declared parent.
-2. Run `repo-workflow version task issue <number>`.
+2. Invoke the internal `repo-version` adapter request `task --issue N`.
 3. RepoWorkflow forwards to the repository `repo-version` adapter, which
    derives and applies the initial task version.
 4. Implement the task.
 5. When the implementation is ready for full regression validation, explicitly
-   run `repo-workflow validate regression`.  Local RWF does not start ART merely
+   run `rwf test regression`.  Local RWF does not start ART merely
    because it guesses development is finished.
 6. On ART genuine FAIL:
    - record/tag the failed exact candidate;
@@ -223,9 +219,8 @@ The task lifecycle is:
    - create the immutable successful task-candidate evidence;
    - proceed to required AIT, if any.
 9. When ready for integration validation, explicitly run
-   `repo-workflow validate integration` locally.  RWF runs the required AIT;
-   its automated runner records `validate integration succeeded` or
-   `validate integration failed` without user result entry.  If required MIT
+   `rwf test integration` locally (or use `--remote` for hosted execution).
+   RWF runs the required AIT and records its internal result transition.  If required MIT
    remains after AIT passes, the same full validation operation presents that
    manual requirement and waits for the human result.
 10. On AIT FAIL:
@@ -242,8 +237,8 @@ The task lifecycle is:
     - if no MIT is required, the task's integration/acceptance requirement is
       complete.
 13. Run MIT only when the repository/task declares a manual integration
-    requirement.  The human records `validate integration succeeded` or
-    `validate integration failed`.
+    requirement.  The acceptance result uses the internal lifecycle
+    transition rather than a retired public validation command.
 14. On MIT FAIL:
     - record the manual integration rejection;
     - advance `Q`;
@@ -328,8 +323,8 @@ For one local integration attempt:
 5. keep integration-specific conflict resolution, generated artifacts, and
    proposed stable version on `prelim-main-<GUID>`;
 6. choose release intent with either:
-   - `repo-workflow version integrate increment patch`, or
-   - `repo-workflow version integrate increment minor`;
+   - internal `repo-version` request `integrate --increment patch`, or
+   - internal `repo-version` request `integrate --increment minor`;
 7. RepoWorkflow forwards the intent to the repository adapter, which derives
    and applies the literal stable candidate version;
 8. explicitly run full regression/integration validation on the exact

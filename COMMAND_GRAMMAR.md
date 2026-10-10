@@ -306,30 +306,13 @@ Diagnostics:
 State-related diagnostics include one human-readable state line and the legal
 transitions exactly once when that information is relevant.
 
-Example:
-
-```text
-RepoWorkflow error: transition is not legal in the current state:
-  validate integration s
-           ^^^^^^^^^^^
-
-Legal transitions:
-  regression required
-  → validate regression
-```
-
-A legal state-derived prefix whose partial token matches no current candidate
-may report:
-
-```text
-RepoWorkflow error: no completions available from the current state:
-  validate integration s
-                       ^
-
-Legal transitions:
-  integration result pending
-  → validate integration failed
-```
+For a state-illegal command, the diagnostic identifies the first illegal
+token and shows the actual legal transitions projected from the current state.
+A completion request with no current candidate reports that absence without
+inventing a fallback transition.  Neither diagnostic may suggest the retired
+public `validate regression` or `validate integration succeeded/failed`
+commands; the testing surface is `rwf test` as defined in
+[PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
 
 Catalogue/custom handlers may instead provide domain-specific diagnostics, such
 as the missing issue-scoped TDD group error in section 4.

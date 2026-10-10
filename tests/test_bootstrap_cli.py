@@ -67,7 +67,7 @@ class BootstrapCliTests(unittest.TestCase):
       self.make_repo(root)
 
       prefixes = [(), *static_prefixes(COMMANDS)]
-      prefixes.append(("validate", "integration"))
+      prefixes.append(("test", "integration"))
       for prefix in prefixes:
         with self.subTest(prefix=prefix):
           completed = self.run_cli(root, *prefix, "--help")
@@ -173,7 +173,7 @@ class BootstrapCliTests(unittest.TestCase):
       root.mkdir()
       self.make_repo(root)
       cases = (
-        (("validate",), ("regression", "integration")),
+        (("test",), ("RED", "temporary", "GREEN", "regression", "integration", "results")),
         (("high-risk",), ("<value>",)),
         (("issue", "start"), ("<value>",)),
         (("lanes", "select"), ("<value>",)),

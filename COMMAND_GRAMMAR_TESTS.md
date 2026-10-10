@@ -1,5 +1,13 @@
 # Stage 2 TDD — State Machine, CLI, and Completion
 
+> Historical Stage 2 test-design record, not the current public CLI
+> acceptance contract.  Its `validate regression` and `validate integration`
+> command examples were superseded by the six `rwf test` operations in
+> [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md) and issue #545.  Do not reinstate
+> these obsolete command forms from this historical test plan.  Lifecycle
+> ART/AIT/MIT semantic transition requirements remain distinct from the
+> retired command spellings.
+
 Required state-machine tests:
 
 - initial task-development state;
