@@ -1,7 +1,9 @@
 """Specification-based tests for disposable real-PR acceptance probe."""
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -83,13 +85,19 @@ class ProviderCreateProbeTests(unittest.TestCase):
             with patch.object(probe, "assert_reservation") as reserve:
               with patch.object(probe.subprocess, "run",
                                 side_effect=cleanup):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                  if close_code:
+                    with self.assertRaisesRegex(
+                      RuntimeError, "disposable PR cleanup failed"
+                    ):
+                      probe.main()
+                  else:
+                    self.assertEqual(probe.main(), 0)
                 if close_code:
-                  with self.assertRaisesRegex(
-                    RuntimeError, "disposable PR cleanup failed"
-                  ):
-                    probe.main()
+                  self.assertNotIn('"result": "PASS"', stdout.getvalue())
                 else:
-                  self.assertEqual(probe.main(), 0)
+                  self.assertIn('"result": "PASS"', stdout.getvalue())
               reserve.assert_called_once()
     self.assertEqual(sequence.count("ADAPTER SAME"), 2)
     self.assertEqual(sequence.count("CLOSE PR"), 1)
