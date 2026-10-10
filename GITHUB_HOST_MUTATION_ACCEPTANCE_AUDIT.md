@@ -62,6 +62,17 @@ trusted authorization verifier.  Do not grant write access to an unreviewed
 pull-request workflow just to manufacture positive evidence.  A real-provider
 test must run in an independently approved sandbox or trusted CI context.
 
+## Real provider smoke observations (not adapter certification)
+
+- GitHub issue #624 was created as a disposable fixture.  Its title was
+  updated, a comment was posted once (comment 6099874653), the records
+  were fetched back, and the fixture issue was closed as completed.
+- GitHub draft PR #616 was created and its metadata updated through the
+  connected provider API without merging.
+- These are **independent provider API probes**.  They do NOT execute the
+  Python repo-host adapter or establish its authenticated idempotency and
+  authorization semantics.  The live adapter acceptance gate stays open.
+
 ## Provider facts and limitations
 
 The GitHub REST pull merge API accepts expected PR *head* `sha`, not the
