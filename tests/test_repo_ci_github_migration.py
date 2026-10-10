@@ -50,6 +50,52 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
     self.assertEqual(result["diagnostics"][0]["code"], "execution-unavailable")
     self.assertEqual(result["artifacts"], [])
 
+  def test_execute_requires_exact_checkout_and_base(self):
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout.strip()
+    value = request("execute")
+    value["requirements"]["stages"] = ["validation"]
+    value["inputs"] = {"base": value["candidate"]["base"],
+                       "stage_groups": {"validation": "invariant-self-ci-contract"}}
+    mismatch = handle_request(value, ROOT)
+    self.assertEqual(mismatch["diagnostics"][0]["code"], "identity-mismatch")
+    value["candidate"]["commit"] = head
+    value["inputs"]["base"] = "stale"
+    mismatch = handle_request(value, ROOT)
+    self.assertEqual(mismatch["diagnostics"][0]["code"], "identity-mismatch")
+
+  def test_execute_rejects_missing_or_duplicate_stage_groups(self):
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout.strip()
+    value = request("execute", {"base": "b" * 40, "stage_groups": {}})
+    value["candidate"]["commit"] = head
+    value["requirements"]["stages"] = ["required"]
+    result = handle_request(value, ROOT)
+    self.assertEqual(result["diagnostics"][0]["code"], "invalid-request")
+    value["requirements"]["stages"] = ["required", "required"]
+    value["inputs"]["stage_groups"] = {"required": "invariant-self-ci-contract"}
+    result = handle_request(value, ROOT)
+    self.assertEqual(result["diagnostics"][0]["code"], "invalid-request")
+
+  def test_execute_reports_genuine_process_result_without_classification(self):
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout.strip()
+    value = request("execute")
+    value["candidate"]["commit"] = head
+    value["requirements"]["stages"] = ["selected"]
+    value["inputs"] = {"base": value["candidate"]["base"],
+                       "stage_groups": {"selected": "invariant-self-ci-contract"}}
+    with patch("repo_workflow.repo_ci_github_provider.subprocess.run") as run:
+      run.side_effect = [
+        subprocess.CompletedProcess([], 0, head + "\\n", ""),
+        subprocess.CompletedProcess([], 1, b"", b"test failed"),
+      ]
+      result = handle_request(value, ROOT)
+    self.assertEqual(result["status"], "ok")
+    self.assertEqual(result["observations"]["stages"][0]["outcome"], "failed")
+    self.assertEqual(result["observations"]["stages"][0]["exit_code"], 1)
+    self.assertNotIn("classification", result["observations"])
+
   def test_publish_fetch_integrity_and_identity(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
