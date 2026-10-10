@@ -59,6 +59,22 @@ PARAMETERS = {
 }
 
 
+
+def _branch_ref(value: object) -> bool:
+  if not isinstance(value, str) or not value.startswith("refs/heads/"):
+    return False
+  name = value[len("refs/heads/"):]
+  return (
+    bool(name)
+    and bool(re.fullmatch(r"[A-Za-z0-9._/-]+", name))
+    and not name.startswith("/")
+    and not name.endswith("/")
+    and "//" not in name
+    and ".." not in name
+    and not name.endswith(".lock")
+  )
+
+
 def _valid_parameters(operation: str, params: dict) -> None:
   if operation == "capabilities":
     return
@@ -77,6 +93,8 @@ def _valid_parameters(operation: str, params: dict) -> None:
       "expected_destination_sha", "candidate_sha",
     }:
       valid = isinstance(value, str) and bool(SHA.fullmatch(value))
+    elif key in {"source_ref", "target_ref"}:
+      valid = _branch_ref(value)
     elif key == "draft":
       valid = type(value) is bool
     elif key == "state":
@@ -128,6 +146,8 @@ def _parse(raw: str) -> dict:
   if value["operation"] == "capabilities" and value["parameters"]:
     raise ProtocolError("invalid_request", "capabilities takes no parameters")
   _valid_parameters(value["operation"], value["parameters"])
+  if any(part in {".", ".."} for part in value["repository"].split("/")):
+    raise ProtocolError("invalid_request", "invalid repository component")
   return value
 
 
