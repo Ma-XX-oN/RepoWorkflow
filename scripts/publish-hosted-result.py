@@ -65,6 +65,12 @@ def publish(
     or record.get("result") not in {"succeeded", "failed", "incomplete"}
     or record.get("headChangedDuringTest") is not False
     or record.get("uncommittedChanges") != []
+    or not isinstance(record.get("platform"), dict)
+    or any(
+      not isinstance(record["platform"].get(field), str)
+      or not record["platform"][field]
+      for field in ("os", "architecture", "runtime")
+    )
     or any(key in record for key in (
       "providerRunId", "providerInvocationSHA",
       "providerCandidateSHA", "providerStage",
