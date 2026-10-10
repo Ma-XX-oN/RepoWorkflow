@@ -72,6 +72,66 @@ class RepoCiDispatcherTests(unittest.TestCase):
         self.assertEqual(result["candidate"], request["candidate"])
         self.assertEqual(result["operation"], operation)
 
+  def test_stage_cardinality_and_opaque_arguments_round_trip(self):
+    self.success_provider()
+    for stages in ([], ["unit"], ["unit", "integration", "security"]):
+      with self.subTest(stages=stages):
+        request = {
+          **REQUEST,
+          "requirements": {"stages": stages, "artifacts": []},
+          "inputs": {
+            "stages": stages,
+            "opaque_provider_hint": {"must_not_select_adapter": True},
+          },
+        }
+        raw = request_bytes(request)
+        response = dispatch(self.root, "execute", raw)
+        self.assertEqual(response["status"], "ok")
+        self.assertEqual((self.root / "received.bin").read_bytes(), raw)
+
+  def test_wrong_operation_and_invocation_are_rejected(self):
+    self.provider(
+      "import json,sys\\n"
+      "r=json.loads(sys.stdin.read())\\n"
+      "r={k:r[k] for k in ('contract_version','operation',\\n"
+      " 'invocation_id','candidate')}\\n"
+      "r['invocation_id']='different'\\n"
+      "r.update(status='ok',observations={},diagnostics=[],artifacts=[])\\n"
+      "print(json.dumps(r))\\n"
+    )
+    with self.assertRaises(RepoCiError) as context:
+      dispatch(self.root, "execute", request_bytes())
+    self.assertEqual(context.exception.code, "identity-mismatch")
+
+  def test_invalid_response_status_fails_normalized(self):
+    self.provider(
+      "import json,sys\\n"
+      "r=json.loads(sys.stdin.read())\\n"
+      "r={k:r[k] for k in ('contract_version','operation',\\n"
+      " 'invocation_id','candidate')}\\n"
+      "r.update(status={},observations={},diagnostics=[],artifacts=[])\\n"
+      "print(json.dumps(r))\\n"
+    )
+    with self.assertRaises(RepoCiError) as context:
+      dispatch(self.root, "execute", request_bytes())
+    self.assertEqual(context.exception.code, "internal-error")
+
+  def test_structured_error_result_is_forwarded(self):
+    self.provider(
+      "import json,sys\\n"
+      "r=json.loads(sys.stdin.read())\\n"
+      "r={k:r[k] for k in ('contract_version','operation',\\n"
+      " 'invocation_id','candidate')}\\n"
+      "r.update(status='error',observations={},\\n"
+      " diagnostics=[{'code':'capability-unavailable'}],artifacts=[])\\n"
+      "print(json.dumps(r))\\n"
+    )
+    result = dispatch(self.root, "execute", request_bytes())
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(
+      result["diagnostics"][0]["code"], "capability-unavailable",
+    )
+
   def test_bad_requests_do_not_invoke_provider(self):
     self.success_provider()
     cases = [
