@@ -22,9 +22,10 @@ def record_red(
   path: Path, fingerprint: str, *,
   dirty_inputs: Callable[[Path, Path], list[str]],
   expectation: RedExpectation | None = None,
+  declaration_error: str = "",
 ) -> int:
   """Execute and audit one selected group against its source candidate."""
-  if expectation is not None:
+  if expectation is not None and not declaration_error:
     preflight = classify_red(
       expectation, RedObservation(None, "", "", False),
     )
@@ -32,19 +33,25 @@ def record_red(
       raise TestCommandError(preflight.reason)
   before = dirty_inputs(root, path)
   candidate = head_sha(root)
-  try:
-    result = subprocess.run(
-      command, cwd=root, text=True, capture_output=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-  except (OSError, UnicodeError):
+  if declaration_error:
     result = None
+  else:
+    try:
+      result = subprocess.run(
+        command, cwd=root, text=True, capture_output=True, check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+      )
+    except (OSError, UnicodeError):
+      result = None
   if result is not None and result.stdout:
     print(result.stdout, end="")
   if result is not None and result.stderr:
     print(result.stderr, end="", file=sys.stderr)
   dirty = sorted(set(before) | set(dirty_inputs(root, path)))
-  if result is None:
+  if declaration_error:
+    status = "INCOMPLETE"
+    reason = declaration_error
+  elif result is None:
     status = "INCOMPLETE"
     reason = "selected-test-cannot-execute"
   elif result.returncode < 0:
@@ -86,13 +93,14 @@ def record_red(
       "reused": False,
     }],
   }
-  if expectation is not None:
-    record["redStatus"] = status
+  record["redStatus"] = status
   path.parent.mkdir(parents=True, exist_ok=True)
   with path.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   if status == "RED":
     return 0
+  if declaration_error:
+    raise TestCommandError(declaration_error)
   if result is None:
     raise TestCommandError("RED selected test could not execute")
   if result.returncode < 0:
