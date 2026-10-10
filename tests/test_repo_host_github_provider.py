@@ -45,6 +45,47 @@ class GitHubProviderTests(unittest.TestCase):
     )
     self.assertEqual(call.call_args.args[0][4], "repos/owner/repo")
 
+  def test_installation_token_identity_uses_authenticated_viewer(self):
+    backend = provider.GitHubBackend("owner/repo")
+    with patch.object(
+      provider, "_json_call", side_effect=[
+        provider.ProviderError("unauthorized", "REST user denied"),
+        {"data": {"viewer": {"login": "github-actions[bot]"}}},
+      ],
+    ) as call:
+      self.assertEqual(
+        backend.identity(), {"login": "github-actions[bot]"}
+      )
+    self.assertEqual(call.call_args_list[0].args, ("GET", "user"))
+    self.assertEqual(call.call_args_list[1].args[:2], ("POST", "graphql"))
+
+  def test_installation_viewer_malformed_or_denied_is_not_authority(self):
+    for value in [
+      {"data": {"viewer": None}},
+      {"data": {"viewer": {"login": ""}}},
+      {"errors": [{"message": "denied"}], "data": None},
+      {"data": {"viewer": {"login": 7}}},
+    ]:
+      with self.subTest(value=value):
+        with patch.object(
+          provider, "_json_call", side_effect=[
+            provider.ProviderError("unauthorized", "REST user denied"),
+            value,
+          ],
+        ):
+          with self.assertRaises(provider.ProviderError):
+            provider.GitHubBackend("owner/repo").identity()
+
+  def test_identity_does_not_reinterpret_transport_errors_as_app_token(self):
+    with patch.object(
+      provider, "_json_call",
+      side_effect=provider.ProviderError("transport_failure", "offline"),
+    ) as call:
+      with self.assertRaises(provider.ProviderError) as caught:
+        provider.GitHubBackend("owner/repo").identity()
+    self.assertEqual(caught.exception.code, "transport_failure")
+    self.assertEqual(call.call_count, 1)
+
   def test_get_is_read_only_and_sends_no_payload(self):
     with patch.object(
       provider.subprocess, "run", return_value=response({"login": "actor"})
