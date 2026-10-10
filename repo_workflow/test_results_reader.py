@@ -79,7 +79,14 @@ def results(root: Path, *, remote: bool, git_cmd) -> int:
           not isinstance(name, str)
           or not name.strip()
           or name in seen
-          or type(item.get("exit_code")) is not int
+          or (
+            type(item.get("exit_code")) is not int
+            and not (
+              item.get("exit_code") is None
+              and "exit_code" in item
+              and record["result"] == "incomplete"
+            )
+          )
         ):
           raise TestCommandError("invalid testing log groups")
         seen.add(name)
