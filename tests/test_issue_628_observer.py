@@ -229,6 +229,45 @@ class ObserverTests(unittest.TestCase):
     self.assertEqual(result["previous_tip"], "c" * 40)
     self.assertEqual(result["tested_sha"], "b" * 40)
 
+  def test_two_distinct_hosted_invocations_are_counted(self):
+    def provider(path, token):
+      if path.endswith("/workflows/on-demand-ci.yml"):
+        return {"id": 991, "state": "active"}
+      if "/runs?" in path:
+        return {"workflow_runs": [
+          {
+            "id": index + 1, "event": "push",
+            "head_branch": "issue-628-example",
+            "head_sha": head * 40, "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-10-10T18:00:10Z",
+            "html_url": "https://example.invalid/run/" + str(index + 1),
+          } for index, head in enumerate(("a", "c"))
+        ]}
+      if "/commits/" in path:
+        sha = path.rsplit("/", 1)[1]
+        if sha in ("b" * 40, "d" * 40):
+          return {"parents": [{"sha": "e" * 40}],
+                  "files": [{"filename": "source"}]}
+        parent = "b" if sha == "a" * 40 else "d"
+        return {"parents": [{"sha": parent * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      if "/contents/.ci/run" in path:
+        sha = path.split("?ref=", 1)[1]
+        parent = "b" if sha == "a" * 40 else "d"
+        return {"encoding": "base64", "content": base64.b64encode(
+          ("regression-testing " + parent * 40 + "\n").encode()
+        ).decode()}
+      return {"jobs": [{"id": 10, "name": "validate",
+                        "conclusion": "success"}]}
+    observed = self.invoke(provider)
+    self.assertEqual(observed["run_count"], 2)
+    self.assertEqual(observed["executed_test_job_count"], 2)
+    self.assertEqual(
+      {item["invocation_sha"] for item in observed["runs"]},
+      {"a" * 40, "c" * 40},
+    )
+
   def test_incomplete_run_rejected(self):
     def pending(path, token):
       if path.endswith("/workflows/on-demand-ci.yml"):
