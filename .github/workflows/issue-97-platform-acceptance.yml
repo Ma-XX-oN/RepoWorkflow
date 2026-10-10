@@ -47,6 +47,7 @@ jobs:
           tests.test_repo_host_github_mutations
           tests.test_repo_host_github_provider
           tests.test_repo_host_github_live_probe
+          tests.test_repo_host_github_workflow
       - name: Compile adapter and tests
         run: >-
           python -m py_compile
@@ -61,6 +62,7 @@ jobs:
           tests/test_repo_host_github_mutations.py
           tests/test_repo_host_github_provider.py
           tests/test_repo_host_github_live_probe.py
+          tests/test_repo_host_github_workflow.py
           scripts/probe-repo-host-github.py
           scripts/probe-repo-host-github-deny.py
   repository-regression:
