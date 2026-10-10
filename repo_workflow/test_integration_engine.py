@@ -50,12 +50,18 @@ def _dirty(root: Path, evidence: Path) -> list[str]:
   return sorted(paths - {relative})
 
 
-def _probe(engine_root: Path, filename: str) -> int:
-  completed = subprocess.run(
-    [sys.executable, str(engine_root / "scripts" / filename)],
-    cwd=engine_root, capture_output=True, text=True, check=False,
-    env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-  )
+def _probe(engine_root: Path, filename: str) -> int | None:
+  script = engine_root / "scripts" / filename
+  if not script.is_file():
+    return None
+  try:
+    completed = subprocess.run(
+      [sys.executable, str(script)],
+      cwd=engine_root, capture_output=True, text=True, check=False,
+      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+    )
+  except (OSError, UnicodeError):
+    return None
   if completed.stdout:
     print(completed.stdout, end="")
   if completed.stderr:
@@ -96,6 +102,9 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
         })
   dirty = sorted(set(before_dirty) | set(_dirty(root, log)))
   history_changed = head_sha(root) != candidate
+  probe_incomplete = any(
+    item["exit_code"] is None for item in observations
+  )
   success = (
     regression == "PASS"
     and len(observations) == len(PROBES) + 1
@@ -119,11 +128,14 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
     "reusable": success and not dirty and not history_changed,
     "result": (
       "succeeded" if success else
-      "incomplete" if regression == "INCOMPLETE" else "failed"
+      "incomplete" if regression == "INCOMPLETE" or probe_incomplete
+      else "failed"
     ),
     "groups": observations,
   }
   log.parent.mkdir(parents=True, exist_ok=True)
   with log.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
-  return 0 if success else 2 if regression == "INCOMPLETE" else 1
+  return 0 if success else 2 if (
+    regression == "INCOMPLETE" or probe_incomplete
+  ) else 1
