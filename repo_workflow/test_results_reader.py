@@ -29,23 +29,6 @@ def _reject_nonfinite_test_log_value(value: str) -> None:
 
 def parse_testing_log(raw: str) -> list[dict]:
   """Parse all canonical records before any result can be consumed."""
-  return validated
-
-
-def results(root: Path, *, remote: bool, git_cmd) -> int:
-  match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
-  if match is None:
-    raise TestCommandError("results require an issue branch")
-  relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-  if remote:
-    branch = current_branch(root)
-    git_cmd(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
-    raw = git_cmd(root, "show", "FETCH_HEAD:" + relative)
-  else:
-    try:
-      raw = (root / relative).read_text(encoding="utf-8")
-    except OSError as error:
-      raise TestCommandError("testing log is unavailable") from error
   if not raw.strip():
     raise TestCommandError("testing log has no recorded results")
   validated = []
@@ -106,6 +89,23 @@ def results(root: Path, *, remote: bool, git_cmd) -> int:
           ensure_finite(nested)
     ensure_finite(record)
     validated.append(record)
+  return validated
+
+
+def results(root: Path, *, remote: bool, git_cmd) -> int:
+  match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
+  if match is None:
+    raise TestCommandError("results require an issue branch")
+  relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+  if remote:
+    branch = current_branch(root)
+    git_cmd(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
+    raw = git_cmd(root, "show", "FETCH_HEAD:" + relative)
+  else:
+    try:
+      raw = (root / relative).read_text(encoding="utf-8")
+    except OSError as error:
+      raise TestCommandError("testing log is unavailable") from error
   for record in parse_testing_log(raw):
     print(json.dumps(record, sort_keys=True))
   return 0
