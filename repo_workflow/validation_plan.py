@@ -139,18 +139,29 @@ def dispatch_missing(
   candidate = request.get("candidate")
   if not isinstance(candidate, dict) or candidate.get("commit") != plan.candidate_sha:
     raise ValidationPlanError("provider candidate does not match plan")
-  if set(request) != {
+  if (set(request) != {
     "contract_version", "operation", "invocation_id", "candidate",
     "requirements", "inputs",
-  } or request["contract_version"] != 1 or request["operation"] != "execute":
+  } or type(request["contract_version"]) is not int
+      or request["contract_version"] != 1
+      or request["operation"] != "execute"
+      or not isinstance(request["invocation_id"], str)
+      or not request["invocation_id"].strip()
+      or set(candidate) != {"repository", "commit", "base"}
+      or not isinstance(candidate.get("repository"), str)
+      or not candidate["repository"].strip()):
     raise ValidationPlanError("invalid provider request envelope")
   if not isinstance(request["requirements"], dict) or (
     request["requirements"].get("capabilities") != []
     or request["requirements"].get("artifacts") != []
   ):
     raise ValidationPlanError("unexpected provider requirements")
-  if not isinstance(request["inputs"], dict):
-    raise ValidationPlanError("missing provider inputs")
+  if (not isinstance(request["inputs"], dict)
+      or set(request["inputs"]) != {"base"}
+      or set(request["requirements"]) != {
+        "stages", "capabilities", "artifacts",
+      } or request["requirements"]["stages"] != []):
+    raise ValidationPlanError("missing or unexpected provider inputs")
   base = request["inputs"].get("base")
   if not isinstance(base, str) or base != candidate.get("base"):
     raise ValidationPlanError("base identity mismatch")
@@ -200,3 +211,29 @@ def dispatch_missing(
     "reused": tuple(unit.unit for unit in plan.units if unit.action == "reuse"),
     "manual_pending": plan.manual_units,
   }
+
+
+def execute_from_store(
+  root: Path,
+  store: ValidationEvidenceStore,
+  requirements: list[Requirement],
+  candidate_sha: str,
+  request: dict,
+  groups: dict[str, str],
+  *,
+  trusted_record_ids: frozenset[str],
+  equivalent_candidate_shas: frozenset[str],
+) -> tuple[HostedPlan, dict]:
+  """Authoritative entrypoint: durable import proof, plan, then provider work.
+
+  Never accept precomputed skip decisions or a caller-defined completed plan.
+  Trusted IDs and equivalence SHAs must be authenticated by the caller's
+  independent provenance and per-unit input-closure verification.
+  """
+  plan = plan_from_store(
+    store, requirements, candidate_sha,
+    trusted_record_ids=trusted_record_ids,
+    equivalent_candidate_shas=equivalent_candidate_shas,
+  )
+  execution = dispatch_missing(root, plan, request, groups)
+  return plan, execution
