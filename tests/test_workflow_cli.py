@@ -57,26 +57,19 @@ class WorkflowCliTests(unittest.TestCase):
       self.assertNotIn("integrate", value["transitions"])
       self.assertTrue(any("authorization absent" in block for block in value["blocks"]))
 
-  def test_help_matches_double_tab_projection_at_dynamic_prefix(self):
+  def test_help_matches_double_tab_projection_at_test_results_prefix(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      fx = RepoFixture(root)
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
-
-      help_result = self.run_cli(root, "validate", "integration", "--help")
+      RepoFixture(root)
+      help_result = self.run_cli(root, "test", "results", "--help")
       detailed = self.run_cli(
-        root,
-        "complete",
-        "--describe",
-        "--",
-        "validate",
-        "integration",
-        "",
+        root, "complete", "--describe", "--", "test", "results", "",
       )
       self.assertEqual(help_result.returncode, 0, help_result.stderr)
       self.assertEqual(detailed.returncode, 0, detailed.stderr)
       self.assertEqual(help_result.stdout, detailed.stdout)
+      self.assertIn("--remote", help_result.stdout)
 
   def test_help_matches_double_tab_projection_at_executable_prefix(self):
     with tempfile.TemporaryDirectory() as td:
@@ -185,57 +178,51 @@ class WorkflowCliTests(unittest.TestCase):
         "\n"
         "Legal transitions:\n"
         "  regression required\n"
-        "  → validate regression\n",
+        "  → test regression\n",
       )
 
-  def test_manually_typed_state_invalid_command_uses_shared_diagnostic(self):
+  def test_retired_validate_command_is_rejected_without_mutation(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
       RepoFixture(root)
       completed = self.run_cli(root, "validate", "integration", "succeeded")
       self.assertEqual(completed.returncode, 2)
+      self.assertIn("unrecognised command", completed.stderr)
+      self.assertIn("validate integration succeeded", completed.stderr)
+      self.assertIn("→ test regression", completed.stderr)
       self.assertEqual(
-        completed.stderr,
-        "RepoWorkflow error: transition is not legal in the current state:\n"
-        "  validate integration succeeded\n"
-        "           ^^^^^^^^^^^\n"
-        "\n"
-        "Legal transitions:\n"
-        "  regression required\n"
-        "  → validate regression\n",
+        (root / "VERSION").read_text().strip(), "1.0.0-issue.1.0.1",
       )
-      self.assertEqual((root / "VERSION").read_text().strip(), "1.0.0-issue.1.0.1")
 
-  def test_hidden_completion_reports_state_miss_without_mutation(self):
+  def test_missing_red_group_completion_is_actionable_and_read_only(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
       RepoFixture(root)
-      completed = self.run_cli(root, "complete", "validate", "integration", "s")
-      self.assertEqual(completed.returncode, 2)
-      self.assertEqual(completed.stdout, "")
-      self.assertEqual(
-        completed.stderr,
-        "RepoWorkflow error: transition is not legal in the current state:\n"
-        "  validate integration s\n"
-        "           ^^^^^^^^^^^\n"
-        "\n"
-        "Legal transitions:\n"
-        "  regression required\n"
-        "  → validate regression\n",
+      completed = self.run_cli(
+        root, "complete", "test", "RED", "issue-1-missing",
       )
-      self.assertEqual((root / "VERSION").read_text().strip(), "1.0.0-issue.1.0.1")
+      self.assertEqual(completed.returncode, 2)
+      self.assertIn("RED/GREEN tests do not exist", completed.stderr)
+      self.assertIn(".ci/tests.json", completed.stderr)
+      self.assertIn("issue-N-", completed.stderr)
+      self.assertEqual(
+        (root / "VERSION").read_text().strip(), "1.0.0-issue.1.0.1",
+      )
 
-  def test_hidden_completion_projects_state_machine(self):
+  def test_hidden_completion_projects_all_unified_test_stages(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      fx = RepoFixture(root)
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
-      completed = self.run_cli(root, "complete", "validate", "integration", "")
+      RepoFixture(root)
+      completed = self.run_cli(root, "complete", "test", "")
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      self.assertEqual(completed.stdout.splitlines(), ["failed", "succeeded"])
+      suggestions = set(completed.stdout.splitlines())
+      self.assertTrue({
+        "RED", "GREEN", "temporary", "regression", "integration", "results",
+      }.issubset(suggestions))
+      self.assertNotIn("validate", suggestions)
 
 
 if __name__ == "__main__":
