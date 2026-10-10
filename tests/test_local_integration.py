@@ -125,6 +125,18 @@ class LocalIntegrationTests(unittest.TestCase):
       if item["group"] == "argv-limits"
     ))
 
+  def test_signalled_probe_records_incomplete(self):
+    status, record, _ = self.execute(
+      probes={"probe-ticket-merge.py": -9},
+    )
+    self.assertEqual(status, 2)
+    self.assertEqual(record["result"], "incomplete")
+    self.assertFalse(record["reusable"])
+    self.assertEqual(next(
+      item["exit_code"] for item in record["groups"]
+      if item["group"] == "ticket-merge-platform"
+    ), -9)
+
   def test_missing_probe_script_is_infrastructure_incomplete(self):
     self.assertIsNone(_probe(self.root, "missing-probe.py"))
 
