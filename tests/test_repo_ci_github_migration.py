@@ -157,10 +157,8 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       workspace = Path(td) / "consumer"
       workspace.mkdir()
-      fixture = RepoFixture(workspace)
       (workspace / "RepoWorkflow").symlink_to(ROOT, target_is_directory=True)
-      fixture.commit("register installed RepoWorkflow adapter")
-      fixture.push()
+      fixture = RepoFixture(workspace)
       result_dir = Path(td) / "outputs"
       value = request("execute")
       value["candidate"]["commit"] = fixture.head()
