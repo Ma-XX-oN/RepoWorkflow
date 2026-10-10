@@ -98,7 +98,20 @@ def principal() -> str:
   return login
 
 
-def evaluate(evaluation: dict, grant: dict, revocations: dict,
+GRANT_FIELDS = {
+  "schema_version", "grant_id", "revision", "issuer",
+  "subject", "role", "capabilities", "scope", "issued_at",
+  "not_before", "expires_at", "status", "revoked_at",
+  "revocation_ref", "max_uses", "uses", "binding", "provenance",
+}
+SCOPE_FIELDS = {
+  "repository", "issue_numbers", "candidate_sha",
+  "integration_id", "destination_ref",
+  "expected_destination_sha", "release_class",
+}
+
+
+def evaluate(evaluation: dict, document: dict, revocations: dict,
              repository: str, actor: str, clock: datetime) -> dict:
   if set(evaluation) != {"request", "require_non_consuming_policy"} or (
     evaluation["require_non_consuming_policy"] is not True
@@ -121,68 +134,127 @@ def evaluate(evaluation: dict, grant: dict, revocations: dict,
     request["request_id"]
   ) or not isinstance(request["parameters"], dict):
     raise ValueError("invalid mutation identity")
-  if grant.get("schema_version") != 1 or (
-    grant.get("kind") != "standing_policy"
-  ) or grant.get("max_uses", False) is not None:
-    raise ValueError("untrusted or consuming grant")
-  if grant.get("status") != "active" or grant.get("uses") != 0:
-    raise ValueError("inactive or consumed policy")
-  if grant.get("role") != "ci_test_runner" or (
-    grant.get("subject") != actor
+
+  # The grant itself exactly follows #80. The signed envelope supplies
+  # explicit trusted sandbox constraints, never implicit null wildcards.
+  if not isinstance(document, dict) or set(document) != {
+    "grant", "sandbox", "delegation",
+  }:
+    raise ValueError("invalid standing-policy evidence envelope")
+  grant = document["grant"]
+  sandbox = document["sandbox"]
+  delegation = document["delegation"]
+  if not isinstance(grant, dict) or set(grant) != GRANT_FIELDS or (
+    grant["schema_version"] != 1
   ):
-    raise ValueError("actor or delegated role mismatch")
-  if operation not in grant.get("capabilities", []):
-    raise ValueError("missing semantic capability")
-  expected_issuer = os.environ.get("RWF97_ISSUER_AUTHORITY")
-  if not expected_issuer or grant.get("issuer") != expected_issuer:
-    raise ValueError("unknown issuer")
-  scope = grant.get("scope")
-  if not isinstance(scope, dict) or (
-    scope.get("repository") != repository
-  ) or scope.get("candidate_sha") != os.environ.get(
+    raise ValueError("noncanonical #80 grant")
+  if not isinstance(sandbox, dict) or not isinstance(delegation, dict):
+    raise ValueError("invalid signed authority facts")
+  if grant["max_uses"] is not None or type(grant["uses"]) is not int or (
+    grant["uses"] != 0
+  ):
+    raise ValueError("one-time grant is unsupported")
+  if grant["status"] != "active" or (
+    grant["revoked_at"] is not None
+  ) or grant["revocation_ref"] is not None:
+    raise ValueError("inactive standing grant")
+  if grant["role"] != "ci_test_runner":
+    raise ValueError("unauthorized role")
+  if not isinstance(grant["subject"], dict) or set(
+    grant["subject"]
+  ) != {"actor_id", "authentication_ref"} or (
+    grant["subject"]["actor_id"] != actor
+  ) or not grant["subject"]["authentication_ref"]:
+    raise ValueError("provider actor proof mismatch")
+  issuer = grant["issuer"]
+  issuer_id = os.environ.get("RWF97_ISSUER_AUTHORITY")
+  if not isinstance(issuer, dict) or set(issuer) != {
+    "authority_id", "subject_id", "authentication_ref",
+  } or not issuer_id or issuer["authority_id"] != issuer_id or not (
+    issuer["authentication_ref"]
+  ):
+    raise ValueError("untrusted grant issuer")
+  if delegation.get("authority_id") != issuer_id or (
+    delegation.get("repository") != repository
+  ) or "ci_test_runner" not in delegation.get("roles", []) or (
+    operation not in delegation.get("capabilities", [])
+  ) or clock >= instant(delegation.get("expires_at")):
+    raise ValueError("insufficient authenticated issuer delegation")
+  capabilities = grant["capabilities"]
+  if not isinstance(capabilities, list) or not capabilities or (
+    capabilities != sorted(set(capabilities))
+  ) or operation not in capabilities or not set(capabilities) <= OPERATIONS:
+    raise ValueError("invalid/unauthorized capability")
+  scope = grant["scope"]
+  if not isinstance(scope, dict) or set(scope) != SCOPE_FIELDS or (
+    scope["repository"] != repository
+  ) or scope["candidate_sha"] != os.environ.get(
     "RWF97_APPROVED_SHA"
+  ) or not re.fullmatch(
+    r"[0-9a-f]{40}", str(scope["candidate_sha"])
   ):
     raise ValueError("candidate or repository scope mismatch")
-  number = request["parameters"].get("number")
+  if scope["release_class"] is not None or (
+    scope["integration_id"] is not None
+  ) or scope["destination_ref"] is not None or (
+    scope["expected_destination_sha"] is not None
+  ):
+    raise ValueError("unsupported scope extension")
+  if sandbox.get("repository") != repository or sandbox.get(
+    "candidate_sha"
+  ) != scope["candidate_sha"]:
+    raise ValueError("signed sandbox scope mismatch")
+  number = sandbox.get("issue")
+  if type(number) is not int or number <= 0 or (
+    scope["issue_numbers"] != [number]
+  ):
+    raise ValueError("sandbox issue scope mismatch")
   if operation.startswith("issue.") and (
-    type(number) is not int or number != scope.get("sandbox_issue")
+    request["parameters"].get("number") != number
   ):
     raise ValueError("issue scope mismatch")
   if operation == "pull_request.create" and (
-    request["parameters"].get("source_ref") != scope.get("source_ref")
-    or request["parameters"].get("target_ref") != scope.get("target_ref")
+    request["parameters"].get("source_ref") != sandbox.get("source_ref")
+    or request["parameters"].get("target_ref") != sandbox.get("target_ref")
     or request["parameters"].get("expected_source_sha")
-      != scope.get("source_sha")
+      != sandbox.get("source_sha")
   ):
-    raise ValueError("PR creation ref scope mismatch")
+    raise ValueError("PR branch or candidate scope mismatch")
   if operation == "pull_request.update" and (
-    type(number) is not int or number <= 0
+    type(request["parameters"].get("number")) is not int
+    or request["parameters"]["number"] <= 0
   ):
     raise ValueError("invalid PR identity")
-  if not (instant(grant.get("not_before")) <= clock
-          < instant(grant.get("expires_at"))):
+  if not (instant(grant["not_before"]) <= clock
+          < instant(grant["expires_at"])):
     raise ValueError("grant not yet valid or expired")
-  if revocations.get("issuer") != expected_issuer or (
+  if now := instant(grant["issued_at"]):
+    if now > clock:
+      raise ValueError("grant issued in future")
+  if revocations.get("issuer") != issuer_id or (
     revocations.get("schema_version") != 1
   ):
     raise ValueError("untrusted revocation authority")
   revision = revocations.get("revision")
   if type(revision) is not int or revision < 0:
     raise ValueError("invalid policy revision")
-  if grant.get("policy_revision") != revision:
-    raise ValueError("stale grant policy revision")
+  binding = grant["binding"]
+  if not isinstance(binding, dict) or (
+    binding.get("policy_revision") != revision
+  ) or not binding.get("issuer_signature_ref") or not (
+    binding.get("source_record_sha")
+  ):
+    raise ValueError("stale or unbound standing policy")
   revoked = revocations.get("revoked_grants")
   if not isinstance(revoked, list) or not all(
     isinstance(item, str) for item in revoked
   ):
     raise ValueError("invalid revocation facts")
-  if grant.get("grant_id") in revoked:
+  if grant["grant_id"] in revoked:
     raise ValueError("revoked grant")
-  if not isinstance(grant.get("grant_id"), str) or not (
+  if not isinstance(grant["grant_id"], str) or not (
     grant["grant_id"]
-  ) or type(grant.get("revision")) is not int or (
-    grant["revision"] < 0
-  ):
+  ) or type(grant["revision"]) is not int or grant["revision"] < 0:
     raise ValueError("invalid grant identity or revision")
   request_digest = hashlib.sha256(canonical(request)).hexdigest()
   return {
