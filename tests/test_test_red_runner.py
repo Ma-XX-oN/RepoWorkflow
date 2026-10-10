@@ -74,6 +74,21 @@ class RedRunnerContract(unittest.TestCase):
     self.assertEqual(evidence["result"], "incomplete")
     self.assertIsNone(evidence["groups"][0]["exit_code"])
 
+  def test_missing_expectation_prevents_direct_adapter_execution(self):
+    marker = self.root / "absent-declaration-must-not-launch"
+    status, record, reason = self.run_group(
+      [sys.executable, "-c",
+       "from pathlib import Path;Path(" + repr(str(marker)) + ").touch()"],
+      None,
+    )
+    self.assertEqual(status, 2)
+    self.assertIsNotNone(record)
+    self.assertEqual(record["result"], "incomplete")
+    self.assertEqual(record["redStatus"], "INCOMPLETE")
+    self.assertIsNone(record["groups"][0]["exit_code"])
+    self.assertFalse(marker.exists())
+
+
   def test_invalid_expectation_prevents_execution_and_audit(self):
     marker = self.root / "should-not-exist"
     status, record, _ = self.run_group(
