@@ -109,6 +109,28 @@ class LiveProbeCleanupTests(unittest.TestCase):
                 self.assertEqual(module.main(), 0)
     return sequence, output.getvalue()
 
+  def test_remote_comment_requires_unique_exact_persisted_marker(self):
+    identity = chr(0).join(["owner/sandbox", "issue.comment", "once"])
+    marker = "<!-- RWF-HOST-REQUEST-V1:" + hashlib.sha256(
+      identity.encode("utf-8")
+    ).hexdigest() + " -->"
+    valid = {"id": 13, "body": "Exact\n" + marker}
+    cases = [
+      [valid, valid],
+      [{**valid, "body": "Tampered\n" + marker}],
+      [{**valid, "id": 14}],
+      [],
+    ]
+    for comments in cases:
+      with self.subTest(comments=comments):
+        with patch.object(module, "gh", return_value=comments):
+          with self.assertRaises(RuntimeError):
+            module.verify_remote_comment(
+              "owner/sandbox", 3, "once", "13", "Exact"
+            )
+    with patch.object(module, "gh", return_value=[valid]):
+      module.verify_remote_comment("owner/sandbox", 3, "once", "13", "Exact")
+
   def test_pass_only_after_provider_cleanup_verified(self):
     calls, output = self.run_probe()
     self.assertIn("CLOSE PR", calls)
