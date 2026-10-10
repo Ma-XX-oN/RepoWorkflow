@@ -45,6 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SANDBOX_TOKEN"
+          command -v gh >/dev/null
           test -n "$AUTH_EXECUTABLE"
           test -x "$AUTH_EXECUTABLE"
           test -n "$SANDBOX_REPOSITORY"
@@ -56,9 +57,10 @@ jobs:
           import json
           import os
           from pathlib import Path
-          target = Path(os.environ["AUTH_EXECUTABLE"]).resolve()
+          configured = Path(os.environ["AUTH_EXECUTABLE"])
+          target = configured.resolve()
           workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
-          if not target.is_absolute() or target == workspace:
+          if not configured.is_absolute() or target == workspace:
             raise SystemExit("trusted verifier cannot be PR checkout")
           if workspace in target.parents:
             raise SystemExit("trusted verifier cannot be PR checkout")
