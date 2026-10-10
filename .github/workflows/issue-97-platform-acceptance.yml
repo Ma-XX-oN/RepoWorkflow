@@ -46,6 +46,7 @@ jobs:
           tests.test_repo_host_github_authority
           tests.test_repo_host_github_mutations
           tests.test_repo_host_github_provider
+          tests.test_repo_host_github_live_probe
       - name: Compile adapter and tests
         run: >-
           python -m py_compile
@@ -59,6 +60,9 @@ jobs:
           tests/test_repo_host_github_authority.py
           tests/test_repo_host_github_mutations.py
           tests/test_repo_host_github_provider.py
+          tests/test_repo_host_github_live_probe.py
+          scripts/probe-repo-host-github.py
+          scripts/probe-repo-host-github-deny.py
   repository-regression:
     name: Full repository regression (ubuntu-latest)
     runs-on: ubuntu-latest
