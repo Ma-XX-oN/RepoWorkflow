@@ -10,8 +10,9 @@ observations separately from mocks, static checks and local Git fixtures.
 - Verified source commit: `4bd1ad3f33bbe05d09a6f0efdf360e76624855d5`.
 - Self CI run: `38079011196`, run number 2225, SUCCESS.
 - Issue tier: 16 marker-history cases, 19 observer cases, 10
-  static-filter cases and 9 self-CI invariant cases.  All passed.
-- Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38079011196
+  static-filter cases, 2 recorded-hosted-snapshot cases and 9 self-CI
+  invariant cases.  All passed.
+- Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38079150927
 - Only `issue-validate` ran; platform integration and release jobs skipped.
 
 ## Real GitHub-hosted on-demand runs
@@ -44,6 +45,25 @@ Three earlier candidate workflow runs (`37890251614`,
 in the job-list endpoint.  These are not successful execution evidence.
 
 ## Negative provider observations and limits
+
+### Workflow-present source-only negatives
+
+The #541 candidate workflow was present in the Git tree at all three
+ordinary source/configuration commits below.  Each GitHub Actions REST
+query `/actions/runs?head_sha=<SHA>` returned exactly one Self CI
+pull-request run and **zero on-demand workflow runs** for that SHA:
+
+| Source-only commit | Changed path | Self CI run | On-demand runs |
+| --- | --- | ---: | ---: |
+| `0059f626c7b35cb129310ca84f6ba006bc5d259e` | `tests/test_on_demand_workflow.py` | 37893404518 | 0 |
+| `a1c8185e4008f9e573be27942f8874604046b09a` | `tests/test_hosted_result.py` | 37893227687 | 0 |
+| `84f51585d962793c3286f7c360a89833adad32ca` | `.ci/tests.json` | 37893133837 | 0 |
+
+These are real provider observations for ordinary changes on a branch
+containing the candidate workflow.  They do not establish exclusion for
+`main`, exact `prelim-main`, read-only `rwf test results --remote`,
+or replayed webhook delivery.
+
 
 - Queried all 203 recorded `main` branch GitHub Actions runs across
   three pages.  All were `.github/workflows/self-ci.yml` push runs.
