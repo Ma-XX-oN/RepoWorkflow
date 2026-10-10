@@ -50,6 +50,73 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
     )
     self.assertIn("vars.RWF97_APPROVED_SHA == github.sha", source)
 
+  def test_sandbox_hosted_native_token_needs_no_custom_runner_or_app(self):
+    path = ROOT / "examples/issue-97-sandbox-hosted.workflow.yml"
+    source = path.read_text(encoding="utf-8")
+    for expected in (
+      "on:\n  workflow_dispatch:",
+      "runs-on: ubuntu-latest",
+      "environment: rwf97-acceptance",
+      "contents: write",
+      "issues: write",
+      "pull-requests: write",
+      "GH_TOKEN: ${{ github.token }}",
+      "github.repository != 'Ma-XX-oN/RepoWorkflow'",
+      "github.ref == 'refs/heads/main'",
+      "RWF97_APPROVED_SHA",
+      "RWF97_VERIFIER_SHA256",
+      "sha256sum --check --status",
+      "git -C \"$RUNNER_TEMP/rwf97-candidate\" rev-parse HEAD",
+      "scripts/probe-repo-host-github.py",
+    ):
+      with self.subTest(expected=expected):
+        self.assertIn(expected, source)
+    for forbidden in (
+      "pull_request_target:", "  pull_request:",
+      "self-hosted", "APP_PRIVATE_KEY", "RWF97_SANDBOX_GH_TOKEN",
+      "actions/create-github-app-token", "secrets.",
+      "--repository Ma-XX-oN/RepoWorkflow",
+    ):
+      self.assertNotIn(forbidden, source)
+
+  def test_sandbox_environment_verifier_denies_invalid_policy(self):
+    path = ROOT / "examples/issue-97-sandbox-verify-environment.py"
+    spec = importlib.util.spec_from_file_location(
+      "issue97_sandbox_environment", path
+    )
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    good = {
+      "name": "rwf97-acceptance",
+      "protection_rules": [{
+        "type": "required_reviewers", "prevent_self_review": True,
+        "reviewers": [{"type": "User"}],
+      }],
+      "deployment_branch_policy": {"custom_branch_policies": True},
+    }
+    branches = {
+      "total_count": 1,
+      "branch_policies": [{"name": "main"}],
+    }
+    helper.check_policy(good, branches, "owner/disposable", "main")
+    cases = [
+      ({**good, "name": "production"}, branches, "owner/disposable"),
+      ({**good, "protection_rules": []}, branches, "owner/disposable"),
+      ({**good, "protection_rules": [{
+        "type": "required_reviewers", "prevent_self_review": False,
+        "reviewers": [{"type": "User"}],
+      }]}, branches, "owner/disposable"),
+      ({**good, "deployment_branch_policy": {}}, branches,
+       "owner/disposable"),
+      (good, {"total_count": 1, "branch_policies": [{"name": "*"}]},
+       "owner/disposable"),
+      (good, branches, "Ma-XX-oN/RepoWorkflow"),
+    ]
+    for environment, policy, repo in cases:
+      with self.subTest(environment=environment, policy=policy, repo=repo):
+        with self.assertRaises(RuntimeError):
+          helper.check_policy(environment, policy, repo, "main")
+
   def test_environment_policy_requires_independent_review(self):
     path = ROOT / "scripts/probe-repo-host-github-environment.py"
     spec = importlib.util.spec_from_file_location(
