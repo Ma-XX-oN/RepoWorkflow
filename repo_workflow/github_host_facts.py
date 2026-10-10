@@ -102,7 +102,7 @@ def decide_with_github_host(facts, repository, source, destination, token, *, fe
 def decide_with_verified_sources(
   store, requirements, record_ids, *, candidate, version, source,
   destination, recorded_base, repository, token, coverage_evaluator,
-  fetch=None,
+  fetch=None, provider_verifier=None,
 ):
   """Combine #69/#95 trusted-publisher evidence and provider-observed host facts.
 
@@ -116,6 +116,7 @@ def decide_with_verified_sources(
     evidence = read_evidence_gate(
       store, requirements, record_ids, candidate=candidate,
       version=version, branch=source, coverage_evaluator=coverage_evaluator,
+      provider_verifier=provider_verifier,
     )
   except EvidenceGateError:
     return False, ("validation-evidence-unavailable",)
