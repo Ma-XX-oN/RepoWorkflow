@@ -59,6 +59,10 @@ class ProtectedMergeTests(unittest.TestCase):
       read=read, merge=merge, evidence_gate=gate,
     )
 
+  def verified_evidence(self):
+    self.calls.append(("evidence",))
+    return True, ()
+
   def test_exact_candidate_protected_pr_acceptance(self):
     self.assertEqual(self.run_guard(), MERGED)
     self.assertEqual(self.calls[-1], (
@@ -126,7 +130,7 @@ class ProtectedMergeTests(unittest.TestCase):
       merge_protected_pr(
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read, merge=merge,
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(counter[0], 2)
     self.assertFalse(any(c[0] == "merge" for c in self.calls))
@@ -153,7 +157,7 @@ class ProtectedMergeTests(unittest.TestCase):
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read,
         merge=lambda url, payload: self.fail("changed head merged"),
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(counter[0], 2)
 
@@ -179,7 +183,7 @@ class ProtectedMergeTests(unittest.TestCase):
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read,
         merge=lambda url, payload: self.fail("disabled protection merged"),
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(reads[0], 2)
 
@@ -205,7 +209,7 @@ class ProtectedMergeTests(unittest.TestCase):
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read,
         merge=lambda url, payload: self.fail("retargeted PR merged"),
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(reads[0], 2)
     self.assertFalse(any(c[0] == "merge" for c in self.calls))
