@@ -2,7 +2,9 @@
 import unittest
 from dataclasses import replace
 from repo_workflow.candidate_eligibility import Facts, decide
-from repo_workflow.github_host_facts import (\n  HostFactsError, read_host_facts, decide_with_github_host,\n)
+from repo_workflow.github_host_facts import (
+  HostFactsError, read_host_facts, decide_with_github_host,
+)
 
 CANDIDATE = "a" * 40
 BASE = "b" * 40
