@@ -8,7 +8,9 @@ import subprocess
 import tempfile
 import unittest
 
-from repo_workflow.hosted_cache import verified_hosted_passes
+from repo_workflow.hosted_cache import (
+  _original_observation, verified_hosted_passes,
+)
 
 
 class HostedCacheTests(unittest.TestCase):
@@ -75,7 +77,8 @@ class HostedCacheTests(unittest.TestCase):
              f"test: publish hosted evidence from run {run_number}")
     self.second_invocation = self.invoke("GREEN-testing")
 
-  def reusable(self, record_override=None, provider_override=None):
+  def reusable(self, record_override=None, provider_override=None,
+               attested=None):
     if record_override is not None:
       self.publish(record_override)
     fake = dict(self.remote)
@@ -86,10 +89,49 @@ class HostedCacheTests(unittest.TestCase):
       fingerprint=self.fingerprint, invocation=self.second_invocation,
       branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
       token="fixture-token", provider_lookup=lambda repo, run_id, token: fake,
+      attestation_lookup=lambda repo, run_id, token, record: (
+        _original_observation(record) if attested is None else attested
+      ),
     )
 
   def test_authenticated_exact_pass_is_reused(self):
     self.assertEqual(self.reusable(self.record), {"issue-545-one"})
+
+  def test_malformed_provider_response_is_cache_miss(self):
+    self.publish(self.record)
+    for response in (None, [], "not a response", 123):
+      with self.subTest(response=response):
+        self.assertEqual(verified_hosted_passes(
+          self.root, stage="GREEN", revision=self.candidate,
+          fingerprint=self.fingerprint, invocation=self.second_invocation,
+          branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
+          token="fixture-token", provider_lookup=lambda *args: response,
+        ), set())
+
+  def test_later_attested_pass_recovers_from_pre_artifact_record(self):
+    legacy = {**self.record, "groups": [
+      {"group": "issue-545-old", "exit_code": 0},
+    ]}
+    self.publish(legacy, self.record)
+    answer = verified_hosted_passes(
+      self.root, stage="GREEN", revision=self.candidate,
+      fingerprint=self.fingerprint, invocation=self.second_invocation,
+      branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
+      token="fixture-token", provider_lookup=lambda *args: self.remote,
+      attestation_lookup=lambda repo, run_id, token, record: (
+        None if record["groups"][0]["group"] == "issue-545-old"
+        else _original_observation(record)
+      ),
+    )
+    self.assertEqual(answer, {"issue-545-one"})
+
+  def test_run_provenance_does_not_authenticate_forged_group_payload(self):
+    forged = {**self.record, "groups": [
+      {"group": "issue-545-forged", "exit_code": 0},
+    ]}
+    self.assertEqual(self.reusable(
+      forged, attested=_original_observation(self.record),
+    ), set())
 
   def test_provider_incomplete_wrong_head_or_workflow_fails_closed(self):
     self.publish(self.record)
@@ -141,12 +183,104 @@ class HostedCacheTests(unittest.TestCase):
     self.candidate = "f" * 40
     self.assertEqual(self.reusable(), set())
 
+  def test_hosted_red_requires_exact_selected_group(self):
+    import hashlib
+    import runpy
+
+    validate = runpy.run_path(
+      str(Path(__file__).resolve().parents[1]
+          / "scripts/validate-hosted-result.py")
+    )["validate_result"]
+    selection = self.root / ".ci/red-green.txt"
+    selection.parent.mkdir(parents=True, exist_ok=True)
+    selection.write_text("issue-545-one\n")
+    manifest = self.root / ".ci/tests.json"
+    manifest.write_text(json.dumps({
+      "test-harnesses": {"unittest": {"command": "python", "layout": []}},
+      "tests": [{"test-harness": "unittest",
+                 "issue-545-one": {"type": "regression"}}],
+      "aliases": {},
+    }))
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    base = {
+      **self.record, "kind": "RED", "result": "succeeded",
+      "catalogueSHA256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+      "reusable": False, "expectedFailure": True,
+      "reason": "expected-red-assertion-demonstrated",
+    }
+    for names, should_pass in (
+      (["issue-545-other"], False),
+      (["issue-545-one", "issue-545-one"], False),
+      (["issue-545-one"], True),
+    ):
+      with self.subTest(groups=names):
+        entry = {**base, "groups": [
+          {"group": name, "exit_code": 1, "reused": False}
+          for name in names
+        ]}
+        path.write_text(json.dumps(entry) + "\n")
+        if should_pass:
+          validate(self.root, stage="RED-testing", candidate=self.candidate,
+                   branch="issue-545-cache")
+        else:
+          with self.assertRaises(ValueError):
+            validate(self.root, stage="RED-testing", candidate=self.candidate,
+                     branch="issue-545-cache")
+
+  def test_hosted_temporary_requires_complete_unique_catalogue(self):
+    import hashlib
+    import runpy
+    from pathlib import Path
+
+    validate = runpy.run_path(
+      str(Path(__file__).resolve().parents[1]
+          / "scripts/validate-hosted-result.py")
+    )["validate_result"]
+    catalogue = self.root / ".ci/temp-tests.json"
+    catalogue.parent.mkdir(parents=True, exist_ok=True)
+    catalogue.write_text(json.dumps({
+      "test-harnesses": {"unittest": {"command": "python", "layout": []}},
+      "tests": [
+        {"test-harness": "unittest", "issue-545-one": {"type": "regression"}},
+        {"test-harness": "unittest", "issue-545-two": {"type": "regression"}},
+      ],
+      "aliases": {},
+    }))
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    base = {
+      **self.record, "kind": "temporary", "result": "succeeded",
+      "catalogueSHA256": hashlib.sha256(catalogue.read_bytes()).hexdigest(),
+      "reusable": True, "runner": "local",
+    }
+    for names, should_pass in (
+      (["issue-545-one"], False),
+      (["issue-545-one", "issue-545-one"], False),
+      (["issue-545-one", "issue-545-unknown"], False),
+      (["issue-545-one", "issue-545-two"], True),
+    ):
+      with self.subTest(groups=names):
+        entry = {**base, "groups": [
+          {"group": name, "exit_code": 0} for name in names
+        ]}
+        path.write_text(json.dumps(entry) + "\n")
+        if should_pass:
+          validate(self.root, stage="temp-testing", candidate=self.candidate,
+                   branch="issue-545-cache")
+        else:
+          with self.assertRaises(ValueError):
+            validate(self.root, stage="temp-testing", candidate=self.candidate,
+                     branch="issue-545-cache")
+
   def test_first_request_without_publication_is_cache_miss(self):
     self.assertEqual(verified_hosted_passes(
       self.root, stage="GREEN", revision=self.candidate,
       fingerprint=self.fingerprint, invocation=self.first_invocation,
       branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
       token="fixture-token", provider_lookup=lambda *args: self.remote,
+      attestation_lookup=lambda repo, run_id, token, record:
+        _original_observation(record),
     ), set())
 
 

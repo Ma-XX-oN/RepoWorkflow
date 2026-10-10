@@ -68,6 +68,17 @@ def publish(
     }[stage]
   ):
     raise ValueError("latest observation does not bind requested candidate")
+  if record.get("result") == "succeeded":
+    validated = subprocess.run(
+      [sys.executable, str(ROOT / "scripts/validate-hosted-result.py"),
+       stage, candidate, branch],
+      cwd=root, capture_output=True, text=True, check=False,
+    )
+    if validated.returncode:
+      raise ValueError(
+        "failed authoritative validation of successful hosted observation: "
+        + validated.stderr.strip()
+      )
   if _git(root, "rev-parse", "HEAD") != candidate:
     raise ValueError("testing modified checkout history")
   local_dirty = _git(root, "status", "--porcelain=v1", "--untracked-files=all")

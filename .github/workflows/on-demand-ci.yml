@@ -53,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,6 +93,35 @@ jobs:
           "${{ needs.plan.outputs.stage }}"
           "${{ needs.plan.outputs.tested_sha }}"
           "$GITHUB_REF_NAME"
+      - name: Preserve exact hosted execution observation
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import re
+
+          match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?",
+                               os.environ["GITHUB_REF_NAME"])
+          if match is None:
+            raise SystemExit("invalid hosted issue branch")
+          path = Path(".repoworkflow/validation") / (
+            "testResults-" + match.group(1) + ".jsonl"
+          )
+          record = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
+          target = Path(os.environ["RUNNER_TEMP"]) / "provider-result.json"
+          target.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
+          PY
+      - name: Upload immutable provider observation
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-result-${{ github.run_id }}
+          path: ${{ runner.temp }}/provider-result.json
+          if-no-files-found: error
+          retention-days: 30
       - id: audit
         name: Verify only canonical test-results log changed
         if: ${{ always() }}

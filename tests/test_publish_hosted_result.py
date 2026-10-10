@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import platform
 from pathlib import Path
 import subprocess
 import sys
@@ -25,13 +27,21 @@ class PublishHostedResultTests(unittest.TestCase):
     self._git("config", "user.email", "test@example.com")
     self._git("config", "user.name", "Test")
     (self.root / "test.txt").write_text("candidate")
-    self._git("add", "test.txt")
+    (self.root / ".ci").mkdir()
+    (self.root / ".ci/red-green.txt").write_text("issue-543-demo\n")
+    (self.root / ".ci/tests.json").write_text(json.dumps({
+      "test-harnesses": {"unittest": {"command": "python", "layout": []}},
+      "tests": [{"test-harness": "unittest",
+                 "issue-543-demo": {"type": "regression"}}],
+      "aliases": {},
+    }))
+    self._git("add", "test.txt", ".ci/red-green.txt", ".ci/tests.json")
     self._git("commit", "-m", "candidate")
     self.candidate = self._git("rev-parse", "HEAD")
     self._git("remote", "add", "origin", str(self.remote))
     self._git("push", "origin", "HEAD:refs/heads/issue-543-probe")
     marker = self.root / ".ci/run"
-    marker.parent.mkdir()
+    marker.parent.mkdir(exist_ok=True)
     marker.write_text("GREEN-testing " + self.candidate + "\n")
     self._git("add", ".ci/run")
     self._git("commit", "-m", "invoke")
@@ -42,9 +52,17 @@ class PublishHostedResultTests(unittest.TestCase):
     self.log.parent.mkdir(parents=True)
     self.observation = {
       "kind": "GREEN", "testSHA": self.candidate,
+      "catalogueSHA256": hashlib.sha256(
+        (self.root / ".ci/tests.json").read_bytes()
+      ).hexdigest(),
+      "branch": "issue-543-probe",
       "result": "succeeded", "runner": "local",
       "reusable": True, "uncommittedChanges": [],
       "headChangedDuringTest": False,
+      "platform": {
+        "os": platform.system(), "architecture": platform.machine(),
+        "runtime": platform.python_version(),
+      },
       "groups": [{"group": "issue-543-demo", "exit_code": 0}],
     }
     self._record()
@@ -164,6 +182,19 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertNotEqual(result.returncode, 0)
     self.assertIn("remote branch moved", result.stderr)
     self.assertEqual(self._git("rev-parse", "HEAD"), old)
+
+  def test_successful_but_unverified_group_must_not_publish(self):
+    self.observation["groups"] = [
+      {"group": "issue-543-not-selected", "exit_code": 0},
+    ]
+    self._record()
+    result = self._publish()
+    self.assertNotEqual(result.returncode, 0)
+    self.assertIn("failed authoritative validation", result.stderr)
+    self.assertEqual(
+      self._git("ls-remote", "origin", "refs/heads/issue-543-probe").split()[0],
+      self.invocation,
+    )
 
   def test_mismatched_candidate_rejected(self):
     self.observation["testSHA"] = "f" * 40

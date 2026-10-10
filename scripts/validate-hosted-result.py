@@ -4,10 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
 import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from repo_workflow.test_catalogue import (
+  TestCatalogueError, load_test_catalogue,
+)
 
 STAGES = {
   "RED-testing": "RED",
@@ -59,6 +67,15 @@ def validate_result(
   ):
     raise ValueError("hosted result lacks complete platform identity")
   if kind in {"GREEN", "temporary", "RED"}:
+    catalogue = root / (
+      ".ci/temp-tests.json" if kind == "temporary" else ".ci/tests.json"
+    )
+    try:
+      fingerprint = hashlib.sha256(catalogue.read_bytes()).hexdigest()
+    except OSError as error:
+      raise ValueError("hosted test catalogue missing") from error
+    if record.get("catalogueSHA256") != fingerprint:
+      raise ValueError("hosted test catalogue fingerprint mismatch")
     groups = record.get("groups")
     if not isinstance(groups, list) or not groups:
       raise ValueError("hosted group evidence missing")
@@ -76,14 +93,28 @@ def validate_result(
     or record.get("reason") != "expected-red-assertion-demonstrated"
   ):
     raise ValueError("hosted RED lacks verified assertion-failure classification")
-  if kind == "GREEN":
+  if kind in {"GREEN", "RED"}:
     selection = root / ".ci" / "red-green.txt"
     try:
       selected = selection.read_text(encoding="utf-8").strip()
     except OSError as error:
-      raise ValueError("hosted GREEN selection missing") from error
+      raise ValueError("hosted RED/GREEN selection missing") from error
     if [group["group"] for group in groups] != [selected]:
-      raise ValueError("hosted GREEN selection does not match result")
+      raise ValueError("hosted RED/GREEN selection does not match result")
+
+  if kind == "temporary":
+    try:
+      required = load_test_catalogue(
+        root, catalogue_path=Path(".ci/temp-tests.json"),
+      ).groups
+    except TestCatalogueError as error:
+      raise ValueError("hosted temporary test catalogue invalid") from error
+    observed = [group["group"] for group in groups]
+    if (
+      not required or len(observed) != len(required)
+      or set(observed) != required
+    ):
+      raise ValueError("hosted temporary result lacks exact group coverage")
 
 
 def main() -> int:
