@@ -49,8 +49,10 @@ class HostMutationDispatcherTests(unittest.TestCase):
   def test_invalid_request_never_executes_adapter(self):
     changes = (
       {"schema_version": True}, {"schema_version": 2},
-      {"operation": "github.raw"}, {"repository": "invalid"},
-      {"request_id": ""}, {"parameters": None},
+      {"operation": "github.raw"}, {"operation": []},
+      {"repository": "invalid"},
+      {"request_id": ""}, {"request_id": "bad whitespace"},
+      {"request_id": "x" * 129}, {"parameters": None},
       {"extra": True},
     )
     with patch("repo_workflow.host_mutation_dispatch.subprocess.run") as run:
@@ -67,6 +69,7 @@ class HostMutationDispatcherTests(unittest.TestCase):
       FakeCompleted("", 1), FakeCompleted(""), FakeCompleted("{}"),
       FakeCompleted(self.reply(request_id="wrong")),
       FakeCompleted(self.reply(status="pending")),
+      FakeCompleted(self.reply(status=[])),
       FakeCompleted(self.reply(result=[])),
     ):
       with self.subTest(response=response.stdout):
