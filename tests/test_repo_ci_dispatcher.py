@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -147,6 +148,38 @@ class RepoCiDispatcherTests(unittest.TestCase):
     with self.assertRaises(RepoCiError) as context:
       dispatch(self.root, "merge", request_bytes())
     self.assertEqual(context.exception.code, "unsupported-operation")
+
+  def test_cli_entrypoint_preserves_exact_input(self):
+    self.success_provider()
+    root = Path(__file__).resolve().parents[1]
+    process = subprocess.run(
+      [sys.executable, str(root / "repo_workflow.py"),
+       "--root", str(self.root), "repo-ci", "execute"],
+      input=request_bytes(), capture_output=True, check=False,
+    )
+    self.assertEqual(process.returncode, 0, process.stderr.decode())
+    result = json.loads(process.stdout)
+    self.assertEqual(result["candidate"], REQUEST["candidate"])
+    self.assertEqual(
+      (self.root / "received.bin").read_bytes(), request_bytes(),
+    )
+
+  def test_duplicate_json_key_rejected_without_execution(self):
+    self.success_provider()
+    raw = request_bytes().replace(
+      b'"operation": "execute",',
+      b'"operation": "execute", "operation": "execute",',
+    )
+    with self.assertRaises(RepoCiError):
+      dispatch(self.root, "execute", raw)
+    self.assertFalse((self.root / "received.bin").exists())
+
+  def test_nonstandard_json_rejected_before_execution(self):
+    self.success_provider()
+    raw = request_bytes().replace(b'"stages": []', b'"stages": [NaN]')
+    with self.assertRaises(RepoCiError):
+      dispatch(self.root, "execute", raw)
+    self.assertFalse((self.root / "received.bin").exists())
 
   def test_invalid_command_configuration_fails_closed(self):
     (self.root / ".ci" / "repo-ci.json").write_text(
