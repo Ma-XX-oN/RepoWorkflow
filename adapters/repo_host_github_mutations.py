@@ -138,7 +138,34 @@ def _pr_create(backend, request: dict, fresh: bool):
   source_short = source.removeprefix("refs/heads/")
   target_short = target.removeprefix("refs/heads/")
   if not fresh:
-    raise ProviderError("unknown_outcome", "PR creation needs reconciliation")
+    page = 1
+    matches = []
+    while True:
+      items = backend.get("pulls?state=all&per_page=100&page=" + str(page))
+      if not isinstance(items, list):
+        raise ProviderError("invalid_response", "invalid PR list page")
+      for item in items:
+        if isinstance(item, dict) and item.get("body") == (
+          p["body"] + "\n" + marker
+        ):
+          matches.append(item)
+      if len(items) < 100:
+        break
+      page += 1
+      if page > 1000:
+        raise ProviderError("unknown_outcome", "PR scan exceeded bound")
+    if len(matches) != 1:
+      raise ProviderError("unknown_outcome", "PR create outcome unreconciled")
+    number = _number(matches[0].get("number"))
+    observed, sha = _pr_observed(backend, number, expected)
+    if observed["base"].get("ref") != target_short or (
+      observed.get("draft") != p["draft"]
+    ):
+      raise ProviderError("conflict", "replayed PR identity differs")
+    return "unchanged", {
+      "number": number, "source_ref": source,
+      "target_ref": target, "head_sha": sha, "draft": p["draft"],
+    }
   result = backend.post("pulls", {
     "head": source_short, "base": target_short,
     "title": p["title"], "body": p["body"] + "\n" + marker,
