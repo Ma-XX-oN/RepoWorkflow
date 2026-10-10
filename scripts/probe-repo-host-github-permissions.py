@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Probe issue-create permission with a missing required title.
+"""Probe read-only CI token's issue, PR and Git ref write permissions.
 
-GitHub requires title for issue creation.  This invalid request cannot
-create an issue, and distinguishes explicit permission rejection from
-provider-side validation without granting write credentials to PR CI.
+Every request omits mandatory provider fields.  GitHub cannot apply a
+mutation from any of these requests, regardless of token privilege.
+An authorization failure is recorded separately from validation failure.
 """
 from __future__ import annotations
 
@@ -20,24 +20,32 @@ from repo_host_github_provider import GitHubBackend, ProviderError
 
 def main() -> int:
   backend = GitHubBackend("Ma-XX-oN/RepoWorkflow")
-  try:
-    backend.post("issues", {})
-  except ProviderError as exc:
-    if exc.code not in {"unauthorized", "not_found", "conflict"}:
-      raise RuntimeError(
-        "unexpected read-only token write outcome: " + exc.code
-      ) from exc
-    print(json.dumps({
-      "result": (
-        "PERMISSION_DENIED" if exc.code == "unauthorized"
-        else "PERMISSION_UNVERIFIED"
-      ),
-      "error": exc.code,
-      "target": "issue-create with missing required title",
-      "no_persisted_mutation": True,
-    }, sort_keys=True))
-    return 0
-  raise RuntimeError("read-only token unexpectedly accepted a write")
+  results = {}
+  for operation, path in (
+    ("issue.create", "issues"),
+    ("pull_request.create", "pulls"),
+    ("git_ref.create", "git/refs"),
+  ):
+    try:
+      # Missing mandatory fields prevent provider-side mutation.
+      backend.post(path, {})
+    except ProviderError as exc:
+      if exc.code not in {"unauthorized", "not_found", "conflict"}:
+        raise RuntimeError(
+          "unexpected error for " + operation + ": " + exc.code
+        ) from exc
+      results[operation] = {
+        "permission": (
+          "DENIED" if exc.code == "unauthorized" else "UNVERIFIED"
+        ),
+        "error": exc.code, "no_persisted_mutation": True,
+      }
+      continue
+    raise RuntimeError(
+      operation + " accepted an invalid empty mutation request"
+    )
+  print(json.dumps(results, sort_keys=True))
+  return 0
 
 
 if __name__ == "__main__":
