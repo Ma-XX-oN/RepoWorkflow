@@ -36,6 +36,7 @@ def decision(request=REQUEST, actor="operator", outcome="allow"):
     "scope_digest": digest,
     "actor_id": actor, "decision": outcome,
     "authority_ref": "verified-grant-1",
+    "grant_kind": "standing", "max_uses": None,
   }
 
 
@@ -82,6 +83,8 @@ class AuthorizationBoundaryTests(unittest.TestCase):
       {**decision(), "operation": "issue.comment"},
       {**decision(), "authority_ref": ""},
       {**decision(), "extra": "claim"},
+      {**decision(), "grant_kind": "one_time"},
+      {**decision(), "max_uses": 1},
     ]
     with patch.dict("os.environ", {
       "RWF_REPO_HOST_AUTH_COMMAND": '["/opt/trusted/check-auth"]',
