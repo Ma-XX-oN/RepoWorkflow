@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 import subprocess
@@ -148,6 +149,24 @@ class RepoCiDispatcherTests(unittest.TestCase):
     with self.assertRaises(RepoCiError) as context:
       dispatch(self.root, "merge", request_bytes())
     self.assertEqual(context.exception.code, "unsupported-operation")
+
+  @unittest.skipUnless(os.name == "posix", "POSIX executable entrypoint")
+  def test_executable_repo_ci_entrypoint(self):
+    self.success_provider()
+    script = Path(__file__).resolve().parents[1] / "repo-ci"
+    self.assertTrue(bool(script.stat().st_mode & 0o111))
+    process = subprocess.run(
+      [str(script), "execute"],
+      cwd=self.root,
+      input=request_bytes(),
+      capture_output=True,
+      check=False,
+    )
+    self.assertEqual(process.returncode, 0, process.stderr.decode())
+    self.assertEqual(json.loads(process.stdout)["status"], "ok")
+    self.assertEqual(
+      (self.root / "received.bin").read_bytes(), request_bytes(),
+    )
 
   def test_cli_entrypoint_preserves_exact_input(self):
     self.success_provider()
