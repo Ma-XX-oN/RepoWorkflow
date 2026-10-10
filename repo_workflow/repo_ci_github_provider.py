@@ -96,6 +96,89 @@ def _transport(request: dict, root: Path) -> dict:
 
 
 
+def _execute_consumer(request: dict, root: Path) -> dict:
+  """Invoke core's existing validator; transport its facts unchanged."""
+  inputs = request.get("inputs")
+  requirements = request.get("requirements")
+  candidate = request.get("candidate")
+  if not isinstance(inputs, dict) or not isinstance(requirements, dict):
+    return _error(request, "invalid-request", "consumer execution inputs required")
+  if set(inputs) != {"consumer_workspace", "result_path", "mode", "base"}:
+    return _error(request, "invalid-request", "invalid consumer execution inputs")
+  stages = requirements.get("stages")
+  if not isinstance(stages, list) or len(stages) != 1 or (
+    not isinstance(stages[0], str) or not stages[0]
+  ):
+    return _error(request, "invalid-request", "one environment stage required")
+  if not isinstance(candidate, dict) or not all(
+    isinstance(candidate.get(k), str) and candidate[k]
+    for k in ("repository", "commit", "base")
+  ):
+    return _error(request, "invalid-request", "candidate identity required")
+  if inputs["base"] != candidate["base"]:
+    return _error(request, "identity-mismatch", "base identity mismatch")
+  if inputs["mode"] not in ("development", "stable"):
+    return _error(request, "invalid-request", "invalid execution mode")
+  allowed_workspace = os.environ.get("RWF_REPO_CI_WORKSPACE")
+  allowed_results = os.environ.get("RWF_REPO_CI_RESULT_ROOT")
+  if not allowed_workspace or not allowed_results:
+    return _error(request, "prerequisite-unavailable", "consumer boundary unconfigured")
+  workspace = Path(inputs["consumer_workspace"]).resolve()
+  results_root = Path(allowed_results).resolve()
+  destination = Path(inputs["result_path"]).resolve()
+  if workspace != Path(allowed_workspace).resolve() or not (
+    destination.is_relative_to(results_root)
+    and destination.suffix == ".json"
+    and destination != results_root
+  ):
+    return _error(request, "invalid-request", "consumer workspace or output not permitted")
+  if destination.exists():
+    return _error(request, "transport-failed", "existing result cannot be overwritten")
+  try:
+    head = subprocess.run(
+      ["git", "rev-parse", "HEAD"], cwd=workspace, capture_output=True,
+      text=True, check=True, timeout=10,
+    ).stdout.strip()
+  except (OSError, subprocess.SubprocessError):
+    return _error(request, "prerequisite-unavailable", "consumer checkout unavailable")
+  if head != candidate["commit"]:
+    return _error(request, "identity-mismatch", "candidate not checked out")
+  if os.environ.get("GITHUB_REPOSITORY") not in (None, candidate["repository"]):
+    return _error(request, "identity-mismatch", "repository identity mismatch")
+  executable = root / "repo_workflow.py"
+  operation = "stable-run" if inputs["mode"] == "stable" else "run"
+  command = [
+    sys.executable, str(executable), operation, "--environment", stages[0],
+    "--expected-sha", candidate["commit"], "--result", str(destination),
+  ]
+  try:
+    completed = subprocess.run(
+      command, cwd=workspace, capture_output=True, timeout=3500, check=False,
+    )
+  except (OSError, subprocess.TimeoutExpired):
+    return _error(request, "execution-unavailable", "core validator unavailable")
+  try:
+    observed = json.loads(destination.read_text(encoding="utf-8"))
+  except (OSError, UnicodeError, ValueError):
+    return _error(request, "transport-failed", "core result missing or malformed")
+  if (
+    not isinstance(observed, dict)
+    or observed.get("schema") != 1
+    or observed.get("commit") != candidate["commit"]
+    or observed.get("environment") != stages[0]
+    or observed.get("status") not in ("PASS", "FAIL", "INCOMPLETE")
+    or completed.returncode not in (0, 1, 2)
+  ):
+    return _error(request, "integrity-failed", "core result identity or status invalid")
+  return _response(request, {
+    "stages": [{
+      "stage": stages[0], "candidate": candidate,
+      "complete": True, "outcome": "core-reported",
+      "core_result": observed, "core_exit_code": completed.returncode,
+    }],
+  }, [])
+
+
 def _execute(request: dict, root: Path) -> dict:
   """Run explicitly declared catalogue groups; report facts, not PASS."""
   from .self_ci import SelfCiError, group_command
@@ -103,6 +186,8 @@ def _execute(request: dict, root: Path) -> dict:
   requirements = request.get("requirements")
   inputs = request.get("inputs")
   candidate = request.get("candidate")
+  if isinstance(inputs, dict) and "consumer_workspace" in inputs:
+    return _execute_consumer(request, root)
   if not isinstance(requirements, dict) or not isinstance(inputs, dict):
     return _error(request, "invalid-request", "invalid execute envelope")
   stages = requirements.get("stages")
