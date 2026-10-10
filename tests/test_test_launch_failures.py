@@ -56,10 +56,10 @@ class TestLaunchFailures(unittest.TestCase):
       self.root / ".ci/temp-tests.json", issue_group="issue-545-signal",
     )
     (self.root / "smoke_case.py").write_text(
-      "import os, signal, unittest\\n"
-      "class Smoke(unittest.TestCase):\\n"
-      "  def test_pass(self):\\n"
-      "    os.kill(os.getpid(), signal.SIGTERM)\\n"
+      "import os, signal, unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self):\n"
+      "    os.kill(os.getpid(), signal.SIGTERM)\n"
     )
     self.git("add", ".ci/temp-tests.json", "smoke_case.py")
     self.git("commit", "-m", "signalled temporary test")
@@ -80,10 +80,10 @@ class TestLaunchFailures(unittest.TestCase):
       self.root / ".ci/tests.json", issue_group="issue-545-signal-green",
     )
     (self.root / "smoke_case.py").write_text(
-      "import os, signal, unittest\\n"
-      "class Smoke(unittest.TestCase):\\n"
-      "  def test_pass(self):\\n"
-      "    os.kill(os.getpid(), signal.SIGTERM)\\n"
+      "import os, signal, unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self):\n"
+      "    os.kill(os.getpid(), signal.SIGTERM)\n"
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "signalled GREEN group")
