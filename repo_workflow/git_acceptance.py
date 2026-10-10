@@ -61,6 +61,10 @@ def push_if_parent(
   must separately ensure server-side authorization and protection.
   """
   _check_target(ref)
+  if ref == "refs/heads/main":
+    raise PreMergeGateError(
+      "integration blocked: protected main requires the GitHub PR merge gate"
+    )
   if not remote or remote.startswith("-"):
     raise PreMergeGateError("integration blocked: invalid remote")
   if not all(isinstance(value, str) and _SHA.fullmatch(value)
