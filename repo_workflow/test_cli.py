@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from datetime import datetime, timezone
 import platform
@@ -237,6 +238,16 @@ def results(root: Path, *, remote: bool) -> int:
         ):
           raise TestCommandError("invalid testing log groups")
         seen.add(name)
+    def ensure_finite(value):
+      if isinstance(value, float) and not math.isfinite(value):
+        raise TestCommandError("nonfinite testing log value")
+      if isinstance(value, dict):
+        for nested in value.values():
+          ensure_finite(nested)
+      elif isinstance(value, list):
+        for nested in value:
+          ensure_finite(nested)
+    ensure_finite(record)
     validated.append(record)
   for record in validated:
     print(json.dumps(record, sort_keys=True))
