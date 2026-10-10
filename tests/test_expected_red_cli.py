@@ -65,6 +65,10 @@ class ExpectedRedCliTests(unittest.TestCase):
       {"exit-code": 1, "output-contains": ""},
       {"exit-code": 1, "output-contains": "FAILED"},
       {"exit-code": 1, "output-contains": "Error"},
+      {"exit-code": 1, "output-contains": "FAILED (failures=1)"},
+      {"exit-code": 1, "output-contains": "Error:"},
+      {"exit-code": None, "output-contains": "case invariant violated"},
+      {"exit-code": 1.0, "output-contains": "case invariant violated"},
       {"exit-code": 1, "output-contains": "case invariant violated", "regex": ".*"},
     ):
       with self.subTest(declaration=declaration):
@@ -108,6 +112,40 @@ class ExpectedRedCliTests(unittest.TestCase):
     out = self.cli("test", "RED", "issue-545-declared")
     self.assertEqual(out.returncode, 0, out.stderr)
     self.assertEqual(self.last()["redStatus"], "RED")
+
+
+  def test_unicode_literal_signature_is_matched_exactly(self):
+    signature = "domaine café invariant-545"
+    self.configure({"exit-code": 1, "output-contains": signature},
+                   output=signature)
+    out = self.cli("test", "RED", "issue-545-declared")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    self.assertEqual(self.last()["redStatus"], "RED")
+    catalogue = self.root / ".ci/tests.json"
+    data = json.loads(catalogue.read_text())
+    data["tests"][0]["issue-545-declared"]["expected-red"][
+      "output-contains"
+    ] = "domaine cafe invariant-545"
+    catalogue.write_text(json.dumps(data))
+    changed = self.cli("test", "RED")
+    self.assertEqual(changed.returncode, 2, changed.stderr)
+    self.assertEqual(self.last()["redStatus"], "FAIL")
+
+  def test_malformed_declaration_cannot_trigger_test_side_effect(self):
+    marker = self.root / "marker-touched-by-test"
+    self.configure({"exit-code": 1, "output-contains": "FAILED"})
+    self.root.joinpath("smoke_case.py").write_text(
+      "from pathlib import Path\nimport unittest\n"
+      "class Smoke(unittest.TestCase):\n"
+      "  def test_pass(self):\n"
+      f"    Path({str(marker)!r}).touch()\n"
+    )
+    self.git("add", "smoke_case.py")
+    self.git("commit", "-m", "test process would touch marker")
+    out = self.cli("test", "RED", "issue-545-declared")
+    self.assertEqual(out.returncode, 2)
+    self.assertFalse(marker.exists())
+    self.assertEqual(self.last()["redStatus"], "INCOMPLETE")
 
 
   def test_unexpected_pass_classifies_not_red(self):
