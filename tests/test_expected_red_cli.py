@@ -83,6 +83,9 @@ class ExpectedRedCliTests(unittest.TestCase):
     self.configure({"exit-code": 1, "output-contains": "case invariant violated"})
     path = self.root / ".ci/tests.json"
     initial = path.read_text()
+    self.assertEqual(
+      self.cli("test", "RED", "issue-545-declared").returncode, 0,
+    )
     for corrupted in (
       initial.replace('"exit-code": 1,', '"exit-code": 1, "exit-code": 2,'),
       initial.replace(
@@ -93,7 +96,7 @@ class ExpectedRedCliTests(unittest.TestCase):
     ):
       with self.subTest(corrupted=corrupted[-75:]):
         path.write_text(corrupted)
-        out = self.cli("test", "RED", "issue-545-declared")
+        out = self.cli("test", "RED")
         self.assertEqual(out.returncode, 2, out.stderr)
         self.assertEqual(self.last()["redStatus"], "INCOMPLETE")
         self.assertIsNone(self.last()["groups"][0]["exit_code"])
