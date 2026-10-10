@@ -9,8 +9,10 @@ a success check.  Do not run against a production issue or main destination.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+from threading import Barrier
 from pathlib import Path
 import subprocess
 import sys
@@ -115,6 +117,52 @@ def invoke(repository: str, operation: str, identity: str,
   return value
 
 
+def verify_concurrent_comment(repository: str, number: int,
+                              run: str) -> None:
+  """Race independent Python processes and reconcile exactly one comment."""
+  identity = run + "-race-comment"
+  params = {"number": number, "body": "RWF concurrent probe " + run}
+  request = {
+    "schema_version": 1, "operation": "issue.comment",
+    "repository": repository, "request_id": identity,
+    "parameters": params,
+  }
+  gate = Barrier(2)
+
+  def execute(_):
+    gate.wait(timeout=20)
+    proc = subprocess.run(
+      [sys.executable, str(ADAPTER)],
+      input=json.dumps(request), text=True, capture_output=True,
+      check=False, timeout=90,
+    )
+    if proc.returncode == 0 and not proc.stderr:
+      value = json.loads(proc.stdout)
+      if value.get("request_id") != identity or (
+        value.get("status") not in {"applied", "unchanged"}
+      ):
+        raise RuntimeError("concurrent provider result identity mismatch")
+      return value["status"]
+    if proc.returncode != 0 and not proc.stdout:
+      error = json.loads(proc.stderr)
+      if error.get("error") == "unknown_outcome" and (
+        error.get("request_id") == identity
+      ):
+        return "unknown_outcome"
+    raise RuntimeError("concurrent provider mutation failed unexpectedly")
+
+  with ThreadPoolExecutor(max_workers=2) as pool:
+    outcomes = list(pool.map(execute, (0, 1)))
+  if not set(outcomes) <= {"applied", "unchanged", "unknown_outcome"}:
+    raise RuntimeError("invalid concurrent mutation outcome")
+  observed = invoke(repository, "issue.comment", identity, params)
+  if observed["status"] != "unchanged":
+    raise RuntimeError("concurrent replay was not reconciled")
+  verify_remote_comment(repository, number, identity,
+                        observed["result"]["comment_id"], params["body"])
+  verify_reservation(repository, "issue.comment", identity, params)
+
+
 def main() -> int:
   parser = argparse.ArgumentParser()
   parser.add_argument("--repository", required=True)
@@ -207,6 +255,7 @@ def main() -> int:
                           params["body"])
     verify_reservation(args.repository, "issue.comment",
                        run + "-comment", params)
+    verify_concurrent_comment(args.repository, args.sandbox_issue, run)
     pr_data = {
       "source_ref": args.source_ref, "target_ref": args.target_ref,
       "expected_source_sha": head_sha, "title": "RWF live probe " + run,
