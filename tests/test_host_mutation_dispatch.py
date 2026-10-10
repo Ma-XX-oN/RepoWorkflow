@@ -72,7 +72,9 @@ class HostMutationDispatcherTests(unittest.TestCase):
       with self.subTest(operation=operation):
         with patch("repo_workflow.host_mutation_dispatch.subprocess.run",
                    return_value=FakeCompleted(self.reply(request))):
-          self.assertEqual(dispatch(["provider"], request)["operation"], operation)
+          self.assertEqual(
+            dispatch(["provider"], request)["operation"], operation,
+          )
 
   def test_malformed_successful_envelopes_fail_closed(self):
     cases = (
