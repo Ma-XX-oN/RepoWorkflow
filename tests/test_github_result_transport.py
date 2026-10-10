@@ -112,6 +112,22 @@ class GithubResultTransportTests(unittest.TestCase):
           publish_bundle(request, RECORDS, self.directory)
     self.assertFalse(self.directory.exists())
 
+  def test_reserved_manifest_artifact_is_rejected_before_writing(self):
+    request = copy.deepcopy(REQUEST)
+    request["requirements"]["artifacts"] = ["manifest.json"]
+    with self.assertRaisesRegex(TransportError, "reserved"):
+      publish_bundle(request, {"manifest.json": b"not a manifest"}, self.directory)
+    self.assertFalse(self.directory.exists())
+
+  def test_invalid_artifact_declaration_types_fail_closed(self):
+    for invalid in (None, "result", [["result"]], ["result", "result"]):
+      with self.subTest(declared=invalid):
+        request = copy.deepcopy(REQUEST)
+        request["requirements"]["artifacts"] = invalid
+        with self.assertRaises(TransportError):
+          publish_bundle(request, RECORDS, self.directory)
+        self.assertFalse(self.directory.exists())
+
   def test_manifest_duplicate_and_extra_fields(self):
     publish_bundle(REQUEST, RECORDS, self.directory)
     path = self.directory / "manifest.json"
