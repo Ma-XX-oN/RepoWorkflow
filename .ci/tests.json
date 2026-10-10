@@ -212,10 +212,6 @@
         "type": "regression",
         "name": "tests.test_issue629_selection_acceptance"
       },
-      "issue-629-invocation-acceptance": {
-        "type": "regression",
-        "name": "tests.test_issue629_invocation_acceptance"
-      },
       "issue-629-cache-acceptance": {
         "type": "regression",
         "name": "tests.test_issue629_cache_acceptance"
@@ -235,6 +231,10 @@
       "issue-629-pending-provider": {
         "type": "regression",
         "name": "tests.test_issue629_pending_provider"
+      },
+      "issue-629-zz-invocation-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_invocation_acceptance"
       }
     }
   ],
