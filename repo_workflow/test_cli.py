@@ -23,6 +23,7 @@ from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
 from .test_red_runner import record_red
+from .test_red_declaration import red_declaration
 
 STAGES = {
   "RED": "RED-testing",
@@ -339,6 +340,7 @@ def run_test(
       return _skip_without_selection(root, stage, remote=remote)
     if remote:
       return request_remote(root, stage)
+    expectation, declaration_error = red_declaration(root, selected)
     command = group_command(root, selected)
     match = re.fullmatch(
       r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -352,6 +354,7 @@ def run_test(
       root, selected, command, path,
       _group_fingerprint(root, Path(".ci/tests.json")),
       dirty_inputs=_uncommitted_inputs,
+      expectation=expectation, declaration_error=declaration_error,
     )
   if group is not None:
     raise TestCommandError("test group is only supported for RED")
