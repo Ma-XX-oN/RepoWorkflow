@@ -43,7 +43,7 @@ def check_github_policy(
     return _error(request, "invalid-request", "request must be an object")
   if type(request.get("contract_version")) is not int or request["contract_version"] != 1:
     return _error(request, "unsupported-version", "expected contract_version 1")
-  if request.get("operation") not in _OPERATIONS:
+  if request.get("operation") != "check-policy":
     return _error(request, "unsupported-operation", "only check-policy is supported")
   if set(request) != _REQUIRED:
     return _error(request, "invalid-request", "request fields do not match v1 envelope")
@@ -67,7 +67,7 @@ def check_github_policy(
   policies = inputs["policies"]
   if not isinstance(policies, list) or not policies or any(
     policy != "canonical-bootstrap" for policy in policies
-  ) or len(set(policies)) != len(policies):
+  ) or len(policies) != 1:
     return _error(request, "invalid-request", "unknown or duplicated policy")
   try:
     check_actions_policy(root, engine_root, migration_workflows=migration_workflows)
