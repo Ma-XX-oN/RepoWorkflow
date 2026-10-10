@@ -1,0 +1,53 @@
+name: Issue 97 cross-platform acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/repo-host-github.py'
+      - 'adapters/repo_host_github_*.py'
+      - 'tests/test_repo_host_github*.py'
+      - '.github/workflows/issue-97-platform-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  adapter-acceptance:
+    name: Adapter acceptance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run black-box and provider contract tests
+        env:
+          RWF_REPO_HOST_AUTH_COMMAND: ''
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: >-
+          python -m unittest -v
+          tests.test_repo_host_github
+          tests.test_repo_host_github_reads
+          tests.test_repo_host_github_authority
+          tests.test_repo_host_github_mutations
+          tests.test_repo_host_github_provider
+      - name: Compile adapter and tests
+        run: >-
+          python -m py_compile
+          adapters/repo-host-github.py
+          adapters/repo_host_github_reads.py
+          adapters/repo_host_github_authority.py
+          adapters/repo_host_github_mutations.py
+          adapters/repo_host_github_provider.py
+          tests/test_repo_host_github.py
+          tests/test_repo_host_github_reads.py
+          tests/test_repo_host_github_authority.py
+          tests/test_repo_host_github_mutations.py
+          tests/test_repo_host_github_provider.py
