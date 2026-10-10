@@ -91,6 +91,17 @@ class HostedCacheTests(unittest.TestCase):
   def test_authenticated_exact_pass_is_reused(self):
     self.assertEqual(self.reusable(self.record), {"issue-545-one"})
 
+  def test_malformed_provider_response_is_cache_miss(self):
+    self.publish(self.record)
+    for response in (None, [], "not a response", 123):
+      with self.subTest(response=response):
+        self.assertEqual(verified_hosted_passes(
+          self.root, stage="GREEN", revision=self.candidate,
+          fingerprint=self.fingerprint, invocation=self.second_invocation,
+          branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
+          token="fixture-token", provider_lookup=lambda *args: response,
+        ), set())
+
   def test_provider_incomplete_wrong_head_or_workflow_fails_closed(self):
     self.publish(self.record)
     for update in (
