@@ -56,7 +56,11 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
     for expected in (
       "on:\n  workflow_dispatch:",
       "runs-on: ubuntu-latest",
-      "environment: rwf97-acceptance",
+      "vars.RWF97_TRUSTED_MAIN_SHA == github.sha",
+      "vars.RWF97_APPROVED_GRANT_ID",
+      "vars.RWF97_SIGNED_REVOCATIONS",
+      "vars.RWF97_ISSUER_PUBLIC_KEY",
+      "vars.RWF97_ISSUER_AUTHORITY",
       "actions: read",
       "contents: write",
       "issues: write",
