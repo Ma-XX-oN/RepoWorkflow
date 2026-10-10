@@ -103,7 +103,8 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
   dirty = sorted(set(before_dirty) | set(_dirty(root, log)))
   history_changed = head_sha(root) != candidate
   probe_incomplete = any(
-    item["exit_code"] is None for item in observations
+    item["exit_code"] is None or item["exit_code"] < 0
+    for item in observations
   )
   success = (
     regression == "PASS"
