@@ -1,125 +1,97 @@
-# Issue #97 — Minimum Trusted Execution Decision
+# Issue #97 — Verified Minimum Hosted Test Architecture
 
-Decision date: 2026-10-10.  Issue #97 OPEN, PR #616 DRAFT.
-Do not merge and do not claim provider write acceptance without evidence.
+Date: 2026-10-10.  Issue OPEN, draft PR #616 UNMERGED.
+Canonical operational guide: ISSUE_97_LIVE_ACCEPTANCE_SETUP.md.
 
-## What the #80 contract actually requires
+## Provider-backed facts
 
-`AUTHORIZATION_EVIDENCE_CONTRACT.md` requires a trusted issuer with
-authenticated delegation, verified actor, explicit role and capability,
-exact scope, trusted time, active policy revision and current revocation
-state.  The adapter must refuse unsupported one-time/consuming grants:
-a successful one-time grant requires atomic consumption and recovery.
-Issue #97's current consumer requests only independently authenticated,
-non-consuming standing policy.  This is an intentional limited scope.
+- PRIVATE sandbox Ma-XX-oN/Disposable-000 exists; owner admin rights
+  confirmed.  Main, issue #1 and distinct source/target branches are
+  initialized, and disposable PR #2 is CLOSED, UNMERGED.
+- Authenticated private GitHub Actions provider probe confirmed
+  total_count 0 for environments.
+- The private repository's Rulesets API returned a plan-specific 403.
+- Hosted shipped Python adapter denied four unauthorized mutations and
+  failed closed on unsupported merge/check publication.  Independent
+  before/after remote issue/PR/comment/ref state was unchanged.
+- All positive authenticated adapter writes still require trusted #80
+  standing-policy authorization; none have been executed yet.
 
-#80 does NOT require a dedicated machine, external network service,
-specific verifier programming language or GitHub App private key.
-The existing Python consumer DOES require an executable verifier path
-outside its own checkout; a copied, pinned, independently controlled
-artifact meets that path separation without a self-hosted runner.
+## Evaluated execution architectures
 
-A GitHub environment reviewer approves execution, NOT the issuer's
-grant; an exact SHA does not prove actor, delegation, expiry or
-revocation.  A GitHub write token proves provider authentication but
-not semantic authorization.
-
-## Architecture comparison
-
-| Option | Privilege | Limitation |
+| Option | Feasible | Additional authority |
 | --- | --- | --- |
-| A. Repo hosted | Env + sandbox token | Extra credential |
-| B. App token | Sandbox-only App | App/key setup |
-| C. Self-hosted | Installed verifier | Machine/risk |
-| D. Sandbox hosted | Sandbox GITHUB_TOKEN | Sandbox repo |
+| RepoWorkflow-hosted GitHub runner | Yes | Cross-repo token |
+| Hosted runner plus GitHub App | Yes | App identity/key |
+| Dedicated self-hosted runner | Yes | Persistent runner |
+| Sandbox-native hosted runner | SELECTED | Signed #80 grant |
 
-**Selected D**: GitHub-hosted Ubuntu runner within the disposable sandbox,
-not a dedicated runner.  It uses only the sandbox's job-scoped
-`GITHUB_TOKEN`; permissions: Actions read, Contents write, Issues write,
-Pull requests write.  This is narrower in repository reach than A or B.
-Options A and B are viable fallbacks, not requirements.  C has no
-contract-mandated capability advantage and adds persistent runner risk.
+The selected `ubuntu-latest` job uses only Disposable-000's native
+job-scoped GITHUB_TOKEN, with Actions read, Contents write, Issues
+write and Pull requests write, confined to that disposable repo.
 
-## Runtime trust boundaries for selected D
+A dedicated runner, private App key, PAT or persistent verifier
+service is NOT demanded by the #80 contract.  No production
+RepoWorkflow main, issue or release tag is changed.
 
-1. Sandbox `main` holds the *trusted* workflow and verifier code behind
-   enforced branch rules and independent review.  Neither is fetched
-   from the issue #97 pull request.
-2. The `rwf97-acceptance` environment enforces independent approval,
-   prevent-self-review and exact deployment from `main`.
-3. After approval the job checks its trusted commit, separately
-   administrator-pinned verifier SHA-256 and independently approved
-   exact RepoWorkflow candidate SHA.  The candidate checkout is
-   separate and never controls the workflow YAML.
-4. The verifier is copied from the protected sandbox checkout to
-   `RUNNER_TEMP/rwf97-trusted`, outside the adapter checkout.  It must
-   authenticate a current #80 standing grant using an independent
-   issuer/delegation proof and trusted authoritative revocation source
-   at each mutation.  Unknown or stale authority denies.
-5. The GitHub token is minted for the sandbox job only and expires
-   automatically.  The Python backend resolves its authenticated actor
-   with GitHub; the #80 verifier decision must match that actor.
-6. The sandbox default branch and `rwf-host-request-*` ref ruleset
-   prevent the test token from altering main or existing reservations.
-   The candidate still receives a sandbox write token: independently
-   reviewing its exact SHA and trusted workflow is essential.
-7. No one-time grant consumption is attempted; the verifier denies
-   `max_uses != null`.  Standing policy is not a shortcut for a
-   one-time grant or remote finalizer privileges.
-8. The Python adapter never merges PRs or publishes success checks.
-   Source and target are dedicated non-main sandbox branches and the
-   issue is explicitly marked disposable.
+## Private GitHub plan reality
 
-## Limits of process-level isolation
+Rulesets for private personal repositories need an eligible paid
+plan.  GitHub Free/Pro/Team required deployment reviewers are
+restricted to public repos.  A Pro upgrade alone would therefore
+NOT implement the previous private environment-review plan.
 
-This design does NOT allow arbitrary hostile PR code to be trusted with
-a GitHub write credential.  The tested adapter process receives the
-sandbox-scoped token.  Malicious code at that approved commit could
-ignore verifier decisions, alter its own source, modify same-user
-temporary files or call `gh api` directly.  A verifier file moved out
-of the checkout and checked by SHA-256 does NOT make it inaccessible
-to that process.  A dedicated runner alone would not solve this:
-the malicious process would still have its provider token.
+Issue #97's disposable *test* need not acquire Enterprise or change
+the sandbox to public.  Instead, an administrator independently
+reviews the exact trusted workflow/candidate SHA and signs a
+short-lived scoped #80 grant using a private OFFLINE Ed25519 key.
+GitHub Actions repository variables controlled by the administrator
+pin the issuer public key, issuer ID, exact grant ID, current signed
+revocation state, exact trusted-main SHA and exact candidate SHA.
+The GITHUB_TOKEN job cannot edit those Actions approval variables.
 
-The independent reviewer must review the COMPLETE exact candidate
-commit and trusted workflow, not just approve an environment.  Keep
-the token restricted to a disposable sandbox and enforce protected
-main/tag rules in GitHub; the resulting provider blast radius is
-bounded.  Never use this test mode to certify that unreviewed code
-cannot bypass authorization in production.
+The grant and mirrored revocation document are signed.  The shipped
+adapter invokes a separate verifier executable staged outside the
+candidate checkout, and that verifier checks cryptographic signatures,
+GitHub's authenticated actor, precise semantic capability, sandbox
+issue and PR refs, grant lifetime, delegation and current revocation.
+One-time grants and unverifiable claims always deny.
 
-If the threat model requires provider-side authorization despite
-malicious candidate code, a separate trusted credential-owning
-broker/enforcer and no raw GitHub write token in the candidate process
-are necessary.  That is a materially different subsystem, not
-satisfied by merely registering a self-hosted runner.  It is NOT
-introduced or falsely certified by this #97 acceptance harness.
+A cryptographic authorization decision is DISTINCT from GitHub
+environment review and distinct from token possession.
 
-## Missing authority is still real, but smaller than a runner
+## Security qualification
 
-#80 completed documentation and an acceptance matrix.  We have not
-found a deployed verifier or an independently issued, authenticated,
-currently revocable standing policy.  A separate network service is
-NOT required if the verifier on sandbox protected `main` can read and
-validate current independently issued immutable grants and revocation
-facts itself, with trusted issuer authentication.
+Without paid GitHub protection rules, a sandbox write token may also
+have permission to modify sandbox main or reservation refs.  The
+test adapter never intentionally uses those operations; the
+independently reviewed exact candidate is mandatory.  Verifier
+binary hash binding and the administrator-maintained signed
+revocation variable detect unintended changes, but do NOT provide
+hostile-code isolation from malicious candidate code holding the raw
+sandbox token.  A separate credential-owning trusted broker would
+be needed for that STRONGER production threat model.  Do not
+misrepresent private Free as having active main/tag rulesets.
 
-Neither a new mock `allow` script nor GitHub deployment approval may
-manufacture that grant.  Provisioning this scoped #80 authority and
-validating its denial cases is the remaining genuine authorization
-work, besides creating the disposable sandbox and protected environment.
-No new DAG ticket was created.
+The isolated test's authorization validity is anchored in a
+separately issued signed grant and current authoritative revocation
+fact, not in a mutable local JSON file or PR author's claim.
 
-## Implementation and acceptance links
+## Executable artifacts
 
-`examples/issue-97-sandbox-hosted.workflow.yml` is the sandbox-owned
-workflow template.  Its protected-environment guard is
-`examples/issue-97-sandbox-verify-environment.py`.
-`ISSUE_97_LIVE_ACCEPTANCE_SETUP.md` gives precise GitHub UI steps.
-`scripts/probe-repo-host-github.py` executes the shipped adapter and
-independently validates issue/PR/comment and Git reservation evidence.
+- `examples/issue-97-sandbox-hosted.workflow.yml`: sandbox hosted job.
+- `examples/issue-97-verify-authority.py`: signed v1 verifier.
+- `examples/issue-97-admin-sign-authority.py`: OFFLINE issuer utility
+  for key generation, short-lived grant and revocation, no key uploads.
+- `tests/test_repo_host_github_signed_verifier.py`: cryptographic
+  positive/negative specification tests.
+- `scripts/probe-repo-host-github-private-sandbox-deny.py`:
+  authenticated real-provider six-operation fail-closed test.
+- `scripts/probe-repo-host-github.py`: real authorized Python write,
+  persisted outcome, replay/concurrency and cleanup acceptance.
+- `ISSUE_97_LIVE_ACCEPTANCE_SETUP.md`: exact admin UI/CLI steps.
 
-A completed sandbox run must prove real write authority, exact-provider
-persistence, retries after process restart, racing operations, cleanup,
-permission and authorization negatives, including expiry and revocation.
-Until then #97 remains OPEN and PR #616 remains DRAFT.
+The sandbox already contains the hosted workflow and a trusted
+verifier candidate; administrator-pinned issuer/grant variables
+and signed grant issuance are NOT yet configured.
+Do not mark DONE from mock GREEN or live negative results alone.
