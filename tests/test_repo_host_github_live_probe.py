@@ -131,6 +131,22 @@ class LiveProbeCleanupTests(unittest.TestCase):
     with patch.object(module, "gh", return_value=[valid]):
       module.verify_remote_comment("owner/sandbox", 3, "once", "13", "Exact")
 
+  def test_remote_comment_reads_beyond_first_hundred(self):
+    identity = chr(0).join(["owner/sandbox", "issue.comment", "once"])
+    marker = "<!-- RWF-HOST-REQUEST-V1:" + hashlib.sha256(
+      identity.encode("utf-8")
+    ).hexdigest() + " -->"
+    pages = [
+      [{"id": i, "body": "Unrelated"} for i in range(100)],
+      [{"id": 1001, "body": "Exact\n" + marker}],
+    ]
+    with patch.object(module, "gh", side_effect=pages) as get:
+      module.verify_remote_comment(
+        "owner/sandbox", 3, "once", "1001", "Exact"
+      )
+    self.assertEqual(get.call_count, 2)
+    self.assertIn("page=2", get.call_args.args[1])
+
   def test_pass_only_after_provider_cleanup_verified(self):
     calls, output = self.run_probe()
     self.assertIn("CLOSE PR", calls)
