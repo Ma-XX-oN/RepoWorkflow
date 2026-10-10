@@ -95,7 +95,7 @@ class TestCacheEvidenceTests(unittest.TestCase):
       '"result":"succeeded"',
     ):
       with self.subTest(suffix=suffix):
-        self.path.write_text(original[:-1] + "," + suffix + "}\\n")
+        self.path.write_text(original[:-1] + "," + suffix + "}\n")
         self.assertEqual(self.reusable(), set())
 
 
