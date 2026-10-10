@@ -22,6 +22,7 @@ class Observation:
   fingerprint: str
   verdict: str
   mode: str = "automated"
+  runner: str = "local"
 
   def coverage(self):
     return self
@@ -152,6 +153,31 @@ class EvidenceHandoffTests(unittest.TestCase):
       False, ("host-facts-unavailable",),
     ))
 
+
+
+  def test_external_evidence_requires_provider_verification(self):
+    remote = [
+      self.records[0],
+      replace(self.records[1], runner="github-actions"),
+    ]
+    with self.assertRaises(EvidenceGateError):
+      read_evidence_gate(
+        Store(remote), self.required, ["one", "two"],
+        candidate=self.candidate, version="v1", branch="feature",
+        coverage_evaluator=evaluate,
+      )
+    with self.assertRaises(EvidenceGateError):
+      read_evidence_gate(
+        Store(remote), self.required, ["one", "two"],
+        candidate=self.candidate, version="v1", branch="feature",
+        coverage_evaluator=evaluate, provider_verifier=lambda _: False,
+      )
+    trusted = read_evidence_gate(
+      Store(remote), self.required, ["one", "two"],
+      candidate=self.candidate, version="v1", branch="feature",
+      coverage_evaluator=evaluate, provider_verifier=lambda _: True,
+    )
+    self.assertTrue(trusted.passed)
 
   def test_corrupt_durable_store_denied(self):
     class Broken:
