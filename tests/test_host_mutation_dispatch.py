@@ -294,7 +294,7 @@ class DispatcherContractTests(unittest.TestCase):
         reply = dispatch_configured(root, req)
       self.assertEqual(reply["result"]["number"], 11)
       invoked.assert_called_once_with(
-        conf["hostCommand"], req, timeout=30,
+        conf["hostCommand"], req, timeout=30, cwd=root,
       )
 
       def mutate(*_args, **_kwargs):
@@ -367,6 +367,29 @@ class DispatcherContractTests(unittest.TestCase):
       with self.subTest(operation=operation, field=field):
         with self.assertRaises(HostMutationError):
           self.run_provider(req, runner)
+
+
+  def test_relative_adapter_script_runs_from_configured_root(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      program = root / "fake_adapter.py"
+      program.write_text(
+        "import json,sys\n"
+        "x=json.load(sys.stdin)\n"
+        "o=x['operation']\n"
+        "ops=('issue.update','issue.comment','pull_request.create',"
+        "'pull_request.update','pull_request.merge','check.publish')\n"
+        "r={'operations':{k:True for k in ops}} if o=='capabilities' "
+        "else {'number':11,'comment_id':'relative'}\n"
+        "print(json.dumps(dict(schema_version=1, operation=o,"
+        "repository=x['repository'],request_id=x['request_id'],"
+        "status='unchanged' if o=='capabilities' else 'applied',result=r)))\n",
+        encoding="utf-8",
+      )
+      reply = dispatch(
+        [sys.executable, program.name], request(), cwd=root,
+      )
+      self.assertEqual(reply["result"]["comment_id"], "relative")
 
 
 if __name__ == "__main__":
