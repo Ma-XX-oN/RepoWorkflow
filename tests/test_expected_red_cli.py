@@ -154,11 +154,13 @@ class ExpectedRedCliTests(unittest.TestCase):
 
   def test_malformed_native_harness_is_incomplete_not_traceback(self):
     self.configure({"exit-code": 1, "output-contains": "case invariant violated"})
+    selected = self.cli("test", "RED", "issue-545-declared")
+    self.assertEqual(selected.returncode, 0, selected.stderr)
     manifest = self.root / ".ci/tests.json"
     data = json.loads(manifest.read_text())
     data["test-harnesses"]["unittest"]["layout"] = 17
     manifest.write_text(json.dumps(data))
-    out = self.cli("test", "RED", "issue-545-declared")
+    out = self.cli("test", "RED")
     self.assertEqual(out.returncode, 2, out.stderr)
     record = self.last()
     self.assertEqual(record["redStatus"], "INCOMPLETE")
