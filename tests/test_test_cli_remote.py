@@ -123,6 +123,32 @@ class TestCliRemoteContract(unittest.TestCase):
     self.assertEqual(json.loads(result.stdout), record)
     self.assertEqual(self.git("rev-parse", "HEAD"), current)
 
+  def test_remote_results_reject_malformed_evidence_atomically(self):
+    self.remote()
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    path.parent.mkdir(parents=True)
+    valid = {
+      "testSHA": self.source, "kind": "GREEN",
+      "result": "succeeded", "runner": "github-actions",
+    }
+    bad = (
+      '{"testSHA":"' + self.source
+      + '","kind":"GREEN","result":"succeeded",'
+      + '"runner":"github-actions","metrics":{"elapsed":1e999}}'
+    )
+    path.write_text(json.dumps(valid) + "\n" + bad + "\n")
+    self.git("add", ".repoworkflow/validation/testResults-545.jsonl")
+    self.git("commit", "-m", "publish malformed remote log")
+    self.git("push")
+    path.unlink()
+    before = self.git("rev-parse", "HEAD")
+    output = self.cli("test", "results", "--remote")
+    self.assertEqual(output.returncode, 2)
+    self.assertEqual(output.stdout, "")
+    self.assertIn("nonfinite testing log value", output.stderr)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+
+
   def test_remote_green_uses_committed_selected_group(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-one",
