@@ -2,6 +2,7 @@
 import json
 from unittest.mock import patch
 import subprocess
+import sys
 import unittest
 
 from repo_workflow.host_mutation_dispatch import HostMutationError, dispatch
@@ -88,6 +89,22 @@ class HostMutationDispatcherTests(unittest.TestCase):
                    return_value=FakeCompleted(self.reply(**changed))):
           with self.assertRaises(HostMutationError):
             dispatch(["provider"], BASE)
+
+  def test_real_subprocess_round_trip_without_shell(self):
+    script = (
+      "import json,sys;"
+      "x=json.load(sys.stdin);"
+      "print(json.dumps(dict("
+      "schema_version=1,operation=x['operation'],"
+      "repository=x['repository'],request_id=x['request_id'],"
+      "status='applied',result={'ok': True})))"
+    )
+    result = dispatch([sys.executable, "-c", script], BASE)
+    self.assertEqual(result["result"], {"ok": True})
+
+  def test_real_subprocess_nonzero_exit_is_not_success(self):
+    with self.assertRaises(HostMutationError):
+      dispatch([sys.executable, "-c", "import sys;sys.exit(3)"], BASE)
 
   def test_missing_adapter_and_provider_failures_are_never_success(self):
     with self.assertRaises(HostMutationError):
