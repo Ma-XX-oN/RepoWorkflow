@@ -232,12 +232,24 @@ jobs:
           print(json.dumps({"stage": observed[0]["stage"],
                             "core_exit_code": observed[0]["core_exit_code"]}))
           PY
-      - name: Upload structured environment result
+      - name: Package exact-bound environment result through repo-ci
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+          RWF_REPO_CI_TRANSPORT_ROOT: ${{ runner.temp }}
+          RWF_CANDIDATE: ${{ needs.prepare.outputs.tested_sha }}
+          RWF_BASE: ${{ inputs.head_sha }}
+        run: >-
+          python RepoWorkflow/repo_workflow/repo_ci_github_result_machine.py
+          publish --stage "${{ matrix.id }}"
+      - name: Upload exact-bound provider result bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: repoworkflow-result-${{ matrix.id }}
-          path: ${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json
+          name: repoworkflow-provider-result-${{ matrix.id }}
+          path: ${{ runner.temp }}/repoworkflow-provider-bundles/${{ matrix.id }}/
           if-no-files-found: error
 
   finalize:
@@ -261,12 +273,30 @@ jobs:
       - name: Prepare result collection directory
         shell: bash
         run: mkdir -p "${{ runner.temp }}/repoworkflow-results"
-      - uses: actions/download-artifact@v4
+      - name: Download exact-bound provider result bundles
+        uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          pattern: repoworkflow-result-*
+          pattern: repoworkflow-provider-result-*
+          path: ${{ runner.temp }}/downloaded-provider
+      - name: Download independent artifact preparation result
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: repoworkflow-result-artifacts
           path: ${{ runner.temp }}/repoworkflow-results
-          merge-multiple: true
+      - name: Verify and materialize required result bundles via repo-ci
+        continue-on-error: true
+        shell: bash
+        env:
+          RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+          RWF_REPO_CI_TRANSPORT_ROOT: ${{ runner.temp }}
+          RWF_CANDIDATE: ${{ needs.prepare.outputs.tested_sha }}
+          RWF_BASE: ${{ inputs.head_sha }}
+          RWF_MATRIX: ${{ needs.policy.outputs.matrix }}
+        run: >-
+          python RepoWorkflow/repo_workflow/repo_ci_github_result_machine.py
+          fetch-all
       - name: Configure result-tag identity
         shell: bash
         run: |
