@@ -74,6 +74,26 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(record["testSHA"], self.source)
     self.assertFalse(record.get("reusable", False))
 
+  def test_integration_remote_request_is_a_dedicated_commit(self):
+    bare = self.remote()
+    before = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "integration", "--remote")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    head = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(head, before)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), before)
+    self.assertEqual(
+      (self.root / ".ci/run").read_text(),
+      "integration-testing " + before + "\n",
+    )
+    remote_head = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"],
+      capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(remote_head, head)
+
+
   def test_remote_red_and_green_without_selection_are_skipped(self):
     self.remote()
     before = self.git("rev-parse", "HEAD")
