@@ -162,13 +162,6 @@ def main() -> int:
                        params, permitted=False)
       if refused["error"] != "unsupported":
         raise RuntimeError(op + " did not fail closed")
-    print(json.dumps({
-      "result": "PASS", "repository": args.repository,
-      "issue": args.sandbox_issue, "pr": created_pr,
-      "source_sha": head_sha,
-      "run_id": run, "no_merge": True,
-    }, sort_keys=True))
-    return 0
   finally:
     # Preserve the immutable reservations and audit comment.  A failed
     # cleanup is a failed probe, never a silent PASS.
@@ -202,6 +195,13 @@ def main() -> int:
         errors.append("sandbox issue title requires manual restoration")
     if errors:
       raise RuntimeError("; ".join(errors))
+  print(json.dumps({
+    "result": "PASS", "repository": args.repository,
+    "issue": args.sandbox_issue, "pr": created_pr,
+    "source_sha": head_sha, "run_id": run,
+    "no_merge": True, "cleanup_verified": True,
+  }, sort_keys=True))
+  return 0
 
 if __name__ == "__main__":
   raise SystemExit(main())
