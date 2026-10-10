@@ -51,3 +51,21 @@ jobs:
           tests/test_repo_host_github_authority.py
           tests/test_repo_host_github_mutations.py
           tests/test_repo_host_github_provider.py
+  repository-regression:
+    name: Full repository regression (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run complete repository validation
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+          RWF_REPO_HOST_AUTH_COMMAND: ''
+        run: python scripts/validate.py
