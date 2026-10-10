@@ -175,6 +175,22 @@ those are verified, four ordinary live mutation operations remain
 NOT CERTIFIED; remote merge/check publishing stay explicitly DENIED
 under their separate downstream gates.
 
+## Protected environment exact-branch gate
+
+The opt-in live workflow now requests the current environment settings and
+deployment branch policy list through GitHub's authenticated API.  It rejects
+a missing or inaccessible environment, lack of independent reviewers,
+disabled self-review prevention, absent custom branch controls, wildcard
+branch matching, multiple permitted branches or any branch other than
+`issue-97-github-host-mutation-adapter`.  Tests cover these negative cases.
+This is a preflight assertion, not evidence that the environment has been
+provisioned.  It does not grant provider write permissions.
+
+Latest read-only provider permission probes verify issues and pull-request
+creation are denied in ordinary PR CI.  Git reference creation returned
+422 on malformed input; this is inconclusive for Contents-write.  Never
+treat connector administration or authenticated reads as job write access.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
