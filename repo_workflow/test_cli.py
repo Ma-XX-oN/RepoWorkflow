@@ -280,6 +280,8 @@ def _run_group_set(
         completed.returncode if completed is not None else None
       ), "reused": False,
     })
+    if completed is not None and completed.returncode < 0:
+      launch_missing = True
     if completed is None or completed.returncode:
       failures.append(group)
   uncommitted = sorted(set(uncommitted_before) | set(
