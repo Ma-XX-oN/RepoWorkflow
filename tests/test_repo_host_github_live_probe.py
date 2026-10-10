@@ -80,12 +80,16 @@ class LiveProbeCleanupTests(unittest.TestCase):
       if operation == "pull_request.update":
         if "title" in params:
           state["pr_title"] = params["title"]
-        if params.get("state") == "closed":
-          sequence.append("CLOSE PR")
-          if cleanup_code == 0:
-            state["pr_state"] = "closed"
+        if "state" in params:
+          raise AssertionError("#81 forbids adapter-mediated PR closure")
         return {"result": {}, "status": "unchanged"}
       raise AssertionError("unrecognized operation " + operation)
+
+    def cleanup(*args, **kwargs):
+      sequence.append("CLOSE PR")
+      if cleanup_code == 0:
+        state["pr_state"] = "closed"
+      return SimpleNamespace(returncode=cleanup_code)
 
     args = [
       "probe", "--repository", "owner/sandbox",
@@ -99,15 +103,17 @@ class LiveProbeCleanupTests(unittest.TestCase):
         with patch.object(module, "invoke", side_effect=adapter):
           with patch.object(module, "verify_reservation") as ledger:
             with patch.object(module, "verify_concurrent_comment") as race:
-              with contextlib.redirect_stdout(output):
-                if cleanup_code:
-                  with self.assertRaisesRegex(
-                    RuntimeError, "temporary PR close failed"
-                  ):
-                    module.main()
-                else:
-                  self.assertEqual(module.main(), 0)
-              self.assertEqual(ledger.call_count, 5 if cleanup_code else 6)
+              with patch.object(module.subprocess, "run",
+                                side_effect=cleanup):
+                with contextlib.redirect_stdout(output):
+                  if cleanup_code:
+                    with self.assertRaisesRegex(
+                      RuntimeError, "temporary PR close failed"
+                    ):
+                      module.main()
+                  else:
+                    self.assertEqual(module.main(), 0)
+              self.assertEqual(ledger.call_count, 5)
               race.assert_called_once_with(
                 "owner/sandbox", 3, "acceptance"
               )
