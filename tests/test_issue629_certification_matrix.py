@@ -12,7 +12,7 @@ PROVIDER = {"provider", "integration"}
 
 
 def evaluate(entries, observations):
-  """Return accepted IDs only when authoritative evidence was supplied."""
+  """Return provisional local outcomes only; never attest provider evidence."""
   accepted = set()
   for entry in entries:
     item = observations.get(entry["id"])
@@ -21,15 +21,9 @@ def evaluate(entries, observations):
     if item.get("result") != "succeeded":
       continue
     if entry["environment"] in PROVIDER:
-      if not item.get("provider_verified"):
-        continue
-      if not item.get("candidate_sha") or not item.get("evidence_id"):
-        continue
-      if item.get("candidate_sha") != item.get("tested_sha"):
-        continue
-    else:
-      if not item.get("executed") or not item.get("test_revision"):
-        continue
+      continue  # Provider trust is never inferred from a caller-supplied flag.
+    if not item.get("executed") or not item.get("test_revision"):
+      continue
     accepted.add(entry["id"])
   return accepted
 
@@ -77,13 +71,12 @@ class IndependentMatrixTests(unittest.TestCase):
               "evidence_id": "provider-run-1"}
     self.assertEqual(evaluate(self.entries, {provider["id"]: replay}), set())
 
-  def test_verified_provider_observation_requires_complete_identity(self):
+  def test_self_declared_verified_provider_is_not_authority(self):
     provider = next(x for x in self.entries if x["environment"] == "provider")
     observation = {"result": "succeeded", "provider_verified": True,
                    "candidate_sha": "a" * 40, "tested_sha": "a" * 40,
                    "evidence_id": "provider-run-1"}
-    self.assertEqual(
-      evaluate(self.entries, {provider["id"]: observation}), {provider["id"]})
+    self.assertEqual(evaluate(self.entries, {provider["id"]: observation}), set())
 
   def test_cli_requires_execution_and_test_revision(self):
     cli = next(x for x in self.entries if x["environment"] == "CLI")
