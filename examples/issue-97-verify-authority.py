@@ -231,8 +231,10 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
   if operation == "pull_request.update" and (
     type(request["parameters"].get("number")) is not int
     or request["parameters"]["number"] <= 0
+    or request["parameters"].get("expected_head_sha")
+      != sandbox.get("source_sha")
   ):
-    raise ValueError("invalid PR identity")
+    raise ValueError("invalid or stale PR identity")
   if not (instant(grant["not_before"]) <= clock
           < instant(grant["expires_at"])):
     raise ValueError("grant not yet valid or expired")
@@ -279,6 +281,33 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
   }
 
 
+
+def require_provider_pr_scope(repository: str, number: int,
+                              sandbox: dict, expected_sha: str) -> None:
+  """Confirm the target PR is a live, exact sandbox-branch fixture."""
+  response = subprocess.run(
+    ["gh", "api", "--method", "GET",
+     "repos/" + repository + "/pulls/" + str(number)],
+    text=True, capture_output=True, check=False, timeout=30,
+  )
+  if response.returncode:
+    raise ValueError("PR identity unavailable")
+  data = json.loads(response.stdout)
+  head = data.get("head", {})
+  base = data.get("base", {})
+  if data.get("state") != "open" or not isinstance(head, dict) or (
+    not isinstance(base, dict)
+  ) or head.get("sha") != expected_sha or head.get(
+    "ref"
+  ) != sandbox["source_ref"].removeprefix("refs/heads/") or base.get(
+    "ref"
+  ) != sandbox["target_ref"].removeprefix("refs/heads/") or not (
+    data.get("draft") is True
+  ):
+    raise ValueError("PR does not match disposable fixture scope")
+
+
+
 def main() -> int:
   try:
     evaluation = json.load(sys.stdin)
@@ -300,6 +329,12 @@ def main() -> int:
     result = evaluate(
       evaluation, grant, revocations, repo, principal(), now_utc()
     )
+    request = evaluation["request"]
+    if request["operation"] == "pull_request.update":
+      require_provider_pr_scope(
+        repo, request["parameters"]["number"], grant["sandbox"],
+        request["parameters"]["expected_head_sha"],
+      )
     print(json.dumps(result, sort_keys=True))
     return 0
   except (KeyError, TypeError, ValueError, OSError,
