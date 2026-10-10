@@ -78,6 +78,29 @@ class RegressionTemporaryTests(unittest.TestCase):
     self.assertFalse(records[-1]["reusable"])
     self.assertIn(".ci/temp-tests.json", records[-1]["uncommittedChanges"])
 
+  def test_unlaunchable_temporary_group_makes_regression_incomplete(self):
+    manifest = self.root / ".ci/temp-tests.json"
+    self._catalogue(manifest, issue_group="issue-545-no-executable")
+    data = json.loads(manifest.read_text())
+    data["test-harnesses"]["unittest"]["command"] = (
+      "rwf-executable-does-not-exist-545"
+    )
+    manifest.write_text(json.dumps(data))
+    with patch("repo_workflow.test_cli.verify_local", return_value="PASS"):
+      outcome = run_test(
+        self.root, "regression", remote=False,
+        engine_root=self.root / "engine",
+      )
+    self.assertEqual(outcome, 2)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    records = [json.loads(x) for x in log.read_text().splitlines()]
+    self.assertEqual(
+      [(x["kind"], x["result"]) for x in records],
+      [("temporary", "incomplete"), ("regression", "incomplete")],
+    )
+    self.assertFalse(records[-1]["reusable"])
+
+
   def test_invalid_temporary_harness_fails_before_permanent_verifier(self):
     path = self.root / ".ci/temp-tests.json"
     self._catalogue(path, issue_group="issue-545-fidelity")
