@@ -43,7 +43,7 @@ Do not perform any production mutation as a probe.
 
 ## Reproduction / follow-up
 
-Read-only GitHub REST probes, when an authorized client is available:
+Executable read-only probe: `python scripts/probe-provider-protection.py\nMa-XX-oN/RepoWorkflow` (on one shell line), with an authorized\n`GITHUB_TOKEN` if available. It emits sanitized JSON without credentials\nor mutating operations. Its output is an observation, not an enforcement\ncertification.\n\nRead-only GitHub REST probes, when an authorized client is available:
 
 - GET /repos/Ma-XX-oN/RepoWorkflow
 - GET /repos/Ma-XX-oN/RepoWorkflow/branches/main/protection
