@@ -261,6 +261,9 @@ def evaluate(evaluation: dict, document: dict, revocations: dict,
     raise ValueError("invalid revocation facts")
   if grant["grant_id"] in revoked:
     raise ValueError("revoked grant")
+  approved_grant = os.environ.get("RWF97_APPROVED_GRANT_ID")
+  if not approved_grant or grant["grant_id"] != approved_grant:
+    raise ValueError("grant not independently approved")
   if not isinstance(grant["grant_id"], str) or not (
     grant["grant_id"]
   ) or type(grant["revision"]) is not int or grant["revision"] < 0:
@@ -323,9 +326,17 @@ def main() -> int:
     grant = verify_document(fetch_json(
       repo, "trusted/rwf97/grant.json"
     ), pubkey)
-    revocations = verify_document(fetch_json(
+    revocation_raw = os.environ["RWF97_SIGNED_REVOCATIONS"]
+    revocation_document = json.loads(revocation_raw)
+    if not isinstance(revocation_document, dict):
+      raise ValueError("invalid external revocation authority")
+    # The Actions variable is outside the GITHUB_TOKEN's authority.
+    # Verify the GitHub main audit mirror has the identical signed fact.
+    if canonical(fetch_json(
       repo, "trusted/rwf97/revocations.json"
-    ), pubkey)
+    )) != canonical(revocation_document):
+      raise ValueError("revocation state changed outside issuer approval")
+    revocations = verify_document(revocation_document, pubkey)
     result = evaluate(
       evaluation, grant, revocations, repo, principal(), now_utc()
     )
