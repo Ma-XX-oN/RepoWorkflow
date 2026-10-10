@@ -1,14 +1,7 @@
 from pathlib import Path
 import unittest
 
-from repo_workflow.command_grammar import (
-  CommandGrammarError,
-  Context,
-  completion_items,
-  parse_tokens,
-)
-from repo_workflow.lane_selection_cli import _selection_arguments
-from repo_workflow.lane_traversal import ShowChildrenPolicy
+from repo_workflow.command_grammar import CommandGrammarError, Context, parse_tokens
 from repo_workflow.public_commands import COMMANDS
 
 
@@ -16,74 +9,13 @@ class LaneShowChildrenGrammarTests(unittest.TestCase):
   def setUp(self):
     self.context = Context(Path("."), legal_only=False)
 
-  def test_show_children_forms_parse(self):
-    cases = (
-      ["lanes", "select", "5", "--show-children", "group"],
-      ["lanes", "select", "5", "--show-children", "feature"],
-      ["lanes", "select", "5", "--show-children", "epic"],
-      ["lanes", "select", "5", "--show-children", "initiative"],
-      [
-        "lanes", "select", "5",
-        "--show-children", "feature",
-        "--show-children", "epic",
-      ],
-      [
-        "lanes", "select", "add", "7",
-        "--show-children", "initiative",
-      ],
-      [
-        "lanes", "select", "remove", "8",
-        "--show-children", "group",
-      ],
-    )
-    for words in cases:
-      with self.subTest(words=words):
-        self.assertEqual(
-          parse_tokens(COMMANDS, self.context, words),
-          tuple(words),
-        )
-
-  def test_show_children_completion_exposes_group_kinds(self):
-    items = completion_items(
-      COMMANDS,
-      self.context,
-      ["lanes", "select", "5", "--show-children", ""],
-    )
-    self.assertEqual(
-      [item.token for item in items],
-      ["epic", "feature", "group", "initiative"],
-    )
-
-  def test_show_children_requires_group_kind(self):
+  def test_show_children_is_no_longer_public_lane_selection_grammar(self):
     with self.assertRaises(CommandGrammarError):
       parse_tokens(
         COMMANDS,
         self.context,
-        ["lanes", "select", "5", "--show-children"],
+        ["lanes", "select", "5", "--show-children", "feature"],
       )
-
-  def test_numeric_token_after_show_children_remains_a_seed(self):
-    words = [
-      "lanes", "select", "5",
-      "--show-children", "feature",
-      "2",
-    ]
-    self.assertEqual(
-      parse_tokens(COMMANDS, self.context, words),
-      tuple(words),
-    )
-    positional, as_json, count_only, refresh, follow, show_children = _selection_arguments(
-      words[2:]
-    )
-    self.assertEqual(positional, ["5", "2"])
-    self.assertFalse(as_json)
-    self.assertFalse(count_only)
-    self.assertFalse(refresh)
-    self.assertIsNone(follow)
-    self.assertEqual(
-      show_children,
-      ShowChildrenPolicy(feature=True),
-    )
 
 
 if __name__ == "__main__":
