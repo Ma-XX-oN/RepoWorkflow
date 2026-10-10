@@ -93,6 +93,10 @@
       "issue-95-coverage-applicability": {
         "type": "regression",
         "name": "tests.test_validation_coverage"
+      },
+      "issue-69-durable-evidence": {
+        "type": "regression",
+        "name": "tests.test_validation_store"
       }
     },
     {
