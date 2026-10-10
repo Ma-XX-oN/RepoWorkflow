@@ -104,6 +104,65 @@ def evidence():
 
 
 class SignedPolicyTests(TestCase):
+  def test_offline_issuer_generates_real_signed_policy(self):
+    from argparse import Namespace
+    import tempfile
+
+    signer_path = ROOT / "examples/issue-97-admin-sign-authority.py"
+    signer_spec = importlib.util.spec_from_file_location(
+      "issue97_offline_issuer", signer_path
+    )
+    signer = importlib.util.module_from_spec(signer_spec)
+    signer_spec.loader.exec_module(signer)
+    with tempfile.TemporaryDirectory() as temp:
+      home = Path(temp)
+      key_path = home / "issuer.pem"
+      signer.generate_key(key_path)
+      self.assertEqual(key_path.stat().st_mode & 0o777, 0o600)
+      output = home / "signed"
+      signer.issue(Namespace(
+        private_key=key_path, issuer_id="owner-approved-issuer",
+        candidate_sha=CANDIDATE, source_sha=SOURCE_SHA, issue=1,
+        hours=2, output=output,
+        source_ref="refs/heads/rwf97-sandbox-source",
+        target_ref="refs/heads/rwf97-sandbox-target",
+      ))
+      key = Ed25519PrivateKey.from_private_bytes(
+        serialization.load_pem_private_key(
+          key_path.read_bytes(), password=None
+        ).private_bytes(
+          encoding=serialization.Encoding.Raw,
+          format=serialization.PrivateFormat.Raw,
+          encryption_algorithm=serialization.NoEncryption(),
+        )
+      ).public_key()
+      document = verifier.verify_document(
+        json.loads((output / "grant.json").read_text()), key
+      )
+      revocations = verifier.verify_document(
+        json.loads((output / "revocations.json").read_text()), key
+      )
+      self.assertEqual(
+        set(document["grant"]), verifier.GRANT_FIELDS
+      )
+      with patch.dict(os.environ, {
+        "RWF97_ISSUER_AUTHORITY": "owner-approved-issuer",
+        "RWF97_APPROVED_SHA": CANDIDATE,
+      }):
+        decision = verifier.evaluate(
+          evidence()[2], document, revocations, REPOSITORY,
+          "github-actions[bot]", datetime.now(timezone.utc),
+        )
+      self.assertEqual(decision["decision"], "allow")
+      with self.assertRaises(FileExistsError):
+        signer.issue(Namespace(
+          private_key=key_path, issuer_id="owner-approved-issuer",
+          candidate_sha=CANDIDATE, source_sha=SOURCE_SHA, issue=1,
+          hours=2, output=output,
+          source_ref="refs/heads/rwf97-sandbox-source",
+          target_ref="refs/heads/rwf97-sandbox-target",
+        ))
+
   def test_signed_grant_and_revocations_cryptographically_verified(self):
     private = Ed25519PrivateKey.generate()
     public = private.public_key()
