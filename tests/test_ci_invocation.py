@@ -96,6 +96,28 @@ class CiInvocationTests(unittest.TestCase):
     with self.assertRaisesRegex(CiInvocationError, "only .ci/run"):
       verify_invocation(self.root)
 
+  def test_uncommitted_marker_tamper_cannot_change_verified_request(self):
+    self.invoke()
+    committed = self.git("show", "HEAD:.ci/run")
+    (self.root / ".ci" / "run").write_text(
+      "RED-testing " + "f" * 40 + "\\n"
+    )
+    request = verify_invocation(self.root)
+    self.assertEqual(request.stage, "regression-testing")
+    self.assertEqual(
+      committed.strip(),
+      f"{request.stage} {request.previous_tip}",
+    )
+
+  def test_committed_marker_with_extra_newline_rejected(self):
+    self.invoke()
+    marker = self.root / ".ci" / "run"
+    marker.write_text(marker.read_text() + "\\n")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "malformed marker")
+    with self.assertRaises(CiInvocationError):
+      verify_invocation(self.root)
+
   def test_no_request_fails_closed(self):
     with self.assertRaisesRegex(CiInvocationError, "missing"):
       verify_invocation(self.root)
