@@ -127,16 +127,18 @@ def _execute(request: dict, root: Path) -> dict:
   base = inputs.get("base")
   if not isinstance(base, str) or base != candidate.get("base"):
     return _error(request, "identity-mismatch", "base identity mismatch")
-  observations = []
+  commands = {}
   for stage in stages:
     try:
-      command = group_command(root, groups[stage])
+      commands[stage] = group_command(root, groups[stage])
     except (SelfCiError, OSError, ValueError) as exc:
       return _error(request, "prerequisite-unavailable",
                     f"unavailable declared test group for {stage}: {exc}")
+  observations = []
+  for stage in stages:
     try:
       result = subprocess.run(
-        command, cwd=root, capture_output=True, timeout=120, check=False,
+        commands[stage], cwd=root, capture_output=True, timeout=120, check=False,
       )
     except (OSError, subprocess.TimeoutExpired):
       observations.append({
