@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove the existing read-only CI token cannot perform issue mutations.
+"""Probe a write transport request without affecting existing issues.
 
 The target issue number is impossible within this repository.  This
 probe never addresses an existing issue, pull request, branch or tag.
@@ -31,8 +31,13 @@ def main() -> int:
         "unexpected read-only token write outcome: " + exc.code
       ) from exc
     print(json.dumps({
-      "result": "DENIED", "error": exc.code,
+      "result": (
+        "PERMISSION_DENIED" if exc.code == "unauthorized"
+        else "PERMISSION_UNVERIFIED"
+      ),
+      "error": exc.code,
       "target": "nonexistent issue 2147483647",
+      "no_persisted_mutation": True,
     }, sort_keys=True))
     return 0
   raise RuntimeError("read-only token unexpectedly accepted a write")
