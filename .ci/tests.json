@@ -147,6 +147,10 @@
       "issue-545-cache-evidence": {
         "type": "regression",
         "name": "tests.test_test_cache_evidence"
+      },
+      "issue-545-results-metadata": {
+        "type": "regression",
+        "name": "tests.test_test_results_metadata"
       }
     }
   ],
