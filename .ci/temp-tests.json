@@ -9,6 +9,22 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-publisher-hardening": {
+        "type": "temporary",
+        "name": "tests.test_publish_hosted_result"
+      },
+      "issue-541-hosted-validator": {
+        "type": "temporary",
+        "name": "tests.test_hosted_result"
+      },
+      "issue-541-workflow-contract": {
+        "type": "temporary",
+        "name": "tests.test_on_demand_workflow"
+      }
+    }
+  ],
   "aliases": {}
 }
