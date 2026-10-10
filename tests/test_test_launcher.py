@@ -74,6 +74,25 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(record["testSHA"], self.source)
     self.assertFalse(record.get("reusable", False))
 
+  def test_remote_red_and_green_without_selection_are_skipped(self):
+    self.remote()
+    before = self.git("rev-parse", "HEAD")
+    for stage in ("RED", "GREEN"):
+      with self.subTest(stage=stage):
+        out = self.launcher("test", stage, "--remote")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
+        self.assertFalse((self.root / ".ci/run").exists())
+
+  def test_missing_temporary_manifest_rejects_valid_remote_placement(self):
+    self.remote()
+    before = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "temporary", "--remote")
+    self.assertEqual(out.returncode, 2, out.stderr)
+    self.assertNotIn("invalid command", out.stderr.lower())
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    self.assertFalse((self.root / ".ci/run").exists())
+
   def test_results_are_read_only_through_shipped_launcher(self):
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     log.parent.mkdir(parents=True)
