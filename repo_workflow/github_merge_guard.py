@@ -96,6 +96,7 @@ def merge_protected_pr(
       not isinstance(final_pr, dict)
       or not isinstance(final_branch, dict)
       or final_protection != protection
+      or final_pr.get("base", {}).get("ref") != "main"
       or final_pr.get("base", {}).get("sha") != recorded_parent_tip
       or final_pr.get("head", {}).get("sha") != candidate_sha
       or final_pr.get("state") != "open"
