@@ -7,12 +7,16 @@ workflow run with the exact invocation, branch, and candidate identities.
 from __future__ import annotations
 
 import json
+from io import BytesIO
 import os
 from pathlib import Path
 import platform
 import re
 import subprocess
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
+from zipfile import ZipFile, BadZipFile
 
 from .ci_invocation import original_candidate
 
@@ -42,10 +46,77 @@ def _provider_run(repo: str, run_id: int, token: str) -> dict:
     return json.load(response)
 
 
+
+class _NoRedirect(HTTPRedirectHandler):
+  def redirect_request(self, request, fp, code, msg, headers, newurl):
+    return None
+
+
+def _provider_attestation(repo: str, run_id: int, token: str) -> dict:
+  """Retrieve immutable workflow-run artifact, never the mutable Git branch."""
+  url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts"
+  headers = {
+    "Authorization": "Bearer " + token,
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  }
+  with urlopen(Request(url, headers=headers), timeout=12) as response:
+    listing = json.load(response)
+  candidates = [
+    a for a in listing.get("artifacts", [])
+    if isinstance(a, dict)
+    and a.get("name") == f"provider-result-{run_id}"
+    and a.get("expired") is False
+    and type(a.get("id")) is int
+  ]
+  if len(candidates) != 1:
+    raise ValueError("missing unique provider attestation")
+  artifact_id = candidates[0]["id"]
+  archive_url = (
+    f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip"
+  )
+  try:
+    build_opener(_NoRedirect()).open(
+      Request(archive_url, headers=headers), timeout=12,
+    )
+    raise ValueError("artifact endpoint did not redirect")
+  except HTTPError as redirect:
+    if redirect.code not in (302, 307):
+      raise
+    location = redirect.headers.get("Location", "")
+  parsed = urlsplit(location)
+  if parsed.scheme != "https" or not parsed.netloc or parsed.username:
+    raise ValueError("invalid artifact download location")
+  with urlopen(Request(location), timeout=12) as response:
+    payload = response.read(1048577)
+  if len(payload) > 1048576:
+    raise ValueError("provider attestation too large")
+  with ZipFile(BytesIO(payload)) as archive:
+    if archive.namelist() != ["provider-result.json"]:
+      raise ValueError("unexpected provider attestation contents")
+    if archive.getinfo("provider-result.json").file_size > 1048576:
+      raise ValueError("provider attestation entry too large")
+    value = json.loads(archive.read("provider-result.json"))
+  if not isinstance(value, dict):
+    raise ValueError("provider attestation must be an object")
+  return value
+
+
+def _original_observation(record: dict) -> dict:
+  original = dict(record)
+  for field in (
+    "providerRunId", "providerInvocationSHA", "providerCandidateSHA",
+    "providerStage",
+  ):
+    original.pop(field, None)
+  original["runner"] = "local"
+  return original
+
+
 def verified_hosted_passes(
   root: Path, *, stage: str, revision: str, fingerprint: str,
   invocation: str, branch: str, repository: str, token: str,
-  provider_lookup=None,
+  provider_lookup=None, attestation_lookup=None,
 ) -> set[str]:
   """Read previous remote publication without changing the tested checkout.
 
@@ -63,6 +134,7 @@ def verified_hosted_passes(
   issue = re.match(r"issue-([1-9][0-9]*)", branch).group(1)
   relative = f".repoworkflow/validation/testResults-{issue}.jsonl"
   lookup = provider_lookup or _provider_run
+  attest = attestation_lookup or _provider_attestation
   try:
     if _git(root, "rev-parse", invocation + "^") == revision:
       # First invocation has no earlier hosted publication.
@@ -144,6 +216,8 @@ def verified_hosted_passes(
           str(provider.get("path", ""))
       ):
         return set()
+      if attest(repository, run_id, token) != _original_observation(record):
+        return set()
       valid = (
         record.get("result") == "succeeded"
         and record.get("reusable") is True
@@ -171,5 +245,6 @@ def verified_hosted_passes(
           and group["exit_code"] == 0
         )
     return {group for group, valid in latest.items() if valid}
-  except (OSError, ValueError, TypeError, KeyError, RuntimeError):
+  except (OSError, ValueError, TypeError, KeyError, RuntimeError,
+          BadZipFile, AttributeError):
     return set()
