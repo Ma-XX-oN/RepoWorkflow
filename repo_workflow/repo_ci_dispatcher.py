@@ -181,7 +181,9 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
 
 
 
-def error_envelope(raw: bytes, operation: str, error: RepoCiError) -> dict | None:
+def error_envelope(
+  raw: bytes, operation: str, error: RepoCiError,
+) -> dict | None:
   try:
     request = validate_request(_parse_json(raw), operation)
   except (RepoCiError, ValueError, UnicodeDecodeError):
