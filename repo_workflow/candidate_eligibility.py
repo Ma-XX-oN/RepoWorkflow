@@ -14,6 +14,8 @@ class Facts:
   complete: bool
   passed: bool
   inputs_current: bool
+  required_checks_complete: bool
+  applicable: bool
 
 
 def decide(facts: Facts) -> tuple[bool, tuple[str, ...]]:
@@ -32,7 +34,8 @@ def decide(facts: Facts) -> tuple[bool, tuple[str, ...]]:
     reasons.append("head-changed")
   if facts.recorded_base != facts.current_base:
     reasons.append("stale-base")
-  for field in ("authenticated", "complete", "passed", "inputs_current"):
+  for field in ("authenticated", "complete", "passed", "inputs_current",
+                "required_checks_complete", "applicable"):
     if getattr(facts, field) is not True:
       reasons.append("missing-" + field)
   return not reasons, tuple(reasons)
