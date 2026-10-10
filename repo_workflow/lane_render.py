@@ -68,7 +68,8 @@ def render_lanes(
   selection = LaneSelectionStore(root).read().value
   if selection is None:
     raise LaneRenderError("lane selection is missing")
-  relationship_graph = RelationshipStore(root).read().graph
+  snapshot = RelationshipStore(root).read()
+  relationship_graph = snapshot.graph
 
   visible = set(selection.closure)
   if lane is not None:
@@ -82,6 +83,9 @@ def render_lanes(
     }
 
   metadata = _metadata(root, tuple(sorted(visible, key=int)))
+  for issue in visible:
+    state = None if snapshot.states is None else snapshot.states[issue].state
+    metadata[issue]["lifecycle_state"] = state
   styler = TerminalStyler(color_setting(root))
   lane_colours = {
     lane_name: styler.lane_colour(lane_name)

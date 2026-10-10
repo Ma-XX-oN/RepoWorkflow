@@ -50,10 +50,10 @@ class LifecycleStoreTests(unittest.TestCase):
       revision,
     )
 
-  def test_never_started_issue_projects_unstarted_without_record(self):
+  def test_never_started_issue_projects_not_started_without_record(self):
     snapshot = self.store.read(1)
 
-    self.assertEqual(snapshot.lifecycle, IssueLifecycle.unstarted("1"))
+    self.assertEqual(snapshot.lifecycle, IssueLifecycle.not_started("1"))
     self.assertIsNone(snapshot.revision)
     self.assertFalse(
       (self.repo / ".repoworkflow/state/issues/1/lifecycle.json").exists()
@@ -66,15 +66,17 @@ class LifecycleStoreTests(unittest.TestCase):
     self.assertEqual(snapshot.lifecycle.state, "active")
     self.assertFalse(snapshot.lifecycle.dependency_satisfied)
     self.assertEqual(snapshot.lifecycle.relationship_revision, 0)
-    self.assertEqual(snapshot.lifecycle.history[0].from_state, "unstarted")
+    self.assertEqual(snapshot.lifecycle.history[0].from_state, "not_started")
     self.assertEqual(snapshot.lifecycle.history[0].to_state, "active")
 
   def test_legal_lifecycle_round_trip_preserves_append_only_history(self):
     snapshot = self.transition(1, "start", None)
     snapshot = self.transition(1, "abort", snapshot.revision)
     snapshot = self.transition(1, "re-enter", snapshot.revision)
+    snapshot = self.transition(1, "submit-review", snapshot.revision)
     snapshot = self.transition(1, "accept", snapshot.revision)
     snapshot = self.transition(1, "reject/reopen", snapshot.revision)
+    snapshot = self.transition(1, "submit-review", snapshot.revision)
     snapshot = self.transition(1, "accept", snapshot.revision)
     snapshot = self.transition(1, "complete", snapshot.revision)
 
@@ -84,11 +86,12 @@ class LifecycleStoreTests(unittest.TestCase):
     self.assertTrue(snapshot.lifecycle.dependency_satisfied)
     self.assertEqual(
       [event.sequence for event in snapshot.lifecycle.history],
-      list(range(7)),
+      list(range(9)),
     )
 
   def test_accepted_does_not_satisfy_dependency(self):
     snapshot = self.transition(1, "start", None)
+    snapshot = self.transition(1, "submit-review", snapshot.revision)
     snapshot = self.transition(1, "accept", snapshot.revision)
 
     self.assertEqual(snapshot.lifecycle.state, "accepted")
@@ -183,7 +186,9 @@ class LifecycleStoreTests(unittest.TestCase):
     }
     lifecycle = IssueLifecycle.from_json_value(value)
     self.assertEqual(lifecycle.high_risk_aliases, ())
-    self.assertEqual(lifecycle.schema_version, 2)
+    self.assertEqual(lifecycle.schema_version, 3)
+    self.assertEqual(lifecycle.state, "not_started")
+    self.assertEqual(lifecycle.legacy_event_count, 0)
 
   def test_high_risk_aliases_round_trip_with_lifecycle(self):
     started = self.transition(1, "start", None)
@@ -209,7 +214,8 @@ class LifecycleStoreTests(unittest.TestCase):
       self.writer,
       started.revision,
     )
-    accepted = self.transition(1, "accept", tagged.revision)
+    review = self.transition(1, "submit-review", tagged.revision)
+    accepted = self.transition(1, "accept", review.revision)
     self.assertEqual(accepted.lifecycle.high_risk_aliases, ("command-grammar",))
 
   def test_high_risk_alias_replacement_is_deterministic(self):
@@ -257,6 +263,93 @@ class LifecycleStoreTests(unittest.TestCase):
             self.writer,
             started.revision,
           )
+
+
+  def test_review_rejection_and_reentry_do_not_satisfy_dependency(self):
+    active = self.transition(1, "start", None)
+    review = self.transition(1, "submit-review", active.revision)
+    self.assertEqual(review.lifecycle.state, "in_review")
+    self.assertFalse(review.lifecycle.dependency_satisfied)
+    returned = self.transition(1, "reject/reopen", review.revision)
+    self.assertEqual(returned.lifecycle.state, "active")
+    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
+      self.transition(1, "accept", returned.revision)
+    aborted = self.transition(1, "abort", returned.revision)
+    resumed = self.transition(1, "re-enter", aborted.revision)
+    self.assertEqual(resumed.lifecycle.state, "active")
+
+  def test_review_candidate_cannot_change_at_acceptance_or_completion(self):
+    started = self.transition(1, "start", None, candidate="candidate-A")
+    with self.assertRaisesRegex(LifecycleError, "requires an exact candidate"):
+      self.transition(
+        1, "submit-review", started.revision, candidate=None,
+      )
+    review = self.transition(
+      1, "submit-review", started.revision, candidate="candidate-A",
+    )
+    with self.assertRaisesRegex(LifecycleError, "candidate does not match"):
+      self.transition(
+        1, "accept", review.revision, candidate="candidate-B",
+      )
+    accepted = self.transition(
+      1, "accept", review.revision, candidate="candidate-A",
+    )
+    with self.assertRaisesRegex(LifecycleError, "candidate does not match"):
+      self.transition(
+        1, "complete", accepted.revision, candidate="candidate-B",
+      )
+    completed = self.transition(
+      1, "complete", accepted.revision, candidate="candidate-A",
+    )
+    self.assertTrue(completed.lifecycle.dependency_satisfied)
+
+  def test_new_active_to_accepted_without_review_is_illegal(self):
+    started = self.transition(1, "start", None)
+    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
+      self.transition(1, "accept", started.revision)
+    self.assertEqual(self.store.read(1), started)
+
+  def test_legacy_active_accept_remains_valid_after_upgrade(self):
+    legacy = {
+      "schema_version": 2,
+      "issue": "1",
+      "state": "accepted",
+      "dependency_satisfied": False,
+      "relationship_revision": 0,
+      "high_risk_aliases": [],
+      "history": [
+        {"sequence": 0, "transition": "start", "from": "unstarted",
+         "to": "active", "candidate": "old"},
+        {"sequence": 1, "transition": "accept", "from": "active",
+         "to": "accepted", "candidate": "old"},
+      ],
+    }
+    value = IssueLifecycle.from_json_value(legacy)
+    self.assertEqual(value.legacy_event_count, 2)
+    self.assertEqual(value.schema_version, 3)
+    self.assertEqual(
+      IssueLifecycle.from_json_value(value.to_json_value()),
+      value,
+    )
+
+  def test_schema_three_cannot_forge_old_accept_event(self):
+    value = {
+      "schema_version": 3,
+      "issue": "1",
+      "state": "accepted",
+      "dependency_satisfied": False,
+      "relationship_revision": 0,
+      "high_risk_aliases": [],
+      "legacy_event_count": 0,
+      "history": [
+        {"sequence": 0, "transition": "start", "from": "not_started",
+         "to": "active", "candidate": "new"},
+        {"sequence": 1, "transition": "accept", "from": "active",
+         "to": "accepted", "candidate": "new"},
+      ],
+    }
+    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
+      IssueLifecycle.from_json_value(value)
 
   def test_issue_ids_are_canonical(self):
     for issue in (0, "0", "01", -1, True):

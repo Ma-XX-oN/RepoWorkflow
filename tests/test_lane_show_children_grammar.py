@@ -72,7 +72,7 @@ class LaneShowChildrenGrammarTests(unittest.TestCase):
       parse_tokens(COMMANDS, self.context, words),
       tuple(words),
     )
-    positional, as_json, count_only, refresh, follow, show_children = _selection_arguments(
+    positional, as_json, count_only, refresh, follow, show_children, legend = _selection_arguments(
       words[2:]
     )
     self.assertEqual(positional, ["5", "2"])

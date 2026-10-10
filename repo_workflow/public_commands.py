@@ -121,6 +121,7 @@ def _high_risk_aliases(context: Context) -> list[str]:
 def _lane_select_switches(*, include_count: bool = False) -> dict:
   switches = {
     "--refresh": "Refresh relationship and issue data",
+    "--legend": "Show lifecycle key below selected dependency graph",
     "--json": "Output selection as JSON",
     "--follow": {
       "": "Follow through matching group boundaries",
@@ -343,6 +344,8 @@ COMMANDS = {
       "_quantifier": "?",
       "_switches": {
         "--refresh": "Refresh selected lane data before rendering",
+        "--current": "Refresh ticket lifecycle states into tickets.csv",
+        "--legend": "Show the six lifecycle symbols beneath the graph",
         "--debug": "Show lane data sources, timings, and semantic edges",
       },
     },

@@ -80,7 +80,10 @@ def handle_lane_selection(
     refresh,
     requested_follow,
     requested_show_children,
+    legend,
   ) = _selection_arguments(words[2:])
+  if legend and (as_json or count_only):
+    raise ValueError('--legend requires graphical output')
   if not tail:
     raise ValueError("lane selection requires at least one root")
 
@@ -200,6 +203,9 @@ def handle_lane_selection(
       diagnostics=diagnostics,
     ):
       print(line)
+    if legend:
+      print()
+      print("Legend: ○ not_started  ● active  ◎ in_review  ✓ accepted  ♥ completed  ✕ aborted")
     if diagnostics is not None:
       diagnostics.phase("render", started)
   return 0
@@ -248,6 +254,7 @@ def _selection_arguments(
   bool,
   FollowPolicy | None,
   ShowChildrenPolicy | None,
+  bool,
 ]:
   positional: list[str] = []
   follow_values: list[tuple[str, str | None]] = []
@@ -255,6 +262,7 @@ def _selection_arguments(
   as_json = False
   count_only = False
   refresh = False
+  legend = False
   index = 0
   while index < len(words):
     token = words[index]
@@ -268,6 +276,10 @@ def _selection_arguments(
       continue
     if token == "--refresh":
       refresh = True
+      index += 1
+      continue
+    if token == "--legend":
+      legend = True
       index += 1
       continue
     if token == "--follow":
@@ -295,4 +307,4 @@ def _selection_arguments(
     if not show_children_values
     else parse_show_children_arguments(show_children_values)
   )
-  return positional, as_json, count_only, refresh, follow, show_children
+  return positional, as_json, count_only, refresh, follow, show_children, legend

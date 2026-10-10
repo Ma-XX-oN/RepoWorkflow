@@ -1,4 +1,7 @@
 from pathlib import Path
+from contextlib import redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 import re
 import tempfile
 import unittest
@@ -12,6 +15,7 @@ from repo_workflow.lane_render import (
 )
 from repo_workflow.lane_selection import LaneSelectionStore
 from repo_workflow.relationship_store import RelationshipStore
+from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from tests.support import RepoFixture
@@ -67,11 +71,11 @@ class LaneRenderTests(unittest.TestCase):
   def test_status_annotations_touch_identifier_and_lane_letters_align(self):
     lines = render_lanes(self.root)
     line_9 = next(line for line in lines if "A 9" in line)
-    line_54 = next(line for line in lines if "B54" in line)
+    line_54 = next(line for line in lines if "?B54" in line)
     self.assertEqual(line_9.index("A"), line_54.index("B"))
-    self.assertIn("✓A 9", line_9)
-    self.assertIn(" B54", line_54)
-    self.assertTrue(any("*✓A107" in line for line in lines))
+    self.assertIn("?A 9", line_9)
+    self.assertIn("?B54", line_54)
+    self.assertTrue(any("*?A107" in line for line in lines))
     graph = "\n".join(lines)
     self.assertIn("─", graph)
     self.assertTrue(any(char in graph for char in "┬┐┴┘├┤┼"))
@@ -100,8 +104,8 @@ class LaneRenderTests(unittest.TestCase):
     })
 
     rendered = "\n".join(render_lanes(self.root))
-    self.assertEqual(rendered.count("*✓A63"), 1)
-    self.assertEqual(rendered.count("*B65"), 1)
+    self.assertEqual(rendered.count("*?A63"), 1)
+    self.assertEqual(rendered.count("*?B65"), 1)
     self.assertNotIn("─", rendered)
 
   def test_titles_do_not_change_graph_geometry(self):
@@ -149,7 +153,7 @@ class LaneRenderTests(unittest.TestCase):
 
     rendered = "\n".join(render_lanes(self.root))
     self.assertLess(rendered.index("A1"), rendered.index("A2"))
-    self.assertLess(rendered.index("A2"), rendered.index("*A3"))
+    self.assertLess(rendered.index("A2"), rendered.index("*?A3"))
     self.assertGreaterEqual(rendered.count("─"), 2)
 
   def test_fan_out_does_not_duplicate_source(self):
@@ -179,8 +183,8 @@ class LaneRenderTests(unittest.TestCase):
 
     rendered = "\n".join(render_lanes(self.root))
     self.assertEqual(rendered.count("A1"), 1)
-    self.assertIn("*A2", rendered)
-    self.assertIn("*B3", rendered)
+    self.assertIn("*?A2", rendered)
+    self.assertIn("*?B3", rendered)
 
   def test_redundant_long_dependency_is_not_displayed(self):
     graph_store = RelationshipStore(self.root)
@@ -214,7 +218,7 @@ class LaneRenderTests(unittest.TestCase):
     rendered = "\n".join(
       render_lanes(self.root, diagnostics=diagnostics)
     )
-    for value in ("A145", "A185", "*A216"):
+    for value in ("A145", "A185", "*?A216"):
       self.assertIn(value, rendered)
     routes = {
       (item["source"], item["target"])
@@ -230,7 +234,7 @@ class LaneRenderTests(unittest.TestCase):
       render_lanes(self.root, titles=True)
 
   def test_single_lane_filter_preserves_node_label(self):
-    self.assertEqual(render_lanes(self.root, lane="B"), ("B54",))
+    self.assertEqual(render_lanes(self.root, lane="B"), ("?B54",))
 
   def test_color_setting_defaults_and_persists(self):
     self.assertEqual(color_setting(self.root), "auto")
@@ -259,6 +263,73 @@ class LaneRenderTests(unittest.TestCase):
       tuple(_strip_terminal(line) for line in styled),
       plain,
     )
+
+
+  def test_default_graph_reads_saved_status_and_ignores_provider_closed(self):
+    store = RelationshipStore(self.root)
+    store.refresh_states(self.writer)
+    before = "\\n".join(render_lanes(self.root))
+    self.assertIn("○A 9", before)
+    self.assertIn("○B54", before)
+    self.assertIn("*○A107", before)
+    lifecycle = LifecycleStore(self.root)
+    started = lifecycle.transition(
+      9, "start", "candidate-9", 0, self.writer, None,
+    )
+    self.assertEqual(started.lifecycle.state, "active")
+    self.assertEqual("\\n".join(render_lanes(self.root)), before)
+    store.refresh_states(self.writer)
+    refreshed = "\\n".join(render_lanes(self.root))
+    self.assertIn("●A 9", refreshed)
+    self.assertIn("○B54", refreshed)
+
+  def test_all_six_lifecycle_glyphs_render_from_csv(self):
+    from repo_workflow.lane_graph_adapter import _STATE_GLYPHS
+    self.assertEqual(
+      _STATE_GLYPHS,
+      {
+        "not_started": "○",
+        "active": "●",
+        "in_review": "◎",
+        "accepted": "✓",
+        "completed": "♥",
+        "aborted": "✕",
+      },
+    )
+
+  def test_opt_in_legend_is_after_graph_and_read_only(self):
+    from repo_workflow.public_cli import _handle_lanes
+    from repo_workflow.public_commands import COMMANDS
+    from repo_workflow.command_grammar import Context, parse_tokens
+    from repo_workflow.lane_diagnostics import LaneDiagnostics
+
+    expected = (
+      "Legend: ○ not_started  ● active  ◎ in_review  "
+      "✓ accepted  ♥ completed  ✕ aborted"
+    )
+    parse_tokens(
+      COMMANDS,
+      Context(self.root, legal_only=False),
+      ["lanes", "view", "--legend"],
+    )
+    original = RelationshipStore(self.root).path.read_bytes()
+    def invoke(tokens):
+      output = StringIO()
+      with redirect_stdout(output):
+        _handle_lanes(
+          self.root, tokens,
+          LaneDiagnostics(self.root, tuple(tokens)),
+        )
+      return output.getvalue()
+
+    plain = invoke(["lanes", "view"])
+    self.assertNotIn("Legend:", plain)
+    with_legend = invoke(["lanes", "view", "--legend"])
+    self.assertEqual(with_legend, plain + "\n" + expected + "\n")
+    self.assertEqual(RelationshipStore(self.root).path.read_bytes(), original)
+    self.assertTrue(invoke(["lanes", "view", "B", "--legend"]).endswith(
+      "\n" + expected + "\n"
+    ))
 
   def test_invalid_color_fails(self):
     with self.assertRaisesRegex(Exception, "auto, always, or never"):

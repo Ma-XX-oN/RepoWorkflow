@@ -281,7 +281,7 @@ class FirstUseLanesTests(unittest.TestCase):
 
       rendered = self.run_rwf(root, env, "lanes", "select", "436")
       self.assertEqual(rendered.returncode, 0, rendered.stderr)
-      self.assertIn("*A436", rendered.stdout)
+      self.assertIn("*?A436", rendered.stdout)
       self.assertEqual(rendered.stdout.count("*"), 1)
 
   def test_group_boundary_stops_provider_component_until_followed(self):
