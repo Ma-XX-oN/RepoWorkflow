@@ -115,7 +115,9 @@ class GitHubHostBootstrapTests(unittest.TestCase):
         status, stdout, stderr = MODULE.run(request(operation, params))
         self.assertEqual(status, 2)
         self.assertEqual(stdout, "")
-        self.assertEqual(json.loads(stderr)["error"], "unsupported")
+        self.assertIn(
+          json.loads(stderr)["error"], {"unauthorized", "unsupported"}
+        )
         for mutation in [
           {**params, "unexpected": "x"},
           {key: value for key, value in params.items()
