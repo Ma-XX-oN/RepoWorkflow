@@ -2,7 +2,7 @@
 import unittest
 from dataclasses import replace
 from repo_workflow.candidate_eligibility import Facts, decide
-from repo_workflow.github_host_facts import HostFactsError, read_host_facts
+from repo_workflow.github_host_facts import (\n  HostFactsError, read_host_facts, decide_with_github_host,\n)
 
 CANDIDATE = "a" * 40
 BASE = "b" * 40
@@ -52,6 +52,26 @@ class HostFactsTests(unittest.TestCase):
         self.assertEqual(ok, reason is None)
         if reason is not None:
           self.assertIn(reason, reasons)
+
+
+  def test_binding_overrides_forged_host_flags_and_fails_closed(self):
+    forged = Facts(
+      CANDIDATE, CANDIDATE, "c" * 40, BASE, "d" * 40,
+      True, True, True, True, True, True, True, True,
+    )
+    args = ("owner/repo", "feature/work", "main", "test-token")
+    self.assertEqual(decide_with_github_host(
+      forged, *args, fetch=provider(),
+    ), (True, ()))
+    self.assertEqual(decide_with_github_host(
+      forged, *args, fetch=provider(head="c" * 40),
+    ), (False, ("head-changed",)))
+    self.assertEqual(decide_with_github_host(
+      forged, *args, fetch=lambda _: None,
+    ), (False, ("host-facts-unavailable",)))
+    self.assertEqual(decide_with_github_host(
+      None, *args, fetch=provider(),
+    ), (False, ("invalid-facts",)))
 
   def test_malformed_and_unavailable_provider_data_refused(self):
     with self.assertRaises(HostFactsError):
