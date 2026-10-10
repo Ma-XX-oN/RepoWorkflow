@@ -7,8 +7,8 @@ observations separately from mocks, static checks and local Git fixtures.
 ## Exact source / CI revision
 
 - Source branch: `issue-628-trigger-probe-matrix-v3`.
-- Verified source commit: `4bd1ad3f33bbe05d09a6f0efdf360e76624855d5`.
-- Self CI run: `38079011196`, run number 2225, SUCCESS.
+- Verified source commit: `a28994b983333d3ef102e86c40bb2ee06c88a6f2`.
+- Self CI run: `38079150927`, run number 2236, SUCCESS.
 - Issue tier: 16 marker-history cases, 19 observer cases, 10
   static-filter cases, 2 recorded-hosted-snapshot cases and 9 self-CI
   invariant cases.  All passed.
