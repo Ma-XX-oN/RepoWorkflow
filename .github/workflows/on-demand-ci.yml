@@ -120,12 +120,22 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
+          python - <<'PY'
+          import os
+          import re
+          branch = os.environ["GITHUB_REF_NAME"]
+          match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
+          assert match is not None
+          path = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write("log_path=" + path + "\\n")
+          PY
       - name: Export canonical observation artifact
         if: ${{ always() && steps.audit.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: hosted-result-${{ github.run_id }}
-          path: .repoworkflow/validation/testResults-*.jsonl
+          path: ${{ steps.audit.outputs.log_path }}
           if-no-files-found: error
 
   publish:
@@ -151,6 +161,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: hosted-result-${{ github.run_id }}
+          path: .repoworkflow/validation
       - name: Publish canonical hosted testing observations
         shell: bash
         run: >-
