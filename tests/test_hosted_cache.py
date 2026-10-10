@@ -91,24 +91,26 @@ class HostedCacheTests(unittest.TestCase):
     self.assertEqual(self.reusable(self.record), {"issue-545-one"})
 
   def test_provider_incomplete_wrong_head_or_workflow_fails_closed(self):
+    self.publish(self.record)
     for update in (
       {"conclusion": "failure"}, {"status": "in_progress"},
       {"head_sha": "f" * 40}, {"head_branch": "issue-545-other"},
       {"path": ".github/workflows/other.yml"}, {"event": "workflow_dispatch"},
     ):
       with self.subTest(update=update):
-        self.publish(self.record)
         self.assertEqual(self.reusable(provider_override=update), set())
 
   def test_forged_or_dirty_record_cannot_be_reused(self):
-    for change in (
+    for i, change in enumerate((
       {"runner": "local"}, {"providerRunId": 456},
       {"providerInvocationSHA": "f" * 40},
       {"testSHA": "f" * 40}, {"catalogueSHA256": "f" * 64},
       {"uncommittedChanges": ["README"]}, {"reusable": False},
       {"result": "failed"}, {"headChangedDuringTest": True},
-    ):
+    )):
       with self.subTest(change=change):
+        if i:
+          self.setUp()  # Each immutable publication fixture is independent.
         self.assertEqual(self.reusable({**self.record, **change}), set())
 
   def test_latest_same_group_failure_revokes_old_pass(self):
