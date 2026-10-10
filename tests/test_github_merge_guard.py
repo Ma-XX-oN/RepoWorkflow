@@ -209,6 +209,19 @@ class ProtectedMergeTests(unittest.TestCase):
     self.assertEqual(reads[0], 2)
     self.assertFalse(any(c[0] == "merge" for c in self.calls))
 
+  def test_invalid_repository_identity_never_reaches_provider(self):
+    for repository in ("../other", "owner/..", "-owner/repo", "owner/-repo"):
+      with self.subTest(repository=repository):
+        self.calls.clear()
+        with self.assertRaises(PreMergeGateError):
+          merge_protected_pr(
+            repo=repository, pr_number=42, candidate_sha=CANDIDATE,
+            recorded_parent_tip=PARENT,
+            read=lambda url: self.fail("invalid repository read"),
+            merge=lambda url, data: self.fail("invalid repository merged"),
+            evidence_gate=lambda: self.fail("invalid repository accepted"),
+          )
+
   def test_malformed_protection_fails_closed(self):
     for malformed in (None, "not-a-map", {"allow_force_pushes": None}):
       with self.subTest(malformed=malformed):
