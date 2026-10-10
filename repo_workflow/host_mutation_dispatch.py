@@ -24,9 +24,15 @@ def _validate_request(request: dict) -> None:
     "parameters",
   }:
     raise HostMutationError("invalid host mutation request")
-  if request["schema_version"] != 1 or type(request["schema_version"]) is not int:
+  if (
+    request["schema_version"] != 1
+    or type(request["schema_version"]) is not int
+  ):
     raise HostMutationError("unsupported host mutation schema")
-  if not isinstance(request["operation"], str) or request["operation"] not in _OPERATIONS:
+  if (
+    not isinstance(request["operation"], str)
+    or request["operation"] not in _OPERATIONS
+  ):
     raise HostMutationError("unsupported host mutation operation")
   if not isinstance(request["repository"], str) or not _REPOSITORY.fullmatch(
     request["repository"]
