@@ -92,6 +92,40 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
     self.assertEqual(result["status"], "error")
     self.assertEqual(result["diagnostics"][0]["code"], "invalid-request")
 
+  def test_legacy_github_machine_boundary_preserves_adapter_results(self):
+    from repo_workflow import github_adapter as old
+    from repo_workflow import repo_ci_github_compat as compat
+
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      event = root / "event.json"
+      event.write_text(json.dumps({"before": "a" * 40, "after": "b" * 40}))
+      self.assertEqual(
+        compat.request_changed(root, "workflow_dispatch", event),
+        old.request_changed(root, "workflow_dispatch", event),
+      )
+      for name, branch in (("workflow_dispatch", "feature"), ("push", "main"),
+                           ("pull_request", "feature")):
+        with self.subTest(event=name, branch=branch):
+          self.assertEqual(
+            compat.github_mode(root, name, event, branch, "main"),
+            old.github_mode(root, name, event, branch, "main"),
+          )
+      settings = {"schema": 1, "runners": {"linux": "ubuntu-latest"},
+                  "prepareRunner": "ubuntu-latest"}
+      config = {"environments": [{"id": "linux"}], "artifacts": []}
+      self.assertEqual(compat.github_matrix(config, settings),
+                       old.github_matrix(config, settings))
+      self.assertEqual(compat.github_prepare_context(config, settings),
+                       old.github_prepare_context(config, settings))
+      self.assertEqual(compat.github_prepare_runner(settings),
+                       old.github_prepare_runner(settings))
+
+  def test_public_machine_commands_import_provider_boundary(self):
+    source = (ROOT / "repo_workflow.py").read_text()
+    self.assertIn("from repo_workflow.repo_ci_github_compat import (", source)
+    self.assertNotIn("from repo_workflow.github_adapter import (", source)
+
   def test_dispatcher_routes_through_configured_github_provider(self):
     value = request("inspect-context", {"event": "workflow_dispatch",
                                          "platform": "linux"})
