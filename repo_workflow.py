@@ -29,7 +29,7 @@ from repo_workflow.git import (
   repository_state,
   restore_repository_state,
 )
-from repo_workflow.github_adapter import (
+from repo_workflow.repo_ci_github_compat import (
   AdapterError,
   github_matrix,
   github_mode,
@@ -60,6 +60,9 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.repo_ci_dispatcher import (
+  RepoCiError, OPERATIONS, dispatch, error_envelope,
+)
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -92,6 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(description="Shared repository workflow engine")
   parser.add_argument("--root", default=".", help="consumer repository root")
   commands = parser.add_subparsers(dest="command", required=True)
+
+  repo_ci = commands.add_parser("repo-ci")
+  repo_ci.add_argument("operation", choices=sorted(OPERATIONS))
 
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
@@ -218,6 +224,21 @@ def main(argv: list[str] | None = None) -> int:
 
     args = build_parser().parse_args(argv)
     root = _root(args.root)
+    if args.command == "repo-ci":
+      raw = sys.stdin.buffer.read()
+      try:
+        value = dispatch(root, args.operation, raw)
+      except RepoCiError as exc:
+        error = error_envelope(raw, args.operation, exc)
+        if error is None:
+          error = {"code": exc.code, "message": str(exc)}
+          print(json.dumps(error, separators=(",", ":")), file=sys.stderr)
+        else:
+          print(json.dumps(error, separators=(",", ":")))
+        return 2
+      print(json.dumps(value, separators=(",", ":")))
+      return 0
+
     if args.command == "preflight":
       candidate = validate_candidate(
         root,
@@ -421,6 +442,7 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RepoCiError,
     ResultError,
     GitError,
     GuardError,

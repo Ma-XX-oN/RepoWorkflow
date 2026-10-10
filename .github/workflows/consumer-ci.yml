@@ -23,6 +23,9 @@ permissions:
 jobs:
   policy:
     runs-on: ubuntu-latest
+    env:
+      RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+      RWF_CI_BASE_SHA: ${{ inputs.head_sha }}
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -47,7 +50,7 @@ jobs:
         id: mode
         shell: bash
         run: >-
-          echo "mode=$(python RepoWorkflow/repo_workflow.py github-mode
+          echo "mode=$(python RepoWorkflow/repo_workflow/repo_ci_github_machine.py mode
           --event-name '${{ inputs.event_name }}'
           --event-path "$GITHUB_EVENT_PATH"
           --branch '${{ inputs.branch }}')" >> "$GITHUB_OUTPUT"
@@ -55,14 +58,14 @@ jobs:
         id: prepare-context
         shell: bash
         run: >-
-          echo "context=$(python RepoWorkflow/repo_workflow.py github-prepare-context)"
+          echo "context=$(python RepoWorkflow/repo_workflow/repo_ci_github_machine.py prepare-context)"
           >> "$GITHUB_OUTPUT"
       - name: Load GitHub validation matrix
         if: steps.mode.outputs.mode != 'none'
         id: matrix
         shell: bash
         run: >-
-          echo "matrix=$(python RepoWorkflow/repo_workflow.py github-matrix)"
+          echo "matrix=$(python RepoWorkflow/repo_workflow/repo_ci_github_machine.py matrix)"
           >> "$GITHUB_OUTPUT"
 
   prepare:
@@ -165,28 +168,88 @@ jobs:
         if: matrix.nodeVersion != ''
         with:
           node-version: ${{ matrix.nodeVersion }}
-      - name: Run repository-owned validation entry point
+      - name: Run core validation through configured repo-ci adapter
         id: validation
         continue-on-error: true
         shell: bash
+        env:
+          RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+          RWF_REPO_CI_RESULT_ROOT: ${{ runner.temp }}/repoworkflow-result
+          RWF_STAGE: ${{ matrix.id }}
+          RWF_CANDIDATE: ${{ needs.prepare.outputs.tested_sha }}
+          RWF_BASE: ${{ inputs.head_sha }}
+          RWF_MODE: ${{ needs.policy.outputs.mode }}
         run: |
-          if [ "${{ needs.policy.outputs.mode }}" = "stable" ]; then
-            python RepoWorkflow/repo_workflow.py stable-run \
-              --environment "${{ matrix.id }}" \
-              --expected-sha "${{ needs.prepare.outputs.tested_sha }}" \
-              --result "${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json"
-          else
-            python RepoWorkflow/repo_workflow.py run \
-              --environment "${{ matrix.id }}" \
-              --expected-sha "${{ needs.prepare.outputs.tested_sha }}" \
-              --result "${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json"
-          fi
-      - name: Upload structured environment result
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          result_path = str(Path(os.environ["RWF_REPO_CI_RESULT_ROOT"]) /
+                            (os.environ["RWF_STAGE"] + ".json"))
+          request = {
+            "contract_version": 1,
+            "operation": "execute",
+            "invocation_id": os.environ["GITHUB_RUN_ID"] + "-" +
+                             os.environ["GITHUB_RUN_ATTEMPT"] + "-" +
+                             os.environ["RWF_STAGE"],
+            "candidate": {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "commit": os.environ["RWF_CANDIDATE"],
+              "base": os.environ["RWF_BASE"],
+            },
+            "requirements": {
+              "stages": [os.environ["RWF_STAGE"]],
+              "capabilities": [], "artifacts": [],
+            },
+            "inputs": {
+              "consumer_workspace": os.environ["RWF_REPO_CI_WORKSPACE"],
+              "result_path": result_path,
+              "mode": "stable" if os.environ["RWF_MODE"] == "stable" else "development",
+              "base": os.environ["RWF_BASE"],
+            },
+          }
+          process = subprocess.run(
+            [sys.executable, "RepoWorkflow/repo_workflow.py", "repo-ci", "execute"],
+            input=json.dumps(request), text=True, capture_output=True, check=False,
+          )
+          if process.stderr:
+            print(process.stderr, file=sys.stderr)
+          try:
+            response = json.loads(process.stdout)
+          except ValueError:
+            print("repo-ci adapter returned malformed response", file=sys.stderr)
+            raise SystemExit(2)
+          if process.returncode or response.get("status") != "ok":
+            print(json.dumps(response), file=sys.stderr)
+            raise SystemExit(2)
+          observed = response["observations"]["stages"]
+          if len(observed) != 1 or observed[0]["stage"] != os.environ["RWF_STAGE"]:
+            print("repo-ci stage identity mismatch", file=sys.stderr)
+            raise SystemExit(2)
+          print(json.dumps({"stage": observed[0]["stage"],
+                            "core_exit_code": observed[0]["core_exit_code"]}))
+          PY
+      - name: Package exact-bound environment result through repo-ci
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+          RWF_REPO_CI_TRANSPORT_ROOT: ${{ runner.temp }}
+          RWF_CANDIDATE: ${{ needs.prepare.outputs.tested_sha }}
+          RWF_BASE: ${{ inputs.head_sha }}
+        run: >-
+          python RepoWorkflow/repo_workflow/repo_ci_github_result_machine.py
+          publish --stage "${{ matrix.id }}"
+      - name: Upload exact-bound provider result bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: repoworkflow-result-${{ matrix.id }}
-          path: ${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json
+          name: repoworkflow-provider-result-${{ matrix.id }}
+          path: ${{ runner.temp }}/repoworkflow-provider-bundles/${{ matrix.id }}/
           if-no-files-found: error
 
   finalize:
@@ -210,12 +273,30 @@ jobs:
       - name: Prepare result collection directory
         shell: bash
         run: mkdir -p "${{ runner.temp }}/repoworkflow-results"
-      - uses: actions/download-artifact@v4
+      - name: Download exact-bound provider result bundles
+        uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          pattern: repoworkflow-result-*
+          pattern: repoworkflow-provider-result-*
+          path: ${{ runner.temp }}/downloaded-provider
+      - name: Download independent artifact preparation result
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: repoworkflow-result-artifacts
           path: ${{ runner.temp }}/repoworkflow-results
-          merge-multiple: true
+      - name: Verify and materialize required result bundles via repo-ci
+        continue-on-error: true
+        shell: bash
+        env:
+          RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+          RWF_REPO_CI_TRANSPORT_ROOT: ${{ runner.temp }}
+          RWF_CANDIDATE: ${{ needs.prepare.outputs.tested_sha }}
+          RWF_BASE: ${{ inputs.head_sha }}
+          RWF_MATRIX: ${{ needs.policy.outputs.matrix }}
+        run: >-
+          python RepoWorkflow/repo_workflow/repo_ci_github_result_machine.py
+          fetch-all
       - name: Configure result-tag identity
         shell: bash
         run: |

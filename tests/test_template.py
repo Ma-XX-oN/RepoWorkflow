@@ -15,11 +15,16 @@ class TemplateTests(unittest.TestCase):
     ):
       self.assertNotIn(product, text)
     for command in (
-      "repository-policy", "branch-policy", "github-mode", "github-matrix",
-      "preflight", "materialize-artifacts", "run", "finalize",
-      "stable-preflight", "stable-run", "stable-finalize",
+      "repository-policy", "branch-policy", "preflight",
+      "materialize-artifacts", "finalize", "stable-preflight",
+      "stable-finalize", "repo_ci_github_machine.py mode",
+      "repo_ci_github_machine.py matrix",
+      "repo_ci_github_machine.py prepare-context",
+      '"repo-ci", "execute"',
     ):
       self.assertIn(command, text)
+    provider = (ROOT / "repo_workflow" / "repo_ci_github_provider.py").read_text()
+    self.assertIn('"stable-run" if inputs["mode"] == "stable" else "run"', provider)
     self.assertIn("submodules: recursive", text)
     self.assertIn("fetch-depth: 0", text)
 
@@ -35,8 +40,10 @@ class TemplateTests(unittest.TestCase):
 
   def test_matrix_result_filenames_are_unique_per_environment(self):
     text = IMPLEMENTATION.read_text()
+    self.assertIn('RWF_STAGE: ${{ matrix.id }}', text)
+    self.assertIn('os.environ["RWF_STAGE"] + ".json"', text)
     self.assertIn(
-      '${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json',
+      '${{ runner.temp }}/repoworkflow-provider-bundles/${{ matrix.id }}/',
       text,
     )
     self.assertNotIn(

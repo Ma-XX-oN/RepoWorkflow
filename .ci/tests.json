@@ -85,6 +85,30 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      },
+      "issue-91-repo-ci-forwarder": {
+        "type": "regression",
+        "name": "tests.test_repo_ci_dispatcher"
+      },
+      "issue-92-repo-ci-github-event": {
+        "type": "regression",
+        "name": "tests.test_repo_ci_github_event"
+      },
+      "issue-93-github-result-transport": {
+        "type": "regression",
+        "name": "tests.test_github_result_transport"
+      },
+      "issue-93-github-transport-cli": {
+        "type": "regression",
+        "name": "tests.test_github_transport_cli"
+      },
+      "issue-94-github-policy": {
+        "type": "regression",
+        "name": "tests.test_repo_ci_github_policy"
+      },
+      "issue-67-github-migration": {
+        "type": "regression",
+        "name": "tests.test_repo_ci_github_migration"
       }
     },
     {

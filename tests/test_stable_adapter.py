@@ -58,13 +58,15 @@ class StableAdapterTests(unittest.TestCase):
   def test_canonical_template_carries_stable_mode_end_to_end(self):
     text = IMPLEMENTATION.read_text(encoding="utf-8")
     for value in (
-      "github-mode",
+      "repo_ci_github_machine.py mode",
       "stable-preflight",
       "materialize-artifacts --stable",
-      "stable-run",
+      '"mode": "stable" if os.environ["RWF_MODE"] == "stable" else "development"',
       "stable-finalize",
     ):
       self.assertIn(value, text)
+    provider = (ROOT / "repo_workflow" / "repo_ci_github_provider.py").read_text()
+    self.assertIn('"stable-run" if inputs["mode"] == "stable" else "run"', provider)
     self.assertIn("needs.policy.outputs.mode != 'none'", text)
 
 
