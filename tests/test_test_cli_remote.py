@@ -72,6 +72,20 @@ class TestCliRemoteContract(unittest.TestCase):
       "aliases": {},
     }))
 
+  def test_invalid_remote_placement_refused_before_side_effects(self):
+    self.remote()
+    before = self.git("rev-parse", "HEAD")
+    for stage in (
+      "RED", "temporary", "GREEN", "regression",
+      "integration", "results",
+    ):
+      with self.subTest(stage=stage):
+        output = self.cli("test", "--remote", stage)
+        self.assertEqual(output.returncode, 2)
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
+        self.assertFalse((self.root / ".ci/run").exists())
+
+
   def test_remote_request_and_retry_use_previous_tip(self):
     bare = self.remote()
     for stage in ("regression", "regression"):
