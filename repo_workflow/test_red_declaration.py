@@ -4,13 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .test_red_classification import RedExpectation
-
-
-GENERIC_SIGNATURES = frozenset({
-  "error", "failed", "failure", "fail", "assertionerror",
-  "traceback", "exception", "test failed", "tests failed",
-})
+from .test_red_classification import RedExpectation, generic_red_signature
 
 
 def _unique_json_object(pairs: list[tuple[str, object]]) -> dict:
@@ -52,20 +46,11 @@ def red_declaration(root: Path, group: str) -> tuple[RedExpectation | None, str]
     return None, "invalid-expected-failure-declaration"
   exit_code = declared["exit-code"]
   signature = declared["output-contains"]
-  normalized = signature.strip().casefold().rstrip(":.! -") if (
-    isinstance(signature, str)
-  ) else ""
-  generic = (
-    normalized in GENERIC_SIGNATURES
-    or (normalized.startswith(("failed (", "error (")) and
-        normalized.endswith(")"))
-  )
   if (
     type(exit_code) is not int or exit_code <= 0
     or not isinstance(signature, str)
     or not signature.strip()
-    or signature.strip().casefold() in GENERIC_SIGNATURES
-    or generic
+    or generic_red_signature(signature)
     or any(0xD800 <= ord(c) <= 0xDFFF for c in signature)
   ):
     return None, "invalid-expected-failure-declaration"
