@@ -180,6 +180,23 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
   return _result(response, request)
 
 
+
+def error_envelope(raw: bytes, operation: str, error: RepoCiError) -> dict | None:
+  try:
+    request = validate_request(_parse_json(raw), operation)
+  except (RepoCiError, ValueError, UnicodeDecodeError):
+    return None
+  return {
+    "contract_version": 1,
+    "operation": request["operation"],
+    "invocation_id": request["invocation_id"],
+    "candidate": request["candidate"],
+    "status": "error",
+    "observations": {},
+    "diagnostics": [{"code": error.code, "message": str(error)}],
+    "artifacts": [],
+  }
+
 def main(argv: list[str] | None = None) -> int:
   words = list(sys.argv[1:] if argv is None else argv)
   if len(words) != 1:
@@ -187,12 +204,17 @@ def main(argv: list[str] | None = None) -> int:
       "code": "invalid-request", "message": "expected one operation"
     }), file=sys.stderr)
     return 2
+  raw = sys.stdin.buffer.read()
   try:
-    value = dispatch(Path.cwd(), words[0], sys.stdin.buffer.read())
+    value = dispatch(Path.cwd(), words[0], raw)
   except RepoCiError as exc:
-    print(json.dumps({
-      "code": exc.code, "message": str(exc)
-    }, separators=(",", ":")), file=sys.stderr)
+    error = error_envelope(raw, words[0], exc)
+    if error is not None:
+      print(json.dumps(error, separators=(",", ":")))
+    else:
+      print(json.dumps({
+        "code": exc.code, "message": str(exc)
+      }, separators=(",", ":")), file=sys.stderr)
     return 2
   print(json.dumps(value, separators=(",", ":")))
   return 0
