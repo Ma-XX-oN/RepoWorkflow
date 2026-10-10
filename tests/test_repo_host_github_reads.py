@@ -65,7 +65,7 @@ class GitHubReadBoundaryTests(unittest.TestCase):
     self.assertEqual(value["head_sha"], SHA)
     self.assertEqual(value["destination_sha"], "a" * 40)
     self.assertEqual(value["number"], 9)
-    self.assertEqual(value["target_ref"], "main")
+    self.assertEqual(value["target_ref"], "refs/heads/main")
 
   def test_pr_rejects_missing_or_malformed_identity(self):
     good = {
