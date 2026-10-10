@@ -38,6 +38,8 @@ def _text(value: object, field: str) -> str:
 def api_get(repository: str, route: str) -> dict:
   if not re.fullmatch(r"[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+", repository):
     raise ProviderReadError("invalid repository")
+  if any(part in {".", ".."} for part in repository.split("/")):
+    raise ProviderReadError("invalid repository component")
   if not route.startswith("repos/" + repository + "/"):
     raise ProviderReadError("invalid repository-scoped route")
   result = subprocess.run(
@@ -86,7 +88,7 @@ def pull_request_get(repository: str, number: int) -> dict:
   return {
     "number": returned,
     "head_sha": _sha(head.get("sha"), "PR head SHA"),
-    "target_ref": _text(base.get("ref"), "PR base ref"),
+    "target_ref": "refs/heads/" + _text(base.get("ref"), "PR base ref"),
     "destination_sha": _sha(base.get("sha"), "destination SHA"),
     "draft": value["draft"],
     "state": state,
