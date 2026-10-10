@@ -48,8 +48,12 @@ jobs:
           test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
       - name: Verify independent environment review protections
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: python scripts/probe-repo-host-github-environment.py
+          GH_TOKEN: ${{ secrets.RWF97_CONFIG_AUDIT_GH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          python scripts/probe-repo-host-github-environment.py
       - name: Require protected sandbox authority
         shell: bash
         env:
