@@ -53,7 +53,9 @@ class LiveProbeCleanupTests(unittest.TestCase):
         }}}
       if not permitted:
         return {"error": (
-          "conflict" if identity.endswith("-stale") else "unsupported"
+          "conflict" if identity.endswith("-stale")
+          or (operation == "issue.comment" and identity.endswith("-comment"))
+          else "unsupported"
         )}
       if operation == "issue.update":
         status = "unchanged" if identity in seen_issues else "applied"
