@@ -337,31 +337,16 @@ those groups and reports actionable catalogue/naming errors.  A missing
 selection emits a warning and appends SKIPPED evidence without running tests
 or claiming PASS.  Malformed or stale selections fail.
 
-RED requires an `expected-red` declaration in the selected group's
-existing `.ci/tests.json` entry, with `exit-code` (strict positive integer)
-and `output-contains` (nonempty literal UTF-8 behavioural signature).
-For example:
-
-```json
-"issue-545-behaviour": {
-  "type": "regression",
-  "name": "smoke_case",
-  "expected-red": {
-    "exit-code": 1,
-    "output-contains": "domain invariant ABC-545 violated"
-  }
-}
-```
-
-The declaration is validated before subprocess execution.  Generic strings
-such as `FAILED` or `Error` alone cannot establish behavioural failure.
-Both the expected nonzero exit and the literal signature in combined standard
-output/error are required.  An expected failure is RED; an unexpected zero
-exit is NOT_RED; an unexpected nonzero exit/signature is FAIL.  Missing or
-invalid expectations, an unlaunchable process, termination by signal and
-infrastructure failures are INCOMPLETE.  None permits false RED success.
-The catalogue fingerprint, committed selection, canonical per-issue log and
-repository version lifecycle remain unchanged.
+RED requires `expected-red` on the selected `.ci/tests.json` group:
+`{"exit-code":1,"output-contains":"specific invariant violated"}`.
+The exit code must be a positive non-boolean integer.  The signature must be
+a nonempty, specific literal UTF-8 substring of combined stdout/stderr;
+generic `FAILED` or `Error` alone is invalid.  Validate before execution.
+Matching nonzero exit and signature yields RED; zero yields NOT_RED; other
+nonzero failures yield FAIL.  Missing/malformed declarations, process launch
+failures, signal termination and infrastructure errors yield INCOMPLETE.
+Preserve the committed selection, catalogue fingerprint, canonical per-issue
+JSONL and repository-version lifecycle.
 
 GREEN reuses only eligible unchanged PASS evidence for the selected group
 and executes missing or invalidated test units.
