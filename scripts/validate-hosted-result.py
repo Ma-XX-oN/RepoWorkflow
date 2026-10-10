@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -66,6 +67,15 @@ def validate_result(
   ):
     raise ValueError("hosted result lacks complete platform identity")
   if kind in {"GREEN", "temporary", "RED"}:
+    catalogue = root / (
+      ".ci/temp-tests.json" if kind == "temporary" else ".ci/tests.json"
+    )
+    try:
+      fingerprint = hashlib.sha256(catalogue.read_bytes()).hexdigest()
+    except OSError as error:
+      raise ValueError("hosted test catalogue missing") from error
+    if record.get("catalogueSHA256") != fingerprint:
+      raise ValueError("hosted test catalogue fingerprint mismatch")
     groups = record.get("groups")
     if not isinstance(groups, list) or not groups:
       raise ValueError("hosted group evidence missing")
