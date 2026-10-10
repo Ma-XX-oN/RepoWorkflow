@@ -51,10 +51,10 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       'echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"', self.text,
     )
     expected = "ref: ${{ needs.plan.outputs.tested_sha }}"
-    self.assertEqual(self.text.count(expected), 4)
+    self.assertEqual(self.text.count(expected), 5)
     for name in (
       "validate", "argv-limits", "graph-renderer-platform",
-      "ticket-merge-platform",
+      "ticket-merge-platform", "publish",
     ):
       section = self.text.split("\n  " + name + ":\n", 1)[1]
       checkout = section.split("      - uses: actions/checkout@v4", 1)[1]
@@ -121,12 +121,19 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     section = self.text.split("\n  validate:\n", 1)[1].split(
       "\n  argv-limits:\n", 1,
     )[0]
-    self.assertIn("    permissions:\n      contents: write", section)
-    self.assertIn("scripts/publish-hosted-result.py", section)
+    publisher = self.text.split("\n  publish:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
+    )[0]
+    self.assertIn("    permissions:\n      contents: read", section)
+    self.assertIn("    permissions:\n      contents: write", publisher)
+    self.assertIn("actions/upload-artifact@v4", section)
+    self.assertIn("actions/download-artifact@v4", publisher)
+    self.assertIn("scripts/publish-hosted-result.py", publisher)
     self.assertIn("steps.audit.outcome == 'success'", section)
-    self.assertIn("./rwf test results --remote", section)
-    self.assertIn('latest["providerRunId"]', section)
-    self.assertIn('latest["providerInvocationSHA"]', section)
+    self.assertIn("needs.validate.outputs.audit_ok == 'success'", publisher)
+    self.assertIn("./rwf test results --remote", publisher)
+    self.assertIn('latest["providerRunId"]', publisher)
+    self.assertIn('latest["providerInvocationSHA"]', publisher)
     self.assertIn("permissions:\n  contents: read", self.text)
 
   def test_no_release_job_is_started_by_selector_push(self):
