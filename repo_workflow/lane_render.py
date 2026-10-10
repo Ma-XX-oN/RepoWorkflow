@@ -9,6 +9,7 @@ from .lane_graph_adapter import (
   LaneGraphProjectionError,
   project_lane_graph,
 )
+from .lane_projection import selection_expression
 from .lane_selection import LaneSelectionStore
 from .relationship_store import RelationshipStore
 from .state_store import StateStoreError, WriterIdentity, clone_local_store
@@ -112,7 +113,15 @@ def render_lanes(
       for route in result.routes
     ]
 
-  return result.lines
+  lines = result.lines
+  if selection.excludes:
+    lines = (
+      *lines,
+      "",
+      "Selection:",
+      selection_expression(selection.includes, selection.excludes),
+    )
+  return lines
 
 
 def _diagnostic(value: dict, issue_by_text: dict[str, int]) -> dict:
