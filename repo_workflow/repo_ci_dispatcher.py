@@ -61,10 +61,8 @@ def validate_request(value: Any, operation: str) -> dict:
     raise RepoCiError("unsupported-operation", "invalid operation")
   _nonempty(request["invocation_id"], "invocation_id")
   candidate = _object(request["candidate"], "candidate")
-  if not {"repository", "commit", "base"} <= set(candidate):
-    raise RepoCiError("invalid-request", "candidate identity is incomplete")
-  for key in ("repository", "commit", "base"):
-    _nonempty(candidate[key], key)
+  if not candidate:
+    raise RepoCiError("invalid-request", "candidate is required")
   if not all(isinstance(k, str) and k for k in candidate):
     raise RepoCiError("invalid-request", "invalid candidate identity")
   requirements = _object(request["requirements"], "requirements")
