@@ -20,9 +20,11 @@ The existing executable `rwf` exposes the equivalent routed invocation:
 
 An invocation accepts exactly one operation token and one JSON request on
 stdin, forwards the original input bytes, and emits one JSON result on
-stdout.  A rejected invocation returns nonzero with a structured JSON
-error containing the semantic `code` and a non-secret `message` on stderr.
-No successful evidence is returned after an adapter or transport failure.
+stdout.  A failed invocation returns nonzero.  When the input is a
+valid v1 request, the error uses the standard `status: error` response
+envelope on stdout with a semantic diagnostic `code` and non-secret
+`message`.  Invalid or unparseable requests return a structured error
+on stderr instead.  Errors never include successful completion evidence.
 
 Seven operations are accepted: `inspect-context`, `resolve-capabilities`,
 `prepare`, `execute`, `publish`, `fetch`, and `check-policy`.
