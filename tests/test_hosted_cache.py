@@ -152,6 +152,42 @@ class HostedCacheTests(unittest.TestCase):
     self.candidate = "f" * 40
     self.assertEqual(self.reusable(), set())
 
+  def test_hosted_red_requires_exact_selected_group(self):
+    import runpy
+
+    validate = runpy.run_path(
+      str(Path(__file__).resolve().parents[1]
+          / "scripts/validate-hosted-result.py")
+    )["validate_result"]
+    selection = self.root / ".ci/red-green.txt"
+    selection.parent.mkdir(parents=True, exist_ok=True)
+    selection.write_text("issue-545-one\n")
+    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    base = {
+      **self.record, "kind": "RED", "result": "succeeded",
+      "reusable": False, "expectedFailure": True,
+      "reason": "expected-red-assertion-demonstrated",
+    }
+    for names, should_pass in (
+      (["issue-545-other"], False),
+      (["issue-545-one", "issue-545-one"], False),
+      (["issue-545-one"], True),
+    ):
+      with self.subTest(groups=names):
+        entry = {**base, "groups": [
+          {"group": name, "exit_code": 1, "reused": False}
+          for name in names
+        ]}
+        path.write_text(json.dumps(entry) + "\n")
+        if should_pass:
+          validate(self.root, stage="RED-testing", candidate=self.candidate,
+                   branch="issue-545-cache")
+        else:
+          with self.assertRaises(ValueError):
+            validate(self.root, stage="RED-testing", candidate=self.candidate,
+                     branch="issue-545-cache")
+
   def test_hosted_temporary_requires_complete_unique_catalogue(self):
     import runpy
     from pathlib import Path
