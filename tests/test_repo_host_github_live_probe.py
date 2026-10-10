@@ -99,16 +99,20 @@ class LiveProbeCleanupTests(unittest.TestCase):
       with patch.object(module, "gh", side_effect=provider_read):
         with patch.object(module, "invoke", side_effect=adapter):
           with patch.object(module, "verify_reservation") as ledger:
-            with patch.object(module.subprocess, "run", side_effect=cleanup):
-              with contextlib.redirect_stdout(output):
-                if cleanup_code:
-                  with self.assertRaisesRegex(
-                    RuntimeError, "temporary PR close failed"
-                  ):
-                    module.main()
-                else:
-                  self.assertEqual(module.main(), 0)
-              self.assertEqual(ledger.call_count, 4)
+            with patch.object(module, "verify_concurrent_comment") as race:
+              with patch.object(module.subprocess, "run", side_effect=cleanup):
+                with contextlib.redirect_stdout(output):
+                  if cleanup_code:
+                    with self.assertRaisesRegex(
+                      RuntimeError, "temporary PR close failed"
+                    ):
+                      module.main()
+                  else:
+                    self.assertEqual(module.main(), 0)
+                self.assertEqual(ledger.call_count, 4)
+                race.assert_called_once_with(
+                  "owner/sandbox", 3, "acceptance"
+                )
     return sequence, output.getvalue()
 
   def test_persisted_reservation_sha_and_digest_are_exact(self):
@@ -145,6 +149,35 @@ class LiveProbeCleanupTests(unittest.TestCase):
           "owner/sandbox", "issue.comment", "once",
           {"number": 3, "body": "Exact"},
         )
+
+  def test_two_process_comment_race_reconciles_unknown_outcome(self):
+    responses = [
+      SimpleNamespace(
+        returncode=0, stderr="", stdout=json.dumps({
+          "request_id": "run-race-comment", "status": "applied",
+        }),
+      ),
+      SimpleNamespace(
+        returncode=2, stdout="", stderr=json.dumps({
+          "request_id": "run-race-comment",
+          "error": "unknown_outcome",
+        }),
+      ),
+    ]
+    with patch.object(module.subprocess, "run",
+                      side_effect=responses) as subprocess_run:
+      with patch.object(module, "invoke", return_value={
+        "status": "unchanged", "result": {"comment_id": "99"},
+      }):
+        with patch.object(module, "verify_remote_comment") as remote:
+          with patch.object(module, "verify_reservation") as ledger:
+            module.verify_concurrent_comment("owner/sandbox", 3, "run")
+    self.assertEqual(subprocess_run.call_count, 2)
+    remote.assert_called_once_with(
+      "owner/sandbox", 3, "run-race-comment", "99",
+      "RWF concurrent probe run",
+    )
+    ledger.assert_called_once()
 
   def test_remote_comment_requires_unique_exact_persisted_marker(self):
     identity = chr(0).join(["owner/sandbox", "issue.comment", "once"])
