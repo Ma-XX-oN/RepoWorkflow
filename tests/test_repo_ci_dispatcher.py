@@ -105,6 +105,8 @@ class RepoCiDispatcherTests(unittest.TestCase):
       "import json,sys\n"
       "r=json.loads(sys.stdin.buffer.read())\n"
       "r['candidate']['commit']='c'*40\n"
+      "r={k:r[k] for k in ('contract_version','operation',\n"
+      " 'invocation_id','candidate')}\n"
       "r.update(status='ok',observations={},diagnostics=[],artifacts=[])\n"
       "print(json.dumps(r))\n"
     )
@@ -132,6 +134,8 @@ class RepoCiDispatcherTests(unittest.TestCase):
     self.provider(
       "import json,sys\n"
       "r=json.loads(sys.stdin.read())\n"
+      "r={k:r[k] for k in ('contract_version','operation',\n"
+      " 'invocation_id','candidate')}\n"
       "r.update(status='error',observations={},diagnostics=[],artifacts=[])\n"
       "print(json.dumps(r))\n"
     )
