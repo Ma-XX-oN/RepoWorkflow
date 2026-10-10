@@ -23,6 +23,9 @@ permissions:
 jobs:
   policy:
     runs-on: ubuntu-latest
+    env:
+      RWF_REPO_CI_WORKSPACE: ${{ github.workspace }}
+      RWF_CI_BASE_SHA: ${{ inputs.head_sha }}
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -47,7 +50,7 @@ jobs:
         id: mode
         shell: bash
         run: >-
-          echo "mode=$(python RepoWorkflow/repo_workflow.py github-mode
+          echo "mode=$(python RepoWorkflow/repo_workflow/repo_ci_github_machine.py mode
           --event-name '${{ inputs.event_name }}'
           --event-path "$GITHUB_EVENT_PATH"
           --branch '${{ inputs.branch }}')" >> "$GITHUB_OUTPUT"
@@ -55,14 +58,14 @@ jobs:
         id: prepare-context
         shell: bash
         run: >-
-          echo "context=$(python RepoWorkflow/repo_workflow.py github-prepare-context)"
+          echo "context=$(python RepoWorkflow/repo_workflow/repo_ci_github_machine.py prepare-context)"
           >> "$GITHUB_OUTPUT"
       - name: Load GitHub validation matrix
         if: steps.mode.outputs.mode != 'none'
         id: matrix
         shell: bash
         run: >-
-          echo "matrix=$(python RepoWorkflow/repo_workflow.py github-matrix)"
+          echo "matrix=$(python RepoWorkflow/repo_workflow/repo_ci_github_machine.py matrix)"
           >> "$GITHUB_OUTPUT"
 
   prepare:
