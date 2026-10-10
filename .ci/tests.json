@@ -113,6 +113,10 @@
       "issue-629-stage-cardinality": {
         "type": "regression",
         "name": "tests.test_issue629_stage_cardinality"
+      },
+      "issue-629-expected-red": {
+        "type": "regression",
+        "name": "tests.test_issue629_expected_red"
       }
     },
     {
