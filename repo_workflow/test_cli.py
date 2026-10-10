@@ -168,6 +168,15 @@ def request_remote(root: Path, stage: str) -> int:
   return 0
 
 
+def _unique_test_log_fields(pairs: list[tuple[str, object]]) -> dict:
+  record: dict[str, object] = {}
+  for key, value in pairs:
+    if key in record:
+      raise TestCommandError("duplicate testing log field")
+    record[key] = value
+  return record
+
+
 def results(root: Path, *, remote: bool) -> int:
   match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
   if match is None:
@@ -187,7 +196,7 @@ def results(root: Path, *, remote: bool) -> int:
   validated = []
   for line in raw.splitlines():
     try:
-      record = json.loads(line)
+      record = json.loads(line, object_pairs_hook=_unique_test_log_fields)
     except json.JSONDecodeError as error:
       raise TestCommandError("invalid testing log record") from error
     if not isinstance(record, dict) or not all(
