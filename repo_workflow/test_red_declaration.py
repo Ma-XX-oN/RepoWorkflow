@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from .test_red_classification import RedExpectation
@@ -52,11 +53,20 @@ def red_declaration(root: Path, group: str) -> tuple[RedExpectation | None, str]
     return None, "invalid-expected-failure-declaration"
   exit_code = declared["exit-code"]
   signature = declared["output-contains"]
+  generic = (
+    isinstance(signature, str)
+    and re.fullmatch(
+      r"(?:failed|error|failure|fail|traceback|exception|"
+      r"assertionerror)(?:\\s*\\([^)]*\\))?\\s*[:.!-]?",
+      signature.strip(), flags=re.IGNORECASE,
+    ) is not None
+  )
   if (
     type(exit_code) is not int or exit_code <= 0
     or not isinstance(signature, str)
     or not signature.strip()
     or signature.strip().casefold() in GENERIC_SIGNATURES
+    or generic
     or any(0xD800 <= ord(c) <= 0xDFFF for c in signature)
   ):
     return None, "invalid-expected-failure-declaration"
