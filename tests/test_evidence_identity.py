@@ -89,7 +89,7 @@ class SpecificationTests(unittest.TestCase):
           fingerprint(item)
 
   def test_reject_invalid_names_and_capability_values(self):
-    for bad in ("", " leading", "trailing ", "bad\\nkey", "e\\u0301"):
+    for bad in ("", " leading", "trailing ", "bad\nkey", "e\u0301"):
       with self.subTest(value=bad):
         item = valid()
         item["capabilities"] = {"runner": bad}
