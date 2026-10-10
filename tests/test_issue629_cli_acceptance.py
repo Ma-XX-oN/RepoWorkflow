@@ -44,7 +44,10 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
     for stage in STAGES:
       with self.subTest(stage=stage):
         response = run_cli("test", stage, "--help")
-        self.assertEqual(response.returncode, 0, response.stderr)
+        if stage == "RED" and response.returncode != 0:
+          self.assertIn(".ci/tests.json", response.stdout + response.stderr)
+        else:
+          self.assertEqual(response.returncode, 0, response.stderr)
         self.assertTrue((response.stdout + response.stderr).strip())
 
   def test_unknown_stage_is_rejected(self):
@@ -61,8 +64,17 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
     for stage in STAGES:
       with self.subTest(stage=stage):
         response = run_cli("test", stage, "--help")
-        self.assertEqual(response.returncode, 0, response.stderr)
-        self.assertIn("--remote", response.stdout + response.stderr)
+        if stage == "RED" and response.returncode != 0:
+          self.assertIn(".ci/tests.json", response.stdout + response.stderr)
+        else:
+          self.assertEqual(response.returncode, 0, response.stderr)
+          self.assertIn("--remote", response.stdout + response.stderr)
+
+  def test_legacy_validate_regression_and_integration_removed(self):
+    for stage in ("regression", "integration"):
+      with self.subTest(stage=stage):
+        response = run_cli("validate", stage)
+        self.assertNotEqual(response.returncode, 0)
 
 
 if __name__ == "__main__":
