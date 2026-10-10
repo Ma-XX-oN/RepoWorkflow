@@ -203,6 +203,23 @@ def results(root: Path, *, remote: bool) -> int:
       )
     ):
       raise TestCommandError("invalid testing log metadata")
+    if "groups" in record:
+      groups = record["groups"]
+      if not isinstance(groups, list):
+        raise TestCommandError("invalid testing log groups")
+      seen: set[str] = set()
+      for item in groups:
+        if not isinstance(item, dict):
+          raise TestCommandError("invalid testing log groups")
+        name = item.get("group")
+        if (
+          not isinstance(name, str)
+          or not name.strip()
+          or name in seen
+          or type(item.get("exit_code")) is not int
+        ):
+          raise TestCommandError("invalid testing log groups")
+        seen.add(name)
     validated.append(record)
   for record in validated:
     print(json.dumps(record, sort_keys=True))
