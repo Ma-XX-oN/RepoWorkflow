@@ -89,7 +89,7 @@ class RedRunnerContract(unittest.TestCase):
     self.assertFalse(marker.exists())
 
 
-  def test_invalid_expectation_prevents_execution_and_audit(self):
+  def test_invalid_expectation_records_incomplete_without_execution(self):
     marker = self.root / "should-not-exist"
     status, record, _ = self.run_group(
       [sys.executable, "-c",
@@ -97,7 +97,11 @@ class RedRunnerContract(unittest.TestCase):
       RedExpectation(0, "invalid"),
     )
     self.assertEqual(status, 2)
-    self.assertIsNone(record)
+    self.assertIsNotNone(record)
+    self.assertEqual(record["result"], "incomplete")
+    self.assertEqual(record["redStatus"], "INCOMPLETE")
+    self.assertEqual(record["reason"], "invalid-expected-failure-declaration")
+    self.assertIsNone(record["groups"][0]["exit_code"])
     self.assertFalse(marker.exists())
 
 
