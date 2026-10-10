@@ -29,7 +29,7 @@ from repo_workflow.git import (
   repository_state,
   restore_repository_state,
 )
-from repo_workflow.github_adapter import (
+from repo_workflow.repo_ci_github_compat import (
   AdapterError,
   github_matrix,
   github_mode,
