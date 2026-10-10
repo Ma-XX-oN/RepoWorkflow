@@ -40,11 +40,14 @@ class RepoCiGithubEventTests(unittest.TestCase):
 
   def test_platform_runner_mapping(self):
     for platform, runner in [
-      ("linux", "ubuntu-latest"), ("windows", "windows-latest"),
-      ("macos", "macos-latest"),
+      ("linux", "linux-standard"), ("windows", "windows-standard"),
+      ("macos", "macos-standard"),
     ]:
       got = MODULE.map_request(request(inputs={"event": "push", "platform": platform}))
       self.assertEqual(got["observations"]["runner_ref"], runner)
+      self.assertNotIn("ubuntu-latest", json.dumps(got))
+      self.assertNotIn("windows-latest", json.dumps(got))
+      self.assertNotIn("macos-latest", json.dumps(got))
 
   def test_capability_cardinality_and_prepare(self):
     for caps in ([], ["python"], ["python", "shell", "linux"]):
