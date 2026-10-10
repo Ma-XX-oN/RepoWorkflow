@@ -11,6 +11,8 @@ import re
 import sys
 
 
+MAX_REQUEST_CHARS = 1048576
+
 OPERATIONS = (
   "issue.update",
   "issue.comment",
@@ -123,9 +125,11 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict:
 
 
 def _parse(raw: str) -> dict:
+  if len(raw) > MAX_REQUEST_CHARS:
+    raise ProtocolError("invalid_request", "request exceeds size limit")
   try:
     value = json.loads(raw, object_pairs_hook=_unique_object)
-  except (json.JSONDecodeError, ValueError) as exc:
+  except (json.JSONDecodeError, ValueError, RecursionError) as exc:
     raise ProtocolError("invalid_request", "invalid JSON request") from exc
   if not isinstance(value, dict) or set(value) != REQUEST_FIELDS:
     raise ProtocolError("invalid_request", "invalid request envelope")
@@ -155,7 +159,7 @@ def _parse(raw: str) -> dict:
 def _recovered_identities(raw: str) -> dict:
   try:
     value = json.loads(raw, object_pairs_hook=_unique_object)
-  except (json.JSONDecodeError, ValueError, ProtocolError):
+  except (json.JSONDecodeError, ValueError, RecursionError, ProtocolError):
     value = {}
   if not isinstance(value, dict):
     value = {}
@@ -207,7 +211,7 @@ def run(raw: str) -> tuple[int, str, str]:
 
 
 def main() -> int:
-  status, stdout, stderr = run(sys.stdin.read())
+  status, stdout, stderr = run(sys.stdin.read(MAX_REQUEST_CHARS + 1))
   sys.stdout.write(stdout)
   sys.stderr.write(stderr)
   return status
