@@ -108,6 +108,23 @@ class HostedCacheTests(unittest.TestCase):
           token="fixture-token", provider_lookup=lambda *args: response,
         ), set())
 
+  def test_later_attested_pass_recovers_from_pre_artifact_record(self):
+    legacy = {**self.record, "groups": [
+      {"group": "issue-545-old", "exit_code": 0},
+    ]}
+    self.publish(legacy, self.record)
+    answer = verified_hosted_passes(
+      self.root, stage="GREEN", revision=self.candidate,
+      fingerprint=self.fingerprint, invocation=self.second_invocation,
+      branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
+      token="fixture-token", provider_lookup=lambda *args: self.remote,
+      attestation_lookup=lambda repo, run_id, token, record: (
+        None if record["groups"][0]["group"] == "issue-545-old"
+        else _original_observation(record)
+      ),
+    )
+    self.assertEqual(answer, {"issue-545-one"})
+
   def test_run_provenance_does_not_authenticate_forged_group_payload(self):
     forged = {**self.record, "groups": [
       {"group": "issue-545-forged", "exit_code": 0},
