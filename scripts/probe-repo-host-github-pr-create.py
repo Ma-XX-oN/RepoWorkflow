@@ -149,18 +149,6 @@ def main() -> int:
       "conflict", "unauthorized",
     }:
       raise RuntimeError("stale PR create head was not refused")
-    print(json.dumps({
-      "result": "PASS",
-      "adapter": "shipped Python",
-      "operation": "pull_request.create",
-      "repository": REPO, "pr": created_pr,
-      "first": first["status"],
-      "restart_replay": again["status"],
-      "changed_idempotency_input": "conflict",
-      "stale_source_head": "rejected",
-      "provider_persisted": True,
-      "reservation_verified": True,
-    }, sort_keys=True))
   finally:
     if created_pr is not None:
       # Fixture cleanup is not a #81 semantic pull_request.update.
@@ -173,6 +161,18 @@ def main() -> int:
         "pulls/" + str(created_pr)
       )["state"] != "closed":
         raise RuntimeError("disposable PR cleanup failed")
+  print(json.dumps({
+    "result": "PASS",
+    "adapter": "shipped Python",
+    "operation": "pull_request.create",
+    "repository": REPO, "pr": created_pr,
+    "first": first["status"],
+    "restart_replay": again["status"],
+    "changed_idempotency_input": "conflict",
+    "stale_source_head": "rejected",
+    "provider_persisted": True,
+    "reservation_verified": True,
+  }, sort_keys=True))
   return 0
 
 
