@@ -83,14 +83,14 @@ def validate_result(
     or record.get("reason") != "expected-red-assertion-demonstrated"
   ):
     raise ValueError("hosted RED lacks verified assertion-failure classification")
-  if kind == "GREEN":
+  if kind in {"GREEN", "RED"}:
     selection = root / ".ci" / "red-green.txt"
     try:
       selected = selection.read_text(encoding="utf-8").strip()
     except OSError as error:
-      raise ValueError("hosted GREEN selection missing") from error
+      raise ValueError("hosted RED/GREEN selection missing") from error
     if [group["group"] for group in groups] != [selected]:
-      raise ValueError("hosted GREEN selection does not match result")
+      raise ValueError("hosted RED/GREEN selection does not match result")
 
   if kind == "temporary":
     try:
