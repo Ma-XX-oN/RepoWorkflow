@@ -89,6 +89,10 @@
       "issue-97-host-adapter": {
         "type": "regression",
         "name": "tests.test_repo_host_github"
+      },
+      "issue-97-github-provider-read": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_reads"
       }
     },
     {
