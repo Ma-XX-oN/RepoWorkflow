@@ -22,6 +22,7 @@ from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
+from .hosted_cache import verified_hosted_passes
 from .self_ci import group_command
 from .test_catalogue import load_test_catalogue
 from .red_expected import assertion_failure
@@ -228,6 +229,15 @@ def _run_group_set(
     if not uncommitted_before
     else set()
   )
+  if not uncommitted_before and os.environ.get("GITHUB_ACTIONS") == "true":
+    # Only an independently verified GitHub run may authorise hosted reuse.
+    reusable |= verified_hosted_passes(
+      root, stage=stage, revision=revision, fingerprint=fingerprint,
+      invocation=os.environ.get("GITHUB_SHA", ""),
+      branch=os.environ.get("GITHUB_REF_NAME", ""),
+      repository=os.environ.get("GITHUB_REPOSITORY", ""),
+      token=os.environ.get("GITHUB_TOKEN", ""),
+    )
   failures = []
   evidence = []
   for group in groups:
