@@ -117,6 +117,10 @@
       "issue-629-expected-red": {
         "type": "regression",
         "name": "tests.test_issue629_expected_red"
+      },
+      "issue-629-red-outcome": {
+        "type": "regression",
+        "name": "tests.test_issue629_red_outcome"
       }
     },
     {
