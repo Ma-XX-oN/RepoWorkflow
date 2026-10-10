@@ -9,6 +9,18 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-validator-hardening": {
+        "type": "temporary",
+        "name": "tests.test_hosted_result"
+      },
+      "issue-541-publisher-hardening": {
+        "type": "temporary",
+        "name": "tests.test_publish_hosted_result"
+      }
+    }
+  ],
   "aliases": {}
 }
