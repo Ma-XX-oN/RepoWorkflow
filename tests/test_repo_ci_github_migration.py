@@ -143,7 +143,7 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "ok", result)
         self.assertEqual(result["candidate"], value["candidate"])
         self.assertEqual(result["observations"]["stages"][0]["core_result"]["status"],
-                         status)
+                         status, result["observations"]["stages"][0]["core_result"])
         self.assertEqual(json.loads(destination.read_text())["status"], status)
         self.assertEqual(
           result["observations"]["stages"][0]["core_exit_code"],
