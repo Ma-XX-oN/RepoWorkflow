@@ -32,6 +32,67 @@ class ProtocolError(Exception):
     self.category = category
 
 
+
+SHA = re.compile(r"[0-9a-f]{40}\\Z")
+PARAMETERS = {
+  "issue.update": (
+    {"number"}, {"title", "state"},
+  ),
+  "issue.comment": (
+    {"number", "body"}, set(),
+  ),
+  "pull_request.create": (
+    {"source_ref", "target_ref", "expected_source_sha",
+     "title", "body", "draft"}, set(),
+  ),
+  "pull_request.update": (
+    {"number", "expected_head_sha"},
+    {"title", "body", "draft", "state", "target_ref"},
+  ),
+  "pull_request.merge": (
+    {"number", "tested_head_sha", "expected_destination_sha",
+     "eligibility_ref", "authorization_ref"}, set(),
+  ),
+  "check.publish": (
+    {"candidate_sha", "context", "verification_ref", "conclusion"}, set(),
+  ),
+}
+
+
+def _valid_parameters(operation: str, params: dict) -> None:
+  if operation == "capabilities":
+    return
+  required, optional = PARAMETERS[operation]
+  fields = set(params)
+  if not required <= fields or fields - required - optional:
+    raise ProtocolError("invalid_request", "invalid operation parameters")
+  if operation in {"issue.update", "pull_request.update"}:
+    if not fields.intersection(optional):
+      raise ProtocolError("invalid_request", "missing requested change")
+  for key, value in params.items():
+    if key == "number":
+      valid = type(value) is int and value > 0
+    elif key in {
+      "expected_source_sha", "expected_head_sha", "tested_head_sha",
+      "expected_destination_sha", "candidate_sha",
+    }:
+      valid = isinstance(value, str) and bool(SHA.fullmatch(value))
+    elif key == "draft":
+      valid = type(value) is bool
+    elif key == "state":
+      valid = value == "open"
+    elif key == "conclusion":
+      valid = value in {"success", "failure"}
+    elif key == "body":
+      valid = isinstance(value, str) and (
+        bool(value) if operation == "issue.comment" else True
+      )
+    else:
+      valid = isinstance(value, str) and bool(value)
+    if not valid:
+      raise ProtocolError("invalid_request", f"invalid parameter: {key}")
+
+
 def _parse(raw: str) -> dict:
   try:
     value = json.loads(raw)
@@ -55,6 +116,7 @@ def _parse(raw: str) -> dict:
     raise ProtocolError("invalid_request", "invalid parameters object")
   if value["operation"] == "capabilities" and value["parameters"]:
     raise ProtocolError("invalid_request", "capabilities takes no parameters")
+  _valid_parameters(value["operation"], value["parameters"])
   return value
 
 
