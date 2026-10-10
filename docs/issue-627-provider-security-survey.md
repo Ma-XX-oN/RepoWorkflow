@@ -16,23 +16,26 @@
   - GET /repos/Ma-XX-oN/RepoWorkflow/branches/main/protection:
     HTTP 403, Resource not accessible by integration.
   - GET /repos/Ma-XX-oN/RepoWorkflow/branches/main: HTTP 200;
-    commit f2c5378af11cb6de966b65bad135fe2e1ff5515d.
+    commit f2c5378af11cb6de966b65bad135fe2e1ff5515d;
+    protected=false; protection.enabled=false; required_status_checks
+    enforcement_level=off with no contexts or checks.
   - GET /repos/Ma-XX-oN/RepoWorkflow/rules/branches/main:
     rejected by connector allowlist (HTTP 400 before provider request).
   Authenticated user admin rights are NOT equivalent to GitHub App
-  installation administration permission. Branch protection state and
-  token authorization scopes remain unverified. No enforcement certified.
+  installation administration permission. The branch metadata reports
+  NO protection for main, while the detailed protection endpoint is 403.
+  Token authorization scopes remain unverified. No enforcement certified.
 
 ## Independent provider acceptance matrix
 
 | Scenario | Non-mutating evidence needed | Current verdict |
 | --- | --- | --- |
-| Direct push to main | Effective branch rule and actor bypass list | INCOMPLETE |
-| Force push to main | Effective force-push restrictions and actor bypass | INCOMPLETE |
-| Delete main | Effective deletion rule and actor bypass | INCOMPLETE |
+| Direct push to main | Effective branch rule and actor bypass list | NO CONFIGURED PROTECTION (branch metadata); rejection untested |
+| Force push to main | Effective force-push restrictions and actor bypass | NO CONFIGURED PROTECTION (branch metadata); rejection untested |
+| Delete main | Effective deletion rule and actor bypass | NO CONFIGURED PROTECTION (branch metadata); rejection untested |
 | Stale-base push | Required up-to-date checks and merge queue configuration | INCOMPLETE |
 | Unauthorized actor | Ruleset actor matching and effective bypass identities | INCOMPLETE |
-| Required checks | Required check names, sources and exact SHA | INCOMPLETE |
+| Required checks | Required check names, sources and exact SHA | DISABLED (branch metadata); rejection untested |
 | Protected release tag | Tag ruleset patterns and bypass actors | INCOMPLETE |
 
 A successful read of a branch is **not** evidence that writes are restricted.
