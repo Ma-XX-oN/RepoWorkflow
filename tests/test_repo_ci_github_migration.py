@@ -137,6 +137,7 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
         with patch.dict(os.environ, {
           "RWF_REPO_CI_WORKSPACE": str(workspace),
           "RWF_REPO_CI_RESULT_ROOT": str(destination.parent),
+          "GITHUB_REPOSITORY": "owner/repo",
         }):
           result = handle_request(value, ROOT)
         self.assertEqual(result["status"], "ok", result)
