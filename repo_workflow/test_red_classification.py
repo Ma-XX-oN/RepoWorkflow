@@ -6,6 +6,8 @@ Callers must establish the expected outcome before launching the test.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import subprocess
 
 
 @dataclass(frozen=True)
@@ -57,3 +59,25 @@ def classify_red(
   ):
     return RedDecision("RED", "declared-behavioural-failure-observed")
   return RedDecision("FAIL", "unexpected-test-failure")
+
+def execute_red(
+  command: tuple[str, ...],
+  *,
+  cwd: Path,
+  expectation: RedExpectation | None,
+) -> RedDecision:
+  """Execute an explicit command; transport failures never count as RED."""
+  if not command or not all(isinstance(x, str) and x for x in command):
+    return RedDecision("INCOMPLETE", "invalid-selected-test-command")
+  try:
+    completed = subprocess.run(
+      command, cwd=cwd, capture_output=True, text=True, check=False,
+    )
+  except (OSError, UnicodeError):
+    return RedDecision("INCOMPLETE", "selected-test-cannot-execute")
+  return classify_red(
+    expectation,
+    RedObservation(
+      completed.returncode, completed.stdout, completed.stderr, True,
+    ),
+  )
