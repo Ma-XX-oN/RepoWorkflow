@@ -42,6 +42,7 @@ class PublishHostedResultTests(unittest.TestCase):
     self.log.parent.mkdir(parents=True)
     self.observation = {
       "kind": "GREEN", "testSHA": self.candidate,
+      "branch": "issue-543-probe",
       "result": "succeeded", "runner": "local",
       "reusable": True, "uncommittedChanges": [],
       "headChangedDuringTest": False,
@@ -172,6 +173,46 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertNotEqual(result.returncode, 0)
     self.assertIn("latest observation", result.stderr)
     self.assertEqual(self._git("rev-parse", "HEAD"), self.candidate)
+
+  def test_unbound_or_spoofed_observations_are_rejected(self):
+    for patch in (
+      {"branch": "issue-541-other"},
+      {"branch": None},
+      {"runner": "github-actions"},
+      {"providerRunId": 123},
+      {"headChangedDuringTest": True},
+      {"uncommittedChanges": ["untracked.py"]},
+      {"result": "SKIPPED"},
+    ):
+      with self.subTest(patch=patch):
+        self.observation.update(patch)
+        self._record()
+        result = self._publish()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._git("rev-parse", "HEAD"), self.candidate)
+        self.observation = {
+          key: value for key, value in self.observation.items()
+          if key not in patch
+        }
+        self.observation.update({
+          "branch": "issue-543-probe",
+          "runner": "local",
+          "headChangedDuringTest": False,
+          "uncommittedChanges": [],
+          "result": "succeeded",
+        })
+
+  def test_duplicate_and_nonfinite_fields_are_rejected(self):
+    raw = json.dumps(self.observation)
+    for malformed in (
+      raw[:-1] + ', "testSHA": "' + self.candidate + '"}',
+      raw[:-1] + ', "unexpected": NaN}',
+    ):
+      with self.subTest(raw=malformed[-40:]):
+        self.log.write_text(malformed + "\\n")
+        result = self._publish()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self._git("rev-parse", "HEAD"), self.candidate)
 
   def test_dirty_source_rejected(self):
     (self.root / "extra.txt").write_text("dirty")
