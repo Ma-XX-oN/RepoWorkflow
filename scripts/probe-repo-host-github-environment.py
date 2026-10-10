@@ -28,6 +28,22 @@ def validate_environment(value: dict) -> None:
     raise RuntimeError("protected custom deployment branch policy required")
 
 
+
+def validate_branch_policies(value: dict) -> None:
+  if not isinstance(value, dict):
+    raise RuntimeError("deployment branch policies missing")
+  policies = value.get("branch_policies")
+  if type(value.get("total_count")) is not int or (
+    value["total_count"] != 1
+  ) or not isinstance(policies, list) or len(policies) != 1:
+    raise RuntimeError("exactly one sandbox branch policy required")
+  if not isinstance(policies[0], dict) or (
+    policies[0].get("name") != "issue-97-github-host-mutation-adapter"
+  ):
+    raise RuntimeError("sandbox branch policy is not exact")
+
+
+
 def main() -> int:
   result = subprocess.run(
     ["gh", "api",
@@ -37,6 +53,15 @@ def main() -> int:
   if result.returncode:
     raise RuntimeError("cannot verify sandbox environment protections")
   validate_environment(json.loads(result.stdout))
+  branch_response = subprocess.run(
+    ["gh", "api",
+     "repos/Ma-XX-oN/RepoWorkflow/environments/"
+     "rwf97-sandbox/deployment-branch-policies"],
+    capture_output=True, text=True, check=False, timeout=30,
+  )
+  if branch_response.returncode:
+    raise RuntimeError("cannot verify sandbox branch restrictions")
+  validate_branch_policies(json.loads(branch_response.stdout))
   print(json.dumps({"result": "PASS",
                     "environment": "rwf97-sandbox",
                     "independent_review": True,
