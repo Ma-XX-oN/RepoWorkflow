@@ -34,6 +34,17 @@ class ShippedTestLauncher(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("--remote", out.stdout + out.stderr)
 
+  def test_shipped_completion_lists_six_current_testing_stages(self):
+    output = self.launcher("complete", "test", "")
+    self.assertEqual(output.returncode, 0, output.stderr)
+    for stage in (
+      "RED", "temporary", "GREEN", "regression", "integration", "results",
+    ):
+      with self.subTest(stage=stage):
+        self.assertIn(stage, output.stdout)
+    self.assertNotIn("validate regression", output.stdout)
+
+
   def test_remote_switch_cannot_precede_stage_for_any_command(self):
     before = self.git("rev-parse", "HEAD")
     for name in (
