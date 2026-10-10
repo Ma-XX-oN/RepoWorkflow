@@ -89,6 +89,10 @@
       "issue-68-validation-evidence": {
         "type": "regression",
         "name": "tests.test_evidence_identity"
+      },
+      "issue-95-coverage-applicability": {
+        "type": "regression",
+        "name": "tests.test_validation_coverage"
       }
     },
     {
