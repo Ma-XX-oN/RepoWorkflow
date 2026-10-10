@@ -100,6 +100,48 @@ class GitHubProviderTests(unittest.TestCase):
         backend.check_reservation(changed)
       self.assertEqual(caught.exception.code, "conflict")
 
+
+  def test_draft_graphql_transition_uses_observed_node_id(self):
+    backend = provider.GitHubBackend("owner/repo")
+    pr = {
+      "number": 9, "node_id": "PR_NODE_9",
+      "head": {"sha": SHA}, "base": {"ref": "main", "sha": TREE},
+      "draft": True, "state": "open",
+    }
+    with patch.object(backend, "pull", return_value=pr):
+      with patch.object(
+        provider, "_json_call", return_value={
+          "data": {"markPullRequestReadyForReview": {
+            "pullRequest": {"id": "PR_NODE_9", "isDraft": False},
+          }},
+        },
+      ) as call:
+        backend.set_draft(9, False)
+    self.assertEqual(call.call_args.args[:2], ("POST", "graphql"))
+    self.assertEqual(
+      call.call_args.args[2]["variables"]["id"], "PR_NODE_9"
+    )
+    self.assertIn(
+      "markPullRequestReadyForReview",
+      call.call_args.args[2]["query"],
+    )
+
+  def test_draft_graphql_failure_does_not_claim_success(self):
+    backend = provider.GitHubBackend("owner/repo")
+    pr = {
+      "number": 9, "node_id": "PR_NODE_9",
+      "head": {"sha": SHA}, "base": {"ref": "main", "sha": TREE},
+      "draft": False, "state": "open",
+    }
+    with patch.object(backend, "pull", return_value=pr):
+      with patch.object(
+        provider, "_json_call",
+        return_value={"errors": [{"message": "failure"}]},
+      ):
+        with self.assertRaises(provider.ProviderError) as caught:
+          backend.set_draft(9, True)
+    self.assertEqual(caught.exception.code, "unknown_outcome")
+
   def test_new_reservation_is_atomic_ref_creation(self):
     backend = provider.GitHubBackend("owner/repo")
     values = {
