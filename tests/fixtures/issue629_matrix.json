@@ -4,120 +4,282 @@
   "entries": [
     {
       "id": "M01",
-      "requirement": "Six command families",
+      "requirement": "Six public test families and spelling",
       "environment": "CLI",
       "test": "tests.test_issue629_cli_acceptance.UnifiedCliSpecificationTests.test_all_six_stage_help_paths",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "implemented": true
+      "evidence": null
     },
     {
       "id": "M02",
-      "requirement": "Selection cardinality and invalid values",
+      "requirement": "Single persisted RED selection; zero one many invalid",
       "environment": "CLI",
-      "test": "test_selection_partition",
+      "test": "tests.test_issue629_selection_acceptance.SelectionLifecycleAcceptanceTests.test_many_groups_still_selects_exactly_one",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "implemented": false,
-      "pending_reason": "#545 executable selection lifecycle not present in current branch"
+      "evidence": null
     },
     {
       "id": "M03",
-      "requirement": "Local and hosted evidence equivalence",
-      "environment": "provider",
-      "test": "test_evidence_equivalence",
+      "requirement": "Stage help and --remote option grammar",
+      "environment": "CLI",
+      "test": "tests.test_issue629_cli_acceptance.UnifiedCliSpecificationTests.test_remote_option_is_documented_for_every_stage",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "evidence": null
     },
     {
       "id": "M04",
-      "requirement": "Reject stale missing failed replayed evidence",
-      "environment": "provider",
-      "test": "test_evidence_rejection",
+      "requirement": "Superseded validate commands absent",
+      "environment": "CLI",
+      "test": "tests.test_issue629_cli_acceptance.UnifiedCliSpecificationTests.test_legacy_validate_regression_and_integration_removed",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "evidence": null
     },
     {
       "id": "M05",
-      "requirement": "Exact candidate and catalogue identity",
-      "environment": "provider",
-      "test": "tests.test_issue629_provider_probe.LiveProviderMetadataTests.test_completed_successful_run_exact_invocation_sha",
+      "requirement": "Dedicated marker stage and pre-invocation tip",
+      "environment": "integration",
+      "test": "tests.test_issue629_invocation_acceptance.InvocationContractAcceptanceTests.test_dedicated_commit_matches_parent",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "implemented": true
+      "evidence": null
     },
     {
       "id": "M06",
-      "requirement": "Dedicated marker and no ordinary push CI",
-      "environment": "provider",
-      "test": "test_marker_contract",
+      "requirement": "Missed invocation retry binds immediate previous tip",
+      "environment": "integration",
+      "test": "tests.test_issue629_invocation_acceptance.InvocationContractAcceptanceTests.test_retry_binds_immediate_previous_tip",
+      "implemented": true,
       "status": "pending",
-      "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "evidence": null
     },
     {
       "id": "M07",
-      "requirement": "Linux Windows macOS matrix",
+      "requirement": "No paid testing on ordinary push",
       "environment": "provider",
-      "test": "test_platform_coverage",
+      "test": "test_no_ordinary_push_dispatch",
+      "implemented": false,
       "status": "pending",
       "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
     },
     {
       "id": "M08",
-      "requirement": "Protected main security refusal",
+      "requirement": "Remote results reading triggers no new run",
       "environment": "provider",
-      "test": "test_protected_main_refusal",
+      "test": "test_results_remote_is_read_only",
+      "implemented": false,
       "status": "pending",
       "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
     },
     {
       "id": "M09",
-      "requirement": "Destination tip freshness",
-      "environment": "integration",
-      "test": "test_destination_freshness",
+      "requirement": "Local and hosted stages select equivalent tests",
+      "environment": "provider",
+      "test": "test_local_hosted_selection_parity",
+      "implemented": false,
       "status": "pending",
       "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
     },
     {
       "id": "M10",
-      "requirement": "Accepted PASS reuse and changed-input invalidation",
-      "environment": "provider",
-      "test": "test_reuse_and_invalidation",
+      "requirement": "Canonical per-issue testing log write",
+      "environment": "CLI",
+      "test": "test_canonical_log_write",
+      "implemented": false,
       "status": "pending",
       "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "pending_reason": "Executable CLI integration not present in #629 source branch"
     },
     {
       "id": "M11",
-      "requirement": "Failed incomplete unavailable provider outcomes",
-      "environment": "provider",
-      "test": "test_provider_failure_states",
+      "requirement": "Local results reads canonical log",
+      "environment": "CLI",
+      "test": "test_local_results_read",
+      "implemented": false,
       "status": "pending",
       "evidence": null,
-      "implemented": false,
-      "pending_reason": "Requires assembled provider-backed observation; no synthetic substitute"
+      "pending_reason": "Executable CLI integration not present in #629 source branch"
     },
     {
       "id": "M12",
-      "requirement": "Immutable provider artifact attestation",
+      "requirement": "Remote results retrieves provider records",
       "environment": "provider",
-      "test": "tests.test_issue629_provider_probe.LiveProviderMetadataTests.test_provider_run_has_named_unexpired_artifact",
+      "test": "test_remote_results_retrieval",
+      "implemented": false,
       "status": "pending",
       "evidence": null,
-      "implemented": true
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M13",
+      "requirement": "No one many invalid for each stage",
+      "environment": "CLI",
+      "test": "test_all_stage_cardinality",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Executable CLI integration not present in #629 source branch"
+    },
+    {
+      "id": "M14",
+      "requirement": "Malformed or stale RED selection rejected",
+      "environment": "CLI",
+      "test": "tests.test_issue629_selection_acceptance.SelectionLifecycleAcceptanceTests.test_invalid_foreign_or_unregistered_group_refused",
+      "implemented": true,
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M15",
+      "requirement": "Missing selection warns and records SKIPPED not PASS",
+      "environment": "CLI",
+      "test": "tests.test_issue629_selection_acceptance.SelectionLifecycleAcceptanceTests.test_zero_groups_has_no_false_red_pass",
+      "implemented": true,
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M16",
+      "requirement": "Temporary catalogue path and cleanup",
+      "environment": "CLI",
+      "test": "test_temporary_manifest_contract",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Executable CLI integration not present in #629 source branch"
+    },
+    {
+      "id": "M17",
+      "requirement": "Expected RED vs unexpected exit and infrastructure failures",
+      "environment": "CLI",
+      "test": "test_expected_red_classification",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Executable CLI integration not present in #629 source branch"
+    },
+    {
+      "id": "M18",
+      "requirement": "Unchanged accepted GREEN PASS actually bypasses subprocess",
+      "environment": "provider",
+      "test": "test_reuse_without_subprocess",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M19",
+      "requirement": "Changed inputs invalidate applicable cached evidence",
+      "environment": "provider",
+      "test": "test_changed_inputs_cache_invalidation",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M20",
+      "requirement": "Exact candidate and catalogue SHA binding",
+      "environment": "provider",
+      "test": "tests.test_issue629_provider_probe.LiveProviderMetadataTests.test_completed_successful_run_exact_invocation_sha",
+      "implemented": true,
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M21",
+      "requirement": "Reject failed missing stale or replayed evidence",
+      "environment": "provider",
+      "test": "test_evidence_failure_matrix",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M22",
+      "requirement": "Reject forged/malformed external evidence",
+      "environment": "provider",
+      "test": "test_forged_provider_evidence",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M23",
+      "requirement": "Linux Windows and macOS hosted matrix",
+      "environment": "provider",
+      "test": "test_required_platform_matrix",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M24",
+      "requirement": "Protected main refuses direct push bypass force delete",
+      "environment": "provider",
+      "test": "test_protected_main_refusal",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M25",
+      "requirement": "Stale destination race rejects later candidate atomically",
+      "environment": "integration",
+      "test": "test_destination_race",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M26",
+      "requirement": "Reconcile required checks and documentation",
+      "environment": "integration",
+      "test": "test_protection_and_docs_contract",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M27",
+      "requirement": "Provider immutable artifact lookup",
+      "environment": "provider",
+      "test": "tests.test_issue629_provider_probe.LiveProviderMetadataTests.test_provider_run_has_named_unexpired_artifact",
+      "implemented": true,
+      "status": "pending",
+      "evidence": null
+    },
+    {
+      "id": "M28",
+      "requirement": "Incomplete failed and unavailable provider outcomes",
+      "environment": "provider",
+      "test": "test_provider_outcome_fail_closed",
+      "implemented": false,
+      "status": "pending",
+      "evidence": null,
+      "pending_reason": "Assembled provider/security evidence belongs to #543 after prerequisites"
+    },
+    {
+      "id": "M29",
+      "requirement": "Source-mixed request and uncommitted marker tamper",
+      "environment": "integration",
+      "test": "tests.test_issue629_invocation_acceptance.InvocationContractAcceptanceTests.test_mixed_source_mutation_rejected",
+      "implemented": true,
+      "status": "pending",
+      "evidence": null
     }
   ]
 }
