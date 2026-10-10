@@ -11,7 +11,8 @@ from repo_workflow.state_store import WriterIdentity
 from repo_workflow.validation_coverage import Requirement
 from repo_workflow.validation_import import ImportDecision
 from repo_workflow.validation_plan import (
-  ValidationPlanError, build_plan, dispatch_missing, plan_from_store,
+  ValidationPlanError, build_plan, dispatch_missing, execute_from_store,
+  plan_from_store,
 )
 from repo_workflow.validation_store import (
   ValidationEvidenceStore, ValidationObservation, ValidationStoreError,
@@ -257,6 +258,77 @@ class EvidenceAwarePlanTests(unittest.TestCase):
       )
     self.assertEqual(observed["observations"][0]["outcome"], "unavailable")
     self.assertFalse(observed["observations"][0]["complete"])
+
+  def test_plan_and_execute_refuses_untrusted_skips_without_dispatch(self):
+    self.store.publish(observation(), self.writer)
+    with patch("repo_workflow.validation_plan.dispatch") as provider:
+      plan, execution = execute_from_store(
+        ROOT, self.store, [requirement()], CANDIDATE, envelope(),
+        {"unit/a": "invariant-self-ci-contract"},
+        trusted_record_ids=frozenset(),
+        equivalent_candidate_shas=frozenset(),
+      )
+      self.assertEqual(plan.automated_units, ("unit/a",))
+      self.assertEqual(execution["executed"], ("unit/a",))
+      self.assertEqual(provider.call_count, 1)
+
+  def test_planner_exactly_skips_imported_units_in_one_execution(self):
+    self.store.publish(observation(), self.writer)
+    answer = {
+      "status": "ok", "candidate": envelope()["candidate"],
+      "observations": {"stages": [{
+        "stage": "unit/b", "candidate": envelope()["candidate"],
+        "complete": True, "outcome": "succeeded", "exit_code": 0,
+      }]},
+    }
+    with patch("repo_workflow.validation_plan.dispatch", return_value=answer):
+      plan, result = execute_from_store(
+        ROOT, self.store, [requirement(), requirement("unit/b")],
+        CANDIDATE, envelope(), {"unit/b": "invariant-self-ci-contract"},
+        trusted_record_ids=frozenset({"first"}),
+        equivalent_candidate_shas=frozenset(),
+      )
+    self.assertEqual(plan.automated_units, ("unit/b",))
+    self.assertEqual(result["reused"], ("unit/a",))
+    self.assertEqual(result["observations"][0]["stage"], "unit/b")
+
+  def test_invalid_envelope_cannot_skip_when_evidence_complete(self):
+    self.store.publish(observation(), self.writer)
+    plan = self.plan()
+    for replacement in (
+      {"invocation_id": ""},
+      {"contract_version": True},
+      {"inputs": {"base": OTHER, "extra": "untrusted"}},
+      {"requirements": {"stages": ["pretend-done"],
+                        "capabilities": [], "artifacts": []}},
+      {"candidate": {"repository": "", "commit": CANDIDATE, "base": OTHER}},
+    ):
+      with self.subTest(replacement=replacement):
+        bad = {**envelope(), **replacement}
+        with patch("repo_workflow.validation_plan.dispatch") as remote:
+          with self.assertRaises(ValidationPlanError):
+            dispatch_missing(ROOT, plan, bad, {})
+          remote.assert_not_called()
+
+  def test_real_configured_provider_executes_missing_stage(self):
+    # This is provider-backed rather than a mock: the GitHub adapter runs the
+    # selected immutable test-catalogue group from this checked-out HEAD.
+    head = subprocess.run(
+      ["git", "rev-parse", "HEAD"], cwd=ROOT,
+      capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    plan = plan_from_store(
+      self.store, [requirement()], head,
+      trusted_record_ids=frozenset(),
+      equivalent_candidate_shas=frozenset(),
+    )
+    request = envelope(head)
+    response = dispatch_missing(
+      ROOT, plan, request, {"unit/a": "invariant-self-ci-contract"},
+    )
+    self.assertEqual(response["executed"], ("unit/a",))
+    self.assertEqual(response["observations"][0]["outcome"], "succeeded")
+    self.assertTrue(response["observations"][0]["complete"])
 
   def test_provider_error_never_claims_success(self):
     plan = self.plan()
