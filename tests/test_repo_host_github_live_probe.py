@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -31,6 +32,12 @@ class LiveProbeCleanupTests(unittest.TestCase):
       sequence.append("GET " + path)
       if path == "":
         return {"default_branch": "main"}
+      if path.startswith("issues/3/comments?"):
+        identity = "owner/sandbox\\0issue.comment\\0acceptance-comment"
+        marker = "<!-- RWF-HOST-REQUEST-V1:" + hashlib.sha256(
+          identity.replace("\\\\0", "\\0").encode("utf-8")
+        ).hexdigest() + " -->"
+        return [{"id": 9, "body": "RWF probe acceptance\\n" + marker}]
       if path.startswith("issues/"):
         return {"state": "open", "title": state["title"]}
       if path.startswith("git/ref/heads/"):
