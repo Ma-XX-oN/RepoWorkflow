@@ -59,6 +59,10 @@
       "issue-628-trigger-probe-matrix": {
         "type": "regression",
         "name": "tests.test_issue_628_trigger_matrix"
+      },
+      "issue-628-provider-observer": {
+        "type": "regression",
+        "name": "tests.test_issue_628_observer"
       }
     }
   ],
