@@ -30,7 +30,7 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       "vars.RWF97_APPROVED_SHA == github.sha",
       "git rev-parse HEAD",
       "environment: rwf97-sandbox",
-      "runs-on: [self-hosted, rwf97-trusted]",
+      "runs-on: [self-hosted, linux, rwf97-trusted]",
       "secrets.RWF97_SANDBOX_GH_TOKEN",
       "vars.RWF97_SANDBOX_REPOSITORY",
       "vars.RWF97_AUTH_EXECUTABLE",
