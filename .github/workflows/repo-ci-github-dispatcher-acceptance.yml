@@ -140,7 +140,7 @@ jobs:
           python -m repo_workflow.repo_ci_dispatcher fetch < request.json > reply.json
           python -m repo_workflow.repo_ci_dispatcher fetch < stale.json > stale-reply.json
           python - <<'PY'
-          import json
+          import json, os
           from pathlib import Path
           result = json.loads(Path("reply.json").read_text())
           assert result["status"] == "ok", result
