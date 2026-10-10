@@ -46,6 +46,7 @@ class PublishHostedResultTests(unittest.TestCase):
       "result": "succeeded", "runner": "local",
       "reusable": True, "uncommittedChanges": [],
       "headChangedDuringTest": False,
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
       "groups": [{"group": "issue-543-demo", "exit_code": 0}],
     }
     self._record()
@@ -183,6 +184,7 @@ class PublishHostedResultTests(unittest.TestCase):
       {"headChangedDuringTest": True},
       {"uncommittedChanges": ["untracked.py"]},
       {"result": "SKIPPED"},
+      {"platform": {}},
     ):
       with self.subTest(patch=patch):
         self.observation.update(patch)
@@ -200,6 +202,8 @@ class PublishHostedResultTests(unittest.TestCase):
           "headChangedDuringTest": False,
           "uncommittedChanges": [],
           "result": "succeeded",
+          "platform": {"os": "Linux", "architecture": "x86_64",
+                       "runtime": "3.13"},
         })
 
   def test_duplicate_and_nonfinite_fields_are_rejected(self):
