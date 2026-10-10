@@ -61,8 +61,10 @@ def validate_request(value: Any, operation: str) -> dict:
     raise RepoCiError("unsupported-operation", "invalid operation")
   _nonempty(request["invocation_id"], "invocation_id")
   candidate = _object(request["candidate"], "candidate")
-  if not candidate:
-    raise RepoCiError("invalid-request", "candidate is required")
+  if not {"repository", "commit", "base"} <= set(candidate):
+    raise RepoCiError("invalid-request", "candidate identity is incomplete")
+  for key in ("repository", "commit", "base"):
+    _nonempty(candidate[key], key)
   if not all(isinstance(k, str) and k for k in candidate):
     raise RepoCiError("invalid-request", "invalid candidate identity")
   requirements = _object(request["requirements"], "requirements")
@@ -71,6 +73,25 @@ def validate_request(value: Any, operation: str) -> dict:
   _object(request["inputs"], "inputs")
   return request
 
+
+
+def _pairs(items: list[tuple[str, Any]]) -> dict:
+  result = {}
+  for key, value in items:
+    if key in result:
+      raise ValueError("duplicate JSON key")
+    result[key] = value
+  return result
+
+
+def _reject_constant(value: str) -> None:
+  raise ValueError("non-standard JSON constant")
+
+
+def _parse_json(value: bytes) -> Any:
+  return json.loads(
+    value, object_pairs_hook=_pairs, parse_constant=_reject_constant,
+  )
 
 def _config(root: Path) -> list[str]:
   path = root / ".ci" / "repo-ci.json"
@@ -101,7 +122,9 @@ def _result(value: Any, request: dict) -> dict:
       raise RepoCiError("identity-mismatch", f"mismatched {name}")
   if type(response["contract_version"]) is not int:
     raise RepoCiError("identity-mismatch", "invalid result version")
-  if response["status"] not in {"ok", "error"}:
+  if not isinstance(response["status"], str) or (
+    response["status"] not in {"ok", "error"}
+  ):
     raise RepoCiError("internal-error", "invalid adapter status")
   if not isinstance(response["observations"], dict):
     raise RepoCiError("internal-error", "invalid observations")
@@ -122,7 +145,7 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
   if operation not in OPERATIONS:
     raise RepoCiError("unsupported-operation", "unknown operation")
   try:
-    request = validate_request(json.loads(raw), operation)
+    request = validate_request(_parse_json(raw), operation)
   except (UnicodeDecodeError, ValueError) as exc:
     raise RepoCiError("invalid-request", "malformed JSON request") from exc
   command = _config(root)
@@ -140,7 +163,7 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
     raise RepoCiError("transport-failed", "adapter invocation failed") from exc
   if result.returncode != 0:
     try:
-      error = json.loads(result.stderr)
+      error = _parse_json(result.stderr)
       if (
         isinstance(error, dict)
         and error.get("code") in ERRORS
@@ -150,7 +173,7 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
       pass
     raise RepoCiError("transport-failed", "adapter returned failure")
   try:
-    response = json.loads(result.stdout)
+    response = _parse_json(result.stdout)
   except (UnicodeDecodeError, ValueError) as exc:
     raise RepoCiError("internal-error", "invalid adapter JSON") from exc
   return _result(response, request)
