@@ -123,7 +123,7 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
       with self.subTest(status=status), tempfile.TemporaryDirectory() as td:
         workspace = Path(td) / "consumer"
         workspace.mkdir()
-        fixture = RepoFixture(workspace, validation_body=f"raise SystemExit({rc})\\n")
+        fixture = RepoFixture(workspace, validation_body=f"raise SystemExit({rc})\n")
         destination = Path(td) / "observations" / "local.json"
         value = request("execute")
         value["candidate"]["commit"] = fixture.head()
