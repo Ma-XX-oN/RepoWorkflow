@@ -30,7 +30,9 @@ class GitHubReadBoundaryTests(unittest.TestCase):
 
   def test_issue_normalized_and_read_only(self):
     payload = {"number": 8, "title": "Example", "state": "open"}
-    with patch.object(MODULE.subprocess, "run", return_value=result(payload)) as run:
+    with patch.object(
+      MODULE.subprocess, "run", return_value=result(payload)
+    ) as run:
       value = MODULE.issue_get("owner/repo", 8)
     self.assertEqual(value, payload)
     self.assertEqual(run.call_args.args[0], [
