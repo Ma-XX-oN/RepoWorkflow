@@ -57,6 +57,10 @@ def _expectation_issue(expectation: RedExpectation | None) -> str | None:
     or not isinstance(expectation.output_contains, str)
     or not expectation.output_contains.strip()
     or generic_red_signature(expectation.output_contains)
+    or any(
+      0xD800 <= ord(char) <= 0xDFFF
+      for char in expectation.output_contains
+    )
   ):
     return "invalid-expected-failure-declaration"
   return None
