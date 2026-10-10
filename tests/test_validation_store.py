@@ -118,6 +118,42 @@ class DurableEvidenceAcceptance(unittest.TestCase):
         with self.assertRaises(ValidationStoreError):
           observation(**{field: value})
 
+  def test_committed_evidence_survives_source_branch_deletion(self):
+    import subprocess
+
+    repo = self.root / "repository"
+    repo.mkdir()
+    commands = [
+      ("init", "-q", "-b", "main"),
+      ("config", "user.email", "test@example.org"),
+      ("config", "user.name", "Validation Test"),
+    ]
+    for args in commands:
+      subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    (repo / "README").write_text("base", encoding="utf-8")
+    subprocess.run(["git", "add", "README"], cwd=repo, check=True,
+                   capture_output=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=repo, check=True,
+                   capture_output=True)
+    subprocess.run(["git", "switch", "-qc", "execution"], cwd=repo, check=True,
+                   capture_output=True)
+
+    store = ValidationEvidenceStore(repo)
+    item = observation()
+    store.publish(item, self.writer)
+    subprocess.run(["git", "add", ".repoworkflow/validation"], cwd=repo,
+                   check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", "retain evidence"], cwd=repo,
+                   check=True, capture_output=True)
+    subprocess.run(["git", "switch", "-q", "main"], cwd=repo,
+                   check=True, capture_output=True)
+    subprocess.run(["git", "merge", "--ff-only", "execution"], cwd=repo,
+                   check=True, capture_output=True)
+    subprocess.run(["git", "branch", "-D", "execution"], cwd=repo,
+                   check=True, capture_output=True)
+
+    self.assertEqual(ValidationEvidenceStore(repo).read("run-001"), item)
+
   def test_reader_fails_closed_on_unexpected_file(self):
     folder = self.store.records.root / "records"
     folder.mkdir(parents=True)
