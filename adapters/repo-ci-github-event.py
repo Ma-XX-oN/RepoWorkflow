@@ -74,9 +74,9 @@ def _context(inputs: dict) -> tuple[str, str, str]:
     raise InvalidRequest("invalid-request", "unexpected execution-context input")
   event = inputs.get("event")
   platform = inputs.get("platform")
-  if event not in EVENT_MODES:
+  if not isinstance(event, str) or event not in EVENT_MODES:
     raise InvalidRequest("invalid-request", "unsupported event")
-  if platform not in RUNNERS:
+  if not isinstance(platform, str) or platform not in RUNNERS:
     raise InvalidRequest("capability-unavailable", "unsupported runner platform")
   mode = EVENT_MODES[event]
   if inputs.get("mode") is not None and inputs["mode"] != mode:
@@ -88,7 +88,7 @@ def _resolve(inputs: dict, required: list[str]) -> tuple[str, str, list[str]]:
   if set(inputs) - {"platform", "available_capabilities"}:
     raise InvalidRequest("invalid-request", "unexpected capability input")
   platform = inputs.get("platform")
-  if platform not in RUNNERS:
+  if not isinstance(platform, str) or platform not in RUNNERS:
     raise InvalidRequest("capability-unavailable", "unsupported runner platform")
   available = set(RUNNERS[platform]["capabilities"])
   if "available_capabilities" in inputs:
