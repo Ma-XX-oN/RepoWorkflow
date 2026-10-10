@@ -168,7 +168,7 @@ class LocalStageCardinalityTests(unittest.TestCase):
     selected = self.cli("test", "RED", groups[1])
     self.assertNotEqual(selected.returncode, 0)
     self.assertEqual(
-      (self.root / ".ci/red-green.txt").read_text(), groups[1] + "\\n")
+      (self.root / ".ci/red-green.txt").read_text(), groups[1] + "\n")
     result = self.cli("test", "GREEN")
     self.assertEqual(result.returncode, 0, result.stderr)
     row = self.log()[-1]
@@ -178,7 +178,7 @@ class LocalStageCardinalityTests(unittest.TestCase):
   def test_invalid_green_selection_fails_without_pass(self):
     self.catalogue(["issue-629-valid"])
     selection = self.root / ".ci/red-green.txt"
-    selection.write_text("issue-629-valid\\nissue-629-other\\n")
+    selection.write_text("issue-629-valid\nissue-629-other\n")
     self.git("add", ".ci/red-green.txt")
     self.git("commit", "-m", "invalid multiple selection")
     result = self.cli("test", "GREEN")
