@@ -65,6 +65,19 @@ class RedRunnerContract(unittest.TestCase):
     self.assertEqual(evidence["result"], "failed")
     self.assertEqual(evidence["redStatus"], "FAIL")
 
+  def test_invalid_utf8_child_output_cannot_be_red(self):
+    status, evidence, _ = self.run_group(
+      [sys.executable, "-c",
+       "import os,sys;os.write(2,b'\\xffexpected invariant');sys.exit(3)"],
+      RedExpectation(3, "expected invariant"),
+    )
+    self.assertEqual(status, 2)
+    self.assertEqual(evidence["redStatus"], "INCOMPLETE")
+    self.assertEqual(evidence["result"], "incomplete")
+    self.assertFalse(evidence["reusable"])
+    self.assertIsNone(evidence["groups"][0]["exit_code"])
+
+
   def test_missing_executable_is_incomplete(self):
     status, evidence, _ = self.run_group(
       ["rwf-unavailable-bin-545"], RedExpectation(3, "invariant 545"),
