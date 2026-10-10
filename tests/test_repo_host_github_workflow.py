@@ -27,6 +27,8 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
     source = LIVE.read_text(encoding="utf-8")
     for required in (
       "vars.RWF97_ENABLE == 'true'",
+      "vars.RWF97_APPROVED_SHA == github.sha",
+      "git rev-parse HEAD",
       "environment: rwf97-sandbox",
       "runs-on: [self-hosted, rwf97-trusted]",
       "secrets.RWF97_SANDBOX_GH_TOKEN",
@@ -85,6 +87,30 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       with self.subTest(bad=bad):
         with self.assertRaises(RuntimeError):
           helper.validate_environment(bad)
+
+  def test_configuration_inspection_is_read_only_and_conservative(self):
+    path = ROOT / "scripts/probe-repo-host-github-configuration.py"
+    spec = importlib.util.spec_from_file_location(
+      "issue97_configuration", path
+    )
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    self.assertEqual(
+      helper.inspection_status(1, "HTTP 403 forbidden"),
+      "INSUFFICIENT_INSPECTION_PERMISSION",
+    )
+    self.assertEqual(
+      helper.inspection_status(1, "HTTP 404 not found"),
+      "NOT_FOUND_OR_CONCEALED",
+    )
+    self.assertEqual(
+      helper.inspection_status(0, ""),
+      "READABLE",
+    )
+    source = path.read_text(encoding="utf-8")
+    self.assertIn('"--method", "GET"', source)
+    self.assertNotIn('"--method", "POST"', source)
+    self.assertNotIn('"--method", "PATCH"', source)
 
   def test_cross_platform_workflow_remains_read_only(self):
     source = SAFE.read_text(encoding="utf-8")
