@@ -176,6 +176,7 @@ def _validate_result(reply, request):
     ("candidate_sha", "candidate_sha"), ("source_ref", "source_ref"),
     ("target_ref", "target_ref"), ("head_sha", "expected_source_sha"),
     ("head_sha", "expected_head_sha"), ("conclusion", "conclusion"),
+    ("title", "title"), ("state", "state"), ("draft", "draft"),
   ):
     if result_key in result and param_key in params:
       if result[result_key] != params[param_key]:
