@@ -77,6 +77,18 @@ class SelectionCommitContract(unittest.TestCase):
       (self.root / ".repoworkflow/validation/testResults-545.jsonl").exists()
     )
 
+  def test_green_refuses_deleted_committed_selection(self):
+    self.selection.write_text("issue-545-one\n")
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-qm", "selected group")
+    self.selection.unlink()
+    result = self.cli("GREEN")
+    self.assertEqual(result.returncode, 2)
+    self.assertIn("committed", result.stderr)
+    self.assertFalse(
+      (self.root / ".repoworkflow/validation/testResults-545.jsonl").exists()
+    )
+
   def test_red_explicit_same_untracked_selection_commits(self):
     self.selection.write_text("issue-545-one\n")
     self.cli("RED", "issue-545-one")
