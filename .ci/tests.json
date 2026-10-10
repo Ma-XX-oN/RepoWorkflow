@@ -183,6 +183,10 @@
       "issue-545-expected-red-cli": {
         "type": "regression",
         "name": "tests.test_expected_red_cli"
+      },
+      "issue-545-all-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue_545_acceptance"
       }
     }
   ],
