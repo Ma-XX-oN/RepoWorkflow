@@ -60,6 +60,7 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.repo_ci_dispatcher import RepoCiError, OPERATIONS, dispatch
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -92,6 +93,9 @@ def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(description="Shared repository workflow engine")
   parser.add_argument("--root", default=".", help="consumer repository root")
   commands = parser.add_subparsers(dest="command", required=True)
+
+  repo_ci = commands.add_parser("repo-ci")
+  repo_ci.add_argument("operation", choices=sorted(OPERATIONS))
 
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
@@ -218,6 +222,11 @@ def main(argv: list[str] | None = None) -> int:
 
     args = build_parser().parse_args(argv)
     root = _root(args.root)
+    if args.command == "repo-ci":
+      value = dispatch(root, args.operation, sys.stdin.buffer.read())
+      print(json.dumps(value, separators=(",", ":")))
+      return 0
+
     if args.command == "preflight":
       candidate = validate_candidate(
         root,
@@ -421,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RepoCiError,
     ResultError,
     GitError,
     GuardError,
