@@ -27,12 +27,14 @@ def merge_protected_pr(
   recorded_parent_tip: str,
   read: Callable[[str], dict],
   merge: Callable[[str, dict], dict],
-  evidence_gate: Callable[[], None],
+  evidence_gate: Callable[[], tuple[bool, tuple[str, ...]]],
   required_check_name: str = "repo-workflow/exact-candidate",
 ) -> str:
   """Validate provider state and delegate the atomic decision to GitHub.
 
-  The evidence gate must check the exact tested candidate. The server must
+  The evidence gate must return the #104 decision (True, ()) for the
+  exact tested candidate; missing/denied verdicts cannot authorise merge.
+  The server must
   require strict current-base status checks and prevent administrator bypass.
   The provider merge endpoint must use the expected PR head SHA.
   """
@@ -168,7 +170,7 @@ def _github_request(url: str, payload: dict | None = None) -> dict:
 
 def merge_github_pr(
   *, repo: str, pr_number: int, candidate_sha: str,
-  recorded_parent_tip: str, evidence_gate: Callable[[], None],
+  recorded_parent_tip: str, evidence_gate: Callable[[], tuple[bool, tuple[str, ...]]],
   required_check_name: str = "repo-workflow/exact-candidate",
 ) -> str:
   """Production adapter; GitHub protections must be enabled first."""
