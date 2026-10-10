@@ -8,7 +8,9 @@ import subprocess
 import tempfile
 import unittest
 
-from repo_workflow.hosted_cache import verified_hosted_passes
+from repo_workflow.hosted_cache import (
+  _original_observation, verified_hosted_passes,
+)
 
 
 class HostedCacheTests(unittest.TestCase):
@@ -75,7 +77,8 @@ class HostedCacheTests(unittest.TestCase):
              f"test: publish hosted evidence from run {run_number}")
     self.second_invocation = self.invoke("GREEN-testing")
 
-  def reusable(self, record_override=None, provider_override=None):
+  def reusable(self, record_override=None, provider_override=None,
+               attested=None):
     if record_override is not None:
       self.publish(record_override)
     fake = dict(self.remote)
@@ -86,6 +89,9 @@ class HostedCacheTests(unittest.TestCase):
       fingerprint=self.fingerprint, invocation=self.second_invocation,
       branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
       token="fixture-token", provider_lookup=lambda repo, run_id, token: fake,
+      attestation_lookup=lambda repo, run_id, token, record: (
+        _original_observation(record) if attested is None else attested
+      ),
     )
 
   def test_authenticated_exact_pass_is_reused(self):
@@ -101,6 +107,14 @@ class HostedCacheTests(unittest.TestCase):
           branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
           token="fixture-token", provider_lookup=lambda *args: response,
         ), set())
+
+  def test_run_provenance_does_not_authenticate_forged_group_payload(self):
+    forged = {**self.record, "groups": [
+      {"group": "issue-545-forged", "exit_code": 0},
+    ]}
+    self.assertEqual(self.reusable(
+      forged, attested=_original_observation(self.record),
+    ), set())
 
   def test_provider_incomplete_wrong_head_or_workflow_fails_closed(self):
     self.publish(self.record)
@@ -248,6 +262,8 @@ class HostedCacheTests(unittest.TestCase):
       fingerprint=self.fingerprint, invocation=self.first_invocation,
       branch="issue-545-cache", repository="Ma-XX-oN/RepoWorkflow",
       token="fixture-token", provider_lookup=lambda *args: self.remote,
+      attestation_lookup=lambda repo, run_id, token, record:
+        _original_observation(record),
     ), set())
 
 
