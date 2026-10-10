@@ -42,10 +42,15 @@ def api_get(repository: str, route: str) -> dict:
     raise ProviderReadError("invalid repository component")
   if not route.startswith("repos/" + repository + "/"):
     raise ProviderReadError("invalid repository-scoped route")
-  result = subprocess.run(
-    ["gh", "api", "--method", "GET", route],
-    text=True, capture_output=True, check=False,
-  )
+  try:
+    result = subprocess.run(
+      ["gh", "api", "--method", "GET", route],
+      text=True, capture_output=True, check=False, timeout=30,
+    )
+  except subprocess.TimeoutExpired as exc:
+    raise ProviderReadError("GitHub provider read timed out") from exc
+  except OSError as exc:
+    raise ProviderReadError("GitHub CLI unavailable") from exc
   if result.returncode:
     raise ProviderReadError("GitHub provider read failed")
   try:
