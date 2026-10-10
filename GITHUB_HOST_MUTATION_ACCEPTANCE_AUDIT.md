@@ -191,6 +191,24 @@ creation are denied in ordinary PR CI.  Git reference creation returned
 422 on malformed input; this is inconclusive for Contents-write.  Never
 treat connector administration or authenticated reads as job write access.
 
+## Latest V3 continuation acceptance evidence
+
+- Exact code head: `525d87185852417b1ad8133703085908015672f9`.
+- Hosted run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38085708174
+  completed SUCCESS: 71 adapter acceptance tests on Ubuntu, Windows
+  and macOS, authenticated Python backend read/denial probes, and
+  complete Ubuntu repository regression (1,014 tests; 213.496 seconds).
+- Self CI: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38085708196
+  completed SUCCESS for that same source commit.
+- The live sandbox probe now independently reads remote issue comments
+  across pagination, rejects missing/duplicate/tampered marker evidence,
+  and tests changed content under the same request ID as a conflict.
+  Tests verify the readback behaviour, including page 2.
+- No real Python-adapter mutation was executed under the live workflow.
+  A read-only PR token rejected issue/PR creation; an invalid ref create
+  was inconclusive about Contents-write permission.  The optional
+  protected sandbox workflow remains unactivated/uncertified.
+
 ## Verification state
 
 | Criterion | State | Evidence / limitation |
