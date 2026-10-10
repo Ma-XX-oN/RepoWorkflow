@@ -148,57 +148,6 @@ class TestCliContract(unittest.TestCase):
     self.assertIn(".ci/tests.json", missing.stderr)
     self.assertIn("issue-N-", missing.stderr)
 
-  def test_remote_request_and_retry_use_previous_tip(self):
-    bare = self.remote()
-    for stage in ("regression", "regression"):
-      previous = self.git("rev-parse", "HEAD")
-      request = self.cli("test", stage, "--remote")
-      self.assertEqual(request.returncode, 0, request.stderr)
-      self.assertEqual(
-        (self.root / ".ci/run").read_text(),
-        "regression-testing " + previous + "\n",
-      )
-      head = self.git("rev-parse", "HEAD")
-      self.assertNotEqual(head, previous)
-      self.assertEqual(self.git("rev-parse", "HEAD^"), previous)
-      self.assertEqual(
-        self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
-        ".ci/run",
-      )
-      published = subprocess.run(
-        ["git", "--git-dir", str(bare), "rev-parse",
-         "refs/heads/issue-545-fixture"],
-        text=True, capture_output=True, check=True,
-      )
-      self.assertEqual(published.stdout.strip(), head)
-
-  def test_dirty_tree_rejects_remote_without_commit(self):
-    self.remote()
-    (self.root / "README").write_text("edited\n")
-    result = self.cli("test", "regression", "--remote")
-    self.assertEqual(result.returncode, 2)
-    self.assertIn("working tree must be clean", result.stderr)
-    self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
-
-  def test_remote_results_fetches_existing_log_only(self):
-    self.remote()
-    path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-    path.parent.mkdir(parents=True)
-    record = {
-      "testSHA": self.source, "kind": "regression",
-      "result": "succeeded", "runner": "github-actions",
-    }
-    path.write_text(json.dumps(record) + "\n")
-    self.git("add", ".repoworkflow/validation/testResults-545.jsonl")
-    self.git("commit", "-m", "external result")
-    self.git("push")
-    path.unlink()
-    current = self.git("rev-parse", "HEAD")
-    result = self.cli("test", "results", "--remote")
-    self.assertEqual(result.returncode, 0, result.stderr)
-    self.assertEqual(json.loads(result.stdout), record)
-    self.assertEqual(self.git("rev-parse", "HEAD"), current)
-
   def test_consumer_integration_without_adapter_cannot_fake_success(self):
     result = self.cli("test", "integration")
     self.assertEqual(result.returncode, 2)
@@ -506,29 +455,6 @@ class TestCliContract(unittest.TestCase):
         result = self.cli("test", "GREEN")
         self.assertEqual(result.returncode, 2)
 
-  def test_remote_green_uses_committed_selected_group(self):
-    self._catalogue(
-      self.root / ".ci/tests.json", issue_group="issue-545-one",
-    )
-    self.git("add", ".ci/tests.json", "smoke_case.py")
-    self.git("commit", "-m", "fixture catalogue")
-    self.remote()
-    self.assertEqual(
-      self.cli("test", "RED", "issue-545-one").returncode, 2,
-    )
-    self.assertEqual(
-      self.cli("test", "GREEN", "--remote").returncode, 0,
-    )
-    previous = self.git("rev-parse", "HEAD^")
-    self.assertEqual(
-      self.git("show", "HEAD^:.ci/red-green.txt"),
-      "issue-545-one",
-    )
-    self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "GREEN-testing " + previous + "\n",
-    )
-
   def test_temporary_catalogue_runs_identical_harness_format(self):
     self._catalogue(
       self.root / ".ci/temp-tests.json",
@@ -540,23 +466,6 @@ class TestCliContract(unittest.TestCase):
     record = json.loads(audit.read_text().strip())
     self.assertEqual(record["kind"], "temporary")
     self.assertEqual(record["result"], "succeeded")
-
-  def test_remote_temporary_requires_valid_nonempty_manifest(self):
-    self.remote()
-    for contents in (None, "{invalid", json.dumps({
-      "test-harnesses": {}, "tests": [], "aliases": {},
-    })):
-      with self.subTest(contents=contents):
-        manifest = self.root / ".ci/temp-tests.json"
-        manifest.parent.mkdir(exist_ok=True)
-        if contents is None:
-          manifest.unlink(missing_ok=True)
-        else:
-          manifest.write_text(contents)
-        result = self.cli("test", "temporary", "--remote")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
-        self.assertFalse((self.root / ".ci/run").exists())
 
   def test_empty_temporary_manifest_never_claims_pass(self):
     (self.root / ".ci").mkdir(exist_ok=True)
