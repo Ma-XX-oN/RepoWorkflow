@@ -25,7 +25,7 @@ class EvidenceGate:
 
 def read_evidence_gate(
   store, requirement_manifest, record_ids, *, candidate, version, branch,
-  coverage_evaluator,
+  coverage_evaluator, provider_verifier=None,
 ) -> EvidenceGate:
   """Read persisted observations; never trust asserted PASS or completeness."""
   if (
@@ -58,6 +58,11 @@ def read_evidence_gate(
       for identifier, observation in zip(ids, observations)
     ):
       raise EvidenceGateError("inapplicable durable validation observation")
+    for observation in observations:
+      if observation.runner != "local":
+        if (not callable(provider_verifier)
+            or provider_verifier(observation) is not True):
+          raise EvidenceGateError("unverified external validation origin")
     coverage = coverage_evaluator(
       list(requirement_manifest),
       [observation.coverage() for observation in observations],
