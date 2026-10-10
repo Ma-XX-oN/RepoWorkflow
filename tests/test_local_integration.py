@@ -61,6 +61,19 @@ class LocalIntegrationTests(unittest.TestCase):
       test_suite.call_count, probe.call_count
     )
 
+  def test_staged_rename_records_original_and_destination(self):
+    subprocess.run(
+      ["git", "mv", "source.txt", "renamed.txt"],
+      cwd=self.root, check=True, capture_output=True,
+    )
+    status, record, _ = self.execute()
+    self.assertEqual(status, 0)
+    self.assertEqual(
+      record["uncommittedChanges"], ["renamed.txt", "source.txt"],
+    )
+    self.assertFalse(record["reusable"])
+
+
   def test_clean_complete_current_platform_can_pass(self):
     status, record, calls = self.execute()
     self.assertEqual(status, 0)
