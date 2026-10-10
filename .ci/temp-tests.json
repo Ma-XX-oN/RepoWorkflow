@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-548-hosted-cache-temp": {
+        "type": "regression",
+        "name": "tests.test_hosted_cache"
+      }
+    }
+  ],
   "aliases": {}
 }
