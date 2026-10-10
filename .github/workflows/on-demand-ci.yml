@@ -136,6 +136,7 @@ jobs:
         with:
           name: hosted-result-${{ github.run_id }}
           path: ${{ steps.audit.outputs.log_path }}
+          include-hidden-files: true
           if-no-files-found: error
 
   publish:
