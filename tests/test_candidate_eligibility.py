@@ -34,7 +34,9 @@ class CandidateEligibilityTests(unittest.TestCase):
   def test_missing_invalid_and_multiple_defects(self):
     self.assertEqual(decide(None), (False, ("invalid-facts",)))
     bad = replace(self.facts, candidate="bad", current_base="", passed=False)
-    self.assertEqual(decide(bad), (False, ("invalid-candidate", "invalid-current_base")))
+    self.assertEqual(
+      decide(bad), (False, ("invalid-candidate", "invalid-current_base")),
+    )
     changed = replace(self.facts, head="c"*40, current_base="d"*40,
                       complete=False)
     self.assertEqual(decide(changed), (False, (
