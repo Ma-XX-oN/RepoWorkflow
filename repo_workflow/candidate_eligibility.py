@@ -16,6 +16,8 @@ class Facts:
   inputs_current: bool
   required_checks_complete: bool
   applicable: bool
+  candidate_exists: bool
+  base_is_ancestor: bool
 
 
 def decide(facts: Facts) -> tuple[bool, tuple[str, ...]]:
@@ -35,7 +37,8 @@ def decide(facts: Facts) -> tuple[bool, tuple[str, ...]]:
   if facts.recorded_base != facts.current_base:
     reasons.append("stale-base")
   for field in ("authenticated", "complete", "passed", "inputs_current",
-                "required_checks_complete", "applicable"):
+                "required_checks_complete", "applicable",
+                "candidate_exists", "base_is_ancestor"):
     if getattr(facts, field) is not True:
       reasons.append("missing-" + field)
   return not reasons, tuple(reasons)
