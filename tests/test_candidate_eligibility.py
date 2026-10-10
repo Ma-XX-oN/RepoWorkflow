@@ -62,6 +62,7 @@ class CandidateEligibilityTests(unittest.TestCase):
     for flag in (
       "authenticated", "complete", "passed", "inputs_current",
       "required_checks_complete", "applicable",
+      "candidate_exists", "base_is_ancestor",
     ):
       with self.subTest(flag=flag):
         for value in (False, None, 0, 1, "true"):
