@@ -211,6 +211,19 @@ class OrdinaryMutationTests(unittest.TestCase):
     self.assertEqual(first[1]["head_sha"], SHA)
     self.assertEqual(len(self.backend.writes), 1)
 
+
+  def test_deleted_reservation_cannot_duplicate_existing_pr(self):
+    p = {
+      "source_ref": "refs/heads/work", "target_ref": "refs/heads/main",
+      "expected_source_sha": SHA, "title": "New PR",
+      "body": "", "draft": True,
+    }
+    request = req("pull_request.create", p)
+    self.assertEqual(apply(request, self.backend)[0], "applied")
+    self.backend.reserved.clear()
+    self.assertEqual(apply(request, self.backend)[0], "unchanged")
+    self.assertEqual(len(self.backend.writes), 1)
+
   def test_pr_create_rejects_stale_source(self):
     self.backend.refs["refs/heads/work"] = OTHER
     p = {
