@@ -178,6 +178,17 @@
         "type": "regression",
         "name": "tests.test_publish_hosted_result"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-red-probe": {
+        "type": "regression",
+        "name": "tests.test_541_hosted_red_fixture",
+        "expected-red": {
+          "exit-code": 1,
+          "output-contains": "issue-541-disposable-hosted-expected-red"
+        }
+      }
     }
   ],
   "aliases": {
