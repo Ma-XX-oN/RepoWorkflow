@@ -57,6 +57,7 @@ def authorize(request: dict, backend) -> dict:
   if not isinstance(decision, dict) or set(decision) != {
     "schema_version", "operation", "repository", "request_id",
     "scope_digest", "actor_id", "decision", "authority_ref",
+    "grant_kind", "max_uses",
   }:
     raise ProviderError("unauthorized", "invalid verifier envelope")
   expected = {
@@ -66,6 +67,8 @@ def authorize(request: dict, backend) -> dict:
     "request_id": request["request_id"],
     "scope_digest": _scope(request),
     "decision": "allow",
+    "grant_kind": "standing",
+    "max_uses": None,
   }
   if any(type(decision[key]) is not type(value) or decision[key] != value
          for key, value in expected.items()):
