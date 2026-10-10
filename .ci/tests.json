@@ -163,6 +163,10 @@
       "issue-545-selection-commit": {
         "type": "regression",
         "name": "tests.test_test_selection_commit"
+      },
+      "issue-545-red-classification": {
+        "type": "regression",
+        "name": "tests.test_test_red_classification"
       }
     }
   ],
