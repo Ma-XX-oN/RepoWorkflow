@@ -69,3 +69,29 @@ jobs:
           GITHUB_TOKEN: ''
           RWF_REPO_HOST_AUTH_COMMAND: ''
         run: python scripts/validate.py
+
+  live-provider-read:
+    name: Authenticated GitHub backend reads (ubuntu-latest)
+    if: github.event.pull_request.number == 616
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact issue, PR and branch with real GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/probe-repo-host-github-read.py
+          --repository Ma-XX-oN/RepoWorkflow
+          --issue 97
+          --pull 616
+          --branch issue-97-github-host-mutation-adapter
+          --expected-sha ${{ github.event.pull_request.head.sha }}
