@@ -75,6 +75,41 @@ class ExpectedRedCliTests(unittest.TestCase):
         self.assertEqual(record["redStatus"], "INCOMPLETE")
         self.assertIsNone(record["groups"][0]["exit_code"])
 
+  def test_duplicate_or_null_declaration_never_executes(self):
+    self.configure({"exit-code": 1, "output-contains": "case invariant violated"})
+    path = self.root / ".ci/tests.json"
+    initial = path.read_text()
+    for corrupted in (
+      initial.replace('"exit-code": 1,', '"exit-code": 1, "exit-code": 2,'),
+      initial.replace(
+        '"expected-red": {"exit-code": 1, '
+        '"output-contains": "case invariant violated"}',
+        '"expected-red": null',
+      ),
+    ):
+      with self.subTest(corrupted=corrupted[-75:]):
+        path.write_text(corrupted)
+        out = self.cli("test", "RED", "issue-545-declared")
+        self.assertEqual(out.returncode, 2, out.stderr)
+        self.assertEqual(self.last()["redStatus"], "INCOMPLETE")
+        self.assertIsNone(self.last()["groups"][0]["exit_code"])
+
+  def test_matching_signature_in_stdout(self):
+    self.configure({"exit-code": 1, "output-contains": "unique stdout invariant"})
+    source = self.root / "smoke_case.py"
+    source.write_text(
+      "import sys, unittest\nclass Smoke(unittest.TestCase):\n"
+      "  def test_pass(self):\n"
+      "    sys.stdout.write('unique stdout invariant')\n"
+      "    sys.exit(3)\n"
+    )
+    self.git("add", "smoke_case.py")
+    self.git("commit", "-m", "stdout invariant source")
+    out = self.cli("test", "RED", "issue-545-declared")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    self.assertEqual(self.last()["redStatus"], "RED")
+
+
   def test_unexpected_pass_classifies_not_red(self):
     self.configure({"exit-code": 1, "output-contains": "case invariant violated"})
     path = self.root / "smoke_case.py"
