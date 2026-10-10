@@ -240,6 +240,20 @@ class ProtectedMergeTests(unittest.TestCase):
       self.run_guard(documents=docs)
     self.assertFalse(any(c[0] == "merge" for c in self.calls))
 
+  def test_denied_or_missing_semantic_verdict_never_merges(self):
+    for verdict in ((False, ("stale-base",)), False, None, True):
+      with self.subTest(verdict=verdict):
+        self.calls.clear()
+        with self.assertRaises(PreMergeGateError):
+          merge_protected_pr(
+            repo=REPO, pr_number=42,
+            candidate_sha=CANDIDATE, recorded_parent_tip=PARENT,
+            read=lambda url: deepcopy(self.documents[url]),
+            merge=lambda url, payload: self.fail("unverified verdict merged"),
+            evidence_gate=lambda: verdict,
+          )
+        self.assertFalse(any(call[0] == "merge" for call in self.calls))
+
   def test_failing_evidence_rejects_before_provider_merge(self):
     self.calls.clear()
     with self.assertRaises(PreMergeGateError):
