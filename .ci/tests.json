@@ -121,6 +121,10 @@
       "issue-629-red-outcome": {
         "type": "regression",
         "name": "tests.test_issue629_red_outcome"
+      },
+      "issue-629-pending-provider": {
+        "type": "regression",
+        "name": "tests.test_issue629_pending_provider"
       }
     },
     {
