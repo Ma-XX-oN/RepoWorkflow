@@ -23,8 +23,11 @@ def extract_push_filters(text):
     block.append(line)
   if not any(re.fullmatch(r"  push:", line) for line in block):
     raise TriggerFilterError("missing push trigger")
-  forbidden = ("  pull_request:", "  workflow_dispatch:", "  schedule:")
-  if any(line in block for line in forbidden):
+  events = [
+    line.strip()[:-1] for line in block
+    if re.fullmatch(r"  [A-Za-z_-]+:", line)
+  ]
+  if events != ["push"]:
     raise TriggerFilterError("unrequested automatic or manual trigger")
   sections = {}
   current = None
@@ -34,8 +37,9 @@ def extract_push_filters(text):
       current = match.group(1)
       sections[current] = []
       continue
-    if re.fullmatch(r"    [A-Za-z-]+:", line):
-      current = None
+    other = re.fullmatch(r"    ([A-Za-z-]+):", line)
+    if other and other.group(1) not in {"paths", "branches-ignore"}:
+      raise TriggerFilterError("unsupported additional push filter")
     value = re.fullmatch(r"      - (.+)", line)
     if value and current:
       sections[current].append(value.group(1).strip("'\""))
