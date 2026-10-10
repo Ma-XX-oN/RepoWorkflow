@@ -297,6 +297,19 @@ class DispatcherContractTests(unittest.TestCase):
         conf["hostCommand"], req, timeout=30,
       )
 
+      def mutate(*_args, **_kwargs):
+        (root / "mutated-by-adapter").write_text("unexpected")
+        return {"result": RESULTS["issue.comment"]}
+      with patch(
+        "repo_workflow.host_mutation_dispatch.dispatch",
+        side_effect=mutate,
+      ):
+        with self.assertRaisesRegex(
+          HostMutationError, "changed local repository state",
+        ):
+          dispatch_configured(root, req)
+      (root / "mutated-by-adapter").unlink()
+
       del conf["hostCommand"]
       path.write_text(json.dumps(conf), encoding="utf-8")
       with patch(
