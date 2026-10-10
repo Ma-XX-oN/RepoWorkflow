@@ -23,6 +23,7 @@ SHA = "a" * 40
 class LiveProbeCleanupTests(unittest.TestCase):
   def run_probe(self, cleanup_code=0):
     sequence = []
+    seen_issues = set()
 
     def provider_read(repository, path):
       sequence.append("GET " + path)
@@ -46,8 +47,10 @@ class LiveProbeCleanupTests(unittest.TestCase):
           "conflict" if identity.endswith("-stale") else "unsupported"
         )}
       if operation == "issue.update":
+        status = "unchanged" if identity in seen_issues else "applied"
+        seen_issues.add(identity)
         return {"result": {"title": params["title"]},
-                "status": "applied"}
+                "status": status}
       if operation == "issue.comment":
         return {"result": {"comment_id": "9"}, "status": "unchanged"}
       if operation == "pull_request.create":
