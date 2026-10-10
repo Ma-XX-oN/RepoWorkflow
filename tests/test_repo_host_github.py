@@ -219,6 +219,18 @@ class GitHubHostBootstrapTests(unittest.TestCase):
     self.assertEqual(stdout, "")
     self.assertEqual(json.loads(stderr)["error"], "invalid_request")
 
+
+  def test_deep_or_oversized_request_returns_structured_error(self):
+    for bad in [
+      "[" * 2000 + "0" + "]" * 2000,
+      " " * (MODULE.MAX_REQUEST_CHARS + 1),
+    ]:
+      with self.subTest(length=len(bad)):
+        status, stdout, stderr = MODULE.run(bad)
+        self.assertNotEqual(status, 0)
+        self.assertEqual(stdout, "")
+        self.assertEqual(json.loads(stderr)["error"], "invalid_request")
+
   def test_deterministic_retries_are_read_only(self):
     original = request(request_id="repeat-1")
     self.assertEqual(MODULE.run(original), MODULE.run(original))
