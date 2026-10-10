@@ -135,7 +135,7 @@ class ResultsMetadataTests(unittest.TestCase):
     )
     for invalid in (duplicate_top, duplicate_nested):
       with self.subTest(invalid=invalid):
-        self.log.write_text(first + "\\n" + invalid + "\\n")
+        self.log.write_text(first + "\n" + invalid + "\n")
         output = subprocess.run(
           [sys.executable, str(CLI), "--root", str(self.root),
            "test", "results"],
