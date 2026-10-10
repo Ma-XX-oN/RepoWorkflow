@@ -92,6 +92,31 @@ class HostFactsTests(unittest.TestCase):
         with self.assertRaises(HostFactsError):
           observe(fetch)
 
+
+  def test_sha256_provider_evidence_and_mixed_identity_refusal(self):
+    candidate = "a" * 64
+    base = "b" * 64
+
+    def fetch(path):
+      if path == "/branches/feature%2Fwork":
+        return {"commit": {"sha": candidate}}
+      if path == "/branches/main":
+        return {"commit": {"sha": base}}
+      if path == "/compare/" + base + "..." + candidate:
+        return {"status": "ahead", "base_commit": {"sha": base}}
+      raise AssertionError(path)
+
+    observed = read_host_facts(
+      "owner/repo", "feature/work", "main", candidate,
+      "test-token", fetch=fetch,
+    )
+    self.assertEqual((observed.head, observed.current_base), (candidate, base))
+    with self.assertRaises(HostFactsError):
+      read_host_facts(
+        "owner/repo", "feature/work", "main", CANDIDATE,
+        "test-token", fetch=fetch,
+      )
+
   def test_invalid_identifiers_never_reach_provider(self):
     for repo, source, candidate, token in (
       ("../other", "feature/work", CANDIDATE, "token"),
