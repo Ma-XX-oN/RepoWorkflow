@@ -149,7 +149,12 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
   except (UnicodeDecodeError, ValueError) as exc:
     raise RepoCiError("invalid-request", "malformed JSON request") from exc
   engine_root = Path(__file__).resolve().parents[1]
-  config_root = root if (root / ".ci" / "repo-ci.json").is_file() else engine_root
+  config_root = root
+  if (
+    not (root / ".ci" / "repo-ci.json").exists()
+    and (root / "RepoWorkflow").resolve() == engine_root
+  ):
+    config_root = engine_root
   command = _config(config_root)
   try:
     result = subprocess.run(
