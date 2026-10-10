@@ -86,6 +86,10 @@ def _issue_comment(backend, request: dict, fresh: bool):
     raise ProviderError("conflict", "duplicate request comments")
   if found:
     item = found[0]
+    actor = backend.identity().get("login")
+    author = item.get("user")
+    if not isinstance(author, dict) or author.get("login") != actor:
+      raise ProviderError("conflict", "comment owner identity mismatch")
     comment_id = _number(item.get("id"))
     if item.get("body") != p["body"] + "\n" + marker:
       raise ProviderError("conflict", "comment request content mismatched")
@@ -100,6 +104,11 @@ def _issue_comment(backend, request: dict, fresh: bool):
   comment_id = _number(result.get("id"))
   if result.get("body") != p["body"] + "\n" + marker:
     raise ProviderError("unknown_outcome", "comment write not verified")
+  author = result.get("user")
+  if not isinstance(author, dict) or (
+    author.get("login") != backend.identity().get("login")
+  ):
+    raise ProviderError("unknown_outcome", "comment author not verified")
   return "applied", {"number": number, "comment_id": str(comment_id)}
 
 
@@ -157,6 +166,11 @@ def _pr_create(backend, request: dict, fresh: bool):
     if len(matches) != 1:
       raise ProviderError("unknown_outcome", "PR create outcome unreconciled")
     number = _number(matches[0].get("number"))
+    author = matches[0].get("user")
+    if not isinstance(author, dict) or (
+      author.get("login") != backend.identity().get("login")
+    ):
+      raise ProviderError("conflict", "PR creator identity mismatch")
     observed, sha = _pr_observed(backend, number, expected)
     if observed["base"].get("ref") != target_short or (
       observed.get("draft") != p["draft"]
@@ -181,6 +195,11 @@ def _pr_create(backend, request: dict, fresh: bool):
     raise ProviderError("unknown_outcome", "created PR identity mismatch")
   if observed.get("body") != p["body"] + "\n" + marker:
     raise ProviderError("unknown_outcome", "PR marker missing")
+  author = observed.get("user")
+  if not isinstance(author, dict) or (
+    author.get("login") != backend.identity().get("login")
+  ):
+    raise ProviderError("unknown_outcome", "PR creator not verified")
   return "applied", {
     "number": number, "source_ref": source,
     "target_ref": target, "head_sha": head_sha, "draft": p["draft"],
