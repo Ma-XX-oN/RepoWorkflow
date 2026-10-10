@@ -27,10 +27,14 @@ class LiveProbeCleanupTests(unittest.TestCase):
 
     def provider_read(repository, path):
       sequence.append("GET " + path)
+      if path == "":
+        return {"default_branch": "main"}
       if path.startswith("issues/"):
-        return {"state": "open", "title": "Before"}
+        return {"state": "open", "title": "RWF #97 SANDBOX Before"}
       if path.startswith("git/ref/heads/"):
-        return {"object": {"sha": SHA}}
+        return {"object": {"sha": (
+          "b" * 40 if path.endswith("target") else SHA
+        )}}
       if path == "pulls/17":
         return {"state": "closed"}
       raise AssertionError("unexpected provider read " + path)
@@ -65,8 +69,9 @@ class LiveProbeCleanupTests(unittest.TestCase):
 
     args = [
       "probe", "--repository", "owner/sandbox",
-      "--sandbox-issue", "3", "--source-ref", "refs/heads/source",
-      "--target-ref", "refs/heads/target", "--run-id", "acceptance",
+      "--sandbox-issue", "3", "--source-ref",
+      "refs/heads/rwf97-sandbox-source", "--target-ref",
+      "refs/heads/rwf97-sandbox-target", "--run-id", "acceptance",
     ]
     output = io.StringIO()
     with patch.object(sys, "argv", args):
