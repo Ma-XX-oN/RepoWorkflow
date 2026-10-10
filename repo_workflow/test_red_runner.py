@@ -25,6 +25,8 @@ def record_red(
   declaration_error: str = "",
 ) -> int:
   """Execute and audit one selected group against its source candidate."""
+  if expectation is None and not declaration_error:
+    declaration_error = "expected-failure-declaration-missing"
   if expectation is not None and not declaration_error:
     preflight = classify_red(
       expectation, RedObservation(None, "", "", False),
