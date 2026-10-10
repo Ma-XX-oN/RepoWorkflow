@@ -100,6 +100,60 @@ class ProtectedMergeTests(unittest.TestCase):
           self.run_guard(documents=docs)
         self.assertFalse(any(c[0] == "merge" for c in self.calls))
 
+  def test_destination_advanced_during_evidence_gate_refuses_merge(self):
+    self.calls.clear()
+    docs = deepcopy(self.documents)
+    counter = [0]
+
+    def read(url):
+      self.calls.append(("read", url))
+      if url == BASE + "/branches/main":
+        counter[0] += 1
+        if counter[0] == 2:
+          return {"protected": True, "commit": {"sha": MERGED}}
+      return docs[url]
+
+    def merge(url, payload):
+      self.calls.append(("merge", url, payload))
+      raise AssertionError("stale destination was merged")
+
+    with self.assertRaisesRegex(
+      PreMergeGateError, "changed during validation"
+    ):
+      merge_protected_pr(
+        repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
+        recorded_parent_tip=PARENT, read=read, merge=merge,
+        evidence_gate=lambda: self.calls.append(("evidence",)),
+      )
+    self.assertEqual(counter[0], 2)
+    self.assertFalse(any(c[0] == "merge" for c in self.calls))
+
+  def test_candidate_advanced_during_evidence_gate_refuses_merge(self):
+    self.calls.clear()
+    docs = deepcopy(self.documents)
+    counter = [0]
+
+    def read(url):
+      self.calls.append(("read", url))
+      if url == BASE + "/pulls/42":
+        counter[0] += 1
+        if counter[0] == 2:
+          result = deepcopy(docs[url])
+          result["head"]["sha"] = MERGED
+          return result
+      return docs[url]
+
+    with self.assertRaisesRegex(
+      PreMergeGateError, "changed during validation"
+    ):
+      merge_protected_pr(
+        repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
+        recorded_parent_tip=PARENT, read=read,
+        merge=lambda url, payload: self.fail("changed head merged"),
+        evidence_gate=lambda: self.calls.append(("evidence",)),
+      )
+    self.assertEqual(counter[0], 2)
+
   def test_malformed_protection_fails_closed(self):
     for malformed in (None, "not-a-map", {"allow_force_pushes": None}):
       with self.subTest(malformed=malformed):
