@@ -43,5 +43,32 @@ class CandidateEligibilityTests(unittest.TestCase):
       "head-changed", "stale-base", "missing-complete")))
 
 
+  def test_uniform_sha256_identity_is_valid(self):
+    sha = "a" * 64
+    base = "b" * 64
+    facts = replace(
+      self.facts, candidate=sha, tested=sha, head=sha,
+      recorded_base=base, current_base=base,
+    )
+    self.assertEqual(decide(facts), (True, ()))
+
+  def test_mixed_sha1_sha256_identity_is_denied(self):
+    facts = replace(self.facts, current_base="b" * 64)
+    self.assertEqual(decide(facts), (
+      False, ("mixed-hash-length", "stale-base"),
+    ))
+
+  def test_untrusted_success_flags_never_qualify(self):
+    for flag in (
+      "authenticated", "complete", "passed", "inputs_current",
+      "required_checks_complete", "applicable",
+    ):
+      with self.subTest(flag=flag):
+        for value in (False, None, 0, 1, "true"):
+          result = decide(replace(self.facts, **{flag: value}))
+          self.assertFalse(result[0])
+          self.assertIn("missing-" + flag, result[1])
+
+
 if __name__ == "__main__":
   unittest.main()
