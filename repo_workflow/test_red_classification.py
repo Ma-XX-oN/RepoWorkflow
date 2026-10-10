@@ -31,20 +31,27 @@ class RedDecision:
   reason: str
 
 
-def classify_red(
-  expectation: RedExpectation | None,
-  observation: RedObservation,
-) -> RedDecision:
-  """Distinguish intended failure, unexpected pass/failure, and unavailable run."""
+def _expectation_issue(expectation: RedExpectation | None) -> str | None:
   if expectation is None:
-    return RedDecision("INCOMPLETE", "expected-failure-declaration-missing")
+    return "expected-failure-declaration-missing"
   if (
     type(expectation.exit_code) is not int
     or expectation.exit_code <= 0
     or not isinstance(expectation.output_contains, str)
     or not expectation.output_contains
   ):
-    return RedDecision("INCOMPLETE", "invalid-expected-failure-declaration")
+    return "invalid-expected-failure-declaration"
+  return None
+
+
+def classify_red(
+  expectation: RedExpectation | None,
+  observation: RedObservation,
+) -> RedDecision:
+  """Distinguish intended failure, unexpected pass/failure, and unavailable run."""
+  issue = _expectation_issue(expectation)
+  if issue is not None:
+    return RedDecision("INCOMPLETE", issue)
   if not observation.executed or observation.exit_code is None:
     return RedDecision("INCOMPLETE", "selected-test-not-executed")
   if observation.exit_code == 0:
@@ -67,6 +74,9 @@ def execute_red(
   expectation: RedExpectation | None,
 ) -> RedDecision:
   """Execute an explicit command; transport failures never count as RED."""
+  issue = _expectation_issue(expectation)
+  if issue is not None:
+    return RedDecision("INCOMPLETE", issue)
   if not command or not all(isinstance(x, str) and x for x in command):
     return RedDecision("INCOMPLETE", "invalid-selected-test-command")
   try:
