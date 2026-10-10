@@ -218,8 +218,17 @@ def verified_hosted_passes(
           str(provider.get("path", ""))
       ):
         return set()
-      if attest(repository, run_id, token, record) != _original_observation(record):
-        return set()
+      try:
+        attested = attest(repository, run_id, token, record)
+      except (OSError, ValueError, TypeError, KeyError, RuntimeError,
+              BadZipFile, AttributeError):
+        # Older pre-artifact rows cannot grant reuse.  A later independently
+        # attested PASS can restore eligibility for the same exact inputs.
+        latest.clear()
+        continue
+      if attested != _original_observation(record):
+        latest.clear()
+        continue
       valid = (
         record.get("result") == "succeeded"
         and record.get("reusable") is True
