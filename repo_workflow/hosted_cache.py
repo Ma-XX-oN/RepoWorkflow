@@ -131,6 +131,8 @@ def verified_hosted_passes(
       ):
         return set()
       provider = lookup(repository, run_id, token)
+      if not isinstance(provider, dict):
+        return set()
       if (
         provider.get("id") != run_id
         or provider.get("status") != "completed"
