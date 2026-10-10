@@ -125,7 +125,7 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(out.returncode, 0, out.stderr)
     self.assertEqual(
       (self.root / ".ci/run").read_text(),
-      "temporary-testing " + before + "\n",
+      "temp-testing " + before + "\n",
     )
     head = self.git("rev-parse", "HEAD")
     remote_head = subprocess.run(
