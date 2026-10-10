@@ -9,6 +9,13 @@ from pathlib import Path
 import re
 import sys
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from repo_workflow.test_catalogue import (
+  TestCatalogueError, load_test_catalogue,
+)
+
 STAGES = {
   "RED-testing": "RED",
   "temp-testing": "temporary",
@@ -84,6 +91,20 @@ def validate_result(
       raise ValueError("hosted GREEN selection missing") from error
     if [group["group"] for group in groups] != [selected]:
       raise ValueError("hosted GREEN selection does not match result")
+
+  if kind == "temporary":
+    try:
+      required = load_test_catalogue(
+        root, catalogue_path=Path(".ci/temp-tests.json"),
+      ).groups
+    except TestCatalogueError as error:
+      raise ValueError("hosted temporary test catalogue invalid") from error
+    observed = [group["group"] for group in groups]
+    if (
+      not required or len(observed) != len(required)
+      or set(observed) != required
+    ):
+      raise ValueError("hosted temporary result lacks exact group coverage")
 
 
 def main() -> int:
