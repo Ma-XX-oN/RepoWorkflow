@@ -10,7 +10,7 @@ import subprocess
 import sys
 from typing import Callable
 
-from .git import head_sha
+from .git import current_branch, head_sha
 from .test_red_classification import (
   RedExpectation, RedObservation, classify_red,
 )
@@ -83,6 +83,7 @@ def record_red(
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "testSHA": candidate,
+    "branch": current_branch(root),
     "headChangedDuringTest": head_sha(root) != candidate,
     "catalogueSHA256": fingerprint,
     "kind": "RED",
