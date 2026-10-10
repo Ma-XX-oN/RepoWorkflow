@@ -335,5 +335,22 @@ class DispatcherContractTests(unittest.TestCase):
           self.run_provider(req, runner)
 
 
+  def test_requested_mutation_fields_must_match_observed_result(self):
+    for operation, field, bad in (
+      ("issue.update", "title", "wrong"),
+      ("pull_request.create", "draft", False),
+      ("pull_request.update", "head_sha", "b" * 40),
+    ):
+      req = request(operation)
+      wrong = dict(RESULTS[operation], **{field: bad})
+      def runner(received):
+        if received["operation"] == "capabilities":
+          return provider_success(received)
+        return provider_success(received, result=wrong)
+      with self.subTest(operation=operation, field=field):
+        with self.assertRaises(HostMutationError):
+          self.run_provider(req, runner)
+
+
 if __name__ == "__main__":
   unittest.main()
