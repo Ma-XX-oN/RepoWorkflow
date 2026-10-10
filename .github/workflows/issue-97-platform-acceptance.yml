@@ -119,3 +119,8 @@ jobs:
           --pull 616
           --branch issue-97-github-host-mutation-adapter
           --expected-sha ${{ github.event.pull_request.head.sha }}
+      - name: Real CLI denies unauthorized mutation before GitHub write
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RWF_REPO_HOST_AUTH_COMMAND: ''
+        run: python scripts/probe-repo-host-github-deny.py
