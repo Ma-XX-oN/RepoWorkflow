@@ -1,0 +1,42 @@
+name: repo-ci GitHub compatibility platform acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.ci/repo-ci.json'
+      - 'repo_workflow.py'
+      - 'repo_workflow/repo_ci_github_compat.py'
+      - 'repo_workflow/repo_ci_github_provider.py'
+      - 'repo_workflow/github_result_transport.py'
+      - 'tests/test_repo_ci_github_migration.py'
+      - '.github/workflows/repo-ci-github-compat-platform.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Validate exact source and hosted Python identity
+        shell: bash
+        env:
+          RWF_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RWF_EXPECTED_SHA"
+          python --version
+      - name: Execute provider migration black-box tests
+        shell: bash
+        run: python -m unittest -v tests.test_repo_ci_github_migration
+      - name: Verify GitHub transport tests
+        shell: bash
+        run: python -m unittest -v tests.test_github_result_transport tests.test_github_transport_cli
