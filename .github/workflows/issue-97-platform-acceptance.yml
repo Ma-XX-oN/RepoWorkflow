@@ -24,6 +24,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - name: Verify exact PR source candidate SHA
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
@@ -31,9 +34,6 @@ jobs:
           python -c "import os,subprocess;
           assert subprocess.check_output(['git','rev-parse','HEAD'],
           text=True).strip()==os.environ['EXPECTED_SHA']"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
       - name: Run black-box and provider contract tests
         env:
           RWF_REPO_HOST_AUTH_COMMAND: ''
@@ -67,6 +67,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - name: Verify exact PR source candidate SHA
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
@@ -74,9 +77,6 @@ jobs:
           python -c "import os,subprocess;
           assert subprocess.check_output(['git','rev-parse','HEAD'],
           text=True).strip()==os.environ['EXPECTED_SHA']"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
       - name: Install runtime dependencies
         run: python -m pip install -r requirements.txt
       - name: Run complete repository validation
@@ -99,6 +99,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - name: Verify exact PR source candidate SHA
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
@@ -106,9 +109,6 @@ jobs:
           python -c "import os,subprocess;
           assert subprocess.check_output(['git','rev-parse','HEAD'],
           text=True).strip()==os.environ['EXPECTED_SHA']"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
       - name: Verify exact issue, PR and branch with real GitHub API
         env:
           GH_TOKEN: ${{ github.token }}
