@@ -146,5 +146,25 @@ class ResultsMetadataTests(unittest.TestCase):
         self.assertIn("duplicate testing log field", output.stderr)
 
 
+  def test_nonfinite_json_constants_rejected_atomically(self):
+    first = json.dumps(self.valid)
+    for token in ("NaN", "Infinity", "-Infinity"):
+      with self.subTest(nonfinite=token):
+        malformed = (
+          '{"testSHA":"' + "a" * 40
+          + '","kind":"GREEN","result":"succeeded",'
+          + '"runner":"local","elapsed":' + token + '}'
+        )
+        self.log.write_text(first + "\n" + malformed + "\n")
+        output = subprocess.run(
+          [sys.executable, str(CLI), "--root", str(self.root),
+           "test", "results"],
+          text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(output.returncode, 2)
+        self.assertEqual(output.stdout, "")
+        self.assertIn("nonfinite testing log value", output.stderr)
+
+
 if __name__ == "__main__":
   unittest.main()
