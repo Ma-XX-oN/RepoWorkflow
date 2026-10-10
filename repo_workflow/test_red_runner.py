@@ -47,6 +47,9 @@ def record_red(
   if result is None:
     status = "INCOMPLETE"
     reason = "selected-test-cannot-execute"
+  elif result.returncode < 0:
+    status = "INCOMPLETE"
+    reason = "test-process-terminated"
   elif expectation is None:
     status = "INCOMPLETE"
     reason = (
@@ -92,6 +95,8 @@ def record_red(
     return 0
   if result is None:
     raise TestCommandError("RED selected test could not execute")
+  if result.returncode < 0:
+    raise TestCommandError("RED selected test process terminated")
   if status == "NOT_RED" or result.returncode == 0:
     raise TestCommandError("RED did not demonstrate the expected failure")
   raise TestCommandError(
