@@ -82,6 +82,10 @@ def merge_protected_pr(
       or not isinstance(administrators, dict)
       or administrators.get("enabled") is not True
       or not isinstance(protection.get("required_pull_request_reviews"), dict)
+      or type(protection["required_pull_request_reviews"].get(
+        "required_approving_review_count")) is not int
+      or protection["required_pull_request_reviews"][
+        "required_approving_review_count"] < 1
       or protection.get("allow_force_pushes", {}).get("enabled") is not False
       or protection.get("allow_deletions", {}).get("enabled") is not False
     ):
