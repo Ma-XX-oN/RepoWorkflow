@@ -481,4 +481,38 @@ A prerequisite may finish independently when it produces a real reusable
 interface.  Preparatory/reference work that knowingly leaves its own ticket
 contract unimplemented is not independently complete.
 
+## 13.3 Speculative work on serial dependencies
+
+Speculative ticket work applies **only** when a downstream ticket has a real
+serial dependency on an unfinished prerequisite.  Independent tickets without
+a dependency path are ordinary parallel work, not speculation.
+
+A downstream worker may begin bounded implementation or test preparation before
+its prerequisite is DONE only when the prerequisite's required interface is
+stable enough to support that work.  Record the assumed interface revision,
+unresolved facts, upstream ownership and the evidence needed to revalidate it.
+Avoid conflicting writes to the predecessor's owned files or state.
+
+Speculation changes neither the canonical graph nor completion semantics:
+
+- Keep every direct dependency edge and the original acceptance contract.
+- A speculative downstream ticket remains **blocked**, not ready or DONE, while
+  any prerequisite is unfinished.  An early start must be explicitly labelled
+  speculative; it must not be presented as ordinary scheduler eligibility.
+- No DONE handoff, closure, integration, or dependent advancement may rely on
+  speculative work until every prerequisite is verified DONE and the downstream
+  implementation has passed applicable integration and acceptance tests against
+  the completed predecessor's actual interface and exact revision.
+- If the predecessor changes, invalidate or revise dependent speculative work
+  and rerun the affected verification.  Never treat mocks or draft interfaces
+  as proof of provider integration.
+- Preserve exclusive source and issue ownership, security/authorization gates,
+  and the prohibition on unsafe merges or production cutovers.
+
+Use speculation to reduce the critical path of a *serial* chain, not as a way to
+declare blocked tickets complete or relabel parallel tasks.  If a ticket has an
+independent deliverable that can truly reach DONE without its successor or
+predecessor, model it as an ordinary separate ticket and direct dependency
+instead of calling it speculative completion.
+
 Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
