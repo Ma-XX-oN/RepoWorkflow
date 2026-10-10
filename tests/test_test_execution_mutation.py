@@ -61,6 +61,12 @@ class ExecutionMutationTests(unittest.TestCase):
       "    subprocess.run(['git','add','generated.txt'],check=True)\n"
       "    subprocess.run(['git','commit','-qm','generated'],check=True)\n"
     )
+    catalogue = self.root / ".ci/tests.json"
+    value = json.loads(catalogue.read_text())
+    value["tests"][0]["issue-545-mutation"]["expected-red"] = {
+      "exit-code": 1, "output-contains": "RED defect observed",
+    }
+    catalogue.write_text(json.dumps(value))
     selection = self.root / ".ci/red-green.txt"
     selection.write_text("issue-545-mutation\n")
     self.git("add", ".ci/tests.json", "smoke_case.py", ".ci/red-green.txt")
@@ -74,7 +80,8 @@ class ExecutionMutationTests(unittest.TestCase):
     self.assertEqual(record["kind"], "RED")
     self.assertEqual(record["testSHA"], tested_sha)
     self.assertTrue(record["headChangedDuringTest"])
-    self.assertEqual(record["result"], "incomplete")
+    self.assertEqual(record["result"], "failed")
+    self.assertEqual(record["redStatus"], "NOT_RED")
     self.assertFalse(record["reusable"])
 
 
@@ -121,6 +128,12 @@ class ExecutionMutationTests(unittest.TestCase):
       "    path.write_bytes(path.read_bytes() + b' ')\n"
       "    self.fail('RED defect observed')\n"
     )
+    catalogue = self.root / ".ci/tests.json"
+    value = json.loads(catalogue.read_text())
+    value["tests"][0]["issue-545-mutation"]["expected-red"] = {
+      "exit-code": 1, "output-contains": "RED defect observed",
+    }
+    catalogue.write_text(json.dumps(value))
     selection = self.root / ".ci/red-green.txt"
     selection.write_text("issue-545-mutation\n")
     self.git("add", ".ci/tests.json", "smoke_case.py", ".ci/red-green.txt")
