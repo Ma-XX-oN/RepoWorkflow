@@ -150,6 +150,47 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
           0 if status == "PASS" else 1 if status == "FAIL" else 2,
         )
 
+  @unittest.skipIf(os.name == "nt", "symlinked hosted consumer fixture is POSIX-only")
+  def test_consumer_dispatcher_roundtrip_uses_installed_provider(self):
+    from tests.support import RepoFixture
+
+    with tempfile.TemporaryDirectory() as td:
+      workspace = Path(td) / "consumer"
+      workspace.mkdir()
+      fixture = RepoFixture(workspace)
+      (workspace / "RepoWorkflow").symlink_to(ROOT, target_is_directory=True)
+      fixture.commit("register installed RepoWorkflow adapter")
+      fixture.push()
+      result_dir = Path(td) / "outputs"
+      value = request("execute")
+      value["candidate"]["commit"] = fixture.head()
+      value["requirements"]["stages"] = ["local"]
+      value["inputs"] = {
+        "consumer_workspace": str(workspace),
+        "result_path": str(result_dir / "local.json"),
+        "mode": "development",
+        "base": value["candidate"]["base"],
+      }
+      env = {
+        **os.environ,
+        "GITHUB_REPOSITORY": "owner/repo",
+        "RWF_REPO_CI_WORKSPACE": str(workspace),
+        "RWF_REPO_CI_RESULT_ROOT": str(result_dir),
+      }
+      completed = subprocess.run(
+        [sys.executable, str(ROOT / "repo_workflow.py"), "repo-ci", "execute"],
+        input=json.dumps(value), cwd=workspace, env=env, text=True,
+        capture_output=True, check=False, timeout=60,
+      )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      result = json.loads(completed.stdout)
+      self.assertEqual(result["status"], "ok", result)
+      self.assertEqual(result["candidate"], value["candidate"])
+      self.assertEqual(result["observations"]["stages"][0]["core_result"]["status"],
+                       "PASS")
+      self.assertEqual(json.loads((result_dir / "local.json").read_text())["status"],
+                       "PASS")
+
   def test_consumer_execute_rejects_changed_identity_and_unsafe_result(self):
     from tests.support import RepoFixture
 
