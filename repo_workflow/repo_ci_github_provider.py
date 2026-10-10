@@ -160,7 +160,13 @@ def _execute_consumer(request: dict, root: Path) -> dict:
   try:
     observed = json.loads(destination.read_text(encoding="utf-8"))
   except (OSError, UnicodeError, ValueError):
-    return _error(request, "transport-failed", "core result missing or malformed")
+    detail = (completed.stderr or completed.stdout).decode(
+      "utf-8", errors="replace"
+    ).strip()
+    return _error(
+      request, "transport-failed",
+      "core result missing or malformed" + (": " + detail[:500] if detail else ""),
+    )
   if (
     not isinstance(observed, dict)
     or observed.get("schema") != 1
