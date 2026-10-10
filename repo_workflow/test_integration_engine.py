@@ -31,10 +31,23 @@ def _dirty(root: Path, evidence: Path) -> list[str]:
     check=True, capture_output=True,
   ).stdout.decode("utf-8", "surrogateescape")
   relative = evidence.relative_to(root).as_posix()
-  return sorted({
-    line[3:] for line in output.split("\0")
-    if line and line[3:] != relative
-  })
+  entries = output.split("\0")
+  paths: set[str] = set()
+  index = 0
+  while index < len(entries):
+    entry = entries[index]
+    index += 1
+    if not entry:
+      continue
+    if len(entry) < 4 or entry[2] != " ":
+      raise ValueError("malformed integration working-tree status")
+    paths.add(entry[3:])
+    if "R" in entry[:2] or "C" in entry[:2]:
+      if index >= len(entries) or not entries[index]:
+        raise ValueError("incomplete integration rename record")
+      paths.add(entries[index])
+      index += 1
+  return sorted(paths - {relative})
 
 
 def _probe(engine_root: Path, filename: str) -> int:
