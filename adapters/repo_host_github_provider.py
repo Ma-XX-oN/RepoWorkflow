@@ -91,7 +91,8 @@ class GitHubBackend:
     return _object(_json_call("GET", "user"), {"login"})
 
   def get(self, path: str):
-    return _json_call("GET", self.prefix + path)
+    route = self.prefix + path if path else self.prefix.rstrip("/")
+    return _json_call("GET", route)
 
   def post(self, path: str, body: dict):
     return _json_call("POST", self.prefix + path, body)
