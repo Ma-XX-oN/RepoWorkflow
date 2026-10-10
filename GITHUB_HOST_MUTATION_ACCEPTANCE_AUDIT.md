@@ -86,6 +86,25 @@ later mutation/deletion by authorized deployment policy.  The adapter
 never silently replays non-idempotent comments or PR creation after an
 unknown outcome.  See https://docs.github.com/en/rest/git/refs
 
+## Trusted live acceptance invocation
+
+Provision a protected standalone verifier implementing the #80 decision
+envelope.  Set `RWF_REPO_HOST_AUTH_COMMAND` to a JSON argv array with its
+absolute executable path, not a local workspace file or caller role claim.
+The verifier must authenticate the actor, issuer, delegation, standing
+non-consuming policy, issue/candidate/integration scope, expiry/revocation,
+and requested operation.  Its `scope_digest` is SHA-256 over the canonical
+sorted-key compact UTF-8 JSON request sent by the adapter.
+
+Use a disposable sandbox issue and two distinct sandbox branch refs.
+Invoke `python scripts/probe-repo-host-github.py --help` for exact arguments;
+provide repository, sandbox issue, source ref, target ref and unique run ID.
+GitHub credentials need issue/PR mutation permissions and Contents-write
+access for immutable request-reservation refs.  Keep the sandbox separate
+from production protected-main integration.  Preserve the probe's JSON
+evidence and record the provider and tested SHA.  Do not treat a mock verifier
+as live authorization evidence.
+
 ## Completion gate
 
 #97 must independently test ordinary mutations against real GitHub using
