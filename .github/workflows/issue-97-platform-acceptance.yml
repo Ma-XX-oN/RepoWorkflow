@@ -1,0 +1,157 @@
+name: Issue 97 cross-platform acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/repo-host-github.py'
+      - 'adapters/repo_host_github_*.py'
+      - 'tests/test_repo_host_github*.py'
+      - 'scripts/probe-repo-host-github*.py'
+      - 'GITHUB_HOST_MUTATION_ACCEPTANCE_AUDIT.md'
+      - '.github/workflows/issue-97-live-mutation.yml'
+      - '.github/workflows/issue-97-platform-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  adapter-acceptance:
+    name: Adapter acceptance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact PR source candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python -c "import os,subprocess;
+          assert subprocess.check_output(['git','rev-parse','HEAD'],
+          text=True).strip()==os.environ['EXPECTED_SHA']"
+      - name: Install signed-verifier test runtime
+        run: python -m pip install 'cryptography==45.0.7'
+      - name: Run black-box and provider contract tests
+        env:
+          RWF_REPO_HOST_AUTH_COMMAND: ''
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: >-
+          python -m unittest -v
+          tests.test_repo_host_github
+          tests.test_repo_host_github_reads
+          tests.test_repo_host_github_authority
+          tests.test_repo_host_github_mutations
+          tests.test_repo_host_github_provider
+          tests.test_repo_host_github_live_probe
+          tests.test_repo_host_github_workflow
+          tests.test_repo_host_github_signed_verifier
+      - name: Compile adapter and tests
+        run: >-
+          python -m py_compile
+          adapters/repo-host-github.py
+          adapters/repo_host_github_reads.py
+          adapters/repo_host_github_authority.py
+          adapters/repo_host_github_mutations.py
+          adapters/repo_host_github_provider.py
+          tests/test_repo_host_github.py
+          tests/test_repo_host_github_reads.py
+          tests/test_repo_host_github_authority.py
+          tests/test_repo_host_github_mutations.py
+          tests/test_repo_host_github_provider.py
+          tests/test_repo_host_github_live_probe.py
+          tests/test_repo_host_github_workflow.py
+          tests/test_repo_host_github_signed_verifier.py
+          examples/issue-97-verify-authority.py
+          scripts/probe-repo-host-github.py
+          scripts/probe-repo-host-github-deny.py
+          scripts/probe-repo-host-github-private-sandbox-deny.py
+          scripts/probe-repo-host-github-private-sandbox-signed-deny.py
+          scripts/probe-repo-host-github-pr-create.py
+          examples/issue-97-admin-sign-authority.py
+  repository-regression:
+    name: Full repository regression (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact PR source candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python -c "import os,subprocess;
+          assert subprocess.check_output(['git','rev-parse','HEAD'],
+          text=True).strip()==os.environ['EXPECTED_SHA']"
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run complete repository validation
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+          RWF_REPO_HOST_AUTH_COMMAND: ''
+        run: python scripts/validate.py
+
+  live-provider-read:
+    name: Authenticated GitHub backend reads (ubuntu-latest)
+    if: github.event.pull_request.number == 616
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact PR source candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python -c "import os,subprocess;
+          assert subprocess.check_output(['git','rev-parse','HEAD'],
+          text=True).strip()==os.environ['EXPECTED_SHA']"
+      - name: Verify exact issue, PR and branch with real GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/probe-repo-host-github-read.py
+          --repository Ma-XX-oN/RepoWorkflow
+          --issue 97
+          --pull 616
+          --branch issue-97-github-host-mutation-adapter
+          --expected-sha ${{ github.event.pull_request.head.sha }}
+      - name: Discover authenticated GitHub App identity interfaces
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/probe-repo-host-github-identity.py
+      - name: Real CLI denies unauthorized mutation before GitHub write
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RWF_REPO_HOST_AUTH_COMMAND: ''
+        run: python scripts/probe-repo-host-github-deny.py
+      - name: Probe no-effect GitHub write response on absent issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/probe-repo-host-github-permissions.py
+      - name: Audit actual Actions configuration API visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/probe-repo-host-github-configuration.py

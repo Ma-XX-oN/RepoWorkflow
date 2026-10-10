@@ -1,0 +1,148 @@
+# Copy to the DISPOSABLE SANDBOX repository's protected default branch at
+# .github/workflows/issue-97-sandbox-acceptance.yml.
+# This file is a TEMPLATE and cannot run in RepoWorkflow directly.
+name: Issue 97 sandbox-hosted Python adapter acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        default: accept
+        options: [accept, deny]
+
+concurrency:
+  group: rwf97-sandbox-hosted
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  live:
+    if: >-
+      github.repository != 'Ma-XX-oN/RepoWorkflow' &&
+      github.ref == 'refs/heads/main' &&
+      vars.RWF97_ENABLE == 'true' &&
+      vars.RWF97_APPROVED_SHA != '' &&
+      vars.RWF97_TRUSTED_MAIN_SHA == github.sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: sandbox-trusted
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install reviewed test-verifier runtime
+        run: python -m pip install 'cryptography==45.0.7'
+      - name: Require externally approved exact candidate and trusted policy
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ vars.RWF97_APPROVED_SHA }}
+          VERIFIER_SHA256: ${{ vars.RWF97_VERIFIER_SHA256 }}
+          SANDBOX_REPO: ${{ github.repository }}
+          SANDBOX_ISSUE: ${{ vars.RWF97_SANDBOX_ISSUE }}
+          SOURCE_REF: ${{ vars.RWF97_SANDBOX_SOURCE_REF }}
+          TARGET_REF: ${{ vars.RWF97_SANDBOX_TARGET_REF }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VERIFIER_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$SANDBOX_REPO" != "Ma-XX-oN/RepoWorkflow" ]]
+          [[ "$SANDBOX_ISSUE" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_REF" == refs/heads/rwf97-sandbox-* ]]
+          [[ "$TARGET_REF" == refs/heads/rwf97-sandbox-* ]]
+          [[ "$SOURCE_REF" != "$TARGET_REF" ]]
+          test "$(git -C sandbox-trusted rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -f sandbox-trusted/trusted/rwf97/verify-authority
+          echo "$VERIFIER_SHA256  sandbox-trusted/trusted/rwf97/verify-authority" \
+            | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/rwf97-trusted"
+          cp sandbox-trusted/trusted/rwf97/verify-authority \
+            "$RUNNER_TEMP/rwf97-trusted/verify-authority"
+          chmod 0500 "$RUNNER_TEMP/rwf97-trusted/verify-authority"
+          # Unauthenticated PUBLIC checkout: never send sandbox token to
+          # the candidate repository, Git configuration, or logs.
+          git clone --depth 1 --branch issue-97-github-host-mutation-adapter \
+            https://github.com/Ma-XX-oN/RepoWorkflow.git \
+            "$RUNNER_TEMP/rwf97-candidate"
+          test "$(git -C "$RUNNER_TEMP/rwf97-candidate" rev-parse HEAD)" \
+            = "$CANDIDATE_SHA"
+          echo "SHA/independent verifier artifact verified"
+      - name: Require independently pinned signed #80 evidence
+        shell: bash
+        env:
+          ISSUER_KEY: ${{ vars.RWF97_ISSUER_PUBLIC_KEY }}
+          ISSUER_ID: ${{ vars.RWF97_ISSUER_AUTHORITY }}
+          GRANT_ID: ${{ vars.RWF97_APPROVED_GRANT_ID }}
+          REVOCATIONS: ${{ vars.RWF97_SIGNED_REVOCATIONS }}
+        run: |
+          set -euo pipefail
+          test -n "$ISSUER_KEY"
+          test -n "$ISSUER_ID"
+          test -n "$GRANT_ID"
+          test -n "$REVOCATIONS"
+          echo "Independent signed authority inputs are configured"
+      - name: Run shipped Python adapter against sandbox-only resources
+        if: inputs.mode == 'accept'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RWF97_ISSUER_PUBLIC_KEY: ${{ vars.RWF97_ISSUER_PUBLIC_KEY }}
+          RWF97_ISSUER_AUTHORITY: ${{ vars.RWF97_ISSUER_AUTHORITY }}
+          RWF97_APPROVED_SHA: ${{ vars.RWF97_APPROVED_SHA }}
+          RWF97_APPROVED_GRANT_ID: ${{ vars.RWF97_APPROVED_GRANT_ID }}
+          RWF97_SIGNED_REVOCATIONS: ${{ vars.RWF97_SIGNED_REVOCATIONS }}
+          SANDBOX_REPO: ${{ github.repository }}
+          SANDBOX_ISSUE: ${{ vars.RWF97_SANDBOX_ISSUE }}
+          SOURCE_REF: ${{ vars.RWF97_SANDBOX_SOURCE_REF }}
+          TARGET_REF: ${{ vars.RWF97_SANDBOX_TARGET_REF }}
+        run: |
+          set -euo pipefail
+          export RWF_REPO_HOST_AUTH_COMMAND
+          RWF_REPO_HOST_AUTH_COMMAND="$(python - <<'PY'
+          import json
+          import os
+          print(json.dumps([
+            os.environ["RUNNER_TEMP"] +
+            "/rwf97-trusted/verify-authority",
+          ]))
+          PY
+          )"
+          python "$RUNNER_TEMP/rwf97-candidate/scripts/probe-repo-host-github.py" \
+            --repository "$SANDBOX_REPO" \
+            --sandbox-issue "$SANDBOX_ISSUE" \
+            --source-ref "$SOURCE_REF" \
+            --target-ref "$TARGET_REF" \
+            --run-id "rwf97-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Test signed revocation or expired policy rejection
+        if: inputs.mode == 'deny'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RWF97_ISSUER_PUBLIC_KEY: ${{ vars.RWF97_ISSUER_PUBLIC_KEY }}
+          RWF97_ISSUER_AUTHORITY: ${{ vars.RWF97_ISSUER_AUTHORITY }}
+          RWF97_APPROVED_SHA: ${{ vars.RWF97_APPROVED_SHA }}
+          RWF97_APPROVED_GRANT_ID: ${{ vars.RWF97_APPROVED_GRANT_ID }}
+          RWF97_SIGNED_REVOCATIONS: ${{ vars.RWF97_SIGNED_REVOCATIONS }}
+        run: |
+          set -euo pipefail
+          RWF_REPO_HOST_AUTH_COMMAND="$(python - <<'PY'
+          import json
+          import os
+          print(json.dumps([
+            os.environ["RUNNER_TEMP"] +
+            "/rwf97-trusted/verify-authority",
+          ]))
+          PY
+          )"
+          export RWF_REPO_HOST_AUTH_COMMAND
+          python "$RUNNER_TEMP/rwf97-candidate/scripts/probe-repo-host-github-private-sandbox-signed-deny.py"
