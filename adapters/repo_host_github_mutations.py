@@ -203,6 +203,8 @@ def _pr_create(backend, request: dict, fresh: bool):
     or observed["base"].get("ref") != target_short
   ) or observed.get("draft") != p["draft"]:
     raise ProviderError("unknown_outcome", "created PR identity mismatch")
+  if observed.get("title") != p["title"]:
+    raise ProviderError("unknown_outcome", "created PR title mismatch")
   if observed.get("body") != p["body"] + "\n" + marker:
     raise ProviderError("unknown_outcome", "PR marker missing")
   author = observed.get("user")
