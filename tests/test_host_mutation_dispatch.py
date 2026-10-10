@@ -120,7 +120,7 @@ class DispatcherContractTests(unittest.TestCase):
       calls.append(received["operation"])
       return provider_success(
         received, result={"operations": {
-          name: name != "issue.comment" for name in OPS,
+          name: name != "issue.comment" for name in OPS
         }},
       )
     with self.assertRaises(HostMutationError) as caught:
