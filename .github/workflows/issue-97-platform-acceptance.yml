@@ -6,6 +6,9 @@ on:
       - 'adapters/repo-host-github.py'
       - 'adapters/repo_host_github_*.py'
       - 'tests/test_repo_host_github*.py'
+      - 'scripts/probe-repo-host-github*.py'
+      - 'GITHUB_HOST_MUTATION_ACCEPTANCE_AUDIT.md'
+      - '.github/workflows/issue-97-live-mutation.yml'
       - '.github/workflows/issue-97-platform-acceptance.yml'
 
 permissions:
