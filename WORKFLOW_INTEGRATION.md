@@ -75,22 +75,39 @@ driver may be an ergonomic aid, not the remote source of correctness.
 
 ## 10. Local and hosted validation equivalence
 
-A pushed candidate must automatically receive server-side examination.
+Ordinary pushes do **not** request hosted execution.  To request it, write
+one `.ci/run` file containing exactly `<test-stage> <current-branch-tip-SHA>`
+and push that file change as a dedicated commit.  The SHA is the source branch
+tip before the request-only commit; the resulting request commit is not a new
+source candidate.  Unchanged `.ci/run` on subsequent ordinary pushes must not
+trigger testing.  Hosted execution checks the explicit request and exact
+candidate identity before running the requested stage.
 
-The server first inspects authoritative validation evidence for the exact
-pushed candidate.
+The existing test log is the authority for test results from **all**
+execution locations, including local machines, external runners, and hosted
+providers.  Provider records are evidence only after their provenance,
+candidate SHA, coverage, and PASS/FAIL/INCOMPLETE outcome are verified.
 
-- If complete acceptable local evidence exists for the exact SHA, hosted CI
-  verifies/reuses that evidence and avoids re-running expensive validation.
-- If required automated evidence is missing, hosted CI runs the missing work
-  automatically.
-- Evidence for one SHA never satisfies a different SHA.
+- Verified complete acceptable entries for the exact candidate can be reused
+  rather than rerunning expensive validation.
+- Missing, failed, incomplete, inapplicable, or stale evidence never becomes
+  PASS merely because a run was requested or a provider reported success.
+- Evidence for one source SHA does not automatically satisfy another SHA.
+- Hosted execution occurs only on the explicit request, not as a fallback on
+  ordinary pushes with missing evidence.
 
-This permits repositories with limited CI credits to perform expensive complete
-validation locally while retaining server-side enforcement.
+Before **every merge**, independently verify that the existing log satisfies
+all required tests for the exact source candidate and that the candidate's
+recorded destination-parent ancestry is current.  A concurrent merge that
+advances the destination parent makes an older candidate stale and blocks
+merge, regardless of its prior GREEN result.  Revalidate the candidate against
+the new parent and establish applicable evidence before retrying.  A successful
+test request, a PR, and a previously current base do not authorize merging.
 
-Local execution is a first-class authoritative path, not an approximation of
-GitHub Actions.
+There is **no automatic post-merge testing** on `main` or `prelim-main`.
+All required validation and freshness checks precede merge.  This section
+defines the target on-demand contract; issue #538 changes documentation only,
+not provider triggers, CI workflows, or enforcement runtime.
 
 ## 11. Integration request/version intent
 
