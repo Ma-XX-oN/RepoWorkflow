@@ -96,6 +96,33 @@ class LiveProbeCleanupTests(unittest.TestCase):
     self.assertEqual(result["result"], "PASS")
     self.assertTrue(result["cleanup_verified"])
 
+  def test_production_repo_and_non_sandbox_refs_fail_before_api(self):
+    cases = [
+      ["--repository", "Ma-XX-oN/RepoWorkflow"],
+      ["--source-ref", "refs/heads/main"],
+    ]
+    original = [
+      "probe", "--repository", "owner/sandbox",
+      "--sandbox-issue", "3", "--source-ref",
+      "refs/heads/rwf97-sandbox-source",
+      "--target-ref", "refs/heads/rwf97-sandbox-target",
+      "--run-id", "acceptance",
+    ]
+    for replacement in cases:
+      with self.subTest(replacement=replacement):
+        args = original.copy()
+        index = args.index(replacement[0])
+        args[index + 1] = replacement[1]
+        with patch.object(sys, "argv", args):
+          with patch.object(module, "gh") as get:
+            with patch.object(module, "invoke") as invoke:
+              with contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as caught:
+                  module.main()
+              self.assertEqual(caught.exception.code, 2)
+              get.assert_not_called()
+              invoke.assert_not_called()
+
   def test_cleanup_failure_has_no_success_record(self):
     calls, output = self.run_probe(cleanup_code=1)
     self.assertIn("CLOSE PR", calls)
