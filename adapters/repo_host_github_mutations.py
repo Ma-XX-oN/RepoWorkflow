@@ -210,9 +210,13 @@ def _pr_update(backend, request: dict, fresh: bool):
     raise ProviderError("unknown_outcome", "PR update not reconciled")
   if "base" in values:
     _branch(backend, "refs/heads/" + values["base"])
-  response = backend.patch("pulls/" + str(number), values)
-  if not isinstance(response, dict):
-    raise ProviderError("unknown_outcome", "invalid PR update response")
+  metadata = {key: value for key, value in values.items() if key != "draft"}
+  if metadata:
+    response = backend.patch("pulls/" + str(number), metadata)
+    if not isinstance(response, dict):
+      raise ProviderError("unknown_outcome", "invalid PR update response")
+  if "draft" in values and values["draft"] != pr["draft"]:
+    backend.set_draft(number, values["draft"])
   result, new_head = _pr_observed(backend, number, sha)
   if any(result.get(k) != v for k, v in values.items() if k != "base"):
     raise ProviderError("unknown_outcome", "PR update not confirmed")
