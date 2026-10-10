@@ -109,6 +109,26 @@
       "issue-67-github-migration": {
         "type": "regression",
         "name": "tests.test_repo_ci_github_migration"
+      },
+      "issue-68-validation-identity": {
+        "type": "regression",
+        "name": "tests.test_evidence_identity"
+      },
+      "issue-95-validation-coverage": {
+        "type": "regression",
+        "name": "tests.test_validation_coverage"
+      },
+      "issue-69-validation-store": {
+        "type": "regression",
+        "name": "tests.test_validation_store"
+      },
+      "issue-70-validation-import": {
+        "type": "regression",
+        "name": "tests.test_validation_import"
+      },
+      "issue-110-evidence-provider-plan": {
+        "type": "regression",
+        "name": "tests.test_validation_plan"
       }
     },
     {

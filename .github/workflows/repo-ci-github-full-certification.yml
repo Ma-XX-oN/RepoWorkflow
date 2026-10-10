@@ -8,6 +8,11 @@ on:
       - 'repo_workflow/repo_ci_dispatcher.py'
       - 'repo_workflow/repo_ci_github_provider.py'
       - 'tests/test_repo_ci_github_migration.py'
+      - 'repo_workflow/validation_*.py'
+      - 'repo_workflow/evidence_identity.py'
+      - 'tests/test_validation_*.py'
+      - 'tests/test_evidence_identity.py'
+      - '.github/workflows/repo-ci-evidence-planner-acceptance.yml'
   workflow_dispatch:
 
 permissions:
