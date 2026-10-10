@@ -225,10 +225,67 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
                          "identity-mismatch")
         self.assertFalse(destination.exists())
 
+  def test_consumer_machine_outputs_equal_legacy_adapter(self):
+    from tests.support import RepoFixture
+    from repo_workflow.repo_ci_github_compat import (
+      github_matrix, github_mode, github_prepare_context, load_github_config,
+    )
+    from repo_workflow.config import load_config
+
+    with tempfile.TemporaryDirectory() as td:
+      workspace = Path(td) / "consumer"
+      workspace.mkdir()
+      fixture = RepoFixture(workspace)
+      event = Path(td) / "event.json"
+      event.write_text("{}")
+      env = {
+        "RWF_REPO_CI_WORKSPACE": str(workspace),
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GITHUB_EVENT_PATH": str(event),
+      }
+      with patch.dict(os.environ, env):
+        mode = request("inspect-context", {
+          "consumer_workspace": str(workspace), "legacy": "mode",
+          "event_name": "workflow_dispatch", "event_path": str(event),
+          "branch": "issue-1-test",
+        })
+        mode["candidate"]["commit"] = fixture.head()
+        observed = handle_request(mode, ROOT)
+        self.assertEqual(observed["status"], "ok", observed)
+        self.assertEqual(
+          observed["observations"]["legacy_output"],
+          github_mode(workspace, "workflow_dispatch", event, "issue-1-test", "main"),
+        )
+        for operation, legacy, expected in (
+          ("resolve-capabilities", "matrix",
+           github_matrix(load_config(workspace), load_github_config(workspace))),
+          ("prepare", "prepare-context",
+           github_prepare_context(load_config(workspace), load_github_config(workspace))),
+        ):
+          with self.subTest(operation=operation):
+            value = request(operation, {
+              "consumer_workspace": str(workspace), "legacy": legacy,
+            })
+            value["candidate"]["commit"] = fixture.head()
+            observed = handle_request(value, ROOT)
+            self.assertEqual(observed["status"], "ok", observed)
+            self.assertEqual(observed["observations"]["legacy_output"], expected)
+
+  def test_legacy_machine_context_rejects_unbound_workspace(self):
+    value = request("resolve-capabilities", {
+      "consumer_workspace": "/untrusted", "legacy": "matrix",
+    })
+    result = handle_request(value, ROOT)
+    self.assertEqual(result["status"], "error")
+    self.assertEqual(result["diagnostics"][0]["code"], "prerequisite-unavailable")
+
   def test_consumer_workflow_routes_validation_but_keeps_core_finalizer(self):
     workflow = (ROOT / ".github" / "workflows" / "consumer-ci.yml").read_text()
     self.assertIn("repo-ci\", \"execute", workflow)
     self.assertIn("RWF_REPO_CI_WORKSPACE", workflow)
+    self.assertIn("repo_ci_github_machine.py mode", workflow)
+    self.assertIn("repo_ci_github_machine.py matrix", workflow)
+    self.assertIn("repo_ci_github_machine.py prepare-context", workflow)
     self.assertIn("python RepoWorkflow/repo_workflow.py finalize", workflow)
     self.assertIn("python RepoWorkflow/repo_workflow.py stable-finalize", workflow)
 
