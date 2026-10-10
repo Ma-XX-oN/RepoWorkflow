@@ -148,6 +148,8 @@ class SignedPolicyTests(TestCase):
       with patch.dict(os.environ, {
         "RWF97_ISSUER_AUTHORITY": "owner-approved-issuer",
         "RWF97_APPROVED_SHA": CANDIDATE,
+        "RWF97_APPROVED_GRANT_ID": document["grant"]["grant_id"],
+      "RWF97_APPROVED_GRANT_ID": "issuer-test-01",
       }):
         decision = verifier.evaluate(
           evidence()[2], document, revocations, REPOSITORY,
