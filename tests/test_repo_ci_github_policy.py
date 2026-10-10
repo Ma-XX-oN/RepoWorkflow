@@ -64,9 +64,11 @@ class GitHubPolicyAdapterTests(unittest.TestCase):
     cases = [None, [], {}, {**request(), "contract_version": True},
              {**request(), "contract_version": 2},
              {**request(), "operation": "publish"},
+             {**request(), "operation": []},
              {**request(), "invocation_id": ""},
              {**request(), "candidate": {"repository": "owner/repo"}},
              {**request(), "inputs": {"policies": ["other"]}},
+             {**request(), "inputs": {"policies": [{}]}},
              {**request(), "inputs": {"policies": ["canonical-bootstrap"] * 2}},
              {**request(), "unexpected": 1},
              {**request(), "requirements": {"stages": []}}]
