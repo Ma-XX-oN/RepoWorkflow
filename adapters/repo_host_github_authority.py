@@ -33,7 +33,7 @@ def verifier_command() -> list[str] | None:
     command = json.loads(raw)
   except ValueError:
     return None
-  if not isinstance(command, list) or not command or not all(
+  if not isinstance(command, list) or len(command) != 1 or not all(
     isinstance(part, str) and part for part in command
   ):
     return None
