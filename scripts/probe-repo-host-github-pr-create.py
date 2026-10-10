@@ -27,7 +27,8 @@ SHA = "9bf44e1aaac2e49fe26949df3369c4fc10b462fc"
 
 def github(route: str) -> object:
   response = subprocess.run(
-    ["gh", "api", "--method", "GET", f"repos/{REPO}/{route}"],
+    ["gh", "api", "--method", "GET",
+     f"repos/{REPO}/{route}".rstrip("/")],
     text=True, capture_output=True, check=False, timeout=30,
   )
   if response.returncode:
