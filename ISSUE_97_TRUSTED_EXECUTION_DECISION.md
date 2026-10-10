@@ -1,97 +1,85 @@
-# Issue #97 — Verified Minimum Hosted Test Architecture
+# Issue #97 — Functional GitHub Acceptance Boundary
 
-Date: 2026-10-10.  Issue OPEN, draft PR #616 UNMERGED.
-Canonical operational guide: ISSUE_97_LIVE_ACCEPTANCE_SETUP.md.
+Decision corrected 2026-10-10 under the owner's explicit instruction.
+Issue #97 OPEN.  Draft PR #616 UNMERGED.  Direct blocker: #81 only.
 
-## Provider-backed facts
+## Distinguish contract from infrastructure
 
-- PRIVATE sandbox Ma-XX-oN/Disposable-000 exists; owner admin rights
-  confirmed.  Main, issue #1 and distinct source/target branches are
-  initialized, and disposable PR #2 is CLOSED, UNMERGED.
-- Authenticated private GitHub Actions provider probe confirmed
-  total_count 0 for environments.
-- The private repository's Rulesets API returned a plan-specific 403.
-- Hosted shipped Python adapter denied four unauthorized mutations and
-  failed closed on unsupported merge/check publication.  Independent
-  before/after remote issue/PR/comment/ref state was unchanged.
-- All positive authenticated adapter writes still require trusted #80
-  standing-policy authorization; none have been executed yet.
+#81 requires a provider-neutral semantic adapter, authenticated and
+authorized operations, fail-closed rejection, idempotency and actual
+provider-backed acceptance of issue/PR creation and update.  Its
+section 6 specifies explicit actor, scope, operation and expiry
+verification at the mutation boundary.
 
-## Evaluated execution architectures
+#80 defines the canonical authorization evidence format.  #97 consumes
+authorization decisions; neither #97 nor #81 requires a particular
+offline certificate issuer, signing ceremony, permanent server,
+protected-environment reviewer, paid GitHub plan, dedicated runner,
+GitHub App or PAT.  No implementation of #85 is required before
+#97 completes.
 
-| Option | Feasible | Additional authority |
-| --- | --- | --- |
-| RepoWorkflow-hosted GitHub runner | Yes | Cross-repo token |
-| Hosted runner plus GitHub App | Yes | App identity/key |
-| Dedicated self-hosted runner | Yes | Persistent runner |
-| Sandbox-native hosted runner | SELECTED | Signed #80 grant |
+#85 owns enforcement of protected production main.  Ordinary #97
+issue/PR mutations do not authorize merge or check publishing.
 
-The selected `ubuntu-latest` job uses only Disposable-000's native
-job-scoped GITHUB_TOKEN, with Actions read, Contents write, Issues
-write and Pull requests write, confined to that disposable repo.
+## Smallest approved live arrangement
 
-A dedicated runner, private App key, PAT or persistent verifier
-service is NOT demanded by the #80 contract.  No production
-RepoWorkflow main, issue or release tag is changed.
+The owner explicitly authorized a PRIVATE disposable repository:
 
-## Private GitHub plan reality
+https://github.com/Ma-XX-oN/Disposable-000
 
-Rulesets for private personal repositories need an eligible paid
-plan.  GitHub Free/Pro/Team required deployment reviewers are
-restricted to public repos.  A Pro upgrade alone would therefore
-NOT implement the previous private environment-review plan.
+The repository already contains a designated issue, two distinct
+non-main branches and a GitHub-hosted workflow.  Its separate
+sandbox-main test authority implements the approved temporary
+fixture scope, verifies authenticated `github-actions[bot]` through
+GitHub GraphQL, matches issue/PR scope, run ID and expiry, and issues
+strict #81 decision envelopes.  The shipped adapter uses its normal
+authorization consumer, with the verifier staged OUTSIDE the
+candidate's source checkout.
 
-Issue #97's disposable *test* need not acquire Enterprise or change
-the sandbox to public.  Instead, an administrator independently
-reviews the exact trusted workflow/candidate SHA and signs a
-short-lived scoped #80 grant using a private OFFLINE Ed25519 key.
-GitHub Actions repository variables controlled by the administrator
-pin the issuer public key, issuer ID, exact grant ID, current signed
-revocation state, exact trusted-main SHA and exact candidate SHA.
-The GITHUB_TOKEN job cannot edit those Actions approval variables.
+Use a native short-lived sandbox-only `GITHUB_TOKEN` on
+`ubuntu-latest`, with only relevant Contents, Issues and PR write.
+The job never modifies RepoWorkflow production main or release tags,
+and all test PRs remain unmerged.
 
-The grant and mirrored revocation document are signed.  The shipped
-adapter invokes a separate verifier executable staged outside the
-candidate checkout, and that verifier checks cryptographic signatures,
-GitHub's authenticated actor, precise semantic capability, sandbox
-issue and PR refs, grant lifetime, delegation and current revocation.
-One-time grants and unverifiable claims always deny.
+This is NOT production protected-main security enforcement and does
+not purport to resist arbitrary unreviewed malicious candidate code
+holding the disposable sandbox write token.  Such a threat model is
+outside #97 and belongs to existing security ownership, including
+#85.  Do not activate those tickets to certify the adapter.
 
-A cryptographic authorization decision is DISTINCT from GitHub
-environment review and distinct from token possession.
+## Real test results and exact blocker
 
-## Security qualification
+- https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38095457391
 
-Without paid GitHub protection rules, a sandbox write token may also
-have permission to modify sandbox main or reservation refs.  The
-test adapter never intentionally uses those operations; the
-independently reviewed exact candidate is mandatory.  Verifier
-binary hash binding and the administrator-maintained signed
-revocation variable detect unintended changes, but do NOT provide
-hostile-code isolation from malicious candidate code holding the raw
-sandbox token.  A separate credential-owning trusted broker would
-be needed for that STRONGER production threat model.  Do not
-misrepresent private Free as having active main/tag rulesets.
+  Actual shipped Python issue update, comment, same-ID replay,
+  changed-input refusal and competing comment processes executed.
+  Independent GitHub readbacks verified one comment per request ID.
+  The issue title was restored.  The run then failed on PR creation.
 
-The isolated test's authorization validity is anchored in a
-separately issued signed grant and current authoritative revocation
-fact, not in a mutable local JSON file or PR author's claim.
+- https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38095621430
 
-## Executable artifacts
+  Actual shipped Python PR update PASS, including persisted state,
+  fresh-process replay, same-ID conflict and stale-head refusal.
+  Draft PR #2 was restored and closed without merge.
 
-- `examples/issue-97-sandbox-hosted.workflow.yml`: sandbox hosted job.
-- `examples/issue-97-verify-authority.py`: signed v1 verifier.
-- `examples/issue-97-admin-sign-authority.py`: OFFLINE issuer utility
-  for key generation, short-lived grant and revocation, no key uploads.
-- `tests/test_repo_host_github_signed_verifier.py`: cryptographic
-  positive/negative specification tests.
-- `scripts/probe-repo-host-github-private-sandbox-deny.py`:
-  authenticated real-provider six-operation fail-closed test.
-- `scripts/probe-repo-host-github.py`: real authorized Python write,
-  persisted outcome, replay/concurrency and cleanup acceptance.
-- `ISSUE_97_LIVE_ACCEPTANCE_SETUP.md`: exact admin UI/CLI steps.
+- https://github.com/Ma-XX-oN/Disposable-000/actions/runs/38095551998
 
-The sandbox already contains the hosted workflow and a trusted
-verifier candidate; administrator-pinned issuer/grant variables
-and signed grant issuance are NOT yet configured.
-Do not mark DONE from mock GREEN or live negative results alone.
+  Native GitHub Actions `POST /pulls` conclusively returned HTTP 403:
+  "GitHub Actions is not permitted to create or approve pull requests."
+
+The one blocking administrative action is in Disposable-000 only:
+Settings -> Actions -> General -> Workflow permissions -> enable
+`Allow GitHub Actions to create and approve pull requests` -> Save.
+
+The connected GitHub tools do not expose updating this setting.
+No new GitHub issuer, admin-managed grant, offline certificate,
+protected environment, self-hosted runner, ruleset, or broader
+security deployment is required for these functional tests.
+
+## Completion boundary
+
+After PR creation is allowed, run the existing exact-source Python
+probe through both real create and update, verify persisted PR
+identity, request reservation records, replay and cleanup, then
+run issue-level regression.  Only then may #97 report DONE and
+close according to V3 rules.  Do not merge PR #616.
