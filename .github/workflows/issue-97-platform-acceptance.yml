@@ -141,3 +141,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/probe-repo-host-github-permissions.py
+      - name: Audit actual Actions configuration API visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/probe-repo-host-github-configuration.py
