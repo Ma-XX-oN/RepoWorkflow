@@ -95,7 +95,30 @@ distinct failure classes; none may be normalized to `unchanged`.
   identities differ.
 - Adapter calls must not silently modify local Git HEAD, index or worktree.
 
-## 6. Acceptance matrix
+## 7. Parameter and identity grammar
+
+`request_id` is 1–128 ASCII characters from letters, digits, dot,
+underscore, colon and hyphen.  It is scoped by repository and operation.
+A retry of the same identity with different semantic parameters is a
+conflict, never an alternative use of the identity.
+
+An issue or PR number is a positive integer, not a boolean or numeric
+string.  A Git commit identity is exactly 40 lowercase hexadecimal
+characters.  `title` and `body` are UTF-8 strings; required text is
+non-empty.  For update operations the caller must distinguish an omitted
+field (leave unchanged) from an explicitly supplied empty body (clear it).
+
+`check.publish` may name a stable required context only when provider
+configuration authorizes that context.  Its proof is a reference to
+authenticated evidence, not a caller-supplied success boolean or an
+unverified test log.
+
+The adapter must reject unexpected operation parameter keys instead of
+silently dropping them.  An adapter must also reject a response that omits
+or contradicts the requested repository, operation, request ID, or expected
+head/destination facts.
+
+## 8. Acceptance matrix
 
 Contract tests must cover zero/one/many requests and idempotent repeats,
 changed inputs and changed expected SHAs, invalid schema and identifiers,
