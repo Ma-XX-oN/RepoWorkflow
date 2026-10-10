@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 import json
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -112,6 +113,22 @@ class GitHubReadBoundaryTests(unittest.TestCase):
           with self.assertRaises(MODULE.ProviderReadError):
             MODULE.branch_head("owner/repo", name)
       run.assert_not_called()
+
+
+  def test_cli_missing_or_timeout_fails_with_safe_error(self):
+    errors = [
+      FileNotFoundError("executable missing"),
+      subprocess.TimeoutExpired(["gh", "api"], 30),
+    ]
+    for failure in errors:
+      with self.subTest(failure=failure):
+        with patch.object(
+          MODULE.subprocess, "run", side_effect=failure
+        ):
+          with self.assertRaises(MODULE.ProviderReadError) as caught:
+            MODULE.issue_get("owner/repo", 1)
+          self.assertNotIn("executable missing", str(caught.exception))
+          self.assertNotIn("gh", str(caught.exception))
 
   def test_provider_failure_malformed_json_and_array_fail(self):
     responses = [
