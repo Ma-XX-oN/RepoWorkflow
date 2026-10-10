@@ -129,10 +129,9 @@ log.
 This specification deliberately does **not** change the existing CI triggers
 or server rules. Implementation must separately reconcile:
 
-- `PUBLIC_WORKFLOW.md` section 10.1 (currently assigns issue-tier checks
-  to ordinary PRs and integration to `main` pushes);
-- `WORKFLOW_INTEGRATION.md` section 10 (currently requires automatic server
-  examination of every pushed candidate);
+- `PUBLIC_WORKFLOW.md` section 10.1 and
+  `WORKFLOW_INTEGRATION.md` section 10 (now document the target contract,
+  but do not change existing executable CI behaviour);
 - the GitHub Actions workflow, `repo_workflow/self_ci.py`, test catalogue,
   and required-check/branch-protection settings;
 - GitHub path-filter limitations and required-check pending behaviour;
