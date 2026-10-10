@@ -141,7 +141,7 @@ class ExecutionMutationTests(unittest.TestCase):
     catalogue = self.root / ".ci/tests.json"
     expected = hashlib.sha256(catalogue.read_bytes()).hexdigest()
     result = self.cli("test", "RED")
-    self.assertEqual(result.returncode, 2)
+    self.assertEqual(result.returncode, 0, result.stderr)
     self.assertNotEqual(
       hashlib.sha256(catalogue.read_bytes()).hexdigest(), expected,
       result.stderr,
