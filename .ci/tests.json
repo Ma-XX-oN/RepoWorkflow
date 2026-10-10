@@ -175,6 +175,10 @@
       "issue-545-shipped-launcher": {
         "type": "regression",
         "name": "tests.test_test_launcher"
+      },
+      "issue-545-red-runner": {
+        "type": "regression",
+        "name": "tests.test_test_red_runner"
       }
     }
   ],
