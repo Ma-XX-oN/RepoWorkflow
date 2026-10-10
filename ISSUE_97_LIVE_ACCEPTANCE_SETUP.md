@@ -116,6 +116,24 @@ verifier or issuer has yet been found in #80 or in connected tooling.
 The setup is not complete until its positive AND negative decisions
 pass independent tests.  Do not install an allow-all verifier.
 
+## Exact reviewed-code trust requirement
+
+The live adapter process receives the disposable SANDBOX write token.
+Neither an environment approval nor moving the verifier file outside
+the adapter checkout mechanically prevents malicious candidate code
+from bypassing calls or invoking GitHub directly.  The reviewer must
+inspect the exact candidate SHA (including adapter, tests, workflow
+and imports) independently before approval.  Any changed SHA is a
+new review, not an automatic continuation.
+
+The sandbox's provider-enforced default-branch and immutable-tag
+rules must apply to the GitHub Actions installation actor.  A
+self-hosted runner would not fix token bypass by hostile code.
+This is an acceptance harness for specifically reviewed code, not
+a safe execution service for arbitrary untrusted PRs.  For the
+stronger hostile-code threat model, a separate trusted broker owning
+the write token would be needed.
+
 ## Provider-backed acceptance and teardown
 
 The template's job runs the actual shipped Python adapter through
