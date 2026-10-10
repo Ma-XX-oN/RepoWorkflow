@@ -7,12 +7,12 @@ observations separately from mocks, static checks and local Git fixtures.
 ## Exact source / CI revision
 
 - Source branch: `issue-628-trigger-probe-matrix-v3`.
-- Verified source commit: `a28994b983333d3ef102e86c40bb2ee06c88a6f2`.
-- Self CI run: `38079150927`, run number 2236, SUCCESS.
-- Issue tier: 16 marker-history cases, 19 observer cases, 10
+- Verified source commit: `329067ffb9b9fa1cf0347cb5c2a7c0e2856a1479`.
+- Self CI run: `38079318666`, run number 2246, SUCCESS.
+- Issue tier: 16 marker-history cases, 20 observer cases, 12
   static-filter cases, 2 recorded-hosted-snapshot cases and 9 self-CI
   invariant cases.  All passed.
-- Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38079150927
+- Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38079318666
 - Only `issue-validate` ran; platform integration and release jobs skipped.
 
 ## Real GitHub-hosted on-demand runs
@@ -95,7 +95,8 @@ or replayed webhook delivery.
 | T01 | Git fixture plus four successful hosted invocations | PASS for dedicated request and SHA binding |
 | T02 | Two successful temporary and regression/integration sequences | PASS for distinct invocation identities |
 | T03 | Parser retry fixture and two real successive hosted requests | Retry chain PASS; missed-delivery recovery unobserved |
-| T04-T06 | Git fixtures, static filter tests, read-only run listings | Live ordinary-push exclusion not certified |
+| T04 | Three live workflow-present source-only commits with zero on-demand runs | Provider PASS for sampled ordinary changes |
+| T05-T06 | Git fixtures and static filter checks | Main and exact prelim-main active exclusions not certified |
 | T07 | Read-only verifier fixture | Hosted read-only retrieval exclusion not observed |
 | T08-T12 | Executable tamper, marker, SHA, mixed-source and ancestry tests | Black-box PASS; live rejection not observed |
 | T13 | Two-request Git fixture | Multi-event delivery semantics not observed |
