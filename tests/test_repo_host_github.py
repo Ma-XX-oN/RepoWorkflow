@@ -234,6 +234,23 @@ class GitHubHostBootstrapTests(unittest.TestCase):
         self.assertEqual(stdout, "")
         self.assertEqual(json.loads(stderr)["error"], "invalid_request")
 
+
+  def test_live_probe_parses_without_provider_side_effects(self):
+    probe = PATH.parents[1] / "scripts" / "probe-repo-host-github.py"
+    help_result = subprocess.run(
+      [sys.executable, str(probe), "--help"],
+      capture_output=True, text=True, check=False,
+    )
+    self.assertEqual(help_result.returncode, 0)
+    invalid = subprocess.run(
+      [sys.executable, str(probe), "--repository", "owner/repo",
+       "--sandbox-issue", "0", "--source-ref", "refs/heads/work",
+       "--target-ref", "refs/heads/main", "--run-id", "local-test"],
+      capture_output=True, text=True, check=False,
+    )
+    self.assertNotEqual(invalid.returncode, 0)
+    self.assertIn("positive", invalid.stderr)
+
   def test_deterministic_retries_are_read_only(self):
     original = request(request_id="repeat-1")
     self.assertEqual(MODULE.run(original), MODULE.run(original))
