@@ -121,6 +121,22 @@ class ResultsMetadataTests(unittest.TestCase):
         self.assertIn("invalid testing log groups", output.stderr)
 
 
+  def test_nonexecuted_group_can_be_read_only_as_incomplete(self):
+    incomplete = dict(
+      self.valid, result="incomplete",
+      groups=[{"group": "issue-545-one", "exit_code": None}],
+    )
+    output = self.result([incomplete])
+    self.assertEqual(output.returncode, 0, output.stderr)
+    self.assertEqual(json.loads(output.stdout), incomplete)
+
+    invalid = dict(incomplete, result="succeeded")
+    output = self.result([self.valid, invalid])
+    self.assertEqual(output.returncode, 2)
+    self.assertEqual(output.stdout, "")
+    self.assertIn("invalid testing log groups", output.stderr)
+
+
   def test_duplicate_json_fields_rejected_without_partial_output(self):
     first = json.dumps(self.valid)
     duplicate_top = (
