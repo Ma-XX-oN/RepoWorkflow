@@ -345,6 +345,11 @@ def main() -> int:
           "title"
         ] != original_title:
           errors.append("sandbox issue title not restored")
+        else:
+          verify_reservation(args.repository, "issue.update",
+                             run + "-restore", {
+            "number": args.sandbox_issue, "title": original_title,
+          })
       except Exception:
         errors.append("sandbox issue title requires manual restoration")
     if errors:
