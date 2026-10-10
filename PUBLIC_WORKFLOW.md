@@ -399,23 +399,42 @@ required coverage.
 
 ### 10.1 CI validation tiers
 
-Hosted Self CI uses the same validation hierarchy:
+Hosted validation is **on demand**, not triggered by ordinary source pushes.
+A request consists of one `.ci/run` file containing exactly
+`<test-stage> <current-branch-tip-SHA>`.  The SHA names the source candidate
+at the branch tip **before** the dedicated request commit.  Updating this file
+in a dedicated push requests execution for that exact candidate.  Ordinary
+pushes that do not change `.ci/run` request no hosted tests.  The provider
+must not treat the request-only commit SHA as the tested source SHA.
 
-- issue PRs run the issue-owned catalogue groups, durable high-risk alias
-  groups, and cheap invariant groups;
-- regression runs broad repository validation without the integration-only
-  platform matrix;
-- integration runs broad validation plus the authoritative platform/provider
+The requested stage selects coverage, not permission to infer completion:
+
+- issue testing covers issue-owned catalogue groups, durable high-risk aliases,
+  and cheap invariants;
+- regression covers broad repository validation, excluding the
+  integration-only platform matrix;
+- integration covers broad validation plus the authoritative platform/provider
   matrix;
-- documentation-only changes retain the fast path.
+- documentation-only work can request the cheap issue-tier coverage.
 
-Regression is selected explicitly when a dependency-complete umbrella outcome
-is ready or when broader risk warrants it.  RepoWorkflow does not infer
-umbrella semantics from Initiative/Epic/Feature title prefixes.
+Regression is explicitly requested for a dependency-complete umbrella outcome
+or broader risk.  Title prefixes do not select tiers.  The recorded test
+results must identify the requested stage, effective groups, exact tested SHA,
+and outcome; a narrower PASS is never a broader PASS.
 
-Authoritative `main` pushes are always integration candidates.  CI emits the
-selected tier, groups, and reason so narrower evidence cannot be mistaken for a
-stronger gate.
+The existing test log is the source of evidence, whether execution occurred
+locally, externally, or on a hosted provider.  A hosted request may reuse
+verified matching entries; it must not invent PASS for missing requirements.
+A merge requires complete acceptable log evidence for the **exact candidate**
+and a fresh, verified destination-parent ancestry check immediately before
+merge.  When another merge advances that parent, the stale candidate is
+rejected, even if its tests passed.  A new candidate requires fresh eligibility
+verification and applicable evidence; no older SHA's result transfers.
+
+Neither `main` nor `prelim-main` receives an automatic post-merge test
+cycle.  All required testing and currency checks occur before merge.
+This section specifies the target contract (#538); provider/runtime changes
+are implemented in follow-up issues, not by this documentation change.
 
 ## 11. Status and guidance
 
