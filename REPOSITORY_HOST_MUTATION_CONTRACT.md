@@ -51,7 +51,8 @@ This is not an authorization check and does not consume a mutation request ID.
 open/closed state.  At least one field must change or the provider confirms
 `unchanged`.  Returns exactly `{number, title, state}` with positive
 integer number, non-empty title and `open|closed` state.  It may
-never create a missing issue implicitly.  Reopening/closing is a transition, not evidence of authorization.
+never create a missing issue implicitly.  Reopening/closing is a
+transition, not evidence of authorization.
 
 `issue.comment`: takes positive issue number and non-empty comment body.
 Returns exactly `{number, comment_id}`; number matches the requested issue,
@@ -61,7 +62,8 @@ not create a second comment.
 `pull_request.create`: takes exact source ref, target ref, expected source
 head SHA, title, body, and draft boolean.  Returns a positive PR number,
 exact source/target refs, and the provider-observed head SHA.  Result fields
-are exactly `{number, source_ref, target_ref, head_sha, draft}`.  It never merges.
+are exactly `{number, source_ref, target_ref, head_sha, draft}`.
+It never merges.
 The request ID is bound to the exact source/target and initial head identity;
 changed head on replay is a conflict, not implicit PR retargeting.
 The adapter must check the exact expected source head at creation time.
@@ -163,7 +165,8 @@ An issue or PR number is a positive integer, not a boolean or numeric
 string.  A Git commit identity is exactly 40 lowercase hexadecimal
 characters.  `title` and `body` are UTF-8 strings; required titles,
 comment bodies, refs and contexts are non-empty.  `draft` is a JSON
-boolean.  `state` is `open|closed`; `conclusion` is `success|failure`.  `repository` is a non-empty
+boolean.  `state` is `open|closed`; `conclusion` is `success|failure`.
+`repository` is a non-empty
 canonical `owner/name` from `repo-info`.  Source and target refs must be
 explicit and unambiguous; a raw branch display name alone conveys no trust.
 For update operations the caller must distinguish an omitted field (leave
