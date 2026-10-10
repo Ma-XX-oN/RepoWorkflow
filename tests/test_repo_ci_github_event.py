@@ -63,6 +63,8 @@ class RepoCiGithubEventTests(unittest.TestCase):
     x = request(); x["contract_version"] = 2; bad.append((x, "unsupported-version"))
     x = request(); x["operation"] = "publish"; bad.append((x, "unsupported-operation"))
     x = request(); x["candidate"] = {}; bad.append((x, "invalid-request"))
+    x = request(); x["operation"] = []; bad.append((x, "unsupported-operation"))
+    x = request(capabilities=["gpu"]); bad.append((x, "capability-unavailable"))
     x = request(); del x["invocation_id"]; bad.append((x, "invalid-request"))
     x = request(); x["unexpected"] = True; bad.append((x, "invalid-request"))
     x = request(); x["requirements"]["capabilities"] = ["python", "python"]
