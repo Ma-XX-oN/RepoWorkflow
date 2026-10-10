@@ -26,13 +26,15 @@ def _validate_request(request: dict) -> None:
     raise HostMutationError("invalid host mutation request")
   if request["schema_version"] != 1 or type(request["schema_version"]) is not int:
     raise HostMutationError("unsupported host mutation schema")
-  if request["operation"] not in _OPERATIONS:
+  if not isinstance(request["operation"], str) or request["operation"] not in _OPERATIONS:
     raise HostMutationError("unsupported host mutation operation")
   if not isinstance(request["repository"], str) or not _REPOSITORY.fullmatch(
     request["repository"]
   ):
     raise HostMutationError("invalid host repository identity")
-  if not isinstance(request["request_id"], str) or not request["request_id"].strip():
+  if (not isinstance(request["request_id"], str) or not re.fullmatch(
+    r"[A-Za-z0-9._:-]{1,128}", request["request_id"]
+  )):
     raise HostMutationError("invalid idempotency identity")
   if not isinstance(request["parameters"], dict):
     raise HostMutationError("invalid semantic mutation parameters")
@@ -74,7 +76,8 @@ def dispatch(
     or reply.get("operation") != request["operation"]
     or reply.get("repository") != request["repository"]
     or reply.get("request_id") != request["request_id"]
-    or reply.get("status") not in {"applied", "unchanged"}
+    or not isinstance(reply.get("status"), str)
+    or reply["status"] not in {"applied", "unchanged"}
     or not isinstance(reply.get("result"), dict)
   ):
     raise HostMutationError("invalid successful host response")
