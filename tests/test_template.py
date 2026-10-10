@@ -40,8 +40,10 @@ class TemplateTests(unittest.TestCase):
 
   def test_matrix_result_filenames_are_unique_per_environment(self):
     text = IMPLEMENTATION.read_text()
+    self.assertIn('RWF_STAGE: ${{ matrix.id }}', text)
+    self.assertIn('os.environ["RWF_STAGE"] + ".json"', text)
     self.assertIn(
-      '${{ runner.temp }}/repoworkflow-result/${{ matrix.id }}.json',
+      '${{ runner.temp }}/repoworkflow-provider-bundles/${{ matrix.id }}/',
       text,
     )
     self.assertNotIn(
