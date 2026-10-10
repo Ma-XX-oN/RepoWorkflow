@@ -224,6 +224,40 @@ class OrdinaryMutationTests(unittest.TestCase):
     self.assertEqual(apply(request, self.backend)[0], "unchanged")
     self.assertEqual(len(self.backend.writes), 1)
 
+  def test_pr_replay_rejects_different_source_same_commit(self):
+    p = {
+      "source_ref": "refs/heads/work", "target_ref": "refs/heads/main",
+      "expected_source_sha": SHA, "title": "New PR",
+      "body": "", "draft": True,
+    }
+    request = req("pull_request.create", p)
+    apply(request, self.backend)
+    self.backend.pr["head"]["ref"] = "other-branch"
+    with self.assertRaises(ProviderError) as caught:
+      apply(request, self.backend)
+    self.assertEqual(caught.exception.code, "conflict")
+    self.assertEqual(len(self.backend.writes), 1)
+
+  def test_pr_create_rejects_provider_source_identity_mismatch(self):
+    p = {
+      "source_ref": "refs/heads/work", "target_ref": "refs/heads/main",
+      "expected_source_sha": SHA, "title": "New PR",
+      "body": "", "draft": True,
+    }
+    original_post = self.backend.post
+
+    def switched_source(path, body):
+      response = original_post(path, body)
+      if path == "pulls":
+        self.backend.pr["head"]["ref"] = "other-branch"
+      return response
+
+    self.backend.post = switched_source
+    with self.assertRaises(ProviderError) as caught:
+      apply(req("pull_request.create", p), self.backend)
+    self.assertEqual(caught.exception.code, "unknown_outcome")
+    self.assertEqual(len(self.backend.writes), 1)
+
   def test_pr_create_rejects_stale_source(self):
     self.backend.refs["refs/heads/work"] = OTHER
     p = {
