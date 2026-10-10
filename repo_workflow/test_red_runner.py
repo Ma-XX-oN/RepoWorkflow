@@ -39,14 +39,18 @@ def record_red(
     result = None
   else:
     try:
-      result = subprocess.run(
-        command, cwd=root, text=True, encoding="utf-8",
-        errors="strict", capture_output=True, check=False,
+      completed = subprocess.run(
+        command, cwd=root, capture_output=True, check=False,
         env={
           **os.environ,
           "PYTHONDONTWRITEBYTECODE": "1",
           "PYTHONIOENCODING": "utf-8",
         },
+      )
+      stdout = completed.stdout.decode("utf-8", errors="strict")
+      stderr = completed.stderr.decode("utf-8", errors="strict")
+      result = subprocess.CompletedProcess(
+        completed.args, completed.returncode, stdout, stderr,
       )
     except (OSError, UnicodeError):
       result = None
