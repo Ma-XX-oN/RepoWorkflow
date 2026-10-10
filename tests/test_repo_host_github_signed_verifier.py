@@ -200,6 +200,41 @@ class SignedPolicyTests(TestCase):
       check(clock=datetime(2026, 10, 10, 20, 0,
                            tzinfo=timezone.utc))
 
+  def test_pr_update_requires_real_exact_open_draft_sandbox_pr(self):
+    from types import SimpleNamespace
+
+    good = {
+      "state": "open", "draft": True,
+      "head": {
+        "sha": SOURCE_SHA, "ref": "rwf97-sandbox-source",
+      },
+      "base": {"ref": "rwf97-sandbox-target"},
+    }
+    sandbox = evidence()[0]["sandbox"]
+
+    def verify(payload):
+      response = SimpleNamespace(
+        returncode=0, stdout=json.dumps(payload), stderr="",
+      )
+      with patch.object(verifier.subprocess, "run",
+                        return_value=response) as backend:
+        verifier.require_provider_pr_scope(
+          REPOSITORY, 2, sandbox, SOURCE_SHA
+        )
+      self.assertIn("/pulls/2", backend.call_args.args[0][-1])
+
+    verify(good)
+    for bad in (
+      {**good, "state": "closed"},
+      {**good, "draft": False},
+      {**good, "head": {**good["head"], "sha": "0" * 40}},
+      {**good, "head": {**good["head"], "ref": "main"}},
+      {**good, "base": {"ref": "main"}},
+    ):
+      with self.subTest(bad=bad):
+        with self.assertRaises(ValueError):
+          verify(bad)
+
   def test_authorization_requires_current_authenticated_provider_reads(self):
     source = SOURCE.read_text(encoding="utf-8")
     self.assertIn('"gh", "api", "--method", "GET"', source)
