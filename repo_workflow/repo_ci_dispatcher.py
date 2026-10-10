@@ -134,7 +134,9 @@ def _result(value: Any, request: dict) -> dict:
     raise RepoCiError("internal-error", "invalid artifacts")
   if response["status"] == "error":
     if not any(
-      isinstance(item, dict) and item.get("code") in ERRORS
+      isinstance(item, dict)
+      and isinstance(item.get("code"), str)
+      and item["code"] in ERRORS
       for item in response["diagnostics"]
     ):
       raise RepoCiError("internal-error", "missing semantic error code")
@@ -166,7 +168,8 @@ def dispatch(root: Path, operation: str, raw: bytes) -> dict:
       error = _parse_json(result.stderr)
       if (
         isinstance(error, dict)
-        and error.get("code") in ERRORS
+        and isinstance(error.get("code"), str)
+        and error["code"] in ERRORS
       ):
         raise RepoCiError(error["code"], "adapter rejected request")
     except (ValueError, UnicodeDecodeError):
