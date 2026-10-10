@@ -40,6 +40,7 @@ class RedClassificationContract(unittest.TestCase):
       RedExpectation(1, "FAILED"),
       RedExpectation(1, "FAILED (failures=1)"),
       RedExpectation(1, "Error:"),
+      RedExpectation(1, "\\ud800"),
     ):
       with self.subTest(declaration=declaration):
         self.assertEqual(
