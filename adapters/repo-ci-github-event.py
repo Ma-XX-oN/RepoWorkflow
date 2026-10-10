@@ -49,7 +49,7 @@ def _envelope(request: object) -> dict:
     raise InvalidRequest("invalid-request", "request fields are missing or unknown")
   if request["contract_version"] != 1 or isinstance(request["contract_version"], bool):
     raise InvalidRequest("unsupported-version", "unsupported contract version")
-  if request["operation"] not in OPERATIONS:
+  if not isinstance(request["operation"], str) or request["operation"] not in OPERATIONS:
     raise InvalidRequest("unsupported-operation", "unsupported adapter operation")
   if not _nonempty(request["invocation_id"]):
     raise InvalidRequest("invalid-request", "invocation_id is required")
@@ -121,6 +121,7 @@ def map_request(request: object) -> dict:
     operation = envelope["operation"]
     if operation == "inspect-context":
       mode, platform, runner = _context(inputs)
+      _resolve({"platform": platform}, required)
       response["observations"] = {
         "mode": mode, "platform": platform, "runner_ref": runner,
       }
