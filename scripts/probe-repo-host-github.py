@@ -142,6 +142,11 @@ def main() -> int:
                     run + "-comment", params)
     if comment["result"]["comment_id"] != replay["result"]["comment_id"]:
       raise RuntimeError("comment duplicate or identity changed")
+    changed_comment = {**params, "body": "Changed RWF probe " + run}
+    refused = invoke(args.repository, "issue.comment",
+                     run + "-comment", changed_comment, permitted=False)
+    if refused["error"] != "conflict":
+      raise RuntimeError("same request ID accepted changed comment body")
     pr_data = {
       "source_ref": args.source_ref, "target_ref": args.target_ref,
       "expected_source_sha": head_sha, "title": "RWF live probe " + run,
