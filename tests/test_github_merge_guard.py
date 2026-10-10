@@ -154,6 +154,32 @@ class ProtectedMergeTests(unittest.TestCase):
       )
     self.assertEqual(counter[0], 2)
 
+  def test_protection_changed_during_evidence_gate_refuses_merge(self):
+    self.calls.clear()
+    docs = deepcopy(self.documents)
+    reads = [0]
+
+    def read(url):
+      self.calls.append(("read", url))
+      if url == BASE + "/branches/main/protection":
+        reads[0] += 1
+        if reads[0] == 2:
+          changed = deepcopy(docs[url])
+          changed["required_status_checks"]["strict"] = False
+          return changed
+      return docs[url]
+
+    with self.assertRaisesRegex(
+      PreMergeGateError, "changed during validation"
+    ):
+      merge_protected_pr(
+        repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
+        recorded_parent_tip=PARENT, read=read,
+        merge=lambda url, payload: self.fail("disabled protection merged"),
+        evidence_gate=lambda: self.calls.append(("evidence",)),
+      )
+    self.assertEqual(reads[0], 2)
+
   def test_malformed_protection_fails_closed(self):
     for malformed in (None, "not-a-map", {"allow_force_pushes": None}):
       with self.subTest(malformed=malformed):
