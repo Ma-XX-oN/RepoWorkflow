@@ -134,6 +134,30 @@ class ObserverTests(unittest.TestCase):
       observer.verify_provider_request("/repos/example/repo",
                                        "a" * 40, "token", tampered)
 
+  def test_duplicate_hosted_run_same_invocation_rejected(self):
+    def duplicate(path, token):
+      if path.endswith("/workflows/on-demand-ci.yml"):
+        return {"id": 991, "state": "active"}
+      if "/runs?" in path:
+        common = {
+          "event": "push", "head_branch": "issue-628-example",
+          "head_sha": "a" * 40, "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-10-10T18:00:10Z",
+          "html_url": "https://github.com/example/repo/actions/runs/1",
+        }
+        return {"workflow_runs": [dict(common, id=1), dict(common, id=2)]}
+      if "/commits/" in path:
+        return {"parents": [{"sha": "b" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      if "/contents/.ci/run" in path:
+        return {"encoding": "base64", "content": base64.b64encode(
+          ("regression-testing " + "b" * 40 + "\n").encode()).decode()}
+      return {"jobs": [{"id": 9, "name": "validate",
+                        "conclusion": "success"}]}
+    with self.assertRaisesRegex(observer.ObservationError, "duplicate"):
+      self.invoke(duplicate)
+
   def test_incomplete_run_rejected(self):
     def pending(path, token):
       if path.endswith("/workflows/on-demand-ci.yml"):
