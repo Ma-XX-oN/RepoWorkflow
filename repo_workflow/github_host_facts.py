@@ -71,7 +71,7 @@ def read_host_facts(repository, source, destination, candidate, token, *, fetch=
     return HostFacts(head, base, True, status in ("ahead", "identical"))
   except HostFactsError:
     raise
-  except (OSError, KeyError, ValueError, TypeError, AttributeError) as error:
+  except (OSError, RuntimeError, KeyError, ValueError, TypeError, AttributeError) as error:
     raise HostFactsError("provider facts unavailable") from error
 
 
