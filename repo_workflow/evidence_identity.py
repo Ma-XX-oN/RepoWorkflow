@@ -11,7 +11,7 @@ from collections.abc import Mapping
 
 SCHEMA = "rwf-validation-input-v1"
 SECTIONS = ("source", "catalogue", "configuration", "workflow", "capabilities")
-_HEX256 = re.compile(r"[0-9a-f]{64}\\Z")
+_HEX256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def _name(value: object, what: str) -> str:
