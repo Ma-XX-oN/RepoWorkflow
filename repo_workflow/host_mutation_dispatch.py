@@ -251,4 +251,26 @@ def dispatch_configured(root, request, *, timeout=30):
     raise HostMutationError(
       "repository-host adapter is not configured", "unsupported",
     )
-  return dispatch(command, request, timeout=timeout)
+  from .git import GitError, changed_files, repository_state
+
+  try:
+    before = repository_state(root)
+    changes = changed_files(root)
+  except GitError as error:
+    raise HostMutationError(
+      "cannot establish local repository state", "invalid_request",
+    ) from error
+  try:
+    return dispatch(command, request, timeout=timeout)
+  finally:
+    try:
+      after = repository_state(root)
+      after_changes = changed_files(root)
+    except GitError as error:
+      raise HostMutationError(
+        "cannot verify local repository state", "unknown_outcome",
+      ) from error
+    if before != after or changes != after_changes:
+      raise HostMutationError(
+        "host adapter changed local repository state", "unknown_outcome",
+      )
