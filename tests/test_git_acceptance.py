@@ -149,6 +149,15 @@ class RemoteAcceptanceTests(unittest.TestCase):
       self.accept(self.first, self.one, destination_ref="refs/heads/main")
     self.assertEqual(self.tip(), self.parent)
 
+  def test_raw_push_if_parent_cannot_target_main(self):
+    with patch("repo_workflow.git_acceptance._git") as transport:
+      with self.assertRaisesRegex(PreMergeGateError, "GitHub PR merge gate"):
+        push_if_parent(
+          self.first, str(self.remote), "refs/heads/main",
+          self.one, self.parent,
+        )
+      transport.assert_not_called()
+
   def test_missing_destination_and_invalid_refs_fail_closed(self):
     with self.assertRaises(PreMergeGateError):
       self.accept(self.first, self.one, destination_ref="refs/heads/missing")

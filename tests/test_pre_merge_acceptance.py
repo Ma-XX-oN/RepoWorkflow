@@ -135,6 +135,14 @@ class AtomicPreMergeAcceptanceTests(unittest.TestCase):
     self.assertEqual(len(state["accepted"]), 1)
     self.assertEqual(state["head"], state["accepted"][0])
 
+  def test_nonboolean_atomic_acceptance_cannot_grant_success(self):
+    with self.assertRaisesRegex(PreMergeGateError, "before acceptance"):
+      self.accept(
+        self.first, self.candidate_one,
+        lambda: self.parent,
+        lambda candidate, expected: 1,
+      )
+
   def test_stale_parent_fails_before_acceptance_callback(self):
     called = []
 

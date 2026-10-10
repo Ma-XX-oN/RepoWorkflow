@@ -27,17 +27,21 @@ def merge_protected_pr(
   recorded_parent_tip: str,
   read: Callable[[str], dict],
   merge: Callable[[str, dict], dict],
-  evidence_gate: Callable[[], None],
+  evidence_gate: Callable[[], tuple[bool, tuple[str, ...]]],
   required_check_name: str = "repo-workflow/exact-candidate",
 ) -> str:
   """Validate provider state and delegate the atomic decision to GitHub.
 
-  The evidence gate must check the exact tested candidate. The server must
+  The evidence gate must return the #104 decision (True, ()) for the
+  exact tested candidate; missing/denied verdicts cannot authorise merge.
+  The server must
   require strict current-base status checks and prevent administrator bypass.
   The provider merge endpoint must use the expected PR head SHA.
   """
   if (
     not isinstance(repo, str) or not _REPO.fullmatch(repo)
+    or any(part in (".", "..") or part.startswith("-")
+           for part in repo.split("/"))
     or type(pr_number) is not int or pr_number < 1
     or not isinstance(candidate_sha, str) or not _SHA.fullmatch(candidate_sha)
     or not isinstance(required_check_name, str)
@@ -82,11 +86,20 @@ def merge_protected_pr(
       or not isinstance(administrators, dict)
       or administrators.get("enabled") is not True
       or not isinstance(protection.get("required_pull_request_reviews"), dict)
+      or type(protection["required_pull_request_reviews"].get(
+        "required_approving_review_count")) is not int
+      or protection["required_pull_request_reviews"][
+        "required_approving_review_count"] < 1
       or protection.get("allow_force_pushes", {}).get("enabled") is not False
       or protection.get("allow_deletions", {}).get("enabled") is not False
     ):
       raise PreMergeGateError("integration blocked: server protection incomplete")
-    evidence_gate()
+    verdict = evidence_gate()
+    if (
+      not isinstance(verdict, tuple) or len(verdict) != 2
+      or verdict[0] is not True or verdict[1] != ()
+    ):
+      raise PreMergeGateError("integration blocked: exact-candidate evidence denied")
     # Evidence validation can take time.  Refuse a destination/head that
     # changed during that work, before asking the server to merge.
     final_pr = read(base + "/pulls/" + str(pr_number))
@@ -96,6 +109,7 @@ def merge_protected_pr(
       not isinstance(final_pr, dict)
       or not isinstance(final_branch, dict)
       or final_protection != protection
+      or final_pr.get("base", {}).get("ref") != "main"
       or final_pr.get("base", {}).get("sha") != recorded_parent_tip
       or final_pr.get("head", {}).get("sha") != candidate_sha
       or final_pr.get("state") != "open"
@@ -156,7 +170,7 @@ def _github_request(url: str, payload: dict | None = None) -> dict:
 
 def merge_github_pr(
   *, repo: str, pr_number: int, candidate_sha: str,
-  recorded_parent_tip: str, evidence_gate: Callable[[], None],
+  recorded_parent_tip: str, evidence_gate: Callable[[], tuple[bool, tuple[str, ...]]],
   required_check_name: str = "repo-workflow/exact-candidate",
 ) -> str:
   """Production adapter; GitHub protections must be enabled first."""

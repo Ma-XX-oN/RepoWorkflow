@@ -52,11 +52,16 @@ class ProtectedMergeTests(unittest.TestCase):
       self.calls.append(("evidence",))
       if evidence is not None:
         raise evidence
+      return True, ()
     return merge_protected_pr(
       repo=REPO, pr_number=42,
       candidate_sha=CANDIDATE, recorded_parent_tip=PARENT,
       read=read, merge=merge, evidence_gate=gate,
     )
+
+  def verified_evidence(self):
+    self.calls.append(("evidence",))
+    return True, ()
 
   def test_exact_candidate_protected_pr_acceptance(self):
     self.assertEqual(self.run_guard(), MERGED)
@@ -83,6 +88,8 @@ class ProtectedMergeTests(unittest.TestCase):
        ("enforce_admins", "enabled"), False),
       (BASE + "/branches/main/protection",
        ("required_pull_request_reviews",), None),
+      (BASE + "/branches/main/protection",
+       ("required_pull_request_reviews", "required_approving_review_count"), 0),
       (BASE + "/branches/main/protection",
        ("allow_force_pushes", "enabled"), True),
       (BASE + "/branches/main/protection",
@@ -123,7 +130,7 @@ class ProtectedMergeTests(unittest.TestCase):
       merge_protected_pr(
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read, merge=merge,
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(counter[0], 2)
     self.assertFalse(any(c[0] == "merge" for c in self.calls))
@@ -150,7 +157,7 @@ class ProtectedMergeTests(unittest.TestCase):
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read,
         merge=lambda url, payload: self.fail("changed head merged"),
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(counter[0], 2)
 
@@ -176,9 +183,49 @@ class ProtectedMergeTests(unittest.TestCase):
         repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
         recorded_parent_tip=PARENT, read=read,
         merge=lambda url, payload: self.fail("disabled protection merged"),
-        evidence_gate=lambda: self.calls.append(("evidence",)),
+        evidence_gate=self.verified_evidence,
       )
     self.assertEqual(reads[0], 2)
+
+  def test_final_base_ref_changed_with_same_sha_refuses_merge(self):
+    self.calls.clear()
+    docs = deepcopy(self.documents)
+    reads = [0]
+
+    def read(url):
+      self.calls.append(("read", url))
+      if url == BASE + "/pulls/42":
+        reads[0] += 1
+        if reads[0] == 2:
+          changed = deepcopy(docs[url])
+          changed["base"]["ref"] = "other-branch"
+          return changed
+      return docs[url]
+
+    with self.assertRaisesRegex(
+      PreMergeGateError, "changed during validation"
+    ):
+      merge_protected_pr(
+        repo=REPO, pr_number=42, candidate_sha=CANDIDATE,
+        recorded_parent_tip=PARENT, read=read,
+        merge=lambda url, payload: self.fail("retargeted PR merged"),
+        evidence_gate=self.verified_evidence,
+      )
+    self.assertEqual(reads[0], 2)
+    self.assertFalse(any(c[0] == "merge" for c in self.calls))
+
+  def test_invalid_repository_identity_never_reaches_provider(self):
+    for repository in ("../other", "owner/..", "-owner/repo", "owner/-repo"):
+      with self.subTest(repository=repository):
+        self.calls.clear()
+        with self.assertRaises(PreMergeGateError):
+          merge_protected_pr(
+            repo=repository, pr_number=42, candidate_sha=CANDIDATE,
+            recorded_parent_tip=PARENT,
+            read=lambda url: self.fail("invalid repository read"),
+            merge=lambda url, data: self.fail("invalid repository merged"),
+            evidence_gate=lambda: self.fail("invalid repository accepted"),
+          )
 
   def test_malformed_protection_fails_closed(self):
     for malformed in (None, "not-a-map", {"allow_force_pushes": None}):
@@ -197,6 +244,20 @@ class ProtectedMergeTests(unittest.TestCase):
     with self.assertRaises(PreMergeGateError):
       self.run_guard(documents=docs)
     self.assertFalse(any(c[0] == "merge" for c in self.calls))
+
+  def test_denied_or_missing_semantic_verdict_never_merges(self):
+    for verdict in ((False, ("stale-base",)), False, None, True):
+      with self.subTest(verdict=verdict):
+        self.calls.clear()
+        with self.assertRaises(PreMergeGateError):
+          merge_protected_pr(
+            repo=REPO, pr_number=42,
+            candidate_sha=CANDIDATE, recorded_parent_tip=PARENT,
+            read=lambda url: deepcopy(self.documents[url]),
+            merge=lambda url, payload: self.fail("unverified verdict merged"),
+            evidence_gate=lambda: verdict,
+          )
+        self.assertFalse(any(call[0] == "merge" for call in self.calls))
 
   def test_failing_evidence_rejects_before_provider_merge(self):
     self.calls.clear()
