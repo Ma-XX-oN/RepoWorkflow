@@ -114,6 +114,19 @@ class RedClassificationContract(unittest.TestCase):
       )
     self.assertEqual(result.status, "RED")
 
+  def test_direct_executor_rejects_invalid_utf8_child_bytes(self):
+    with tempfile.TemporaryDirectory() as directory:
+      decision = execute_red(
+        (
+          sys.executable, "-c",
+          "import os,sys;os.write(2,b'\\xffintended invariant');sys.exit(3)",
+        ),
+        cwd=Path(directory),
+        expectation=RedExpectation(3, "intended invariant"),
+      )
+    self.assertEqual(decision.status, "INCOMPLETE")
+
+
   def test_missing_executable_cannot_be_red(self):
     with tempfile.TemporaryDirectory() as directory:
       result = execute_red(
