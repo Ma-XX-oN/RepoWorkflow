@@ -167,6 +167,10 @@
       "issue-545-red-classification": {
         "type": "regression",
         "name": "tests.test_test_red_classification"
+      },
+      "issue-545-launch-failures": {
+        "type": "regression",
+        "name": "tests.test_test_launch_failures"
       }
     }
   ],
