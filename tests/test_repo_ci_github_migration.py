@@ -218,6 +218,41 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
                        "PASS")
       self.assertEqual(json.loads((result_dir / "local.json").read_text())["status"],
                        "PASS")
+      event = Path(td) / "event.json"
+      event.write_text("{}")
+      env.update({
+        "RWF_CI_BASE_SHA": value["candidate"]["base"],
+        "GITHUB_RUN_ID": "1234",
+        "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_EVENT_PATH": str(event),
+      })
+      executable = str(ROOT / "repo_workflow" / "repo_ci_github_machine.py")
+      for subcommand, expected in (
+        ("mode", "development"),
+        ("matrix", {"include": [{
+          "id": "local", "runner": "ubuntu-latest",
+          "nodeVersion": "", "pythonVersion": "3.13",
+        }]}),
+        ("prepare-context", {
+          "runner": "ubuntu-latest", "nodeVersion": "",
+          "pythonVersion": "3.13",
+        }),
+      ):
+        with self.subTest(machine_command=subcommand):
+          args = [sys.executable, executable, subcommand]
+          if subcommand == "mode":
+            args.extend([
+              "--event-name", "workflow_dispatch",
+              "--event-path", str(event), "--branch", "issue-1-test",
+            ])
+          completed = subprocess.run(
+            args, cwd=workspace, env=env, capture_output=True,
+            text=True, check=False, timeout=30,
+          )
+          self.assertEqual(completed.returncode, 0, completed.stderr)
+          actual = (completed.stdout.strip() if subcommand == "mode"
+                    else json.loads(completed.stdout))
+          self.assertEqual(actual, expected)
 
   def test_consumer_execute_rejects_changed_identity_and_unsafe_result(self):
     from tests.support import RepoFixture
