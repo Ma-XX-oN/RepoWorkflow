@@ -24,7 +24,7 @@ Existing claim: 6099480122.  Existing draft PR: #616.  Never merge.
    Prevent self-review.  Select Custom deployment branches and allow ONLY
    `issue-97-github-host-mutation-adapter`, with no wildcard.
 2. RepoWorkflow -> Settings -> Actions -> Runners:
-   register an isolated, dedicated, trusted runner with label
+   register an isolated, dedicated Linux runner with label
    `rwf97-trusted`.  Do not reuse a machine with production secrets.
    Install Python 3.13, GitHub CLI and the independent #80 verifier as
    a protected executable OUTSIDE the repository checkout.
