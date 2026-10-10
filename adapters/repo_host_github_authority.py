@@ -75,7 +75,7 @@ def authorize(request: dict, backend) -> dict:
     raise ProviderError("unauthorized", "missing verified actor or grant")
   # Identity is observed independently from the provider's authenticated
   # principal.  The verifier's actor proof must bind to this identity.
-  user = backend.get("../../../user")
+  user = backend.identity()
   if not isinstance(user, dict) or user.get("login") != decision["actor_id"]:
     raise ProviderError("unauthorized", "provider actor identity mismatch")
   return decision
