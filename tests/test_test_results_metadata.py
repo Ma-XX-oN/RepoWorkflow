@@ -86,5 +86,40 @@ class ResultsMetadataTests(unittest.TestCase):
         self.assertIn("invalid testing log metadata", output.stderr)
 
 
+  def test_group_observation_cardinality_and_shape(self):
+    valid_group = {"group": "issue-545-one", "exit_code": 0}
+    for groups in (
+      [],
+      [valid_group],
+      [valid_group, {"group": "issue-545-two", "exit_code": 1}],
+    ):
+      with self.subTest(valid=groups):
+        record = dict(self.valid, groups=groups)
+        output = self.result([record])
+        self.assertEqual(output.returncode, 0, output.stderr)
+        self.assertEqual(json.loads(output.stdout), record)
+
+    malformed_groups = (
+      None,
+      {},
+      "issue-545-one",
+      [1],
+      [{}],
+      [{"group": "", "exit_code": 0}],
+      [{"group": "issue-545-one"}],
+      [{"group": "issue-545-one", "exit_code": False}],
+      [{"group": "issue-545-one", "exit_code": "0"}],
+      [valid_group, dict(valid_group)],
+    )
+    for groups in malformed_groups:
+      with self.subTest(invalid=groups):
+        output = self.result([
+          self.valid, dict(self.valid, groups=groups),
+        ])
+        self.assertEqual(output.returncode, 2)
+        self.assertEqual(output.stdout, "")
+        self.assertIn("invalid testing log groups", output.stderr)
+
+
 if __name__ == "__main__":
   unittest.main()
