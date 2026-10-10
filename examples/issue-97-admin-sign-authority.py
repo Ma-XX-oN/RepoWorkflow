@@ -173,6 +173,28 @@ def issue(args) -> None:
   print("Private signing key must stay offline.")
 
 
+def revoke(args) -> None:
+  if not args.issuer_id or not args.grant_id or args.revision < 1:
+    raise ValueError("invalid authoritative revocation request")
+  private = serialization.load_pem_private_key(
+    args.private_key.read_bytes(), password=None
+  )
+  if not isinstance(private, Ed25519PrivateKey):
+    raise ValueError("issuer key must be Ed25519")
+  facts = {
+    "schema_version": 1,
+    "issuer": args.issuer_id,
+    "revision": args.revision,
+    "revoked_grants": [args.grant_id],
+  }
+  secure_create(
+    args.output, canonical(sign(facts, private)) + b"\n"
+  )
+  print("Signed revocation created; private key remains offline.")
+  print("Publish identical signed state to sandbox main AND the")
+  print("RWF97_SIGNED_REVOCATIONS Actions variable.")
+
+
 def main() -> None:
   parser = argparse.ArgumentParser()
   commands = parser.add_subparsers(dest="command", required=True)
@@ -192,9 +214,17 @@ def main() -> None:
   issue_command.add_argument(
     "--target-ref", default="refs/heads/rwf97-sandbox-target"
   )
+  revoke_command = commands.add_parser("revoke")
+  revoke_command.add_argument("--private-key", type=Path, required=True)
+  revoke_command.add_argument("--issuer-id", required=True)
+  revoke_command.add_argument("--grant-id", required=True)
+  revoke_command.add_argument("--revision", type=int, default=1)
+  revoke_command.add_argument("--output", type=Path, required=True)
   args = parser.parse_args()
   if args.command == "generate-key":
     generate_key(args.private_key)
+  elif args.command == "revoke":
+    revoke(args)
   else:
     issue(args)
 
