@@ -90,10 +90,8 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
         "missing": "group-not-in-catalogue",
       },
     }
-    from repo_workflow.repo_ci_github_provider import subprocess as provider_process
-    original = provider_process.run
     with patch("repo_workflow.repo_ci_github_provider.subprocess.run") as run:
-      run.side_effect = [subprocess.CompletedProcess([], 0, head + "\\n", "")]
+      run.side_effect = [subprocess.CompletedProcess([], 0, head, "")]
       result = handle_request(value, ROOT)
       self.assertEqual(run.call_count, 1)
     self.assertEqual(result["status"], "error")
