@@ -146,25 +146,27 @@ def _pr_create(backend, request: dict, fresh: bool):
   marker = _marker(request)
   source_short = source.removeprefix("refs/heads/")
   target_short = target.removeprefix("refs/heads/")
-  if not fresh:
-    page = 1
-    matches = []
-    while True:
-      items = backend.get("pulls?state=all&per_page=100&page=" + str(page))
-      if not isinstance(items, list):
-        raise ProviderError("invalid_response", "invalid PR list page")
-      for item in items:
-        if isinstance(item, dict) and item.get("body") == (
-          p["body"] + "\n" + marker
-        ):
-          matches.append(item)
-      if len(items) < 100:
-        break
-      page += 1
-      if page > 1000:
-        raise ProviderError("unknown_outcome", "PR scan exceeded bound")
-    if len(matches) != 1:
-      raise ProviderError("unknown_outcome", "PR create outcome unreconciled")
+  # Scan even for newly reserved requests.  Deletion of a reservation ref
+  # must not duplicate a previously created pull request.
+  page = 1
+  matches = []
+  while True:
+    items = backend.get("pulls?state=all&per_page=100&page=" + str(page))
+    if not isinstance(items, list):
+      raise ProviderError("invalid_response", "invalid PR list page")
+    for item in items:
+      if isinstance(item, dict) and item.get("body") == (
+        p["body"] + "\n" + marker
+      ):
+        matches.append(item)
+    if len(items) < 100:
+      break
+    page += 1
+    if page > 1000:
+      raise ProviderError("unknown_outcome", "PR scan exceeded bound")
+  if len(matches) > 1:
+    raise ProviderError("conflict", "multiple PRs match request identity")
+  if matches:
     number = _number(matches[0].get("number"))
     author = matches[0].get("user")
     if not isinstance(author, dict) or (
@@ -180,6 +182,8 @@ def _pr_create(backend, request: dict, fresh: bool):
       "number": number, "source_ref": source,
       "target_ref": target, "head_sha": sha, "draft": p["draft"],
     }
+  if not fresh:
+    raise ProviderError("unknown_outcome", "PR create outcome unreconciled")
   result = backend.post("pulls", {
     "head": source_short, "base": target_short,
     "title": p["title"], "body": p["body"] + "\n" + marker,
