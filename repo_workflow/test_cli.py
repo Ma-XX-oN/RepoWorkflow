@@ -398,10 +398,11 @@ def run_test(
       )
     )
     after = head_sha(root)
-    if outcome == "PASS" and selected and _run_group_set(
-      root, "temporary", selected, catalogue_path=temporary,
-    ):
-      outcome = "FAIL"
+    if outcome == "PASS" and selected:
+      temporary_rc = _run_group_set(
+        root, "temporary", selected, catalogue_path=temporary,
+      )
+      outcome = {0: "PASS", 1: "FAIL", 2: "INCOMPLETE"}[temporary_rc]
     match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
     if match is None:
       raise TestCommandError("regression evidence requires an issue branch")
