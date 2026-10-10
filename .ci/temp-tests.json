@@ -9,6 +9,38 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-compatible-lane-count": {
+        "type": "temporary",
+        "name": "tests.test_lane_count"
+      },
+      "issue-541-compatible-lane-follow-grammar": {
+        "type": "temporary",
+        "name": "tests.test_lane_follow_grammar"
+      },
+      "issue-541-compatible-lane-show-children-grammar": {
+        "type": "temporary",
+        "name": "tests.test_lane_show_children_grammar"
+      },
+      "issue-541-compatible-first-use-lanes": {
+        "type": "temporary",
+        "name": "tests.test_first_use_lanes"
+      },
+      "issue-541-compatible-lane-selection": {
+        "type": "temporary",
+        "name": "tests.test_lane_selection"
+      },
+      "issue-541-compatible-workflow-state": {
+        "type": "temporary",
+        "name": "tests.test_workflow_state"
+      },
+      "issue-541-compatible-local": {
+        "type": "temporary",
+        "name": "tests.test_local"
+      }
+    }
+  ],
   "aliases": {}
 }
