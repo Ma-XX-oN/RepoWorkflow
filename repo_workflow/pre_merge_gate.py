@@ -137,7 +137,7 @@ def accept_pre_merge_candidate(
     verify_hosted=verify_hosted,
     provider_repo=provider_repo,
   )
-  if not accept_if_parent(candidate_sha, recorded_parent_tip):
+  if accept_if_parent(candidate_sha, recorded_parent_tip) is not True:
     raise PreMergeGateError(
       "integration blocked: destination tip advanced before acceptance"
     )
