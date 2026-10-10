@@ -91,13 +91,13 @@ class RepoCiDispatcherTests(unittest.TestCase):
 
   def test_wrong_operation_and_invocation_are_rejected(self):
     self.provider(
-      "import json,sys\\n"
-      "r=json.loads(sys.stdin.read())\\n"
-      "r={k:r[k] for k in ('contract_version','operation',\\n"
-      " 'invocation_id','candidate')}\\n"
-      "r['invocation_id']='different'\\n"
-      "r.update(status='ok',observations={},diagnostics=[],artifacts=[])\\n"
-      "print(json.dumps(r))\\n"
+      "import json,sys\n"
+      "r=json.loads(sys.stdin.read())\n"
+      "r={k:r[k] for k in ('contract_version','operation',\n"
+      " 'invocation_id','candidate')}\n"
+      "r['invocation_id']='different'\n"
+      "r.update(status='ok',observations={},diagnostics=[],artifacts=[])\n"
+      "print(json.dumps(r))\n"
     )
     with self.assertRaises(RepoCiError) as context:
       dispatch(self.root, "execute", request_bytes())
@@ -105,12 +105,12 @@ class RepoCiDispatcherTests(unittest.TestCase):
 
   def test_invalid_response_status_fails_normalized(self):
     self.provider(
-      "import json,sys\\n"
-      "r=json.loads(sys.stdin.read())\\n"
-      "r={k:r[k] for k in ('contract_version','operation',\\n"
-      " 'invocation_id','candidate')}\\n"
-      "r.update(status={},observations={},diagnostics=[],artifacts=[])\\n"
-      "print(json.dumps(r))\\n"
+      "import json,sys\n"
+      "r=json.loads(sys.stdin.read())\n"
+      "r={k:r[k] for k in ('contract_version','operation',\n"
+      " 'invocation_id','candidate')}\n"
+      "r.update(status={},observations={},diagnostics=[],artifacts=[])\n"
+      "print(json.dumps(r))\n"
     )
     with self.assertRaises(RepoCiError) as context:
       dispatch(self.root, "execute", request_bytes())
@@ -118,13 +118,13 @@ class RepoCiDispatcherTests(unittest.TestCase):
 
   def test_structured_error_result_is_forwarded(self):
     self.provider(
-      "import json,sys\\n"
-      "r=json.loads(sys.stdin.read())\\n"
-      "r={k:r[k] for k in ('contract_version','operation',\\n"
-      " 'invocation_id','candidate')}\\n"
-      "r.update(status='error',observations={},\\n"
-      " diagnostics=[{'code':'capability-unavailable'}],artifacts=[])\\n"
-      "print(json.dumps(r))\\n"
+      "import json,sys\n"
+      "r=json.loads(sys.stdin.read())\n"
+      "r={k:r[k] for k in ('contract_version','operation',\n"
+      " 'invocation_id','candidate')}\n"
+      "r.update(status='error',observations={},\n"
+      " diagnostics=[{'code':'capability-unavailable'}],artifacts=[])\n"
+      "print(json.dumps(r))\n"
     )
     result = dispatch(self.root, "execute", request_bytes())
     self.assertEqual(result["status"], "error")
