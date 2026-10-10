@@ -63,6 +63,10 @@
       "issue-628-provider-observer": {
         "type": "regression",
         "name": "tests.test_issue_628_observer"
+      },
+      "issue-628-workflow-trigger-filter": {
+        "type": "regression",
+        "name": "tests.test_issue_628_trigger_filter"
       }
     }
   ],
