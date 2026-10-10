@@ -128,7 +128,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RWF_REPO_HOST_AUTH_COMMAND: ''
         run: python scripts/probe-repo-host-github-deny.py
-      - name: Confirm read-only GitHub token denies provider write
+      - name: Probe no-effect GitHub write response on absent issue
         env:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/probe-repo-host-github-permissions.py
