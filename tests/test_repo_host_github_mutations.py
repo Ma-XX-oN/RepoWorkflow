@@ -274,6 +274,26 @@ class OrdinaryMutationTests(unittest.TestCase):
     self.assertEqual(caught.exception.code, "conflict")
     self.assertEqual(len(self.backend.writes), 1)
 
+  def test_pr_create_rejects_unpersisted_title(self):
+    p = {
+      "source_ref": "refs/heads/work", "target_ref": "refs/heads/main",
+      "expected_source_sha": SHA, "title": "Expected title",
+      "body": "", "draft": True,
+    }
+    original_post = self.backend.post
+
+    def changed_title(path, body):
+      response = original_post(path, body)
+      if path == "pulls":
+        self.backend.pr["title"] = "Provider changed title"
+      return response
+
+    self.backend.post = changed_title
+    with self.assertRaises(ProviderError) as caught:
+      apply(req("pull_request.create", p), self.backend)
+    self.assertEqual(caught.exception.code, "unknown_outcome")
+    self.assertEqual(len(self.backend.writes), 1)
+
   def test_pr_create_rejects_stale_source(self):
     self.backend.refs["refs/heads/work"] = OTHER
     p = {
