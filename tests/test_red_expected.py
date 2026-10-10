@@ -1,4 +1,5 @@
 """Independent RED classification and hosted evidence contract tests."""
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -56,11 +57,25 @@ class HostedRedEvidenceTests(unittest.TestCase):
     self.candidate = "a" * 40
     self.log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     self.log.parent.mkdir(parents=True)
+    catalogue = self.root / ".ci/tests.json"
+    catalogue.parent.mkdir(parents=True)
+    catalogue.write_text(json.dumps({
+      "test-harnesses": {
+        "unittest": {"command": "python", "layout": []},
+      },
+      "tests": [
+        {"test-harness": "unittest",
+         "issue-545-negative": {"type": "regression"}},
+      ],
+      "aliases": {},
+    }))
+    (self.root / ".ci/red-green.txt").write_text("issue-545-negative\n")
     self.record = {
       "branch": "issue-545-probe", "testSHA": self.candidate,
       "kind": "RED", "result": "succeeded", "reusable": False,
       "expectedFailure": True,
       "reason": "expected-red-assertion-demonstrated",
+      "catalogueSHA256": hashlib.sha256(catalogue.read_bytes()).hexdigest(),
       "headChangedDuringTest": False, "uncommittedChanges": [],
       "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
       "groups": [{"group": "issue-545-negative", "exit_code": 1,
