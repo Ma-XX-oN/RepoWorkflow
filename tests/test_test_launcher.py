@@ -16,6 +16,7 @@ class ShippedTestLauncher(unittest.TestCase):
   tearDown = fixture.TestCliContract.tearDown
   git = fixture.TestCliContract.git
   remote = fixture.TestCliContract.remote
+  _catalogue = fixture.TestCliContract._catalogue
 
   def launcher(self, *args):
     if not shutil.which("sh"):
@@ -84,6 +85,56 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(record["kind"], "RED")
     self.assertEqual(record["testSHA"], self.source)
     self.assertFalse(record.get("reusable", False))
+
+  def test_selected_red_remote_request_uses_committed_selection(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-remote-red",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "register RED test")
+    bare = self.remote()
+    out = self.launcher("test", "RED", "issue-545-remote-red", "--remote")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    head = self.git("rev-parse", "HEAD")
+    selected_commit = self.git("rev-parse", "HEAD^")
+    self.assertEqual(
+      self.git("show", "HEAD^:.ci/red-green.txt"),
+      "issue-545-remote-red",
+    )
+    self.assertEqual(
+      (self.root / ".ci/run").read_text(),
+      "RED-testing " + selected_commit + "\n",
+    )
+    remote_head = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(remote_head, head)
+
+  def test_temporary_remote_request_with_valid_manifest(self):
+    self._catalogue(
+      self.root / ".ci/temp-tests.json",
+      issue_group="issue-545-remote-temp",
+    )
+    self.git("add", ".ci/temp-tests.json", "smoke_case.py")
+    self.git("commit", "-m", "register temporary")
+    bare = self.remote()
+    before = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "temporary", "--remote")
+    self.assertEqual(out.returncode, 0, out.stderr)
+    self.assertEqual(
+      (self.root / ".ci/run").read_text(),
+      "temporary-testing " + before + "\n",
+    )
+    head = self.git("rev-parse", "HEAD")
+    remote_head = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(remote_head, head)
+
 
   def test_integration_remote_request_is_a_dedicated_commit(self):
     bare = self.remote()
