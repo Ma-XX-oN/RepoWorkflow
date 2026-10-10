@@ -9,6 +9,26 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-final-workflow": {
+        "type": "temporary",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-541-final-plan": {
+        "type": "temporary",
+        "name": "tests.test_on_demand_plan"
+      },
+      "issue-541-final-evidence": {
+        "type": "temporary",
+        "name": "tests.test_hosted_result"
+      },
+      "issue-541-final-publisher": {
+        "type": "temporary",
+        "name": "tests.test_publish_hosted_result"
+      }
+    }
+  ],
   "aliases": {}
 }
