@@ -177,7 +177,9 @@ def _pr_create(backend, request: dict, fresh: bool):
       raise ProviderError("conflict", "PR creator identity mismatch")
     observed, sha = _pr_observed(backend, number, expected)
     if observed["head"].get("ref") != source_short or (
-      observed["base"].get("ref") != target_short
+      not isinstance(observed["head"].get("repo"), dict)
+      or observed["head"]["repo"].get("full_name") != request["repository"]
+      or observed["base"].get("ref") != target_short
     ) or observed.get("draft") != p["draft"]:
       raise ProviderError("conflict", "replayed PR identity differs")
     return "unchanged", {
@@ -196,7 +198,9 @@ def _pr_create(backend, request: dict, fresh: bool):
   number = _number(result.get("number"))
   observed, head_sha = _pr_observed(backend, number, expected)
   if observed["head"].get("ref") != source_short or (
-    observed["base"].get("ref") != target_short
+    not isinstance(observed["head"].get("repo"), dict)
+    or observed["head"]["repo"].get("full_name") != request["repository"]
+    or observed["base"].get("ref") != target_short
   ) or observed.get("draft") != p["draft"]:
     raise ProviderError("unknown_outcome", "created PR identity mismatch")
   if observed.get("body") != p["body"] + "\n" + marker:
