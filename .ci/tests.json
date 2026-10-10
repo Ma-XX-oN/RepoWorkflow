@@ -159,6 +159,10 @@
       "issue-545-remote-cli": {
         "type": "regression",
         "name": "tests.test_test_cli_remote"
+      },
+      "issue-545-selection-commit": {
+        "type": "regression",
+        "name": "tests.test_test_selection_commit"
       }
     }
   ],
