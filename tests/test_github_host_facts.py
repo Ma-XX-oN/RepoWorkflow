@@ -117,6 +117,19 @@ class HostFactsTests(unittest.TestCase):
         "test-token", fetch=fetch,
       )
 
+
+  def test_provider_runtime_error_maps_to_denial(self):
+    baseline = Facts(
+      CANDIDATE, CANDIDATE, CANDIDATE, BASE, BASE,
+      True, True, True, True, True, True, True, True,
+    )
+    def broken(_):
+      raise RuntimeError("provider unavailable")
+    self.assertEqual(decide_with_github_host(
+      baseline, "owner/repo", "feature/work", "main",
+      "test-token", fetch=broken,
+    ), (False, ("host-facts-unavailable",)))
+
   def test_invalid_identifiers_never_reach_provider(self):
     for repo, source, candidate, token in (
       ("../other", "feature/work", CANDIDATE, "token"),
