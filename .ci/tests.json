@@ -155,6 +155,10 @@
       "issue-545-dirty-rename": {
         "type": "regression",
         "name": "tests.test_test_dirty_rename"
+      },
+      "issue-545-remote-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli_remote"
       }
     }
   ],
