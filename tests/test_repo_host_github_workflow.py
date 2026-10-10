@@ -32,12 +32,28 @@ class LiveAcceptanceWorkflowTests(unittest.TestCase):
       "environment: rwf97-sandbox",
       "runs-on: [self-hosted, rwf97-trusted]",
       "secrets.RWF97_SANDBOX_GH_TOKEN",
+      "secrets.RWF97_CONFIG_AUDIT_GH_TOKEN",
       "vars.RWF97_SANDBOX_REPOSITORY",
       "vars.RWF97_AUTH_EXECUTABLE",
       'test "$SANDBOX_REPOSITORY" != "Ma-XX-oN/RepoWorkflow"',
       "scripts/probe-repo-host-github.py",
     ):
       self.assertIn(required, source)
+
+  def test_audit_and_mutation_tokens_remain_distinct(self):
+    source = LIVE.read_text(encoding="utf-8")
+    self.assertIn(
+      "GH_TOKEN: ${{ secrets.RWF97_CONFIG_AUDIT_GH_TOKEN }}",
+      source,
+    )
+    self.assertIn(
+      "GH_TOKEN: ${{ secrets.RWF97_SANDBOX_GH_TOKEN }}",
+      source,
+    )
+    self.assertNotIn("GH_TOKEN: ${{ github.token }}", source)
+    self.assertIn(
+      "vars.RWF97_APPROVED_SHA == github.sha", source
+    )
 
   def test_environment_policy_requires_independent_review(self):
     path = ROOT / "scripts/probe-repo-host-github-environment.py"
