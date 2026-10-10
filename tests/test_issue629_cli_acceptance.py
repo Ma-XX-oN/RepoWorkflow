@@ -73,7 +73,7 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
   def test_legacy_validate_regression_and_integration_removed(self):
     for stage in ("regression", "integration"):
       with self.subTest(stage=stage):
-        response = run_cli("validate", stage)
+        response = run_cli("validate", stage, "--help")
         self.assertNotEqual(response.returncode, 0)
 
 
