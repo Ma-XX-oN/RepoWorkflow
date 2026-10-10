@@ -43,6 +43,21 @@ class RedClassificationContract(unittest.TestCase):
           "INCOMPLETE",
         )
 
+  def test_untyped_expected_failure_and_invalid_observation_fail_closed(self):
+    observation = RedObservation(1, "", "declared invariant", True)
+    for invalid in ({}, {"exit_code": 1}, "failure", 1, False):
+      with self.subTest(expectation=invalid):
+        decision = classify_red(invalid, observation)
+        self.assertEqual(decision.status, "INCOMPLETE")
+    for code in ("1", True, 1.0):
+      with self.subTest(exit_code=code):
+        decision = classify_red(
+          RedExpectation(1, "declared invariant"),
+          RedObservation(code, "", "declared invariant", True),
+        )
+        self.assertEqual(decision.status, "INCOMPLETE")
+
+
   def test_unavailable_execution_is_incomplete(self):
     expected = RedExpectation(1, "AssertionError")
     for code, executed in ((None, False), (1, False), (None, True)):
