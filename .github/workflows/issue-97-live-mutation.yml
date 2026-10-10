@@ -1,0 +1,90 @@
+name: Issue 97 isolated live mutation acceptance
+
+on:
+  push:
+    branches:
+      - issue-97-github-host-mutation-adapter
+    paths:
+      - '.github/workflows/issue-97-live-mutation.yml'
+      - 'scripts/probe-repo-host-github.py'
+      - 'scripts/issue-97-live-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-97-isolated-live-mutation
+  cancel-in-progress: false
+
+jobs:
+  live-mutation:
+    if: >-
+      github.repository == 'Ma-XX-oN/RepoWorkflow' &&
+      vars.RWF97_ENABLE == 'true'
+    environment: rwf97-sandbox
+    runs-on: [self-hosted, rwf97-trusted]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Require protected sandbox authority
+        shell: bash
+        env:
+          SANDBOX_REPOSITORY: ${{ vars.RWF97_SANDBOX_REPOSITORY }}
+          SANDBOX_ISSUE: ${{ vars.RWF97_SANDBOX_ISSUE }}
+          SOURCE_REF: ${{ vars.RWF97_SANDBOX_SOURCE_REF }}
+          TARGET_REF: ${{ vars.RWF97_SANDBOX_TARGET_REF }}
+          AUTH_EXECUTABLE: ${{ vars.RWF97_AUTH_EXECUTABLE }}
+          SANDBOX_TOKEN: ${{ secrets.RWF97_SANDBOX_GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$SANDBOX_TOKEN"
+          test -n "$AUTH_EXECUTABLE"
+          test -x "$AUTH_EXECUTABLE"
+          test -n "$SANDBOX_REPOSITORY"
+          test "$SANDBOX_REPOSITORY" != "Ma-XX-oN/RepoWorkflow"
+          test -n "$SANDBOX_ISSUE"
+          test -n "$SOURCE_REF"
+          test -n "$TARGET_REF"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          target = Path(os.environ["AUTH_EXECUTABLE"]).resolve()
+          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          if not target.is_absolute() or target == workspace:
+            raise SystemExit("trusted verifier cannot be PR checkout")
+          if workspace in target.parents:
+            raise SystemExit("trusted verifier cannot be PR checkout")
+          print("trusted verifier is outside unreviewed workspace")
+          PY
+      - name: Run shipped adapter against disposable sandbox only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RWF97_SANDBOX_GH_TOKEN }}
+          SANDBOX_REPOSITORY: ${{ vars.RWF97_SANDBOX_REPOSITORY }}
+          SANDBOX_ISSUE: ${{ vars.RWF97_SANDBOX_ISSUE }}
+          SOURCE_REF: ${{ vars.RWF97_SANDBOX_SOURCE_REF }}
+          TARGET_REF: ${{ vars.RWF97_SANDBOX_TARGET_REF }}
+          AUTH_EXECUTABLE: ${{ vars.RWF97_AUTH_EXECUTABLE }}
+        run: |
+          set -euo pipefail
+          export RWF_REPO_HOST_AUTH_COMMAND
+          RWF_REPO_HOST_AUTH_COMMAND="$(python - <<'PY'
+          import json
+          import os
+          print(json.dumps([os.environ["AUTH_EXECUTABLE"]]))
+          PY
+          )"
+          python scripts/probe-repo-host-github.py \
+            --repository "$SANDBOX_REPOSITORY" \
+            --sandbox-issue "$SANDBOX_ISSUE" \
+            --source-ref "$SOURCE_REF" \
+            --target-ref "$TARGET_REF" \
+            --run-id "rwf97-${{ github.run_id }}-${{ github.run_attempt }}"
