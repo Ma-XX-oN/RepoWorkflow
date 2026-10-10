@@ -65,7 +65,23 @@ Lower-level distributed commands compare the adapter's reported development
 version with `.ci/run-ci-request`.  The normal local `verify` path prepares
 that request binding before validation.
 
-### `infoCommand`\n\nThe optional command selects the repository-owned implementation of the portable\nread-only `repo-info` contract in `REPO_INFO_CONTRACT.md`.  Core RWF appends\nonly the semantic operation arguments defined by that contract.  When a workflow\nrequires repository information and no command is configured, the operation\nfails explicitly.\n\nThe command must not modify the worktree, candidate history, symbolic `HEAD`, or\nlocal Git refs.  Successful output is validated against the provider-neutral\nJSON schema before it reaches workflow callers; malformed output and provider\nfailures are never converted into empty successful results.\n\n### `dependencyCommand`
+### `infoCommand`\n\nThe optional command selects the repository-owned implementation of the portable\nread-only `repo-info` contract in `REPO_INFO_CONTRACT.md`.  Core RWF appends\nonly the semantic operation arguments defined by that contract.  When a workflow\nrequires repository information and no command is configured, the operation\nfails explicitly.\n\nThe command must not modify the worktree, candidate history, symbolic `HEAD`, or\nlocal Git refs.  Successful output is validated against the provider-neutral\nJSON schema before it reaches workflow callers; malformed output and provider\nfailures are never converted into empty successful results.\n\n### `hostCommand`
+
+The optional command selects the repository-owned implementation of the
+portable `repo-host` mutation contract in
+`REPOSITORY_HOST_MUTATION_CONTRACT.md`.  It is an executable argument array,
+not a shell command.  `dispatch_configured` reads the validated
+`.ci/repoworkflow.json` command and sends one versioned JSON request on
+stdin.  Missing or invalid configuration fails closed.  It must not discover
+a mutating provider from a branch name, issue field, or arbitrary request.
+
+Before a mutation, the dispatcher obtains the declared capability map.
+A missing, false, or malformed capability fails without a mutation call.
+Authorization, persistent idempotency, atomic acceptance, and provider-specific
+mechanics remain the configured adapter's responsibility.  This setting
+does not grant authority to mutate a remote repository.
+
+### `dependencyCommand`
 
 The optional command selects the repository-owned implementation of the
 provider-neutral native ticket dependency contract in
