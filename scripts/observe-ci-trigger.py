@@ -6,6 +6,7 @@ import base64
 from datetime import datetime, timezone
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.error import HTTPError
@@ -70,26 +71,39 @@ def original_candidate_provider(root, starting_sha, token, fetch=github_get):
     seen.add(sha)
     commit = fetch(root + "/commits/" + sha, token)
     files = [item.get("filename") for item in commit.get("files", [])]
-    if files != [".ci/run"]:
-      return sha
     parents = commit.get("parents", [])
     if len(parents) != 1:
-      raise ObservationError("retry marker has invalid ancestry")
-    marker_response = fetch(
-      root + "/contents/.ci/run?ref=" + quote(sha, safe=""), token,
-    )
-    if marker_response.get("encoding") != "base64":
-      raise ObservationError("retry marker is not base64 content")
-    try:
-      text = base64.b64decode(
-        marker_response["content"], validate=False,
-      ).decode("utf-8")
-      request = parse_invocation(text)
-    except (KeyError, ValueError, UnicodeError, CiInvocationError) as error:
-      raise ObservationError("malformed retry marker") from error
-    if request.previous_tip != parents[0].get("sha"):
-      raise ObservationError("retry marker parent SHA mismatch")
-    sha = request.previous_tip
+      return sha
+    parent = parents[0].get("sha")
+    if files == [".ci/run"]:
+      marker_response = fetch(
+        root + "/contents/.ci/run?ref=" + quote(sha, safe=""), token,
+      )
+      if marker_response.get("encoding") != "base64":
+        raise ObservationError("retry marker is not base64 content")
+      try:
+        text = base64.b64decode(
+          marker_response["content"], validate=False,
+        ).decode("utf-8")
+        request = parse_invocation(text)
+      except (KeyError, ValueError, UnicodeError, CiInvocationError) as error:
+        raise ObservationError("malformed retry marker") from error
+      if request.previous_tip != parent:
+        raise ObservationError("retry marker parent SHA mismatch")
+    elif (
+      len(files) == 1
+      and re.fullmatch(
+        r"\\.repoworkflow/validation/testResults-[1-9][0-9]*\\.jsonl",
+        files[0],
+      )
+      and commit.get("commit", {}).get("message", "").split("\n", 1)[0].startswith(
+        "test: publish hosted evidence from run "
+      )
+    ):
+      pass
+    else:
+      return sha
+    sha = parent
   raise ObservationError("retry chain depth exceeded")
 
 
