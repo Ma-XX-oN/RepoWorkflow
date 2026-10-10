@@ -7,6 +7,7 @@ import sys
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.repo_ci_dispatcher import (
   RepoCiError, OPERATIONS, dispatch, validate_request,
@@ -71,6 +72,18 @@ class RepoCiDispatcherTests(unittest.TestCase):
         self.assertEqual((self.root / "received.bin").read_bytes(), raw)
         self.assertEqual(result["candidate"], request["candidate"])
         self.assertEqual(result["operation"], operation)
+
+  def test_execute_has_longer_bounded_timeout_than_metadata_operations(self):
+    self.success_provider()
+    original = subprocess.run
+    for operation, expected in (("execute", 3600), ("inspect-context", 120)):
+      with self.subTest(operation=operation):
+        req = {**REQUEST, "operation": operation}
+        with patch("repo_workflow.repo_ci_dispatcher.subprocess.run",
+                   wraps=original) as process:
+          response = dispatch(self.root, operation, request_bytes(req))
+        self.assertEqual(response["status"], "ok")
+        self.assertEqual(process.call_args.kwargs["timeout"], expected)
 
   def test_stage_cardinality_and_opaque_arguments_round_trip(self):
     self.success_provider()
