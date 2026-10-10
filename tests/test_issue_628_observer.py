@@ -82,6 +82,9 @@ class ObserverTests(unittest.TestCase):
           "conclusion": "success",
         }]}
       if "/commits/" in path:
+        if path.endswith("/" + "b" * 40):
+          return {"parents": [{"sha": "d" * 40}],
+                  "files": [{"filename": "source.txt"}]}
         return {"parents": [{"sha": "b" * 40}],
                 "files": [{"filename": ".ci/run"}]}
       if "/contents/.ci/run" in path:
@@ -115,6 +118,9 @@ class ObserverTests(unittest.TestCase):
   def test_provider_marker_rejects_stale_candidate(self):
     def stale(path, token):
       if "/commits/" in path:
+        if path.endswith("/" + "b" * 40):
+          return {"parents": [{"sha": "d" * 40}],
+                  "files": [{"filename": "source.txt"}]}
         return {"parents": [{"sha": "b" * 40}],
                 "files": [{"filename": ".ci/run"}]}
       return {"encoding": "base64", "content": base64.b64encode(
@@ -126,6 +132,9 @@ class ObserverTests(unittest.TestCase):
   def test_provider_marker_rejects_tamper(self):
     def tampered(path, token):
       if "/commits/" in path:
+        if path.endswith("/" + "b" * 40):
+          return {"parents": [{"sha": "d" * 40}],
+                  "files": [{"filename": "source.txt"}]}
         return {"parents": [{"sha": "b" * 40}],
                 "files": [{"filename": ".ci/run"}]}
       return {"encoding": "base64", "content": base64.b64encode(
@@ -148,6 +157,9 @@ class ObserverTests(unittest.TestCase):
         }
         return {"workflow_runs": [dict(common, id=1), dict(common, id=2)]}
       if "/commits/" in path:
+        if path.endswith("/" + "b" * 40):
+          return {"parents": [{"sha": "d" * 40}],
+                  "files": [{"filename": "source.txt"}]}
         return {"parents": [{"sha": "b" * 40}],
                 "files": [{"filename": ".ci/run"}]}
       if "/contents/.ci/run" in path:
@@ -157,6 +169,41 @@ class ObserverTests(unittest.TestCase):
                         "conclusion": "success"}]}
     with self.assertRaisesRegex(observer.ObservationError, "duplicate"):
       self.invoke(duplicate)
+
+  def test_retry_chain_resolves_original_source_candidate(self):
+    def retried(path, token):
+      if "/commits/" in path:
+        if path.endswith("/" + "c" * 40):
+          return {"parents": [{"sha": "b" * 40}],
+                  "files": [{"filename": ".ci/run"}]}
+        if path.endswith("/" + "b" * 40):
+          return {"parents": [{"sha": "d" * 40}],
+                  "files": [{"filename": "source.txt"}]}
+        return {"parents": [{"sha": "c" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      marker_parent = ("b" if path.endswith("c" * 40) else "c") * 40
+      return {"encoding": "base64", "content": base64.b64encode(
+        ("regression-testing " + marker_parent + "\n").encode()
+      ).decode()}
+    result = observer.verify_provider_request(
+      "/repos/example/repo", "a" * 40, "token", retried,
+    )
+    self.assertEqual(result["previous_tip"], "c" * 40)
+    self.assertEqual(result["tested_sha"], "b" * 40)
+
+  def test_retry_chain_rejects_tampered_intermediate_marker(self):
+    def tampered(path, token):
+      if "/commits/" in path:
+        return {"parents": [{"sha": "c" * 40}],
+                "files": [{"filename": ".ci/run"}]}
+      marker_parent = "c" if path.endswith("a" * 40) else "d"
+      return {"encoding": "base64", "content": base64.b64encode(
+        ("regression-testing " + marker_parent * 40 + "\n").encode()
+      ).decode()}
+    with self.assertRaisesRegex(observer.ObservationError, "retry marker parent"):
+      observer.verify_provider_request(
+        "/repos/example/repo", "a" * 40, "token", tampered,
+      )
 
   def test_incomplete_run_rejected(self):
     def pending(path, token):
