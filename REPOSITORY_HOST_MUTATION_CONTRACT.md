@@ -58,12 +58,13 @@ Returns exactly `{number, comment_id}`; number matches the requested issue,
 and `comment_id` is a non-empty opaque string.  Replaying one request ID must
 not create a second comment.
 
-`pull_request.create`: takes exact source ref, target ref, title, body, and
-draft boolean.  Returns a positive PR number, exact source/target refs, and
+`pull_request.create`: takes exact source ref, target ref, expected source
+head SHA, title, body, and draft boolean.  Returns a positive PR number, exact source/target refs, and
 the provider-observed head SHA.  Result fields are exactly
 `{number, source_ref, target_ref, head_sha, draft}`.  It never merges.
 The request ID is bound to the exact source/target and initial head identity;
 changed head on replay is a conflict, not implicit PR retargeting.
+The adapter must check the exact expected source head at creation time.
 
 `pull_request.update`: takes positive PR number, explicitly supplied
 fields to change and an expected current head SHA.  Returns the PR number,
@@ -143,8 +144,8 @@ contract does not invent a competing token or role representation.
 Each operation's `parameters` is a JSON object with only the fields named
 for that operation.  `capabilities` has an empty object.  `issue.update` has
 `number` and one or more of `title`/`state`; `issue.comment` has `number` and
-`body`; `pull_request.create` has `source_ref`, `target_ref`, `title`, `body`,
-and `draft`; `pull_request.update` has `number`, `expected_head_sha`, and one
+`body`; `pull_request.create` has `source_ref`, `target_ref`,
+`expected_source_sha`, `title`, `body`, and `draft`; `pull_request.update` has `number`, `expected_head_sha`, and one
 or more of `title`, `body`, `draft`, `state`, `target_ref`;
 `pull_request.merge` has `number`, `tested_head_sha`,
 `expected_destination_sha`, `eligibility_ref`, `authorization_ref`;
@@ -163,8 +164,9 @@ characters.  `title` and `body` are UTF-8 strings; required titles, comment bodi
 refs and contexts are non-empty.  `draft` is a JSON boolean.  `state` is
 `open|closed`; `conclusion` is `success|failure`.  `repository` is a non-empty
 canonical `owner/name` from `repo-info`.  Source and target refs must be
-explicit and unambiguous; a raw branch display name alone conveys no trust.  For update operations the caller must distinguish an omitted
-field (leave unchanged) from an explicitly supplied empty body (clear it).
+explicit and unambiguous; a raw branch display name alone conveys no trust.
+For update operations the caller must distinguish an omitted field (leave
+unchanged) from an explicitly supplied empty body (clear it).
 
 `check.publish` may name a stable required context only when provider
 configuration authorizes that context.  Its proof is a reference to
