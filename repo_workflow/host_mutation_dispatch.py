@@ -211,7 +211,7 @@ def _invoke(command, request, timeout, cwd=None):
       raise HostMutationError("malformed provider failure")
     if any(error[field] != request[field] for field in (
       "operation", "repository", "request_id",
-    )) or error["error"] not in _ERRORS or not _string(error["message"]):
+    )) or type(error["error"]) is not str or error["error"] not in _ERRORS or not _string(error["message"]):
       raise HostMutationError("malformed provider failure")
     raise HostMutationError(error["message"], error["error"])
   try:
