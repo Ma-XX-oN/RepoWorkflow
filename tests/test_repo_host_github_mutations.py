@@ -165,6 +165,30 @@ class OrdinaryMutationTests(unittest.TestCase):
     )
     self.assertEqual(len(self.backend.comments), 1)
 
+
+  def test_comment_replay_rejects_spoofed_actor(self):
+    request = req("issue.comment", {"number": 3, "body": "Original"})
+    apply(request, self.backend)
+    self.backend.comments[0]["user"]["login"] = "untrusted"
+    with self.assertRaises(ProviderError) as caught:
+      apply(request, self.backend)
+    self.assertEqual(caught.exception.code, "conflict")
+    self.assertEqual(len(self.backend.comments), 1)
+
+  def test_pr_replay_rejects_changed_creator(self):
+    p = {
+      "source_ref": "refs/heads/work", "target_ref": "refs/heads/main",
+      "expected_source_sha": SHA, "title": "New PR",
+      "body": "", "draft": True,
+    }
+    request = req("pull_request.create", p)
+    apply(request, self.backend)
+    self.backend.pr["user"]["login"] = "different-actor"
+    with self.assertRaises(ProviderError) as caught:
+      apply(request, self.backend)
+    self.assertEqual(caught.exception.code, "conflict")
+    self.assertEqual(len(self.backend.writes), 1)
+
   def test_uncertain_comment_does_not_repeat_mutation(self):
     request = req("issue.comment", {"number": 3, "body": "A comment"})
     self.backend.reserve(request)
