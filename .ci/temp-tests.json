@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-temporary-smoke": {
+        "type": "temporary",
+        "name": "tests.test_on_demand_plan"
+      }
+    }
+  ],
   "aliases": {}
 }
