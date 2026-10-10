@@ -151,6 +151,40 @@ class LocalStageCardinalityTests(unittest.TestCase):
     self.assertNotEqual(result.returncode, 0)
     self.assertEqual(result.stdout, "")
 
+  def test_missing_green_selection_records_skipped_not_pass(self):
+    self.catalogue(["issue-629-only"])
+    result = self.cli("test", "GREEN")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    row = self.log()[-1]
+    self.assertEqual(row["result"], "SKIPPED")
+    self.assertEqual(row["groups"], [])
+    self.assertNotEqual(row["result"], "succeeded")
+
+  def test_one_of_many_green_groups_selected_only(self):
+    groups = ["issue-629-a", "issue-629-b"]
+    self.catalogue(groups)
+    # A missing expected-RED declaration cannot produce RED PASS, but selection
+    # itself is committed before that validation result.
+    selected = self.cli("test", "RED", groups[1])
+    self.assertNotEqual(selected.returncode, 0)
+    self.assertEqual(
+      (self.root / ".ci/red-green.txt").read_text(), groups[1] + "\\n")
+    result = self.cli("test", "GREEN")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    row = self.log()[-1]
+    self.assertEqual(row["result"], "succeeded")
+    self.assertEqual([g["group"] for g in row["groups"]], [groups[1]])
+
+  def test_invalid_green_selection_fails_without_pass(self):
+    self.catalogue(["issue-629-valid"])
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-629-valid\\nissue-629-other\\n")
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-m", "invalid multiple selection")
+    result = self.cli("test", "GREEN")
+    self.assertNotEqual(result.returncode, 0)
+    self.assertFalse(any(row.get("result") == "succeeded" for row in self.log()))
+
 
 if __name__ == "__main__":
   unittest.main()
