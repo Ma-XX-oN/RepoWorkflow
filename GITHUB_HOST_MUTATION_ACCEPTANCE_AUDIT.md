@@ -1,3 +1,19 @@
+> **CURRENT CORRECTION (2026-10-10):** Earlier parts of this
+> chronological audit describe a self-hosted runner, protected
+> environment and offline #80 issuer as prerequisites.  Those were
+> optional implementation proposals, NOT issue #97 completion
+> requirements.  #97 depends directly on #81; #85 is separate/deferred.
+> The user approved private Disposable-000; actual shipped Python
+> issue/comment and PR UPDATE mutations now have persisted provider
+> evidence.  The sole current positive acceptance blocker is GitHub's
+> confirmed HTTP 403 against GitHub Actions PR CREATION.  Enable
+> "Allow GitHub Actions to create and approve pull requests" under
+> Disposable-000 Settings -> Actions -> General -> Workflow permissions.
+> For current requirements, results and exact remaining work see
+> ISSUE_97_FUNCTIONAL_ACCEPTANCE_EVIDENCE.md and
+> ISSUE_97_LIVE_ACCEPTANCE_SETUP.md.  Do not read prior architecture
+> discussion as active deployment requirements.
+
 # Issue #97 — GitHub Mutation Adapter Acceptance Audit
 
 Status: OPEN until real-provider acceptance is recorded.  This is not a DONE
