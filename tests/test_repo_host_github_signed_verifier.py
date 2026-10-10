@@ -149,7 +149,6 @@ class SignedPolicyTests(TestCase):
         "RWF97_ISSUER_AUTHORITY": "owner-approved-issuer",
         "RWF97_APPROVED_SHA": CANDIDATE,
         "RWF97_APPROVED_GRANT_ID": document["grant"]["grant_id"],
-      "RWF97_APPROVED_GRANT_ID": "issuer-test-01",
       }):
         decision = verifier.evaluate(
           evidence()[2], document, revocations, REPOSITORY,
@@ -190,6 +189,7 @@ class SignedPolicyTests(TestCase):
     variables = {
       "RWF97_ISSUER_AUTHORITY": "owner-approved-issuer",
       "RWF97_APPROVED_SHA": CANDIDATE,
+      "RWF97_APPROVED_GRANT_ID": "issuer-test-01",
     }
 
     def check(payload=signed, state=revocations, query=evaluation,
