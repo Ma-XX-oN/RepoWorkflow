@@ -44,6 +44,20 @@ class RepoCiGithubMigrationTests(unittest.TestCase):
     self.assertEqual(result["status"], "error")
     self.assertEqual(result["diagnostics"][0]["code"], "capability-unavailable")
 
+  def test_unsatisfied_consumer_and_stage_requirements_fail_closed(self):
+    for operation, inputs in (
+      ("execute", {}),
+      ("execute", {"consumer_workspace": "/not-available"}),
+      ("inspect-context", {"consumer_workspace": "/not-available", "legacy": "mode"}),
+    ):
+      with self.subTest(operation=operation, inputs=inputs):
+        value = request(operation, inputs)
+        value["requirements"]["capabilities"] = ["unverified-extra"]
+        result = handle_request(value, ROOT)
+        self.assertEqual(result["status"], "error", result)
+        self.assertEqual(result["diagnostics"][0]["code"], "invalid-request")
+        self.assertEqual(result["artifacts"], [])
+
   def test_execute_missing_declaration_never_emits_success(self):
     result = handle_request(request("execute"), ROOT)
     self.assertEqual(result["status"], "error")
