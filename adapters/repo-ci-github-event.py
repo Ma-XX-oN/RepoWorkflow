@@ -16,9 +16,9 @@ EVENT_MODES = {
   "schedule": "scheduled",
 }
 RUNNERS = {
-  "linux": {"label": "ubuntu-latest", "capabilities": ("python", "shell", "linux")},
-  "windows": {"label": "windows-latest", "capabilities": ("python", "shell", "windows")},
-  "macos": {"label": "macos-latest", "capabilities": ("python", "shell", "macos")},
+  "linux": {"label": "ubuntu-latest", "ref": "linux-standard", "capabilities": ("python", "shell", "linux")},
+  "windows": {"label": "windows-latest", "ref": "windows-standard", "capabilities": ("python", "shell", "windows")},
+  "macos": {"label": "macos-latest", "ref": "macos-standard", "capabilities": ("python", "shell", "macos")},
 }
 OPERATIONS = {"inspect-context", "resolve-capabilities", "prepare"}
 FIELDS = {"contract_version", "operation", "invocation_id", "candidate", "requirements", "inputs"}
@@ -81,7 +81,7 @@ def _context(inputs: dict) -> tuple[str, str, str]:
   mode = EVENT_MODES[event]
   if inputs.get("mode") is not None and inputs["mode"] != mode:
     raise InvalidRequest("invalid-request", "execution mode conflicts with event")
-  return mode, platform, RUNNERS[platform]["label"]
+  return mode, platform, RUNNERS[platform]["ref"]
 
 
 def _resolve(inputs: dict, required: list[str]) -> tuple[str, str, list[str]]:
@@ -99,7 +99,7 @@ def _resolve(inputs: dict, required: list[str]) -> tuple[str, str, list[str]]:
   unmet = sorted(set(required) - available)
   if unmet:
     raise InvalidRequest("capability-unavailable", "required capabilities unavailable: " + ", ".join(unmet))
-  return platform, RUNNERS[platform]["label"], sorted(available)
+  return platform, RUNNERS[platform]["ref"], sorted(available)
 
 
 def map_request(request: object) -> dict:
