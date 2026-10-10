@@ -21,6 +21,23 @@ class ResultsMetadataTests(unittest.TestCase):
       ["git", "-C", str(self.root), "init", "-qb", "issue-545-meta"],
       check=True, capture_output=True,
     )
+    for key, value in (
+      ("user.name", "Fixture"),
+      ("user.email", "fixture@example.invalid"),
+    ):
+      subprocess.run(
+        ["git", "-C", str(self.root), "config", key, value],
+        check=True, capture_output=True,
+      )
+    (self.root / "README").write_text("fixture\\n")
+    subprocess.run(
+      ["git", "-C", str(self.root), "add", "README"],
+      check=True, capture_output=True,
+    )
+    subprocess.run(
+      ["git", "-C", str(self.root), "commit", "-qm", "initial"],
+      check=True, capture_output=True,
+    )
     self.log = (
       self.root / ".repoworkflow/validation/testResults-545.jsonl"
     )
