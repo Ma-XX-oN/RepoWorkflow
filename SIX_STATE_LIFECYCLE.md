@@ -90,6 +90,29 @@ requires the separately defined integration and authorization gates.
 An interrupted review must use `reject/reopen` to return to active before
 aborting; a new abort transition from `in_review` is not implicit.
 
+### Start-operation preparation is not an extra lifecycle state
+
+The `T01` row and arrow describe the **durable lifecycle outcome**:
+`not_started --start--> active`. They do not mean that the public
+`rwf issue start N` command is one unguarded state assignment.
+
+Issue #64 defines start as a coordinated operation: validate the issue
+and registered relationships, establish an issue-qualified task version,
+create/verify the branch, update durable lifecycle history, and establish
+this clone's current-work context. Issue #187 and
+[STATE_CONCURRENCY.md](STATE_CONCURRENCY.md) require a recoverable
+multi-record semantic transaction when those domains cannot publish
+atomically. A transaction may be **prepared**, **committed** or
+**aborted/recoverable**; these are *transaction statuses*, not additional
+ticket lifecycle states.
+
+Until the operation is durably committed, the ticket must not be reported
+as newly `active` based only on preparatory writes or worktree state.
+Interrupted preparation must be recovered or failed closed, never counted
+as a successful start. The normal lifecycle remains six-state; any
+proposal for a separate persistent `starting` state would require a
+new approved contract, transition table and matching diagram.
+
 ## 4. Schema upgrade and history
 
 Define lifecycle schema version 3 to represent the six states.
