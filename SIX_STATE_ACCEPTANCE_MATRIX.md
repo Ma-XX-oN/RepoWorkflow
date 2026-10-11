@@ -195,11 +195,15 @@ not an authority for transitions, nor a guarantee of live freshness.
 
 
 
-## 6. Execution evidence ledger — separate from specification
+## 6. Execution evidence requirements and example ledger
 
-**No test outcome is certified by this document.** The rows above are
-requirements and expected results only. When implementation tests run,
-record each applicable ID with an exact tested revision and evidence.
+**No test outcome is certified by this document.** The 74 acceptance cases
+in sections 1–5 specify scenarios and expected results; they are not test
+execution records. The five entries below illustrate the ledger format only.
+They do not assert that the tests were never run elsewhere. Actual execution
+results must be established from exact-revision, independently checked evidence.
+
+**Example rows (not actual results):**
 
 | ID | Expected result | Observed result / evidence | Verdict |
 | --- | --- | --- | --- |
