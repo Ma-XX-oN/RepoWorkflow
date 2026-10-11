@@ -42,8 +42,8 @@ issue,title,dependencies
 82,Construct preliminary integration attempt and candidate,101;118
 83,Implement stale prelim reintegration and mandatory revalidation,82
 84,Implement provider-neutral integration ticket/PR flow,102;119
-85,Implement GitHub protected-main enforcement,97;104;110
-86,Implement protected stable-tag finalization,80;85;118
+85,Implement GitHub protected-main enforcement,97;104;110;542;627;637
+86,Implement protected stable-tag finalization,80;85;118;543;638
 87,Implement workflow-aware local Git guard policy API,101;117;118
 88,Implement managed local Git hook shims,87
 89,Define repo-version semantic adapter contract,
@@ -262,9 +262,21 @@ issue,title,dependencies
 518,"Epic: Record, replay, and test executable interface behaviour",519
 519,Feature: Add issue-scoped temporary transformation-fidelity test sandboxes,
 521,Fix nested command descriptions in generated help,456
+538,Document on-demand CI invocation and pre-merge evidence contract,
+540,Define CI marker parser and invocation invariants,538
+541,Run on-demand hosted stages without ordinary-push CI,540;545;548;628
+542,Verify test logs and current destination tip before integration,104;540;548
+543,Certify on-demand CI workflow end to end,85;540;541;542;545;548;629
+545,Implement unified rwf test stages and results CLI (local and remote),540;548
+548,Authenticate testing-log evidence for local and external pre-merge validation,68
 577,Add six-state ticket lifecycle and graph --current indicators with synchronized CSV state,583
 579,Specify six-state lifecycle and authoritative CSV state projection,
 580,Implement six-state lifecycle transitions and lossless migration,579
 581,Project authoritative lifecycle state into synchronized tickets CSV,580
 582,Add cached-state graph glyphs and explicit --current refresh,581
 583,Certify six-state lifecycle CSV migration and graph status integration,582
+627,Audit GitHub protection capabilities and bypass matrix for #85,
+628,Certify on-demand CI trigger exclusion and retry matrix for #541,540
+629,Build independent convergence acceptance matrix for #543,538;540;548
+637,Publish GitHub exact-candidate required check from authenticated evidence,104;110;548
+638,Implement remote-only stable-tag publisher for accepted main SHA,80;118
