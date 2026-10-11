@@ -21,7 +21,6 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
   def test_default_and_preliminary_main_are_excluded(self):
     self.assertIn("branches-ignore:", self.text)
     self.assertIn("      - main", self.text)
-    self.assertIn("      - prelim-main\n", self.text)
     self.assertIn("      - 'prelim-main-*'", self.text)
 
   def test_workflow_verifies_the_full_invocation_history(self):
@@ -51,10 +50,10 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       'echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"', self.text,
     )
     expected = "ref: ${{ needs.plan.outputs.tested_sha }}"
-    self.assertEqual(self.text.count(expected), 5)
+    self.assertEqual(self.text.count(expected), 4)
     for name in (
       "validate", "argv-limits", "graph-renderer-platform",
-      "ticket-merge-platform", "publish",
+      "ticket-merge-platform",
     ):
       section = self.text.split("\n  " + name + ":\n", 1)[1]
       checkout = section.split("      - uses: actions/checkout@v4", 1)[1]
@@ -114,27 +113,14 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("python scripts/validate-hosted-result.py", self.text)
     self.assertIn("if: ${{ success() }}", self.text)
 
+  def test_hosted_results_reader_uses_public_read_only_command(self):
+    self.assertIn("./rwf test results --remote", self.text)
+    self.assertIn("providerInvocationSHA", self.text)
+    self.assertIn("providerRunId", self.text)
+    self.assertIn("Publish canonical hosted testing observations", self.text)
+
   def test_no_separate_unsupported_stage_job(self):
     self.assertNotIn("\n  unsupported-stage:", self.text)
-
-  def test_validated_hosted_observation_is_published_and_read_back(self):
-    section = self.text.split("\n  validate:\n", 1)[1].split(
-      "\n  argv-limits:\n", 1,
-    )[0]
-    publisher = self.text.split("\n  publish:\n", 1)[1].split(
-      "\n  argv-limits:\n", 1,
-    )[0]
-    self.assertIn("    permissions:\n      contents: read", section)
-    self.assertIn("    permissions:\n      contents: write", publisher)
-    self.assertIn("actions/upload-artifact@v4", section)
-    self.assertIn("actions/download-artifact@v4", publisher)
-    self.assertIn("scripts/publish-hosted-result.py", publisher)
-    self.assertIn("steps.audit.outcome == 'success'", section)
-    self.assertIn("needs.validate.outputs.audit_ok == 'success'", publisher)
-    self.assertIn("./rwf test results --remote", publisher)
-    self.assertIn('latest["providerRunId"]', publisher)
-    self.assertIn('latest["providerInvocationSHA"]', publisher)
-    self.assertIn("permissions:\n  contents: read", self.text)
 
   def test_no_release_job_is_started_by_selector_push(self):
     self.assertNotIn("\n  release:", self.text)

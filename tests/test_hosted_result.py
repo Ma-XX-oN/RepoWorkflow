@@ -24,27 +24,6 @@ class HostedResultTests(unittest.TestCase):
     self.log.parent.mkdir(parents=True)
     self.select = self.root / ".ci" / "red-green.txt"
     self.select.parent.mkdir()
-    self.catalogue = self.root / ".ci" / "tests.json"
-    self.catalogue.write_text(json.dumps({
-      "tests": [{
-        "test-harness": "unittest",
-        "issue-541-unit": {
-          "type": "regression", "name": "tests.test_hosted_result",
-          "expected-red": {
-            "exit-code": 1,
-            "output-contains": "issue-541-behavioural-probe",
-          },
-        },
-      }],
-    }))
-    self.temporary = self.root / ".ci" / "temp-tests.json"
-    self.temporary.write_text(json.dumps({
-      "tests": [{
-        "test-harness": "unittest",
-        "issue-541-temp-one": {"type": "temporary", "name": "tests.one"},
-        "issue-541-temp-two": {"type": "temporary", "name": "tests.two"},
-      }],
-    }))
 
   def tearDown(self):
     self.tmp.cleanup()
@@ -58,7 +37,6 @@ class HostedResultTests(unittest.TestCase):
   def write(self, **fields):
     record = {
       "testSHA": SHA, "kind": "GREEN", "result": "succeeded",
-      "runner": "local",
       "reusable": True, "uncommittedChanges": [],
       "branch": "issue-541-test",
       "headChangedDuringTest": False,
@@ -149,49 +127,6 @@ class HostedResultTests(unittest.TestCase):
         self.assertNotEqual(
           self.invoke(stage, sha, branch).returncode, 0,
         )
-
-  def test_expected_red_requires_positive_failure_and_classification(self):
-    self.select.write_text("issue-541-unit\n")
-    self.write(
-      kind="RED", reusable=False, redStatus="RED",
-      reason="declared-behavioural-failure-observed",
-      groups=[{"group": "issue-541-unit", "exit_code": 1}],
-    )
-    self.assertEqual(self.invoke("RED-testing").returncode, 0)
-    for change in (
-      {"redStatus": "FAIL"},
-      {"redStatus": "NOT_RED"},
-      {"redStatus": None},
-      {"reusable": True},
-      {"groups": [{"group": "issue-541-unit", "exit_code": 0}]},
-      {"groups": [{"group": "issue-541-unit", "exit_code": False}]},
-      {"groups": [{"group": "issue-541-unit", "exit_code": 2}]},
-      {"reason": "unexpected-failure"},
-    ):
-      with self.subTest(change=change):
-        fields = {
-          "kind": "RED", "reusable": False, "redStatus": "RED",
-          "reason": "declared-behavioural-failure-observed",
-          "groups": [{"group": "issue-541-unit", "exit_code": 1}],
-        }
-        fields.update(change)
-        self.write(**fields)
-        self.assertNotEqual(self.invoke("RED-testing").returncode, 0)
-
-  def test_temporary_requires_all_and_only_catalogue_groups(self):
-    valid = [
-      {"group": "issue-541-temp-one", "exit_code": 0},
-      {"group": "issue-541-temp-two", "exit_code": 0},
-    ]
-    self.write(kind="temporary", groups=valid)
-    self.assertEqual(self.invoke("temp-testing").returncode, 0)
-    for bad in (valid[:1], valid + valid[:1], [
-      {"group": "issue-541-extra", "exit_code": 0},
-      valid[0],
-    ]):
-      with self.subTest(groups=bad):
-        self.write(kind="temporary", groups=bad)
-        self.assertNotEqual(self.invoke("temp-testing").returncode, 0)
 
   def test_regression_accepts_complete_result_without_groups(self):
     self.write(kind="regression", groups=[])

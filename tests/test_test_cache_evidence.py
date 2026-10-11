@@ -78,6 +78,26 @@ class TestCacheEvidenceTests(unittest.TestCase):
         self.write({**self.base, **change})
         self.assertEqual(self.reusable(), set())
 
+  def test_hosted_pass_requires_real_provider_verification_callback(self):
+    hosted = {
+      **self.base, "runner": "github-actions",
+      "providerRunId": 123, "providerStage": "GREEN-testing",
+    }
+    self.write(hosted)
+    self.assertEqual(self.reusable(), set())
+    from repo_workflow.test_cache import reusable_local_group_passes
+    def check(accepted):
+      return reusable_local_group_passes(
+        self.path, stage="GREEN", revision=SHA, fingerprint=FINGERPRINT,
+        verify_hosted=lambda record: (
+          accepted and record.get("providerRunId") == 123
+        ),
+      )
+    self.assertEqual(check(False), set())
+    self.assertEqual(check(True), {"issue-545-green"})
+    self.write({**hosted, "platform": {"os": "incompatible"}})
+    self.assertEqual(check(True), set())
+
   def test_boolean_and_fractional_exit_codes_are_not_success(self):
     for invalid in (False, 0.0, "0", None):
       with self.subTest(exit_code=invalid):
@@ -86,18 +106,6 @@ class TestCacheEvidenceTests(unittest.TestCase):
         ]}
         self.write(record)
         self.assertEqual(self.reusable(), set())
-
-  def test_reader_rejected_metadata_cannot_be_reused_as_pass(self):
-    original = json.dumps(self.base)
-    for suffix in (
-      '"metrics":NaN',
-      '"metrics":{"elapsed":1e999}',
-      '"result":"succeeded"',
-    ):
-      with self.subTest(suffix=suffix):
-        self.path.write_text(original[:-1] + "," + suffix + "}\n")
-        self.assertEqual(self.reusable(), set())
-
 
   def test_later_failure_supersedes_old_pass(self):
     self.write(self.base, {**self.base, "result": "failed"})

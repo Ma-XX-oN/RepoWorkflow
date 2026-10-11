@@ -114,6 +114,28 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
       self.assertIn("Run current issue RED test group", result.stdout)
       self.assertIn("COUNT:0", result.stdout)
 
+  def test_slow_initial_completion_keeps_double_tab_window(self):
+    td, root, fx, wrapper = self.make()
+    with td:
+      script = wrapper.read_text(encoding="utf-8")
+      self.assertTrue(script.startswith("#!/usr/bin/env bash\n"))
+      wrapper.write_text(
+        script.replace("#!/usr/bin/env bash\n",
+                       "#!/usr/bin/env bash\nsleep 1.2\n", 1),
+        encoding="utf-8",
+      )
+      result = self.run_bash(
+        root, wrapper,
+        'COMP_WORDS=(rwf test RED "")\n'
+        "COMP_CWORD=3\n_repo_workflow_complete\n"
+        "_repo_workflow_complete\n"
+        'printf "COUNT:%s\n" "${#COMPREPLY[@]}"\n',
+      )
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertIn("issue-1-red", result.stdout)
+      self.assertIn("Run current issue RED test group", result.stdout)
+      self.assertIn("COUNT:0", result.stdout)
+
   def test_changed_red_prefix_resets_double_tab_state(self):
     td, root, fx, wrapper = self.make()
     with td:

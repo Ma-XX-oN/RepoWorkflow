@@ -10,11 +10,11 @@ import subprocess
 import sys
 from typing import Callable
 
-from .git import current_branch, head_sha
+from .git import head_sha, current_branch
 from .test_red_classification import (
   RedExpectation, RedObservation, classify_red,
 )
-from .test_results_reader import TestCommandError
+from .test_cli import TestCommandError
 
 
 def record_red(
@@ -58,7 +58,10 @@ def record_red(
     print(result.stdout, end="")
   if result is not None and result.stderr:
     print(result.stderr, end="", file=sys.stderr)
-  dirty = sorted(set(before) | set(dirty_inputs(root, path)))
+  after = dirty_inputs(root, path)
+  dirty = sorted(set(before) | set(after))
+  head_changed = head_sha(root) != candidate
+  inputs_changed = bool(set(after) - set(before))
   if declaration_error:
     status = "INCOMPLETE"
     reason = declaration_error
@@ -80,13 +83,17 @@ def record_red(
       RedObservation(result.returncode, result.stdout, result.stderr, True),
     )
     status, reason = decision.status, decision.reason
+  if head_changed:
+    status, reason = "INCOMPLETE", "test-changed-head-during-red"
+  elif inputs_changed:
+    status, reason = "INCOMPLETE", "test-mutated-inputs-during-red"
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "testSHA": candidate,
-    "branch": current_branch(root),
-    "headChangedDuringTest": head_sha(root) != candidate,
+    "headChangedDuringTest": head_changed,
     "catalogueSHA256": fingerprint,
     "kind": "RED",
+    "branch": current_branch(root),
     "result": (
       "succeeded" if status == "RED" else
       "failed" if status in {"NOT_RED", "FAIL"} else "incomplete"
@@ -111,6 +118,8 @@ def record_red(
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   if status == "RED":
     return 0
+  if head_changed or inputs_changed:
+    raise TestCommandError(reason)
   if declaration_error:
     raise TestCommandError(declaration_error)
   if result is None:
