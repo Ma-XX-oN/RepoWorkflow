@@ -495,3 +495,20 @@ For the proposed RC-derived version
 to new immutable RC and eventual stable release need specification.
 Retain existing issue counter semantics verbatim. Supersedes earlier
 claims of unknown suffix semantics in this audit and issues #644/#645.
+
+## 2026-10-11 explicit catalogue-selected builds
+
+User specified `rwf build <build-type-or-group-alias>`; absent selectors
+must fail without executing local recipes or launching paid remote builds.
+Use a committed JSON build catalogue analogous to existing
+`.ci/tests.json`, proposed path `.ci/builds.json` (final path/schema
+to be frozen in #641). Named build definitions and aliases/groups resolve
+to an explicit deterministic recipe set. Local and remote builds must
+interpret the same catalogue and selectors, track its blob SHA, and
+record per-target artifacts and outcomes. Unknown/empty/cyclic groups,
+invalid JSON, duplicates, unsupported platforms and selector mismatch
+must refuse without side effects. Remote uses the same dedicated
+two-field committed `.ci/run` stage request; catalogue, selection and
+outputs are separately candidate-bound and authenticated. Explicitly
+named broad groups are permitted, but never an implicit build-all.
+#641 owns contract, #642 local execution, #643 hosted execution.
