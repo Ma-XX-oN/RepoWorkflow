@@ -131,21 +131,13 @@ class PublisherTests(unittest.TestCase):
           self.publish()
         self.assertEqual(self.provider.creates, 0)
 
-  def test_authority_denials_by_reason_leave_remote_unchanged(self):
-    reasons = (
-      "missing-authentication", "expired", "revoked", "wrong-scope",
-      "wrong-actor", "wrong-repository", "wrong-candidate",
-      "major-without-major-grant", "consumed-grant",
-    )
-    for reason in reasons:
-      with self.subTest(reason=reason):
-        self.setUp()
-        self.authority.allowed = False
-        before = dict(self.provider.tags)
-        with self.assertRaises(PublicationRefused):
-          self.publish()
-        self.assertEqual(self.provider.tags, before)
-        self.assertEqual(self.provider.creates, 0)
+  def test_authority_denial_preserves_tags(self):
+    self.authority.allowed = False
+    before = dict(self.provider.tags)
+    with self.assertRaises(PublicationRefused):
+      self.publish()
+    self.assertEqual(self.provider.tags, before)
+    self.assertEqual(self.provider.creates, 0)
 
   def test_existing_terminal_ref_not_updated_or_deleted(self):
     self.provider.tags["refs/tags/v1.2.3"] = BASE
