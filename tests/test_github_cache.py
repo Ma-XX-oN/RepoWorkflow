@@ -33,7 +33,7 @@ class GithubCacheOriginTests(unittest.TestCase):
         )
         self.remote(url)
         with patch(
-          "repo_workflow.github_cache.verify_hosted_stage",
+          "repo_workflow.github_cache.verify_hosted_record",
           return_value=True,
         ) as verifier:
           callback = hosted_cache_checker(self.root, "GREEN")
