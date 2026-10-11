@@ -825,3 +825,35 @@ ticket/work phase 1 INCOMPLETE; on-demand test phase 2 BRANCH
 FUNCTIONAL-CERTIFIED but not integrated to main; phase 3 and 4
 PROPOSED; phase 5 INCOMPLETE; phase 6 SECURITY-DEFERRED;
 phase 7 INCOMPLETE. No merges/tags/protection mutations performed.
+
+## 2026-10-11 waterfall ticket structure created
+
+The recursive implementation of the roadmap uses one organizational
+GitHub issue, #648, and eight phase umbrella issues #649–#656
+(phase 0 through phase 7). The parent and phase bodies cross-reference
+each other. These are **organizational containers** and phase-level
+acceptance gates, NOT synthetic execution dependency edges. Existing
+leaf issues remain authoritative for implementation and regression
+tests. The ticket dependency graph is not altered merely because
+two tickets belong to different roadmap phases.
+
+- #648: End-to-end RepoWorkflow orchestration waterfall
+- #649: Phase 0 architecture/contract reconciliation
+- #650: Phase 1 ticket-to-work lifecycle
+- #651: Phase 2 work-to-test evidence
+- #652: Phase 3 local/hosted artifact builds
+- #653: Phase 4 version and RC lifecycle
+- #654: Phase 5 integration/promotion rehearsal
+- #655: Phase 6 opt-in security and protected releases (DEFERRED)
+- #656: Phase 7 real consumer certification
+
+A reusable implementation for any consumer must support:
+organizational containment independently of executable dependencies;
+computed phase status based on individual gate evidence rather than
+percent-complete or arbitrary umbrella closure; immutable tested source
+and provider artifact links; honest distinctions between proposed,
+implemented on branch, provider-certified, integrated, and
+production-enforced; and non-blocking parallel work across phases
+where true prerequisites permit it. The parent ticket's child references
+are a preliminary roadmap inventory; no new status renderer or
+automatic phase rollup has been implemented or certified.
