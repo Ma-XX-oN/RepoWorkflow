@@ -45,6 +45,8 @@ class FakeGitHub:
         return Response(404, {})
       return Response(200, {"object": self.tags[tag]})
     if method == "POST" and path.endswith("/git/refs"):
+      if self.can_push is False:
+        return Response(403, {"message": "Resource not accessible"})
       tag = body["ref"].split("/")[-1]
       if self.race is not None:
         self.tags[tag] = self.race
@@ -100,7 +102,8 @@ class GitHubProviderTests(unittest.TestCase):
     self.api.can_push = False
     with self.assertRaises(PublicationRefused):
       self.publish()
-    self.assertFalse(any(method == "POST" for method, _, _ in self.api.calls))
+    self.assertTrue(any(method == "POST" for method, _, _ in self.api.calls))
+    self.assertNotIn("v1.2.3", self.api.tags)
 
   def test_provider_rejects_noncannonical_tag_mutations(self):
     for ref in (
