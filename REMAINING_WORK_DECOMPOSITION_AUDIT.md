@@ -451,3 +451,27 @@ verified invocation. Retain existing five testing stages, dedicated marker
 commit, exact candidate ancestry, retries and ordinary push exclusion.
 Keep artifact outcomes distinct from test PASS and stable release authority.
 No changed dependency edges or production workflow activation.
+
+## 2026-10-11 preliminary RC-derived issue-version spelling
+
+The artifact-build use of committed `.ci/run` remains documented in
+#641/#642/#643 above, with an additive stage and unchanged two-field marker
+format.
+
+User-selected proposed version grammar for #644/#645:
+- RC: `v1.2.3-rc.1`
+- Work on RC for fixes/last-minute features:
+  `v1.2.3-rc.1-issue.1.2.3`
+- On accepting and certifying work, issue a **new** RC such as
+  `v1.2.3-rc.2` instead of moving or rewriting RC 1.
+- Promote only an eligible, tested RC to stable `v1.2.3` via #86;
+  production protected publication remains dependent on deferred #85.
+
+The suffix `issue.1.2.3` is deliberately NOT assigned undocumented
+semantics. #644 must resolve identifier components, SemVer parsing and
+precedence, identity across concurrent fixes, naming collisions and
+retry/iteration. #645 implements separately identifiable RC-derived
+fix/feature testing, acceptance and promotion provenance. Do not
+confuse RC-derived work with an authoritative published RC.
+Existing #89/#118 repo-version adapter remains canonical.
+Record all preliminary design decisions durably even if not yet frozen.
