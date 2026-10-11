@@ -34,10 +34,13 @@ class GitHubStableTagProvider:
     transport: Transport,
     authenticated_actor: str,
     expected_finalizer_actor: str,
+    *,
+    identity_verifier: Callable[[], bool] | None = None,
   ):
     self._send = transport
     self._actor = authenticated_actor
     self._expected_actor = expected_finalizer_actor
+    self._identity_verifier = identity_verifier
 
   def _request(self, method: str, path: str, data: dict | None = None) -> dict:
     try:
@@ -67,6 +70,11 @@ class GitHubStableTagProvider:
     return f"/repos/{owner}/{name}"
 
   def authenticated_finalizer(self) -> bool:
+    if self._identity_verifier is not None:
+      try:
+        return self._identity_verifier() is True
+      except Exception:
+        return False
     if not self._actor or self._actor != self._expected_actor:
       return False
     try:
