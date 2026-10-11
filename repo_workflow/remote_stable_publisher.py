@@ -88,16 +88,16 @@ def publish_stable_tag(
 
   ref = f"refs/tags/v{request.version}"
   try:
-    if not provider.authenticated_finalizer():
+    if provider.authenticated_finalizer() is not True:
       raise PublicationRefused("unauthenticated remote finalizer")
-    if not authority.authorize(request, ref):
+    if authority.authorize(request, ref) is not True:
       raise PublicationRefused("authorization denied")
     certification = authority.certified(request, ref)
     if certification == "INCOMPLETE":
       raise PublicationIncomplete("protection or certification unavailable")
     if certification != "PASS":
       raise PublicationRefused("protection or certification not accepted")
-    if not authority.version_matches(request):
+    if authority.version_matches(request) is not True:
       raise PublicationRefused("stable version does not match accepted main")
     if provider.main_tip(request.repository) != request.landed_sha:
       raise PublicationRefused("landed SHA is not server main tip")
