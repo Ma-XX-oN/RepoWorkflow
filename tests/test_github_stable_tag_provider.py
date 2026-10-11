@@ -28,6 +28,8 @@ class FakeGitHub:
     if self.fail:
       raise TimeoutError()
     if path == "/repos/owner/repo":
+      if self.can_push is None:
+        return Response(200, {"full_name": "owner/repo"})
       return Response(200, {"permissions": {"push": self.can_push}})
     if path == "/user":
       return Response(200, {"login": "release-bot"})
@@ -88,6 +90,11 @@ class GitHubProviderTests(unittest.TestCase):
     self.assertEqual(sum(
       method == "POST" for method, _, _ in self.api.calls
     ), 1)
+
+  def test_installation_token_metadata_without_permissions(self):
+    self.api.can_push = None
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+    self.assertTrue(any(method == "POST" for method, _, _ in self.api.calls))
 
   def test_repository_write_permission_required(self):
     self.api.can_push = False
