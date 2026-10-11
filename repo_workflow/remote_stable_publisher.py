@@ -17,6 +17,10 @@ class PublicationRefused(RuntimeError):
   """Publication was not proven safe or authoritative."""
 
 
+class PublicationIncomplete(PublicationRefused):
+  """Required authority or protection has not been demonstrated."""
+
+
 @dataclass(frozen=True)
 class PublicationRequest:
   repository: str
@@ -48,7 +52,7 @@ class PublicationAuthority(Protocol):
 
   def certified(
     self, request: PublicationRequest, ref: str
-  ) -> bool: ...
+  ) -> str: ...
 
   def version_matches(self, request: PublicationRequest) -> bool: ...
 
@@ -88,7 +92,10 @@ def publish_stable_tag(
       raise PublicationRefused("unauthenticated remote finalizer")
     if not authority.authorize(request, ref):
       raise PublicationRefused("authorization denied")
-    if not authority.certified(request, ref):
+    certification = authority.certified(request, ref)
+    if certification == "INCOMPLETE":
+      raise PublicationIncomplete("protection or certification unavailable")
+    if certification != "PASS":
       raise PublicationRefused("protection or certification not accepted")
     if not authority.version_matches(request):
       raise PublicationRefused("stable version does not match accepted main")
