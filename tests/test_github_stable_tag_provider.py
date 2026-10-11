@@ -57,7 +57,7 @@ class Authority:
 
 
 def request():
-  return PublicationRequest("owner/repo", "1.2.3", SHA, SHA, BASE, "one")
+  return PublicationRequest("owner/repo", "1.2.3", SHA, SHA, BASE, "one", "auth-1", "protection-1", "cert-1", "patch")
 
 
 class GitHubProviderTests(unittest.TestCase):
