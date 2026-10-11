@@ -16,7 +16,7 @@ from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
-from .test_cache import reusable_local_group_passes
+from .test_cache import reusable_local_group_passes, has_local_applicable_observation
 from .github_cache import hosted_cache_checker, read_remote_published_log
 from .self_ci import group_command, SelfCiError
 from .test_red_declaration import red_declaration
@@ -271,7 +271,10 @@ def _run_group_set(
         root, branch=current_branch(root),
         relative=path.relative_to(root).as_posix(),
       )
-      if checker is not None and not path.exists()
+      if checker is not None and not has_local_applicable_observation(
+        path, stage=stage, revision=revision,
+        fingerprint=fingerprint, groups=groups,
+      )
       else None
     )
     if remote_raw is not None:
