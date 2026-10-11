@@ -119,6 +119,28 @@ class GitHubProviderTests(unittest.TestCase):
       self.provider.read_tag("owner/repo", "refs/tags/v1.2.3"), SHA
     )
 
+  def test_trusted_hosted_identity_verifier_is_required(self):
+    self.provider = GitHubStableTagProvider(
+      self.api, "", "", identity_verifier=lambda: True
+    )
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+
+    self.setUp()
+    self.provider = GitHubStableTagProvider(
+      self.api, "", "", identity_verifier=lambda: "true"
+    )
+    with self.assertRaises(PublicationRefused):
+      self.publish()
+
+    def unavailable():
+      raise ConnectionError("OIDC verifier unavailable")
+
+    self.provider = GitHubStableTagProvider(
+      self.api, "", "", identity_verifier=unavailable
+    )
+    with self.assertRaises(PublicationRefused):
+      self.publish()
+
   def test_authenticated_identity_required(self):
     self.provider = GitHubStableTagProvider(
       self.api, "attacker", "release-bot"
