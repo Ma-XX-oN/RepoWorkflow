@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import re
 from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -19,6 +20,8 @@ class Response:
   status: int
   body: dict
 
+
+_STABLE_REF = re.compile(r"refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+")
 
 Transport = Callable[[str, str, dict | None], Response]
 
@@ -116,7 +119,7 @@ class GitHubStableTagProvider:
   def create_tag_if_absent(
     self, repository: str, ref: str, sha: str
   ) -> None:
-    if not ref.startswith("refs/tags/v") or "/" in ref[11:]:
+    if _STABLE_REF.fullmatch(ref) is None:
       raise PublicationRefused("only stable tags permitted")
     repository_info = self._request("GET", self._repo(repository))
     permissions = repository_info.get("permissions")
