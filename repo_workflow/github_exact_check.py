@@ -120,6 +120,25 @@ def publish(
       if (prior["context"] == CONTEXT
           and prior.get("description") == description):
         raise PublishError("evidence replay")
+    # GitHub's status API has no compare-and-swap operation. Atomically
+    # claim one durable per-candidate ref before any success publication.
+    # Conflicting writers cannot both create the same ref. Retain the ref
+    # after errors so ambiguous attempts fail closed instead of racing.
+    lock_ref = "refs/heads/rwf-exact-check-lock/" + candidate
+    acquired = request("/git/refs", {
+      "ref": lock_ref, "sha": candidate,
+    })
+    if (not isinstance(acquired, dict)
+        or acquired.get("ref") != lock_ref
+        or acquired.get("object", {}).get("sha") != candidate):
+      raise PublishError("candidate publication lock unverified")
+    saved_lock = request("/git/ref/heads/rwf-exact-check-lock/" + candidate)
+    if (not isinstance(saved_lock, dict)
+        or saved_lock.get("ref") != lock_ref
+        or saved_lock.get("object", {}).get("sha") != candidate):
+      raise PublishError("candidate publication lock not persisted")
+    if base_sha() != first:
+      raise PublishError("destination changed after lock acquisition")
     post_attempted = True
     result = request("/statuses/" + candidate, {
       "state": "success", "context": CONTEXT,
