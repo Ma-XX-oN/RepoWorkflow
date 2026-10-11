@@ -262,3 +262,28 @@ No new child for #543 and no provider-policy rollout child for #85 were
 created: they would duplicate shared source ownership or be inseparable from
 the final integration gate. This is an intentional decomposition decision,
 not an omitted capability. No merge, release, tag or production activation.
+
+## Stable-tag legacy defects: ownership and required acceptance
+
+Source verification of default-branch `repo_workflow/guard.py` and
+`repo_workflow/results.py` found two existing lifecycle defects/risks:
+
+- `validate_stable_candidate()` deletes a pre-existing local stable tag ref,
+  violating the expected read-only validation boundary.
+- `finalize_stable_results(do_tag=True,push=True)` creates and publishes a
+  tag from the local checkout, without exercising the intended remote-only
+  authorized publisher of #86. Tag absence checked earlier is vulnerable to
+  races; the existing module is not evidence of server-protected publication.
+
+The original version selection and authoritative remote integration-head
+checks already exist and should be preserved. #86 **owns regression-first
+correction of existing guard/results code**, no extra ticket, including
+pre/post local and remote refs, repeated and refused operations, entry-point
+migration, and avoidance of an alternate legacy publication bypass. #638
+owns only a **new remote-only** atomic create-if-absent publisher and its
+independent provider tests; it must not edit guard/results. #86 retains
+integration of #638, real provider certification, #80/#85/#543 gates.
+
+Both issue bodies updated explicitly. Canonical dependency edges are unchanged
+by this ownership clarification. These are now acceptance requirements, not
+claims that implementation has been fixed.
