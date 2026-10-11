@@ -110,6 +110,12 @@ class ExactCheckTests(unittest.TestCase):
     with self.assertRaises(PublishError):
       self.call(Provider(wrong_issuer=True))
 
+  def test_repository_dot_segments_rejected(self):
+    for name in ("../disposable", "user/..", "./disposable"):
+      with self.subTest(name=name), self.assertRaises(PublishError):
+        publish(name, SHA, BASE, "main", "token",
+                evidence={}, verifier=approved, provider=Provider())
+
   def test_invalid_sha(self):
     p = Provider()
     with self.assertRaises(PublishError):
