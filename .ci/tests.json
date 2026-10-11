@@ -82,6 +82,10 @@
         "type": "regression",
         "name": "tests.test_github_exact_check"
       },
+      "issue-637-exact-check-recovery": {
+        "type": "regression",
+        "name": "tests.test_github_exact_check_revoke"
+      },
       "issue-583-lifecycle-certification": {
         "type": "regression",
         "name": "tests.test_six_state_integration"
