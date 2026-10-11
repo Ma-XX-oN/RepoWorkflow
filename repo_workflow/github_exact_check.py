@@ -123,8 +123,7 @@ def publish(
       "state": "success", "context": CONTEXT,
       "description": description,
     })
-    if (not isinstance(result, dict) or result.get("sha") != candidate
-        or result.get("context") != CONTEXT
+    if (not isinstance(result, dict) or result.get("context") != CONTEXT
         or result.get("state") != "success"
         or type(result.get("id")) is not int
         or not isinstance(result.get("creator"), dict)
