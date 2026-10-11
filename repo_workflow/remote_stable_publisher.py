@@ -25,6 +25,10 @@ class PublicationRequest:
   candidate_sha: str
   expected_base_sha: str
   request_id: str
+  authorization_ref: str
+  protection_ref: str
+  certification_ref: str
+  release_class: str
 
 
 class RemoteProvider(Protocol):
@@ -70,6 +74,11 @@ def publish_stable_tag(
     raise PublicationRefused("candidate differs from landed SHA")
   if not request.repository or not request.request_id:
     raise PublicationRefused("missing repository or request identity")
+  if not all((request.authorization_ref, request.protection_ref,
+              request.certification_ref)):
+    raise PublicationRefused("required authority evidence missing")
+  if request.release_class not in ("patch", "minor", "major"):
+    raise PublicationRefused("invalid release class")
 
   ref = f"refs/tags/v{request.version}"
   try:
