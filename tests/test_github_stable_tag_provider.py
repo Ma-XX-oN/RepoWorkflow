@@ -59,7 +59,7 @@ class Authority:
     return True
 
   def certified(self, request, ref):
-    return True
+    return "PASS"
 
   def version_matches(self, request):
     return True
