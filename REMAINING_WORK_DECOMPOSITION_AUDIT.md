@@ -365,3 +365,38 @@ reconcile all three lane handoffs, add regression-first fixes for verified
 defects, rerun applicable local/hosted/platform acceptance, and preserve
 #85 SECURITY-DEFERRED. Neither lane completion nor a successful source
 assembly implies #543 DONE.
+
+## AGENT-CMD reusable partial/full examples — 2026-10-11
+
+Document these failure-derived templates in the central AGENT-CMD protocol
+instead of duplicating orchestration rules in every worker prompt:
+
+1. **Status interruption (partial):** #543 stopped merely because the user
+   requested progress.  Answer with measured elapsed time and resume work.
+2. **Environment recovery (partial):** #543 Lane A could not clone GitHub
+   owing to DNS; use mounted source, connected API, isolated verified fixtures,
+   and independent tests before requesting an exact-revision ZIP.  Never
+   overclaim a reconstructed tree as an authenticated full checkout.
+3. **Verified defects (partial):** Lane A reproduced committed
+   `.ci/red-green.txt` selection integrity and committed `.ci/run`
+   invocation defects against PR #567 candidate `dcdaea2d`; capture
+   expected/actual results and continue, transferring fixes to #543 owner.
+4. **Auditor completion (full):** Lane A/B/C evidence handoff includes
+   criterion counts, exact SHA, provider evidence, reproducibility and next
+   owner.  Finishing a read-only lane does not finish #543.
+5. **Deferred worker parking (full):** #85 remains OPEN with claim
+   `6104999182`, state DEFERRED/WAITING, and durable handoff; no automatic
+   successor claim and no security PASS.
+6. **Post-audit integration resumption (full):** #543 claim
+   `6105182602` assembles A/B/C evidence, fixes verified failures
+   regression-first and executes authoritative hosted/platform certification.
+7. **SPINUP generation (partial):** complete independently copyable command
+   is only a proposal until the receiving agent actually loads the Library
+   file and checks ownership.
+
+Central protocol must preserve the original grammar and literal
+nonrecursive variable substitution.  Example claim IDs and commits are
+historical referents, not live facts.  The local generated
+`AGENT-CMD-PROTOCOL-v2.md` requires explicit installation into ChatGPT
+persistent instructions/Library; repository documentation does not
+automatically install it.
