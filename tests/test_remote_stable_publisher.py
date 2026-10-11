@@ -54,7 +54,7 @@ class Authority:
 class PublisherTests(unittest.TestCase):
   def setUp(self):
     self.request = PublicationRequest(
-      "owner/repo", "1.2.3", SHA, SHA, BASE, "request-1"
+      "owner/repo", "1.2.3", SHA, SHA, BASE, "request-1", "auth-1", "protection-1", "cert-1", "patch"
     )
     self.provider = Provider()
     self.authority = Authority()
@@ -83,6 +83,10 @@ class PublisherTests(unittest.TestCase):
       ("expected_base_sha", "bad"),
       ("repository", ""),
       ("request_id", ""),
+      ("authorization_ref", ""),
+      ("protection_ref", ""),
+      ("certification_ref", ""),
+      ("release_class", ""),
     ]
     for field, value in cases:
       with self.subTest(field=field, value=value):
