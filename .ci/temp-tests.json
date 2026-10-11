@@ -9,6 +9,22 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-live-stage-parity": {
+        "type": "regression",
+        "name": "tests.issue543_live_stage_parity"
+      },
+      "issue-543-live-provider-negatives": {
+        "type": "regression",
+        "name": "tests.issue543_live_provider_negatives"
+      },
+      "issue-543-all-stage-cardinality": {
+        "type": "regression",
+        "name": "tests.issue543_stage_cardinality_extended"
+      }
+    }
+  ],
   "aliases": {}
 }
