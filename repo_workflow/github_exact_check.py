@@ -93,6 +93,7 @@ def publish(
       raise PublishError("invalid provider base SHA")
     return sha
 
+  post_attempted = False
   try:
     first = base_sha()
     if first != expected_base:
@@ -119,6 +120,7 @@ def publish(
       if (prior["context"] == CONTEXT
           and prior.get("description") == description):
         raise PublishError("evidence replay")
+    post_attempted = True
     result = request("/statuses/" + candidate, {
       "state": "success", "context": CONTEXT,
       "description": description,
@@ -143,9 +145,31 @@ def publish(
       raise PublishError("destination changed after publication")
     return {"sha": candidate, "base": first, "status_id": result["id"],
             "issuer": result["creator"]["login"], "context": CONTEXT}
-  except PublishError:
-    raise
-  except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
+  except (PublishError, ValueError, TypeError, KeyError, OSError,
+          RuntimeError) as exc:
+    if post_attempted:
+      # A status POST has no atomic rollback. Immediately supersede any
+      # ambiguous or invalid success and verify failure persisted.
+      try:
+        revoked = request("/statuses/" + candidate, {
+          "state": "failure", "context": CONTEXT,
+          "description": "revoked: exact-candidate publication failed",
+        })
+        history = request("/commits/" + candidate + "/statuses")
+        if (not isinstance(revoked, dict)
+            or revoked.get("state") != "failure"
+            or revoked.get("context") != CONTEXT
+            or not isinstance(history, list) or not history
+            or history[0].get("id") != revoked.get("id")
+            or history[0].get("state") != "failure"):
+          raise PublishError("revocation not observed")
+      except (PublishError, ValueError, TypeError, KeyError, OSError,
+              RuntimeError) as revoke_error:
+        raise PublishError(
+          "publication failed; required failure revocation unverified"
+        ) from revoke_error
+    if isinstance(exc, PublishError):
+      raise
     raise PublishError("provider or verifier unavailable") from exc
 
 
