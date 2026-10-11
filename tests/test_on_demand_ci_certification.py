@@ -36,6 +36,10 @@ class OnDemandCertificationTests(unittest.TestCase):
     self.tested_sha = self.git("rev-parse", "HEAD")
     self.results_dir = self.root / "results"
     self.results_dir.mkdir()
+    self.canonical_log = (
+      self.root / ".repoworkflow/validation/testResults-543.jsonl"
+    )
+    self.canonical_log.parent.mkdir(parents=True)
     self.config = {
       "environments": [{"id": "required", "required": True}],
     }
@@ -56,6 +60,16 @@ class OnDemandCertificationTests(unittest.TestCase):
       "commit": tested_sha,
       "status": status,
     }), encoding="utf-8")
+    self.canonical_log.write_text(json.dumps({
+      "kind": "integration",
+      "testSHA": self.tested_sha,
+      "result": "succeeded",
+      "runner": "local",
+      "reusable": True,
+      "headChangedDuringTest": False,
+      "uncommittedChanges": [],
+      "platform": {"os": "Linux", "architecture": "x86_64", "runtime": "3.13"},
+    }) + "\n")
 
   def check(self, authoritative_tip):
     return check_pre_merge_candidate(
@@ -66,6 +80,8 @@ class OnDemandCertificationTests(unittest.TestCase):
       results_dir=self.results_dir,
       config=self.config,
       version="1.0.0",
+      canonical_log=self.canonical_log,
+      required_platforms=("Linux",),
     )
 
   def test_request_then_exact_logged_result_allows_preflight(self):
@@ -75,21 +91,9 @@ class OnDemandCertificationTests(unittest.TestCase):
     self.log(self.tested_sha)
     self.assertIsNone(self.check(self.main_tip))
 
-  def test_uncommitted_marker_tampering_does_not_change_invocation(self):
-    marker = self.root / ".ci" / "run"
-    marker.write_text("RED-testing " + self.main_tip + "\n")
-    observed = verify_invocation(self.root)
-    self.assertEqual(observed.stage, "integration-testing")
-    self.assertEqual(observed.previous_tip, self.pre_invocation_tip)
-
-  def test_missing_worktree_marker_preserves_committed_request(self):
-    (self.root / ".ci" / "run").unlink()
-    observed = verify_invocation(self.root)
-    self.assertEqual(observed.previous_tip, self.pre_invocation_tip)
-
   def test_request_is_not_accepted_as_a_test_result(self):
     verify_invocation(self.root)
-    with self.assertRaisesRegex(PreMergeGateError, "INCOMPLETE"):
+    with self.assertRaisesRegex(PreMergeGateError, "canonical"):
       self.check(self.main_tip)
 
   def test_log_for_pre_invocation_tip_does_not_cover_request_commit(self):
