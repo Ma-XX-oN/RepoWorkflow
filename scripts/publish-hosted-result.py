@@ -75,11 +75,11 @@ def publish(
   if any(line[3:] != relative for line in local_dirty.splitlines() if line):
     raise ValueError("unexpected test side effects prevent publication")
   if record.get("runner") == "github-actions":
-    from repo_workflow.github_evidence import verify_hosted_stage
+    from repo_workflow.github_artifact import verify_hosted_record
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     if stage not in {"GREEN-testing", "temp-testing"} or not repository:
       raise ValueError("provider reuse lacks authorised stage or repository")
-    if not verify_hosted_stage(record, repo=repository, stage=stage):
+    if not verify_hosted_record(record, repo=repository, stage=stage):
       raise ValueError("previous provider PASS could not be authenticated")
     previous_run = record.get("providerRunId")
     groups = record.get("groups")
