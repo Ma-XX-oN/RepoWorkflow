@@ -45,6 +45,8 @@ class Authority:
     self.allowed = True
     self.accepted = "PASS"
     self.version_accepted = True
+    self.consumption_accepted = True
+    self.consumptions = []
 
   def authorize(self, request, ref):
     return self.allowed
@@ -54,6 +56,10 @@ class Authority:
 
   def version_matches(self, request):
     return self.version_accepted
+
+  def finalize_consumption(self, request, ref, observed_sha):
+    self.consumptions.append((request.request_id, ref, observed_sha))
+    return self.consumption_accepted
 
 
 class PublisherTests(unittest.TestCase):
@@ -73,12 +79,22 @@ class PublisherTests(unittest.TestCase):
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.provider.creates, 1)
+    self.assertEqual(len(self.authority.consumptions), 2)
 
   def test_unsupported_protection_is_incomplete(self):
     self.authority.accepted = "INCOMPLETE"
     with self.assertRaises(PublicationIncomplete):
       self.publish()
     self.assertEqual(self.provider.creates, 0)
+
+  def test_failed_consumption_is_incomplete_with_remote_tag_retained(self):
+    self.authority.consumption_accepted = False
+    with self.assertRaises(PublicationIncomplete):
+      self.publish()
+    self.assertEqual(self.provider.tags["refs/tags/v1.2.3"], SHA)
+    self.authority.consumption_accepted = True
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+    self.assertEqual(self.provider.creates, 1)
 
   def test_delayed_response(self):
     self.provider.fail_after_create = True
