@@ -1,7 +1,10 @@
 import unittest
+from io import BytesIO
+from unittest.mock import patch
+from urllib.error import HTTPError
 
 from repo_workflow.github_stable_tag_provider import (
-  GitHubStableTagProvider, Response,
+  GitHubStableTagProvider, GitHubRestTransport, Response,
 )
 from repo_workflow.remote_stable_publisher import (
   PublicationRefused, PublicationRequest, publish_stable_tag,
@@ -113,6 +116,49 @@ class GitHubProviderTests(unittest.TestCase):
         else:
           with self.assertRaises(PublicationRefused):
             self.publish()
+
+
+  def test_transport_builds_github_request(self):
+    class Reply:
+      status = 200
+
+      def __enter__(self):
+        return self
+
+      def __exit__(self, *args):
+        return False
+
+      def read(self):
+        return b'{"login":"release-bot"}'
+
+    with patch(
+      "repo_workflow.github_stable_tag_provider.urlopen",
+      return_value=Reply(),
+    ) as opened:
+      result = GitHubRestTransport("secret")("GET", "/user", None)
+      self.assertEqual(result.body["login"], "release-bot")
+      req = opened.call_args.args[0]
+      self.assertEqual(req.full_url, "https://api.github.com/user")
+      self.assertEqual(req.get_header("Authorization"), "Bearer secret")
+
+  def test_transport_retains_http_conflict_for_reconciliation(self):
+    error = HTTPError(
+      "https://api.github.com/repos/o/r/git/refs", 422, "exists",
+      {}, BytesIO(b'{"message":"already exists"}'),
+    )
+    with patch(
+      "repo_workflow.github_stable_tag_provider.urlopen",
+      side_effect=error,
+    ):
+      response = GitHubRestTransport("secret")(
+        "POST", "/repos/o/r/git/refs", {"ref": "refs/tags/v1.2.3"}
+      )
+    self.assertEqual(response.status, 422)
+
+  def test_transport_rejects_unexpected_operations(self):
+    transport = GitHubRestTransport("secret")
+    with self.assertRaises(PublicationRefused):
+      transport("DELETE", "/repos/o/r/git/refs", None)
 
   def test_transport_unavailable_fails_closed(self):
     self.api.fail = True
