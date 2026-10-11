@@ -18,6 +18,7 @@ class Provider:
     self.identity = True
     self.fail_after_create = False
     self.creates = 0
+    self.move_main_on_create = False
 
   def authenticated_finalizer(self):
     return self.identity
@@ -36,6 +37,8 @@ class Provider:
     if ref in self.tags:
       raise RuntimeError("already exists")
     self.tags[ref] = sha
+    if self.move_main_on_create:
+      self.tip = BASE
     if self.fail_after_create:
       raise TimeoutError("response lost")
 
@@ -109,6 +112,13 @@ class PublisherTests(unittest.TestCase):
     self.authority.consumption_accepted = True
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.provider.creates, 1)
+
+  def test_main_moves_during_create_results_in_incomplete(self):
+    self.provider.move_main_on_create = True
+    with self.assertRaises(PublicationIncomplete):
+      self.publish()
+    self.assertEqual(self.provider.tags["refs/tags/v1.2.3"], SHA)
+    self.assertEqual(self.authority.consumptions, {})
 
   def test_delayed_response(self):
     self.provider.fail_after_create = True
