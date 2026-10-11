@@ -21,11 +21,14 @@ class FakeGitHub:
     self.calls = []
     self.fail = False
     self.race = None
+    self.can_push = True
 
   def __call__(self, method, path, body):
     self.calls.append((method, path, body))
     if self.fail:
       raise TimeoutError()
+    if path == "/repos/owner/repo":
+      return Response(200, {"permissions": {"push": self.can_push}})
     if path == "/user":
       return Response(200, {"login": "release-bot"})
     if path.endswith("/git/ref/heads/main"):
@@ -79,6 +82,12 @@ class GitHubProviderTests(unittest.TestCase):
     self.assertEqual(sum(
       method == "POST" for method, _, _ in self.api.calls
     ), 1)
+
+  def test_repository_write_permission_required(self):
+    self.api.can_push = False
+    with self.assertRaises(PublicationRefused):
+      self.publish()
+    self.assertFalse(any(method == "POST" for method, _, _ in self.api.calls))
 
   def test_annotated_tag_peeling(self):
     self.api.tags["v1.2.3"] = {"type": "tag", "sha": "c" * 40}
