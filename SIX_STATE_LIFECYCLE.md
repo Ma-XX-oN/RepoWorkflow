@@ -71,14 +71,14 @@ stateDiagram-v2
 
 | ID | From | Event | To |
 | --- | --- | --- | --- |
-| T01  `not_started` | `start` | `active` |
-| T02  `active` | `submit-review` | `in_review` |
-| T03  `in_review` | `accept` | `accepted` |
-| T04  `in_review` | `reject/reopen` | `active` |
-| T05  `accepted` | `reject/reopen` | `active` |
-| T06  `active` | `abort` | `aborted` |
-| T07  `aborted` | `re-enter` | `active` |
-| T08  `accepted` | `complete` | `completed` |
+| T01 | `not_started` | `start` | `active` |
+| T02 | `active` | `submit-review` | `in_review` |
+| T03 | `in_review` | `accept` | `accepted` |
+| T04 | `in_review` | `reject/reopen` | `active` |
+| T05 | `accepted` | `reject/reopen` | `active` |
+| T06 | `active` | `abort` | `aborted` |
+| T07 | `aborted` | `re-enter` | `active` |
+| T08 | `accepted` | `complete` | `completed` |
 
 Only these transitions are legal. A validation failure during active work
 records validation evidence without making a fictitious same-state lifecycle
