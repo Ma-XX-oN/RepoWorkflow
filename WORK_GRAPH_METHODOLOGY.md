@@ -556,4 +556,21 @@ independent deliverable that can truly reach DONE without its successor or
 predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
+
+## 13.4 Pre-dispatch failure audit and graphical fidelity
+
+Before adding workers to a decomposition, perform the inventory, exclusive
+ownership, scope, acceptance-layer, and graph-integrity checks recorded in
+[REMAINING_WORK_DECOMPOSITION_AUDIT.md](REMAINING_WORK_DECOMPOSITION_AUDIT.md).
+That document records concrete escaped defects and the #85/#543/#86
+reorganization assessment; its proposed child labels are **not** canonical
+issue IDs or permission to launch blocked tickets.  Treat existing PRs and
+claims as prior ownership, not empty work.
+
+Render execution graphs from explicit node and directed-edge data using a
+graph-layout engine such as Mermaid.  Check each arrow against ticket
+contracts, and reject missing/unreachable or duplicate nodes, cycles, and
+misleading serial edges before publishing the diagram.  Do not use manually
+positioned SVG connections as the authoritative work graph.
+
 Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
