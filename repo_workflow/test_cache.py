@@ -73,3 +73,27 @@ def reusable_local_group_passes(
   except (ValueError, TypeError):
     return set()
   return {group for group, passed in latest.items() if passed}
+
+def has_local_applicable_observation(
+  path: Path, *, stage: str, revision: str, fingerprint: str,
+  groups: tuple[str, ...],
+) -> bool:
+  """Do not supersede current local failures or malformed records with remote PASS."""
+  if not path.exists():
+    return False
+  try:
+    for line in path.read_text(encoding="utf-8").splitlines():
+      record = json.loads(line)
+      if not isinstance(record, dict):
+        return True
+      if (record.get("kind") == stage and record.get("testSHA") == revision
+          and record.get("catalogueSHA256") == fingerprint):
+        observed = record.get("groups")
+        if not isinstance(observed, list):
+          return True
+        if any(isinstance(row, dict) and row.get("group") in groups
+               for row in observed):
+          return True
+  except (OSError, ValueError, TypeError):
+    return True
+  return False
