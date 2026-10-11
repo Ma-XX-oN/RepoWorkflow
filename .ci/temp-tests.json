@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-artifact-auth-probe": {
+        "type": "regression",
+        "name": "tests.issue543_artifact_probe"
+      }
+    }
+  ],
   "aliases": {}
 }
