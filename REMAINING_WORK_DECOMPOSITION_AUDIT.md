@@ -429,3 +429,25 @@ The specification should resolve whether rc version spelling is
 Security remains an overlay on functional workflows: preflight/plan, optional
 explicit activation, readback, provider refusal, and production release gate.
 No merge, production tag or release activation authorized.
+
+## 2026-10-11 artifact builds reuse committed .ci/run
+
+User requirement: artifact builds use existing `.ci/run` functionality.
+At observed #543 integration source, `ci_invocation.py` parses two fields,
+`<stage> <previous-tip-SHA>`, from committed `HEAD:.ci/run`; requires
+single-parent, marker-only invocation and traces the original candidate.
+The accepted stage set contains RED/temp/GREEN/regression/integration testing,
+not artifact building yet.
+
+#641 now specifies additive build-stage token and separate candidate-bound
+build configuration/manifest; #643 extends the existing hosted dispatcher
+rather than inventing another invocation or cache protocol. #642 shares
+declared configuration and result provenance for local builds without
+needlessly creating a remote request commit. The accepted build-stage spelling
+is an open contract decision: `artifact-building` is proposed, not approved.
+
+Never add extra marker fields or allow uncommitted build inputs to alter a
+verified invocation. Retain existing five testing stages, dedicated marker
+commit, exact candidate ancestry, retries and ordinary push exclusion.
+Keep artifact outcomes distinct from test PASS and stable release authority.
+No changed dependency edges or production workflow activation.
