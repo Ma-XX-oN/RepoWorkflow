@@ -118,6 +118,10 @@ class GitHubStableTagProvider:
   ) -> None:
     if not ref.startswith("refs/tags/v"):
       raise PublicationRefused("only stable tags permitted")
+    repository_info = self._request("GET", self._repo(repository))
+    permissions = repository_info.get("permissions")
+    if not isinstance(permissions, dict) or not permissions.get("push"):
+      raise PublicationRefused("remote principal lacks write permission")
     self._request(
       "POST", self._repo(repository) + "/git/refs",
       {"ref": ref, "sha": sha},
