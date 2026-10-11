@@ -123,3 +123,22 @@ security activation.**
 - [Work graph methodology](WORK_GRAPH_METHODOLOGY.md)
 - [Public RWF workflow](PUBLIC_WORKFLOW.md)
 - [Waterfall capability audit](REMAINING_WORK_DECOMPOSITION_AUDIT.md)
+
+## GitHub scope labels (triage, not transfer)
+
+Existing roadmap tickets have been classified using GitHub labels:
+
+- `scope:project-workflow`: #648 (general roadmap capability direction),
+  #650 (roadmap read-only UI), #651 (project-phase evidence aggregation).
+- `scope:shared-boundary`: #649 (joint authority, trust and split-design
+  questions; RWF-specific invariants must remain with RWF).
+- `scope:rwf-roadmap`: #652–#656 (milestone containers describing RWF's
+  actual build/version/integration/security/consumer work, **not**
+  requirements to implement a general roadmap engine in RWF).
+
+These labels are a **classification of proposed ownership**, not completion,
+approval, a dependency edge, an issue migration or creation of a PWF system.
+Do not relabel the RWF leaf implementation issues just because they appear
+in a phase. Preserve the issue descriptions and history. Once the boundary
+is explicitly approved, provider-independent ownership and any actual
+migration can be considered separately.
