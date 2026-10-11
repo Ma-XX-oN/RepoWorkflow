@@ -1,4 +1,4 @@
-import pytest
+import unittest
 
 from repo_workflow.github_stable_tag_provider import (
   GitHubStableTagProvider, Response,
@@ -60,65 +60,65 @@ def request():
   return PublicationRequest("owner/repo", "1.2.3", SHA, SHA, BASE, "one")
 
 
-def test_real_github_rest_contract_replay():
-  api = FakeGitHub()
-  provider = GitHubStableTagProvider(api, "release-bot", "release-bot")
-  assert publish_stable_tag(request(), provider, Authority()) == (
-    "refs/tags/v1.2.3"
-  )
-  assert publish_stable_tag(request(), provider, Authority()) == (
-    "refs/tags/v1.2.3"
-  )
-  assert sum(method == "POST" for method, _, _ in api.calls) == 1
-
-
-def test_annotated_tag_peeling():
-  api = FakeGitHub()
-  api.tags["v1.2.3"] = {"type": "tag", "sha": "c" * 40}
-  provider = GitHubStableTagProvider(api, "release-bot", "release-bot")
-  assert provider.read_tag("owner/repo", "refs/tags/v1.2.3") == SHA
-
-
-def test_authenticated_identity_required():
-  api = FakeGitHub()
-  provider = GitHubStableTagProvider(api, "attacker", "release-bot")
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(request(), provider, Authority())
-  assert not any(method == "POST" for method, _, _ in api.calls)
-
-
-@pytest.mark.parametrize("value", [
-  {"type": "commit", "sha": BASE},
-  {"type": "blob", "sha": SHA},
-])
-def test_nonmatching_and_invalid_remote_refs(value):
-  api = FakeGitHub()
-  api.tags["v1.2.3"] = value
-  provider = GitHubStableTagProvider(api, "release-bot", "release-bot")
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(request(), provider, Authority())
-
-
-@pytest.mark.parametrize("race", [
-  {"type": "commit", "sha": SHA},
-  {"type": "commit", "sha": BASE},
-])
-def test_concurrent_atomic_create(race):
-  api = FakeGitHub()
-  api.race = race
-  provider = GitHubStableTagProvider(api, "release-bot", "release-bot")
-  if race["sha"] == SHA:
-    assert publish_stable_tag(request(), provider, Authority()) == (
-      "refs/tags/v1.2.3"
+class GitHubProviderTests(unittest.TestCase):
+  def setUp(self):
+    self.api = FakeGitHub()
+    self.provider = GitHubStableTagProvider(
+      self.api, "release-bot", "release-bot"
     )
-  else:
-    with pytest.raises(PublicationRefused):
-      publish_stable_tag(request(), provider, Authority())
+
+  def publish(self):
+    return publish_stable_tag(request(), self.provider, Authority())
+
+  def test_publish_and_replay(self):
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+    self.assertEqual(sum(
+      method == "POST" for method, _, _ in self.api.calls
+    ), 1)
+
+  def test_annotated_tag_peeling(self):
+    self.api.tags["v1.2.3"] = {"type": "tag", "sha": "c" * 40}
+    self.assertEqual(
+      self.provider.read_tag("owner/repo", "refs/tags/v1.2.3"), SHA
+    )
+
+  def test_authenticated_identity_required(self):
+    self.provider = GitHubStableTagProvider(
+      self.api, "attacker", "release-bot"
+    )
+    with self.assertRaises(PublicationRefused):
+      self.publish()
+    self.assertFalse(any(
+      method == "POST" for method, _, _ in self.api.calls
+    ))
+
+  def test_invalid_remote_refs(self):
+    for value in (
+      {"type": "commit", "sha": BASE},
+      {"type": "blob", "sha": SHA},
+    ):
+      with self.subTest(value=value):
+        self.api.tags["v1.2.3"] = value
+        with self.assertRaises(PublicationRefused):
+          self.publish()
+
+  def test_concurrent_atomic_create(self):
+    for sha in (SHA, BASE):
+      with self.subTest(sha=sha):
+        self.setUp()
+        self.api.race = {"type": "commit", "sha": sha}
+        if sha == SHA:
+          self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+        else:
+          with self.assertRaises(PublicationRefused):
+            self.publish()
+
+  def test_transport_unavailable_fails_closed(self):
+    self.api.fail = True
+    with self.assertRaises(PublicationRefused):
+      self.publish()
 
 
-def test_transport_unavailable_fails_closed():
-  api = FakeGitHub()
-  api.fail = True
-  provider = GitHubStableTagProvider(api, "release-bot", "release-bot")
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(request(), provider, Authority())
+if __name__ == "__main__":
+  unittest.main()
