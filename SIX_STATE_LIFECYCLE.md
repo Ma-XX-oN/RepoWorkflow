@@ -120,6 +120,12 @@ Do not infer fresh lifecycle truth from a stale cached CSV snapshot.
 
 ## 7. Verification gates
 
+[SIX_STATE_ACCEPTANCE_MATRIX.md](SIX_STATE_ACCEPTANCE_MATRIX.md) is the
+independent, criterion-to-observable-result acceptance oracle for #579–#583.
+The matrix does not claim executable acceptance has passed.  Its IDs must be
+bound to exact-candidate test and persisted-state evidence by implementers.
+
+
 Independent black-box tests derive all transitions and rejected transitions
 from this table; use distinct structural/implementation tests. Cover legacy
 history with and without prior accepted events, all six states, exact candidate
