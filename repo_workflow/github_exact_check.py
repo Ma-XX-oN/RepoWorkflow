@@ -28,7 +28,8 @@ class VerifiedDecision:
 
 
 def _identity(repository, candidate, base, branch):
-  if not isinstance(repository, str) or not _REPO.fullmatch(repository):
+  if (not isinstance(repository, str) or not _REPO.fullmatch(repository)
+      or any(part in (".", "..") for part in repository.split("/"))):
     raise PublishError("invalid repository")
   if any(not isinstance(s, str) or not _SHA.fullmatch(s)
          for s in (candidate, base)) or len(candidate) != len(base):
