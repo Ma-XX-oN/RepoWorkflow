@@ -96,7 +96,7 @@ class PublisherTests(unittest.TestCase):
 
   def test_authorization_and_freshness_fail_closed(self):
     cases = ["identity", "authority", "certification", "stale",
-             "base", "conflict"]
+             "base", "conflict", "ci-fail"]
     for failure in cases:
       with self.subTest(failure=failure):
         self.setUp()
@@ -112,6 +112,8 @@ class PublisherTests(unittest.TestCase):
           self.provider.base = SHA
         elif failure == "conflict":
           self.provider.tags["refs/tags/v1.2.3"] = BASE
+        elif failure == "ci-fail":
+          self.provider.tags["refs/tags/v1.2.3-CI-FAIL"] = SHA
         with self.assertRaises(PublicationRefused):
           self.publish()
         self.assertEqual(self.provider.creates, 0)
