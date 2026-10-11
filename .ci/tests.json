@@ -231,6 +231,10 @@
       "issue-543-provider-retry-lineage": {
         "type": "regression",
         "name": "tests.test_issue543_hosted_lineage"
+      },
+      "issue-543-authenticated-artifact-negative": {
+        "type": "regression",
+        "name": "tests.test_issue543_artifact_auth"
       }
     }
   ],
