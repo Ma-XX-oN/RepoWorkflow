@@ -512,3 +512,171 @@ two-field committed `.ci/run` stage request; catalogue, selection and
 outputs are separately candidate-bound and authenticated. Explicitly
 named broad groups are permitted, but never an implicit build-all.
 #641 owns contract, #642 local execution, #643 hosted execution.
+
+## 2026-10-11 orchestration capability audit and waterfall compass (preliminary)
+
+### Purpose and evidence boundaries
+
+RepoWorkflow is an **orchestrator of existing systems**, not a replacement
+Git implementation, build engine, test framework, issue provider, CI provider
+or release storage system. Its original value proposition is preventing
+forgotten work, requirements, dependencies, decisions, tests and unfinished
+transitions. Every capability must improve that end-to-end flow.
+
+This is a **directional architectural audit**, not an acceptance certificate.
+Sources reviewed: README.md, PUBLIC_WORKFLOW.md, WORKFLOW_LIFECYCLE.md,
+WORK_GRAPH_METHODOLOGY.md, TEST_STRATEGY.md, REPO_VERSION_ADAPTER.md and
+existing on-demand invocation source `repo_workflow/ci_invocation.py`, plus
+the current #543/#85/#86 and new #579/#583/#641/#647 issue states.
+Feature descriptions and closed tickets do not by themselves prove actual
+end-to-end runtime acceptance. No fresh complete consumer pilot or hosted
+provider acceptance suite was executed for this document.
+
+### Capability inventory and ownership
+
+| Capability | Existing foundation/evidence | Gap or next scope |
+| --- | --- | --- |
+| Ticket graph, requirements, dependencies | Work graph methodology, ticket graph and synchronized tickets.csv | Prove current graph/provider consistency, graph lifecycle state and real work planning; #579-#583 |
+| Workspace, lanes and branch ancestry | Published workflow and parent-branch contracts | End-to-end start/pause/resume/concurrent-agent recovery pilot; no branch-name inference of version |
+| Adapter boundaries | repo-version (#89/#118), repo-info, repo-ci contracts | Keep provider/storage-specific logic out of core; inventory legacy paths and enforce one owner per fact |
+| Local verification | Test strategy, reusable tests and recorded local verification | Explicit catalogue-to-acceptance trace; real platform and lifecycle failure coverage |
+| Hosted on-demand CI | #543 functional acceptance handoff, .ci/run strict marker parser and hosted evidence | #543 remains OPEN; reconcile accepted exact candidate and integration disposition rather than claiming deployed production capability |
+| Platform-specific tests | Existing test catalogue, proposed #647 | Specify applicability vs required acceptance platforms and gaps; no false cross-platform GREEN |
+| Local/remote artifact builds | Reuse .ci/run architecture; #641-#643 newly OPEN | Explicit JSON catalogue, required type/group selector, real local/remote build evidence, digest readback |
+| Version lifecycle | Existing issue.P.Q.R contract, #122 | #644 RC namespace/semantics extension; preserve existing counters and canonical repo-version adapter |
+| RC and stable promotion | PRELIM and stable lifecycle, #638 remote publisher foundation | #645 RC-derived work/promotion proof, #86 final stable gate OPEN; no tag renaming |
+| Protection and provider authority | #18/#85/#86 contracts | #85 explicitly DEFERRED, #646 optional init repo specification; no production release claim until actual provider readback |
+| Full consumer adoption | First-use and stage-7 consumer pilot defined in TEST_STRATEGY.md | Demonstrate real issue-to-artifact-to-release path including failures and retries |
+
+**Contract drift found:** PUBLIC_WORKFLOW.md still illustrates legacy
+`rwf validate` commands, whereas #543 owns replacement `rwf test`
+stage commands. The intended interface cannot be certified by either
+document alone; reconcile both as a gated compatibility/migration task.
+Other claims of completion must be tied to exact commits, provider runs
+and tests rather than inferred from issue state.
+
+### Waterfall: phase boundaries and decision gates
+
+Each phase supplies an explicit **entry contract**, independently verifiable
+**exit gate**, and a stable owner/interface. Implementation within a phase
+uses agile, independently testable tickets, parallel lanes where ownership
+does not overlap, and small validated increments. New feature requests are
+placed into the phase they serve; they do not silently expand the critical
+path. A phase may be prototyped early, but a downstream phase cannot
+claim completion without its actual prerequisites.
+
+**Phase 0 — Establish one authoritative compass.**
+Entry: repository and provider reachable. Deliver: traceable requirements,
+one capability/authority map, reconciled canonical issue graph and approved
+public CLI contract; classify implemented, tested, open, deferred and obsolete
+separately. Exit: owner/source for each fact and each phase requirement, no
+unowned acceptance criteria, no contradictory public workflow commands.
+Use #18/#51 and graph methodology; do not relaunch completed feature owners.
+
+**Phase 1 — Ticket-to-work functional vertical slice.**
+Entry: phase 0 interface/ownership inventory. Deliver: issue creation,
+state projection (#579-#583), dependencies, lanes, branch/workspace start,
+pause, resume, recover and multi-agent conflict prevention. Exit: actual
+disposable-repo pilot can repeatedly start, interrupt, restore, complete and
+re-open work while ticket/provider/CSV/graph/branch state stays consistent.
+Correctness of the authoritative ticket lifecycle is the priority, not
+release infrastructure.
+
+**Phase 2 — Work-to-evidence testing vertical slice.**
+Entry: reliable work identity and frozen testing interface. Deliver:
+local/hosted `rwf test` and its catalogue, stages, immutable exact-candidate
+evidence and retries (#543); #647 platform applicability and coverage.
+Exit: one issue crosses RED/temporary/GREEN/regression/integration and
+results retrieval, negative/missing/stale-evidence transitions and
+platform-specific acceptance, under real local and hosted providers.
+Required missing platforms remain INCOMPLETE, never PASS.
+
+**Phase 3 — Work-to-artifact build vertical slice.**
+Entry: proven .ci/run request semantics and precise source identity.
+Deliver: #641 portable `.ci/builds.json` specification, #642 local and
+#643 hosted adapter-based builds. CLI requires
+`rwf build <build-type-or-group-alias> [--remote]`; absent selector
+must perform no work. Group expansion is deterministic, verified and
+candidate-bound. Hosted requests reuse the unchanged two-field .ci/run
+mechanism with additive build stage. Exit: selected-only real artifacts,
+per-target digests/manifests and retrievable provider evidence across
+required platforms; missing/invalid/expensive accidental builds prohibited.
+
+**Phase 4 — Version and RC functional vertical slice.**
+Entry: test and build evidence bound to immutable source/artifact IDs.
+Deliver: existing repo-version issue.P.Q.R semantics unchanged, #644 RC
+namespace, #645 candidate creation and correction/recut workflow. Example
+`v1.2.3-rc.1-issue.1.2.3` keeps P=issue, Q=rejection generation,
+R=CI validation iteration. RC labels/version contexts do not enter ticket
+titles, branch names or dependency graph. Exit: real candidate A -> RC1 ->
+issue fix -> verified RC2, unambiguous version transitions and immutable
+artifact/source provenance, with repeat, conflict and rejected-fix tests.
+Functional RC testing is allowed without protected production publication.
+
+**Phase 5 — Integration and release functional dry-run.**
+Entry: phases 1-4 evidence, accepted RC. Deliver: prelim/reintegration,
+exact landed candidate and evidence-preserving promotion *plan*; #86
+server-only stable finalizer interface. Exit: disposable/provider-backed
+integration handles stale main, changed artifacts, merge racing, rollback,
+and stable-tag refusal; no production stable tag without a genuine
+authority gate. Preserve distinction between functional complete and
+SECURITY-DEFERRED.
+
+**Phase 6 — Optional security enforcement overlay and stable authority.**
+Entry: proven functional paths, explicit opt-in/admin permission, actual
+provider capabilities and #80 authorization schema. Deliver: #646
+`rwf init repo` design, #85 real protected-main enforcement and
+#86 authenticated remote-only immutable stable publication. Exit:
+provider-readback confirms blocked bypass/force push/tag move, correct
+authoritative identity, required exact-SHA check and actual protected
+promotion. Unsupported provider features or missing admin permission
+are BLOCKED/DEFERRED, not GREEN. This phase does NOT block phases 1-4.
+
+**Phase 7 — General-purpose pilot, simplification and adoption.**
+Entry: phase-specific gates evidenced. Deliver: a real consumer follows
+ticket -> work -> tests -> selected artifact builds -> RC -> stable release
+(with stable promotion only if phase 6 authorised), including interruption,
+concurrency, retargeting, cross-platform and provider outages. Exit:
+repeatable operator-facing acceptance without hidden manual fixes;
+obsolete duplicated commands/state removed, documentation/help/completion
+agree, overall cost and number of manual decisions demonstrably reduced.
+
+### Cross-phase design invariants
+
+1. **One authority per fact.** Tickets own work, Git owns commit ancestry,
+   version adapter owns literal consumer versions, catalogue owns selection,
+   provider owns hosted run and artifact readback, controlled finalizer
+   owns stable publication. Derived CSV/graph/status views must reconcile.
+2. **Orchestration, not reinvention.** Keep build/test/provider tools behind
+   adapter interfaces; extend .ci/run, existing results evidence and the
+   repo-version contract rather than spawning parallel mechanisms.
+3. **No implicit expensive work.** Build selector is mandatory; testing
+   respects declared platform applicability and required coverage.
+   No ordinary-push paid execution as a hidden side effect.
+4. **Evidence before status.** PASS applies to exact source, inputs,
+   environment, configuration, platform and artifact; missing evidence is
+   INCOMPLETE, not inferred from a green check or closed ticket.
+5. **Lifecycle integrity.** First, repeated, interrupted, resumed, stale,
+   concurrent and reversed transitions must be proved; failed operations
+   must not partially mutate authoritative state.
+6. **Security is layered but never faked.** Functional development and dry
+   runs proceed before #85, but production stable publication requires
+   measured external enforcement.
+7. **No merge or production activation without authorization.** Maintain
+   separate durable acceptance and release decisions.
+
+### Execution discipline and next compass review
+
+First reconcile #543's functional handoff against the actual candidate and
+its still-open issue/PR, the public-workflow drift and source state. Then
+pilot the ticket/work slice (#579-#583) and contract-first platform testing
+(#647), while #641 build catalogue and #644 RC grammar are specified in
+parallel with independent ownership. Implement and certify each vertical
+slice before investing in more breadth. Maintain a live per-phase ledger:
+contract reference, owner, exact tested revision, local/hosted/platform
+evidence, PASS/FAIL/INCOMPLETE/SECURITY-DEFERRED verdict and next blocker.
+Only update this ledger from provider-backed or independently reproduced
+evidence, not descriptive optimism.
+
+This compass should be reviewed whenever scope grows. It is directional
+and does not supersede approved issue-level requirements or grant merges.
