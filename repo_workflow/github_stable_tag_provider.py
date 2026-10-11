@@ -59,7 +59,7 @@ class GitHubStableTagProvider:
     if repository.count("/") != 1:
       raise PublicationRefused("invalid repository identity")
     owner, name = repository.split("/")
-    if not owner or not name or any(
+    if not owner or not name or owner in (".", "..") or name in (".", "..") or any(
       char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "0123456789-._" for char in owner + name
     ):
