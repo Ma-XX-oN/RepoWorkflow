@@ -1,0 +1,1 @@
+candidate A; test-only; no production path
