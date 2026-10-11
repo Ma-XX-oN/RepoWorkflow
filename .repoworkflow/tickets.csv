@@ -280,3 +280,9 @@ issue,title,dependencies
 629,Build independent convergence acceptance matrix for #543,538;540;548
 637,Publish GitHub exact-candidate required check from authenticated evidence,104;110;548
 638,Implement remote-only stable-tag publisher for accepted main SHA,80;118
+641,Define portable artifact-build contract for local and hosted execution,
+642,Implement local artifact builds through repository-owned adapter,641
+643,Implement hosted artifact builds and certify local/remote parity,641;642
+644,Extend repo-version semantic contract with release candidates,118
+645,Implement and certify RC creation and RC-to-release promotion,638;643;644
+646,Specify opt-in rwf init repo security configuration via repo-info,
