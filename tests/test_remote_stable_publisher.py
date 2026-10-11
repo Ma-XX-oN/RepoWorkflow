@@ -46,7 +46,7 @@ class Authority:
     self.accepted = "PASS"
     self.version_accepted = True
     self.consumption_accepted = True
-    self.consumptions = []
+    self.consumptions = {}
 
   def authorize(self, request, ref):
     return self.allowed
@@ -58,8 +58,14 @@ class Authority:
     return self.version_accepted
 
   def finalize_consumption(self, request, ref, observed_sha):
-    self.consumptions.append((request.request_id, ref, observed_sha))
-    return self.consumption_accepted
+    if not self.consumption_accepted:
+      return False
+    record = (request, ref, observed_sha)
+    previous = self.consumptions.get(request.request_id)
+    if previous is not None:
+      return previous == record
+    self.consumptions[request.request_id] = record
+    return True
 
 
 class PublisherTests(unittest.TestCase):
@@ -79,7 +85,15 @@ class PublisherTests(unittest.TestCase):
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.provider.creates, 1)
-    self.assertEqual(len(self.authority.consumptions), 2)
+    self.assertEqual(len(self.authority.consumptions), 1)
+
+  def test_changed_scope_cannot_reuse_consumed_request_id(self):
+    self.publish()
+    changed = replace(self.request, release_class="minor")
+    with self.assertRaises(PublicationIncomplete):
+      self.publish(changed)
+    self.assertEqual(self.provider.creates, 1)
+    self.assertEqual(len(self.authority.consumptions), 1)
 
   def test_unsupported_protection_is_incomplete(self):
     self.authority.accepted = "INCOMPLETE"
