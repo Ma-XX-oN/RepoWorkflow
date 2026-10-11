@@ -108,16 +108,27 @@ def publish(
       raise PublishError("incomplete, stale or unauthenticated evidence")
     if base_sha() != first:
       raise PublishError("destination changed during validation")
+    previous = request("/commits/" + candidate + "/statuses")
+    if not isinstance(previous, list):
+      raise PublishError("cannot verify existing status history")
+    description = "verified " + decision.evidence_id[:70]
+    for prior in previous:
+      if (not isinstance(prior, dict)
+          or not isinstance(prior.get("context"), str)):
+        raise PublishError("malformed status history")
+      if (prior["context"] == CONTEXT
+          and prior.get("description") == description):
+        raise PublishError("evidence replay")
     result = request("/statuses/" + candidate, {
       "state": "success", "context": CONTEXT,
-      "description": "verified " + decision.evidence_id[:70],
+      "description": description,
     })
     if (not isinstance(result, dict) or result.get("sha") != candidate
         or result.get("context") != CONTEXT
         or result.get("state") != "success"
         or type(result.get("id")) is not int
         or not isinstance(result.get("creator"), dict)
-        or not result["creator"].get("login")):
+        or result["creator"].get("login") != decision.issuer):
       raise PublishError("publication response not authenticated")
     observed = request("/commits/" + candidate + "/statuses")
     if not isinstance(observed, list):
