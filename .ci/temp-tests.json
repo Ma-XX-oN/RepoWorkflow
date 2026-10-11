@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-live-artifact-negative": {
+        "type": "regression",
+        "name": "tests.issue543_live_artifact_negatives"
+      }
+    }
+  ],
   "aliases": {}
 }
