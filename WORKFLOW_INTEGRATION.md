@@ -99,6 +99,20 @@ The authoritative result gate considers only complete, applicable evidence:
 - A merge candidate lacking required evidence remains blocked.  An ordinary
   push does not automatically launch missing paid tests.
 
+An authenticated hosted PASS must be present verbatim in the named,
+unexpired immutable artifact belonging to that GitHub Actions run.  Merely
+matching a successful run ID and invocation SHA is insufficient: a mutable
+branch JSONL record can claim tests that were never executed.  Reuse requires
+both provider-run lineage verification and artifact-content equality.  A
+provider-unavailable, forged or corrupt record fails closed; no downloaded
+artifact triggers an execution request.
+
+The on-demand functional candidate is staged and existing Self CI is
+preserved.  Required protected-main server settings and bypass refusal are
+owned by #85, currently SECURITY-DEFERRED.  Do not report protected required
+checks as installed or merge any candidate solely because functional
+on-demand tests passed.
+
 Local execution is a first-class path.  The explicit hosted fallback runs
 the same logical stage and catalogue selection, with provider-bound results.
 Protected server integration must independently recheck current candidate
