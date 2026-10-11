@@ -236,6 +236,122 @@
         "type": "regression",
         "name": "tests.test_issue543_artifact_auth"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-629-certification-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue629_certification_matrix"
+      },
+      "issue-629-cli-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cli_acceptance"
+      },
+      "issue-629-provider-probe": {
+        "type": "regression",
+        "name": "tests.test_issue629_provider_probe"
+      },
+      "issue-629-selection-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_selection_acceptance"
+      },
+      "issue-629-invocation-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_invocation_acceptance"
+      },
+      "issue-629-cache-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cache_acceptance"
+      },
+      "issue-629-stage-cardinality": {
+        "type": "regression",
+        "name": "tests.test_issue629_stage_cardinality"
+      },
+      "issue-629-expected-red": {
+        "type": "regression",
+        "name": "tests.test_issue629_expected_red"
+      },
+      "issue-629-red-outcome": {
+        "type": "regression",
+        "name": "tests.test_issue629_red_outcome"
+      },
+      "issue-629-pending-provider": {
+        "type": "regression",
+        "name": "tests.test_issue629_pending_provider"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-545-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
+      "issue-545-real-consumer-verify": {
+        "type": "regression",
+        "name": "tests.test_local"
+      },
+      "issue-545-consumer-terminal-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_consumer_terminal_lifecycle"
+      },
+      "issue-545-terminal-tag": {
+        "type": "regression",
+        "name": "tests.test_terminal_tag"
+      },
+      "issue-545-results-metadata": {
+        "type": "regression",
+        "name": "tests.test_test_results_metadata"
+      },
+      "issue-545-dirty-rename": {
+        "type": "regression",
+        "name": "tests.test_test_dirty_rename"
+      },
+      "issue-545-remote-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli_remote"
+      },
+      "issue-545-selection-commit": {
+        "type": "regression",
+        "name": "tests.test_test_selection_commit"
+      },
+      "issue-545-red-classification": {
+        "type": "regression",
+        "name": "tests.test_test_red_classification"
+      },
+      "issue-545-launch-failures": {
+        "type": "regression",
+        "name": "tests.test_test_launch_failures"
+      },
+      "issue-545-shipped-launcher": {
+        "type": "regression",
+        "name": "tests.test_test_launcher"
+      },
+      "issue-545-red-runner": {
+        "type": "regression",
+        "name": "tests.test_test_red_runner"
+      },
+      "issue-545-expected-red-cli": {
+        "type": "regression",
+        "name": "tests.test_expected_red_cli"
+      },
+      "issue-545-all-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue_545_acceptance"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-541-hosted-cache-attestation": {
+        "type": "regression",
+        "name": "tests.test_541_hosted_cache_integration"
+      }
     }
   ],
   "aliases": {
