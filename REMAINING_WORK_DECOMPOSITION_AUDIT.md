@@ -475,3 +475,23 @@ fix/feature testing, acceptance and promotion provenance. Do not
 confuse RC-derived work with an authoritative published RC.
 Existing #89/#118 repo-version adapter remains canonical.
 Record all preliminary design decisions durably even if not yet frozen.
+
+## 2026-10-11 CORRECTION: existing issue.P.Q.R semantics are authoritative
+
+Earlier prose incorrectly characterized the `issue.1.2.3` suffix as
+undefined. It is already specified in `WORKFLOW_LIFECYCLE.md` section
+5.2 and `REPO_VERSION_ADAPTER.md` schema-1:
+
+- P = issue number
+- Q = merge/integration/acceptance rejection generation
+- R = automated regression/CI validation iteration
+- `task --issue N` starts at `issue.N.0.1`;
+  `task --increment CI-iteration` increases R;
+  `task --increment merge-integration-failed` increases Q, resets R=1.
+
+For the proposed RC-derived version
+`v1.2.3-rc.1-issue.1.2.3`, issue=1, Q=2, R=3 and base RC
+`v1.2.3-rc.1`. Only the RC base/version namespace and transitions
+to new immutable RC and eventual stable release need specification.
+Retain existing issue counter semantics verbatim. Supersedes earlier
+claims of unknown suffix semantics in this audit and issues #644/#645.
