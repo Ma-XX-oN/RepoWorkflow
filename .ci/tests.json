@@ -78,6 +78,10 @@
         "type": "regression",
         "name": "tests.test_lane_render"
       },
+      "issue-637-exact-check": {
+        "type": "regression",
+        "name": "tests.test_github_exact_check"
+      },
       "issue-583-lifecycle-certification": {
         "type": "regression",
         "name": "tests.test_six_state_integration"
