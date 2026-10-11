@@ -556,4 +556,54 @@ independent deliverable that can truly reach DONE without its successor or
 predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
+
+## 13.4 Pre-dispatch failure audit and graphical fidelity
+
+Before adding workers to a decomposition, perform the inventory, exclusive
+ownership, scope, acceptance-layer, and graph-integrity checks recorded in
+[REMAINING_WORK_DECOMPOSITION_AUDIT.md](REMAINING_WORK_DECOMPOSITION_AUDIT.md).
+That document records concrete escaped defects and the #85/#543/#86
+reorganization assessment; its proposed child labels are **not** canonical
+issue IDs or permission to launch blocked tickets.  Treat existing PRs and
+claims as prior ownership, not empty work.
+
+Render execution graphs from explicit node and directed-edge data using a
+graph-layout engine such as Mermaid.  Check each arrow against ticket
+contracts, and reject missing/unreachable or duplicate nodes, cycles, and
+misleading serial edges before publishing the diagram.  Do not use manually
+positioned SVG connections as the authoritative work graph.
+
 Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
+
+
+## State-transition documentation: table and diagram parity
+
+**Repository-wide documentation rule:** Whenever a file specifies a lifecycle,
+workflow, issue, job, release or other **state-transition table**, include an
+adjacent Mermaid `stateDiagram-v2` representation of the **same transitions**.
+This applies to new and modified documentation across the repository, not
+only the six-state ticket lifecycle. When a document links to a canonical
+transition specification rather than restating it, link to **both** the table
+and its diagram so they can be inspected together.
+
+- Use identical state names, operation names and stable transition IDs in
+  both representations; each permitted arrow maps to exactly one table row.
+- The table remains the precise contract for guards, required evidence,
+  authorization, invalid requests, idempotent replays and side effects.
+  The diagram must not imply an extra permitted transition (for example,
+  treating a presentation-only initial arrow as a public lifecycle action).
+- State explicitly whether omitted state/request pairs are forbidden, no-op,
+  or outside the document's scope. Display exceptional return/recovery
+  transitions as well as the happy path.
+- Keep the table and diagram together in the same change, and review their
+  equivalence. Reject or flag mismatched IDs, endpoints or operations before
+  accepting a specification update.
+- This requirement concerns **state-transition tables**; ordinary data
+  comparisons and decision tables need a diagram only when a graphical
+  model would clarify actual states/transitions. Do not add decorative
+  diagrams to unrelated tables.
+
+For example, `SIX_STATE_ACCEPTANCE_MATRIX.md` on issue #579's draft
+PR #657 pairs T01–T08 transition rows with identically labelled Mermaid
+arrows. It remains unmerged; this rule is proposed on the documentation
+branch until separately integrated.
