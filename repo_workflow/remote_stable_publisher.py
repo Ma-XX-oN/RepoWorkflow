@@ -94,6 +94,9 @@ def publish_stable_tag(
       request.expected_base_sha
     ):
       raise PublicationRefused("accepted base differs")
+    failed_ref = ref + "-CI-FAIL"
+    if provider.read_tag(request.repository, failed_ref) is not None:
+      raise PublicationRefused("conflicting immutable terminal result")
     existing = provider.read_tag(request.repository, ref)
     if existing is not None:
       if existing != request.landed_sha:
@@ -110,6 +113,8 @@ def publish_stable_tag(
         raise PublicationRefused("creation failed or outcome unknown")
     if provider.read_tag(request.repository, ref) != request.landed_sha:
       raise PublicationRefused("remote tag readback differs")
+    if provider.read_tag(request.repository, failed_ref) is not None:
+      raise PublicationRefused("competing terminal result appeared")
     return ref
   except PublicationRefused:
     raise
