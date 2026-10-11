@@ -899,3 +899,33 @@ Open choices deliberately preserved: data-schema version, status expression
 grammar, snapshot vs `--current`, evidence retention and user-facing
 command compatibility. The issue and audit are specifications, not implemented
 behaviour; they create no security activation, merges or release tags.
+
+## 2026-10-11 preferred hybrid offline/provider roadmap model
+
+The user prefers the existing **ticket/dependency synchronization pattern**
+over a separate roadmap database. `TICKET_STATE.md` is authoritative for
+the existing ticket synchronization precedent: provider owns exact titles,
+explicit from-tickets/to-tickets synchronization selects direction for
+dependencies, comparison is read-only, and `.repoworkflow/tickets.csv`
+is a committed offline projection. Cached lifecycle state is not an
+independent transition authority.
+
+Roadmap extension follows those principles but does not overload ticket
+dependency DAG edges with organizational membership. Roadmap #648 and
+Phase 0 #649 now record the preliminary architecture: provider tickets
+for issue identity/discussion and **explicit revision-scoped approval**;
+version-controlled offline projection for roadmap/phase/gate relationships
+and source identifiers; versioned specification/evidence as baseline;
+derived status with provenance and freshness; a readable Markdown
+specification serving as a README/navigation and link hub rather than
+duplicating live tickets or manually stamping PASS.
+
+#649 must still freeze whether a separate organizational relationship
+file is required, the smallest schema, sync direction/compare/replace
+contract, conflict resolution and lost-update protection, offline
+amendments, schema migration and authoritative provider readback.
+#650 must use the same projection for offline status and deliberately
+refresh on --current. No offline cache can invent provider approval,
+security enforcement or hosted test success. Approving a specification
+is separate from merging or activating implementation. This is the
+preferred design direction, not a frozen schema or approval record.
