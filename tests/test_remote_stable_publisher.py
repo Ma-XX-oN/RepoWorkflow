@@ -2,7 +2,8 @@ import unittest
 from dataclasses import replace
 
 from repo_workflow.remote_stable_publisher import (
-  PublicationRefused, PublicationRequest, publish_stable_tag,
+  PublicationIncomplete, PublicationRefused, PublicationRequest,
+  publish_stable_tag,
 )
 
 SHA = "a" * 40
@@ -42,7 +43,7 @@ class Provider:
 class Authority:
   def __init__(self):
     self.allowed = True
-    self.accepted = True
+    self.accepted = "PASS"
     self.version_accepted = True
 
   def authorize(self, request, ref):
@@ -72,6 +73,12 @@ class PublisherTests(unittest.TestCase):
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.publish(), "refs/tags/v1.2.3")
     self.assertEqual(self.provider.creates, 1)
+
+  def test_unsupported_protection_is_incomplete(self):
+    self.authority.accepted = "INCOMPLETE"
+    with self.assertRaises(PublicationIncomplete):
+      self.publish()
+    self.assertEqual(self.provider.creates, 0)
 
   def test_delayed_response(self):
     self.provider.fail_after_create = True
@@ -109,7 +116,7 @@ class PublisherTests(unittest.TestCase):
         elif failure == "authority":
           self.authority.allowed = False
         elif failure == "certification":
-          self.authority.accepted = False
+          self.authority.accepted = "FAIL"
         elif failure == "stale":
           self.provider.tip = BASE
         elif failure == "base":
