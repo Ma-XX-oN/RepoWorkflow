@@ -21,6 +21,7 @@ from .github_cache import hosted_cache_checker, read_remote_published_log
 from .self_ci import group_command, SelfCiError
 from .test_red_declaration import red_declaration
 from .test_catalogue import load_test_catalogue
+from .test_results_reader import TestCommandError, results as read_results
 
 STAGES = {
   "RED": "RED-testing",
@@ -29,10 +30,6 @@ STAGES = {
   "regression": "regression-testing",
   "integration": "integration-testing",
 }
-
-
-class TestCommandError(ValueError):
-  pass
 
 
 def _git(root: Path, *args: str) -> str:
@@ -188,35 +185,7 @@ def request_remote(root: Path, stage: str) -> int:
 
 
 def results(root: Path, *, remote: bool) -> int:
-  match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
-  if match is None:
-    raise TestCommandError("results require an issue branch")
-  relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-  if remote:
-    branch = current_branch(root)
-    _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
-    raw = _git(root, "show", "FETCH_HEAD:" + relative)
-  else:
-    try:
-      raw = (root / relative).read_text(encoding="utf-8")
-    except OSError as error:
-      raise TestCommandError("testing log is unavailable") from error
-  if not raw.strip():
-    raise TestCommandError("testing log has no recorded results")
-  validated = []
-  for line in raw.splitlines():
-    try:
-      record = json.loads(line)
-    except json.JSONDecodeError as error:
-      raise TestCommandError("invalid testing log record") from error
-    if not isinstance(record, dict) or not all(
-      field in record for field in ("testSHA", "kind", "result", "runner")
-    ):
-      raise TestCommandError("incomplete testing log record")
-    validated.append(record)
-  for record in validated:
-    print(json.dumps(record, sort_keys=True))
-  return 0
+  return read_results(root, remote=remote, git_cmd=_git)
 
 
 def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
