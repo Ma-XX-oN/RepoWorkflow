@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import importlib.util
+from unittest.mock import patch
 from pathlib import Path
 import subprocess
 import sys
@@ -150,6 +152,52 @@ class PublishHostedResultTests(unittest.TestCase):
     self.assertEqual(len(records), 2)
     self.assertEqual(records[0], first_record)
     self.assertEqual(json.loads(records[-1])["providerCandidateSHA"], self.candidate)
+
+  def test_verified_provider_cache_publication_marks_reused_group(self):
+    self.observation.update({
+      "runner": "github-actions", "providerRunId": 122,
+      "providerInvocationSHA": "b" * 40,
+      "providerCandidateSHA": self.candidate,
+      "providerStage": "GREEN-testing",
+      "timestamp": "2026-10-10T00:00:00+00:00",
+    })
+    self._record()
+    spec = importlib.util.spec_from_file_location("publish543", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with patch.dict("os.environ", {"GITHUB_REPOSITORY": "Ma-XX-oN/RepoWorkflow"}):
+      with patch("repo_workflow.github_evidence.verify_hosted_stage",
+                 return_value=True) as checked:
+        module.publish(
+          self.root, branch="issue-543-probe", invocation=self.invocation,
+          candidate=self.candidate, stage="GREEN-testing", run_id="123",
+        )
+    checked.assert_called_once()
+    row = json.loads(self.log.read_text().splitlines()[-1])
+    self.assertEqual(row["providerRunId"], 123)
+    self.assertEqual(row["reusedFromRunId"], 122)
+    self.assertTrue(row["groups"][0]["reused"])
+    self.assertNotEqual(row["timestamp"], "2026-10-10T00:00:00+00:00")
+
+  def test_unverified_provider_cache_does_not_publish(self):
+    self.observation.update({
+      "runner": "github-actions", "providerRunId": 122,
+      "providerCandidateSHA": self.candidate,
+      "providerStage": "GREEN-testing",
+    })
+    self._record()
+    spec = importlib.util.spec_from_file_location("publish543reject", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with patch.dict("os.environ", {"GITHUB_REPOSITORY": "Ma-XX-oN/RepoWorkflow"}):
+      with patch("repo_workflow.github_evidence.verify_hosted_stage",
+                 return_value=False):
+        with self.assertRaisesRegex(ValueError, "could not be authenticated"):
+          module.publish(
+            self.root, branch="issue-543-probe", invocation=self.invocation,
+            candidate=self.candidate, stage="GREEN-testing", run_id="123",
+          )
+    self.assertEqual(self._git("rev-parse", "HEAD"), self.candidate)
 
   def test_stale_remote_branch_rejected_without_publication(self):
     self._git("merge", "--ff-only", self.invocation)
