@@ -98,6 +98,40 @@ class SharedHostedCacheTests(unittest.TestCase):
       ), 0)
     self.assertEqual(log.read_text(), original_log)
 
+  def test_committed_historical_log_does_not_block_verified_remote_reuse(self):
+    self.prepare()
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(json.dumps({
+      "testSHA": "f" * 40, "kind": "GREEN", "result": "succeeded",
+      "runner": "local", "groups": [{"group": "issue-545-shared"}],
+    }) + "\n")
+    with patch("repo_workflow.test_cli.hosted_cache_checker",
+               return_value=lambda record: record.get("runner") == "github-actions"):
+      with patch("repo_workflow.test_cli.group_command",
+                 side_effect=AssertionError("subprocess should not run")):
+        status = run_test(self.root, "GREEN", remote=False, engine_root=self.root)
+    self.assertEqual(status, 0)
+    latest = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(latest["runner"], "github-actions")
+
+  def test_current_local_failure_blocks_remote_success_hydration(self):
+    candidate, _ = self.prepare()
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(json.dumps({
+      "testSHA": candidate, "kind": "GREEN", "result": "failed",
+      "catalogueSHA256": hashlib.sha256((self.root / ".ci/tests.json").read_bytes()).hexdigest(),
+      "runner": "local", "groups": [{"group": "issue-545-shared", "exit_code": 1}],
+    }) + "\n")
+    with patch("repo_workflow.test_cli.hosted_cache_checker",
+               return_value=lambda record: record.get("runner") == "github-actions"):
+      status = run_test(self.root, "GREEN", remote=False, engine_root=self.root)
+    self.assertEqual(status, 0)
+    newest = json.loads(log.read_text().splitlines()[-1])
+    self.assertEqual(newest["runner"], "local")
+    self.assertFalse(newest["groups"][0]["reused"])
+
   def test_remote_pass_without_provider_verification_is_not_reused(self):
     self.prepare()
     with patch(
