@@ -142,3 +142,27 @@ Do not relabel the RWF leaf implementation issues just because they appear
 in a phase. Preserve the issue descriptions and history. Once the boundary
 is explicitly approved, provider-independent ownership and any actual
 migration can be considered separately.
+
+## PWF value threshold: orchestration across disciplines
+
+A mere roadmap dashboard or facade over Jira/GitHub Projects is **not**
+a sufficient reason to build ProjectWorkflow. RWF's distinguishing capability
+is reconciling many moving parts and their authoritative evidence; any PWF
+proposal needs to demonstrate equivalent cross-disciplinary value.
+
+Potential PWF scope is not simply tickets, milestones and reports. It is
+cross-domain requirements, design and engineering decisions, procurement,
+finance/resources, schedules, verification, manufacturing or delivery
+interfaces, each remaining authoritative in its native tools. PWF would
+reconcile prerequisite relationships, detect changed upstream assumptions
+that invalidate downstream evidence, expose missing decisions and ownership,
+and guide the next valid work across disciplines. RWF may provide the
+software-development execution adapter, never become dependent on PWF.
+
+Before PWF implementation, demonstrate one real multi-disciplinary pilot
+where a changed requirement or failed acceptance creates verifiably correct
+cross-discipline invalidation, recovery and next-work guidance, and compare
+against what existing project-management tools can already provide. If no
+such distinctive use case exists, do not build a separate PWF framework;
+retain the roadmap as provider-hosted planning records and RWF evidence
+interfaces instead. This is an evaluation criterion, **not PWF approval**.
