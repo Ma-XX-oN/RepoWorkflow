@@ -311,3 +311,28 @@ certification.
 
 Graph CSV validated: 281 unique nodes, 499 edges, no missing endpoints,
 duplicate dependency edges or cycles.
+
+## 2026-10-11 #543 live-source decomposition audit
+
+- PR #549 is CLOSED UNMERGED; its head matches the prior #541 base.
+  Do not call it the active #543 implementation PR.
+- Open PR #567 is the latest assembled certification probe, observed head
+  `dcdaea2db881b4075cbd87ab9d225d5fe8ae4bf2`, with **87 files**
+  changed against its base: 38 test files, 14 Markdown documentation files,
+  shared `public_cli.py` and `test_cli.py`, CI workflow,
+  cache/evidence/verifier modules and additional state/graph modules.
+  This is an integration candidate, not completed acceptance or a merge.
+- Existing #629 PR #633 owns the standalone matrix (29 acceptance
+  criteria, ten test modules); avoid cloning it into new ticket ownership.
+- Retain #543 V3 claim `6105182602` as integration owner. Parallelize
+  **read-only independent verification** on pinned source revisions:
+  A: local/CLI behaviour; B: hosted evidence/cache/recovery; C:
+  platform/provider/regression. Require exact commits, real provider run IDs
+  and persisted evidence; report unexecuted provider cases as INCOMPLETE.
+- These are three evidence assignments within #543, not three new
+  implementation tickets or new DAG edges. File ownership is intentionally
+  unchanged, preventing collisions on PR #567 shared sources. Escaped
+  implementation bugs must be assigned to their existing code owner or an
+  explicitly new, narrow defect owner only after a source-level audit.
+- Functional certification remains independent of DEFERRED #85, which is
+  still required for final protected #86 acceptance. No automatic merge.
