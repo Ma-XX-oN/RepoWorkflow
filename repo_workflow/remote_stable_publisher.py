@@ -118,6 +118,8 @@ def publish_stable_tag(
     if existing is not None:
       if existing != request.landed_sha:
         raise PublicationRefused("conflicting immutable tag")
+      if provider.main_tip(request.repository) != request.landed_sha:
+        raise PublicationRefused("server main changed during replay")
       if authority.finalize_consumption(request, ref, existing) is not True:
         raise PublicationIncomplete("authorization consumption unconfirmed")
       return ref
@@ -134,6 +136,8 @@ def publish_stable_tag(
       raise PublicationRefused("remote tag readback differs")
     if provider.read_tag(request.repository, failed_ref) is not None:
       raise PublicationRefused("competing terminal result appeared")
+    if provider.main_tip(request.repository) != request.landed_sha:
+      raise PublicationIncomplete("server main changed after creation")
     if authority.finalize_consumption(
       request, ref, request.landed_sha
     ) is not True:
