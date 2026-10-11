@@ -61,6 +61,9 @@ class Authority:
   def certified(self, request, ref):
     return True
 
+  def version_matches(self, request):
+    return True
+
 
 def request():
   return PublicationRequest("owner/repo", "1.2.3", SHA, SHA, BASE, "one", "auth-1", "protection-1", "cert-1", "patch")
