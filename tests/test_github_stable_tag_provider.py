@@ -92,6 +92,18 @@ class GitHubProviderTests(unittest.TestCase):
       self.publish()
     self.assertFalse(any(method == "POST" for method, _, _ in self.api.calls))
 
+  def test_provider_rejects_noncannonical_tag_mutations(self):
+    for ref in (
+      "refs/tags/v1.2.3-CI-FAIL", "refs/tags/PRELIM-v1.2.3",
+      "refs/tags/v1.2.3/other", "refs/heads/main",
+    ):
+      with self.subTest(ref=ref):
+        with self.assertRaises(PublicationRefused):
+          self.provider.create_tag_if_absent("owner/repo", ref, SHA)
+    self.assertFalse(any(
+      method == "POST" for method, _, _ in self.api.calls
+    ))
+
   def test_annotated_tag_peeling(self):
     self.api.tags["v1.2.3"] = {"type": "tag", "sha": "c" * 40}
     self.assertEqual(
