@@ -71,6 +71,10 @@
       "issue-541-hosted-result-evidence": {
         "type": "regression",
         "name": "tests.test_hosted_result"
+      },
+      "issue-543-on-demand-ci-certification": {
+        "type": "regression",
+        "name": "tests.test_on_demand_ci_certification"
       }
     },
     {
