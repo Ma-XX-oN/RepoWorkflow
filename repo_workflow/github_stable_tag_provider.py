@@ -21,7 +21,7 @@ class Response:
   body: dict
 
 
-_STABLE_REF = re.compile(r"refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+")
+_STABLE_REF = re.compile(r"refs/tags/v[0-9]+\.[0-9]+\.[0-9]+")
 
 Transport = Callable[[str, str, dict | None], Response]
 
