@@ -203,3 +203,62 @@ would conflict with known existing PR ownership.  **PASS:** preserve one
 #85 convergence owner, one #543 assembly owner, one #86 final owner, and reuse
 #627/#629 independent evidence.  Proposed narrow publisher and #86 split need
 further source- and contract-level verification before dispatch.
+
+## Source-level gap verification and executed decomposition
+
+Observed 2026-10-10, using exact file reads and existing PR diffs:
+
+- #542 PR #546 `repo_workflow/github_merge_guard.py` checks the configured
+  status context `repo-workflow/exact-candidate` before protected PR merging.
+  This module invokes an evidence gate and the GitHub merge API; it does not
+  publish the required named GitHub check.  Existing candidate eligibility
+  `repo_workflow/candidate_eligibility.py` on #104 PR #604 is a pure verdict,
+  not a GitHub check publisher.  Existing default-branch search for the exact
+  required-check name and `create_check_run` returned no matches.  Together
+  with the changed-file ownership inventory, this justifies the narrow
+  provider check publisher #637.  It is not proof about unsearched private
+  branches or out-of-band deployments; #637 must recheck before modifying.
+- Main `repo_workflow/guard.py` already implements
+  `validate_stable_candidate()`, including stable-version selection,
+  authoritative integration-branch HEAD comparison and remote tag collision
+  rejection.  Main `repo_workflow/results.py` implements
+  `finalize_stable_results()`, including result evaluation and local tag
+  creation/push.  `tests/test_stable_release.py` exercises the existing
+  version, branch, collision, PASS and FAIL cases.  These do **not** establish
+  remote-only, trusted #80 authorization, proven protected-main acceptance,
+  atomic immutable stable-tag publication and independently read-back
+  provider enforcement.  Consequently a proposed new version planner would
+  duplicate source; #638 owns only the missing remote publisher boundary.
+- #543 must remain a single source assembly owner because #541 PR #547 and
+  #545 PR #552 modify the same public CLI, stage engines, cache, test catalogue
+  and docs.  #629 remains independent acceptance evidence, not a competing
+  implementation.  No new #543 source child was created.
+
+Created provider tickets:
+- #637: Publish GitHub exact-candidate required check from authenticated
+  evidence. Direct dependencies #104, #110, #548. Exclusive new publisher
+  code; #85 retains policy/readback/bypass certification.
+- #638: Implement remote-only stable-tag publisher for accepted main SHA.
+  Direct dependencies #80, #118. Exclusive new remote publisher code; #86
+  retains final protected-main/convergence provider certification.
+
+Parent provider issues #85 and #86 were amended with their new **direct**
+completion edges. Draft PR #636 carries synchronized
+`.repoworkflow/tickets.csv` changes. Since main's older CSV lacked recent
+#538/#540/#541/#542/#543/#545/#548/#627/#628/#629 records, those were also
+added using their authoritative provider titles. #85 depends on
+#97/#104/#110/#542/#627/#637; #86 on #80/#85/#118/#543/#638.
+#543 remains on #85 and existing CI component prerequisites. Do not treat
+closed provider issue status as a substitute for repository lifecycle state.
+
+The committed graph readback has 281 nodes, zero missing references, zero
+duplicate direct edges, zero self edges, and zero directed cycles.
+This is structural validation, not proof that every historical edge on the
+previously incomplete CSV represents the latest provider dependency: all
+synchronized issues should be checked against the provider as part of
+the full ticket-sync acceptance run.
+
+No new child for #543 and no provider-policy rollout child for #85 were
+created: they would duplicate shared source ownership or be inseparable from
+the final integration gate. This is an intentional decomposition decision,
+not an omitted capability. No merge, release, tag or production activation.
