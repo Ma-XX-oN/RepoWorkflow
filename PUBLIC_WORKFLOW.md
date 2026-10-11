@@ -398,6 +398,18 @@ the stage creates a dedicated `.ci/run` invocation commit containing the
 stage marker and immediate pre-invocation candidate SHA.  Hosted execution
 uses the same authoritative stage selection and testing log.
 
+Immutable GitHub Actions artifacts authenticate hosted PASS records: a committed
+JSONL claim alone cannot grant reuse, even when it names a real successful
+provider run.  The checker verifies the provider run, candidate/invocation
+ancestry and exact record bytes against the run's immutable artifact.  Missing,
+expired, malformed, forged, mismatched or inaccessible artifacts fail closed.
+Read-only `results --remote` never dispatches a hosted stage.
+
+The on-demand workflow remains staged alongside existing Self CI.  Functional
+certification of its five stages does not authorise replacing Self CI, merging,
+releasing or enabling protected production integration.  Server branch/ruleset
+enforcement is separately deferred under #85.
+
 `rwf test results` reads existing local evidence; `rwf test results
 --remote` retrieves previously published hosted evidence without starting
 another CI cycle.  A PASS is reusable only with applicable matching
