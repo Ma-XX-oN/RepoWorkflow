@@ -7,7 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from typing import Callable
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from urllib.parse import quote
 
 from .remote_stable_publisher import PublicationRefused
@@ -121,3 +122,52 @@ class GitHubStableTagProvider:
       "POST", self._repo(repository) + "/git/refs",
       {"ref": ref, "sha": sha},
     )
+
+
+class GitHubRestTransport:
+  """Concrete authenticated transport for api.github.com.
+
+  Callers obtain short-lived credentials externally; tokens are never logged.
+  """
+
+  def __init__(self, token: str, *, timeout: float = 15):
+    if not token or timeout <= 0:
+      raise ValueError("token and positive timeout are required")
+    self._token = token
+    self._timeout = timeout
+
+  def __call__(
+    self, method: str, path: str, data: dict | None
+  ) -> Response:
+    if method not in ("GET", "POST"):
+      raise PublicationRefused("unsupported GitHub API operation")
+    if not path.startswith("/") or "//" in path:
+      raise PublicationRefused("invalid GitHub API path")
+    body = json.dumps(data).encode("utf-8") if data is not None else None
+    request = Request(
+      "https://api.github.com" + path,
+      data=body,
+      method=method,
+      headers={
+        "Authorization": "Bearer " + self._token,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+    )
+    try:
+      with urlopen(request, timeout=self._timeout) as response:
+        status = response.status
+        payload = response.read()
+    except HTTPError as exc:
+      status = exc.code
+      payload = exc.read()
+    except (OSError, URLError) as exc:
+      raise PublicationRefused("GitHub API transport unavailable") from exc
+    try:
+      value = json.loads(payload) if payload else {}
+    except (ValueError, UnicodeDecodeError) as exc:
+      raise PublicationRefused("malformed GitHub API response") from exc
+    if not isinstance(value, dict):
+      raise PublicationRefused("unexpected GitHub API response shape")
+    return Response(status, value)
