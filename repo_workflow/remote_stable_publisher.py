@@ -50,6 +50,8 @@ class PublicationAuthority(Protocol):
     self, request: PublicationRequest, ref: str
   ) -> bool: ...
 
+  def version_matches(self, request: PublicationRequest) -> bool: ...
+
 
 def publish_stable_tag(
   request: PublicationRequest,
@@ -88,6 +90,8 @@ def publish_stable_tag(
       raise PublicationRefused("authorization denied")
     if not authority.certified(request, ref):
       raise PublicationRefused("protection or certification not accepted")
+    if not authority.version_matches(request):
+      raise PublicationRefused("stable version does not match accepted main")
     if provider.main_tip(request.repository) != request.landed_sha:
       raise PublicationRefused("landed SHA is not server main tip")
     if provider.accepted_base(request.repository, request.landed_sha) != (
