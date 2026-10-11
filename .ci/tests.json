@@ -219,6 +219,18 @@
       "issue-543-shared-hosted-cache": {
         "type": "regression",
         "name": "tests.test_shared_hosted_cache"
+      },
+      "issue-543-committed-contract": {
+        "type": "regression",
+        "name": "tests.test_issue543_committed_contract"
+      },
+      "issue-543-marker-integrity": {
+        "type": "regression",
+        "name": "tests.test_issue543_marker_integrity"
+      },
+      "issue-543-provider-retry-lineage": {
+        "type": "regression",
+        "name": "tests.test_issue543_hosted_lineage"
       }
     }
   ],
