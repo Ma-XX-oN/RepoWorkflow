@@ -10,13 +10,26 @@ import os
 import re
 from typing import Callable
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
+from urllib.request import (
+  HTTPRedirectHandler, Request, build_opener,
+)
 from zipfile import BadZipFile, ZipFile
 
 from .github_evidence import github_json, verify_hosted_stage
 
 
 _MAX_ARCHIVE = 8 * 1024 * 1024
+
+
+class _StripCrossHostAuthorization(HTTPRedirectHandler):
+  """Do not send the API bearer token to redirected signed artifact storage."""
+  def redirect_request(self, req, fp, code, msg, headers, newurl):
+    redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+    if (redirected is not None and
+        urlsplit(req.full_url).netloc != urlsplit(newurl).netloc):
+      redirected.remove_header("Authorization")
+    return redirected
 
 
 def _artifact_bytes(url: str) -> bytes:
@@ -28,7 +41,8 @@ def _artifact_bytes(url: str) -> bytes:
   token = os.getenv("GITHUB_TOKEN")
   if token:
     headers["Authorization"] = "Bearer " + token
-  with urlopen(Request(url, headers=headers), timeout=15) as response:
+  opener = build_opener(_StripCrossHostAuthorization())
+  with opener.open(Request(url, headers=headers), timeout=15) as response:
     data = response.read(_MAX_ARCHIVE + 1)
   if len(data) > _MAX_ARCHIVE:
     raise ValueError("provider artifact exceeds verification limit")
