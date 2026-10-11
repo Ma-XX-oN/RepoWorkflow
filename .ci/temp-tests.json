@@ -9,6 +9,62 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-upstream-541-hosted-cache-integration": {
+        "type": "regression",
+        "name": "tests.test_541_hosted_cache_integration"
+      },
+      "issue-543-upstream-consumer-terminal-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_consumer_terminal_lifecycle"
+      },
+      "issue-543-upstream-expected-red-cli": {
+        "type": "regression",
+        "name": "tests.test_expected_red_cli"
+      },
+      "issue-543-upstream-issue-545-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue_545_acceptance"
+      },
+      "issue-543-upstream-terminal-tag": {
+        "type": "regression",
+        "name": "tests.test_terminal_tag"
+      },
+      "issue-543-upstream-test-cli-remote": {
+        "type": "regression",
+        "name": "tests.test_test_cli_remote"
+      },
+      "issue-543-upstream-test-dirty-rename": {
+        "type": "regression",
+        "name": "tests.test_test_dirty_rename"
+      },
+      "issue-543-upstream-test-launch-failures": {
+        "type": "regression",
+        "name": "tests.test_test_launch_failures"
+      },
+      "issue-543-upstream-test-launcher": {
+        "type": "regression",
+        "name": "tests.test_test_launcher"
+      },
+      "issue-543-upstream-test-red-classification": {
+        "type": "regression",
+        "name": "tests.test_test_red_classification"
+      },
+      "issue-543-upstream-test-red-runner": {
+        "type": "regression",
+        "name": "tests.test_test_red_runner"
+      },
+      "issue-543-upstream-test-results-metadata": {
+        "type": "regression",
+        "name": "tests.test_test_results_metadata"
+      },
+      "issue-543-upstream-test-selection-commit": {
+        "type": "regression",
+        "name": "tests.test_test_selection_commit"
+      }
+    }
+  ],
   "aliases": {}
 }
