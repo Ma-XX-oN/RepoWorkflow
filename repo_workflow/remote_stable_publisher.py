@@ -56,6 +56,10 @@ class PublicationAuthority(Protocol):
 
   def version_matches(self, request: PublicationRequest) -> bool: ...
 
+  def finalize_consumption(
+    self, request: PublicationRequest, ref: str, observed_sha: str
+  ) -> bool: ...
+
 
 def publish_stable_tag(
   request: PublicationRequest,
@@ -66,7 +70,9 @@ def publish_stable_tag(
 
   Provider read_tag MUST return the peeled commit for annotated tags.
   Provider create_tag_if_absent MUST be an atomic server-side create.
-  Authority is responsible for #80 grant validation and consumption.
+  Authority must reserve the #80 grant before mutation, and durably finalize
+  consumption against the observed result. Both steps must be idempotent
+  for the same request ID. An unfinalized result is INCOMPLETE.
   """
   if not _VERSION.fullmatch(request.version):
     raise PublicationRefused("noncanonical stable version")
@@ -112,6 +118,8 @@ def publish_stable_tag(
     if existing is not None:
       if existing != request.landed_sha:
         raise PublicationRefused("conflicting immutable tag")
+      if authority.finalize_consumption(request, ref, existing) is not True:
+        raise PublicationIncomplete("authorization consumption unconfirmed")
       return ref
 
     try:
@@ -126,6 +134,10 @@ def publish_stable_tag(
       raise PublicationRefused("remote tag readback differs")
     if provider.read_tag(request.repository, failed_ref) is not None:
       raise PublicationRefused("competing terminal result appeared")
+    if authority.finalize_consumption(
+      request, ref, request.landed_sha
+    ) is not True:
+      raise PublicationIncomplete("authorization consumption unconfirmed")
     return ref
   except PublicationRefused:
     raise
