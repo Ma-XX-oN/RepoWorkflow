@@ -3,9 +3,12 @@ from copy import deepcopy
 from io import BytesIO
 import json
 import unittest
+from urllib.request import Request
 from zipfile import ZipFile
 
-from repo_workflow.github_artifact import verify_hosted_record
+from repo_workflow.github_artifact import (
+  _StripCrossHostAuthorization, verify_hosted_record,
+)
 from tests.test_issue543_hosted_lineage import (
   BASE, CANDIDATE, REPO, RETRY, VerifiedRetryLineageTests,
 )
@@ -54,6 +57,33 @@ class ImmutableProviderArtifactTests(unittest.TestCase):
       read=lambda url: source[url],
       download=lambda _: self.bytes if zipped is None else zipped,
     )
+
+  def test_bearer_not_forwarded_to_artifact_storage_redirect(self):
+    handler = _StripCrossHostAuthorization()
+    original = Request(
+      BASE + "/actions/artifacts/444/zip",
+      headers={"Authorization": "Bearer PRIVATE-TOKEN"},
+    )
+    redirected = handler.redirect_request(
+      original, None, 302, "Found", {},
+      "https://storage.example.net/temporary-signed-artifact",
+    )
+    self.assertIsNotNone(redirected)
+    self.assertNotIn("Authorization", redirected.headers)
+    self.assertIn("Authorization", original.headers)
+
+  def test_same_host_redirect_can_retain_api_authorization(self):
+    handler = _StripCrossHostAuthorization()
+    original = Request(
+      BASE + "/actions/artifacts/444/zip",
+      headers={"Authorization": "Bearer PRIVATE-TOKEN"},
+    )
+    redirected = handler.redirect_request(
+      original, None, 302, "Found", {},
+      BASE + "/actions/artifacts/444/zip?retry=1",
+    )
+    self.assertIsNotNone(redirected)
+    self.assertIn("Authorization", redirected.headers)
 
   def test_immutable_artifact_exact_record_is_accepted(self):
     self.assertTrue(self.check())
