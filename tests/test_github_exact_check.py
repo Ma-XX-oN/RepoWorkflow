@@ -9,11 +9,13 @@ BASE = "b" * 40
 
 
 class Provider:
-  def __init__(self, *, changed=False, denied=False, forged=False):
+  def __init__(self, *, changed=False, denied=False, forged=False, replay=False, wrong_issuer=False):
     self.posts = []
     self.changed = changed
     self.denied = denied
     self.forged = forged
+    self.replay = replay
+    self.wrong_issuer = wrong_issuer
     self.reads = 0
 
   def __call__(self, path, payload=None):
@@ -27,8 +29,11 @@ class Provider:
         raise OSError("denied")
       return {"id": 21, "sha": BASE if self.forged else SHA,
               "context": CONTEXT, "state": "success",
-              "creator": {"login": "runner"}}
+              "creator": {"login": "impostor" if self.wrong_issuer else "runner"}}
     if path == "/commits/" + SHA + "/statuses":
+      if not self.posts:
+        return ([{"context": CONTEXT, "description":
+                  "verified authenticated-run-123"}] if self.replay else [])
       return [{"id": 21, "context": CONTEXT, "state": "success",
                "creator": {"login": "runner"}}]
     raise AssertionError(path)
@@ -87,6 +92,16 @@ class ExactCheckTests(unittest.TestCase):
   def test_forged_provider(self):
     with self.assertRaises(PublishError):
       self.call(Provider(forged=True))
+
+  def test_evidence_replay(self):
+    p = Provider(replay=True)
+    with self.assertRaises(PublishError):
+      self.call(p)
+    self.assertEqual(p.posts, [])
+
+  def test_wrong_publisher_identity(self):
+    with self.assertRaises(PublishError):
+      self.call(Provider(wrong_issuer=True))
 
   def test_invalid_sha(self):
     p = Provider()
