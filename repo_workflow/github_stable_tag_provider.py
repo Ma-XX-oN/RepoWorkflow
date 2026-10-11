@@ -129,7 +129,9 @@ class GitHubStableTagProvider:
   ) -> None:
     if _STABLE_REF.fullmatch(ref) is None:
       raise PublicationRefused("only stable tags permitted")
-    # GitHub App permissions are enforced by the atomic POST endpoint.\n    # Repository metadata is not the authority for an installation token.\n    self._request(
+    # GitHub App permissions are enforced by the atomic POST endpoint.
+    # Repository metadata is not the authority for an installation token.
+    self._request(
       "POST", self._repo(repository) + "/git/refs",
       {"ref": ref, "sha": sha},
     )
