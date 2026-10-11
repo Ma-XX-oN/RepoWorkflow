@@ -336,3 +336,32 @@ duplicate dependency edges or cycles.
   explicitly new, narrow defect owner only after a source-level audit.
 - Functional certification remains independent of DEFERRED #85, which is
   still required for final protected #86 acceptance. No automatic merge.
+
+## 2026-10-11 AGENT-CMD protocol-level continuation lesson
+
+The three #543 verification lanes exposed an orchestration gap. A failed
+checkout/DNS tool is not a whole-task blocker when GitHub connectors,
+uploaded source, source-independent checks or other acceptance dimensions
+remain. A completed read-only lane legitimately hands off evidence; it must
+not claim #543 or rewrite PR #567. The problem should be solved once in the
+generic `AGENT-CMD PROTOCOL` rather than copied into every `.pmd`.
+
+Recommended protocol additions: real time measured 25-minute **maximum**;
+status reports do not end the run; mandatory fallback ladder before user
+escalation; per-criterion ledger with PASS/FAIL/INCOMPLETE/DEFERRED; continue
+after isolated failures; grounded no-retry-loop rule; precise permitted stop
+conditions; durable handoff and exact owner. Preserve SPINUP syntax,
+literal nonrecursive substitution, V3 claim exclusivity, non-merge rule and
+security boundaries. Updating repository documentation does not silently
+change the user's installed ChatGPT Library protocol.
+
+At handoff review, #543 remains OPEN with V3 claim `6105182602`, PR #567
+draft/unmerged at observed SHA
+`dcdaea2db881b4075cbd87ab9d225d5fe8ae4bf2`.
+Lane A's independent live issue evidence (comments 6105382158 and
+6105404379) establishes functional failures involving committed
+`.ci/red-green.txt` and committed `.ci/run` integrity. The owner must
+reconcile all three lane handoffs, add regression-first fixes for verified
+defects, rerun applicable local/hosted/platform acceptance, and preserve
+#85 SECURITY-DEFERRED. Neither lane completion nor a successful source
+assembly implies #543 DONE.
