@@ -119,6 +119,13 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
+  # Accept the documented RED group before its optional hosted switch.
+  # The grammar parser requires switches before dynamic values internally.
+  if (
+    len(words) == 4 and words[:2] == ["test", "RED"]
+    and words[3] == "--remote" and not words[2].startswith("--")
+  ):
+    words = [words[0], words[1], "--remote", words[2]]
   general, legal, facts, plan, state, failure = _diagnose(
     root,
     words,

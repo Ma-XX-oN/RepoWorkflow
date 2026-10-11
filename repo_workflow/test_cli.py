@@ -22,6 +22,9 @@ from .self_ci import group_command, SelfCiError
 from .test_red_declaration import red_declaration
 from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
+from .config import load_config
+from .terminal_tag import publish_terminal_tag
+from .test_worktree import tracked_input_changes
 
 STAGES = {
   "RED": "RED-testing",
@@ -198,32 +201,7 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
 
 
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
-  # The append-only evidence log does not count as a changed test input.
-  status = subprocess.run(
-    ["git", "-C", str(root), "status", "--porcelain", "-z",
-     "--untracked-files=all"],
-    capture_output=True, check=False,
-  )
-  if status.returncode:
-    raise TestCommandError("cannot inspect working-tree changes")
-  relative_evidence = evidence_path.relative_to(root).as_posix()
-  entries = status.stdout.decode("utf-8", errors="surrogateescape").split("\0")
-  changed: set[str] = set()
-  index = 0
-  while index < len(entries):
-    entry = entries[index]
-    index += 1
-    if not entry:
-      continue
-    if len(entry) < 4 or entry[2] != " ":
-      raise TestCommandError("malformed working-tree status")
-    changed.add(entry[3:])
-    if "R" in entry[:2] or "C" in entry[:2]:
-      if index >= len(entries) or not entries[index]:
-        raise TestCommandError("incomplete working-tree rename record")
-      changed.add(entries[index])
-      index += 1
-  return sorted(changed - {relative_evidence})
+  return tracked_input_changes(root, evidence_path)
 
 
 def _run_group_set(
@@ -432,18 +410,24 @@ def run_test(
         root, catalogue_path=temporary,
       ).groups))
       for name in selected:
+        # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
     before = head_sha(root)
+    prepared: list[tuple[str, str]] = []
     outcome = (
       self_regression(root)
       if root.resolve() == engine_root.resolve()
-      else verify_local(root, engine_root=engine_root, push=False)
+      else verify_local(
+        root, engine_root=engine_root, push=False, tag_result=False,
+        candidate_observer=lambda sha, version: prepared.append((sha, version)),
+      )
     )
     after = head_sha(root)
-    if outcome == "PASS" and selected and _run_group_set(
-      root, "temporary", selected, catalogue_path=temporary,
-    ):
-      outcome = "FAIL"
+    if outcome == "PASS" and selected:
+      temporary_rc = _run_group_set(
+        root, "temporary", selected, catalogue_path=temporary,
+      )
+      outcome = {0: "PASS", 1: "FAIL", 2: "INCOMPLETE"}[temporary_rc]
     match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
     if match is None:
       raise TestCommandError("regression evidence requires an issue branch")
@@ -451,8 +435,8 @@ def run_test(
       "testResults-" + match.group(1) + ".jsonl"
     )
     uncommitted = _uncommitted_inputs(root, path)
-    tested_sha = before
-    head_changed = head_sha(root) != before
+    tested_sha = prepared[0][0] if prepared else before
+    head_changed = head_sha(root) != tested_sha
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
       "uncommittedChanges": uncommitted,
@@ -465,6 +449,7 @@ def run_test(
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
+      **({"testVersion": prepared[0][1]} if prepared else {}),
       "result": {
         "PASS": "succeeded",
         "FAIL": "failed",
@@ -480,5 +465,14 @@ def run_test(
     }
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
+    if prepared and outcome in {"PASS", "FAIL"} and not (
+      uncommitted or head_changed
+    ):
+      remote_name = load_config(root)["repository"]["authoritativeRemote"]
+      publish_terminal_tag(
+        root, stage="regression", remote=remote_name,
+        version=prepared[0][1], candidate=tested_sha,
+        outcome=outcome, canonical_log=path, push=False,
+      )
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")
