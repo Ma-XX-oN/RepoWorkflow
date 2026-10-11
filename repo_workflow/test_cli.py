@@ -18,7 +18,8 @@ from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
 from .test_cache import reusable_local_group_passes
 from .github_cache import hosted_cache_checker, read_remote_published_log
-from .self_ci import group_command
+from .self_ci import group_command, SelfCiError
+from .test_red_declaration import red_declaration
 from .test_catalogue import load_test_catalogue
 
 STAGES = {
@@ -69,17 +70,29 @@ def _validate_selection(root: Path, name: str) -> str:
   return name
 
 
+def _committed_selection(root: Path) -> str | None:
+  result = subprocess.run(
+    ["git", "-C", str(root), "show", "HEAD:.ci/red-green.txt"],
+    capture_output=True, text=True, check=False,
+  )
+  return result.stdout if result.returncode == 0 else None
+
+
 def read_selection(root: Path) -> str | None:
   path = root / SELECTION
   try:
     raw = path.read_text(encoding="utf-8")
   except FileNotFoundError:
+    if _committed_selection(root) is not None:
+      raise TestCommandError("committed RED/GREEN selection is missing")
     return None
   lines = raw.splitlines()
   if len(lines) != 1 or raw not in (lines[0], lines[0] + "\n") or not lines[0]:
     raise TestCommandError(
       ".ci/red-green.txt must contain exactly one test-group name"
     )
+  if raw != _committed_selection(root):
+    raise TestCommandError("RED/GREEN selection must match committed state")
   return _validate_selection(root, lines[0])
 
 
@@ -120,7 +133,11 @@ def _skip_without_selection(
 def select_group(root: Path, name: str) -> str:
   name = _validate_selection(root, name)
   path = root / SELECTION
-  if path.exists() and path.read_text(encoding="utf-8") == name + "\n":
+  if (
+    path.exists()
+    and path.read_text(encoding="utf-8") == name + "\n"
+    and _committed_selection(root) == name + "\n"
+  ):
     return name
   match = re.fullmatch(
     r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -128,7 +145,10 @@ def select_group(root: Path, name: str) -> str:
   if match is None:
     raise TestCommandError("RED selection requires an issue branch")
   audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-  if any(changed != audit for changed in changed_files(root)):
+  if any(
+    changed not in {audit, SELECTION.as_posix()}
+    for changed in changed_files(root)
+  ):
     raise TestCommandError(
       "commit or discard working tree changes before selecting RED test"
     )
@@ -353,12 +373,21 @@ def run_test(
   if stage not in STAGES:
     raise TestCommandError("unknown test stage")
   if stage == "RED":
+    from .test_red_runner import record_red
     selected = select_group(root, group) if group else read_selection(root)
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
+    expectation, declaration_error = red_declaration(root, selected)
     if remote:
+      if declaration_error:
+        raise TestCommandError(declaration_error)
       return request_remote(root, stage)
-    command = group_command(root, selected)
+    command = ()
+    if not declaration_error:
+      try:
+        command = group_command(root, selected)
+      except (SelfCiError, AttributeError, KeyError, TypeError, ValueError):
+        declaration_error = "selected-test-cannot-execute"
     match = re.fullmatch(
       r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
     )
@@ -367,50 +396,11 @@ def run_test(
     path = root / ".repoworkflow" / "validation" / (
       "testResults-" + match.group(1) + ".jsonl"
     )
-    before = _uncommitted_inputs(root, path)
-    red_candidate = head_sha(root)
-    red_catalogue = _group_fingerprint(root, Path(".ci/tests.json"))
-    result = subprocess.run(
-      command, cwd=root, text=True, capture_output=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-    if result.stdout:
-      print(result.stdout, end="")
-    if result.stderr:
-      print(result.stderr, end="", file=sys.stderr)
-    dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
-    record = {
-      "timestamp": datetime.now(timezone.utc).isoformat(),
-      "testSHA": red_candidate,
-      "headChangedDuringTest": head_sha(root) != red_candidate,
-      "catalogueSHA256": red_catalogue,
-      "kind": "RED",
-      "result": "incomplete",
-      "reason": (
-        "expected-red-failure-not-demonstrated"
-        if result.returncode == 0
-        else "failure-not-classified-as-expected-red"
-      ),
-      "runner": "local",
-      "platform": {
-        "os": platform.system(), "architecture": platform.machine(),
-        "runtime": platform.python_version(),
-      },
-      "uncommittedChanges": dirty,
-      "reusable": False,
-      "groups": [{
-        "group": selected, "exit_code": result.returncode,
-        "reused": False,
-      }],
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-      handle.write(json.dumps(record, sort_keys=True) + "\n")
-    if result.returncode == 0:
-      raise TestCommandError("RED did not demonstrate the expected failure")
-    raise TestCommandError(
-      "RED failed; expected RED failure has not been distinguished "
-      "from infrastructure error"
+    return record_red(
+      root, selected, command, path,
+      _group_fingerprint(root, Path(".ci/tests.json")),
+      dirty_inputs=_uncommitted_inputs,
+      expectation=expectation, declaration_error=declaration_error,
     )
   if group is not None:
     raise TestCommandError("test group is only supported for RED")
