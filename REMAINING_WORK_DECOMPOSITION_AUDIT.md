@@ -680,3 +680,148 @@ evidence, not descriptive optimism.
 
 This compass should be reviewed whenever scope grows. It is directional
 and does not supersede approved issue-level requirements or grant merges.
+
+## 2026-10-11 implementation and provider-evidence audit, revision-pinned
+
+### Method and confidence boundary
+
+This audit **actually inspected** public source and contract documents,
+specific main-branch and feature-branch files, live GitHub issue status and
+comments, PR metadata and exact SHA reports. It did not execute a new full
+test suite, download each provider artifact independently, or review every
+line of the repository/its hundreds of tickets. Provider run outcomes below
+are sourced from GitHub issue handoff records and named immutable artifact
+identifiers; these are **reported evidence, not fresh independently verified
+artifact readbacks by this auditor**. Do not upgrade such records to fresh
+certification. Ticket/PR state was read live; snapshot date 2026-10-11.
+
+### Representative current source-to-capability trace
+
+| Capability | Examined source / contract | Implementation finding | Evidence/status |
+| --- | --- | --- | --- |
+| Work graph | `WORK_GRAPH_METHODOLOGY.md`, draft `.repoworkflow/tickets.csv` | Graph has explicit methodology and a draft synchronized projection; graph validation in earlier changes is not runtime proof of issue/CSV parity | CONTRACT, provider consistency INCOMPLETE |
+| Public CLI | `PUBLIC_WORKFLOW.md` on main | Still advertises `rwf validate regression/integration` although replacement `rwf test` is specified and certified in #543 branch | DRIFT/FAIL for unified published specification; migration NOT IN main |
+| Work lifecycle | `WORKFLOW_LIFECYCLE.md`, #579-#583 | Legacy design documented; new six-state lifecycle/CSV/graph current-state work tickets remain OPEN | PROPOSED / INCOMPLETE |
+| Version semantics | `REPO_VERSION_ADAPTER.md`, main `repo_workflow/version_adapter.py` blob `60840fd8daef3cef5a933ec229b69f32caa9792f` | Existing `issue.P.Q.R` transitions and adapter wrapper; RC grammar not part of established schema-1 read contract | FOUNDATION PRESENT; #644/#645 PROPOSED |
+| On-demand invocation | #543 branch `repo_workflow/ci_invocation.py` blob `3d22ab5bac025c0fe7cf69b96492dfcc1e5508c3` | Exactly five testing stages, two-field `.ci/run` parser, committed HEAD/dedicated marker-only single-parent invocation and original-candidate tracing. Same path on main returned NOT_FOUND. | BRANCH IMPLEMENTED; not a main capability |
+| Test catalogue | Main `.ci/tests.json` blob `4b05fafc27aab5af11d65b120d04e53d2a1af4b4` | Test harness/test declarations exist, but comprehensive declarative platform policy is not yet proven | FOUNDATION; #647 OPEN |
+| Artifact builds | `.ci/builds.json` on main returned NOT_FOUND; #641-#643 | No new JSON build catalogue nor selector-based build command verified; planned re-use of `.ci/run` is not deployed | PROPOSED, not implemented |
+| Test version terminal lifecycle | #572 comments, open draft #596 and component PRs #573-#595 | Real development-version provider tag reported in #572; full assembled A4 deployment/acceptance remains a separate open ticket | PARTIAL/UNINTEGRATED |
+| Protected stable candidate | Main `repo_workflow/guard.py` blob `1895bce767c02ae0768f0cc537e642ed1e7f216f` | `validate_stable_candidate` contains local `git update-ref -d` tag deletion paths. Needs side-effect-free validation/negative regression by #86 | CONFIRMED SOURCE SAFETY DEFECT |
+| Stable result publisher | Main `repo_workflow/results.py` blob `7d8cdfa2b972e3bf4b07ef98af2dc734f5669300` | `finalize_stable_results` directly does local `git tag -a` then `git push`; NOT the required server-only finalizer | CONFIRMED ARCHITECTURAL BYPASS / #86 |
+| Remote-only publisher | #638 PR #639 head `12e1cf51a3ee2714e9f7094c0421e557586b3a1d` | Distinct component implemented and disposable-provider certified as reported; unmerged, not wired into final production gate | COMPONENT PROVIDER-REPORTED PASS, INTEGRATION INCOMPLETE |
+| Security | #85 OPEN; #646 OPEN | Protection is explicitly DEFERRED and does not gate functional development; production stable authority still blocked | SECURITY-DEFERRED |
+
+No conclusion above treats an issue marked CLOSED as proof that its PR
+was merged. The source-dependent findings distinguish **main** from a
+feature branch.
+
+### Active-PR integration inventory (live metadata)
+
+The repository returned at least 75 OPEN PRs on the search snapshot.
+This is not an exhaustive audit of every patch. Representative critical
+PRs and their branch heads:
+
+| PR | Head SHA | State | Ownership / integration concern |
+| --- | --- | --- | --- |
+| [#567](https://github.com/Ma-XX-oN/RepoWorkflow/pull/567) | `a6806d7d68c4d5191f49eff51de6bb4146c60db7` | OPEN, DRAFT; base `issue-543-on-demand-ci-certification` | Unified test functional candidate; not consumer main |
+| [#552](https://github.com/Ma-XX-oN/RepoWorkflow/pull/552) | `e63be39fa2b435c453e1825d4baa3fd1106df3d1` | OPEN, DRAFT; base `issue-527-explicit-lane-projections` | Upstream public test CLI surface |
+| [#547](https://github.com/Ma-XX-oN/RepoWorkflow/pull/547) | `e34853b2394047c2a05e6d6dd2e3638ff3d91a27` | OPEN, DRAFT; base `issue-542-premerge-evidence-gate` | Hosted workflow provenance/trigger implementation |
+| [#596](https://github.com/Ma-XX-oN/RepoWorkflow/pull/596) | `7783d3e5350e36e1987d16fe5283d09baeebb136` | OPEN, DRAFT; base `issue-572-lane-a4-assembly` | Test-version terminal-tag work separate from #543 |
+| [#639](https://github.com/Ma-XX-oN/RepoWorkflow/pull/639) | `12e1cf51a3ee2714e9f7094c0421e557586b3a1d` | OPEN, non-draft; base main | Server-only stable-tag publisher component #638 |
+| [#640](https://github.com/Ma-XX-oN/RepoWorkflow/pull/640) | `19fa53ba1dc820e02a2c5e210f155f6b163d7d6c` | OPEN, DRAFT; base main | Exact-candidate required-check publisher #637 |
+| [#616](https://github.com/Ma-XX-oN/RepoWorkflow/pull/616) | `6dd431a14f575a011f9ce19c9c3c3004eb8d1da2` | OPEN, DRAFT; base #81 branch | Repository-host adapter #97; separate from main integration |
+| [#636](https://github.com/Ma-XX-oN/RepoWorkflow/pull/636) | `a23afdc273dfefc0807570dbb0cffabc4d3e5e54` before this audit | OPEN, DRAFT; base main | This working audit and ticket graph |
+
+Consequence: independent branches and nested PR bases mean the presence
+of code on an issue branch cannot establish that its functionality is
+available in main. Before merging any integration sequence, reconcile
+parent revisions, duplicate file ownership and actual CI on the exact
+assembled SHA. No automatic merge authorization is implied.
+
+### Requirement-to-provider evidence ledger
+
+| Requirement / ticket | Tested candidate and evidence reported | Assessment |
+| --- | --- | --- |
+| #543 on-demand testing, public stage semantics, cardinalities, negative provider cases | Functional source `2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28`; [handoff](https://github.com/Ma-XX-oN/RepoWorkflow/issues/543#issuecomment-6106174749). Matrix 28 functional PASS/0 FAIL/0 INCOMPLETE, #85 security deferred. Independent test-only run 38116877362: 38/38 PASS, 0 skip, artifact 11694225560. Exact matrix SHA regression run 38116994497: 1134 tests; integration 38116985364: 1134 tests and 9/9 platform jobs. | REPORTED FUNCTIONAL PASS; independently identified provider IDs; pending production/main integration, OPEN #543 |
+| #543 branch matrix itself | `ISSUE543_FUNCTIONAL_ACCEPTANCE_MATRIX.md` on current #567 head was read: current matrix ends with 28 functional PASS and 1 security deferred and the later 38116877362 evidence. Its early header still lists previous source `e47cfd2dd5a3598f748bb8e9be4414858e490fdb` and 1118-test runs, while closing section lists the newer 1134-test source. | DOCUMENT CONSISTENCY DEFECT: reconcile frontmatter/pinned source and current acceptance runs before downstream automated use |
+| #572 version tag | [issue report](https://github.com/Ma-XX-oN/RepoWorkflow/issues/572#issuecomment-6089510555): versioned candidate `c9d3e5101c9fce678644ee1ce20b6945d20599f4`, hosted regression 37992566594 SUCCESS, development tag `v0.1.121-issue.572.0.1` reportedly resolves to exact candidate. Hosted integration was still running at this particular report. | COMPONENT POSITIVE EVIDENCE; no full A4 acceptance reconstructed in this audit |
+| #638 remote-only publisher | [provider handoff](https://github.com/Ma-XX-oN/RepoWorkflow/issues/638#issuecomment-6105057220): PR source `12e1cf51...`, Self CI 38108684492 42/42 PASS, disposable GitHub acceptance 38108570972 SUCCESS and persisted GitHub ref readback; negative retries/races/tag collision probed. | REPORTED COMPONENT PROVIDER PASS; final #86 authorization and protected integration NOT proven |
+| #85 protection | OPEN with explicitly parked/deferred acceptance. | SECURITY-DEFERRED, not PASS |
+| #86 stable protected release | OPEN, local validator/issuer defect present on main, no actual protected production promotion certified here. | FAIL for unsafe legacy local path relative to desired contract; final acceptance INCOMPLETE |
+| #579-#583 lifecycle, #641-#643 builds, #644-#645 RC, #646 security init, #647 test platforms | OPEN specifications/implementations, no exact implementation run for their new requirements verified. | PROPOSED/INCOMPLETE; do not borrow #543 PASS |
+
+The #543 issue remains OPEN even after a functional certification
+handoff. The #638 issue has a component-level DONE handoff but its PR is
+unmerged. Such distinctions are critical to the compass.
+
+### Unresolved risks and prioritized remediation
+
+**R1 — Wrongly claiming capability from an unmerged branch (HIGH).**
+Maintain separate SPECIFIED / IMPLEMENTED-ON-BRANCH /
+LOCALLY-TESTED / HOSTED-CERTIFIED / INTEGRATED-MAIN /
+PRODUCTION-ENFORCED status per feature, with revision and evidence.
+Do not describe #543 or #638 as integrated until actual merge and
+post-integration acceptance.
+
+**R2 — Legacy stable-tag mutation (HIGH).**
+#86 must first reproduce local-ref deletion and local-tag-plus-push
+behaviour on disposable Git remotes. Replace with read-only guard and
+authoritative server-only finalizer using #638, retain independent
+regression tests, and verify denied bypass with actual provider policy
+once #85 is activated. No security shortcut in the functional phase.
+
+**R3 — Public CLI contract divergence (HIGH).**
+Reconcile main PUBLIC_WORKFLOW.md against the #543 replacement CLI,
+help/completion/tests and backwards compatibility. Stop propagating
+obsolete `rwf validate` instructions in canonical user guidance;
+update only within the approved integration boundary.
+
+**R4 — Evidence/header mismatch (MEDIUM-HIGH).**
+Make #543 matrix header, exact source, final acceptance artifact and
+live PR tip mutually consistent. If the PR head is an evidence-publication
+commit rather than original candidate, label both separately.
+Don't overwrite historical valid runs.
+
+**R5 — Ticket-state truth and workflow completion (HIGH).**
+Conduct actual end-to-end #579-#583 pilot with issue/provider/CSV/graph
+state, abort/recover and multi-agent concurrency. A designed state model
+is not implementation acceptance.
+
+**R6 — Over-expansion before usable workflow (MEDIUM-HIGH).**
+Complete phase 0's per-capability ledger and phases 1/2 pilot before
+declaring builds and RCs an integrated product. Specify #641 and #644
+in parallel to avoid future rework, but do not duplicate engines.
+
+**R7 — Platform and build completeness (MEDIUM).**
+#647 must encode default applicability and required acceptance
+separately. #641 must enforce required explicit selector, JSON catalogue,
+selected-only execution and a candidate-bound result; no accidental paid
+all-platform or all-artifact dispatch.
+
+### Remaining evidence to reach a truly exhaustive audit
+
+1. Enumerate the complete open-ticket/PR and claim inventory beyond the
+   returned search snapshot; tie every active PR to issue, base commit,
+   file ownership and canonical graph edge.
+2. Retrieve and compare full patches and test catalogs for all active
+   implementation heads; independently cross-check source and metadata
+   instead of assuming doc statements reflect executable behaviour.
+3. Download/inspect every cited immutable GitHub Actions artifact,
+   workflow job and exact SHA via live provider and rerun meaningful
+   tests on a fresh consumer checkout, including Windows Git Bash,
+   Linux and macOS.
+4. Test a complete disposable consumer workflow through interruptions,
+   concurrent workers, integration rejection, artifact build and RC;
+   build/RC portions remain unimplemented and therefore cannot pass.
+5. Record authoritative GitHub protection readback only when #85 is
+   explicitly resumed; until then mark production stable gate deferred.
+
+**Verdict:** this is a revision-pinned **implementation evidence audit for
+critical workflow paths**, not an exhaustive source-line or full-provider
+replay certification. The waterfall phase gates remain unchanged, but
+their status is more precise: phase 0 reconciliation is INCOMPLETE;
+ticket/work phase 1 INCOMPLETE; on-demand test phase 2 BRANCH
+FUNCTIONAL-CERTIFIED but not integrated to main; phase 3 and 4
+PROPOSED; phase 5 INCOMPLETE; phase 6 SECURITY-DEFERRED;
+phase 7 INCOMPLETE. No merges/tags/protection mutations performed.
