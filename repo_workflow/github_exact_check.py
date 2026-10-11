@@ -148,3 +148,43 @@ def publish(
     raise
   except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
     raise PublishError("provider or verifier unavailable") from exc
+
+
+def publish_from_store(
+  repository, candidate, expected_base, source, destination, token, *,
+  store, requirement_manifest, record_ids, version,
+  coverage_evaluator, provider_verifier,
+):
+  """Production entrypoint using the completed #104/#548 evidence interface.
+
+  The invoking runner MUST obtain the complete requirements manifest from its
+  protected authoritative configuration; the source/runner are trusted under
+  #548's current trusted-publisher assumption. No caller-supplied PASS accepted.
+  """
+  if not callable(provider_verifier) or not callable(coverage_evaluator):
+    raise PublishError("missing trusted evidence verification")
+  if not isinstance(record_ids, (list, tuple)) or not record_ids:
+    raise PublishError("missing completed evidence records")
+  from .github_host_facts import decide_with_verified_sources
+
+  def verify(_evidence, sha, base):
+    allowed, reasons = decide_with_verified_sources(
+      store, requirement_manifest, record_ids,
+      candidate=sha, version=version, source=source,
+      destination=destination, recorded_base=base, repository=repository,
+      token=token, coverage_evaluator=coverage_evaluator,
+      provider_verifier=provider_verifier,
+    )
+    if not allowed:
+      raise PublishError("ineligible verified evidence: " + ", ".join(reasons))
+    # A published run identity must be bound to the authenticated observations.
+    evidence_id = ",".join(record_ids)
+    if len(evidence_id) > 128:
+      raise PublishError("evidence identity exceeds check description capacity")
+    return VerifiedDecision(sha, base, evidence_id,
+                            "github-actions[bot]", True)
+
+  return publish(
+    repository, candidate, expected_base, destination, token,
+    evidence=record_ids, verifier=verify,
+  )
