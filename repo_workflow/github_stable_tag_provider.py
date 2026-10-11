@@ -116,7 +116,7 @@ class GitHubStableTagProvider:
   def create_tag_if_absent(
     self, repository: str, ref: str, sha: str
   ) -> None:
-    if not ref.startswith("refs/tags/v"):
+    if not ref.startswith("refs/tags/v") or "/" in ref[11:]:
       raise PublicationRefused("only stable tags permitted")
     repository_info = self._request("GET", self._repo(repository))
     permissions = repository_info.get("permissions")
