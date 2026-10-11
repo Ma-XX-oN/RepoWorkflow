@@ -38,6 +38,68 @@ def github_json(endpoint: str) -> dict:
   return value
 
 
+def _verified_candidate_lineage(
+  read: Callable[[str], dict], base: str,
+  parent: str, candidate: str,
+) -> bool:
+  """Authenticate immutable publication/retry commits back to original source."""
+  seen: set[str] = set()
+  for _ in range(64):
+    if parent == candidate:
+      return True
+    if _SHA.fullmatch(parent) is None or parent in seen:
+      return False
+    seen.add(parent)
+    commit = read(base + "/commits/" + parent)
+    if not isinstance(commit, dict):
+      return False
+    parents = commit.get("parents")
+    files = commit.get("files")
+    if (not isinstance(parents, list) or len(parents) != 1
+        or not isinstance(parents[0], dict)
+        or not isinstance(files, list) or len(files) != 1
+        or not isinstance(files[0], dict)):
+      return False
+    previous = parents[0].get("sha")
+    changed = files[0].get("filename")
+    if not isinstance(previous, str) or _SHA.fullmatch(previous) is None:
+      return False
+    if changed == ".ci/run":
+      marker = read(base + "/contents/.ci/run?ref=" + parent)
+      stage_marker = _decode_marker(marker)
+      if stage_marker is None or not stage_marker.endswith(" " + previous + "\n"):
+        return False
+      if stage_marker.split(" ", 1)[0] not in {
+        "RED-testing", "GREEN-testing", "temp-testing",
+        "regression-testing", "integration-testing",
+      }:
+        return False
+    elif re.fullmatch(
+      r"[.]repoworkflow/validation/testResults-[1-9][0-9]*[.]jsonl",
+      str(changed),
+    ):
+      message = commit.get("commit", {}).get("message", "")
+      if not isinstance(message, str) or not message.startswith(
+        "test: publish hosted evidence from run "
+      ):
+        return False
+    else:
+      return False
+    parent = previous
+  return False
+
+
+def _decode_marker(marker: dict) -> str | None:
+  if (not isinstance(marker, dict) or marker.get("encoding") != "base64"
+      or not isinstance(marker.get("content"), str)):
+    return None
+  try:
+    raw = marker["content"].replace("\n", "").replace("\r", "")
+    return base64.b64decode(raw, validate=True).decode("utf-8")
+  except (ValueError, UnicodeError):
+    return None
+
+
 def verify_hosted_stage(
   record: dict, *, repo: str, stage: str,
   read: Callable[[str], dict] = github_json,
@@ -81,20 +143,17 @@ def verify_hosted_stage(
     or run.get("head_sha") != invocation
     or not isinstance(commit.get("parents"), list)
     or len(commit["parents"]) != 1
-    or commit["parents"][0].get("sha") != candidate
-    or marker.get("encoding") != "base64"
-    or not isinstance(marker.get("content"), str)
+    or not isinstance(commit["parents"][0], dict)
   ):
     return False
-  try:
-    # GitHub Contents API wraps base64 at line boundaries.  Reject any
-    # other non-alphabet characters rather than silently discarding them.
-    encoded = marker["content"].replace("\n", "").replace("\r", "")
-    request = base64.b64decode(encoded, validate=True)
-    request_text = request.decode("utf-8")
-  except (ValueError, UnicodeError):
+  request_text = _decode_marker(marker)
+  parent = commit["parents"][0].get("sha")
+  if (not isinstance(parent, str) or request_text != stage + " " + parent + "\n"):
     return False
-  if request_text != stage + " " + candidate + "\n":
+  try:
+    if not _verified_candidate_lineage(read, base, parent, candidate):
+      return False
+  except (ValueError, KeyError, TypeError):
     return False
   jobs = jobs_page.get("jobs")
   if not isinstance(jobs, list) or jobs_page.get("total_count") != len(jobs):
