@@ -75,6 +75,18 @@ class OnDemandCertificationTests(unittest.TestCase):
     self.log(self.tested_sha)
     self.assertIsNone(self.check(self.main_tip))
 
+  def test_uncommitted_marker_tampering_does_not_change_invocation(self):
+    marker = self.root / ".ci" / "run"
+    marker.write_text("RED-testing " + self.main_tip + "\n")
+    observed = verify_invocation(self.root)
+    self.assertEqual(observed.stage, "integration-testing")
+    self.assertEqual(observed.previous_tip, self.pre_invocation_tip)
+
+  def test_missing_worktree_marker_preserves_committed_request(self):
+    (self.root / ".ci" / "run").unlink()
+    observed = verify_invocation(self.root)
+    self.assertEqual(observed.previous_tip, self.pre_invocation_tip)
+
   def test_request_is_not_accepted_as_a_test_result(self):
     verify_invocation(self.root)
     with self.assertRaisesRegex(PreMergeGateError, "INCOMPLETE"):
