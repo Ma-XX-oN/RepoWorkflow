@@ -266,7 +266,7 @@ issue,title,dependencies
 540,Define CI marker parser and invocation invariants,538
 541,Run on-demand hosted stages without ordinary-push CI,540;545;548;628
 542,Verify test logs and current destination tip before integration,104;540;548
-543,Certify on-demand CI workflow end to end,85;540;541;542;545;548;629
+543,Certify on-demand CI workflow end to end,540;541;542;545;548;629
 545,Implement unified rwf test stages and results CLI (local and remote),540;548
 548,Authenticate testing-log evidence for local and external pre-merge validation,68
 577,Add six-state ticket lifecycle and graph --current indicators with synchronized CSV state,583
