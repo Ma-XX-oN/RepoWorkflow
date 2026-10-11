@@ -1,0 +1,128 @@
+import unittest
+
+from repo_workflow.github_exact_check import (
+  CONTEXT, PublishError, VerifiedDecision, publish,
+)
+
+SHA = "a" * 40
+BASE = "b" * 40
+
+
+class Provider:
+  def __init__(self, *, changed=False, denied=False, forged=False, replay=False, wrong_issuer=False):
+    self.posts = []
+    self.changed = changed
+    self.denied = denied
+    self.forged = forged
+    self.replay = replay
+    self.wrong_issuer = wrong_issuer
+    self.reads = 0
+
+  def __call__(self, path, payload=None):
+    if path.startswith("/branches/"):
+      self.reads += 1
+      return {"commit": {"sha": "c" * 40 if self.changed and
+                         self.reads > 1 else BASE}}
+    if path == "/git/refs":
+      self.locked = True
+      return {"ref": payload["ref"], "object": {"sha": SHA}}
+    if path == "/git/ref/heads/rwf-exact-check-lock/" + SHA:
+      return {"ref": "refs/heads/rwf-exact-check-lock/" + SHA,
+              "object": {"sha": SHA}}
+    if path == "/statuses/" + SHA:
+      self.posts.append(payload)
+      if self.denied:
+        raise OSError("denied")
+      return {"id": 21,
+              "context": "forged-context" if self.forged else CONTEXT,
+              "state": "success",
+              "creator": {"login": "impostor" if self.wrong_issuer else "runner"}}
+    if path == "/commits/" + SHA + "/statuses":
+      if not self.posts:
+        return ([{"context": CONTEXT, "description":
+                  "verified authenticated-run-123"}] if self.replay else [])
+      return [{"id": 21, "context": CONTEXT, "state": "success",
+               "creator": {"login": "runner"}}]
+    raise AssertionError(path)
+
+
+def approved(_, sha, base):
+  return VerifiedDecision(sha, base, "authenticated-run-123", "runner", True)
+
+
+class ExactCheckTests(unittest.TestCase):
+  def call(self, provider, verifier=approved, base=BASE):
+    return publish("user/disposable", SHA, base, "main", "token",
+                   evidence={"untrusted": True}, verifier=verifier,
+                   provider=provider)
+
+  def test_positive_readback(self):
+    provider = Provider()
+    self.assertEqual(self.call(provider)["status_id"], 21)
+    self.assertEqual(provider.posts[0]["context"], CONTEXT)
+
+  def test_missing_evidence(self):
+    p = Provider()
+    with self.assertRaises(PublishError):
+      self.call(p, lambda *_: None)
+    self.assertEqual(p.posts, [])
+
+  def test_forged_verdict(self):
+    p = Provider()
+    with self.assertRaises(PublishError):
+      self.call(p, lambda *_: {"allowed": True})
+    self.assertEqual(p.posts, [])
+
+  def test_incomplete(self):
+    p = Provider()
+    with self.assertRaises(PublishError):
+      self.call(p, lambda _, sha, base:
+                VerifiedDecision(sha, base, "id", "runner", False))
+    self.assertEqual(p.posts, [])
+
+  def test_stale_base(self):
+    p = Provider()
+    with self.assertRaises(PublishError):
+      self.call(p, base="c" * 40)
+    self.assertEqual(p.posts, [])
+
+  def test_moving_base(self):
+    p = Provider(changed=True)
+    with self.assertRaises(PublishError):
+      self.call(p)
+    self.assertEqual(p.posts, [])
+
+  def test_denied_provider(self):
+    with self.assertRaises(PublishError):
+      self.call(Provider(denied=True))
+
+  def test_forged_provider(self):
+    with self.assertRaises(PublishError):
+      self.call(Provider(forged=True))
+
+  def test_evidence_replay(self):
+    p = Provider(replay=True)
+    with self.assertRaises(PublishError):
+      self.call(p)
+    self.assertEqual(p.posts, [])
+
+  def test_wrong_publisher_identity(self):
+    with self.assertRaises(PublishError):
+      self.call(Provider(wrong_issuer=True))
+
+  def test_repository_dot_segments_rejected(self):
+    for name in ("../disposable", "user/..", "./disposable"):
+      with self.subTest(name=name), self.assertRaises(PublishError):
+        publish(name, SHA, BASE, "main", "token",
+                evidence={}, verifier=approved, provider=Provider())
+
+  def test_invalid_sha(self):
+    p = Provider()
+    with self.assertRaises(PublishError):
+      publish("user/disposable", "x" * 40, BASE, "main", "token",
+              evidence={}, verifier=approved, provider=p)
+    self.assertEqual(p.posts, [])
+
+
+if __name__ == "__main__":
+  unittest.main()
