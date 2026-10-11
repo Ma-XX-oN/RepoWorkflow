@@ -129,13 +129,7 @@ class GitHubStableTagProvider:
   ) -> None:
     if _STABLE_REF.fullmatch(ref) is None:
       raise PublicationRefused("only stable tags permitted")
-    repository_info = self._request("GET", self._repo(repository))
-    permissions = repository_info.get("permissions")
-    if isinstance(permissions, dict) and permissions.get("push") is False:
-      raise PublicationRefused("remote principal lacks write permission")
-    # Installation access tokens do not always expose permissions here.
-    # The server-side POST enforces contents:write independently.
-    self._request(
+    # GitHub App permissions are enforced by the atomic POST endpoint.\n    # Repository metadata is not the authority for an installation token.\n    self._request(
       "POST", self._repo(repository) + "/git/refs",
       {"ref": ref, "sha": sha},
     )
