@@ -19,7 +19,7 @@ class Provider:
   def __call__(self, path, payload=None):
     if path == "/branches/main":
       self.base_reads += 1
-      sha = ("c" * 40 if self.changed_after and self.base_reads > 2
+      sha = ("c" * 40 if self.changed_after and self.base_reads > 3
              else BASE)
       return {"commit": {"sha": sha}}
     if path == "/commits/" + SHA + "/statuses":
