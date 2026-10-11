@@ -15,6 +15,10 @@
       "issue-543-temp-stage-probe": {
         "type": "regression",
         "name": "tests.test_issue543_marker_integrity"
+      },
+      "issue-543-temp-changed-input": {
+        "type": "regression",
+        "name": "tests.test_issue543_hosted_lineage"
       }
     }
   ],
