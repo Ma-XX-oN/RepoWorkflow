@@ -31,7 +31,12 @@ against an identified candidate and verified from persistent/provider evidence.
 
 ## 1. Transition oracle
 
-### Lifecycle at a glance
+### State-transition diagram (same T01–T08 IDs as the table)
+
+The diagram and transition table form one contract: every labelled arrow
+corresponds to exactly one row below. The diagram shows allowed state
+changes; required evidence and forbidden requests are specified in the table
+and the rules following it.
 
 ```mermaid
 stateDiagram-v2
@@ -43,18 +48,18 @@ stateDiagram-v2
     state "♥ completed" as C
     state "✕ aborted" as AB
     [*] --> NS
-    NS --> A: start
-    A --> R: submit-review
-    R --> AC: accept
-    R --> A: reject / reopen
-    AC --> A: reject / reopen
-    AC --> C: complete
-    A --> AB: abort
-    AB --> A: re-enter
+    NS --> A: T01 start
+    A --> R: T02 submit-review
+    R --> AC: T03 accept
+    R --> A: T04 reject / reopen
+    AC --> A: T05 reject / reopen
+    AC --> C: T08 complete
+    A --> AB: T06 abort
+    AB --> A: T07 re-enter
     C --> [*]
 ```
 
-### All permitted state-changing transitions
+### Transition table (T01–T08)
 
 | ID | Current state | Request | Next state | Required evidence |
 | --- | --- | --- | --- | --- |
