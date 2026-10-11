@@ -42,16 +42,43 @@ monochrome-compatible presentation, tested on supported platforms.
 
 ## 3. Transitions
 
-| From | Event | To |
-| --- | --- | --- |
-| `not_started` | `start` | `active` |
-| `active` | `submit-review` | `in_review` |
-| `in_review` | `accept` | `accepted` |
-| `in_review` | `reject/reopen` | `active` |
-| `accepted` | `reject/reopen` | `active` |
-| `active` | `abort` | `aborted` |
-| `aborted` | `re-enter` | `active` |
-| `accepted` | `complete` | `completed` |
+The Mermaid diagram and the transition table below specify the same eight
+legal state changes. Labels T01–T08 link to the independent acceptance
+matrix. The initial and terminal markers describe presentation, not extra
+public transition operations.
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    state "○ not_started" as NS
+    state "● active" as A
+    state "◎ in_review" as R
+    state "✓ accepted" as AC
+    state "♥ completed" as C
+    state "✕ aborted" as AB
+
+    [*] --> NS
+    NS --> A: T01 start
+    A --> R: T02 submit-review
+    R --> AC: T03 accept
+    R --> A: T04 reject/reopen
+    AC --> A: T05 reject/reopen
+    A --> AB: T06 abort
+    AB --> A: T07 re-enter
+    AC --> C: T08 complete
+    C --> [*]
+```
+
+| ID | From | Event | To |
+| --- | --- | --- | --- |
+| T01  `not_started` | `start` | `active` |
+| T02  `active` | `submit-review` | `in_review` |
+| T03  `in_review` | `accept` | `accepted` |
+| T04  `in_review` | `reject/reopen` | `active` |
+| T05  `accepted` | `reject/reopen` | `active` |
+| T06  `active` | `abort` | `aborted` |
+| T07  `aborted` | `re-enter` | `active` |
+| T08  `accepted` | `complete` | `completed` |
 
 Only these transitions are legal. A validation failure during active work
 records validation evidence without making a fictitious same-state lifecycle
