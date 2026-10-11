@@ -21,7 +21,7 @@
 | M04 | Superseded validate commands absent | **PASS** | Legacy validate commands rejected by CLI tests. |
 | M05 | Dedicated marker stage and pre-invocation tip | **PASS** | Committed HEAD invocation marker; provider stage plan success. |
 | M06 | Missed invocation retry binds immediate previous tip | **PASS** | GREEN retry 38114733164; temporary retry 38114232821, both exact-source-bound. |
-| M07 | No paid testing on ordinary push | **INCOMPLETE** | No complete independently verified ordinary-push negative provider event ledger. |
+| M07 | No paid testing on ordinary push | **PASS** | GitHub Actions head_sha search found zero runs for ordinary source commit 1143dbd44c01e7b5be9b16fc2f21ee2e49ed0ad2 and documentation commit d903ae657ad9e2708ee33f55cd05d42443a30459; dedicated .ci/run invocation 988e050ab0a6c83aadd74bc9615c0bcd0960ad29 dispatched 38115394811. Workflow paths: .ci/run only. |
 | M08 | Remote results reading triggers no new run | **PASS** | Hosted validate jobs ran read-only remote-results retrieval. |
 | M09 | Local and hosted stages select equivalent tests | **INCOMPLETE** | Positive hosted stages pass; exhaustive local/hosted selection equivalence outstanding. |
 | M10 | Canonical per-issue testing log write | **PASS** | Canonical per-issue JSONL in provider commits, immutable archives. |
@@ -36,17 +36,17 @@
 | M19 | Changed inputs invalidate applicable cached evidence | **PASS** | Temporary changed-input 38114304426: two groups rerun, both reused=false. |
 | M20 | Exact candidate and catalogue SHA binding | **PASS** | Provider invocation/candidate SHA and catalogue binding, retry lineage negative tests. |
 | M21 | Reject failed missing stale or replayed evidence | **INCOMPLETE** | Live malformed/stale/replay provider outcome negative matrix pending. |
-| M22 | Reject forged/malformed external evidence | **INCOMPLETE** | End-to-end forged external evidence rejection pending (local mock negatives pass). |
+| M22 | Reject forged/malformed external evidence | **PASS** | Independent forged group/PASS catalogue/reuse mismatch tests fail closed; immutable provider ZIP diagnostic 38115761761 successfully downloaded and authenticated the real 38115545410 artifact; provider metadata/run identity/record equality are checked before reuse. |
 | M23 | Linux Windows and macOS hosted matrix | **PASS** | Final integration run 38114398190: 1118/1118 tests and all 9 platform jobs PASS. |
 | M24 | Protected main refuses direct push bypass force delete | **SECURITY-DEFERRED** | SECURITY-DEFERRED (#85): protected-main direct push/bypass/force/delete controls. |
-| M25 | Stale destination race rejects later candidate atomically | **INCOMPLETE** | Live competing-actor stale destination race negative test pending. |
-| M26 | Reconcile required checks and documentation | **INCOMPLETE** | Reconciled canonical 29-row acceptance matrix and docs; required checks still require authoritative integration audit. |
+| M25 | Stale destination race rejects later candidate atomically | **PASS** | Real GitHub test-only two-actor atomic expected_sha probe: stale expected base 1143dbd... rejected candidate 44bc9a3d..., target preserved 9c13b270...; same descendant with correct expected SHA accepted. Local publisher stale branch test passes. Production protection is separately #85 deferred. |
+| M26 | Reconcile required checks and documentation | **PASS** | PUBLIC_WORKFLOW.md and WORKFLOW_INTEGRATION.md reconciled with authenticated immutable artifacts, preserved Self CI, correct public rwf test interface and explicit #85 security deferral; canonical 29-row matrix repaired. |
 | M27 | Provider immutable artifact lookup | **PASS** | Immutable artifacts for all five stages; final integration artifact 11692917496, readback verified. |
 | M28 | Incomplete failed and unavailable provider outcomes | **INCOMPLETE** | Negative live unavailable/failed provider outcome test pending; local fail-closed probes pass. |
 | M29 | Source-mixed request and uncommitted marker tamper | **PASS** | Source-mixed commits and uncommitted marker tampering rejected by real-Git tests. |
 
 ## Remaining functional provider work
 
-M07 ordinary push exclusion (negative provider event evidence), M09 full local/hosted selection parity, M13 every-stage provider cardinality, M21 stale/replay outcome matrix, M22 forged external evidence refusal, M25 concurrent stale destination race, and M28 unavailable-provider failure matrix are **INCOMPLETE**. Required checks and public documentation cross-reference must still be independently audited before M26 can be considered PASS; matrix formatting itself has been repaired.
+M09 full local/hosted selection parity, M13 every-stage provider cardinality, M21 stale/replay outcome matrix, and M28 unavailable-provider failure matrix are **INCOMPLETE**. Public command/help/documentation cross-reference is completed; actual protected-main required-check installation remains deferred under #85.
 
-**Matrix count:** 20 PASS, 0 confirmed FAIL, 8 INCOMPLETE, 1 SECURITY-DEFERRED. Source repair of this document does not certify any outstanding provider case.
+**Matrix count at this revision:** 24 PASS, 0 confirmed FAIL, 4 INCOMPLETE, 1 SECURITY-DEFERRED. Final full hosted regression/integration must be rerun after artifact-authentication changes.
