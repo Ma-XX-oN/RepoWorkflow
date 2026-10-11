@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-temp-stage-probe": {
+        "type": "regression",
+        "name": "tests.test_issue543_marker_integrity"
+      }
+    }
+  ],
   "aliases": {}
 }
