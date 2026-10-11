@@ -58,7 +58,13 @@ def _git(root: Path, *args: str) -> str:
 
 def verify_invocation(root: Path) -> CiInvocation:
   """Require HEAD to be a dedicated request commit on its direct parent."""
-  requested = parse_invocation(_git(root, "show", "HEAD:.ci/run"))
+  try:
+    raw = _git(root, "show", "HEAD:.ci/run")
+  except CiInvocationError as error:
+    if "does not exist in" in str(error):
+      raise CiInvocationError("missing committed .ci/run invocation") from error
+    raise
+  requested = parse_invocation(raw)
 
   parents = _git(root, "rev-list", "--parents", "-n", "1", "HEAD").split()
   if len(parents) != 2:
