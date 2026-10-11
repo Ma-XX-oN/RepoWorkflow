@@ -127,6 +127,14 @@ jobs:
           "$GITHUB_REF_NAME"
           "$GITHUB_SHA"
           "$GITHUB_RUN_ID"
+      - name: Publish immutable provider result artifact
+        if: ${{ always() && steps.audit.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-result-${{ github.run_id }}
+          path: .repoworkflow/validation/testResults-*.jsonl
+          if-no-files-found: error
+          retention-days: 30
       - name: Verify public remote results retrieval without a new CI request
         if: ${{ success() }}
         shell: bash
