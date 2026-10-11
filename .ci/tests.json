@@ -235,6 +235,14 @@
       "issue-543-authenticated-artifact-negative": {
         "type": "regression",
         "name": "tests.test_issue543_artifact_auth"
+      },
+      "issue-543-final-expected-red": {
+        "type": "regression",
+        "name": "tests.issue543_final_red_fixture",
+        "expected-red": {
+          "exit-code": 1,
+          "output-contains": "ISSUE543_FINAL_EXPECTED_RED"
+        }
       }
     }
   ],
