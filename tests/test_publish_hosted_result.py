@@ -166,7 +166,7 @@ class PublishHostedResultTests(unittest.TestCase):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     with patch.dict("os.environ", {"GITHUB_REPOSITORY": "Ma-XX-oN/RepoWorkflow"}):
-      with patch("repo_workflow.github_evidence.verify_hosted_stage",
+      with patch("repo_workflow.github_artifact.verify_hosted_record",
                  return_value=True) as checked:
         module.publish(
           self.root, branch="issue-543-probe", invocation=self.invocation,
