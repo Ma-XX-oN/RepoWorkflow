@@ -27,8 +27,9 @@ class Provider:
       self.posts.append(payload)
       if self.denied:
         raise OSError("denied")
-      return {"id": 21, "sha": BASE if self.forged else SHA,
-              "context": CONTEXT, "state": "success",
+      return {"id": 21,
+              "context": "forged-context" if self.forged else CONTEXT,
+              "state": "success",
               "creator": {"login": "impostor" if self.wrong_issuer else "runner"}}
     if path == "/commits/" + SHA + "/statuses":
       if not self.posts:
