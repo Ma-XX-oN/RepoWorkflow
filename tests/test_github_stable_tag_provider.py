@@ -107,6 +107,12 @@ class GitHubProviderTests(unittest.TestCase):
       method == "POST" for method, _, _ in self.api.calls
     ))
 
+  def test_reject_ambiguous_repository_paths(self):
+    for name in (".", "..", "owner/..", "../repo"):
+      with self.subTest(name=name):
+        with self.assertRaises(PublicationRefused):
+          self.provider.main_tip(name)
+
   def test_annotated_tag_peeling(self):
     self.api.tags["v1.2.3"] = {"type": "tag", "sha": "c" * 40}
     self.assertEqual(
