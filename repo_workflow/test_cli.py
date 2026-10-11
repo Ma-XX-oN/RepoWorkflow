@@ -198,6 +198,7 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
 
 
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
+  # The append-only evidence log does not count as a changed test input.
   status = subprocess.run(
     ["git", "-C", str(root), "status", "--porcelain", "-z",
      "--untracked-files=all"],
@@ -207,10 +208,22 @@ def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
     raise TestCommandError("cannot inspect working-tree changes")
   relative_evidence = evidence_path.relative_to(root).as_posix()
   entries = status.stdout.decode("utf-8", errors="surrogateescape").split("\0")
-  return sorted({
-    entry[3:] for entry in entries
-    if entry and entry[3:] != relative_evidence
-  })
+  changed: set[str] = set()
+  index = 0
+  while index < len(entries):
+    entry = entries[index]
+    index += 1
+    if not entry:
+      continue
+    if len(entry) < 4 or entry[2] != " ":
+      raise TestCommandError("malformed working-tree status")
+    changed.add(entry[3:])
+    if "R" in entry[:2] or "C" in entry[:2]:
+      if index >= len(entries) or not entries[index]:
+        raise TestCommandError("incomplete working-tree rename record")
+      changed.add(entries[index])
+      index += 1
+  return sorted(changed - {relative_evidence})
 
 
 def _run_group_set(
@@ -274,6 +287,7 @@ def _run_group_set(
           print("Reusing verified hosted PASS evidence for " + group)
         return 0
   failures = []
+  launch_missing = False
   evidence = []
   for group in groups:
     if group in reusable:
@@ -283,18 +297,26 @@ def _run_group_set(
       })
       continue
     command = group_command(root, group, catalogue_path)
-    completed = subprocess.run(
-      command, cwd=root, capture_output=True, text=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-    if completed.stdout:
+    try:
+      completed = subprocess.run(
+        command, cwd=root, capture_output=True, text=True, check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+      )
+    except (OSError, UnicodeError):
+      completed = None
+      launch_missing = True
+    if completed is not None and completed.stdout:
       print(completed.stdout, end="")
-    if completed.stderr:
+    if completed is not None and completed.stderr:
       print(completed.stderr, end="", file=sys.stderr)
     evidence.append({
-      "group": group, "exit_code": completed.returncode, "reused": False,
+      "group": group,
+      "exit_code": completed.returncode if completed is not None else None,
+      "reused": False,
     })
-    if completed.returncode:
+    if completed is None or completed.returncode < 0:
+      launch_missing = True
+    if completed is None or completed.returncode:
       failures.append(group)
   uncommitted = sorted(set(uncommitted_before) | set(
     _uncommitted_inputs(root, path)
@@ -306,11 +328,13 @@ def _run_group_set(
     "branch": current_branch(root),
     "uncommittedChanges": uncommitted,
     "headChangedDuringTest": head_changed,
-    "reusable": not failures and not uncommitted and not head_changed,
+    "reusable": not failures and not launch_missing
+    and not uncommitted and not head_changed,
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
-    "result": "failed" if failures else "succeeded",
+    "result": "incomplete" if launch_missing else
+              "failed" if failures else "succeeded",
     "runner": "local",
     "platform": {"os": platform.system(), "architecture": platform.machine(),
                  "runtime": platform.python_version()},
@@ -318,7 +342,7 @@ def _run_group_set(
   }
   with path.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
-  return 1 if failures else 0
+  return 2 if launch_missing else 1 if failures else 0
 
 
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
