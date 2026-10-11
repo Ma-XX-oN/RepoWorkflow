@@ -857,3 +857,45 @@ production-enforced; and non-blocking parallel work across phases
 where true prerequisites permit it. The parent ticket's child references
 are a preliminary roadmap inventory; no new status renderer or
 automatic phase rollup has been implemented or certified.
+
+## 2026-10-11 multidimensional roadmap / recursive bootstrap design
+
+Authoritative preliminary full specification recorded on GitHub roadmap #648,
+under "Multi-dimensional roadmap architecture and incremental placement".
+Relevant gate tickets are #649 (Phase 0 contract), #650 (Phase 1 minimal
+read-only display), #651 (Phase 2 evidence) and #656 (Phase 7 consumer pilot).
+
+The discovered model is multi-dimensional and hierarchical, **not** a single
+waterfall-status flag:
+
+1. Organization: roadmap -> phase -> acceptance gate -> reference to tickets.
+2. Work DAG: actual prerequisites and runnable ticket/lane/worker state,
+   independent of organizational containment or chronological phase order.
+3. Acceptance dimensions tracked separately for each phase:
+   **specification / implementation / verification / integration / deployment**.
+4. Evidence: exact source/artifact identity, CI provider runs, platform
+   coverage, timestamp/freshness and meaningful refusal reasons.
+5. History: phase decisions, changes, RC/source evolution and reversions.
+6. Views: roadmap hierarchy vs ticket dependency graph vs gate evidence vs
+   build/version provenance, each derived from the correct authority.
+
+One ticket can satisfy several phase gates; the same evidence must not be
+duplicated as independent authority. Passing a functional branch test does
+not imply main integration or deployment. Missing/stale proof is INCOMPLETE.
+Security deferment is explicit, not a disguised PASS. Roadmap reads do not
+start paid hosted jobs, mutate refs or invent dependencies.
+
+**Accepted placement:** Phase 0 freezes only minimal model, authority map,
+and evidence contracts; Phase 1 implements a small read-only status/show/gaps
+vertical slice concurrently with ticket lifecycle; Phase 2 adds authenticated
+evidence evaluation/freshness; phases 3-6 extend this same model; phase 7
+certifies consumers and adds sophisticated authoring/planning. Manual
+issue descriptions bootstrap the system without requiring the tool to have
+already implemented its own certification, eliminating circular dependency.
+Use agile micro-tickets within each waterfall phase, honoring real dependency
+edges rather than artificially serializing all phases.
+
+Open choices deliberately preserved: data-schema version, status expression
+grammar, snapshot vs `--current`, evidence retention and user-facing
+command compatibility. The issue and audit are specifications, not implemented
+behaviour; they create no security activation, merges or release tags.
