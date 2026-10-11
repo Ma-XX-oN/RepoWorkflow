@@ -1,13 +1,9 @@
+import unittest
 from dataclasses import replace
 
-import pytest
-
 from repo_workflow.remote_stable_publisher import (
-  PublicationRefused,
-  PublicationRequest,
-  publish_stable_tag,
+  PublicationRefused, PublicationRequest, publish_stable_tag,
 )
-
 
 SHA = "a" * 40
 BASE = "b" * 40
@@ -40,7 +36,7 @@ class Provider:
       raise RuntimeError("already exists")
     self.tags[ref] = sha
     if self.fail_after_create:
-      raise TimeoutError("delayed response")
+      raise TimeoutError("response lost")
 
 
 class Authority:
@@ -55,96 +51,88 @@ class Authority:
     return self.accepted
 
 
-@pytest.fixture
-def context():
-  return (
-    PublicationRequest("owner/repo", "1.2.3", SHA, SHA, BASE, "request-1"),
-    Provider(),
-    Authority(),
-  )
+class PublisherTests(unittest.TestCase):
+  def setUp(self):
+    self.request = PublicationRequest(
+      "owner/repo", "1.2.3", SHA, SHA, BASE, "request-1"
+    )
+    self.provider = Provider()
+    self.authority = Authority()
+
+  def publish(self, request=None):
+    return publish_stable_tag(
+      request or self.request, self.provider, self.authority
+    )
+
+  def test_success_idempotent(self):
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+    self.assertEqual(self.provider.creates, 1)
+
+  def test_delayed_response(self):
+    self.provider.fail_after_create = True
+    self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+
+  def test_invalid_requests(self):
+    cases = [
+      ("version", "1.2.3-CI-FAIL"),
+      ("version", "PRELIM-1.2.3"),
+      ("version", "v1.2.3"),
+      ("landed_sha", "bad"),
+      ("candidate_sha", BASE),
+      ("expected_base_sha", "bad"),
+      ("repository", ""),
+      ("request_id", ""),
+    ]
+    for field, value in cases:
+      with self.subTest(field=field, value=value):
+        with self.assertRaises(PublicationRefused):
+          self.publish(replace(self.request, **{field: value}))
+        self.assertEqual(self.provider.creates, 0)
+
+  def test_authorization_and_freshness_fail_closed(self):
+    cases = ["identity", "authority", "certification", "stale",
+             "base", "conflict"]
+    for failure in cases:
+      with self.subTest(failure=failure):
+        self.setUp()
+        if failure == "identity":
+          self.provider.identity = False
+        elif failure == "authority":
+          self.authority.allowed = False
+        elif failure == "certification":
+          self.authority.accepted = False
+        elif failure == "stale":
+          self.provider.tip = BASE
+        elif failure == "base":
+          self.provider.base = SHA
+        elif failure == "conflict":
+          self.provider.tags["refs/tags/v1.2.3"] = BASE
+        with self.assertRaises(PublicationRefused):
+          self.publish()
+        self.assertEqual(self.provider.creates, 0)
+
+  def test_failed_create(self):
+    def fail(repository, ref, sha):
+      raise ConnectionError("unavailable")
+    self.provider.create_tag_if_absent = fail
+    with self.assertRaises(PublicationRefused):
+      self.publish()
+
+  def test_competing_creators(self):
+    for value in (SHA, BASE):
+      with self.subTest(value=value):
+        self.setUp()
+        def race(repository, ref, sha):
+          self.provider.tags[ref] = value
+          raise RuntimeError("already created")
+        self.provider.create_tag_if_absent = race
+        if value == SHA:
+          self.assertEqual(self.publish(), "refs/tags/v1.2.3")
+        else:
+          with self.assertRaises(PublicationRefused):
+            self.publish()
 
 
-def test_success_and_identical_replay(context):
-  request, provider, authority = context
-  assert publish_stable_tag(request, provider, authority) == "refs/tags/v1.2.3"
-  assert publish_stable_tag(request, provider, authority) == "refs/tags/v1.2.3"
-  assert provider.creates == 1
-
-
-def test_delayed_response_reconciles(context):
-  request, provider, authority = context
-  provider.fail_after_create = True
-  assert publish_stable_tag(request, provider, authority) == "refs/tags/v1.2.3"
-
-
-@pytest.mark.parametrize("field,value", [
-  ("version", "1.2.3-CI-FAIL"),
-  ("version", "PRELIM-1.2.3"),
-  ("version", "v1.2.3"),
-  ("landed_sha", "bad"),
-  ("candidate_sha", BASE),
-  ("expected_base_sha", "bad"),
-  ("repository", ""),
-  ("request_id", ""),
-])
-def test_invalid_request_refused(context, field, value):
-  request, provider, authority = context
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(replace(request, **{field: value}), provider, authority)
-  assert provider.creates == 0
-
-
-@pytest.mark.parametrize("failure", [
-  "identity", "authority", "certification", "stale", "base", "conflict"
-])
-def test_refusals_never_mutate(context, failure):
-  request, provider, authority = context
-  if failure == "identity":
-    provider.identity = False
-  elif failure == "authority":
-    authority.allowed = False
-  elif failure == "certification":
-    authority.accepted = False
-  elif failure == "stale":
-    provider.tip = BASE
-  elif failure == "base":
-    provider.base = SHA
-  elif failure == "conflict":
-    provider.tags["refs/tags/v1.2.3"] = BASE
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(request, provider, authority)
-  assert provider.creates == 0
-
-
-def test_failed_create_does_not_claim_success(context):
-  request, provider, authority = context
-
-  def fail(repository, ref, sha):
-    raise ConnectionError("unavailable")
-
-  provider.create_tag_if_absent = fail
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(request, provider, authority)
-
-
-def test_competing_creator_identical_sha(context):
-  request, provider, authority = context
-
-  def race(repository, ref, sha):
-    provider.tags[ref] = sha
-    raise RuntimeError("already created")
-
-  provider.create_tag_if_absent = race
-  assert publish_stable_tag(request, provider, authority) == "refs/tags/v1.2.3"
-
-
-def test_competing_creator_conflicting_sha(context):
-  request, provider, authority = context
-
-  def race(repository, ref, sha):
-    provider.tags[ref] = BASE
-    raise RuntimeError("already created")
-
-  provider.create_tag_if_absent = race
-  with pytest.raises(PublicationRefused):
-    publish_stable_tag(request, provider, authority)
+if __name__ == "__main__":
+  unittest.main()
