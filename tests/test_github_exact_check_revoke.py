@@ -31,6 +31,11 @@ class Provider:
         state = "failure"
       return [{"id": 20 + len(self.posts), "context": CONTEXT,
                "state": state, "creator": {"login": "runner"}}]
+    if path == "/git/refs":
+      return {"ref": payload["ref"], "object": {"sha": SHA}}
+    if path == "/git/ref/heads/rwf-exact-check-lock/" + SHA:
+      return {"ref": "refs/heads/rwf-exact-check-lock/" + SHA,
+              "object": {"sha": SHA}}
     if path == "/statuses/" + SHA:
       self.posts.append(payload)
       return {"id": 20 + len(self.posts), "context": CONTEXT,
