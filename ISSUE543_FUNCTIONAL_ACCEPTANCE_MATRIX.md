@@ -1,6 +1,67 @@
 # Issue #543 — functional acceptance ledger (V3)
 
-## Exact revision and evidence boundary
+## Authoritative latest certified source — integration disposition (2026-10-11)
+
+**Certified functional source (exact immutable material inputs):**
+`2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28`.
+**Certification verdict for that source: 28 FUNCTIONAL PASS, 0 FAIL,
+0 FUNCTIONAL INCOMPLETE, 1 SECURITY-DEFERRED (#85 / M24).**
+This is *not* a certification of changes introduced by any later integration,
+rebase, merge, retargeting, or upstream source reconciliation.
+
+**Current PR #567 metadata when recorded:**
+- PR base: `issue-543-on-demand-ci-certification` at
+  `e34853b2394047c2a05e6d6dd2e3638ff3d91a27`.
+- PR head: `issue-543-unified-hosted-certification-probe` at
+  `a6806d7d68c4d5191f49eff51de6bb4146c60db7`.
+  This head is the *evidence-publication commit*, **not** the tested source.
+- GitHub mergeability `false`, `mergeable_state=dirty`, DRAFT.
+  The branch histories diverged at
+  `e4f62dd73c87e33166c84540e00a77df0dfa16ce`;
+  PR head is 212 commits ahead and 189 behind its **PR base**, not main.
+  All 28 material source-conflict overlaps and missing upstream contracts
+  require explicit integration reconciliation before any integration verdict.
+- No merge, force/rebase, production activation, protection mutation, or tag
+  is authorised. #85 remains **SECURITY-DEFERRED**; #86 retains protected
+  production-release certification.
+
+### Exact source-to-provider evidence ledger
+
+| Stage / scope | Tested source SHA | Invocation SHA | GitHub Actions run | Immutable artifact ID | Evidence-publication commit | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| Full regression | `2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28` | `e75161b3b8492d8643bd499aedf4ee73fa20ff74` | 38116994497 (1,134/1,134) | 11694216394 | `86845af8604f0b119ba1ed06240b59e4453dfc6d` | PASS |
+| Full integration / nine OS probes | `2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28` | `6eed56a250a27017742acad088bf4ddec3923207` | 38116985364 (1,134/1,134; 9/9 platform) | 11694476097 | `a6806d7d68c4d5191f49eff51de6bb4146c60db7` | PASS |
+| GREEN authenticated replay | `2c4dacb52f94f0f8c3decc9ad2b768953a4e074d` | `1fd08d487405517225aedc556b84a962e0b0c857` | 38115919788 (`reused=true`) | 11692429962 | `fc3f3caca0a45765d46be68850613072ea6caadf` | PASS at predecessor implementation; material binaries matched final source |
+| Independent 38-test acceptance | `7dbb05b2601125356b3f4d84622f8fe3b7d59c1e` (test-only descendent of `2c4dac...`) | `0ccad6ccbfc8fdb822a07404e8689dfa77d80a9b` | 38116877362 (38/38, no skip) | 11694225560 | `0a3ce79d529b815ed619096b51d66c43794b802e` | PASS for functional source |
+| Declared RED | `e720c95f36308d47c83568dce3e3b41788e76797` (RED fixture descendent of `2c4dac...`) | `ad8ad8d50c8887646a6296ac99566c9a3e909dc3` | 38116126460 (exit 1 correctly RED) | 11692879885 | `76704ab9899d6d26d42411b6e3e011f05a946779` | PASS for fixture |
+| Temporary / original #629 harness | `ca2ed45abf602a117cc4a89269cadfc9b6205a30` (test-only descendent of `2c4dac...`) | `f9301d715a1b0e112a29c6dc1f94b18b05677313` | 38116026636 (55 PASS, 14 SKIP) | 11693585288 | `30d8ec4a8adf05bd032fc1e169a79886bb7ea186` | Executed; 14 skipped checks remain SKIPPED, not provider PASS |
+
+All six artifact IDs were checked as unexpired provider results;
+their per-run identity, SHA and publication links are separate fields.
+The immutable final regression digest is
+`sha256:d38577762b51a22b2ae6401d0c56ba5521aa1740b15083318197ed03bd2eb2a8`;
+the integration digest is
+`sha256:14eb9a9e29acc2bd5dbc53e001edab6a37eb0e3492bfb20a7e1184bc385714dc`.
+The independent acceptance digest is
+`sha256:ecdd505673690bd9f8516d61e9a9535881fc1f244967d84c1273865e948cc9a1`.
+
+**Integration disposition: BLOCKED — content and ancestry reconciliation.**
+The certified functional source is GREEN, but the PR is not a mergeable
+integration candidate. Its target branch has newer contracts from #552/#547
+that are absent or differ on the certified branch. Reconcile and retest the
+resulting exact integrated material source before describing it as GREEN.
+Security #85 remains DEFERRED and is not a functional prerequisite.
+
+---
+
+
+## Historical certification snapshot (superseded for final-source identification)
+
+The evidence below records earlier *actual* certified source and provider
+runs. It remains historically valid for those immutable revisions, but the
+above ledger is authoritative for the **latest certified** source.
+
+## Earlier exact revision and evidence boundary
 
 - Repository: `Ma-XX-oN/RepoWorkflow`; current integration PR [#567](https://github.com/Ma-XX-oN/RepoWorkflow/pull/567).
 - Original lane audit base: `dcdaea2db881b4075cbd87ab9d225d5fe8ae4bf2`.
