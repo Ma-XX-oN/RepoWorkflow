@@ -9,6 +9,50 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-629-certification-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue629_certification_matrix"
+      },
+      "issue-543-629-cli-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cli_acceptance"
+      },
+      "issue-543-629-provider-probe": {
+        "type": "regression",
+        "name": "tests.test_issue629_provider_probe"
+      },
+      "issue-543-629-selection-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_selection_acceptance"
+      },
+      "issue-543-629-invocation-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_invocation_acceptance"
+      },
+      "issue-543-629-cache-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cache_acceptance"
+      },
+      "issue-543-629-stage-cardinality": {
+        "type": "regression",
+        "name": "tests.test_issue629_stage_cardinality"
+      },
+      "issue-543-629-expected-red": {
+        "type": "regression",
+        "name": "tests.test_issue629_expected_red"
+      },
+      "issue-543-629-red-outcome": {
+        "type": "regression",
+        "name": "tests.test_issue629_red_outcome"
+      },
+      "issue-543-629-pending-provider": {
+        "type": "regression",
+        "name": "tests.test_issue629_pending_provider"
+      }
+    }
+  ],
   "aliases": {}
 }
