@@ -287,3 +287,27 @@ integration of #638, real provider certification, #80/#85/#543 gates.
 Both issue bodies updated explicitly. Canonical dependency edges are unchanged
 by this ownership clarification. These are now acceptance requirements, not
 claims that implementation has been fixed.
+
+## 2026-10-11 functional/security separation
+
+User priority: RepoWorkflow primarily prevents omission and loss of task,
+dependency, evidence, and handoff state. Production GitHub protection is a
+separate security gate, not a prerequisite for functional hosted CI
+certification.
+
+- #85 stays OPEN and DEFERRED, with its V3 claim respected; missing GitHub
+  administration permissions do not imply completion or permission to bypass.
+- #543 direct prerequisites become #540/#541/#542/#545/#548/#629, dropping
+  the #85 edge. Its provider-backed functional acceptance still tests CLI,
+  stage execution, result persistence, provenance, races and recovery. Its
+  security assertions are explicitly DEFERRED and must not be marked PASS.
+- #86 continues to depend on #85, #543 and closed #638 plus #80/#118.
+  Its legacy existing-code fixes can progress independently, but the
+  protected production stable release cannot be certified prematurely.
+- Future opt-in `rwf init repo` may use `repo-info` for capability discovery
+  and provider-specific configuration; no implementation or production
+  activation is implied by this scheduling decision.
+- This graph revision does not merge any PR or release production tags.
+
+Graph CSV validated: 281 unique nodes, 499 edges, no missing endpoints,
+duplicate dependency edges or cycles.
