@@ -131,6 +131,23 @@ class PublisherTests(unittest.TestCase):
           self.publish()
         self.assertEqual(self.provider.creates, 0)
 
+  def test_truthy_nonboolean_decisions_are_rejected(self):
+    for case, value in (
+      ("identity", "ALLOW"), ("authorization", "ALLOW"),
+      ("version", "PASS"),
+    ):
+      with self.subTest(case=case):
+        self.setUp()
+        if case == "identity":
+          self.provider.identity = value
+        elif case == "authorization":
+          self.authority.allowed = value
+        else:
+          self.authority.version_accepted = value
+        with self.assertRaises(PublicationRefused):
+          self.publish()
+        self.assertEqual(self.provider.creates, 0)
+
   def test_authority_denial_preserves_tags(self):
     self.authority.allowed = False
     before = dict(self.provider.tags)
