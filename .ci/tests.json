@@ -82,6 +82,18 @@
         "type": "regression",
         "name": "tests.test_six_state_integration"
       },
+      "issue-638-authorization-matrix": {
+        "type": "regression",
+        "name": "tests.test_remote_publisher_authorization_matrix"
+      },
+      "issue-638-remote-publisher": {
+        "type": "regression",
+        "name": "tests.test_remote_stable_publisher"
+      },
+      "issue-638-github-provider": {
+        "type": "regression",
+        "name": "tests.test_github_stable_tag_provider"
+      },
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
