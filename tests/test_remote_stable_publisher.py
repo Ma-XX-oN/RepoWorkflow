@@ -43,12 +43,16 @@ class Authority:
   def __init__(self):
     self.allowed = True
     self.accepted = True
+    self.version_accepted = True
 
   def authorize(self, request, ref):
     return self.allowed
 
   def certified(self, request, ref):
     return self.accepted
+
+  def version_matches(self, request):
+    return self.version_accepted
 
 
 class PublisherTests(unittest.TestCase):
@@ -96,7 +100,7 @@ class PublisherTests(unittest.TestCase):
 
   def test_authorization_and_freshness_fail_closed(self):
     cases = ["identity", "authority", "certification", "stale",
-             "base", "conflict", "ci-fail"]
+             "base", "conflict", "ci-fail", "version-mismatch"]
     for failure in cases:
       with self.subTest(failure=failure):
         self.setUp()
@@ -112,6 +116,8 @@ class PublisherTests(unittest.TestCase):
           self.provider.base = SHA
         elif failure == "conflict":
           self.provider.tags["refs/tags/v1.2.3"] = BASE
+        elif failure == "version-mismatch":
+          self.authority.version_accepted = False
         elif failure == "ci-fail":
           self.provider.tags["refs/tags/v1.2.3-CI-FAIL"] = SHA
         with self.assertRaises(PublicationRefused):
