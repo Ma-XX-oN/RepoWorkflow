@@ -61,8 +61,8 @@ stateDiagram-v2
     NS --> A: T01 start
     A --> R: T02 submit-review
     R --> AC: T03 accept
-    R --> A: T04 reject/reopen
-    AC --> A: T05 reject/reopen
+    R --> A: T04 reject / reopen
+    AC --> A: T05 reject / reopen
     A --> AB: T06 abort
     AB --> A: T07 re-enter
     AC --> C: T08 complete
