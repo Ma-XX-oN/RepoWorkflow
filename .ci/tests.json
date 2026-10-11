@@ -71,6 +71,82 @@
       "issue-541-hosted-result-evidence": {
         "type": "regression",
         "name": "tests.test_hosted_result"
+      },
+      "issue-543-on-demand-ci-certification": {
+        "type": "regression",
+        "name": "tests.test_on_demand_ci_certification"
+      },
+      "issue-543-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
+      "issue-543-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
+      },
+      "issue-543-provider-refresh-order": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes"
+      },
+      "issue-543-bootstrap-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
+      },
+      "issue-543-first-use-owner": {
+        "type": "regression",
+        "name": "tests.test_first_use_workflows"
+      },
+      "issue-543-source-size": {
+        "type": "regression",
+        "name": "tests.test_source_size"
+      },
+      "issue-543-lane-graph-adapter": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-543-graph-layout-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_layout_semantics"
+      },
+      "issue-543-rendered-graph": {
+        "type": "regression",
+        "name": "tests.test_graph_render"
+      },
+      "issue-543-generated-dag-semantics": {
+        "type": "regression",
+        "name": "tests.test_generated_graph_semantics"
+      },
+      "issue-543-lane-display-reduction": {
+        "type": "regression",
+        "name": "tests.test_lane_display_reduction"
+      },
+      "issue-543-hosted-remote-result-workflow": {
+        "type": "regression",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-543-github-cache-origin": {
+        "type": "regression",
+        "name": "tests.test_github_cache"
+      },
+      "issue-543-shared-hosted-cache": {
+        "type": "regression",
+        "name": "tests.test_shared_hosted_cache"
+      },
+      "issue-543-committed-contract": {
+        "type": "regression",
+        "name": "tests.test_issue543_committed_contract"
+      },
+      "issue-543-marker-integrity": {
+        "type": "regression",
+        "name": "tests.test_issue543_marker_integrity"
+      },
+      "issue-543-provider-retry-lineage": {
+        "type": "regression",
+        "name": "tests.test_issue543_hosted_lineage"
+      },
+      "issue-543-authenticated-artifact-negative": {
+        "type": "regression",
+        "name": "tests.test_issue543_artifact_auth"
       }
     },
     {
