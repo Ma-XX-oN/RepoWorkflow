@@ -400,3 +400,32 @@ historical referents, not live facts.  The local generated
 `AGENT-CMD-PROTOCOL-v2.md` requires explicit installation into ChatGPT
 persistent instructions/Library; repository documentation does not
 automatically install it.
+
+## 2026-10-11 functional build and RC extension, deferred security
+
+Added #641–#646 after auditing #122/#89/#118 (existing repository-owned
+repo-version adapter), #638/#86 (existing stable-tag publisher and finalizer)
+and #543 (test/CI functional certification). No second version planner.
+
+- #641 defines a portable local/hosted artifact-build contract, manifest,
+  exact candidate provenance and specification-first acceptance matrix.
+- #642 implements local adapter-based builds (depends on #641).
+- #643 provides hosted build plus local/remote parity and provider readback
+  (depends on #641/#642), not production security activation.
+- #644 extends #122 semantic repo-version interface to RC versions, naming,
+  collision/refusal, precedence and promotion operations (depends on #118).
+- #645 implements RC creation and controlled promotion eligibility using
+  #644, #643 and existing #638. It does NOT publish stable production tags
+  directly or bypass #86/#85; functional tests may be done first.
+- #646 specifies optional `rwf init repo` security configuration via
+  `repo-info`; no functional dependency edge, and #85 remains DEFERRED.
+  Actual protection remains #85 and stable release authority remains #86.
+
+Dependencies newly recorded in .repoworkflow/tickets.csv on this draft branch.
+Functional build/test/RC contract work is not blocked by an unavailable
+GitHub admin permission. No production security settings are changed.
+The specification should resolve whether rc version spelling is
+`vX.Y.Z-rc.N` under the consumer's repo-version semantics before coding.
+Security remains an overlay on functional workflows: preflight/plan, optional
+explicit activation, readback, provider refusal, and production release gate.
+No merge, production tag or release activation authorized.
