@@ -49,7 +49,8 @@ def validate_result(
   if (
     record.get("headChangedDuringTest") is not False
     or record.get("uncommittedChanges") != []
-    or record.get("reusable") is not True
+    or (record.get("reusable") is not True if kind != "RED"
+        else record.get("reusable") is not False)
   ):
     raise ValueError("hosted PASS does not bind to clean candidate")
   platform = record.get("platform")
@@ -66,10 +67,13 @@ def validate_result(
       isinstance(group, dict)
       and isinstance(group.get("group"), str)
       and type(group.get("exit_code")) is int
-      and group["exit_code"] == 0
+      and (group["exit_code"] > 0 if kind == "RED"
+           else group["exit_code"] == 0)
       for group in groups
     ):
       raise ValueError("hosted group evidence is incomplete")
+  if kind == "RED" and record.get("redStatus") != "RED":
+    raise ValueError("hosted RED lacks declared behavioural failure")
   if kind == "GREEN":
     selection = root / ".ci" / "red-green.txt"
     try:
