@@ -23,6 +23,12 @@ class Provider:
       self.reads += 1
       return {"commit": {"sha": "c" * 40 if self.changed and
                          self.reads > 1 else BASE}}
+    if path == "/git/refs":
+      self.locked = True
+      return {"ref": payload["ref"], "object": {"sha": SHA}}
+    if path == "/git/ref/heads/rwf-exact-check-lock/" + SHA:
+      return {"ref": "refs/heads/rwf-exact-check-lock/" + SHA,
+              "object": {"sha": SHA}}
     if path == "/statuses/" + SHA:
       self.posts.append(payload)
       if self.denied:
