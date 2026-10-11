@@ -146,3 +146,60 @@ child tickets or update dependency graph state.  Follow TICKET_STATE.md to
 create/sync any approved new leaves and verify readback; keep original parent
 acceptance criteria unchanged.  No production merge, tag or workflow
 activation is authorised by this analysis.
+
+## Completed changed-file ownership audit (PR patch inventory)
+
+This check inspects the **actual changed-file lists** of existing draft PRs,
+not just PR descriptions.  It is a stronger ownership check than the initial
+specification inventory.  It does not prove a feature is semantically complete;
+that requires source-level review and acceptance tests.
+
+| Area | Existing source owner(s) and concrete files | Decision |
+| --- | --- | --- |
+| Exact candidate eligibility | #104 PR #604: `repo_workflow/candidate_eligibility.py` and its tests | Reuse; no new eligibility leaf |
+| Protected merge policy and stale reread | #542 PR #546: `repo_workflow/github_merge_guard.py`, `repo_workflow/pre_merge_gate.py`, `repo_workflow/github_evidence.py`, tests; follow-up PR #603 **also edits the same merge guard** | ONE integration owner; do not split A3 or create another merge guard |
+| Protected-main provider capability/readback | #627 PR #631: `scripts/probe-provider-protection.py`, survey and tests; #85 PR #607: rollout checklist | Do not repeat survey/checklist; actual policy configuration/publisher remains unproven |
+| Hosted stage runner | #541 PR #547: `.github/workflows/on-demand-ci.yml`, `scripts/on-demand-ci-plan.py`, `scripts/publish-hosted-result.py`, `repo_workflow/ci_invocation.py`, `repo_workflow/github_cache.py`, numerous tests | Reuse; no duplicate hosted-runner leaf |
+| Unified CLI and stage engines | #545 PR #552: `repo_workflow/test_cli.py`, `public_cli.py`, `public_commands.py`, `test_cache.py`, `test_red_runner.py`, stage engines and tests | Reuse; no duplicate B1 implementation |
+| Shared #541/#545 edits | Both #547 and #552 edit `repo_workflow/test_cli.py`, `public_cli.py`, `public_commands.py`, `test_cache.py`, `test_red_runner.py`, `WORK_GRAPH_METHODOLOGY.md`, `.ci/tests.json` and numerous test files | **Not independent branch-level work.** One controlled assembly owner with conflict-resolution tests is required |
+| Cache | #548 PR #615: `repo_workflow/hosted_cache.py`; #541 PR #547: `repo_workflow/hosted_cache.py` and `github_cache.py` | Do not assign independent simultaneous cache writers; #543 must reconcile canonical implementation |
+| Independent certification | #629 PR #633: ten test modules, `ISSUE629_CERTIFICATION_MATRIX.md`, fixture; #543 PR #549: `tests/test_on_demand_ci_certification.py` | Existing evidence owners; final assembled provider certification stays #543 |
+| GitHub mutation adapter | #97 PR #616 owns `adapters/repo_host_github_*.py` and Python mutation tests | Completed upstream issue; do not regenerate adapter in #85 |
+| Stable tag finalizer | None of PR #546/#547/#549/#552/#603/#604/#607/#615/#616/#631/#633/#634/#635 modifies a dedicated finalizer implementation.  #541/#545 touch `repo_workflow/terminal_tag.py`, which is **not** proof of a finished protected stable-tag publisher | #86 remains a real implementation gap, subject to a more targeted full repository search before code changes |
+
+### Revised decomposition decision
+
+1. **Withdraw the naive A1/A2/A3/B1-B5 parallel launch recommendation.**
+   Parallel *requirements* do not imply separate concurrent writers when code
+   overlaps.  In particular do not create new CLI, cache, merge-guard, provider
+   survey, or acceptance-matrix tickets for already owned work.
+2. **#85:** the only proposed independently ownable remaining source deliverable
+   is a narrow trusted exact-candidate check publisher if source review confirms
+   it does not already exist.  Actual GitHub branch protection configuration,
+   enforcement readback and bypass certification belong to #85's final owner,
+   because they mutate shared remote policy.  A policy provisioning interface
+   may merit a separate leaf only after source/policy capability review proves a
+   discrete deliverable; no unverified new dependency should be asserted.
+3. **#543:** preserve a **single assembled source integration owner** for #541,
+   #545, #548 and #542 conflicts, committed-marker reconciliation, cache reuse
+   and certification.  A separate read-only independent acceptance worker may
+   run #629 tests against a pinned assembled SHA, but must not modify shared
+   source.  Do not split overlapping runner/cache edits across concurrent PRs.
+4. **#86:** the best potential independent split remains (a) read-only version
+   and eligibility planner and (b) remote stable-tag executor.  They can be
+   implemented on disjoint modules only after the interface is frozen; final
+   provider acceptance still requires #85 and #543.  Do not prematurely add
+   either child as a direct parent completion prerequisite before canonical
+   ticket graph validation.
+5. **Missing evidence:** no source-level semantic review has yet established the
+   exact implementation or absence of the required-check publisher or all
+   #86 tag finalizer mechanics.  These remain *candidate* child tickets, not
+   justified GitHub issue creation.  No child tickets or DAG edges were added.
+
+### Pass/fail verdict on initial proposed launch
+
+**FAIL:** simultaneous implementation of A3/B1/B2/B3/B4 by unrelated workers
+would conflict with known existing PR ownership.  **PASS:** preserve one
+#85 convergence owner, one #543 assembly owner, one #86 final owner, and reuse
+#627/#629 independent evidence.  Proposed narrow publisher and #86 split need
+further source- and contract-level verification before dispatch.
