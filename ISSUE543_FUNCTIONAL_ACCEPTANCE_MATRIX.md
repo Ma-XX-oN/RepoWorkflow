@@ -8,7 +8,7 @@
 verification only. **#85 remains SECURITY-DEFERRED**. Do not merge,
 activate production, alter protections, or issue stable tags.
 
-**Current source candidate under independent hosted testing:**
+**Final upstream-reconciled source certified by live hosted regression and integration:**
 `c9b58911a659d8ec8c133ff6015492d30762985a`, a **single-parent
 commit** whose sole parent is the latest observed PR target
 `a6a52809a27e19726f1e68a54161c540f790d114`.
@@ -27,10 +27,20 @@ combines **82 unique catalogue groups** without duplication, and retains
 
 | Stage | Exact tested source | Dedicated invocation | Provider run | Immutable artifact | Publication commit | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| Full integration + Ubuntu/Windows/macOS | `c9b58911a659d8ec8c133ff6015492d30762985a` | `532c90482c35cb67342a90c97b308e1293246823` | 38305259436 | PENDING | PENDING | **INCOMPLETE pending provider** |
+| Full integration + Ubuntu/Windows/macOS | `c9b58911a659d8ec8c133ff6015492d30762985a` | `532c90482c35cb67342a90c97b308e1293246823` | 38305259436 | **11772213787**, sha256 `661d4917b0cb9beb29e4430a80ef3c0ccf5df6d17d5585353d0d3e607e89777c` | `a74cbe71d7e816fb8e0069644b0c532526923129` | **PASS — 1,554 tests, 14 skips, 9/9 platform jobs** |
 | Full regression | `c9b58911a659d8ec8c133ff6015492d30762985a` | `9518fe0b60c99658e2f7ac3fec64cb3dec450273` | 38305276583 | **11772637542**, sha256 `149bbce42641b3299e05fe012f6d7ffceb64d7f62387b4997c0389621346081a` | `7186eb42da223cd391578ef26f863446508216ab` | **PASS — 1,554 tests, 14 skips, 0 failures** |
 | Prior source + #547 integration | `34640421393cedb022f1126500f1df03f7c8e393` | `751dddf66d55ce993e00a7742db74ee2c74947a8` | 38164782191 | 11712360538 | Verified on isolated branch | **Historical PASS, 1,342 tests + 9 platform jobs** |
 | Prior corrected PR source integration | `55f14f4b3b1544e8defe22af05602d0645965ce9` | `897b3d04f7391d31136499c098f021f7e209ac6a` | 38164419202 | 11712270110 | `c520c0456988f3ad377ee0613968f0645a774371` | **Historical PASS, 1,134 tests + 9 platform jobs** |
+
+**Exact combined-source functional verdict:** full regression and integration
+both **PASS** for the same tested source SHA `c9b58911...`. The independent
+acceptance matrix remains **28 FUNCTIONAL PASS, 0 FAIL, 0 INCOMPLETE,
+1 SECURITY-DEFERRED (#85)**. The 14 skipped #629 provider-only tests remain
+explicitly SKIPPED within the full-suite totals; separately certified live
+provider evidence from prior unchanged implementation modules remains
+historically scoped, not converted to a PASS merely by a skip.
+The final PR documentation commit is an evidence-publication descendant of
+the tested source, **not** a new certification of modified source inputs.
 
 The original certification from Oct 11 at source
 `2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28`,
