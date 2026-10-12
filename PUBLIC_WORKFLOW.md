@@ -337,18 +337,10 @@ those groups and reports actionable catalogue/naming errors.  A missing
 selection emits a warning and appends SKIPPED evidence without running tests
 or claiming PASS.  Malformed or stale selections fail.
 
-RED requires `expected-red` on the selected `.ci/tests.json` group:
-`{"exit-code":1,"output-contains":"specific invariant violated"}`.
-The exit code must be positive and non-boolean; the signature must be
-a nonempty, specific literal UTF-8 substring of combined stdout/stderr;
-generic `FAILED` or `Error` alone is invalid.  Validate before execution.
-Matching nonzero exit and signature yields RED; zero yields NOT_RED; other
-nonzero failures yield FAIL.  Missing/malformed declarations, process launch
-failures, signal termination and infrastructure errors yield INCOMPLETE.
-Preserve the selection, fingerprints, canonical log and version lifecycle.
-
-GREEN reuses only eligible unchanged PASS evidence for the selected group
-and executes missing or invalidated test units.
+RED records its actual execution result, but a nonzero exit is not an
+authoritative RED PASS until the expected failure is distinguished from an
+infrastructure error.  GREEN reuses only eligible unchanged PASS evidence for
+the selected group and executes missing or invalidated test units.
 
 `rwf test temporary` reads `.ci/temp-tests.json`, using the normal test
 catalogue format.  Integration requires removal of the current issue's
@@ -406,21 +398,23 @@ the stage creates a dedicated `.ci/run` invocation commit containing the
 stage marker and immediate pre-invocation candidate SHA.  Hosted execution
 uses the same authoritative stage selection and testing log.
 
+Immutable GitHub Actions artifacts authenticate hosted PASS records: a committed
+JSONL claim alone cannot grant reuse, even when it names a real successful
+provider run.  The checker verifies the provider run, candidate/invocation
+ancestry and exact record bytes against the run's immutable artifact.  Missing,
+expired, malformed, forged, mismatched or inaccessible artifacts fail closed.
+Read-only `results --remote` never dispatches a hosted stage.
+
+The on-demand workflow remains staged alongside existing Self CI.  Functional
+certification of its five stages does not authorise replacing Self CI, merging,
+releasing or enabling protected production integration.  Server branch/ruleset
+enforcement is separately deferred under #85.
+
 `rwf test results` reads existing local evidence; `rwf test results
 --remote` retrieves previously published hosted evidence without starting
 another CI cycle.  A PASS is reusable only with applicable matching
 candidate, test definition, inputs and environment, and complete evidence.
 Missing, failed, dirty or stale observations must not satisfy required tests.
-
-A testing invocation is identified independently by its requested stage,
-source candidate, dedicated invocation commit (for hosted requests), and
-result evidence.  These observations do not themselves allocate a new
-repository version.  Canonical version changes occur only through the
-applicable R/Q and integration lifecycle transitions defined in
-[REPO_VERSION_ADAPTER.md](REPO_VERSION_ADAPTER.md) and
-[WORKFLOW_LIFECYCLE.md](WORKFLOW_LIFECYCLE.md).  An actual failed ART or
-rejected integration must still follow those existing transitions; ordinary
-retries or result reads do not create new version semantics.
 
 ### 10.1 CI validation tiers
 

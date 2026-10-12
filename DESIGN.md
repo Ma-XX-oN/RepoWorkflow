@@ -239,7 +239,8 @@ Each synchronized ticket record contains:
 - exact provider title;
 - direct dependencies.
 
-Initiative/Epic/Feature title prefixes are human-facing classification only.
+Initiative/Epic/Feature/Bug/Refactor title prefixes are human-facing
+classification only.
 They do not create ownership, membership, readiness, or ordering semantics.
 
 If one issue genuinely requires an output from another, that requirement is

@@ -6,7 +6,7 @@ import re
 import subprocess
 from typing import Callable
 
-from .github_evidence import verify_hosted_stage
+from .github_artifact import verify_hosted_record
 
 
 def hosted_cache_checker(root: Path, stage: str) -> Callable[[dict], bool] | None:
@@ -34,7 +34,7 @@ def hosted_cache_checker(root: Path, stage: str) -> Callable[[dict], bool] | Non
   }.get(stage)
   if provider_stage is None:
     return None
-  return lambda record: verify_hosted_stage(
+  return lambda record: verify_hosted_record(
     record, repo=repo, stage=provider_stage,
   )
 

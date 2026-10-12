@@ -14,17 +14,17 @@ import sys
 
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
-from .config import load_config
-from .terminal_tag import publish_terminal_tag
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
-from .test_cache import reusable_local_group_passes
-from .hosted_cache import verified_hosted_passes
-from .self_ci import SelfCiError, group_command
+from .test_cache import reusable_local_group_passes, has_local_applicable_observation
+from .github_cache import hosted_cache_checker, read_remote_published_log
+from .self_ci import group_command, SelfCiError
+from .test_red_declaration import red_declaration
 from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
-from .test_red_runner import record_red
-from .test_red_declaration import red_declaration
+from .config import load_config
+from .terminal_tag import publish_terminal_tag
+from .test_worktree import tracked_input_changes
 
 STAGES = {
   "RED": "RED-testing",
@@ -33,6 +33,7 @@ STAGES = {
   "regression": "regression-testing",
   "integration": "integration-testing",
 }
+
 
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
@@ -70,11 +71,11 @@ def _validate_selection(root: Path, name: str) -> str:
 
 
 def _committed_selection(root: Path) -> str | None:
-  outcome = subprocess.run(
+  result = subprocess.run(
     ["git", "-C", str(root), "show", "HEAD:.ci/red-green.txt"],
     capture_output=True, text=True, check=False,
   )
-  return outcome.stdout if outcome.returncode == 0 else None
+  return result.stdout if result.returncode == 0 else None
 
 
 def read_selection(root: Path) -> str | None:
@@ -200,32 +201,7 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
 
 
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
-  # The append-only evidence log does not count as a changed test input.
-  status = subprocess.run(
-    ["git", "-C", str(root), "status", "--porcelain", "-z",
-     "--untracked-files=all"],
-    capture_output=True, check=False,
-  )
-  if status.returncode:
-    raise TestCommandError("cannot inspect working-tree changes")
-  relative_evidence = evidence_path.relative_to(root).as_posix()
-  entries = status.stdout.decode("utf-8", errors="surrogateescape").split("\0")
-  changed: set[str] = set()
-  index = 0
-  while index < len(entries):
-    entry = entries[index]
-    index += 1
-    if not entry:
-      continue
-    if len(entry) < 4 or entry[2] != " ":
-      raise TestCommandError("malformed working-tree status")
-    changed.add(entry[3:])
-    if "R" in entry[:2] or "C" in entry[:2]:
-      if index >= len(entries) or not entries[index]:
-        raise TestCommandError("incomplete working-tree rename record")
-      changed.add(entries[index])
-      index += 1
-  return sorted(changed - {relative_evidence})
+  return tracked_input_changes(root, evidence_path)
 
 
 def _run_group_set(
@@ -249,18 +225,45 @@ def _run_group_set(
   uncommitted_before = _uncommitted_inputs(root, path)
   reusable = set()
   if not uncommitted_before:
+    checker = hosted_cache_checker(root, stage)
+    remote_raw = (
+      read_remote_published_log(
+        root, branch=current_branch(root),
+        relative=path.relative_to(root).as_posix(),
+      )
+      if checker is not None and not has_local_applicable_observation(
+        path, stage=stage, revision=revision,
+        fingerprint=fingerprint, groups=groups,
+      )
+      else None
+    )
+    if remote_raw is not None:
+      accepted = reusable_local_group_passes(
+        path, stage=stage, revision=revision, fingerprint=fingerprint,
+        verify_hosted=checker, raw=remote_raw,
+      )
+      if set(groups).issubset(accepted):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(remote_raw, encoding="utf-8")
+        for group in groups:
+          print("Reusing verified hosted PASS evidence for " + group)
+        return 0
     reusable = reusable_local_group_passes(
       path, stage=stage, revision=revision, fingerprint=fingerprint,
+      verify_hosted=checker,
     )
-    token = os.environ.get("GITHUB_TOKEN", "")
-    repository = os.environ.get("GITHUB_REPOSITORY", "")
-    invocation = os.environ.get("GITHUB_SHA", "")
-    if token and repository and invocation:
-      reusable.update(verified_hosted_passes(
-        root, stage=stage, revision=revision, fingerprint=fingerprint,
-        invocation=invocation, branch=current_branch(root),
-        repository=repository, token=token,
-      ))
+    if checker is not None and set(groups).issubset(reusable):
+      if any(
+        isinstance(record, dict)
+        and record.get("runner") == "github-actions"
+        and record.get("testSHA") == revision
+        for record in (
+          json.loads(line) for line in path.read_text().splitlines()
+        )
+      ):
+        for group in groups:
+          print("Reusing verified hosted PASS evidence for " + group)
+        return 0
   failures = []
   launch_missing = False
   evidence = []
@@ -285,11 +288,11 @@ def _run_group_set(
     if completed is not None and completed.stderr:
       print(completed.stderr, end="", file=sys.stderr)
     evidence.append({
-      "group": group, "exit_code": (
-        completed.returncode if completed is not None else None
-      ), "reused": False,
+      "group": group,
+      "exit_code": completed.returncode if completed is not None else None,
+      "reused": False,
     })
-    if completed is not None and completed.returncode < 0:
+    if completed is None or completed.returncode < 0:
       launch_missing = True
     if completed is None or completed.returncode:
       failures.append(group)
@@ -303,12 +306,13 @@ def _run_group_set(
     "branch": current_branch(root),
     "uncommittedChanges": uncommitted,
     "headChangedDuringTest": head_changed,
-    "reusable": not failures and not uncommitted and not head_changed,
+    "reusable": not failures and not launch_missing
+    and not uncommitted and not head_changed,
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
-    "result": ("incomplete" if launch_missing else
-               "failed" if failures else "succeeded"),
+    "result": "incomplete" if launch_missing else
+              "failed" if failures else "succeeded",
     "runner": "local",
     "platform": {"os": platform.system(), "architecture": platform.machine(),
                  "runtime": platform.python_version()},
@@ -343,15 +347,15 @@ def run_test(
   if stage not in STAGES:
     raise TestCommandError("unknown test stage")
   if stage == "RED":
+    from .test_red_runner import record_red
     selected = select_group(root, group) if group else read_selection(root)
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
+    expectation, declaration_error = red_declaration(root, selected)
     if remote:
-      expectation, declaration_error = red_declaration(root, selected)
       if declaration_error:
         raise TestCommandError(declaration_error)
       return request_remote(root, stage)
-    expectation, declaration_error = red_declaration(root, selected)
     command = ()
     if not declaration_error:
       try:
