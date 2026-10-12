@@ -28,7 +28,7 @@ combines **82 unique catalogue groups** without duplication, and retains
 | Stage | Exact tested source | Dedicated invocation | Provider run | Immutable artifact | Publication commit | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Full integration + Ubuntu/Windows/macOS | `c9b58911a659d8ec8c133ff6015492d30762985a` | `532c90482c35cb67342a90c97b308e1293246823` | 38305259436 | PENDING | PENDING | **INCOMPLETE pending provider** |
-| Full regression | `c9b58911a659d8ec8c133ff6015492d30762985a` | `9518fe0b60c99658e2f7ac3fec64cb3dec450273` | 38305276583 | PENDING | PENDING | **INCOMPLETE pending provider** |
+| Full regression | `c9b58911a659d8ec8c133ff6015492d30762985a` | `9518fe0b60c99658e2f7ac3fec64cb3dec450273` | 38305276583 | **11772637542**, sha256 `149bbce42641b3299e05fe012f6d7ffceb64d7f62387b4997c0389621346081a` | `7186eb42da223cd391578ef26f863446508216ab` | **PASS — 1,554 tests, 14 skips, 0 failures** |
 | Prior source + #547 integration | `34640421393cedb022f1126500f1df03f7c8e393` | `751dddf66d55ce993e00a7742db74ee2c74947a8` | 38164782191 | 11712360538 | Verified on isolated branch | **Historical PASS, 1,342 tests + 9 platform jobs** |
 | Prior corrected PR source integration | `55f14f4b3b1544e8defe22af05602d0645965ce9` | `897b3d04f7391d31136499c098f021f7e209ac6a` | 38164419202 | 11712270110 | `c520c0456988f3ad377ee0613968f0645a774371` | **Historical PASS, 1,134 tests + 9 platform jobs** |
 
