@@ -42,16 +42,43 @@ monochrome-compatible presentation, tested on supported platforms.
 
 ## 3. Transitions
 
-| From | Event | To |
-| --- | --- | --- |
-| `not_started` | `start` | `active` |
-| `active` | `submit-review` | `in_review` |
-| `in_review` | `accept` | `accepted` |
-| `in_review` | `reject/reopen` | `active` |
-| `accepted` | `reject/reopen` | `active` |
-| `active` | `abort` | `aborted` |
-| `aborted` | `re-enter` | `active` |
-| `accepted` | `complete` | `completed` |
+The Mermaid diagram and the transition table below specify the same eight
+legal state changes. Labels T01–T08 link to the independent acceptance
+matrix. The initial and terminal markers describe presentation, not extra
+public transition operations.
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    state "○ not_started" as NS
+    state "● active" as A
+    state "◎ in_review" as R
+    state "✓ accepted" as AC
+    state "♥ completed" as C
+    state "✕ aborted" as AB
+
+    [*] --> NS
+    NS --> A: T01 start
+    A --> R: T02 submit-review
+    R --> AC: T03 accept
+    R --> A: T04 reject / reopen
+    AC --> A: T05 reject / reopen
+    A --> AB: T06 abort
+    AB --> A: T07 re-enter
+    AC --> C: T08 complete
+    C --> [*]
+```
+
+| ID | From | Event | To |
+| --- | --- | --- | --- |
+| T01 | `not_started` | `start` | `active` |
+| T02 | `active` | `submit-review` | `in_review` |
+| T03 | `in_review` | `accept` | `accepted` |
+| T04 | `in_review` | `reject/reopen` | `active` |
+| T05 | `accepted` | `reject/reopen` | `active` |
+| T06 | `active` | `abort` | `aborted` |
+| T07 | `aborted` | `re-enter` | `active` |
+| T08 | `accepted` | `complete` | `completed` |
 
 Only these transitions are legal. A validation failure during active work
 records validation evidence without making a fictitious same-state lifecycle
@@ -62,6 +89,29 @@ requires the separately defined integration and authorization gates.
 
 An interrupted review must use `reject/reopen` to return to active before
 aborting; a new abort transition from `in_review` is not implicit.
+
+### Start-operation preparation is not an extra lifecycle state
+
+The `T01` row and arrow describe the **durable lifecycle outcome**:
+`not_started --start--> active`. They do not mean that the public
+`rwf issue start N` command is one unguarded state assignment.
+
+Issue #64 defines start as a coordinated operation: validate the issue
+and registered relationships, establish an issue-qualified task version,
+create/verify the branch, update durable lifecycle history, and establish
+this clone's current-work context. Issue #187 and
+[STATE_CONCURRENCY.md](STATE_CONCURRENCY.md) require a recoverable
+multi-record semantic transaction when those domains cannot publish
+atomically. A transaction may be **prepared**, **committed** or
+**aborted/recoverable**; these are *transaction statuses*, not additional
+ticket lifecycle states.
+
+Until the operation is durably committed, the ticket must not be reported
+as newly `active` based only on preparatory writes or worktree state.
+Interrupted preparation must be recovered or failed closed, never counted
+as a successful start. The normal lifecycle remains six-state; any
+proposal for a separate persistent `starting` state would require a
+new approved contract, transition table and matching diagram.
 
 ## 4. Schema upgrade and history
 
@@ -119,6 +169,12 @@ A valid historical absence proven by the lifecycle store is not_started.
 Do not infer fresh lifecycle truth from a stale cached CSV snapshot.
 
 ## 7. Verification gates
+
+[SIX_STATE_ACCEPTANCE_MATRIX.md](SIX_STATE_ACCEPTANCE_MATRIX.md) is the
+independent, criterion-to-observable-result acceptance oracle for #579–#583.
+The matrix does not claim executable acceptance has passed.  Its IDs must be
+bound to exact-candidate test and persisted-state evidence by implementers.
+
 
 Independent black-box tests derive all transitions and rejected transitions
 from this table; use distinct structural/implementation tests. Cover legacy
