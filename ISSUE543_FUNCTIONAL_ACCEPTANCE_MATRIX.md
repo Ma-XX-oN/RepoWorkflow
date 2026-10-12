@@ -1,6 +1,55 @@
 # Issue #543 — functional acceptance ledger (V3)
 
-## Authoritative latest certified source — integration disposition (2026-10-11)
+## 2026-10-12 — upstream-reconciled #543 integration disposition
+
+**Existing V3 claim:** `6105182602`. **Existing PR:** #567, from
+`issue-543-unified-hosted-certification-probe` into
+`issue-543-on-demand-ci-certification`. This is functional integration
+verification only. **#85 remains SECURITY-DEFERRED**. Do not merge,
+activate production, alter protections, or issue stable tags.
+
+**Current source candidate under independent hosted testing:**
+`c9b58911a659d8ec8c133ff6015492d30762985a`, a **single-parent
+commit** whose sole parent is the latest observed PR target
+`a6a52809a27e19726f1e68a54161c540f790d114`.
+
+**Provenance and conflict reconciliation:** The original PR was dirty
+because it was 212 commits ahead/189 behind its target at earlier base
+`e34853b...`, with 19 add/add and nine modify/modify conflicts.
+A tested first integration `34640421393cedb022f1126500f1df03f7c8e393`
+passed 1,342 hosted tests and 9/9 cross-platform jobs (run 38164782191,
+artifact 11712360538). The target subsequently advanced 19 commits,
+including independent #629 tests, so that first reconciliation was no
+longer current. This second candidate preserves the first integration's
+114 executable source blobs, preserves every upstream-only #629 test file,
+combines **82 unique catalogue groups** without duplication, and retains
+**27 historic provider evidence records** with distinct run IDs.
+
+| Stage | Exact tested source | Dedicated invocation | Provider run | Immutable artifact | Publication commit | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| Full integration + Ubuntu/Windows/macOS | `c9b58911a659d8ec8c133ff6015492d30762985a` | `532c90482c35cb67342a90c97b308e1293246823` | 38305259436 | PENDING | PENDING | **INCOMPLETE pending provider** |
+| Full regression | `c9b58911a659d8ec8c133ff6015492d30762985a` | `9518fe0b60c99658e2f7ac3fec64cb3dec450273` | 38305276583 | PENDING | PENDING | **INCOMPLETE pending provider** |
+| Prior source + #547 integration | `34640421393cedb022f1126500f1df03f7c8e393` | `751dddf66d55ce993e00a7742db74ee2c74947a8` | 38164782191 | 11712360538 | Verified on isolated branch | **Historical PASS, 1,342 tests + 9 platform jobs** |
+| Prior corrected PR source integration | `55f14f4b3b1544e8defe22af05602d0645965ce9` | `897b3d04f7391d31136499c098f021f7e209ac6a` | 38164419202 | 11712270110 | `c520c0456988f3ad377ee0613968f0645a774371` | **Historical PASS, 1,134 tests + 9 platform jobs** |
+
+The original certification from Oct 11 at source
+`2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28`,
+its independent 38-case matrix, RED/GREEN/cache evidence and artifacts
+remain preserved below. Such prior evidence is not silently substituted for
+a later material candidate.
+
+**PR history safety:** Pre-reconciliation PR head
+`c520c0456988f3ad377ee0613968f0645a774371` remains referenced by
+`issue-543-pre-reconcile-history-v3-20261012`. The first tested
+reconciliation remains referenced by
+`issue-543-reconciled-base-validation-v3`. The PR target is not merged or
+modified. Retarget/rebase and mergeability disposition must be checked
+against the actual target at the point of any existing-PR branch update.
+
+---
+
+
+## Historical 2026-10-11 certified source — preserved, not latest integration
 
 **Certified functional source (exact immutable material inputs):**
 `2c8b0f9d5e63f2d0ceb5d602e7778796fb0dde28`.
