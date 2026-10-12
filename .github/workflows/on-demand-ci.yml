@@ -6,7 +6,6 @@ on:
   push:
     branches-ignore:
       - main
-      - prelim-main
       - 'prelim-main-*'
     paths:
       - '.ci/run'
@@ -45,8 +44,6 @@ jobs:
 
   validate:
     needs: plan
-    outputs:
-      audit_ok: ${{ steps.audit.outcome }}
     if: >-
       needs.plan.outputs.stage == 'RED-testing' ||
       needs.plan.outputs.stage == 'temp-testing' ||
@@ -55,8 +52,10 @@ jobs:
       needs.plan.outputs.stage == 'integration-testing'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       actions: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -76,8 +75,6 @@ jobs:
           esac
       - name: Run selected stage through public test CLI
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           case '${{ needs.plan.outputs.stage }}' in
@@ -96,35 +93,6 @@ jobs:
           "${{ needs.plan.outputs.stage }}"
           "${{ needs.plan.outputs.tested_sha }}"
           "$GITHUB_REF_NAME"
-      - name: Preserve immutable raw provider observation
-        if: ${{ success() }}
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          import re
-
-          branch = os.environ["GITHUB_REF_NAME"]
-          match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
-          if match is None:
-            raise SystemExit("invalid hosted issue branch")
-          path = Path(".repoworkflow/validation") / (
-            "testResults-" + match.group(1) + ".jsonl"
-          )
-          record = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
-          target = Path(os.environ["RUNNER_TEMP"]) / "provider-result.json"
-          target.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
-          PY
-      - name: Upload immutable provider observation
-        if: ${{ success() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: provider-result-${{ github.run_id }}
-          path: ${{ runner.temp }}/provider-result.json
-          retention-days: 30
-          if-no-files-found: error
       - id: audit
         name: Verify only canonical test-results log changed
         if: ${{ always() }}
@@ -152,50 +120,8 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
-          python - <<'PY'
-          import os
-          import re
-          branch = os.environ["GITHUB_REF_NAME"]
-          match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
-          assert match is not None
-          path = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-            output.write("log_path=" + path + "\n")
-          PY
-      - name: Export canonical observation artifact
-        if: ${{ always() && steps.audit.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: hosted-result-${{ github.run_id }}
-          path: ${{ steps.audit.outputs.log_path }}
-          include-hidden-files: true
-          if-no-files-found: error
-
-  publish:
-    needs: [plan, validate]
-    if: >-
-      always() &&
-      needs.plan.result == 'success' &&
-      needs.validate.outputs.audit_ok == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.plan.outputs.tested_sha }}
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Restore candidate issue branch for readback
-        shell: bash
-        run: git switch -c "$GITHUB_REF_NAME"
-      - uses: actions/download-artifact@v4
-        with:
-          name: hosted-result-${{ github.run_id }}
-          path: .repoworkflow/validation
       - name: Publish canonical hosted testing observations
+        if: ${{ always() && steps.audit.outcome == 'success' }}
         shell: bash
         run: >-
           python scripts/publish-hosted-result.py
@@ -204,6 +130,14 @@ jobs:
           "$GITHUB_REF_NAME"
           "$GITHUB_SHA"
           "$GITHUB_RUN_ID"
+      - name: Publish immutable provider result artifact
+        if: ${{ always() && steps.audit.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-result-${{ github.run_id }}
+          path: .repoworkflow/validation/testResults-*.jsonl
+          if-no-files-found: error
+          retention-days: 30
       - name: Verify public remote results retrieval without a new CI request
         if: ${{ success() }}
         shell: bash
@@ -225,7 +159,6 @@ jobs:
           assert latest["providerRunId"] == int(os.environ["GITHUB_RUN_ID"])
           assert latest["providerInvocationSHA"] == os.environ["GITHUB_SHA"]
           PY
-
 
   argv-limits:
     needs: plan

@@ -2,16 +2,17 @@
   "schema_version": 1,
   "purpose": "Bind current renderer certification to material graph and routing inputs.",
   "issue": 447,
-  "certified_renderer_candidate": "97d7064d5e9af0fb9588f76231c2a1960ccdce05",
+  "certified_renderer_candidate": "8bcb8e9a78f55e97ed67ca07bc3d72a64502e504",
   "evidence": {
-    "workflow_run_number": 1056,
-    "workflow_name": "RepoWorkflow Self CI",
-    "note": "Canonical renderer probes passed on Ubuntu, Windows, and macOS in post-merge Self CI #1056 for the #453 material-input changes. Broad validate failed only because two existing lane-traversal parser-helper tests still unpacked the pre-#453 four-field result and this certification binding was intentionally stale. The repair changes only tests and this certification record; no renderer material input changes after the successful probes."
+    "workflow_run_number": 12,
+    "workflow_run_id": 37898787413,
+    "workflow_name": "RepoWorkflow On-Demand CI (candidate)",
+    "note": "Real provider integration-stage matrix on tested candidate 8bcb8e9a78f55e97ed67ca07bc3d72a64502e504 passed canonical graph-renderer probes on Ubuntu, Windows, and macOS, along with argv-limit and ticket-merge probes on all three. The overall run FAILED because public rwf test integration remains unimplemented; this record certifies only renderer material-input binding and platform probes, not integration completion."
   },
   "material_inputs": {
-    ".repoworkflow/tickets.csv": "b73f45db016e81d6f9f5de2bdf1de433efacdb74",
+    ".repoworkflow/tickets.csv": "a45c3bf1147752267842f35c2a7021de97a078d8",
     "repo_workflow/lane_decomposition.py": "91f636637884615262e95ad05e91e5c76fb6d377",
-    "repo_workflow/lane_graph_adapter.py": "cce805001e26a60db3323ea498ad882b685c6456",
+    "repo_workflow/lane_graph_adapter.py": "20c3c55d4a0d9184a3c3115be28c926842012e98",
     "repo_workflow/graph_boundary_order.py": "b0ff781496b8c5f8972636880b2989ce09ddfaa7",
     "repo_workflow/graph_boundary_plan.py": "051392ec1eef89768507afb72d2edd381c085321",
     "repo_workflow/graph_geometry.py": "2aa9767aabd88c4edfee992ba98e282121b1322f",

@@ -119,8 +119,8 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # Grammar switches precede dynamic values internally; the public RED
-  # contract also permits its optional --remote after the selected group.
+  # Accept the documented RED group before its optional hosted switch.
+  # The grammar parser requires switches before dynamic values internally.
   if (
     len(words) == 4 and words[:2] == ["test", "RED"]
     and words[3] == "--remote" and not words[2].startswith("--")

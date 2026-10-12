@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,6 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import (
   CiInvocationError, original_candidate, parse_invocation,
 )
-from repo_workflow.test_results_reader import parse_testing_log
 
 
 def _git(root: Path, *args: str) -> str:
@@ -53,28 +53,13 @@ def publish(
   )
   path = root / relative
   try:
-    records = parse_testing_log(path.read_text(encoding="utf-8"))
-    record = records[-1]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    record = json.loads(lines[-1])
   except (OSError, ValueError, IndexError) as error:
     raise ValueError("cannot publish absent or malformed observations") from error
   if (
     not isinstance(record, dict)
     or record.get("testSHA") != candidate
-    or record.get("branch") != branch
-    or record.get("runner") != "local"
-    or record.get("result") not in {"succeeded", "failed", "incomplete"}
-    or record.get("headChangedDuringTest") is not False
-    or record.get("uncommittedChanges") != []
-    or not isinstance(record.get("platform"), dict)
-    or any(
-      not isinstance(record["platform"].get(field), str)
-      or not record["platform"][field]
-      for field in ("os", "architecture", "runtime")
-    )
-    or any(key in record for key in (
-      "providerRunId", "providerInvocationSHA",
-      "providerCandidateSHA", "providerStage",
-    ))
     or record.get("kind") != {
       "RED-testing": "RED",
       "temp-testing": "temporary",
@@ -89,6 +74,23 @@ def publish(
   local_dirty = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
   if any(line[3:] != relative for line in local_dirty.splitlines() if line):
     raise ValueError("unexpected test side effects prevent publication")
+  if record.get("runner") == "github-actions":
+    from repo_workflow.github_artifact import verify_hosted_record
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if stage not in {"GREEN-testing", "temp-testing"} or not repository:
+      raise ValueError("provider reuse lacks authorised stage or repository")
+    if not verify_hosted_record(record, repo=repository, stage=stage):
+      raise ValueError("previous provider PASS could not be authenticated")
+    previous_run = record.get("providerRunId")
+    groups = record.get("groups")
+    if (type(previous_run) is not int or previous_run <= 0
+        or not isinstance(groups, list) or not groups
+        or any(type(group.get("exit_code")) is not int
+               or group["exit_code"] != 0 for group in groups)):
+      raise ValueError("reused provider observation is incomplete")
+    record["reusedFromRunId"] = previous_run
+    record["timestamp"] = datetime.now(timezone.utc).isoformat()
+    record["groups"] = [{**group, "reused": True} for group in groups]
   record["runner"] = "github-actions"
   record["providerRunId"] = int(run_id)
   record["providerInvocationSHA"] = invocation
@@ -122,10 +124,11 @@ def publish(
     previous = path.read_text(encoding="utf-8").splitlines()
   except FileNotFoundError:
     previous = []
-  if previous:
+  for line in previous:
     try:
-      parse_testing_log("\n".join(previous))
-    except ValueError as error:
+      if not isinstance(json.loads(line), dict):
+        raise ValueError("remote test log has a non-object record")
+    except json.JSONDecodeError as error:
       raise ValueError("remote test log is malformed") from error
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(

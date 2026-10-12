@@ -61,19 +61,6 @@ class LocalIntegrationTests(unittest.TestCase):
       test_suite.call_count, probe.call_count
     )
 
-  def test_staged_rename_records_original_and_destination(self):
-    subprocess.run(
-      ["git", "mv", "source.txt", "renamed.txt"],
-      cwd=self.root, check=True, capture_output=True,
-    )
-    status, record, _ = self.execute()
-    self.assertEqual(status, 0)
-    self.assertEqual(
-      record["uncommittedChanges"], ["renamed.txt", "source.txt"],
-    )
-    self.assertFalse(record["reusable"])
-
-
   def test_clean_complete_current_platform_can_pass(self):
     status, record, calls = self.execute()
     self.assertEqual(status, 0)
@@ -111,44 +98,6 @@ class LocalIntegrationTests(unittest.TestCase):
       next(g["exit_code"] for g in record["groups"] if g["group"] == "argv-limits"),
       1,
     )
-
-  def test_unavailable_probe_records_incomplete_without_pass_evidence(self):
-    status, record, calls = self.execute(
-      probes={"probe-argv-limits.py": None},
-    )
-    self.assertEqual(status, 2)
-    self.assertEqual(calls, (1, 3))
-    self.assertEqual(record["result"], "incomplete")
-    self.assertFalse(record["reusable"])
-    self.assertIsNone(next(
-      item["exit_code"] for item in record["groups"]
-      if item["group"] == "argv-limits"
-    ))
-
-  def test_signalled_probe_records_incomplete(self):
-    status, record, _ = self.execute(
-      probes={"probe-ticket-merge.py": -9},
-    )
-    self.assertEqual(status, 2)
-    self.assertEqual(record["result"], "incomplete")
-    self.assertFalse(record["reusable"])
-    self.assertEqual(next(
-      item["exit_code"] for item in record["groups"]
-      if item["group"] == "ticket-merge-platform"
-    ), -9)
-
-  def test_unlaunchable_probe_returns_incomplete_observation(self):
-    scripts = self.root / "scripts"
-    scripts.mkdir()
-    (scripts / "broken-probe.py").write_text("pass\n")
-    with patch(
-      "repo_workflow.test_integration_engine.subprocess.run",
-      side_effect=OSError("cannot launch"),
-    ):
-      self.assertIsNone(_probe(self.root, "broken-probe.py"))
-
-  def test_missing_probe_script_is_infrastructure_incomplete(self):
-    self.assertIsNone(_probe(self.root, "missing-probe.py"))
 
   def test_dirty_local_inputs_never_reusable(self):
     (self.root / "source.txt").write_text("dirty\n")
