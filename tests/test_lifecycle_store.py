@@ -353,7 +353,7 @@ class LifecycleStoreTests(unittest.TestCase):
 
   def test_all_state_action_pairs_from_independent_contract(self):
     # Independently authored from SIX_STATE_ACCEPTANCE_MATRIX.md T01-T08.
-    # Six states x eight requests = 48 assertions (8 legal, 40 illegal).
+    # Six states x seven requests = 42 assertions (8 legal, 34 illegal).
     states = {
       "not_started": (),
       "active": ("start",),
