@@ -80,9 +80,9 @@ candidate, expected revision or underlying evidence is not that replay.
 Completion is terminal; there is no implicit reopen from completed.
 Abort from in_review first requires a legal return to active.
 
-**Matrix test method:** execute each of the eight requests against each
-of the six initial states: 48 pairs.  T01–T08 must produce the listed
-successors; the other 40 must preserve state, history and revision and return
+**Matrix test method:** execute each of the seven distinct requests against each
+of the six initial states: 42 pairs.  T01–T08 must produce the listed
+successors; the other 34 must preserve state, history and revision and return
 a rejected/explicitly proven idempotent outcome.  Test the complete request
 shape, including mandatory evidence, in each positive row; reject missing,
 stale, mismatched and forged inputs independently.  Verify the authoritative
@@ -226,7 +226,7 @@ and a stable evidence URL or artifact identifier.
 
 Independent execution on #580–#583 must trace each applicable expected
 observation to its result. Important cross-products: initial state × request
-(48 combinations); provider open/closed × lifecycle state; cached revision ×
+(42 combinations); provider open/closed × lifecycle state; cached revision ×
 concurrent update; schema version × event cardinality; graph mode × output.
 
 #579 is specification-only. Accepting the matrix does not authorize
