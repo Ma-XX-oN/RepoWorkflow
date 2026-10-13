@@ -85,6 +85,10 @@
       "issue-582-geometry-regression": {
         "type": "regression",
         "name": "tests.test_graph_render"
+      },
+      "issue-583-lifecycle-cross-product": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
       }
     },
     {
