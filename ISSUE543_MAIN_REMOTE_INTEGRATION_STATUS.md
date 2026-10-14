@@ -3,7 +3,8 @@
 Status: INCOMPLETE / NOT MERGE READY.  Existing V3 claim: 6105182602.
 Base main: cee5b34c2c83b5d05bf603192ec7f931569c2916.
 Certified historical source: c9b58911a659d8ec8c133ff6015492d30762985a.
-New untested source before this handoff note: e6145f86f31310d30fe6b26371e6e88ca400888f.
+Latest untested source before this status update:
+`0c814569d9d4ba30ba05fd8d78b9c52061b302de`.
 
 ## Scope reconciliation
 
@@ -56,6 +57,47 @@ New untested source before this handoff note: e6145f86f31310d30fe6b26371e6e88ca4
 The GitHub write interface rejected a dedicated `.ci/run` request and
 also rejected creation of the intended draft pull request.  Never interpret
 the previously certified branch's PASS evidence as proving this new source.
+
+
+## Integration defects corrected after initial staging
+
+- Reconciled provider verification with the new workflow name, four required
+  jobs (plan, validate, publisher, results), exact workflow path/ref and
+  event-branch identity.  A valid old staging result does not automatically
+  certify this new branch.
+- The independent publisher now downloads its staged log to
+  `.repoworkflow/validation/`, not the repository root.
+- Evidence transfer must succeed before the write-scoped publisher becomes
+  eligible; the public readback runs in a separate read-only job.
+- Added/adjusted negative fixtures for workflow identity, forged branch,
+  failed/missing publication and readback jobs, and canonical artifact path.
+- Reconciled legacy public validation documentation while preserving the
+  separately required manual-integration acceptance boundary.
+- Retained prior PRs and #629's independent test harness.  No historical
+  results were reclassified as exact-candidate acceptance.
+
+## Independent source-level contract checks
+
+Twelve of twelve GitHub-content static checks passed at the source revision
+preceding this status update: issue-branch/marker-only trigger, no release job,
+five public stage entrypoints, read-only runner, publisher-only write scope,
+canonical download, successful transfer gating, read-only results job,
+single-parent marker ancestry, provider workflow/branch attestation,
+atomic publisher remote-tip comparison, and results retrieval without new
+test dispatch.  The registered 72 Python module paths were also individually
+confirmed present; this does not establish runtime import or test success.
+
+The Self CI workflow is byte-identical to current main.  Its **existing**
+`release` job has a main-push stable-tag path.  Do not merge this candidate
+without explicit authorization and review of that release boundary; the
+existing workflow was deliberately not modified as part of #543.
+
+**New-candidate runtime tests: NOT RUN.**  GitHub reports no Self CI or hosted
+workflow run/check on this new branch candidate.  The direct GitHub marker
+write and draft PR creation were rejected by service safety checks.  The
+container cannot reach the GitHub hostname, and the connected GitHub tools
+provide no workflow-dispatch action.  The provider evidence and negative
+request/retry matrix remain INCOMPLETE.
 
 ## Integration / closure order
 
