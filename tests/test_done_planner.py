@@ -4,7 +4,7 @@ from dataclasses import replace
 import unittest
 
 from repo_workflow.done_planner import (
-  DoneSnapshot, GateObservation, plan_done,
+  AuthorizationDecision, DoneSnapshot, GateObservation, plan_done,
 )
 
 
@@ -18,6 +18,22 @@ def gate(name, *, sha=SOURCE, parent=PARENT, passed=True, authenticated=True):
     name, sha, parent, "PASS" if passed else "FAIL",
     authenticated, "provider:run-123",
   )
+
+
+def authorization(**overrides):
+  auth = AuthorizationDecision(
+    decision="allow",
+    authenticated=True,
+    evidence_ref="trusted-grant:1",
+    issue="108",
+    candidate_sha=SOURCE,
+    destination_ref="parent/56",
+    expected_destination_sha=PARENT,
+    release="patch",
+    role="remote_finalizer",
+    capability="pull_request.merge",
+  )
+  return replace(auth, **overrides)
 
 
 def snapshot(**overrides):
@@ -35,9 +51,10 @@ def snapshot(**overrides):
     source_branch="issue-108",
     source_tip_sha=SOURCE,
     validation=tuple(gate(name) for name in ("regression", "integration", "release")),
-    authorization=gate("authorization"),
+    authorization=authorization(),
     dependencies_complete=True,
     mit="not-required",
+    mit_policy_verified=True,
   )
   return replace(facts, **overrides)
 
@@ -89,9 +106,12 @@ class DonePlannerAcceptance(unittest.TestCase):
 
   def test_stale_authorization_denied(self):
     for invalid in (
-      None, gate("authorization", sha=ADVANCED),
-      gate("authorization", parent=ADVANCED),
-      gate("authorization", authenticated=False),
+      None, authorization(candidate_sha=ADVANCED),
+      authorization(expected_destination_sha=ADVANCED),
+      authorization(authenticated=False),
+      authorization(role="security_administrator"),
+      authorization(release="minor"),
+      authorization(decision="deny"),
     ):
       self.assertIn("current-authorization", plan_done(
         snapshot(authorization=invalid)
@@ -147,7 +167,8 @@ class DonePlannerAcceptance(unittest.TestCase):
     self.assertFalse(missing.queue_eligible)
     self.assertIn("mit-scheduling-obligation", missing.missing_gates)
     ready = plan_done(replace(
-      base, mit_tester="tester-9", mit_deadline="2026-10-15T15:00:00Z"
+      base, mit_tester="tester-9", mit_deadline="2026-10-15T15:00:00Z",
+      mit_schedule_authorized=True
     ))
     self.assertEqual(ready.disposition, "MIT_REQUIRED")
     self.assertFalse(ready.allowed)
@@ -198,6 +219,39 @@ class DonePlannerAcceptance(unittest.TestCase):
     ):
       with self.assertRaises(ValueError):
         plan_done(snapshot(**invalid))
+
+  def test_unverified_mit_applicability_denies_integration(self):
+    p = plan_done(snapshot(mit_policy_verified=False))
+    self.assertFalse(p.allowed)
+    self.assertIn("verified-mit-applicability", p.missing_gates)
+
+  def test_mit_pass_requires_authenticated_test_result(self):
+    pending = plan_done(snapshot(mit="passed", mit_candidate_sha=SOURCE))
+    self.assertFalse(pending.allowed)
+    self.assertIn("unauthenticated-mit-PASS", pending.missing_gates)
+    verified = plan_done(snapshot(
+      mit="passed", mit_candidate_sha=SOURCE, mit_authenticated=True,
+      mit_evidence_ref="manual-test:trusted:124",
+    ))
+    self.assertTrue(verified.allowed)
+
+  def test_major_release_requires_matching_authorization_class(self):
+    not_major = plan_done(snapshot(release="major"))
+    self.assertFalse(not_major.allowed)
+    self.assertIn("current-authorization", not_major.missing_gates)
+    permitted = plan_done(snapshot(
+      release="major", authorization=authorization(release="major"),
+    ))
+    self.assertTrue(permitted.allowed)
+
+  def test_unauthorized_mit_scheduling_cannot_join_queue(self):
+    p = plan_done(snapshot(
+      mit="pending", mit_candidate_sha=SOURCE, mit_tester="tester-9",
+      mit_deadline="2026-10-15T15:00:00Z", contenders=2,
+      coordination_authority=True,
+    ))
+    self.assertFalse(p.queue_eligible)
+    self.assertIn("mit-scheduling-obligation", p.missing_gates)
 
   def test_pure_projection_does_not_mutate_inputs(self):
     old = snapshot(contenders=3, coordination_authority=True)
