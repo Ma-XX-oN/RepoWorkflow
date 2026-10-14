@@ -122,6 +122,11 @@ def verify_hosted_stage(
     or record.get("providerStage") != stage
   ):
     return False
+  branch = record.get("branch")
+  if (not isinstance(branch, str)
+      or re.fullmatch(r"issue-[1-9][0-9]*(?:-[A-Za-z0-9_.-]+)?", branch)
+      is None):
+    return False
   base = "https://api.github.com/repos/" + repo
   try:
     run = read(base + "/actions/runs/" + str(run_id))
@@ -134,8 +139,20 @@ def verify_hosted_stage(
     return False
   if not all(isinstance(item, dict) for item in (run, commit, marker, jobs_page)):
     return False
+  workflow_path = run.get("path")
+  if not isinstance(workflow_path, str):
+    return False
+  workflow_file, separator, workflow_ref = workflow_path.partition("@")
   if (
-    run.get("id") != run_id
+    workflow_file != ".github/workflows/on-demand-ci.yml"
+    or (separator and workflow_ref not in (
+      branch, "refs/heads/" + branch,
+    ))
+  ):
+    return False
+  if (
+    run.get("head_branch") != branch
+    or run.get("id") != run_id
     or run.get("conclusion") != "success"
     or run.get("status") != "completed"
     or run.get("event") != "push"
