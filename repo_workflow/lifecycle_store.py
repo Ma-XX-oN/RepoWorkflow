@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .git import git
+from .projection_lock import projection_lock
 from .state_store import (
   JsonRecordStore,
   StateStoreError,
@@ -204,61 +205,62 @@ class LifecycleStore:
     writer: WriterIdentity,
     expected_revision: int | None,
   ) -> LifecycleSnapshot:
-    current = self.read(issue)
-    if current.revision != expected_revision:
-      raise LifecycleError(
-        f"stale lifecycle revision for issue {current.lifecycle.issue}: "
-        f"expected {expected_revision!r}, current {current.revision!r}"
-      )
-    key = (current.lifecycle.state, transition)
-    try:
-      next_state = TRANSITIONS[key]
-    except KeyError as error:
-      raise LifecycleError(
-        f"illegal lifecycle transition: {current.lifecycle.state} "
-        f"--{transition}--> ?"
-      ) from error
+    with projection_lock(self.repository_root):
+      current = self.read(issue)
+      if current.revision != expected_revision:
+        raise LifecycleError(
+          f"stale lifecycle revision for issue {current.lifecycle.issue}: "
+          f"expected {expected_revision!r}, current {current.revision!r}"
+        )
+      key = (current.lifecycle.state, transition)
+      try:
+        next_state = TRANSITIONS[key]
+      except KeyError as error:
+        raise LifecycleError(
+          f"illegal lifecycle transition: {current.lifecycle.state} "
+          f"--{transition}--> ?"
+        ) from error
 
-    relationship_revision = _optional_revision(relationship_revision)
-    candidate = _optional_text(candidate, "candidate")
-    _validate_transition_candidate(
-      transition,
-      candidate,
-      current.lifecycle.history,
-    )
-    event = LifecycleEvent(
-      sequence=len(current.lifecycle.history),
-      transition=transition,
-      from_state=current.lifecycle.state,
-      to_state=next_state,
-      candidate=candidate,
-    )
-    successor = IssueLifecycle(
-      issue=current.lifecycle.issue,
-      state=next_state,
-      dependency_satisfied=next_state == "completed",
-      relationship_revision=relationship_revision,
-      history=current.lifecycle.history + (event,),
-      high_risk_aliases=current.lifecycle.high_risk_aliases,
-      legacy_event_count=current.lifecycle.legacy_event_count,
-    )
-    try:
-      if current.revision is None:
-        record = self.records.create(
-          _key(current.lifecycle.issue),
-          successor.to_json_value(),
-          writer,
-        )
-      else:
-        record = self.records.replace(
-          _key(current.lifecycle.issue),
-          current.revision,
-          successor.to_json_value(),
-          writer,
-        )
-    except StateStoreError as error:
-      raise LifecycleError(str(error)) from error
-    return LifecycleSnapshot(successor, record["revision"])
+      relationship_revision = _optional_revision(relationship_revision)
+      candidate = _optional_text(candidate, "candidate")
+      _validate_transition_candidate(
+        transition,
+        candidate,
+        current.lifecycle.history,
+      )
+      event = LifecycleEvent(
+        sequence=len(current.lifecycle.history),
+        transition=transition,
+        from_state=current.lifecycle.state,
+        to_state=next_state,
+        candidate=candidate,
+      )
+      successor = IssueLifecycle(
+        issue=current.lifecycle.issue,
+        state=next_state,
+        dependency_satisfied=next_state == "completed",
+        relationship_revision=relationship_revision,
+        history=current.lifecycle.history + (event,),
+        high_risk_aliases=current.lifecycle.high_risk_aliases,
+        legacy_event_count=current.lifecycle.legacy_event_count,
+      )
+      try:
+        if current.revision is None:
+          record = self.records.create(
+            _key(current.lifecycle.issue),
+            successor.to_json_value(),
+            writer,
+          )
+        else:
+          record = self.records.replace(
+            _key(current.lifecycle.issue),
+            current.revision,
+            successor.to_json_value(),
+            writer,
+          )
+      except StateStoreError as error:
+        raise LifecycleError(str(error)) from error
+      return LifecycleSnapshot(successor, record["revision"])
 
   def set_high_risk_aliases(
     self,
@@ -267,39 +269,40 @@ class LifecycleStore:
     writer: WriterIdentity,
     expected_revision: int | None,
   ) -> LifecycleSnapshot:
-    current = self.read(issue)
-    if current.revision != expected_revision:
-      raise LifecycleError(
-        f"stale lifecycle revision for issue {current.lifecycle.issue}: "
-        f"expected {expected_revision!r}, current {current.revision!r}"
+    with projection_lock(self.repository_root):
+      current = self.read(issue)
+      if current.revision != expected_revision:
+        raise LifecycleError(
+          f"stale lifecycle revision for issue {current.lifecycle.issue}: "
+          f"expected {expected_revision!r}, current {current.revision!r}"
+        )
+      normalized = _aliases(aliases)
+      successor = IssueLifecycle(
+        issue=current.lifecycle.issue,
+        state=current.lifecycle.state,
+        dependency_satisfied=current.lifecycle.dependency_satisfied,
+        relationship_revision=current.lifecycle.relationship_revision,
+        history=current.lifecycle.history,
+        high_risk_aliases=normalized,
+        legacy_event_count=current.lifecycle.legacy_event_count,
       )
-    normalized = _aliases(aliases)
-    successor = IssueLifecycle(
-      issue=current.lifecycle.issue,
-      state=current.lifecycle.state,
-      dependency_satisfied=current.lifecycle.dependency_satisfied,
-      relationship_revision=current.lifecycle.relationship_revision,
-      history=current.lifecycle.history,
-      high_risk_aliases=normalized,
-      legacy_event_count=current.lifecycle.legacy_event_count,
-    )
-    try:
-      if current.revision is None:
-        record = self.records.create(
-          _key(current.lifecycle.issue),
-          successor.to_json_value(),
-          writer,
-        )
-      else:
-        record = self.records.replace(
-          _key(current.lifecycle.issue),
-          current.revision,
-          successor.to_json_value(),
-          writer,
-        )
-    except StateStoreError as error:
-      raise LifecycleError(str(error)) from error
-    return LifecycleSnapshot(successor, record["revision"])
+      try:
+        if current.revision is None:
+          record = self.records.create(
+            _key(current.lifecycle.issue),
+            successor.to_json_value(),
+            writer,
+          )
+        else:
+          record = self.records.replace(
+            _key(current.lifecycle.issue),
+            current.revision,
+            successor.to_json_value(),
+            writer,
+          )
+      except StateStoreError as error:
+        raise LifecycleError(str(error)) from error
+      return LifecycleSnapshot(successor, record["revision"])
 
   def _existed_in_history(self, key: str) -> bool:
     relative = f".repoworkflow/state/{key}.json"
