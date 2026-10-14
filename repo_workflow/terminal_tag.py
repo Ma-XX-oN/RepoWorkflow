@@ -11,6 +11,8 @@ import json
 import re
 import subprocess
 
+from .phase_terminal import PhaseTransitionError, plan_phase
+
 
 _VERSION_RE = re.compile(
   r"[0-9]+\.[0-9]+\.[0-9]+-issue\.[1-9][0-9]*\.[0-9]+\.[0-9]+"
@@ -152,8 +154,14 @@ def publish_terminal_tag(
     root, canonical_log, stage=stage, version=version,
     candidate=candidate, outcome=outcome,
   )
-  tag = "v" + version + ("-CI-FAIL" if outcome == "FAIL" else "")
-  opposite = "v" + version + ("" if outcome == "FAIL" else "-CI-FAIL")
+  try:
+    tag = plan_phase(version, phase=stage, outcome=outcome).terminal_tag
+    opposite_outcome = "FAIL" if outcome == "PASS" else "PASS"
+    opposite = plan_phase(
+      version, phase=stage, outcome=opposite_outcome,
+    ).terminal_tag
+  except PhaseTransitionError as error:
+    raise TerminalTagError("invalid terminal phase/version") from error
   for other in (opposite,):
     if _local_target(root, other) is not None:
       raise TerminalTagError("opposite terminal outcome already exists")
