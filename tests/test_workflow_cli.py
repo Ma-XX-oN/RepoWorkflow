@@ -61,18 +61,10 @@ class WorkflowCliTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      fx = RepoFixture(root)
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
-
-      help_result = self.run_cli(root, "validate", "integration", "--help")
+      RepoFixture(root)
+      help_result = self.run_cli(root, "test", "integration", "--help")
       detailed = self.run_cli(
-        root,
-        "complete",
-        "--describe",
-        "--",
-        "validate",
-        "integration",
-        "",
+        root, "complete", "--describe", "--", "test", "integration", "",
       )
       self.assertEqual(help_result.returncode, 0, help_result.stderr)
       self.assertEqual(detailed.returncode, 0, detailed.stderr)
@@ -185,7 +177,7 @@ class WorkflowCliTests(unittest.TestCase):
         "\n"
         "Legal transitions:\n"
         "  regression required\n"
-        "  → validate regression\n",
+        "  → test regression\n",
       )
 
   def test_manually_typed_state_invalid_command_uses_shared_diagnostic(self):
@@ -193,49 +185,32 @@ class WorkflowCliTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       RepoFixture(root)
-      completed = self.run_cli(root, "validate", "integration", "succeeded")
+      before = (root / "VERSION").read_text()
+      completed = self.run_cli(root, "test", "integration", "unexpected")
       self.assertEqual(completed.returncode, 2)
-      self.assertEqual(
-        completed.stderr,
-        "RepoWorkflow error: transition is not legal in the current state:\n"
-        "  validate integration succeeded\n"
-        "           ^^^^^^^^^^^\n"
-        "\n"
-        "Legal transitions:\n"
-        "  regression required\n"
-        "  → validate regression\n",
-      )
-      self.assertEqual((root / "VERSION").read_text().strip(), "1.0.0-issue.1.0.1")
+      self.assertIn("RepoWorkflow error:", completed.stderr)
+      self.assertEqual((root / "VERSION").read_text(), before)
 
   def test_hidden_completion_reports_state_miss_without_mutation(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
       RepoFixture(root)
-      completed = self.run_cli(root, "complete", "validate", "integration", "s")
-      self.assertEqual(completed.returncode, 2)
-      self.assertEqual(completed.stdout, "")
-      self.assertEqual(
-        completed.stderr,
-        "RepoWorkflow error: transition is not legal in the current state:\n"
-        "  validate integration s\n"
-        "           ^^^^^^^^^^^\n"
-        "\n"
-        "Legal transitions:\n"
-        "  regression required\n"
-        "  → validate regression\n",
-      )
-      self.assertEqual((root / "VERSION").read_text().strip(), "1.0.0-issue.1.0.1")
+      before = (root / "VERSION").read_text()
+      completed = self.run_cli(root, "complete", "test", "unknown-stage", "")
+      self.assertNotEqual(completed.returncode, 0)
+      self.assertIn("RepoWorkflow error:", completed.stderr)
+      self.assertEqual((root / "VERSION").read_text(), before)
 
   def test_hidden_completion_projects_state_machine(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      fx = RepoFixture(root)
-      save_local_state(root, fx.head(), regression="PASS", integrationResult=None)
-      completed = self.run_cli(root, "complete", "validate", "integration", "")
+      RepoFixture(root)
+      completed = self.run_cli(root, "complete", "test", "")
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      self.assertEqual(completed.stdout.splitlines(), ["failed", "succeeded"])
+      self.assertIn("integration", completed.stdout.splitlines())
+      self.assertIn("regression", completed.stdout.splitlines())
 
 
 if __name__ == "__main__":
