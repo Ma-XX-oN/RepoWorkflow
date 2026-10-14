@@ -47,56 +47,6 @@ def _plan(context: Context):
   return derive_plan(discover_facts(context.root))
 
 
-def _integration_results(context: Context) -> dict:
-  descriptions = {
-    "succeeded": "Report integration tests succeeded",
-    "failed": "Report integration tests failed",
-  }
-  if not context.legal_only:
-    names = ("failed", "succeeded")
-  else:
-    allowed = set(_plan(context).transitions)
-    names = tuple(
-      name
-      for name in ("failed", "succeeded")
-      if f"validate integration {name}" in allowed
-    )
-  return {
-    "completions": [{name: descriptions[name]} for name in names],
-  }
-
-
-def _integration_node() -> dict:
-  return {
-    "_description": "Report an integration test outcome",
-    "_values": _integration_results,
-  }
-
-
-def _regression_node() -> dict:
-  return {
-    "": "Run all regression tests",
-  }
-
-
-def _validate_commands(context: Context) -> dict:
-  if not context.legal_only:
-    return {
-      "completions": [
-        {"regression": _regression_node()},
-        {"integration": _integration_node()},
-      ],
-    }
-
-  transitions = _plan(context).transitions
-  fragments: list[dict] = []
-  if "validate regression" in transitions:
-    fragments.append({"regression": _regression_node()})
-  if any(item.startswith("validate integration ") for item in transitions):
-    fragments.append({"integration": _integration_node()})
-  return {"completions": fragments}
-
-
 def _issue_number(context: Context) -> list[str]:
   token = context.current_token
   if token and token.isdecimal():
