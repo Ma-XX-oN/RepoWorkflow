@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,8 +92,9 @@ class HostedPlanCandidateTests(unittest.TestCase):
   def test_unrelated_branch_ref_fails_closed(self):
     self.invoke()
     self.git("checkout", "-qb", "prelim-main")
-    with self.assertRaisesRegex(Exception, "valid issue branch"):
-      self.plan(self.root)
+    with patch.dict("os.environ", {"GITHUB_REF_NAME": ""}):
+      with self.assertRaisesRegex(Exception, "valid issue branch"):
+        self.plan(self.root)
 
   def test_malformed_historical_invocation_fails_closed(self):
     self.invoke()
