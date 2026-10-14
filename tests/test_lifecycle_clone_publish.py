@@ -83,8 +83,8 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
         RelationshipStore(clones[0]).path.read_bytes(),
       )
       self.assertNotEqual(
-        RelationshipStore(witness).path.read_bytes(),
-        RelationshipStore(clones[1]).path.read_bytes(),
+        authority.lifecycle.history[0].candidate,
+        LifecycleStore(clones[1]).read(1).lifecycle.history[0].candidate,
       )
 
 
