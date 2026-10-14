@@ -320,12 +320,12 @@ Example:
 
 ```text
 RepoWorkflow error: transition is not legal in the current state:
-  validate integration s
+  test integration --remote
            ^^^^^^^^^^^
 
 Legal transitions:
   regression required
-  → validate regression
+  → test regression
 ```
 
 A legal state-derived prefix whose partial token matches no current candidate
@@ -333,12 +333,12 @@ may report:
 
 ```text
 RepoWorkflow error: no completions available from the current state:
-  validate integration s
+  test integration --remote
                        ^
 
 Legal transitions:
   integration result pending
-  → validate integration failed
+  → test integration
 ```
 
 Catalogue/custom handlers may instead provide domain-specific diagnostics, such

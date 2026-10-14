@@ -644,6 +644,63 @@
         "invalid_transition": "HR-2"
       },
       "provider_boundary": false
+    },
+    {
+      "id": "FU-REMOTE-TEST",
+      "status": "covered",
+      "scope": [
+        "rwf test RED/temporary/GREEN/regression/integration/results",
+        "issue-branch hosted request, publication, authenticated readback"
+      ],
+      "minimum_state": "Git issue branch with committed catalogue and eligible request marker",
+      "prohibited_shortcuts": [
+        "treating isolated historical source as final candidate proof",
+        "reusing unauthenticated provider PASS",
+        "bypassing exact candidate ancestry"
+      ],
+      "tests": [
+        "tests/test_test_cli.py",
+        "tests/test_on_demand_plan.py",
+        "tests/test_on_demand_workflow.py",
+        "tests/test_github_evidence.py"
+      ],
+      "acceptance": [
+        {
+          "id": "RT-1",
+          "requirement": "All public test families have source and grammar acceptance",
+          "verification": [
+            "tests/test_on_demand_workflow.py::OnDemandWorkflowContractTests.test_all_five_stages_select_public_runner"
+          ]
+        },
+        {
+          "id": "RT-2",
+          "requirement": "Dedicated issue-branch invocation and retries bind candidate ancestry",
+          "verification": [
+            "tests/test_on_demand_plan.py::HostedPlanCandidateTests.test_retry_binds_to_original_candidate",
+            "tests/test_on_demand_plan.py::HostedPlanCandidateTests.test_malformed_historical_invocation_fails_closed"
+          ]
+        },
+        {
+          "id": "RT-3",
+          "requirement": "Provider-authenticated results reject foreign workflow and branch claims",
+          "verification": [
+            "tests/test_github_evidence.py::HostedIntegrationProviderTests.test_forged_record_branch_is_rejected",
+            "tests/test_github_evidence.py::HostedIntegrationProviderTests.test_wrong_workflow_ref_is_rejected"
+          ]
+        }
+      ],
+      "stateful": true,
+      "lifecycle_dimensions": {
+        "initial": "RT-1",
+        "repeat": "RT-2",
+        "changed_input": "RT-2",
+        "invalid_transition": "RT-2",
+        "provider_retrieval": "RT-3"
+      },
+      "provider_boundary": true,
+      "provider_contract_verification": [
+        "tests/test_github_evidence.py::HostedIntegrationProviderTests.test_actual_completed_run_and_exact_marker_are_accepted"
+      ]
     }
   ],
   "audited_issue_count": 191,
@@ -657,9 +714,9 @@
     "issue start": "FU-WORK",
     "workspace": "FU-WORK",
     "what-next": "FU-LIFECYCLE",
-    "validate": "FU-LIFECYCLE",
     "issue": "FU-DEPS-LANES",
-    "high-risk": "FU-HIGH-RISK"
+    "high-risk": "FU-HIGH-RISK",
+    "test": "FU-REMOTE-TEST"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."

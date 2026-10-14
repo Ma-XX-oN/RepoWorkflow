@@ -89,6 +89,254 @@
       "issue-583-lifecycle-cross-product": {
         "type": "regression",
         "name": "tests.test_lifecycle_store"
+      },
+      "issue-540-on-demand-ci-marker": {
+        "type": "regression",
+        "name": "tests.test_ci_invocation"
+      },
+      "issue-542-premerge-evidence-gate": {
+        "type": "regression",
+        "name": "tests.test_pre_merge_gate"
+      },
+      "issue-541-on-demand-workflow": {
+        "type": "regression",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-541-hosted-plan-binding": {
+        "type": "regression",
+        "name": "tests.test_on_demand_plan"
+      },
+      "issue-541-hosted-result-evidence": {
+        "type": "regression",
+        "name": "tests.test_hosted_result"
+      },
+      "issue-543-on-demand-ci-certification": {
+        "type": "regression",
+        "name": "tests.test_on_demand_ci_certification"
+      },
+      "issue-629-certification-matrix": {
+        "type": "regression",
+        "name": "tests.test_issue629_certification_matrix"
+      },
+      "issue-629-cli-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cli_acceptance"
+      },
+      "issue-629-provider-probe": {
+        "type": "regression",
+        "name": "tests.test_issue629_provider_probe"
+      },
+      "issue-629-selection-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_selection_acceptance"
+      },
+      "issue-629-invocation-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_invocation_acceptance"
+      },
+      "issue-629-cache-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue629_cache_acceptance"
+      },
+      "issue-629-stage-cardinality": {
+        "type": "regression",
+        "name": "tests.test_issue629_stage_cardinality"
+      },
+      "issue-629-expected-red": {
+        "type": "regression",
+        "name": "tests.test_issue629_expected_red"
+      },
+      "issue-629-red-outcome": {
+        "type": "regression",
+        "name": "tests.test_issue629_red_outcome"
+      },
+      "issue-629-pending-provider": {
+        "type": "regression",
+        "name": "tests.test_issue629_pending_provider"
+      },
+      "issue-543-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
+      "issue-543-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
+      },
+      "issue-543-provider-refresh-order": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes"
+      },
+      "issue-543-bootstrap-help": {
+        "type": "regression",
+        "name": "tests.test_bootstrap_cli"
+      },
+      "issue-543-first-use-owner": {
+        "type": "regression",
+        "name": "tests.test_first_use_workflows"
+      },
+      "issue-543-source-size": {
+        "type": "regression",
+        "name": "tests.test_source_size"
+      },
+      "issue-543-lane-graph-adapter": {
+        "type": "regression",
+        "name": "tests.test_lane_graph_adapter"
+      },
+      "issue-543-graph-layout-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_layout_semantics"
+      },
+      "issue-543-rendered-graph": {
+        "type": "regression",
+        "name": "tests.test_graph_render"
+      },
+      "issue-543-generated-dag-semantics": {
+        "type": "regression",
+        "name": "tests.test_generated_graph_semantics"
+      },
+      "issue-543-lane-display-reduction": {
+        "type": "regression",
+        "name": "tests.test_lane_display_reduction"
+      },
+      "issue-543-hosted-remote-result-workflow": {
+        "type": "regression",
+        "name": "tests.test_on_demand_workflow"
+      },
+      "issue-542-canonical-evidence": {
+        "type": "regression",
+        "name": "tests.test_canonical_integration_evidence"
+      },
+      "issue-542-github-provider-evidence": {
+        "type": "regression",
+        "name": "tests.test_github_evidence"
+      },
+      "issue-543-github-cache-origin": {
+        "type": "regression",
+        "name": "tests.test_github_cache"
+      },
+      "issue-543-shared-hosted-cache": {
+        "type": "regression",
+        "name": "tests.test_shared_hosted_cache"
+      },
+      "issue-543-committed-contract": {
+        "type": "regression",
+        "name": "tests.test_issue543_committed_contract"
+      },
+      "issue-543-marker-integrity": {
+        "type": "regression",
+        "name": "tests.test_issue543_marker_integrity"
+      },
+      "issue-543-provider-retry-lineage": {
+        "type": "regression",
+        "name": "tests.test_issue543_hosted_lineage"
+      },
+      "issue-543-authenticated-artifact-negative": {
+        "type": "regression",
+        "name": "tests.test_issue543_artifact_auth"
+      },
+      "issue-545-unified-test-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli"
+      },
+      "issue-545-workflow-cli-migration": {
+        "type": "regression",
+        "name": "tests.test_workflow_cli"
+      },
+      "issue-545-bash-completion-migration": {
+        "type": "regression",
+        "name": "tests.test_completion"
+      },
+      "issue-545-red-evidence": {
+        "type": "regression",
+        "name": "tests.test_red_evidence"
+      },
+      "issue-545-integration-preflight": {
+        "type": "regression",
+        "name": "tests.test_integration_preflight"
+      },
+      "issue-545-local-integration": {
+        "type": "regression",
+        "name": "tests.test_local_integration"
+      },
+      "issue-545-regression-temporary": {
+        "type": "regression",
+        "name": "tests.test_regression_temporary"
+      },
+      "issue-545-dedicated-test-commits": {
+        "type": "regression",
+        "name": "tests.test_dedicated_test_commits"
+      },
+      "issue-545-history-mutation": {
+        "type": "regression",
+        "name": "tests.test_test_execution_mutation"
+      },
+      "issue-545-engine-regression": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
+      },
+      "issue-545-real-consumer-verify": {
+        "type": "regression",
+        "name": "tests.test_local"
+      },
+      "issue-545-consumer-terminal-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_consumer_terminal_lifecycle"
+      },
+      "issue-545-terminal-tag": {
+        "type": "regression",
+        "name": "tests.test_terminal_tag"
+      },
+      "issue-545-cache-evidence": {
+        "type": "regression",
+        "name": "tests.test_test_cache_evidence"
+      },
+      "issue-545-results-metadata": {
+        "type": "regression",
+        "name": "tests.test_test_results_metadata"
+      },
+      "issue-545-dirty-rename": {
+        "type": "regression",
+        "name": "tests.test_test_dirty_rename"
+      },
+      "issue-545-remote-cli": {
+        "type": "regression",
+        "name": "tests.test_test_cli_remote"
+      },
+      "issue-545-selection-commit": {
+        "type": "regression",
+        "name": "tests.test_test_selection_commit"
+      },
+      "issue-545-red-classification": {
+        "type": "regression",
+        "name": "tests.test_test_red_classification"
+      },
+      "issue-545-launch-failures": {
+        "type": "regression",
+        "name": "tests.test_test_launch_failures"
+      },
+      "issue-545-shipped-launcher": {
+        "type": "regression",
+        "name": "tests.test_test_launcher"
+      },
+      "issue-545-red-runner": {
+        "type": "regression",
+        "name": "tests.test_test_red_runner"
+      },
+      "issue-545-expected-red-cli": {
+        "type": "regression",
+        "name": "tests.test_expected_red_cli"
+      },
+      "issue-545-all-acceptance": {
+        "type": "regression",
+        "name": "tests.test_issue_545_acceptance"
+      },
+      "issue-541-hosted-publication": {
+        "type": "regression",
+        "name": "tests.test_publish_hosted_result"
+      },
+      "issue-541-hosted-cache-attestation": {
+        "type": "regression",
+        "name": "tests.test_541_hosted_cache_integration"
       }
     },
     {
