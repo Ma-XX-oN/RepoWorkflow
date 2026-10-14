@@ -196,7 +196,7 @@ jobs:
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
-      vars.RWF_ENABLE_LEGACY_STABLE_RELEASE == 'true' &&
+      false &&  # Legacy auto-tagging disabled; #86 owns authorised release.
       (
         needs.plan.outputs.tier == 'docs' ||
         (
