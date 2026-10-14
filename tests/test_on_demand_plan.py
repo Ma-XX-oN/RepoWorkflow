@@ -88,6 +88,12 @@ class HostedPlanCandidateTests(unittest.TestCase):
     self.assertEqual(result["tested_sha"], changed_candidate)
     self.assertNotEqual(result["tested_sha"], self.candidate)
 
+  def test_unrelated_branch_ref_fails_closed(self):
+    self.invoke()
+    self.git("checkout", "-qb", "prelim-main")
+    with self.assertRaisesRegex(Exception, "valid issue branch"):
+      self.plan(self.root)
+
   def test_malformed_historical_invocation_fails_closed(self):
     self.invoke()
     marker = self.root / ".ci/run"
