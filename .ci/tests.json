@@ -377,6 +377,14 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "issue-583-lifecycle-cross-product": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
+      },
+      "issue-583-clone-publication": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_clone_publish"
       }
     },
     {
