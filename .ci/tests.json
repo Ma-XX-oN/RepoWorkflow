@@ -333,6 +333,14 @@
       "issue-541-hosted-cache-attestation": {
         "type": "regression",
         "name": "tests.test_541_hosted_cache_integration"
+      },
+      "issue-543-red-provider-probe": {
+        "type": "regression",
+        "name": "tests.test_issue543_red_provider_probe",
+        "expected-red": {
+          "exit-code": 1,
+          "output-contains": "issue543 declared red invariant 20261013"
+        }
       }
     },
     {
