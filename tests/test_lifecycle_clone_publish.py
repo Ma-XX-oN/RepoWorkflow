@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 
 from repo_workflow.lifecycle_store import LifecycleStore
+from repo_workflow.relationship_store import RelationshipStore
+from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 
 
@@ -24,7 +26,11 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
       self.git(seed, "config", "user.name", "Test Agent")
       self.git(seed, "config", "user.email", "test@example.invalid")
       (seed / "README.md").write_text("seed\n", encoding="utf-8")
-      self.git(seed, "add", "README.md")
+      RelationshipStore(seed).create(
+        RelationshipGraph(issues={"1": IssueRelationships("One", ())}),
+        WriterIdentity("seed", "session"),
+      )
+      self.git(seed, "add", ".")
       self.git(seed, "commit", "-m", "seed")
       remote = root / "origin.git"
       self.git(root, "init", "--bare", str(remote))
@@ -42,7 +48,13 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
         )
         self.assertEqual(snapshot.revision, 0)
         self.assertEqual(snapshot.lifecycle.state, "active")
-        self.git(clone, "add", ".repoworkflow/state/issues/1/lifecycle.json")
+        cached = RelationshipStore(clone).refresh_states(
+          WriterIdentity(name, "session"),
+        )
+        self.assertEqual(cached.states["1"].state, "active")
+        self.assertEqual(cached.states["1"].lifecycle_revision, 0)
+        self.git(clone, "add", ".repoworkflow/state/issues/1/lifecycle.json",
+                 ".repoworkflow/tickets.csv")
         self.git(clone, "commit", "-m", name + " lifecycle start")
         clones.append(clone)
 
@@ -61,6 +73,19 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
       self.assertEqual(authority.revision, 0)
       self.assertEqual(authority.lifecycle.history[0].candidate, "first")
       self.assertEqual(authority.lifecycle.state, "active")
+      # P17: a fresh independent clone reads exactly the committed cache.
+      projected = RelationshipStore(witness).read()
+      self.assertEqual(projected.graph.issue(1).title, "One")
+      self.assertEqual(projected.states["1"].state, "active")
+      self.assertEqual(projected.states["1"].lifecycle_revision, authority.revision)
+      self.assertEqual(
+        RelationshipStore(witness).path.read_bytes(),
+        RelationshipStore(clones[0]).path.read_bytes(),
+      )
+      self.assertNotEqual(
+        RelationshipStore(witness).path.read_bytes(),
+        RelationshipStore(clones[1]).path.read_bytes(),
+      )
 
 
 if __name__ == "__main__":
