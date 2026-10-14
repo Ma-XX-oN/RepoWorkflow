@@ -1,0 +1,33 @@
+name: Issue 108 independent acceptance
+
+on:
+  push:
+    branches:
+      - issue-108-hosted-acceptance-v3
+    paths:
+      - .github/workflows/issue-108-acceptance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  exact-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ef6b362864a5c7ddf541487b5aa7b9622a05402a
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" =             ef6b362864a5c7ddf541487b5aa7b9622a05402a
+      - name: Compile source and acceptance tests
+        run: python -m compileall -q repo_workflow/done_planner.py tests/test_done_planner.py
+      - name: Independent done planner acceptance
+        run: python -m unittest -v tests.test_done_planner
+      - name: Source-size invariant
+        run: python -m unittest -v tests.test_source_size
