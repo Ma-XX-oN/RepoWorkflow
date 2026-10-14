@@ -62,7 +62,7 @@ def snapshot(**overrides):
 class DonePlannerAcceptance(unittest.TestCase):
   def test_readiness_has_explicit_parent_and_release(self):
     for release in ("patch", "minor", "major"):
-      plan = plan_done(snapshot(release=release))
+      plan = plan_done(snapshot(release=release, authorization=authorization(release=release)))
       self.assertEqual(plan.disposition, "ALLOWED")
       self.assertTrue(plan.allowed)
       self.assertEqual(plan.target, "parent/56")
