@@ -50,9 +50,9 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       'echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"', self.text,
     )
     expected = "ref: ${{ needs.plan.outputs.tested_sha }}"
-    self.assertEqual(self.text.count(expected), 5)
+    self.assertEqual(self.text.count(expected), 6)
     for name in (
-      "validate", "publish", "argv-limits", "graph-renderer-platform",
+      "validate", "publish", "results", "argv-limits", "graph-renderer-platform",
       "ticket-merge-platform",
     ):
       section = self.text.split("\n  " + name + ":\n", 1)[1]
@@ -79,6 +79,15 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("contents: write", publisher)
     self.assertIn("actions/download-artifact@v4", publisher)
     self.assertIn("stage-result-${{ github.run_id }}", validate)
+
+  def test_read_only_result_retrieval_is_independent(self):
+    results = self.text.split("\n  results:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
+    )[0]
+    self.assertIn("contents: read", results)
+    self.assertNotIn("contents: write", results)
+    self.assertIn("./rwf test results --remote", results)
+    self.assertIn("needs: [plan, publish]", results)
 
   def test_hosted_regression_and_integration_use_public_test_entrypoint(self):
     self.assertIn("needs.plan.outputs.stage", self.text)
