@@ -23,12 +23,15 @@ class HostedIntegrationProviderTests(unittest.TestCase):
       "providerInvocationSHA": INVOCATION,
       "providerCandidateSHA": SHA,
       "providerStage": "integration-testing",
+      "branch": "issue-543-provider-test",
     }
     self.responses = {
       BASE + "/actions/runs/123": {
         "id": 123, "conclusion": "success", "status": "completed",
         "event": "push", "name": "RepoWorkflow On-Demand CI",
         "head_sha": INVOCATION,
+        "head_branch": "issue-543-provider-test",
+        "path": ".github/workflows/on-demand-ci.yml@issue-543-provider-test",
       },
       BASE + "/git/commits/" + INVOCATION: {
         "parents": [{"sha": SHA}],
@@ -72,12 +75,26 @@ class HostedIntegrationProviderTests(unittest.TestCase):
     for field, value in (
       ("id", 999), ("conclusion", "failure"), ("status", "queued"),
       ("event", "pull_request"), ("head_sha", SHA),
+      ("head_branch", "issue-543-forged"),
+      ("path", ".github/workflows/other.yml@issue-543-provider-test"),
       ("name", "an unrelated workflow"),
     ):
       with self.subTest(field=field):
         responses = deepcopy(self.responses)
         responses[BASE + "/actions/runs/123"][field] = value
         self.assertFalse(self.verify(responses=responses))
+
+  def test_forged_record_branch_is_rejected(self):
+    self.assertFalse(self.verify(record={
+      **self.record, "branch": "issue-543-forged",
+    }))
+
+  def test_wrong_workflow_ref_is_rejected(self):
+    responses = deepcopy(self.responses)
+    responses[BASE + "/actions/runs/123"]["path"] = (
+      ".github/workflows/on-demand-ci.yml@issue-999-forged"
+    )
+    self.assertFalse(self.verify(responses=responses))
 
   def test_green_and_temporary_provider_are_verifiable_without_matrix(self):
     jobs_url = BASE + "/actions/runs/123/jobs?per_page=100"
