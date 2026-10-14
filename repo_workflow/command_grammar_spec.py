@@ -20,6 +20,7 @@ LAST_TERMINAL = "<last-terminal>"
 TERMINAL = ""
 VALUES = "_values"
 VALUE_DESCRIPTION = "_value_description"
+NODE_DESCRIPTION = "_description"
 COMPLETIONS = "completions"
 ON_TAB = "on-tab"
 
@@ -95,7 +96,10 @@ class ResolvedCompletionSpec:
     result: list[Completion] = []
     for token, entry in self.entries.items():
       if token.startswith(prefix):
-        description = entry if isinstance(entry, str) else None
+        description = (
+          entry if isinstance(entry, str)
+          else entry.get(NODE_DESCRIPTION, entry.get(TERMINAL))
+        )
         result.append(Completion(token, description))
     for token in self.values:
       if token.startswith(prefix):
@@ -141,8 +145,8 @@ def validate_node(node: object, *, label: str = "COMMANDS") -> None:
     if token == VALUES:
       _validate_value_source(entry, f"{label}[{VALUES!r}]")
       continue
-    if token == VALUE_DESCRIPTION:
-      validate_description(entry, f"{label}[{VALUE_DESCRIPTION!r}]")
+    if token in {VALUE_DESCRIPTION, NODE_DESCRIPTION}:
+      validate_description(entry, f"{label}[{token!r}]")
       continue
     if token in {QUANTIFIER, ORDERED}:
       continue
@@ -251,7 +255,10 @@ def resolved_node(
   node: dict,
   context: Context,
 ) -> tuple[dict[str, CommandEntry], frozenset[str], ResolvedCompletionSpec]:
-  specials = {TERMINAL, VALUES, VALUE_DESCRIPTION, QUANTIFIER, SWITCHES, ORDERED}
+  specials = {
+    TERMINAL, VALUES, VALUE_DESCRIPTION, NODE_DESCRIPTION,
+    QUANTIFIER, SWITCHES, ORDERED,
+  }
   entries = {token: entry for token, entry in node.items() if token not in specials}
   spec = completion_spec(node, context)
   overlap = set(entries) & set(spec.entries)

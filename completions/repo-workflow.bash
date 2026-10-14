@@ -27,7 +27,6 @@ _repo_workflow_complete() {
     describe=1
   fi
   _RWF_LAST_CONTEXT="$context"
-  _RWF_LAST_US="$now_us"
   COMPREPLY=()
 
   if (( describe )); then
@@ -38,10 +37,12 @@ _repo_workflow_complete() {
         printf '%s\n' "$output"
       fi
     fi
+    _RWF_LAST_US="$(_rwf_now_us)"
     return 0
   fi
 
   if ! output=$("$command" --root "$root" complete -- "${words[@]}"); then
+    _RWF_LAST_US="$(_rwf_now_us)"
     return 0
   fi
 
@@ -53,6 +54,7 @@ _repo_workflow_complete() {
       COMPREPLY+=("$candidate")
     fi
   done <<< "$output"
+  _RWF_LAST_US="$(_rwf_now_us)"
 }
 
 complete -F _repo_workflow_complete repo-workflow rwf
