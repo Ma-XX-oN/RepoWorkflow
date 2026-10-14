@@ -333,6 +333,10 @@
       "issue-541-hosted-cache-attestation": {
         "type": "regression",
         "name": "tests.test_541_hosted_cache_integration"
+      },
+      "issue-543-green-provider-probe": {
+        "type": "regression",
+        "name": "tests.test_issue543_green_provider_probe"
       }
     },
     {
