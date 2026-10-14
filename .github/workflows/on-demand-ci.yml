@@ -120,11 +120,8 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
-      - id: ready
-        if: ${{ always() && steps.audit.outcome == 'success' }}
-        shell: bash
-        run: echo 'ready=true' >> "$GITHUB_OUTPUT"
-      - name: Transfer validated stage evidence to scoped publisher
+      - id: staged-evidence
+        name: Transfer validated stage evidence to scoped publisher
         if: ${{ always() && steps.audit.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
@@ -132,6 +129,10 @@ jobs:
           path: .repoworkflow/validation/testResults-*.jsonl
           if-no-files-found: error
           retention-days: 30
+      - id: ready
+        if: ${{ always() && steps.staged-evidence.outcome == 'success' }}
+        shell: bash
+        run: echo 'ready=true' >> "$GITHUB_OUTPUT"
 
   publish:
     needs: [plan, validate]
