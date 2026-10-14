@@ -150,6 +150,16 @@ class HostedIdentityTests(unittest.TestCase):
     self.assertEqual(identity["stage_transition_count"], 1)
     self.assertNotEqual(first, self.candidate)
 
+  def test_existing_valid_marker_rewritten_empty_is_not_source_boundary(self):
+    self.invoke()
+    marker = self.root / ".ci/run"
+    marker.write_text("")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "tamper existing hosted marker")
+    second = self.invoke("integration")
+    with self.assertRaisesRegex(HostedVersionError, "two-field"):
+      resolve_invocation(self.root, second)
+
   def test_first_request_binds_immediate_parent_and_original_candidate(self):
     sha = self.invoke()
     result = resolve_invocation(self.root, sha)

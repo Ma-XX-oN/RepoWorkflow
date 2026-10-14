@@ -92,7 +92,20 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
           parents[1], current,
         ).splitlines()
         if ".ci/run" in changed:
-          marker = _marker(root, current)
+          # An initial empty tracked marker is repository source, not a
+          # request. This exception requires that its parent had no marker;
+          # rewriting an existing request to empty remains invalid.
+          previous_marker = _git(
+            root, "ls-tree", parent, "--", ".ci/run",
+          )
+          current_marker = _git(root, "show", current + ":.ci/run")
+          if (
+            changed == [".ci/run"] and not previous_marker
+            and current_marker == ""
+          ):
+            marker = None
+          else:
+            marker = _marker(root, current)
         else:
           subject = _git(root, "show", "-s", "--format=%s", current).strip()
           if (
