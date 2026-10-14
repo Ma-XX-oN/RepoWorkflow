@@ -219,7 +219,8 @@ The task lifecycle is:
    - proceed to required AIT, if any.
 9. When ready for integration validation, explicitly run
    `rwf test integration` locally.  RWF runs the required AIT;
-   its automated runner records succeeded or failed evidence without user result entry.  If required MIT
+   its automated runner records succeeded or failed evidence without user
+   result entry.  If required MIT
    remains after AIT passes, the same full validation operation presents that
    manual requirement and waits for the human result.
 10. On AIT FAIL:
@@ -236,7 +237,8 @@ The task lifecycle is:
     - if no MIT is required, the task's integration/acceptance requirement is
       complete.
 13. Run MIT only when the repository/task declares a manual integration
-    requirement.  The human records the manual acceptance outcome through the separately required task acceptance process; this is not a `rwf test` PASS.
+    requirement.  The human records the manual acceptance outcome through the
+    separate task acceptance process; this is not a `rwf test` PASS.
 14. On MIT FAIL:
     - record the manual integration rejection;
     - advance `Q`;
