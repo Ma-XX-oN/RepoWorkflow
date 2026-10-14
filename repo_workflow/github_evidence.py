@@ -139,7 +139,7 @@ def verify_hosted_stage(
     or run.get("conclusion") != "success"
     or run.get("status") != "completed"
     or run.get("event") != "push"
-    or run.get("name") != "RepoWorkflow On-Demand CI (candidate)"
+    or run.get("name") != "RepoWorkflow On-Demand CI"
     or run.get("head_sha") != invocation
     or not isinstance(commit.get("parents"), list)
     or len(commit["parents"]) != 1
@@ -165,7 +165,7 @@ def verify_hosted_stage(
     if job["name"] in actual:
       return False
     actual[job["name"]] = job.get("conclusion")
-  required = {"plan", "validate"}
+  required = {"plan", "validate", "publish", "results"}
   if stage == "integration-testing":
     for group in (
       "argv-limits", "graph-renderer-platform", "ticket-merge-platform",
