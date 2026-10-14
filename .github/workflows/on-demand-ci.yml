@@ -120,7 +120,7 @@ jobs:
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
-      - id: staged-evidence
+      - id: staged_evidence
         name: Transfer validated stage evidence to scoped publisher
         if: ${{ always() && steps.audit.outcome == 'success' }}
         uses: actions/upload-artifact@v4
@@ -130,7 +130,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - id: ready
-        if: ${{ always() && steps.staged-evidence.outcome == 'success' }}
+        if: ${{ always() && steps.staged_evidence.outcome == 'success' }}
         shell: bash
         run: echo 'ready=true' >> "$GITHUB_OUTPUT"
 
