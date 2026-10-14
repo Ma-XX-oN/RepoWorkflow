@@ -156,7 +156,7 @@ jobs:
           name: stage-result-${{ github.run_id }}
           path: .
       - name: Publish canonical hosted testing observations
-        if: ${{ always() && steps.audit.outcome == 'success' }}
+        if: ${{ success() }}
         shell: bash
         run: >-
           python scripts/publish-hosted-result.py
@@ -166,7 +166,7 @@ jobs:
           "$GITHUB_SHA"
           "$GITHUB_RUN_ID"
       - name: Publish immutable provider result artifact
-        if: ${{ always() && steps.audit.outcome == 'success' }}
+        if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
           name: provider-result-${{ github.run_id }}
