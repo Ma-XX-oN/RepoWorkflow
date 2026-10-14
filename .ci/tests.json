@@ -369,6 +369,10 @@
       "issue-569-retry-evidence": {
         "type": "regression",
         "name": "tests.test_retry_evidence"
+      },
+      "issue-572-local-terminal-acceptance": {
+        "type": "regression",
+        "name": "tests.test_local_terminal"
       }
     },
     {
