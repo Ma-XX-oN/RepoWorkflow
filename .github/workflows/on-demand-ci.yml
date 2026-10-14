@@ -175,7 +175,7 @@ jobs:
           retention-days: 30
   results:
     needs: [plan, publish]
-    if: needs.publish.result == 'success'
+    if: ${{ always() && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
