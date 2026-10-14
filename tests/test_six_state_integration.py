@@ -139,5 +139,47 @@ class SixStateGraphIntegrationTests(unittest.TestCase):
         self.assertEqual(terminal.display_width(glyph), 1)
 
 
+  def test_repeated_current_refresh_has_identical_csv_and_lifecycle(self):
+    # G15: unchanged authority must not create lifecycle history or drift.
+    self.seed_all_states()
+    lifecycle = LifecycleStore(self.root)
+    before = {issue: lifecycle.read(issue) for issue in range(1, 7)}
+    first = self.relationships.refresh_states(self.writer)
+    original = self.relationships.path.read_bytes()
+    second = self.relationships.refresh_states(self.writer)
+    self.assertEqual(self.relationships.path.read_bytes(), original)
+    self.assertEqual(first.states, second.states)
+    self.assertEqual(first.revision, second.revision)
+    self.assertEqual(
+      {issue: lifecycle.read(issue) for issue in range(1, 7)},
+      before,
+    )
+
+  def test_current_cli_failure_has_no_graph_output_or_partial_csv(self):
+    # G07: CLI path as well as store path must fail closed.
+    self.seed_all_states()
+    original = self.relationships.path.read_bytes()
+    words = ["lanes", "view", "--current"]
+    output = StringIO()
+    with patch(
+      "repo_workflow.public_cli.runtime_writer_identity",
+      return_value=self.writer,
+    ):
+      with patch(
+        "repo_workflow.relationship_store.LifecycleStore.read",
+        side_effect=RuntimeError("authoritative lifecycle unavailable"),
+      ):
+        with redirect_stdout(output):
+          with self.assertRaisesRegex(
+            RuntimeError, "authoritative lifecycle unavailable",
+          ):
+            _handle_lanes(
+              self.root, words, LaneDiagnostics(self.root, tuple(words)),
+            )
+    self.assertEqual(output.getvalue(), "")
+    self.assertEqual(self.relationships.path.read_bytes(), original)
+
+
+
 if __name__ == "__main__":
   unittest.main()
