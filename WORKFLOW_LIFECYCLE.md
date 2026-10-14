@@ -187,19 +187,14 @@ returns to development.  The difference is how the result transition occurs:
 - MIT waits for the human result and exposes that result transition to the
   user.
 
-The concise integration-result commands are:
-
-```text
-repo-workflow validate integration succeeded
-repo-workflow validate integration failed
-```
-
-When AIT is pending, the automated runner invokes the appropriate command
-without user intervention.  When MIT is pending, the human invokes it.  The
-state machine must know which integration-test class is pending because AIT
-PASS may transition to required MIT, while MIT PASS completes the manual
-acceptance boundary.  An integration failure from either class has the same
-version consequence: `Q += 1` and `R` resets.
+The unified public automated interface is `rwf test integration`, with
+`--remote` for eligible issue-branch hosted requests.  The runner records
+succeeded, failed or incomplete evidence without public result-entry aliases.
+Any separately required MIT remains a distinct human acceptance boundary,
+not something the automated command silently marks PASS.  The state machine
+must distinguish AIT from MIT: AIT PASS proceeds to MIT when required, while
+MIT PASS completes that manual boundary.  Either genuine integration failure
+has the documented version consequence: `Q += 1` and `R` resets.
 
 The task lifecycle is:
 
@@ -209,7 +204,7 @@ The task lifecycle is:
    derives and applies the initial task version.
 4. Implement the task.
 5. When the implementation is ready for full regression validation, explicitly
-   run `repo-workflow validate regression`.  Local RWF does not start ART merely
+   run `rwf test regression`.  Local RWF does not start ART merely
    because it guesses development is finished.
 6. On ART genuine FAIL:
    - record/tag the failed exact candidate;
@@ -223,9 +218,8 @@ The task lifecycle is:
    - create the immutable successful task-candidate evidence;
    - proceed to required AIT, if any.
 9. When ready for integration validation, explicitly run
-   `repo-workflow validate integration` locally.  RWF runs the required AIT;
-   its automated runner records `validate integration succeeded` or
-   `validate integration failed` without user result entry.  If required MIT
+   `rwf test integration` locally.  RWF runs the required AIT;
+   its automated runner records succeeded or failed evidence without user result entry.  If required MIT
    remains after AIT passes, the same full validation operation presents that
    manual requirement and waits for the human result.
 10. On AIT FAIL:
@@ -242,8 +236,7 @@ The task lifecycle is:
     - if no MIT is required, the task's integration/acceptance requirement is
       complete.
 13. Run MIT only when the repository/task declares a manual integration
-    requirement.  The human records `validate integration succeeded` or
-    `validate integration failed`.
+    requirement.  The human records the manual acceptance outcome through the separately required task acceptance process; this is not a `rwf test` PASS.
 14. On MIT FAIL:
     - record the manual integration rejection;
     - advance `Q`;
