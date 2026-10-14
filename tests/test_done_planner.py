@@ -253,6 +253,49 @@ class DonePlannerAcceptance(unittest.TestCase):
     self.assertFalse(p.queue_eligible)
     self.assertIn("mit-scheduling-obligation", p.missing_gates)
 
+  def test_sha256_candidate_identity_is_supported_exactly(self):
+    sha64 = "a" * 64
+    base64 = "b" * 64
+    gates = tuple(
+      gate(name, sha=sha64, parent=base64)
+      for name in ("regression", "integration", "release")
+    )
+    auth = authorization(candidate_sha=sha64, expected_destination_sha=base64)
+    valid = snapshot(
+      candidate_sha=sha64, source_tip_sha=sha64,
+      recorded_parent_sha=base64, current_parent_sha=base64,
+      validation=gates, authorization=auth,
+    )
+    self.assertTrue(plan_done(valid).allowed)
+    invalid = replace(valid, source_tip_sha=SOURCE)
+    self.assertFalse(plan_done(invalid).allowed)
+
+  def test_invalid_explicit_parent_is_never_inferred(self):
+    for value in ("../main", "refs/heads/main", "a//b", "issue-108"):
+      p = plan_done(snapshot(parent_branch=value))
+      self.assertFalse(p.allowed)
+      self.assertIn("explicit-parent-relationship", p.missing_gates)
+
+  def test_invalid_mit_deadline_is_not_schedule_ready(self):
+    base = snapshot(
+      mit="pending", mit_candidate_sha=SOURCE, mit_tester="tester-9",
+      mit_schedule_authorized=True, contenders=2,
+      coordination_authority=True,
+    )
+    for value in ("tomorrow", "2026-13-15T15:00:00Z",
+                  "2026-10-15T15:00:00", ""):
+      p = plan_done(replace(base, mit_deadline=value))
+      self.assertIn("mit-scheduling-obligation", p.missing_gates)
+      self.assertFalse(p.queue_eligible)
+
+  def test_invalid_boolean_or_revision_cannot_grant_completion(self):
+    for changes in (
+      {"dependencies_complete": 1},
+      {"current_relationship_revision": True, "relationship_revision": 1},
+      {"mit_policy_verified": 1},
+    ):
+      self.assertFalse(plan_done(snapshot(**changes)).allowed)
+
   def test_pure_projection_does_not_mutate_inputs(self):
     old = snapshot(contenders=3, coordination_authority=True)
     before = repr(old)
