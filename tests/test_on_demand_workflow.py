@@ -18,10 +18,10 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertNotIn("  pull_request:", triggers)
     self.assertNotIn("  workflow_dispatch:", triggers)
 
-  def test_default_and_preliminary_main_are_excluded(self):
-    self.assertIn("branches-ignore:", self.text)
-    self.assertIn("      - main", self.text)
-    self.assertIn("      - 'prelim-main-*'", self.text)
+  def test_only_issue_branches_are_eligible(self):
+    triggers = self.text.split("\npermissions:", 1)[0]
+    self.assertIn("    branches:\n      - 'issue-*'", triggers)
+    self.assertNotIn("branches-ignore:", triggers)
 
   def test_workflow_verifies_the_full_invocation_history(self):
     self.assertIn("fetch-depth: 0", self.text)
@@ -50,9 +50,9 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       'echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"', self.text,
     )
     expected = "ref: ${{ needs.plan.outputs.tested_sha }}"
-    self.assertEqual(self.text.count(expected), 4)
+    self.assertEqual(self.text.count(expected), 5)
     for name in (
-      "validate", "argv-limits", "graph-renderer-platform",
+      "validate", "publish", "argv-limits", "graph-renderer-platform",
       "ticket-merge-platform",
     ):
       section = self.text.split("\n  " + name + ":\n", 1)[1]
@@ -66,6 +66,19 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
         step.count("\n        with:"), 1,
         "checkout step must contain exactly one with mapping",
       )
+
+  def test_publisher_is_the_only_write_scoped_job(self):
+    validate = self.text.split("\n  validate:\n", 1)[1].split(
+      "\n  publish:\n", 1,
+    )[0]
+    publisher = self.text.split("\n  publish:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
+    )[0]
+    self.assertIn("contents: read", validate)
+    self.assertNotIn("contents: write", validate)
+    self.assertIn("contents: write", publisher)
+    self.assertIn("actions/download-artifact@v4", publisher)
+    self.assertIn("stage-result-${{ github.run_id }}", validate)
 
   def test_hosted_regression_and_integration_use_public_test_entrypoint(self):
     self.assertIn("needs.plan.outputs.stage", self.text)
