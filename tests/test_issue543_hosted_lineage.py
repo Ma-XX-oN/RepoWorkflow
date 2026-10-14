@@ -23,12 +23,15 @@ class VerifiedRetryLineageTests(unittest.TestCase):
       'providerInvocationSHA': RETRY,
       'providerCandidateSHA': CANDIDATE,
       'providerStage': 'GREEN-testing',
+      'branch': 'issue-543-provider-test',
     }
     self.responses = {
       BASE + '/actions/runs/123': {
         'id': 123, 'conclusion': 'success', 'status': 'completed',
         'event': 'push', 'name': 'RepoWorkflow On-Demand CI',
         'head_sha': RETRY,
+        'head_branch': 'issue-543-provider-test',
+        'path': '.github/workflows/on-demand-ci.yml@issue-543-provider-test',
       },
       BASE + '/git/commits/' + RETRY: {'parents': [{'sha': PUBLISHED}]},
       BASE + '/contents/.ci/run?ref=' + RETRY: encoded('GREEN-testing ' + PUBLISHED + '\n'),
