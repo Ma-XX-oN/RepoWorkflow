@@ -18,6 +18,11 @@ class HostedPlanCandidateTests(unittest.TestCase):
     self.git("config", "user.email", "tests@example.invalid")
     self.git("config", "user.name", "Test Runner")
     self.git("checkout", "-qb", "issue-541-test")
+    self.ref_patch = patch.dict(
+      "os.environ", {"GITHUB_REF_NAME": "issue-541-test"},
+    )
+    self.ref_patch.start()
+    self.addCleanup(self.ref_patch.stop)
     (self.root / "source.py").write_text("value = 1\n")
     self.git("add", "source.py")
     self.git("commit", "-qm", "candidate")
