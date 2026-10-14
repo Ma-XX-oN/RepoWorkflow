@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-543-temp-provider-probe": {
+        "type": "temporary",
+        "name": "tests.test_ci_invocation"
+      }
+    }
+  ],
   "aliases": {}
 }
