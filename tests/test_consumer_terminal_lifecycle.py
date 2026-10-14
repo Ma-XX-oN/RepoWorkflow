@@ -6,7 +6,6 @@ import sys
 import unittest
 
 from repo_workflow.test_cli import run_test
-from repo_workflow.guard import GuardError
 from tests.test_local import LocalVerifyTests
 
 
@@ -62,7 +61,7 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
         record["testSHA"],
       )
 
-  def test_incomplete_evidence_fails_closed_on_dirty_retry(self):
+  def test_incomplete_evidence_allows_safe_canonical_retry(self):
     helper = LocalVerifyTests()
     mismatch = "windows" if not sys.platform.startswith("win") else "linux"
     td, root, fx = helper.make_consumer(
@@ -70,18 +69,20 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
       platform=mismatch,
     )
     with td:
+      path = root / ".repoworkflow/validation/testResults-1.jsonl"
       self.assertEqual(
-        run_test(
-          root, "regression", remote=False,
-          engine_root=root / "RepoWorkflow",
-        ), 2,
+        run_test(root, "regression", remote=False,
+                 engine_root=root / "RepoWorkflow"), 2,
       )
       before = fx.head()
-      with self.assertRaisesRegex(GuardError, "not clean"):
-        run_test(
-          root, "regression", remote=False,
-          engine_root=root / "RepoWorkflow",
-        )
+      original = path.read_text().splitlines()
+      self.assertEqual(
+        run_test(root, "regression", remote=False,
+                 engine_root=root / "RepoWorkflow"), 2,
+      )
+      observed = path.read_text().splitlines()
+      self.assertEqual(observed[:len(original)], original)
+      self.assertEqual(len(observed), len(original) + 1)
       self.assertEqual(fx.head(), before)
       self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
       self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")

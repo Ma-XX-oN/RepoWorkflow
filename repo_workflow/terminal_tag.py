@@ -91,6 +91,7 @@ def verify_phase_evidence(
   except OSError as error:
     raise TerminalTagError("canonical testing log is unavailable") from error
   observed = []
+  wrong_phase = False
   for line in lines:
     try:
       record = json.loads(line)
@@ -98,9 +99,14 @@ def verify_phase_evidence(
       raise TerminalTagError("canonical testing log is malformed") from error
     if not isinstance(record, dict):
       raise TerminalTagError("canonical testing log contains a non-object")
-    if record.get("testVersion") == version and record.get("kind") == stage:
-      observed.append(record)
+    if record.get("testVersion") == version:
+      if record.get("kind") == stage:
+        observed.append(record)
+      else:
+        wrong_phase = True
   if not observed:
+    if wrong_phase:
+      raise TerminalTagError("development version belongs to another phase")
     raise TerminalTagError("no canonical evidence for development version")
   for record in observed:
     branch = record.get("branch")
