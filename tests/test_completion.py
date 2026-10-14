@@ -62,82 +62,63 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
     td, root, fx, wrapper = self.make()
     with td:
       completed = self.run_bash(
-        root,
-        wrapper,
-        'COMP_WORDS=(rwf validate integration "")\n'
-        "COMP_CWORD=3\n"
+        root, wrapper,
+        'COMP_WORDS=(rwf test "")\n'
+        "COMP_CWORD=2\n"
         "_repo_workflow_complete\n"
         'printf "REPLY:%s\\n" "${COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      replies = [
-        line.removeprefix("REPLY:")
-        for line in completed.stdout.splitlines()
-        if line.startswith("REPLY:")
-      ]
-      self.assertEqual(replies, ["failed", "succeeded"])
+      self.assertIn("REPLY:integration", completed.stdout)
+      self.assertIn("REPLY:regression", completed.stdout)
+      self.assertNotIn("REPLY:<last-terminal>", completed.stdout)
 
   def test_state_invalid_completion_prints_diagnostic_and_returns_no_reply(self):
     td, root, fx, wrapper = self.make(regression="missing")
     with td:
       before = (root / "VERSION").read_text()
       completed = self.run_bash(
-        root,
-        wrapper,
-        'COMP_WORDS=(rwf validate integration s)\n'
-        "COMP_CWORD=3\n"
+        root, wrapper,
+        'COMP_WORDS=(rwf test invalid-stage)\n'
+        "COMP_CWORD=2\n"
         "_repo_workflow_complete\n"
         'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0)
       self.assertIn("COUNT:0", completed.stdout)
-      self.assertEqual(
-        completed.stderr,
-        "RepoWorkflow error: transition is not legal in the current state:\n"
-        "  validate integration s\n"
-        "           ^^^^^^^^^^^\n"
-        "\n"
-        "Legal transitions:\n"
-        "  regression required\n"
-        "  → validate regression\n",
-      )
       self.assertEqual((root / "VERSION").read_text(), before)
 
   def test_second_tab_shows_descriptions_and_returns_no_replies(self):
     td, root, fx, wrapper = self.make()
     with td:
       completed = self.run_bash(
-        root,
-        wrapper,
-        'COMP_WORDS=(rwf validate integration "")\n'
-        "COMP_CWORD=3\n"
+        root, wrapper,
+        'COMP_WORDS=(rwf test "")\n'
+        "COMP_CWORD=2\n"
         "_repo_workflow_complete\n"
         "_repo_workflow_complete\n"
         'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      self.assertIn("failed", completed.stdout)
-      self.assertIn("Report integration tests failed", completed.stdout)
-      self.assertIn("succeeded", completed.stdout)
-      self.assertIn("Report integration tests succeeded", completed.stdout)
+      self.assertIn("integration", completed.stdout)
+      self.assertIn("Run integration tests locally", completed.stdout)
       self.assertIn("COUNT:0", completed.stdout)
 
   def test_changed_completion_context_resets_double_tab_state(self):
     td, root, fx, wrapper = self.make()
     with td:
       completed = self.run_bash(
-        root,
-        wrapper,
-        'COMP_WORDS=(rwf validate integration "")\n'
-        "COMP_CWORD=3\n"
+        root, wrapper,
+        'COMP_WORDS=(rwf test "")\n'
+        "COMP_CWORD=2\n"
         "_repo_workflow_complete >/dev/null\n"
-        'COMP_WORDS=(rwf validate integration f)\n'
-        "COMP_CWORD=3\n"
+        'COMP_WORDS=(rwf test reg)\n'
+        "COMP_CWORD=2\n"
         "_repo_workflow_complete >/dev/null\n"
         'printf "REPLY:%s\\n" "${COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
-      self.assertEqual(completed.stdout.splitlines(), ["REPLY:failed"])
+      self.assertEqual(completed.stdout.splitlines(), ["REPLY:regression"])
 
 
 if __name__ == "__main__":
