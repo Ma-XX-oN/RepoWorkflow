@@ -90,6 +90,10 @@
         "type": "regression",
         "name": "tests.test_ci_invocation"
       },
+      "issue-108-done-readiness": {
+        "type": "regression",
+        "name": "tests.test_done_planner"
+      },
       "issue-542-premerge-evidence-gate": {
         "type": "regression",
         "name": "tests.test_pre_merge_gate"
