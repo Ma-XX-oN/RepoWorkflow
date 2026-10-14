@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 from pathlib import Path
 import sys
@@ -17,6 +19,12 @@ from repo_workflow.ci_invocation import (
 
 
 def plan_invocation(root: Path) -> dict[str, str]:
+  branch = os.environ.get("GITHUB_REF_NAME") or subprocess.check_output(
+    ["git", "-C", str(root), "symbolic-ref", "--short", "HEAD"],
+    text=True,
+  ).strip()
+  if re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch) is None:
+    raise CiInvocationError("on-demand CI requires a valid issue branch")
   request = verify_invocation(root)
   invocation_sha = subprocess.check_output(
     ["git", "-C", str(root), "rev-parse", "HEAD"],
