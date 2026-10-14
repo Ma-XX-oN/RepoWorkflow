@@ -196,6 +196,7 @@ jobs:
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
+      vars.RWF_ENABLE_LEGACY_STABLE_RELEASE == 'true' &&
       (
         needs.plan.outputs.tier == 'docs' ||
         (
