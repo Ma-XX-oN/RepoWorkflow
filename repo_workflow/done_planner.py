@@ -233,7 +233,7 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
   if facts.contenders >= 2 and facts.coordination_authority is not True:
     block("queue-coordination-authority", "obtain-queue-coordinator")
 
-  hard_blocks = tuple(x for x in missing if x not in {"mit-scheduling-obligation"})
+  hard_blocks = tuple(missing)
   if stale:
     disposition = "STALE_BASE"
   elif missing:
