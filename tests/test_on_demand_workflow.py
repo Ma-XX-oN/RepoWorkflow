@@ -79,6 +79,8 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("contents: write", publisher)
     self.assertIn("actions/download-artifact@v4", publisher)
     self.assertIn("path: .repoworkflow/validation", publisher)
+    self.assertIn("steps.staged_evidence.outcome == 'success'", validate)
+    self.assertIn("id: staged_evidence", validate)
     self.assertNotIn("path: .\\n", publisher)
     self.assertIn("stage-result-${{ github.run_id }}", validate)
 
