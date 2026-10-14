@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+from datetime import datetime
 
 
-SHA = re.compile(r"^[0-9a-f]{40}$")
+SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+REF = re.compile(r"^[A-Za-z0-9_./-]+$")
 RELEASES = frozenset({"patch", "minor", "major"})
 GATE_NAMES = ("regression", "integration", "release")
 MIT_STATES = frozenset({"not-required", "pending", "passed", "failed", "timeout"})
@@ -104,6 +106,27 @@ def _valid_sha(value: str) -> bool:
   return isinstance(value, str) and SHA.fullmatch(value) is not None
 
 
+def _valid_ref(value: str | None) -> bool:
+  return (
+    isinstance(value, str) and bool(value) and value[0] not in "/-"
+    and not value.endswith("/") and "//" not in value
+    and not value.startswith("refs/") and REF.fullmatch(value) is not None
+    and all(part not in (".", "..") for part in value.split("/"))
+  )
+
+
+def _utc_instant(value: str | None) -> bool:
+  if not isinstance(value, str) or not re.fullmatch(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", value
+  ):
+    return False
+  try:
+    datetime.fromisoformat(value.replace("Z", "+00:00"))
+  except ValueError:
+    return False
+  return True
+
+
 def _gate_matches(
   gate: GateObservation | None, name: str, facts: DoneSnapshot,
 ) -> bool:
@@ -152,7 +175,7 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
     raise ValueError("invalid issue number")
   if not isinstance(facts.version, str) or not facts.version.strip():
     raise ValueError("exact version is required")
-  if not isinstance(facts.source_branch, str) or not facts.source_branch.strip():
+  if not _valid_ref(facts.source_branch):
     raise ValueError("source branch is required")
   if facts.mit not in MIT_STATES:
     raise ValueError("invalid MIT status")
@@ -168,14 +191,19 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
       next_steps.append(step)
 
   target = facts.parent_branch
-  if not isinstance(target, str) or not target or target.startswith("refs/"):
+  if not _valid_ref(target) or target == facts.source_branch:
     block("explicit-parent-relationship", "register-parent-relationship")
     target = None
-  if not _valid_sha(facts.candidate_sha) or not _valid_sha(facts.source_tip_sha):
+  if (not _valid_sha(facts.candidate_sha)
+      or not _valid_sha(facts.source_tip_sha)
+      or len(facts.candidate_sha) != len(facts.source_tip_sha)):
     block("exact-candidate", "resolve-candidate")
   elif facts.candidate_sha != facts.source_tip_sha:
     block("changed-source-tip", "recertify-source")
-  if not _valid_sha(facts.recorded_parent_sha) or not _valid_sha(facts.current_parent_sha):
+  if (not _valid_sha(facts.recorded_parent_sha)
+      or not _valid_sha(facts.current_parent_sha)
+      or len(facts.recorded_parent_sha) != len(facts.current_parent_sha)
+      or len(facts.recorded_parent_sha) != len(facts.candidate_sha)):
     block("authoritative-parent-tip", "refresh-parent-tip")
   if facts.lifecycle_state != "accepted":
     block("accepted-lifecycle", "complete-review-and-accept")
@@ -183,10 +211,12 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
     isinstance(facts.relationship_revision, bool)
     or not isinstance(facts.relationship_revision, int)
     or facts.relationship_revision < 0
+    or isinstance(facts.current_relationship_revision, bool)
+    or not isinstance(facts.current_relationship_revision, int)
     or facts.relationship_revision != facts.current_relationship_revision
   ):
     block("current-relationship-revision", "refresh-relationships")
-  if not facts.dependencies_complete:
+  if facts.dependencies_complete is not True:
     block("completed-dependencies", "complete-dependencies")
 
   observed = {name: [] for name in GATE_NAMES}
@@ -218,7 +248,8 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
   elif facts.mit == "pending":
     if facts.mit_candidate_sha != facts.candidate_sha:
       block("unpinned-mit-candidate", "pin-mit-candidate")
-    if (not facts.mit_tester or not facts.mit_deadline
+    if (not isinstance(facts.mit_tester, str) or not facts.mit_tester.strip()
+        or not _utc_instant(facts.mit_deadline)
         or facts.mit_schedule_authorized is not True):
       block("mit-scheduling-obligation", "schedule-mit-with-authorized-deadline")
     next_steps.append("await-manual-tester-result")
