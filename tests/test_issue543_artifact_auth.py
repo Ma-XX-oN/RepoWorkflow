@@ -31,7 +31,7 @@ class ImmutableProviderArtifactTests(unittest.TestCase):
     self.responses = fixture.responses
     self.record = {
       **fixture.record,
-      "branch": "issue-543-auth-test", "kind": "GREEN",
+      "branch": "issue-543-provider-test", "kind": "GREEN",
       "testSHA": CANDIDATE, "result": "succeeded",
       "runner": "github-actions", "reusable": True,
       "uncommittedChanges": [], "headChangedDuringTest": False,
