@@ -86,14 +86,6 @@
         "type": "regression",
         "name": "tests.test_graph_render"
       },
-      "issue-583-lifecycle-cross-product": {
-        "type": "regression",
-        "name": "tests.test_lifecycle_store"
-      },
-      "issue-583-clone-publication": {
-        "type": "regression",
-        "name": "tests.test_lifecycle_clone_publish"
-      },
       "issue-540-on-demand-ci-marker": {
         "type": "regression",
         "name": "tests.test_ci_invocation"
@@ -341,6 +333,54 @@
       "issue-541-hosted-cache-attestation": {
         "type": "regression",
         "name": "tests.test_541_hosted_cache_integration"
+      },
+      "issue-569-consumer-retry-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_consumer_terminal_lifecycle"
+      },
+      "issue-572-hosted-terminal-binding": {
+        "type": "regression",
+        "name": "tests.test_hosted_terminal_binding"
+      },
+      "issue-572-engine-self-regression-evidence": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
+      },
+      "issue-572-engine-remote-preparation": {
+        "type": "regression",
+        "name": "tests.test_engine_remote"
+      },
+      "issue-572-engine-version-adapter": {
+        "type": "regression",
+        "name": "tests.test_engine_version_adapter"
+      },
+      "issue-572-assembled-contracts": {
+        "type": "regression",
+        "name": "tests.test_lane_a4_assembly"
+      },
+      "issue-570-hosted-version-identity": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_identity"
+      },
+      "issue-571-terminal-phase": {
+        "type": "regression",
+        "name": "tests.test_phase_terminal"
+      },
+      "issue-569-retry-evidence": {
+        "type": "regression",
+        "name": "tests.test_retry_evidence"
+      },
+      "issue-572-local-terminal-acceptance": {
+        "type": "regression",
+        "name": "tests.test_local_terminal"
+      },
+      "issue-583-lifecycle-cross-product": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
+      },
+      "issue-583-clone-publication": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_clone_publish"
       }
     },
     {

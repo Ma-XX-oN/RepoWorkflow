@@ -15,6 +15,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from .git import current_branch, head_sha
+from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
 
 PROBES = (
@@ -94,6 +95,8 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
     "branch": current_branch(root),
     "testSHA": candidate,
     "sourceSHA": candidate,
+    **({"testVersion": read_engine_version(root)}
+       if (root / ".ci/engine-version").is_file() else {}),
     "runner": "local",
     "platform": {
       "os": platform.system(),

@@ -24,6 +24,9 @@ from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
+from .local_terminal import publish_local_terminal, verify_consumer_retry
+from .engine_remote import prepare_engine_request
+from .engine_version_adapter import read_engine_version
 from .test_worktree import tracked_input_changes
 
 STAGES = {
@@ -162,7 +165,9 @@ def select_group(root: Path, name: str) -> str:
   return name
 
 
-def request_remote(root: Path, stage: str) -> int:
+def request_remote(
+  root: Path, stage: str, *, engine_root: Path | None = None,
+) -> int:
   branch = current_branch(root)
   if branch in {"HEAD", "main"} or branch.startswith("prelim-main-"):
     raise TestCommandError("a work branch is required")
@@ -172,6 +177,13 @@ def request_remote(root: Path, stage: str) -> int:
   audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
   if any(path != audit for path in changed_files(root)):
     raise TestCommandError("the working tree must be clean")
+  if (
+    stage in {"regression", "integration"}
+    and engine_root is not None
+    and root.resolve() == engine_root.resolve()
+    and (root / "VERSION").is_file()
+  ):
+    prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
   previous_tip = head_sha(root)
   path = root / ".ci" / "run"
   path.parent.mkdir(parents=True, exist_ok=True)
@@ -398,10 +410,20 @@ def run_test(
       return request_remote(root, stage)
     return _run_group_set(root, stage, groups, catalogue_path=manifest)
   if remote:
-    return request_remote(root, stage)
+    return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    return run_local_integration(root, engine_root=engine_root)
+    if (
+      root.resolve() == engine_root.resolve()
+      and (root / "VERSION").is_file()
+    ):
+      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
+      if match is None:
+        raise TestCommandError("integration requires issue branch")
+      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+    rc = run_local_integration(root, engine_root=engine_root)
+    publish_local_terminal(root, stage="integration")
+    return rc
   if stage == "regression":
     temporary = Path(".ci/temp-tests.json")
     selected = ()
@@ -412,15 +434,20 @@ def run_test(
       for name in selected:
         # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
+    if (
+      root.resolve() == engine_root.resolve()
+      and (root / "VERSION").is_file()
+    ):
+      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
+      if match is None:
+        raise TestCommandError("regression requires issue branch")
+      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
     before = head_sha(root)
     prepared: list[tuple[str, str]] = []
     outcome = (
       self_regression(root)
       if root.resolve() == engine_root.resolve()
-      else verify_local(
-        root, engine_root=engine_root, push=False, tag_result=False,
-        candidate_observer=lambda sha, version: prepared.append((sha, version)),
-      )
+      else verify_consumer_retry(root, engine_root, prepared, verify_local)
     )
     after = head_sha(root)
     if outcome == "PASS" and selected:
@@ -449,7 +476,9 @@ def run_test(
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
-      **({"testVersion": prepared[0][1]} if prepared else {}),
+      **({"testVersion": prepared[0][1]} if prepared else
+         {"testVersion": read_engine_version(root)}
+         if (root / ".ci/engine-version").is_file() else {}),
       "result": {
         "PASS": "succeeded",
         "FAIL": "failed",
@@ -465,14 +494,6 @@ def run_test(
     }
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
-    if prepared and outcome in {"PASS", "FAIL"} and not (
-      uncommitted or head_changed
-    ):
-      remote_name = load_config(root)["repository"]["authoritativeRemote"]
-      publish_terminal_tag(
-        root, stage="regression", remote=remote_name,
-        version=prepared[0][1], candidate=tested_sha,
-        outcome=outcome, canonical_log=path, push=False,
-      )
+    publish_local_terminal(root, stage="regression")
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")
