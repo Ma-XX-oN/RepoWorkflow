@@ -1,0 +1,56 @@
+name: Issue 108 exact-source read-only certification
+on:
+  push:
+    branches: [issue-108-exact-source-certification-v3]
+    paths: [.github/workflows/issue-108-exact-source-certification.yml]
+permissions:
+  contents: read
+jobs:
+  full-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ae5e09e02aa1617dc70799abcae94d74eedffaf1
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify immutable source and unchanged test inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = ae5e09e02aa1617dc70799abcae94d74eedffaf1
+          test -z "$(git status --porcelain)"
+      - name: Run full repository regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/validate.py
+          test "$(git rev-parse HEAD)" = ae5e09e02aa1617dc70799abcae94d74eedffaf1
+          test -z "$(git status --porcelain)"
+  cross-platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ae5e09e02aa1617dc70799abcae94d74eedffaf1
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - run: python scripts/probe-argv-limits.py
+      - run: python scripts/probe-graph-renderer.py
+      - run: python scripts/probe-ticket-merge.py
+      - name: Verify source was not mutated
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = ae5e09e02aa1617dc70799abcae94d74eedffaf1
+          test -z "$(git status --porcelain)"
