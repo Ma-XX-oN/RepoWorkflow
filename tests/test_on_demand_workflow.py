@@ -81,7 +81,7 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("path: .repoworkflow/validation", publisher)
     self.assertIn("steps.staged_evidence.outcome == 'success'", validate)
     self.assertIn("id: staged_evidence", validate)
-    self.assertNotIn("path: .\\n", publisher)
+    self.assertNotIn("path: .\n", publisher)
     self.assertIn("stage-result-${{ github.run_id }}", validate)
 
   def test_read_only_result_retrieval_is_independent(self):
