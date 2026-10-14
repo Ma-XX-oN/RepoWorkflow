@@ -77,30 +77,29 @@ def derive_plan(facts: WorkflowFacts) -> WorkflowPlan:
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
   if facts.regression == "missing":
-    transitions.append("validate regression")
+    transitions.append("test regression")
     blocks.append("integration blocked: missing regression validation")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
   if facts.regression == "INCOMPLETE":
-    transitions.append("validate regression")
+    transitions.append("test regression")
     blocks.append("integration blocked: regression validation incomplete")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
   if facts.regression == "FAIL":
-    transitions.append("validate regression")
+    transitions.append("test regression")
     blocks.append("integration blocked: regression validation failed")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
   if facts.integration_result is None:
     transitions.extend((
-      "validate integration succeeded",
-      "validate integration failed",
+      "test integration",
     ))
     blocks.append("merge/integration blocked: integration result required")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 
   if facts.integration_result == "failed":
-    transitions.append("validate regression")
+    transitions.append("test regression")
     blocks.append("integration blocked: previous integration failed")
     return WorkflowPlan(tuple(transitions), tuple(blocks))
 

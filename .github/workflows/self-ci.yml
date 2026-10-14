@@ -192,10 +192,12 @@ jobs:
 
   release:
     needs: [classify, plan, issue-validate, validate]
+    # Disabled until #86's authorized protected stable-release finalizer.
     if: >-
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
+      false &&
       (
         needs.plan.outputs.tier == 'docs' ||
         (

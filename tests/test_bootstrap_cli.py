@@ -64,7 +64,7 @@ class BootstrapCliTests(unittest.TestCase):
       self.make_repo(root)
 
       prefixes = [(), *static_prefixes(COMMANDS)]
-      prefixes.append(("validate", "integration"))
+      prefixes.append(("test", "integration"))
       for prefix in prefixes:
         with self.subTest(prefix=prefix):
           completed = self.run_cli(root, *prefix, "--help")
