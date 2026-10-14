@@ -28,6 +28,20 @@ class GateObservation:
 
 
 @dataclass(frozen=True)
+class AuthorizationDecision:
+  decision: str
+  authenticated: bool
+  evidence_ref: str
+  issue: str
+  candidate_sha: str
+  destination_ref: str
+  expected_destination_sha: str
+  release: str
+  role: str
+  capability: str
+
+
+@dataclass(frozen=True)
 class DoneSnapshot:
   issue: str
   release: str
@@ -42,12 +56,16 @@ class DoneSnapshot:
   source_branch: str
   source_tip_sha: str
   validation: tuple[GateObservation, ...]
-  authorization: GateObservation | None
+  authorization: AuthorizationDecision | None
   dependencies_complete: bool
   mit: str
   mit_tester: str | None = None
   mit_deadline: str | None = None
   mit_candidate_sha: str | None = None
+  mit_policy_verified: bool = False
+  mit_authenticated: bool = False
+  mit_evidence_ref: str | None = None
+  mit_schedule_authorized: bool = False
   contenders: int = 1
   coordination_authority: bool = False
 
@@ -98,6 +116,25 @@ def _gate_matches(
     and bool(gate.evidence_ref.strip())
     and gate.candidate_sha == facts.candidate_sha
     and gate.parent_sha == facts.current_parent_sha
+  )
+
+
+def _authorization_matches(
+  auth: AuthorizationDecision | None, facts: DoneSnapshot,
+) -> bool:
+  return (
+    isinstance(auth, AuthorizationDecision)
+    and auth.decision == "allow"
+    and auth.authenticated is True
+    and isinstance(auth.evidence_ref, str)
+    and bool(auth.evidence_ref.strip())
+    and auth.issue == str(facts.issue)
+    and auth.candidate_sha == facts.candidate_sha
+    and auth.destination_ref == facts.parent_branch
+    and auth.expected_destination_sha == facts.current_parent_sha
+    and auth.release == facts.release
+    and auth.role == "remote_finalizer"
+    and auth.capability == "pull_request.merge"
   )
 
 
@@ -159,7 +196,7 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
   for name in GATE_NAMES:
     if len(observed[name]) != 1 or not _gate_matches(observed[name][0], name, facts):
       block(f"{name}-exact-current-PASS", f"validate-{name}")
-  if not _gate_matches(facts.authorization, "authorization", facts):
+  if not _authorization_matches(facts.authorization, facts):
     block("current-authorization", "obtain-authorization")
 
   stale = (
@@ -170,6 +207,8 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
   if stale:
     block("stale-parent-tip", "rebuild-and-revalidate-on-current-parent")
 
+  if facts.mit_policy_verified is not True:
+    block("verified-mit-applicability", "resolve-mit-policy")
   if facts.mit == "failed":
     block("mit-reported-FAIL", "handoff-manual-test-repair")
   elif facts.mit == "timeout":
@@ -179,11 +218,17 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
   elif facts.mit == "pending":
     if facts.mit_candidate_sha != facts.candidate_sha:
       block("unpinned-mit-candidate", "pin-mit-candidate")
-    if not facts.mit_tester or not facts.mit_deadline:
+    if (not facts.mit_tester or not facts.mit_deadline
+        or facts.mit_schedule_authorized is not True):
       block("mit-scheduling-obligation", "schedule-mit-with-authorized-deadline")
     next_steps.append("await-manual-tester-result")
-  elif facts.mit == "passed" and facts.mit_candidate_sha != facts.candidate_sha:
-    block("stale-mit-PASS", "rerun-mit-for-current-candidate")
+  elif facts.mit == "passed":
+    if facts.mit_candidate_sha != facts.candidate_sha:
+      block("stale-mit-PASS", "rerun-mit-for-current-candidate")
+    if (facts.mit_authenticated is not True
+        or not isinstance(facts.mit_evidence_ref, str)
+        or not facts.mit_evidence_ref.strip()):
+      block("unauthenticated-mit-PASS", "verify-manual-test-result")
 
   if facts.contenders >= 2 and facts.coordination_authority is not True:
     block("queue-coordination-authority", "obtain-queue-coordinator")
