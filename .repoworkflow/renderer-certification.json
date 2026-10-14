@@ -1,18 +1,21 @@
 {
   "schema_version": 1,
   "purpose": "Bind current renderer certification to material graph and routing inputs.",
-  "issue": 447,
-  "certified_renderer_candidate": "81b9deb729a91d9c9f28760fa6e9b517e4bff79e",
+  "issue": 583,
+  "certified_renderer_candidate": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
   "evidence": {
-    "workflow_run_number": 14,
-    "workflow_run_id": 37985024382,
-    "workflow_name": "RepoWorkflow On-Demand CI (candidate)",
-    "note": "Exact candidate 81b9deb729a91d9c9f28760fa6e9b517e4bff79e: all nine real provider renderer, argv-limit and ticket-merge probes passed across Ubuntu, Windows and macOS in hosted run 37985024382. Full regression FAILED one pre-existing stale renderer material-input certification binding (1 of 1326 tests), so this certifies renderer platform probes and current material hashes only; it does not certify full integration PASS."
+    "workflow_run_id": 37991412533,
+    "workflow_name": "RepoWorkflow Self CI",
+    "result": "success",
+    "tier": "integration",
+    "tested_head": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
+    "assembled_source_head": "9549f0955fa7228fa80437efe39384fc9b6f3697",
+    "note": "Exact content parity verified for lifecycle, graph, CSV, CLI, renderer manifest and tests between assembled feature and temporary platform certification branch; temporary PR has only the CI-tier and extra platform test override. Authoritative full validation, Ubuntu/Windows/macOS renderer (including six-state and legend), ticket merge, and argv jobs all GREEN in run 37991412533. No test-only workflow change is intended to merge."
   },
   "material_inputs": {
-    ".repoworkflow/tickets.csv": "d36d16d0ab32ff7341dbf2cb0f454b6bce69af02",
+    ".repoworkflow/tickets.csv": "e3b2d421dc2fb9bb100d2e5d4d7c8ee53fe30544",
     "repo_workflow/lane_decomposition.py": "91f636637884615262e95ad05e91e5c76fb6d377",
-    "repo_workflow/lane_graph_adapter.py": "20c3c55d4a0d9184a3c3115be28c926842012e98",
+    "repo_workflow/lane_graph_adapter.py": "55355e50eda3b00cbb2a4b0de7791aae2c2ea7b9",
     "repo_workflow/graph_boundary_order.py": "b0ff781496b8c5f8972636880b2989ce09ddfaa7",
     "repo_workflow/graph_boundary_plan.py": "051392ec1eef89768507afb72d2edd381c085321",
     "repo_workflow/graph_geometry.py": "2aa9767aabd88c4edfee992ba98e282121b1322f",

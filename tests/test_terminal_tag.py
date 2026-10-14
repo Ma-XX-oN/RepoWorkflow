@@ -121,14 +121,6 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.issue_tag("PASS"), tag)
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), first)
 
-  def test_integration_failure_uses_prelim_fail_namespace(self):
-    tag = self.issue_tag("FAIL", stage="integration")
-    self.assertEqual(tag, "v0.1.121-PRELIM-545.0.1-CI-FAIL")
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"],
-      self.candidate,
-    )
-
   def test_complete_failure_tag_points_to_candidate(self):
     tag = self.issue_tag("FAIL")
     self.assertEqual(tag, "v" + VERSION + "-CI-FAIL")
@@ -187,23 +179,11 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
 
-  def test_same_task_version_produces_distinct_regression_and_prelim_tags(self):
-    regression = self.issue_tag("PASS")
-    record = {
-      "kind": "integration", "testVersion": VERSION,
-      "branch": "issue-545-test", "testSHA": self.candidate,
-      "result": "succeeded", "reusable": True,
-      "headChangedDuringTest": False, "uncommittedChanges": [],
-    }
-    with self.log.open("a") as handle:
-      handle.write(json.dumps(record) + "\n")
-    integration = self.issue_tag("PASS", stage="integration")
-    self.assertNotEqual(regression, integration)
-    self.assertEqual(integration, "v0.1.121-PRELIM-545.0.1")
-    self.assertEqual(
-      self.published(integration)["refs/tags/" + integration + "^{}"],
-      self.candidate,
-    )
+  def test_cross_phase_version_reuse_is_rejected(self):
+    self.issue_tag("PASS")
+    with self.assertRaisesRegex(TerminalTagError, "another phase"):
+      self.issue_tag("PASS", stage="integration")
+    self.assertEqual(len(self.git("tag", "--list").splitlines()), 1)
 
   def test_false_pass_without_success_evidence_is_rejected(self):
     self.issue_tag("FAIL")
@@ -341,7 +321,6 @@ class TerminalTagTests(unittest.TestCase):
       "PASS", stage="integration", version="0.1.121-issue.545.0.2",
     )
     self.assertNotEqual(first_tag, second_tag)
-    self.assertEqual(second_tag, "v0.1.121-PRELIM-545.0.2")
     self.assertEqual(
       self.published(first_tag)["refs/tags/" + first_tag + "^{}"], first_sha,
     )

@@ -63,12 +63,14 @@ class WorkspaceReadinessTests(unittest.TestCase):
 
   def test_projection_distinguishes_dependencies_and_lifecycle_states(self):
     one = self.transition(1, "start", None)
+    one = self.transition(1, "submit-review", one.revision)
     one = self.transition(1, "accept", one.revision)
     one = self.transition(1, "complete", one.revision)
 
     three = self.transition(3, "start", None)
 
     four = self.transition(4, "start", None)
+    four = self.transition(4, "submit-review", four.revision)
     self.transition(4, "accept", four.revision)
 
     five = self.transition(5, "start", None)

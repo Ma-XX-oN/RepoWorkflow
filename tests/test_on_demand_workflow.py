@@ -18,10 +18,10 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertNotIn("  pull_request:", triggers)
     self.assertNotIn("  workflow_dispatch:", triggers)
 
-  def test_default_and_preliminary_main_are_excluded(self):
-    self.assertIn("branches-ignore:", self.text)
-    self.assertIn("      - main", self.text)
-    self.assertIn("      - 'prelim-main-*'", self.text)
+  def test_only_issue_branches_are_eligible(self):
+    triggers = self.text.split("\npermissions:", 1)[0]
+    self.assertIn("    branches:\n      - 'issue-*'", triggers)
+    self.assertNotIn("branches-ignore:", triggers)
 
   def test_workflow_verifies_the_full_invocation_history(self):
     self.assertIn("fetch-depth: 0", self.text)
@@ -50,9 +50,9 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
       'echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"', self.text,
     )
     expected = "ref: ${{ needs.plan.outputs.tested_sha }}"
-    self.assertEqual(self.text.count(expected), 4)
+    self.assertEqual(self.text.count(expected), 6)
     for name in (
-      "validate", "argv-limits", "graph-renderer-platform",
+      "validate", "publish", "results", "argv-limits", "graph-renderer-platform",
       "ticket-merge-platform",
     ):
       section = self.text.split("\n  " + name + ":\n", 1)[1]
@@ -66,6 +66,32 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
         step.count("\n        with:"), 1,
         "checkout step must contain exactly one with mapping",
       )
+
+  def test_publisher_is_the_only_write_scoped_job(self):
+    validate = self.text.split("\n  validate:\n", 1)[1].split(
+      "\n  publish:\n", 1,
+    )[0]
+    publisher = self.text.split("\n  publish:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
+    )[0]
+    self.assertIn("contents: read", validate)
+    self.assertNotIn("contents: write", validate)
+    self.assertIn("contents: write", publisher)
+    self.assertIn("actions/download-artifact@v4", publisher)
+    self.assertIn("path: .repoworkflow/validation", publisher)
+    self.assertIn("steps.staged_evidence.outcome == 'success'", validate)
+    self.assertIn("id: staged_evidence", validate)
+    self.assertNotIn("path: .\n", publisher)
+    self.assertIn("stage-result-${{ github.run_id }}", validate)
+
+  def test_read_only_result_retrieval_is_independent(self):
+    results = self.text.split("\n  results:\n", 1)[1].split(
+      "\n  argv-limits:\n", 1,
+    )[0]
+    self.assertIn("contents: read", results)
+    self.assertNotIn("contents: write", results)
+    self.assertIn("./rwf test results --remote", results)
+    self.assertIn("needs: [plan, publish]", results)
 
   def test_hosted_regression_and_integration_use_public_test_entrypoint(self):
     self.assertIn("needs.plan.outputs.stage", self.text)
@@ -118,24 +144,6 @@ class OnDemandWorkflowContractTests(unittest.TestCase):
     self.assertIn("providerInvocationSHA", self.text)
     self.assertIn("providerRunId", self.text)
     self.assertIn("Publish canonical hosted testing observations", self.text)
-
-  def test_terminal_tag_step_is_after_successful_canonical_publication(self):
-    publishing = self.text.split(
-      "name: Publish canonical hosted testing observations", 1,
-    )[1]
-    self.assertIn("name: Publish authoritative terminal version tag",
-                  publishing)
-    terminal = publishing.split(
-      "name: Publish authoritative terminal version tag", 1,
-    )[1].split("      - name:", 1)[0]
-    self.assertIn("steps.publish.outcome == 'success'", terminal)
-    self.assertIn("needs.plan.outputs.stage == 'regression-testing'",
-                  terminal)
-    self.assertIn("needs.plan.outputs.stage == 'integration-testing'",
-                  terminal)
-    self.assertIn("python scripts/publish-hosted-terminal.py", terminal)
-    self.assertNotIn("needs.plan.outputs.stage == 'RED-testing'", terminal)
-    self.assertNotIn("needs.plan.outputs.stage == 'GREEN-testing'", terminal)
 
   def test_no_separate_unsupported_stage_job(self):
     self.assertNotIn("\n  unsupported-stage:", self.text)

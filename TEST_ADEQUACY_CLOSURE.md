@@ -1,3 +1,7 @@
+# 13. Universal closure gate — companion sections
+
+Continued from [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
+
 ## 13. Universal closure gate
 
 Before declaring coding work complete, answer each applicable item.

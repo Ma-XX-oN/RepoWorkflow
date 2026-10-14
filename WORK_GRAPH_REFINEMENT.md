@@ -1,3 +1,7 @@
+# 14. Use decomposition to expose architecture problems — companion sections
+
+Continued from [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
+
 ## 14. Use decomposition to expose architecture problems
 
 During issue refinement, treat the following as diagnostic signals:

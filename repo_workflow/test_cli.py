@@ -14,16 +14,20 @@ import sys
 
 from .git import changed_files, current_branch, git, head_sha
 from .local import verify_local
-from .config import load_config
-from .terminal_tag import publish_terminal_tag
-from .retry_evidence import isolate_retry_evidence
-from .engine_remote import prepare_engine_request
-from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
-from .test_cache import reusable_local_group_passes
-from .self_ci import group_command
+from .test_cache import reusable_local_group_passes, has_local_applicable_observation
+from .github_cache import hosted_cache_checker, read_remote_published_log
+from .self_ci import group_command, SelfCiError
+from .test_red_declaration import red_declaration
 from .test_catalogue import load_test_catalogue
+from .test_results_reader import TestCommandError, results as read_results
+from .config import load_config
+from .terminal_tag import publish_terminal_tag
+from .local_terminal import publish_local_terminal, verify_consumer_retry
+from .engine_remote import prepare_engine_request
+from .engine_version_adapter import read_engine_version
+from .test_worktree import tracked_input_changes
 
 STAGES = {
   "RED": "RED-testing",
@@ -33,8 +37,6 @@ STAGES = {
   "integration": "integration-testing",
 }
 
-class TestCommandError(ValueError):
-  pass
 
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
@@ -45,7 +47,9 @@ def _git(root: Path, *args: str) -> str:
     raise TestCommandError(result.stderr.strip() or "git operation failed")
   return result.stdout.strip()
 
+
 SELECTION = Path(".ci/red-green.txt")
+
 
 def _issue_prefix(root: Path) -> str:
   match = re.fullmatch(
@@ -54,6 +58,7 @@ def _issue_prefix(root: Path) -> str:
   if match is None:
     raise TestCommandError("RED/GREEN requires a current issue branch")
   return "issue-" + match.group(1) + "-"
+
 
 def _validate_selection(root: Path, name: str) -> str:
   prefix = _issue_prefix(root)
@@ -68,17 +73,29 @@ def _validate_selection(root: Path, name: str) -> str:
   return name
 
 
+def _committed_selection(root: Path) -> str | None:
+  result = subprocess.run(
+    ["git", "-C", str(root), "show", "HEAD:.ci/red-green.txt"],
+    capture_output=True, text=True, check=False,
+  )
+  return result.stdout if result.returncode == 0 else None
+
+
 def read_selection(root: Path) -> str | None:
   path = root / SELECTION
   try:
     raw = path.read_text(encoding="utf-8")
   except FileNotFoundError:
+    if _committed_selection(root) is not None:
+      raise TestCommandError("committed RED/GREEN selection is missing")
     return None
   lines = raw.splitlines()
   if len(lines) != 1 or raw not in (lines[0], lines[0] + "\n") or not lines[0]:
     raise TestCommandError(
       ".ci/red-green.txt must contain exactly one test-group name"
     )
+  if raw != _committed_selection(root):
+    raise TestCommandError("RED/GREEN selection must match committed state")
   return _validate_selection(root, lines[0])
 
 
@@ -119,7 +136,11 @@ def _skip_without_selection(
 def select_group(root: Path, name: str) -> str:
   name = _validate_selection(root, name)
   path = root / SELECTION
-  if path.exists() and path.read_text(encoding="utf-8") == name + "\n":
+  if (
+    path.exists()
+    and path.read_text(encoding="utf-8") == name + "\n"
+    and _committed_selection(root) == name + "\n"
+  ):
     return name
   match = re.fullmatch(
     r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -127,7 +148,10 @@ def select_group(root: Path, name: str) -> str:
   if match is None:
     raise TestCommandError("RED selection requires an issue branch")
   audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-  if any(changed != audit for changed in changed_files(root)):
+  if any(
+    changed not in {audit, SELECTION.as_posix()}
+    for changed in changed_files(root)
+  ):
     raise TestCommandError(
       "commit or discard working tree changes before selecting RED test"
     )
@@ -141,7 +165,7 @@ def select_group(root: Path, name: str) -> str:
   return name
 
 
-def request_remote(root: Path, stage: str, *, engine_root: Path | None = None) -> int:
+def request_remote(root: Path, stage: str) -> int:
   branch = current_branch(root)
   if branch in {"HEAD", "main"} or branch.startswith("prelim-main-"):
     raise TestCommandError("a work branch is required")
@@ -151,8 +175,6 @@ def request_remote(root: Path, stage: str, *, engine_root: Path | None = None) -
   audit = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
   if any(path != audit for path in changed_files(root)):
     raise TestCommandError("the working tree must be clean")
-  if engine_root is not None and root.resolve() == engine_root.resolve() and stage in {"regression", "integration"}:
-    prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
   previous_tip = head_sha(root)
   path = root / ".ci" / "run"
   path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,35 +191,7 @@ def request_remote(root: Path, stage: str, *, engine_root: Path | None = None) -
 
 
 def results(root: Path, *, remote: bool) -> int:
-  match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
-  if match is None:
-    raise TestCommandError("results require an issue branch")
-  relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
-  if remote:
-    branch = current_branch(root)
-    _git(root, "fetch", "--no-tags", "origin", "refs/heads/" + branch)
-    raw = _git(root, "show", "FETCH_HEAD:" + relative)
-  else:
-    try:
-      raw = (root / relative).read_text(encoding="utf-8")
-    except OSError as error:
-      raise TestCommandError("testing log is unavailable") from error
-  if not raw.strip():
-    raise TestCommandError("testing log has no recorded results")
-  validated = []
-  for line in raw.splitlines():
-    try:
-      record = json.loads(line)
-    except json.JSONDecodeError as error:
-      raise TestCommandError("invalid testing log record") from error
-    if not isinstance(record, dict) or not all(
-      field in record for field in ("testSHA", "kind", "result", "runner")
-    ):
-      raise TestCommandError("incomplete testing log record")
-    validated.append(record)
-  for record in validated:
-    print(json.dumps(record, sort_keys=True))
-  return 0
+  return read_results(root, remote=remote, git_cmd=_git)
 
 
 def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
@@ -210,20 +204,7 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
 
 
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
-  # The append-only evidence log does not count as a changed test input.
-  status = subprocess.run(
-    ["git", "-C", str(root), "status", "--porcelain", "-z",
-     "--untracked-files=all"],
-    capture_output=True, check=False,
-  )
-  if status.returncode:
-    raise TestCommandError("cannot inspect working-tree changes")
-  relative_evidence = evidence_path.relative_to(root).as_posix()
-  entries = status.stdout.decode("utf-8", errors="surrogateescape").split("\0")
-  return sorted({
-    entry[3:] for entry in entries
-    if entry and entry[3:] != relative_evidence
-  })
+  return tracked_input_changes(root, evidence_path)
 
 
 def _run_group_set(
@@ -245,14 +226,49 @@ def _run_group_set(
     "testResults-" + match.group(1) + ".jsonl"
   )
   uncommitted_before = _uncommitted_inputs(root, path)
-  reusable = (
-    reusable_local_group_passes(
-      path, stage=stage, revision=revision, fingerprint=fingerprint,
+  reusable = set()
+  if not uncommitted_before:
+    checker = hosted_cache_checker(root, stage)
+    remote_raw = (
+      read_remote_published_log(
+        root, branch=current_branch(root),
+        relative=path.relative_to(root).as_posix(),
+      )
+      if checker is not None and not has_local_applicable_observation(
+        path, stage=stage, revision=revision,
+        fingerprint=fingerprint, groups=groups,
+      )
+      else None
     )
-    if not uncommitted_before
-    else set()
-  )
+    if remote_raw is not None:
+      accepted = reusable_local_group_passes(
+        path, stage=stage, revision=revision, fingerprint=fingerprint,
+        verify_hosted=checker, raw=remote_raw,
+      )
+      if set(groups).issubset(accepted):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(remote_raw, encoding="utf-8")
+        for group in groups:
+          print("Reusing verified hosted PASS evidence for " + group)
+        return 0
+    reusable = reusable_local_group_passes(
+      path, stage=stage, revision=revision, fingerprint=fingerprint,
+      verify_hosted=checker,
+    )
+    if checker is not None and set(groups).issubset(reusable):
+      if any(
+        isinstance(record, dict)
+        and record.get("runner") == "github-actions"
+        and record.get("testSHA") == revision
+        for record in (
+          json.loads(line) for line in path.read_text().splitlines()
+        )
+      ):
+        for group in groups:
+          print("Reusing verified hosted PASS evidence for " + group)
+        return 0
   failures = []
+  launch_missing = False
   evidence = []
   for group in groups:
     if group in reusable:
@@ -262,18 +278,26 @@ def _run_group_set(
       })
       continue
     command = group_command(root, group, catalogue_path)
-    completed = subprocess.run(
-      command, cwd=root, capture_output=True, text=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-    if completed.stdout:
+    try:
+      completed = subprocess.run(
+        command, cwd=root, capture_output=True, text=True, check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+      )
+    except (OSError, UnicodeError):
+      completed = None
+      launch_missing = True
+    if completed is not None and completed.stdout:
       print(completed.stdout, end="")
-    if completed.stderr:
+    if completed is not None and completed.stderr:
       print(completed.stderr, end="", file=sys.stderr)
     evidence.append({
-      "group": group, "exit_code": completed.returncode, "reused": False,
+      "group": group,
+      "exit_code": completed.returncode if completed is not None else None,
+      "reused": False,
     })
-    if completed.returncode:
+    if completed is None or completed.returncode < 0:
+      launch_missing = True
+    if completed is None or completed.returncode:
       failures.append(group)
   uncommitted = sorted(set(uncommitted_before) | set(
     _uncommitted_inputs(root, path)
@@ -285,11 +309,13 @@ def _run_group_set(
     "branch": current_branch(root),
     "uncommittedChanges": uncommitted,
     "headChangedDuringTest": head_changed,
-    "reusable": not failures and not uncommitted and not head_changed,
+    "reusable": not failures and not launch_missing
+    and not uncommitted and not head_changed,
     "testSHA": revision,
     "catalogueSHA256": fingerprint,
     "kind": stage,
-    "result": "failed" if failures else "succeeded",
+    "result": "incomplete" if launch_missing else
+              "failed" if failures else "succeeded",
     "runner": "local",
     "platform": {"os": platform.system(), "architecture": platform.machine(),
                  "runtime": platform.python_version()},
@@ -297,7 +323,7 @@ def _run_group_set(
   }
   with path.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
-  return 1 if failures else 0
+  return 2 if launch_missing else 1 if failures else 0
 
 
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
@@ -315,20 +341,6 @@ def _assert_no_temporary_issue_sandbox(root: Path) -> None:
     )
 
 
-def _consumer_retry_verify(
-  root: Path, engine_root: Path, prepared: list[tuple[str, str]],
-) -> str:
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?",
-                       current_branch(root))
-  if match is None:
-    raise TestCommandError("consumer regression requires an issue branch")
-  with isolate_retry_evidence(root, int(match.group(1))):
-    return verify_local(
-      root, engine_root=engine_root, push=False, tag_result=False,
-      candidate_observer=lambda sha, version: prepared.append((sha, version)),
-    )
-
-
 def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
@@ -338,12 +350,21 @@ def run_test(
   if stage not in STAGES:
     raise TestCommandError("unknown test stage")
   if stage == "RED":
+    from .test_red_runner import record_red
     selected = select_group(root, group) if group else read_selection(root)
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
+    expectation, declaration_error = red_declaration(root, selected)
     if remote:
-      return request_remote(root, stage, engine_root=engine_root)
-    command = group_command(root, selected)
+      if declaration_error:
+        raise TestCommandError(declaration_error)
+      return request_remote(root, stage)
+    command = ()
+    if not declaration_error:
+      try:
+        command = group_command(root, selected)
+      except (SelfCiError, AttributeError, KeyError, TypeError, ValueError):
+        declaration_error = "selected-test-cannot-execute"
     match = re.fullmatch(
       r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
     )
@@ -352,50 +373,11 @@ def run_test(
     path = root / ".repoworkflow" / "validation" / (
       "testResults-" + match.group(1) + ".jsonl"
     )
-    before = _uncommitted_inputs(root, path)
-    red_candidate = head_sha(root)
-    red_catalogue = _group_fingerprint(root, Path(".ci/tests.json"))
-    result = subprocess.run(
-      command, cwd=root, text=True, capture_output=True, check=False,
-      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-    )
-    if result.stdout:
-      print(result.stdout, end="")
-    if result.stderr:
-      print(result.stderr, end="", file=sys.stderr)
-    dirty = sorted(set(before) | set(_uncommitted_inputs(root, path)))
-    record = {
-      "timestamp": datetime.now(timezone.utc).isoformat(),
-      "testSHA": red_candidate,
-      "headChangedDuringTest": head_sha(root) != red_candidate,
-      "catalogueSHA256": red_catalogue,
-      "kind": "RED",
-      "result": "incomplete",
-      "reason": (
-        "expected-red-failure-not-demonstrated"
-        if result.returncode == 0
-        else "failure-not-classified-as-expected-red"
-      ),
-      "runner": "local",
-      "platform": {
-        "os": platform.system(), "architecture": platform.machine(),
-        "runtime": platform.python_version(),
-      },
-      "uncommittedChanges": dirty,
-      "reusable": False,
-      "groups": [{
-        "group": selected, "exit_code": result.returncode,
-        "reused": False,
-      }],
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-      handle.write(json.dumps(record, sort_keys=True) + "\n")
-    if result.returncode == 0:
-      raise TestCommandError("RED did not demonstrate the expected failure")
-    raise TestCommandError(
-      "RED failed; expected RED failure has not been distinguished "
-      "from infrastructure error"
+    return record_red(
+      root, selected, command, path,
+      _group_fingerprint(root, Path(".ci/tests.json")),
+      dirty_inputs=_uncommitted_inputs,
+      expectation=expectation, declaration_error=declaration_error,
     )
   if group is not None:
     raise TestCommandError("test group is only supported for RED")
@@ -404,7 +386,7 @@ def run_test(
     if selected is None:
       return _skip_without_selection(root, stage, remote=remote)
     if remote:
-      return request_remote(root, stage, engine_root=engine_root)
+      return request_remote(root, stage)
     return _run_group_set(root, stage, (selected,))
   if stage == "temporary":
     manifest = Path(".ci/temp-tests.json")
@@ -416,13 +398,25 @@ def run_test(
     if remote:
       for name in groups:
         group_command(root, name, manifest)
-      return request_remote(root, stage, engine_root=engine_root)
+      return request_remote(root, stage)
     return _run_group_set(root, stage, groups, catalogue_path=manifest)
   if remote:
-    return request_remote(root, stage, engine_root=engine_root)
+    if root.resolve() == engine_root.resolve():
+      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
+      if match is None:
+        raise TestCommandError("terminal request needs an issue branch")
+      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+    return request_remote(root, stage)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    return run_local_integration(root, engine_root=engine_root)
+    if root.resolve() == engine_root.resolve():
+      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
+      if match is None:
+        raise TestCommandError("integration requires issue branch")
+      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+    rc = run_local_integration(root, engine_root=engine_root)
+    publish_local_terminal(root, stage="integration")
+    return rc
   if stage == "regression":
     temporary = Path(".ci/temp-tests.json")
     selected = ()
@@ -433,18 +427,24 @@ def run_test(
       for name in selected:
         # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
+    if root.resolve() == engine_root.resolve():
+      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
+      if match is None:
+        raise TestCommandError("regression requires issue branch")
+      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
     before = head_sha(root)
     prepared: list[tuple[str, str]] = []
     outcome = (
       self_regression(root)
       if root.resolve() == engine_root.resolve()
-      else _consumer_retry_verify(root, engine_root, prepared)
+      else verify_consumer_retry(root, engine_root, prepared)
     )
     after = head_sha(root)
-    if outcome == "PASS" and selected and _run_group_set(
-      root, "temporary", selected, catalogue_path=temporary,
-    ):
-      outcome = "FAIL"
+    if outcome == "PASS" and selected:
+      temporary_rc = _run_group_set(
+        root, "temporary", selected, catalogue_path=temporary,
+      )
+      outcome = {0: "PASS", 1: "FAIL", 2: "INCOMPLETE"}[temporary_rc]
     match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
     if match is None:
       raise TestCommandError("regression evidence requires an issue branch")
@@ -468,8 +468,7 @@ def run_test(
       "sourceSHA": before,
       **({"testVersion": prepared[0][1]} if prepared else
          {"testVersion": read_engine_version(root)}
-         if root.resolve() == engine_root.resolve()
-         and (root / ".ci/engine-version").is_file() else {}),
+         if (root / ".ci/engine-version").is_file() else {}),
       "result": {
         "PASS": "succeeded",
         "FAIL": "failed",
@@ -485,14 +484,6 @@ def run_test(
     }
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
-    if prepared and outcome in {"PASS", "FAIL"} and not (
-      uncommitted or head_changed
-    ):
-      remote_name = load_config(root)["repository"]["authoritativeRemote"]
-      publish_terminal_tag(
-        root, stage="regression", remote=remote_name,
-        version=prepared[0][1], candidate=tested_sha,
-        outcome=outcome, canonical_log=path, push=False,
-      )
+    publish_local_terminal(root, stage="regression")
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")

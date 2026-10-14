@@ -138,7 +138,7 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       self.assertEqual(selected.returncode, 0, selected.stderr)
       for issue in range(435, 440):
         self.assertIn(str(issue), selected.stdout)
-      self.assertIn("*A436", selected.stdout)
+      self.assertIn("*?A436", selected.stdout)
       self.assertEqual(selected.stdout.count("*"), 1)
       self.assertEqual(self.dependency_calls(env), [])
 

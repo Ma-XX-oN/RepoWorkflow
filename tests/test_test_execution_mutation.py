@@ -12,6 +12,14 @@ class ExecutionMutationTests(unittest.TestCase):
   cli = fixture.TestCliContract.cli
   _catalogue = fixture.TestCliContract._catalogue
 
+  def declare_mutation_red(self, output):
+    path = self.root / ".ci/tests.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["tests"][0]["issue-545-mutation"]["expected-red"] = {
+      "exit-code": 1, "output-contains": output,
+    }
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
   def test_clean_test_that_commits_during_run_is_nonreusable(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-mutation",
@@ -50,6 +58,7 @@ class ExecutionMutationTests(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-mutation",
     )
+    self.declare_mutation_red("deliberate RED mutation sentinel")
     source = self.root / "smoke_case.py"
     source.write_text(
       "import subprocess\n"
@@ -111,6 +120,7 @@ class ExecutionMutationTests(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-mutation",
     )
+    self.declare_mutation_red("RED defect observed")
     source = self.root / "smoke_case.py"
     source.write_text(
       "import unittest\n"

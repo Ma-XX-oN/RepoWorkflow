@@ -1,0 +1,127 @@
+"""Independent, fail-closed #629 preparatory acceptance matrix checks."""
+
+import importlib
+import json
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MATRIX = ROOT / "tests" / "fixtures" / "issue629_matrix.json"
+EXPECTED = {f"M{i:02d}" for i in range(1, 30)}
+PROVIDER = {"provider", "integration"}
+
+
+def evaluate(entries, observations):
+  """Return provisional local outcomes only; never attest provider evidence."""
+  accepted = set()
+  for entry in entries:
+    item = observations.get(entry["id"])
+    if not isinstance(item, dict):
+      continue
+    if item.get("result") != "succeeded":
+      continue
+    if entry["environment"] in PROVIDER:
+      continue  # Provider trust is never inferred from a caller-supplied flag.
+    if not item.get("executed") or not item.get("test_revision"):
+      continue
+    accepted.add(entry["id"])
+  return accepted
+
+
+class IndependentMatrixTests(unittest.TestCase):
+  def setUp(self):
+    self.entries = json.loads(MATRIX.read_text(encoding="utf-8"))["entries"]
+
+  def test_unique_complete_requirement_trace(self):
+    self.assertEqual({row["id"] for row in self.entries}, EXPECTED)
+    self.assertEqual(len(self.entries), len(EXPECTED))
+    for row in self.entries:
+      self.assertTrue(row["requirement"])
+      self.assertTrue(row["test"])
+      self.assertEqual(type(row["implemented"]), bool)
+      if not row["implemented"]:
+        self.assertTrue(row["pending_reason"])
+      self.assertIn(row["environment"], {"CLI", "provider", "integration"})
+      self.assertEqual(row["status"], "pending")
+      self.assertIsNone(row["evidence"])
+
+
+  def test_every_named_probe_resolves_to_real_callable_or_suite(self):
+    for row in self.entries:
+      with self.subTest(requirement=row["id"]):
+        name = row["test"]
+        if not name.startswith("tests."):
+          # Names without an implementation are provider-only pending.
+          self.assertFalse(row["implemented"])
+          self.assertIn(row["environment"], {"provider", "integration"})
+          continue
+        parts = name.split(".")
+        resolved = None
+        for split in range(len(parts) - 1, 0, -1):
+          try:
+            candidate = importlib.import_module(".".join(parts[:split]))
+          except ModuleNotFoundError:
+            continue
+          for segment in parts[split:]:
+            candidate = getattr(candidate, segment, None)
+            if candidate is None:
+              break
+          if candidate is not None:
+            resolved = candidate
+            break
+        self.assertIsNotNone(resolved, "Missing executable test: " + name)
+
+  def test_no_provider_row_has_synthetic_green_evidence(self):
+    for row in self.entries:
+      if row["environment"] in {"provider", "integration"}:
+        self.assertEqual(row["status"], "pending")
+        self.assertIsNone(row["evidence"])
+
+  def test_unobserved_cases_are_never_green(self):
+    self.assertEqual(evaluate(self.entries, {}), set())
+
+  def test_fabricated_provider_pass_is_not_accepted(self):
+    provider = next(x for x in self.entries if x["environment"] == "provider")
+    fake = {provider["id"]: {"result": "succeeded", "executed": True}}
+    self.assertEqual(evaluate(self.entries, fake), set())
+
+  def test_provider_candidate_mismatch_is_rejected(self):
+    provider = next(x for x in self.entries if x["environment"] == "provider")
+    observation = {"result": "succeeded", "provider_verified": True,
+                   "candidate_sha": "a" * 40, "tested_sha": "b" * 40,
+                   "evidence_id": "provider-run-1"}
+    self.assertEqual(evaluate(self.entries, {provider["id"]: observation}), set())
+
+  def test_failed_incomplete_and_replayed_without_identity_rejected(self):
+    provider = next(x for x in self.entries if x["environment"] == "provider")
+    for outcome in ("failed", "incomplete", None):
+      with self.subTest(outcome=outcome):
+        observation = {"result": outcome, "provider_verified": True,
+                       "candidate_sha": "a" * 40, "tested_sha": "a" * 40,
+                       "evidence_id": "provider-run-1"}
+        self.assertEqual(
+          evaluate(self.entries, {provider["id"]: observation}), set())
+    replay = {"result": "succeeded", "provider_verified": True,
+              "candidate_sha": "a" * 40, "tested_sha": "b" * 40,
+              "evidence_id": "provider-run-1"}
+    self.assertEqual(evaluate(self.entries, {provider["id"]: replay}), set())
+
+  def test_self_declared_verified_provider_is_not_authority(self):
+    provider = next(x for x in self.entries if x["environment"] == "provider")
+    observation = {"result": "succeeded", "provider_verified": True,
+                   "candidate_sha": "a" * 40, "tested_sha": "a" * 40,
+                   "evidence_id": "provider-run-1"}
+    self.assertEqual(evaluate(self.entries, {provider["id"]: observation}), set())
+
+  def test_cli_requires_execution_and_test_revision(self):
+    cli = next(x for x in self.entries if x["environment"] == "CLI")
+    self.assertEqual(evaluate(self.entries, {cli["id"]: {
+      "result": "succeeded", "executed": True}}), set())
+    self.assertEqual(evaluate(self.entries, {cli["id"]: {
+      "result": "succeeded", "executed": True, "test_revision": "abc"}}),
+      {cli["id"]})
+
+
+if __name__ == "__main__":
+  unittest.main()

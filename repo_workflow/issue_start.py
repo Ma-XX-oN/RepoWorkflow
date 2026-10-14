@@ -212,9 +212,9 @@ def _materialize(
 
   lifecycle_store = LifecycleStore(root)
   lifecycle = lifecycle_store.read(issue_id)
-  if lifecycle.lifecycle.state in {"unstarted", "aborted"}:
+  if lifecycle.lifecycle.state in {"not_started", "aborted"}:
     transition = (
-      "start" if lifecycle.lifecycle.state == "unstarted" else "re-enter"
+      "start" if lifecycle.lifecycle.state == "not_started" else "re-enter"
     )
     lifecycle = lifecycle_store.transition(
       issue_id,

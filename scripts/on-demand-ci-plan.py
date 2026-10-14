@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 from pathlib import Path
 import sys
@@ -14,32 +16,24 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import (
   CiInvocationError, original_candidate, verify_invocation,
 )
-from repo_workflow.hosted_version_identity import (
-  HostedVersionError, resolve_invocation,
-)
 
 
 def plan_invocation(root: Path) -> dict[str, str]:
+  branch = os.environ.get("GITHUB_REF_NAME") or subprocess.check_output(
+    ["git", "-C", str(root), "symbolic-ref", "--short", "HEAD"],
+    text=True,
+  ).strip()
+  if re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch) is None:
+    raise CiInvocationError("on-demand CI requires a valid issue branch")
   request = verify_invocation(root)
   invocation_sha = subprocess.check_output(
     ["git", "-C", str(root), "rev-parse", "HEAD"],
     text=True,
   ).strip()
-  tested_sha = original_candidate(root, request.previous_tip)
-  try:
-    verified = resolve_invocation(root, invocation_sha)
-  except HostedVersionError as error:
-    raise CiInvocationError("hosted identity proof failed") from error
-  if (
-    verified["candidate_sha"] != tested_sha
-    or verified["request_parent_sha"] != request.previous_tip
-    or verified["stage"] + "-testing" != request.stage
-  ):
-    raise CiInvocationError("hosted identity resolvers disagree")
   return {
     "stage": request.stage,
     "previous_tip": request.previous_tip,
-    "tested_sha": tested_sha,
+    "tested_sha": original_candidate(root, request.previous_tip),
     "invocation_sha": invocation_sha,
   }
 

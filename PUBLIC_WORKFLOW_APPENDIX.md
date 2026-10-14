@@ -1,3 +1,7 @@
+# 14. Existing lower-level work — companion sections
+
+Continued from [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
+
 ## 14. Existing lower-level work
 
 The revised public workflow reuses rather than discards existing lower-level

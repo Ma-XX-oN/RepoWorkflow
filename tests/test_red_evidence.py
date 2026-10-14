@@ -24,9 +24,9 @@ class RedEvidenceTests(unittest.TestCase):
     successful_test = json.loads(audit.read_text().splitlines()[-1])
     self.assertEqual(successful_test["kind"], "RED")
     self.assertEqual(successful_test["result"], "incomplete")
-    self.assertEqual(successful_test["groups"][0]["exit_code"], 0)
+    self.assertIsNone(successful_test["groups"][0]["exit_code"])
     self.assertFalse(successful_test["reusable"])
-    self.assertEqual(successful_test["reason"], "expected-red-failure-not-demonstrated")
+    self.assertEqual(successful_test["reason"], "expected-failure-declaration-missing")
     source = self.root / "smoke_case.py"
     source.write_text(source.read_text().replace(
       "self.assertTrue(True)", "self.assertTrue(False)",
@@ -35,8 +35,8 @@ class RedEvidenceTests(unittest.TestCase):
     self.assertEqual(failure.returncode, 2, failure.stderr)
     recorded = json.loads(audit.read_text().splitlines()[-1])
     self.assertEqual(recorded["result"], "incomplete")
-    self.assertNotEqual(recorded["groups"][0]["exit_code"], 0)
-    self.assertEqual(recorded["reason"], "failure-not-classified-as-expected-red")
+    self.assertIsNone(recorded["groups"][0]["exit_code"])
+    self.assertEqual(recorded["reason"], "expected-failure-declaration-missing")
     self.assertIn("smoke_case.py", recorded["uncommittedChanges"])
     self.assertFalse(recorded["reusable"])
 

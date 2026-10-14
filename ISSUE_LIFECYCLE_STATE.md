@@ -22,10 +22,12 @@ so through their owning workflow operation.
 
 ## 2. Schema version and record identity
 
-Lifecycle schema version `1` is the original transition-only record.  Schema
-version `2` adds durable high-risk test-catalogue alias associations.  Version
-1 records remain readable and project an empty high-risk alias set; the next
-successful lifecycle or high-risk-association write emits version 2.
+Lifecycle schema version `1` is the original transition-only record.
+Version `2` adds durable high-risk aliases. Version `3` adds `in_review`,
+renames `unstarted` to `not_started`, and records the length of the
+historical legacy event prefix. Versions 1 and 2 remain readable and are
+upgraded without rewriting their events on the next successful write.
+`SIX_STATE_LIFECYCLE.md` also defines the graph and CSV projection.
 
 There is one logical lifecycle record per issue.  Its canonical record key is:
 
@@ -45,11 +47,12 @@ A lifecycle value has this shape:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "issue": "64",
   "state": "active",
   "dependency_satisfied": false,
   "relationship_revision": 7,
+  "legacy_event_count": 0,
   "high_risk_aliases": [
     "command-grammar",
     "graph-renderer"
@@ -58,7 +61,7 @@ A lifecycle value has this shape:
     {
       "sequence": 0,
       "transition": "start",
-      "from": "unstarted",
+      "from": "not_started",
       "to": "active",
       "candidate": "v0.1.40-issue.64.0.0"
     }
@@ -74,7 +77,8 @@ Every lifecycle value contains exactly:
 - `dependency_satisfied`;
 - `relationship_revision`;
 - `high_risk_aliases`;
-- `history`.
+- `history`;
+- `legacy_event_count`.
 
 `relationship_revision` is the canonical relationship-graph revision consumed
 by the lifecycle transition, or `null` when the transition does not consume
@@ -104,14 +108,14 @@ or completion gates.
 
 ## 4. Lifecycle states
 
-The initial states are:
+The six current states are:
 
-- `unstarted` -- no successful start transition has occurred;
-- `active` -- issue work has been started or re-entered;
-- `aborted` -- active work was explicitly abandoned without completion;
-- `accepted` -- all required acceptance/validation for the exact task
-  candidate has succeeded, but durable completion has not occurred;
-- `completed` -- the issue's required workflow outcome is durably complete.
+- `not_started` -- no successful start has occurred;
+- `active` -- work is underway or has been re-entered;
+- `in_review` -- the submitted candidate awaits review or validation;
+- `accepted` -- required review and validation have passed;
+- `completed` -- durable workflow completion, the only satisfied dependency;
+- `aborted` -- active work was abandoned without completion.
 
 `accepted` and `completed` are deliberately distinct.  Acceptance does not
 itself imply merge authorization or final integration.
@@ -169,16 +173,22 @@ extension rather than copying transient process identity into this value.
 
 ## 7. Legal semantic transitions
 
-Schema version 1 permits:
+New version-3 transitions are:
 
 ```text
-unstarted -> active     start
-active    -> aborted    abort
-aborted   -> active     re-enter
-active    -> accepted   accept
-accepted  -> active     reject/reopen
-accepted  -> completed  complete
+not_started -> active     start
+active      -> in_review submit-review
+in_review   -> accepted  accept
+in_review   -> active    reject/reopen
+active      -> aborted   abort
+aborted     -> active    re-enter
+accepted    -> active    reject/reopen
+accepted    -> completed complete
 ```
+
+Historical version-1/2 `active -> accepted` events remain readable only
+inside the immutable `legacy_event_count` prefix. They are not silently
+rewritten as reviewed events; new version-3 events must use `in_review`.
 
 A transition not listed here fails closed.
 
@@ -214,7 +224,7 @@ because the durable issue is `active`.
 A malformed or unsupported lifecycle record is not equivalent to `unstarted`.
 It fails closed.
 
-Absence of a lifecycle record may project to `unstarted` only when the
+Absence of a lifecycle record may project to `not_started` only when the
 canonical lifecycle reader can establish that no durable lifecycle record has
 ever existed for that issue.  A missing record that should exist is a recovery
 error, not a reset.

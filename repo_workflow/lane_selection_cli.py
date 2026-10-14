@@ -6,18 +6,54 @@ from pathlib import Path
 
 from .lane_diagnostics import LaneDiagnostics
 from .lane_metadata_cache import ensure_lane_metadata
-from .lane_projection import ProjectionRule
-from .lane_render import render_lanes
 from .lane_selection import LaneSelectionStore
-from .relationship_bootstrap import ensure_relationship_rules
+from .lane_traversal import (
+  FollowPolicy,
+  ShowChildrenPolicy,
+  parse_follow_arguments,
+  parse_show_children_arguments,
+)
+from .lane_render import render_lanes
+from .relationship_bootstrap import ensure_relationship_graph
 from .runtime_identity import runtime_writer_identity
 
 
-DIRECTION_SWITCHES = {
-  "--dependencies": "dependencies",
-  "--dependents": "dependents",
-  "--single": "single",
-}
+FOLLOW_GROUP_KINDS = frozenset({
+  "group", "feature", "epic", "initiative"
+})
+
+
+def _follow_count_candidates(words: list[str]) -> tuple[int, ...]:
+  return tuple(
+    index
+    for index, token in enumerate(words)
+    if (
+      token.isdecimal()
+      and int(token) > 0
+      and index >= 2
+      and words[index - 2] == "--follow"
+      and words[index - 1] in FOLLOW_GROUP_KINDS
+    )
+  )
+
+
+def _consume_follow_count(words: list[str], index: int) -> bool:
+  if index >= len(words):
+    return False
+  token = words[index]
+  if not token.isdecimal() or int(token) <= 0:
+    return False
+  candidates = _follow_count_candidates(words)
+  ordinary_values = tuple(
+    position
+    for position, value in enumerate(words)
+    if value.isdecimal() and int(value) > 0 and position not in candidates
+  )
+  return bool(
+    ordinary_values
+    or not candidates
+    or index != candidates[-1]
+  )
 
 
 def handle_lane_selection(
@@ -37,88 +73,125 @@ def handle_lane_selection(
 
   if words[:2] != ["lanes", "select"]:
     raise ValueError("invalid lanes command")
-
-  tail, mode, as_json, count_only, refresh = _selection_arguments(words[2:])
+  (
+    tail,
+    as_json,
+    count_only,
+    refresh,
+    requested_follow,
+    requested_show_children,
+    legend,
+  ) = _selection_arguments(words[2:])
+  if legend and (as_json or count_only):
+    raise ValueError('--legend requires graphical output')
   if not tail:
     raise ValueError("lane selection requires at least one root")
 
-  action = "select"
-  if tail[0] in {"add", "remove", "exclude"}:
-    action = tail.pop(0)
-  if not tail:
-    raise ValueError(f"lanes select {action} requires at least one issue")
-  if any(not value.isdecimal() or int(value) <= 0 for value in tail):
-    raise ValueError("lane selection issue IDs must be positive integers")
-  if count_only and action != "select":
-    raise ValueError("--count applies only to lanes select")
-
-  rules = tuple(ProjectionRule(value, mode) for value in tail)
-
-  if action == "select":
-    includes = rules
-    excludes = ()
-  else:
-    if current.value is None or current.revision is None:
+  if tail[0] == "add":
+    if current.revision is None or current.value is None:
       raise ValueError("lane selection is missing")
-    if action == "add":
-      includes = tuple((*current.value.includes, *rules))
-      excludes = current.value.excludes
-    elif action == "remove":
-      remove_set = set(rules)
-      includes = tuple(
-        rule for rule in current.value.includes
-        if rule not in remove_set
-      )
-      excludes = current.value.excludes
-      if not includes:
-        raise ValueError("remove would leave an empty selection; use clear")
-    else:
-      includes = current.value.includes
-      excludes = tuple((*current.value.excludes, *rules))
-
-  _prepare(
-    root,
-    includes,
-    excludes,
-    writer,
-    refresh=refresh,
-    diagnostics=diagnostics,
-  )
-
-  started = time.perf_counter()
-  if count_only:
-    projected = store.project_rules(includes, excludes)
+    follow = current.value.follow if requested_follow is None else requested_follow
+    show_children = (
+      current.value.show_children
+      if requested_show_children is None
+      else requested_show_children
+    )
+    additions = tuple(tail[1:])
+    desired = tuple(sorted(
+      set(current.value.roots) | {str(int(value)) for value in additions},
+      key=int,
+    ))
+    _prepare(
+      root,
+      desired,
+      writer,
+      refresh=refresh,
+      diagnostics=diagnostics,
+      follow=follow,
+      show_children=show_children,
+    )
+    started = time.perf_counter()
+    result = store.add(
+      additions,
+      writer,
+      expected_revision=current.revision,
+      follow=follow,
+      show_children=show_children,
+    )
     if diagnostics is not None:
       diagnostics.phase("decomposition", started)
-    print(len(projected.closure))
-    return 0
-
-  if action == "select":
-    result = store.select_rules(
-      rules,
+  elif tail[0] == "remove":
+    if current.revision is None or current.value is None:
+      raise ValueError("lane selection is missing")
+    follow = current.value.follow if requested_follow is None else requested_follow
+    show_children = (
+      current.value.show_children
+      if requested_show_children is None
+      else requested_show_children
+    )
+    removals = tuple(tail[1:])
+    removed = {str(int(value)) for value in removals}
+    desired = tuple(
+      value for value in current.value.roots
+      if value not in removed
+    )
+    if desired:
+      _prepare(
+        root,
+        desired,
+        writer,
+        refresh=refresh,
+        diagnostics=diagnostics,
+        follow=follow,
+        show_children=show_children,
+      )
+    started = time.perf_counter()
+    result = store.remove(
+      removals,
       writer,
       expected_revision=current.revision,
+      follow=follow,
+      show_children=show_children,
     )
-  elif action == "add":
-    result = store.add_rules(
-      rules,
-      writer,
-      expected_revision=current.revision,
-    )
-  elif action == "remove":
-    result = store.remove_rules(
-      rules,
-      writer,
-      expected_revision=current.revision,
-    )
+    if diagnostics is not None:
+      diagnostics.phase("decomposition", started)
   else:
-    result = store.exclude_rules(
-      rules,
+    follow = FollowPolicy() if requested_follow is None else requested_follow
+    show_children = (
+      ShowChildrenPolicy()
+      if requested_show_children is None
+      else requested_show_children
+    )
+    desired = tuple(tail)
+    _prepare(
+      root,
+      desired,
+      writer,
+      refresh=refresh,
+      diagnostics=diagnostics,
+      follow=follow,
+      show_children=show_children,
+    )
+    started = time.perf_counter()
+    if count_only:
+      projected = store.project(
+        desired,
+        follow=follow,
+        show_children=show_children,
+      )
+      if diagnostics is not None:
+        diagnostics.phase("decomposition", started)
+      print(len(projected.closure))
+      return 0
+    result = store.select(
+      desired,
       writer,
       expected_revision=current.revision,
+      follow=follow,
+      show_children=show_children,
     )
-  if diagnostics is not None:
-    diagnostics.phase("decomposition", started)
+    if diagnostics is not None:
+      diagnostics.phase("decomposition", started)
 
   if as_json:
     print(json.dumps(result.value.to_json_value(), separators=(",", ":")))
@@ -130,6 +203,9 @@ def handle_lane_selection(
       diagnostics=diagnostics,
     ):
       print(line)
+    if legend:
+      print()
+      print("Legend: ○ not_started  ● active  ◎ in_review  ✓ accepted  ♥ completed  ✕ aborted")
     if diagnostics is not None:
       diagnostics.phase("render", started)
   return 0
@@ -137,25 +213,26 @@ def handle_lane_selection(
 
 def _prepare(
   root: Path,
-  includes: tuple[ProjectionRule, ...],
-  excludes: tuple[ProjectionRule, ...],
+  roots: tuple[str | int, ...],
   writer,
   *,
   refresh: bool,
   diagnostics: LaneDiagnostics | None,
+  follow: FollowPolicy,
+  show_children: ShowChildrenPolicy,
 ) -> None:
   started = time.perf_counter()
-  relationships = ensure_relationship_rules(
+  relationships = ensure_relationship_graph(
     root,
-    includes,
-    excludes,
+    roots,
     writer,
     refresh=refresh,
     diagnostics=diagnostics,
+    follow=follow,
+    show_children=show_children,
   )
   if diagnostics is not None:
     diagnostics.phase("relationships", started)
-
   started = time.perf_counter()
   ensure_lane_metadata(
     root,
@@ -170,30 +247,64 @@ def _prepare(
 
 def _selection_arguments(
   words: list[str],
-) -> tuple[list[str], str, bool, bool, bool]:
+) -> tuple[
+  list[str],
+  bool,
+  bool,
+  bool,
+  FollowPolicy | None,
+  ShowChildrenPolicy | None,
+  bool,
+]:
   positional: list[str] = []
-  modes: list[str] = []
+  follow_values: list[tuple[str, str | None]] = []
+  show_children_values: list[str] = []
   as_json = False
   count_only = False
   refresh = False
-
-  for token in words:
-    if token in DIRECTION_SWITCHES:
-      modes.append(DIRECTION_SWITCHES[token])
-    elif token == "--json":
+  legend = False
+  index = 0
+  while index < len(words):
+    token = words[index]
+    if token == "--json":
       as_json = True
-    elif token == "--count":
+      index += 1
+      continue
+    if token == "--count":
       count_only = True
-    elif token == "--refresh":
+      index += 1
+      continue
+    if token == "--refresh":
       refresh = True
-    elif token.startswith("--"):
-      raise ValueError(f"unsupported lanes select switch: {token}")
-    else:
-      positional.append(token)
-
-  if len(modes) > 1:
-    raise ValueError(
-      "--dependencies, --dependents, and --single are mutually exclusive"
-    )
-  mode = "both" if not modes else modes[0]
-  return positional, mode, as_json, count_only, refresh
+      index += 1
+      continue
+    if token == "--legend":
+      legend = True
+      index += 1
+      continue
+    if token == "--follow":
+      if index + 1 >= len(words):
+        raise ValueError("--follow requires a group kind")
+      kind = words[index + 1]
+      count = None
+      index += 2
+      if _consume_follow_count(words, index):
+        count = words[index]
+        index += 1
+      follow_values.append((kind, count))
+      continue
+    if token == "--show-children":
+      if index + 1 >= len(words):
+        raise ValueError("--show-children requires a group kind")
+      show_children_values.append(words[index + 1])
+      index += 2
+      continue
+    positional.append(token)
+    index += 1
+  follow = None if not follow_values else parse_follow_arguments(follow_values)
+  show_children = (
+    None
+    if not show_children_values
+    else parse_show_children_arguments(show_children_values)
+  )
+  return positional, as_json, count_only, refresh, follow, show_children, legend

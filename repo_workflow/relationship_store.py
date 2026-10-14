@@ -17,6 +17,7 @@ from .relationships import (
   project_legacy_graph,
 )
 from .state_store import WriterIdentity
+from .lifecycle_store import LifecycleStore, STATES
 
 
 TICKET_STATE_PATH = Path(".repoworkflow") / "tickets.csv"
@@ -36,6 +37,24 @@ class RelationshipStoreError(RuntimeError):
 class RelationshipSnapshot:
   graph: RelationshipGraph
   revision: int
+  states: dict[str, 'TicketState'] | None = None
+
+
+@dataclass(frozen=True)
+class TicketState:
+  state: str
+  lifecycle_revision: int | None
+
+  def __post_init__(self) -> None:
+    if self.state not in STATES:
+      raise RelationshipSchemaError(f'invalid ticket state: {self.state!r}')
+    revision = self.lifecycle_revision
+    if revision is not None and (
+      isinstance(revision, bool) or not isinstance(revision, int) or revision < 0
+    ):
+      raise RelationshipSchemaError('invalid ticket lifecycle revision')
+    if self.state != 'not_started' and revision is None:
+      raise RelationshipSchemaError('noninitial ticket requires lifecycle revision')
 
 
 class RelationshipStore:
@@ -49,10 +68,10 @@ class RelationshipStore:
     if self.path.exists():
       try:
         text = self.path.read_text(encoding="utf-8")
-        graph = _parse_csv(text)
+        graph, states = _parse_ticket_csv(text)
       except (OSError, UnicodeError, RelationshipSchemaError) as error:
         raise RelationshipStoreError(str(error)) from error
-      return RelationshipSnapshot(graph, _revision(text))
+      return RelationshipSnapshot(graph, _revision(text), states)
 
     return self._read_legacy()
 
@@ -91,7 +110,7 @@ class RelationshipStore:
         "stale ticket-state revision: "
         f"expected {expected_revision}, current {current.revision}"
       )
-    return self._write(graph, expected_revision)
+    return self._write(graph, expected_revision, current.states)
 
   def issue(self, issue: str | int) -> IssueRelationships:
     try:
@@ -101,6 +120,16 @@ class RelationshipStore:
 
   def direct_dependencies(self, issue: str | int) -> tuple[str, ...]:
     return self.issue(issue).depends_on
+
+  def refresh_states(self, writer: WriterIdentity) -> RelationshipSnapshot:
+    _writer(writer)
+    current = self.read()
+    lifecycle = LifecycleStore(self.root)
+    states = {}
+    for issue in sorted(current.graph.issues, key=int):
+      record = lifecycle.read(issue)
+      states[issue] = TicketState(record.lifecycle.state, record.revision)
+    return self._write(current.graph, current.revision, states)
 
   def _write_new(
     self,
@@ -123,6 +152,7 @@ class RelationshipStore:
     self,
     graph: RelationshipGraph,
     expected_revision: int,
+    states: dict[str, TicketState] | None = None,
   ) -> RelationshipSnapshot:
     lock = _lock_path(self.path)
     _acquire_lock(lock)
@@ -137,9 +167,16 @@ class RelationshipStore:
           "stale ticket-state revision: "
           f"expected {expected_revision}, current {current_revision}"
         )
-      text = _render_csv(graph)
+      if states is not None:
+        states = dict(states)
+        lifecycle = LifecycleStore(self.root)
+        for issue in sorted(set(graph.issues) - set(states), key=int):
+          record = lifecycle.read(issue)
+          states[issue] = TicketState(record.lifecycle.state, record.revision)
+        states = {issue: states[issue] for issue in graph.issues}
+      text = _render_csv(graph, states)
       _write_text_atomic(self.path, text)
-      return RelationshipSnapshot(graph, _revision(text))
+      return RelationshipSnapshot(graph, _revision(text), states)
     finally:
       _release_lock(lock)
 
@@ -218,39 +255,59 @@ def _validated_graph(graph: RelationshipGraph) -> RelationshipGraph:
     raise RelationshipStoreError(str(error)) from error
 
 
-def _render_csv(graph: RelationshipGraph) -> str:
+
+def _render_csv(
+  graph: RelationshipGraph,
+  states: dict[str, TicketState] | None = None,
+) -> str:
   graph = _validated_graph(graph)
+  if states is not None and set(states) != set(graph.issues):
+    raise RelationshipSchemaError("ticket lifecycle projection is incomplete")
   output = io.StringIO(newline="")
   writer = csv.writer(output, lineterminator="\n")
-  writer.writerow(("issue", "title", "dependencies"))
+  writer.writerow(
+    ("issue", "title", "dependencies")
+    if states is None
+    else ("issue", "title", "dependencies", "state", "state_revision")
+  )
   for issue in sorted(graph.issues, key=int):
     relation = graph.issues[issue]
-    writer.writerow((
-      issue,
-      relation.title,
-      ";".join(relation.depends_on),
-    ))
+    row = [issue, relation.title, ";".join(relation.depends_on)]
+    if states is not None:
+      status = states[issue]
+      row.extend((
+        status.state,
+        "" if status.lifecycle_revision is None else str(status.lifecycle_revision),
+      ))
+    writer.writerow(row)
   return output.getvalue()
 
 
 def _parse_csv(text: str) -> RelationshipGraph:
+  return _parse_ticket_csv(text)[0]
+
+
+def _parse_ticket_csv(
+  text: str,
+) -> tuple[RelationshipGraph, dict[str, TicketState] | None]:
   try:
     rows = list(csv.reader(io.StringIO(text, newline="")))
   except csv.Error as error:
     raise RelationshipSchemaError(f"invalid ticket CSV: {error}") from error
-  if not rows or rows[0] != ["issue", "title", "dependencies"]:
-    raise RelationshipSchemaError(
-      "ticket CSV header must be issue,title,dependencies"
-    )
-
+  legacy = ["issue", "title", "dependencies"]
+  current = legacy + ["state", "state_revision"]
+  if not rows or rows[0] not in (legacy, current):
+    raise RelationshipSchemaError("invalid ticket CSV header")
+  has_states = rows[0] == current
   issues: dict[str, IssueRelationships] = {}
+  states: dict[str, TicketState] = {}
   prior = 0
   for index, row in enumerate(rows[1:], start=2):
-    if len(row) != 3:
+    if len(row) != (5 if has_states else 3):
       raise RelationshipSchemaError(
-        f"ticket CSV row {index} must contain exactly three fields"
+        f"ticket CSV row {index} has an invalid field count"
       )
-    raw_issue, title, raw_dependencies = row
+    raw_issue, title, raw_dependencies = row[:3]
     if not raw_issue.isdigit() or int(raw_issue) < 1:
       raise RelationshipSchemaError(
         f"ticket CSV row {index} has invalid issue number"
@@ -265,23 +322,32 @@ def _parse_csv(text: str) -> RelationshipGraph:
       raise RelationshipSchemaError(
         f"ticket CSV issue {issue} has an empty title"
       )
-    dependencies = (
-      []
-      if raw_dependencies == ""
-      else raw_dependencies.split(";")
-    )
+    dependencies = [] if not raw_dependencies else raw_dependencies.split(";")
     issues[issue] = IssueRelationships(
       title=title,
       depends_on=tuple(dependencies),
     )
-
-  return RelationshipGraph.from_json_value({
+    if has_states:
+      state, raw_revision = row[3:]
+      if raw_revision and (
+        not raw_revision.isdecimal()
+        or str(int(raw_revision)) != raw_revision
+      ):
+        raise RelationshipSchemaError(
+          f"ticket CSV issue {issue} has invalid lifecycle revision"
+        )
+      states[issue] = TicketState(
+        state,
+        int(raw_revision) if raw_revision else None,
+      )
+  graph = RelationshipGraph.from_json_value({
     "schema_version": 3,
     "issues": {
       issue: relation.to_json_value()
       for issue, relation in issues.items()
     },
   })
+  return graph, states if has_states else None
 
 
 def _revision(text: str) -> int:

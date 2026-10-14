@@ -233,75 +233,60 @@ without discarding durable evidence/history.
 
 ## 7. Dependencies, lanes, and multiple agents
 
-Lane planning uses only explicit direct ticket dependencies.
+Lane planning uses only explicit direct ticket dependencies:
 
 ```text
-rwf lanes select <issues...> [--dependencies|--dependents|--single]
-rwf lanes select add <issues...> [--dependencies|--dependents|--single]
-rwf lanes select remove <issues...> [--dependencies|--dependents|--single]
-rwf lanes select exclude <issues...> [--dependencies|--dependents|--single]
+rwf lanes select <issues...>
 rwf lanes list
 rwf lanes view
 ```
 
-Each explicit seed has one projection mode:
+The issues passed to `lanes select` are focus seeds.  Ordinary tickets expand
+through both direct dependencies and direct dependants.  Encountered
+`Feature:`, `Epic:`, and `Initiative:` tickets are included but stop
+component discovery by default; an explicitly selected group seed is not stopped
+merely because it is a group.  Only the explicit focus seeds receive the `*`
+marker.  Dependency direction itself is unchanged: direct dependency edges
+remain the sole scheduling and topology authority.
 
-- `--single`: include only the seed;
-- `--dependencies`: include the seed and its transitive dependencies;
-- `--dependents`: include the seed and its transitive dependents;
-- no directional flag: include the union of the dependency and dependent
-  closures started independently at the seed.
-
-The default is therefore not an undirected connected component. Traversal never
-changes direction after leaving a seed merely because another node was reached.
-
-The worktree-local selection persists explicit include and exclude rules.
-`select` replaces include rules, `add` adds include rules, and `remove`
-removes the matching seed-plus-mode include rule. `exclude` adds subtraction
-rules. The visible working set is:
+Group boundaries may be crossed explicitly:
 
 ```text
-union(include projections) - union(exclude projections)
+--follow group [N]
+--follow feature [N]
+--follow epic [N]
+--follow initiative [N]
 ```
 
-When exclusions exist, graph output ends with a compact expression derived from
-those persisted rules, for example:
+`N` defaults to 1 and must be positive.  Type-specific allowances compose and
+are counted independently per traversal path.  `group N` uses one shared
+per-path allowance across Feature/Epic/Initiative boundaries.  The same node may
+therefore be visited with different remaining traversal allowances while still
+appearing only once in the projected graph.
 
-```text
-Selection:
-(inc_both(#413) ∪ #521) − inc_dependents(#456)
-```
+Stopped group boundaries may expose one adjacent context layer with
+`--show-children group|feature|epic|initiative`.  It applies only to matching
+unfollowed boundaries: shown nodes do not restart traversal, while an independent
+ordinary path to the same node remains traversable.  Repeated type flags compose;
+`group` matches Feature/Epic/Initiative.
 
 Large selections can be sized without graph layout or rendering:
 
 ```text
-rwf lanes select <issues...> [projection mode] --count
+rwf lanes select <issues...> --count
 ```
 
-`--count` uses exactly the same projection semantics as normal selection,
-counts each final projected issue once, prints only the decimal count on stdout,
-does not render the graph, and does not replace persisted selection state.
+`--count` uses the same traversal/projection semantics as the equivalent
+selection, including group stopping, `--follow`, and `--show-children`.
+It counts each projected issue once, prints only the decimal count on stdout,
+does not render the graph, and does not replace the persisted lane selection.
+When #454 adds `--max-depend-depth`, that limit applies through the same
+shared projection path.
 
 The durable synchronized ticket state contains issue number, exact title, and
-direct dependencies. Repeated lane operations use that local state. Missing
-state is acquired only in the direction required by the projection rule;
-support-only prerequisite records needed to keep synchronized state valid do
-not silently enter the visible projection. `--refresh` rereads the same
-directional rule scope.
-
-Ticket title prefixes are presentation classifications only:
-
-```text
-Initiative: -> I:
-Epic:       -> E:
-Feature:    -> F:
-Bug:        -> B:
-Refactor:   -> R:
-```
-
-They do not change projection traversal. Only explicit include seeds receive
-the `*` marker when they are visible.
-
+direct dependencies. Repeated lane operations use that local state. A missing
+ticket is acquired from the configured provider, including title and direct
+dependencies. `--refresh` explicitly rereads the relevant provider closure.
 
 RepoWorkflow does not store a second relationship graph for container
 ownership, membership, or attachment. Branch-parent identity is also outside
@@ -398,6 +383,18 @@ the stage creates a dedicated `.ci/run` invocation commit containing the
 stage marker and immediate pre-invocation candidate SHA.  Hosted execution
 uses the same authoritative stage selection and testing log.
 
+Immutable GitHub Actions artifacts authenticate hosted PASS records: a committed
+JSONL claim alone cannot grant reuse, even when it names a real successful
+provider run.  The checker verifies the provider run, candidate/invocation
+ancestry and exact record bytes against the run's immutable artifact.  Missing,
+expired, malformed, forged, mismatched or inaccessible artifacts fail closed.
+Read-only `results --remote` never dispatches a hosted stage.
+
+The on-demand workflow remains staged alongside existing Self CI.  Functional
+certification of its five stages does not authorise replacing Self CI, merging,
+releasing or enabling protected production integration.  Server branch/ruleset
+enforcement is separately deferred under #85.
+
 `rwf test results` reads existing local evidence; `rwf test results
 --remote` retrieves previously published hosted evidence without starting
 another CI cycle.  A PASS is reusable only with applicable matching
@@ -477,5 +474,4 @@ Issue #56 owns the public `done` workflow.  Existing #17 owns prelim
 integration/reintegration/PRELIM mechanics and #18 owns protected-server
 enforcement.
 
-
-Continuation: [Sections 14–15](PUBLIC_WORKFLOW_CONTINUED.md).
+Further sections: [14. Existing lower-level work](PUBLIC_WORKFLOW_APPENDIX.md).

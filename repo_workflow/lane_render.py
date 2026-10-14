@@ -9,7 +9,6 @@ from .lane_graph_adapter import (
   LaneGraphProjectionError,
   project_lane_graph,
 )
-from .lane_projection import selection_expression
 from .lane_selection import LaneSelectionStore
 from .relationship_store import RelationshipStore
 from .state_store import StateStoreError, WriterIdentity, clone_local_store
@@ -69,7 +68,8 @@ def render_lanes(
   selection = LaneSelectionStore(root).read().value
   if selection is None:
     raise LaneRenderError("lane selection is missing")
-  relationship_graph = RelationshipStore(root).read().graph
+  snapshot = RelationshipStore(root).read()
+  relationship_graph = snapshot.graph
 
   visible = set(selection.closure)
   if lane is not None:
@@ -83,6 +83,9 @@ def render_lanes(
     }
 
   metadata = _metadata(root, tuple(sorted(visible, key=int)))
+  for issue in visible:
+    state = None if snapshot.states is None else snapshot.states[issue].state
+    metadata[issue]["lifecycle_state"] = state
   styler = TerminalStyler(color_setting(root))
   lane_colours = {
     lane_name: styler.lane_colour(lane_name)
@@ -113,15 +116,7 @@ def render_lanes(
       for route in result.routes
     ]
 
-  lines = result.lines
-  if selection.excludes:
-    lines = (
-      *lines,
-      "",
-      "Selection:",
-      selection_expression(selection.includes, selection.excludes),
-    )
-  return lines
+  return result.lines
 
 
 def _diagnostic(value: dict, issue_by_text: dict[str, int]) -> dict:

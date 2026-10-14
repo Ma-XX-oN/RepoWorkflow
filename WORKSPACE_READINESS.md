@@ -86,9 +86,9 @@ issue-start semantics.
 
 Lifecycle classification precedes dependency classification:
 
-- `ready`: lifecycle is `unstarted` or `aborted`, and all direct
+- `ready`: lifecycle is `not_started` or `aborted`, and all direct
   dependencies are satisfied;
-- `blocked`: lifecycle is `unstarted` or `aborted`, with one or more
+- `blocked`: lifecycle is `not_started` or `aborted`, with one or more
   unresolved direct dependencies;
 - `active`: work is already in progress and is not a new allocation
   candidate;
@@ -128,7 +128,7 @@ The projection fails closed when required authoritative state cannot be read.
 
 Implementation must prove at least:
 
-1. an unstarted issue with no dependencies is ready;
+1. an not_started issue with no dependencies is ready;
 2. one unresolved direct dependency makes it blocked;
 3. resolving that dependency makes it ready;
 4. independent issues with no dependency path can both be ready;

@@ -28,7 +28,11 @@ def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
 def _remote_tag(root: Path, remote: str, tag: str) -> bool:
   output = _git(root, "ls-remote", "--tags", remote,
                 "refs/tags/" + tag).stdout.strip()
-  return bool(output)
+  local = _git(root, "show-ref", "--verify", "--quiet",
+               "refs/tags/" + tag, check=False)
+  if local.returncode not in {0, 1}:
+    raise EnginePreparationError("cannot verify local development terminal tag")
+  return bool(output) or local.returncode == 0
 
 
 def prepare_engine_request(

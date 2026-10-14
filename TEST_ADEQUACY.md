@@ -462,5 +462,4 @@ The purpose of this lifecycle is to make broad deterministic fidelity testing
 cheap during a transformation without turning incidental observed behaviour or
 disposable scaffolding into permanent test-suite debt.
 
-
-Continuation: [Sections 13–15](TEST_ADEQUACY_CONTINUED.md).
+Further sections: [13. Universal closure gate](TEST_ADEQUACY_CLOSURE.md).

@@ -12,6 +12,7 @@ from repo_workflow.relationships import (
   RelationshipGraph,
 )
 from repo_workflow.state_store import WriterIdentity
+from repo_workflow.lifecycle_store import LifecycleStore
 from tests.support import RepoFixture
 
 
@@ -48,6 +49,82 @@ class TicketStateTests(unittest.TestCase):
     restarted = RelationshipStore(self.root).read()
     self.assertEqual(restarted.graph, first.graph)
     self.assertEqual(restarted.revision, first.revision)
+
+
+  def test_explicit_state_refresh_upgrades_csv_and_preserves_snapshot(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    initial = store.read()
+    self.assertIsNone(initial.states)
+    refreshed = store.refresh_states(self.writer)
+    self.assertEqual(
+      {issue: value.state for issue, value in refreshed.states.items()},
+      {"10": "not_started", "20": "not_started"},
+    )
+    self.assertIsNone(refreshed.states["10"].lifecycle_revision)
+    text = store.path.read_text(encoding="utf-8")
+    self.assertTrue(text.startswith(
+      "issue,title,dependencies,state,state_revision\n"
+    ))
+    self.assertEqual(store.read().states, refreshed.states)
+
+    started = LifecycleStore(self.root).transition(
+      10, "start", "candidate", 0, self.writer, None,
+    )
+    self.assertEqual(started.lifecycle.state, "active")
+    self.assertEqual(store.read().states["10"].state, "not_started")
+    changed = store.refresh_states(self.writer)
+    self.assertEqual(changed.states["10"].state, "active")
+    self.assertEqual(changed.states["10"].lifecycle_revision, 0)
+    self.assertEqual(changed.states["20"].state, "not_started")
+
+  def test_unstarted_alias_record_has_a_valid_cached_revision(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    lifecycle = LifecycleStore(self.root)
+    tagged = lifecycle.set_high_risk_aliases(
+      10, ["graph-renderer"], self.writer, None,
+    )
+    self.assertEqual(tagged.lifecycle.state, "not_started")
+    self.assertEqual(tagged.revision, 0)
+    refreshed = store.refresh_states(self.writer)
+    self.assertEqual(refreshed.states["10"].state, "not_started")
+    self.assertEqual(refreshed.states["10"].lifecycle_revision, 0)
+
+  def test_graph_replacement_preserves_cached_status(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    refreshed = store.refresh_states(self.writer)
+    modified = RelationshipGraph(issues={
+      "10": IssueRelationships("Feature: Ten", ()),
+      "20": IssueRelationships("Revised", ("10",)),
+    })
+    updated = store.replace(refreshed.revision, modified, self.writer)
+    self.assertEqual(updated.states, refreshed.states)
+    self.assertEqual(updated.graph.issue(20).title, "Revised")
+
+  def test_malformed_cached_state_is_rejected(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    store.refresh_states(self.writer)
+    old = store.path.read_text(encoding="utf-8")
+    for replacement in ("completed,", "active,", "unknown,"):
+      with self.subTest(state=replacement):
+        store.path.write_text(
+          old.replace("not_started,", replacement, 1),
+          encoding="utf-8",
+        )
+        with self.assertRaises(RelationshipStoreError):
+          store.read()
+    store.path.write_text(old, encoding="utf-8")
+
+  def test_stale_refresh_revision_preserves_prior_csv(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    first = store.refresh_states(self.writer)
+    with self.assertRaisesRegex(RelationshipStoreError, "stale ticket-state"):
+      store._write(first.graph, first.revision - 1, first.states)
+    self.assertEqual(store.read(), first)
 
   def test_empty_dependency_set_is_known_not_missing(self):
     RelationshipStore(self.root).create(self.graph(), self.writer)

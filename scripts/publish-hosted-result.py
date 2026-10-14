@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -73,6 +74,23 @@ def publish(
   local_dirty = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
   if any(line[3:] != relative for line in local_dirty.splitlines() if line):
     raise ValueError("unexpected test side effects prevent publication")
+  if record.get("runner") == "github-actions":
+    from repo_workflow.github_artifact import verify_hosted_record
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if stage not in {"GREEN-testing", "temp-testing"} or not repository:
+      raise ValueError("provider reuse lacks authorised stage or repository")
+    if not verify_hosted_record(record, repo=repository, stage=stage):
+      raise ValueError("previous provider PASS could not be authenticated")
+    previous_run = record.get("providerRunId")
+    groups = record.get("groups")
+    if (type(previous_run) is not int or previous_run <= 0
+        or not isinstance(groups, list) or not groups
+        or any(type(group.get("exit_code")) is not int
+               or group["exit_code"] != 0 for group in groups)):
+      raise ValueError("reused provider observation is incomplete")
+    record["reusedFromRunId"] = previous_run
+    record["timestamp"] = datetime.now(timezone.utc).isoformat()
+    record["groups"] = [{**group, "reused": True} for group in groups]
   record["runner"] = "github-actions"
   record["providerRunId"] = int(run_id)
   record["providerInvocationSHA"] = invocation
