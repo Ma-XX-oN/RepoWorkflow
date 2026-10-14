@@ -113,6 +113,10 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
     raise ValueError("release must be patch, minor or major")
   if not re.fullmatch(r"[1-9][0-9]*", str(facts.issue)):
     raise ValueError("invalid issue number")
+  if not isinstance(facts.version, str) or not facts.version.strip():
+    raise ValueError("exact version is required")
+  if not isinstance(facts.source_branch, str) or not facts.source_branch.strip():
+    raise ValueError("source branch is required")
   if facts.mit not in MIT_STATES:
     raise ValueError("invalid MIT status")
   if isinstance(facts.contenders, bool) or not isinstance(facts.contenders, int) or facts.contenders < 0:
@@ -180,6 +184,9 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
     next_steps.append("await-manual-tester-result")
   elif facts.mit == "passed" and facts.mit_candidate_sha != facts.candidate_sha:
     block("stale-mit-PASS", "rerun-mit-for-current-candidate")
+
+  if facts.contenders >= 2 and facts.coordination_authority is not True:
+    block("queue-coordination-authority", "obtain-queue-coordinator")
 
   hard_blocks = tuple(x for x in missing if x not in {"mit-scheduling-obligation"})
   if stale:
