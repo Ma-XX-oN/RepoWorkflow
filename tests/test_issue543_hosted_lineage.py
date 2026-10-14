@@ -27,7 +27,7 @@ class VerifiedRetryLineageTests(unittest.TestCase):
     self.responses = {
       BASE + '/actions/runs/123': {
         'id': 123, 'conclusion': 'success', 'status': 'completed',
-        'event': 'push', 'name': 'RepoWorkflow On-Demand CI (candidate)',
+        'event': 'push', 'name': 'RepoWorkflow On-Demand CI',
         'head_sha': RETRY,
       },
       BASE + '/git/commits/' + RETRY: {'parents': [{'sha': PUBLISHED}]},
@@ -44,9 +44,11 @@ class VerifiedRetryLineageTests(unittest.TestCase):
       },
       BASE + '/contents/.ci/run?ref=' + FIRST: encoded('GREEN-testing ' + CANDIDATE + '\n'),
       BASE + '/actions/runs/123/jobs?per_page=100': {
-        'total_count': 2,
+        'total_count': 4,
         'jobs': [{'name': 'plan', 'conclusion': 'success'},
-                 {'name': 'validate', 'conclusion': 'success'}],
+                 {'name': 'validate', 'conclusion': 'success'},
+                 {'name': 'publish', 'conclusion': 'success'},
+                 {'name': 'results', 'conclusion': 'success'}],
       },
     }
 
