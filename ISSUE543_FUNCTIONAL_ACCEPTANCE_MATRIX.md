@@ -1,3 +1,12 @@
+> **Historical certification only — not acceptance of the current-main integration.**
+> All PASS rows and GitHub Actions artifacts below describe the earlier
+> `c9b58911a659d8ec8c133ff6015492d30762985a` source and its
+> unchanged documentation descendants.  None certifies the new integration
+> branch `issue-543-main-remote-test-integration-v3-20261013`.
+> That branch's new exact-candidate provider, regression, integration,
+> permission-split and results-readback gates remain **INCOMPLETE**.
+> See `ISSUE543_MAIN_REMOTE_INTEGRATION_STATUS.md` for the new ledger.
+>
 # Issue #543 — functional acceptance ledger (V3)
 
 ## Authoritative latest certified source — integration disposition (2026-10-11)
