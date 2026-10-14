@@ -73,6 +73,11 @@ jobs:
             issue-[1-9]*) git switch -c "$GITHUB_REF_NAME" ;;
             *) echo 'hosted testing requires an issue branch' >&2; exit 1 ;;
           esac
+      - name: Configure hosted development tagger
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
       - name: Run selected stage through public test CLI
         shell: bash
         run: |
