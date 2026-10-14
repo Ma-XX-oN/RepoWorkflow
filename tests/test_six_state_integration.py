@@ -13,7 +13,7 @@ from repo_workflow.lane_selection import LaneSelectionStore
 from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.public_cli import _handle_lanes
 from repo_workflow.public_commands import COMMANDS
-from repo_workflow.relationship_store import RelationshipStoreError
+from repo_workflow.relationship_store import RelationshipStore, RelationshipStoreError
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.terminal_style import TerminalStyler
