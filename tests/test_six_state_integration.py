@@ -181,5 +181,36 @@ class SixStateGraphIntegrationTests(unittest.TestCase):
 
 
 
+  def test_legend_current_debug_and_lane_filter_preserve_lifecycle(self):
+    # G11: joined public flags render graph first and keep lifecycle immutable.
+    self.seed_all_states()
+    lifecycle = LifecycleStore(self.root)
+    before = {issue: lifecycle.read(issue) for issue in range(1, 7)}
+    words = ["lanes", "view", "A", "--current", "--legend", "--debug"]
+    parse_tokens(COMMANDS, Context(self.root, legal_only=False), words)
+    output = StringIO()
+    with patch(
+      "repo_workflow.public_cli.runtime_writer_identity",
+      return_value=self.writer,
+    ):
+      with redirect_stdout(output):
+        _handle_lanes(
+          self.root, words, LaneDiagnostics(self.root, tuple(words)),
+        )
+    result = output.getvalue()
+    for glyph in "○●◎✓♥✕":
+      self.assertIn(glyph, result)
+    self.assertIn("Legend: ○ not_started", result)
+    self.assertGreater(result.index("Legend:"), result.index("♥"))
+    self.assertEqual(
+      {issue: lifecycle.read(issue) for issue in range(1, 7)},
+      before,
+    )
+    self.assertEqual(
+      self.relationships.read().states["5"].state, "completed",
+    )
+
+
+
 if __name__ == "__main__":
   unittest.main()

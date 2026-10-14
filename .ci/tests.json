@@ -90,6 +90,10 @@
         "type": "regression",
         "name": "tests.test_lifecycle_store"
       },
+      "issue-583-clone-publication": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_clone_publish"
+      },
       "issue-540-on-demand-ci-marker": {
         "type": "regression",
         "name": "tests.test_ci_invocation"
