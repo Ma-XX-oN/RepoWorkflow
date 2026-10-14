@@ -96,7 +96,7 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
           # request. This exception requires that its parent had no marker;
           # rewriting an existing request to empty remains invalid.
           previous_marker = _git(
-            root, "ls-tree", parent, "--", ".ci/run",
+            root, "ls-tree", parents[1], "--", ".ci/run",
           )
           current_marker = _git(root, "show", current + ":.ci/run")
           if (
