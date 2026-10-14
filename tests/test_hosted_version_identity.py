@@ -112,6 +112,44 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "invalid two-field"):
       resolve_invocation(self.root, self.git("rev-parse", "HEAD"))
 
+  def test_prepared_candidate_with_tracked_empty_marker_is_not_invocation(self):
+    marker = self.root / ".ci/run"
+    marker.parent.mkdir(exist_ok=True)
+    marker.write_text("")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "prepare source with inactive CI marker")
+    prepared = self.git("rev-parse", "HEAD")
+    self.candidate = prepared
+    request = self.invoke()
+    identity = resolve_invocation(self.root, request)
+    self.assertEqual(identity["request_parent_sha"], prepared)
+    self.assertEqual(identity["candidate_sha"], prepared)
+    self.assertEqual(identity["retry_depth"], 0)
+    self.evidence()
+    self.assertEqual(
+      resolve_hosted_version(self.root, request, self.log)["test_version"],
+      VERSION,
+    )
+
+  def test_empty_inherited_marker_and_published_retry_keep_original_source(self):
+    marker = self.root / ".ci/run"
+    marker.parent.mkdir(exist_ok=True)
+    marker.write_text("")
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "prepare empty marker")
+    self.candidate = self.git("rev-parse", "HEAD")
+    first = self.invoke(stage="regression")
+    self.evidence()
+    self.git("add", ".repoworkflow/validation/testResults-570.jsonl")
+    self.git("commit", "-qm", "test: publish hosted evidence from run 123")
+    published = self.git("rev-parse", "HEAD")
+    second = self.invoke(stage="integration")
+    identity = resolve_invocation(self.root, second)
+    self.assertEqual(identity["candidate_sha"], self.candidate)
+    self.assertEqual(identity["request_parent_sha"], published)
+    self.assertEqual(identity["stage_transition_count"], 1)
+    self.assertNotEqual(first, self.candidate)
+
   def test_first_request_binds_immediate_parent_and_original_candidate(self):
     sha = self.invoke()
     result = resolve_invocation(self.root, sha)

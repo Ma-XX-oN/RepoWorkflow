@@ -1,91 +1,118 @@
+"""Protect the currently deployed, on-demand CI and release boundary."""
+
 from pathlib import Path
+import re
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = ROOT / ".github" / "workflows" / "on-demand-ci.yml"
+
+
+def job_block(text, name):
+  match = re.search(r"(?m)^  " + re.escape(name) + r":\s*$", text)
+  if match is None:
+    raise AssertionError("missing hosted CI job: " + name)
+  end = re.search(r"(?m)^  [a-z][a-z0-9-]*:\s*$", text[match.end():])
+  return text[match.end():match.end() + end.start()] if end else text[match.end():]
+
+
+def assert_safe_trigger(test, text):
+  header = text.split("\npermissions:", 1)[0]
+  test.assertRegex(header, r"(?m)^  push:\s*$")
+  test.assertRegex(header, r"(?m)^      - ['\"]issue-\*['\"]\s*$")
+  test.assertRegex(header, r"(?m)^      - ['\"]\.ci/run['\"]\s*$")
+  test.assertNotRegex(header, r"(?m)^\s*(pull_request|workflow_dispatch):")
+  test.assertNotRegex(header, r"(?m)^\s*- ['\"]main['\"]\s*$")
+
+
+def assert_integration_probe(test, text, name):
+  section = job_block(text, name)
+  test.assertIn("needs.plan.outputs.stage == 'integration-testing'", section)
+  for platform in ("ubuntu-latest", "windows-latest", "macos-latest"):
+    test.assertIn(platform, section)
+  test.assertIn("needs.plan.outputs.tested_sha", section)
 
 
 class SelfCiTests(unittest.TestCase):
-  def workflow_text(self):
-    return (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
-      encoding="utf-8"
-    )
+  def setUp(self):
+    self.text = WORKFLOW.read_text(encoding="utf-8")
 
-  def test_main_green_bootstrap_publishes_exact_stable_tag(self):
-    text = self.workflow_text()
-    self.assertIn("github.ref == 'refs/heads/main'", text)
-    self.assertEqual(text.count("contents: write"), 1)
-    self.assertIn("version=\"$(tr -d '\\r\\n' < VERSION)\"", text)
-    self.assertIn("refs/heads/main", text)
-    self.assertIn("git ls-remote --heads origin", text)
-    self.assertIn("git ls-remote --tags origin", text)
-    self.assertIn("github-actions[bot]", text)
-    self.assertIn("git tag -a", text)
-    self.assertIn("git push origin", text)
+  def test_retired_self_ci_cannot_publish_stable_tags(self):
+    self.assertFalse((WORKFLOW.parent / "self-ci.yml").exists())
+    assert_safe_trigger(self, self.text)
+    self.assertNotRegex(self.text, r"(?m)^  release:\s*$")
+    self.assertNotIn("git tag -a", self.text)
+    self.assertNotIn("refs/tags/", self.text)
 
-  def test_bootstrap_release_requires_plain_semver(self):
-    text = self.workflow_text()
-    self.assertIn("^[0-9]+\\.[0-9]+\\.[0-9]+$", text)
+  def test_hosted_invocation_is_narrow_and_cannot_run_on_main_push(self):
+    assert_safe_trigger(self, self.text)
+    self.assertIn("python scripts/on-demand-ci-plan.py", job_block(self.text, "plan"))
+    self.assertIn("fetch-depth: 0", job_block(self.text, "plan"))
 
-  def test_docs_only_changes_select_docs_tier_without_code_jobs(self):
-    text = self.workflow_text()
-    self.assertIn("python repo_workflow.py classify --base", text)
-    self.assertIn("python scripts/self-ci-plan.py", text)
-    self.assertIn("classification", text)
-    self.assertIn("needs.plan.outputs.tier == 'docs'", text)
-
-  def test_issue_tier_runs_only_issue_validation_job(self):
-    text = self.workflow_text()
-    self.assertIn("  issue-validate:", text)
-    self.assertIn("needs.plan.outputs.tier == 'issue'", text)
-    self.assertIn("python scripts/validate-issue.py --groups-json", text)
-
-  def test_regression_and_integration_share_broad_validation(self):
-    text = self.workflow_text()
-    self.assertIn(
-      "needs.plan.outputs.tier == 'regression' || "
-      "needs.plan.outputs.tier == 'integration'",
-      text,
-    )
-    self.assertIn("run: python scripts/validate.py", text)
-
-  def test_platform_matrices_are_integration_only(self):
-    text = self.workflow_text()
-    for job in (
-      "argv-limits",
-      "graph-renderer-platform",
-      "ticket-merge-platform",
-    ):
-      self.assertIn(
-        (
-          f"  {job}:\n"
-          "    needs: [classify, plan]\n"
-          "    if: needs.plan.outputs.tier == 'integration'\n"
-        ),
-        text,
+  def test_trigger_guard_rejects_main_and_pull_request_regressions(self):
+    with self.assertRaises(AssertionError):
+      assert_safe_trigger(self, self.text.replace("- 'issue-*'", "- main"))
+    with self.assertRaises(AssertionError):
+      assert_safe_trigger(
+        self, self.text.replace("permissions:", "  pull_request:\npermissions:", 1)
       )
 
-  def test_workflow_dispatch_can_explicitly_request_regression(self):
-    text = self.workflow_text()
-    self.assertIn("validation_tier:", text)
-    self.assertIn("- regression", text)
-    self.assertIn("- integration", text)
+  def test_hosted_runner_executes_authoritative_regression_and_integration(self):
+    section = job_block(self.text, "validate")
+    for stage in ("RED", "temp", "GREEN", "regression", "integration"):
+      self.assertIn(stage + "-testing", section)
+    for command in ("RED", "temporary", "GREEN", "regression", "integration"):
+      self.assertIn("./rwf test " + command, section)
+    self.assertNotIn("scripts/validate.py", section)
+
+  def test_hosted_execution_is_bound_to_verified_candidate(self):
+    plan = job_block(self.text, "plan")
+    self.assertIn("tested_sha", plan)
+    for name in (
+      "validate", "publish", "results", "argv-limits",
+      "graph-renderer-platform", "ticket-merge-platform",
+    ):
+      self.assertIn(
+        "ref: " + "$" + "{{ needs.plan.outputs.tested_sha }}",
+        job_block(self.text, name),
+        name,
+      )
+
+  def test_integration_probes_cover_all_three_platforms(self):
+    for name in ("argv-limits", "graph-renderer-platform", "ticket-merge-platform"):
+      assert_integration_probe(self, self.text, name)
+
+  def test_regression_stage_does_not_trigger_platform_probes(self):
+    for name in ("argv-limits", "graph-renderer-platform", "ticket-merge-platform"):
+      section = job_block(self.text, name)
+      self.assertNotIn("regression-testing", section)
+      self.assertNotIn("GREEN-testing", section)
+
+  def test_hosted_publisher_is_evidence_scoped_not_release_publisher(self):
+    validate = job_block(self.text, "validate")
+    publish = job_block(self.text, "publish")
+    self.assertIn("actions/upload-artifact@v4", validate)
+    self.assertIn("scripts/publish-hosted-result.py", publish)
+    self.assertIn("actions/download-artifact@v4", publish)
+    self.assertIn("contents: write", publish)
+    self.assertNotIn("contents: write", validate)
+    self.assertNotIn("git tag", publish)
+    self.assertNotIn("refs/tags", publish)
+    self.assertIn("steps.staged_evidence.outcome == 'success'", validate)
+
+  def test_read_only_remote_results_are_preserved(self):
+    results = job_block(self.text, "results")
+    self.assertIn("./rwf test results --remote", results)
+    self.assertIn("contents: read", results)
+    self.assertNotIn("contents: write", results)
+    self.assertIn("providerRunId", results)
+    self.assertIn("providerInvocationSHA", results)
 
   def test_issue_validation_evidence_reports_resolved_groups(self):
-    text = (ROOT / "scripts" / "validate-issue.py").read_text(
-      encoding="utf-8"
-    )
+    text = (ROOT / "scripts" / "validate-issue.py").read_text(encoding="utf-8")
     self.assertEqual(text.count('"groups": groups'), 2)
     self.assertNotIn('"groups": args.groups', text)
-
-  def test_release_requires_docs_or_successful_integration(self):
-    text = self.workflow_text()
-    start = text.index("  release:")
-    block = text[start:]
-    self.assertIn("needs.plan.outputs.tier == 'docs'", block)
-    self.assertIn("needs.plan.outputs.tier == 'integration'", block)
-    self.assertIn("needs.validate.result == 'success'", block)
-    self.assertNotIn("needs.issue-validate.result == 'success'", block)
 
 
 if __name__ == "__main__":

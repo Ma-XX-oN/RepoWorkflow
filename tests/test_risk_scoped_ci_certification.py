@@ -2,6 +2,7 @@ from pathlib import Path
 import unittest
 
 from repo_workflow.self_ci import plan_self_ci
+from tests.test_self_ci import assert_integration_probe, job_block
 from repo_workflow.test_catalogue import load_test_catalogue
 
 
@@ -70,27 +71,27 @@ class RiskScopedCiCertificationTests(unittest.TestCase):
     self.assertEqual(plan.groups, ())
 
   def test_workflow_keeps_platform_probes_integration_only(self):
-    text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
-      encoding="utf-8"
-    )
-    self.assertEqual(
-      text.count("if: needs.plan.outputs.tier == 'integration'"),
-      3,
-    )
-    self.assertIn(
-      "needs.plan.outputs.tier == 'regression' || "
-      "needs.plan.outputs.tier == 'integration'",
-      text,
-    )
+    text = (
+      ROOT / ".github" / "workflows" / "on-demand-ci.yml"
+    ).read_text(encoding="utf-8")
+    for name in ("argv-limits", "graph-renderer-platform", "ticket-merge-platform"):
+      assert_integration_probe(self, text, name)
+      section = job_block(text, name)
+      self.assertNotIn("regression-testing", section)
 
   def test_release_cannot_use_issue_or_regression_evidence(self):
-    text = (ROOT / ".github" / "workflows" / "self-ci.yml").read_text(
-      encoding="utf-8"
+    text = (
+      ROOT / ".github" / "workflows" / "on-demand-ci.yml"
+    ).read_text(encoding="utf-8")
+    self.assertFalse(
+      (ROOT / ".github" / "workflows" / "self-ci.yml").exists()
     )
-    release = text[text.index("  release:"):]
-    self.assertIn("needs.plan.outputs.tier == 'integration'", release)
-    self.assertNotIn("needs.plan.outputs.tier == 'issue'", release)
-    self.assertNotIn("needs.plan.outputs.tier == 'regression'", release)
+    self.assertNotIn("\n  release:", text)
+    publish = job_block(text, "publish")
+    self.assertIn("scripts/publish-hosted-result.py", publish)
+    self.assertNotIn("git tag", publish)
+    self.assertNotIn("refs/tags/", publish)
+    self.assertIn("needs.validate.outputs.ready == 'true'", publish)
 
 
 if __name__ == "__main__":

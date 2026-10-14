@@ -79,23 +79,24 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
     if current in observed:
       raise HostedVersionError("cyclic invocation lineage")
     observed.add(current)
-    marker = _marker(root, current)
-    if depth and marker is not None:
+    if depth:
+      # Only a commit that changes .ci/run can be a retry invocation.
+      # Parse its committed marker *after* checking the changed paths:
+      # prepared candidates legitimately retain an empty .ci/run file.
       parents = _git(root, "rev-list", "--parents", "-n", "1", current).split()
-      if len(parents) < 2 or parents[0] != current:
-        # Root commits can contain a marker but are never retry commits.
-        marker = None
+      if len(parents) != 2 or parents[0] != current:
+        marker = None  # A root or merge commit is a candidate boundary.
       else:
         changed = _git(
           root, "diff-tree", "--no-commit-id", "--name-only", "-r",
           parents[1], current,
         ).splitlines()
-        if ".ci/run" not in changed:
-          # A canonical hosted publication preserves the earlier request
-          # marker but does not establish a new source candidate.
+        if ".ci/run" in changed:
+          marker = _marker(root, current)
+        else:
           subject = _git(root, "show", "-s", "--format=%s", current).strip()
           if (
-            len(parents) == 2 and len(changed) == 1
+            len(changed) == 1
             and re.fullmatch(
               r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl",
               changed[0],
@@ -104,9 +105,9 @@ def resolve_invocation(root: Path, invocation_sha: str) -> dict:
           ):
             current = parents[1]
             continue
-          marker = None  # An inherited marker is not itself a request.
-        elif len(parents) != 2:
-          raise HostedVersionError("marker-changing merge cannot be a request")
+          marker = None  # An inherited marker is not a new request.
+    else:
+      marker = _marker(root, current)
     if marker is None:
       if depth == 0:
         raise HostedVersionError("not a hosted invocation")

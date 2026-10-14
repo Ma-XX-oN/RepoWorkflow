@@ -6,17 +6,19 @@ import re
 from .config import load_config
 from .git import current_branch
 from .local import verify_local
+from typing import Callable
 from .retry_evidence import isolate_retry_evidence
 from .terminal_tag import publish_terminal_tag, TerminalTagError
 
 def verify_consumer_retry(
   root: Path, engine_root: Path, prepared: list[tuple[str, str]],
+  verifier: Callable = verify_local,
 ) -> str:
   match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
   if match is None:
     raise TerminalTagError("consumer regression requires an issue branch")
   with isolate_retry_evidence(root, int(match.group(1))):
-    return verify_local(
+    return verifier(
       root, engine_root=engine_root, push=False, tag_result=False,
       candidate_observer=lambda sha, version: prepared.append((sha, version)),
     )
@@ -42,11 +44,13 @@ def publish_local_terminal(root: Path, *, stage: str) -> str | None:
   if status not in {"succeeded", "failed"}:
     raise TerminalTagError("local terminal outcome is not definitive")
   if record.get("headChangedDuringTest") is not False:
-    raise TerminalTagError("local testing changed candidate history")
+    return None  # Nonreusable observation never creates a terminal tag.
   if record.get("uncommittedChanges") != []:
-    raise TerminalTagError("local testing mutated inputs")
+    return None  # Preserve dirty-source evidence without promoting it.
   version = record.get("testVersion")
   if not isinstance(version, str):
+    if not (root / "VERSION").is_file():
+      return None  # Unversioned synthetic engine fixture; no tag.
     raise TerminalTagError("no authoritative local development version")
   remote = (
     load_config(root)["repository"]["authoritativeRemote"]
