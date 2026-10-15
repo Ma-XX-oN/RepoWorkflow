@@ -7,6 +7,9 @@ and binds immutable PRELIM identity under #102.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import contextmanager
+import os
+import time
 import json
 from pathlib import Path
 import re
@@ -16,7 +19,8 @@ from .git import git
 from .lifecycle_store import LifecycleStore
 from .runtime_identity import runtime_writer_identity
 from .state_store import (
-  JsonRecordStore, StateStoreError, _acquire_lock, _release_lock, durable_store,
+  JsonRecordStore, StateStoreError, _validate_record,
+  _write_json_atomic, durable_store,
 )
 from .version_adapter import read_version, run_transition
 
@@ -76,6 +80,41 @@ def _record(store: JsonRecordStore, attempt: str) -> dict | None:
     if "record is missing:" in str(exc):
       return None
     raise
+
+
+def _restore_remote_record(root: Path, remote: str, store: JsonRecordStore,
+                           attempt: str) -> dict | None:
+  """Recover an immutable provider-backed attempt after clone or process loss."""
+  ref = f"refs/heads/prelim-state/{attempt}"
+  advertised = _remote_ref(root, remote, ref)
+  if advertised is None:
+    return None
+  git(root, "fetch", remote, ref)
+  fetched = _sha(git(root, "rev-parse", "FETCH_HEAD").stdout.strip(), "state")
+  if fetched != advertised:
+    raise PrelimError("remote attempt state moved during recovery")
+  key = _key(attempt)
+  relative = f".repoworkflow/state/{key}.json"
+  try:
+    payload = json.loads(git(root, "show", f"FETCH_HEAD:{relative}").stdout)
+    _validate_record(payload, key)
+  except (ValueError, StateStoreError, TypeError, KeyError) as error:
+    raise PrelimError("remote PRELIM attempt record is invalid") from error
+  if (payload["value"].get("attempt") != attempt
+      or payload["value"].get("state") != "ready"):
+    raise PrelimError("remote PRELIM attempt identity is invalid")
+  path = store._path(key)
+  if path.exists():
+    if store.read(key) != payload:
+      raise PrelimError("remote and local attempt records conflict")
+  else:
+    # This is restoration of an exact validated provider record, not
+    # creation of another semantic attempt or revision.
+    _write_json_atomic(path, payload)
+  result = store.read(key)
+  if result != payload:
+    raise PrelimError("restored PRELIM attempt differs from provider record")
+  return result
 
 
 def _snapshot(record: dict) -> PrelimAttempt:
@@ -171,6 +210,10 @@ def _publish(root: Path, remote: str, store: JsonRecordStore,
                   value["lifecycle_revision"])
   ref = f"refs/heads/{value['branch']}"
   candidate = _sha(value["candidate_sha"], "candidate")
+  if _local_ref(root, ref) is None:
+    # A restarted clone has the durable provider record but no local attempt
+    # ref yet. Restore the exact remote ref; never reconstruct a new commit.
+    git(root, "fetch", remote, f"{ref}:{ref}")
   if _local_ref(root, ref) != candidate:
     raise PrelimError("local candidate ref differs from recorded exact SHA")
   actual = _remote_ref(root, remote, ref)
@@ -242,6 +285,8 @@ def _construct_prelim_unlocked(root: Path, issue: str, source_ref: str, config: 
   except (ValueError, AttributeError, TypeError) as exc:
     raise PrelimError("invalid attempt GUID") from exc
   record = _record(store, attempt)
+  if record is None and attempt_id is not None:
+    record = _restore_remote_record(root, remote, store, attempt)
   if record is None:
     base = _remote_ref(root, remote, "refs/heads/main")
     if base is None:
@@ -359,10 +404,43 @@ def _finish_prelim_unlocked(root: Path, attempt: str, config: dict,
   return _snapshot(record)
 
 
-def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str) -> Path:
+@contextmanager
+def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str):
+  """Process-scoped lock released by the OS even after an abrupt crash."""
   path = store.root / f".prelim-attempt-{attempt}.lock"
-  _acquire_lock(path)
-  return path
+  path.parent.mkdir(parents=True, exist_ok=True)
+  fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+  locked = False
+  try:
+    if os.fstat(fd).st_size == 0:
+      os.write(fd, b"0")
+    deadline = time.monotonic() + 5.0
+    while True:
+      try:
+        if os.name == "nt":
+          import msvcrt
+          os.lseek(fd, 0, os.SEEK_SET)
+          msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+          import fcntl
+          fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        locked = True
+        break
+      except OSError as exc:
+        if time.monotonic() >= deadline:
+          raise PrelimError(f"attempt lock is busy: {path}") from exc
+        time.sleep(0.01)
+    yield
+  finally:
+    if locked:
+      if os.name == "nt":
+        import msvcrt
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+      else:
+        import fcntl
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    os.close(fd)
 
 
 def construct_prelim(root: Path, issue: str, source_ref: str, config: dict,
@@ -375,14 +453,11 @@ def construct_prelim(root: Path, issue: str, source_ref: str, config: dict,
     attempt = str(uuid.UUID(attempt_id)) if attempt_id else str(uuid.uuid4())
   except (ValueError, AttributeError, TypeError) as exc:
     raise PrelimError("invalid attempt GUID") from exc
-  lock = _attempt_lock(root, store, attempt)
-  try:
+  with _attempt_lock(root, store, attempt):
     return _construct_prelim_unlocked(
       root, issue, source_ref, config, bump=bump,
       attempt_id=attempt, store=store,
     )
-  finally:
-    _release_lock(lock)
 
 
 def finish_prelim(root: Path, attempt: str, config: dict,
@@ -394,8 +469,5 @@ def finish_prelim(root: Path, attempt: str, config: dict,
     attempt = str(uuid.UUID(attempt))
   except (ValueError, AttributeError, TypeError) as exc:
     raise PrelimError("invalid attempt GUID") from exc
-  lock = _attempt_lock(root, store, attempt)
-  try:
+  with _attempt_lock(root, store, attempt):
     return _finish_prelim_unlocked(root, attempt, config, store=store)
-  finally:
-    _release_lock(lock)
