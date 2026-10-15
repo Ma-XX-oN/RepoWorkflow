@@ -1,6 +1,8 @@
 """Independent Git-provider contract checks for issue #82 PRELIM attempts."""
 
+from concurrent.futures import ThreadPoolExecutor
 import json
+import uuid
 import os
 from pathlib import Path
 import subprocess
@@ -210,6 +212,66 @@ class PrelimAttemptTests(unittest.TestCase):
     self.assertEqual(git(self.root, "rev-parse", ref).stdout.strip(), before)
     self.assertEqual(git(self.root, "ls-remote", "origin", ref).stdout.split()[0],
                      before)
+
+
+
+  def test_concurrent_same_guid_has_one_immutable_result(self):
+    attempt = str(uuid.uuid4())
+    with ThreadPoolExecutor(max_workers=2) as workers:
+      results = list(workers.map(self.construct, (attempt, attempt)))
+    self.assertEqual(results[0], results[1])
+    self.assertEqual(results[0].state, "ready")
+    self.assertEqual(git(self.root, "rev-parse", results[0].branch).stdout.strip(),
+                     results[0].candidate_sha)
+
+  def test_abrupt_worker_death_releases_attempt_lock(self):
+    from repo_workflow.prelim_attempt import _attempt_lock
+    attempt = str(uuid.uuid4())
+    script = (
+      "import sys, time\n"
+      "from pathlib import Path\n"
+      "from repo_workflow.prelim_attempt import _attempt_lock\n"
+      "from repo_workflow.state_store import durable_store\n"
+      "root = Path(sys.argv[1])\n"
+      "with _attempt_lock(root, durable_store(root), sys.argv[2]):\n"
+      "  print('locked', flush=True)\n"
+      "  time.sleep(60)\n"
+    )
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
+    worker = subprocess.Popen(
+      [sys.executable, "-c", script, str(self.root), attempt],
+      stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+      text=True, env=environment,
+    )
+    try:
+      self.assertEqual(worker.stdout.readline().strip(), "locked")
+    finally:
+      worker.kill()
+      worker.communicate(timeout=10)
+    with _attempt_lock(self.root, durable_store(self.root), attempt):
+      pass
+
+
+
+  def test_fresh_clone_restores_provider_attempt_exactly(self):
+    original = self.construct()
+    git(self.root, "push", "origin", "refs/heads/issue-7:refs/heads/issue-7")
+    fresh = Path(self.temp.name) / "fresh"
+    subprocess.run(["git", "clone", "-b", "main", str(self.remote),
+                    str(fresh)], check=True, capture_output=True)
+    git(fresh, "checkout", "-b", "issue-7", "origin/issue-7")
+    restored = LifecycleStore(fresh)
+    initial = restored.transition("7", "start", None, 0, self.writer, None)
+    review = restored.transition("7", "submit-review", self.source, 0,
+                                 self.writer, initial.revision)
+    restored.transition("7", "accept", self.source, 0, self.writer,
+                        review.revision)
+    result = construct_prelim(fresh, "7", "refs/heads/issue-7",
+                              self.config, attempt_id=original.attempt)
+    self.assertEqual(result, original)
+    self.assertEqual(git(fresh, "rev-parse", original.branch).stdout.strip(),
+                     original.candidate_sha)
 
 
 
