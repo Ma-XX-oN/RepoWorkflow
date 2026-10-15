@@ -12,7 +12,7 @@ from unittest.mock import patch
 from repo_workflow.relationship_store import (
   RelationshipStore, RelationshipStoreError,
 )
-from repo_workflow.relationships import IssueRelationships, RelationshipGraph
+from repo_workflow.relationships import IssueRelationships, RelationshipGraph, ready_issues
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.lane_render import render_lanes
@@ -76,6 +76,33 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertEqual(revised.states, refreshed.states)
     self.assertEqual(lifecycle.read(1), begun)
     self.assertEqual(RelationshipStore(self.root).read(), revised)
+
+  def test_same_active_state_preserves_distinct_dependency_readiness(self):
+    # G04: readiness is derived from dependencies, never lifecycle glyph.
+    lifecycle = LifecycleStore(self.root)
+    for issue in (1, 2):
+      lifecycle.transition(
+        issue, "start", f"candidate-{issue}", 0, self.writer, None,
+      )
+    refreshed = self.store.refresh_states(self.writer)
+    self.assertEqual(
+      (refreshed.states["1"].state, refreshed.states["2"].state),
+      ("active", "active"),
+    )
+    self.assertEqual(ready_issues(refreshed.graph, set()), ("1",))
+    self.assertEqual(ready_issues(refreshed.graph, {"1"}), ("2",))
+    LaneSelectionStore(self.root).select((2,), self.writer)
+    IssueMetadataStore(self.root).write({
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="open",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }, self.writer)
+    before = self.store.path.read_bytes()
+    rendered = "\n".join(render_lanes(self.root))
+    self.assertGreaterEqual(rendered.count("●"), 2)
+    self.assertEqual(self.store.path.read_bytes(), before)
 
   def test_mixed_lifecycle_sample_changed_during_refresh_is_rejected(self):
     # P06: changes to earlier issues during later sampling fail atomically.
