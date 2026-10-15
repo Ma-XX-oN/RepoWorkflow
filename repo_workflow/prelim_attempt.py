@@ -281,7 +281,8 @@ def _publish(root: Path, remote: str, store: JsonRecordStore,
     raise PrelimError("remote PRELIM state publication disappeared")
   git(root, "fetch", remote, state_ref)
   remote_record = json.loads(git(root, "show", f"{state_tip}:{relative}").stdout)
-  if remote_record != record:
+  if (remote_record != record
+      or _remote_ref(root, remote, state_ref) != state_tip):
     raise PrelimError("remote persisted attempt record differs from local")
 
 
