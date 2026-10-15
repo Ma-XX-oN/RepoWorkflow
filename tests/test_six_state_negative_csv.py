@@ -1,6 +1,8 @@
 """Black-box #583 strict CSV and offline graph acceptance probes."""
 
 from pathlib import Path
+import socket
+import urllib.request
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -11,6 +13,9 @@ from repo_workflow.relationship_store import (
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.lifecycle_store import LifecycleStore
+from repo_workflow.lane_render import render_lanes
+from repo_workflow.lane_selection import LaneSelectionStore
+from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
 from tests.support import RepoFixture
 
 
@@ -67,6 +72,32 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertEqual(revised.states, refreshed.states)
     self.assertEqual(lifecycle.read(1), begun)
     self.assertEqual(RelationshipStore(self.root).read(), revised)
+
+  def test_default_graph_is_offline_and_never_refreshes_lifecycle(self):
+    # G01: cached graph must never consult lifecycle or a remote provider.
+    LaneSelectionStore(self.root).select((2,), self.writer)
+    IssueMetadataStore(self.root).write({
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="open",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }, self.writer)
+    csv_before = self.store.path.read_bytes()
+    with patch(
+      "repo_workflow.lifecycle_store.LifecycleStore.read",
+      side_effect=AssertionError("default graph polled lifecycle"),
+    ), patch.object(
+      socket, "create_connection",
+      side_effect=AssertionError("default graph opened network"),
+    ), patch.object(
+      urllib.request, "urlopen",
+      side_effect=AssertionError("default graph opened network"),
+    ):
+      lines = render_lanes(self.root)
+    self.assertTrue(lines)
+    self.assertEqual(self.store.path.read_bytes(), csv_before)
+    self.assertIsNone(RelationshipStore(self.root).read().states)
 
   def test_explicit_refresh_unavailable_authority_preserves_csv(self):
     # G06: explicit current cannot fabricate state on unavailable authority.
