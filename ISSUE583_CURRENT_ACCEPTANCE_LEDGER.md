@@ -1,7 +1,7 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 14, 2026 (Toronto).  74 cases: **56 PASS**,
-**18 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
+Snapshot: October 14, 2026 (Toronto).  74 cases: **57 PASS**,
+**17 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
 `ac7618525674449b3326cd2881d4f100a368192b` in draft PR #666;
 regression `38667171244`, integration `38667178515`.
 This supplement retains the original 74-row historical acceptance ledger.
@@ -30,6 +30,9 @@ This supplement retains the original 74-row historical acceptance ledger.
 
 - **J** — exact source `5eeb6d3f92bea274f52ef4c9162f23c98b3254ec`
   regression `38672066398`; integration `38672075357`; PASS.
+
+- **K** — exact source `a8589d3200e73051871ef3db690c64b1839ef38a`
+  regression `38676034606`; integration `38676043370`; PASS.
 
 ## Independent 74-case verdicts
 
@@ -164,11 +167,10 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **C06 — PASS**
   Historical anchor: test_failed_atomic_replace_preserves_prior_record
   Remaining: injected publish failure preserves old authoritative record
-- **C07 — PARTIAL**
-  Historical anchor:
-  test_interrupted_committed_materialization_is_replayed_idempotently
-  Remaining: Transaction replay tested locally, but lost remote publication
-  ACK/exact request identity not proven.
+- **C07 — PASS** (provider evidence K)
+  Lost publication ACK after full durable lifecycle+CSV materialization;
+  restart and three exact transaction-id retries preserve one event,
+  immutable lifecycle revision and byte-identical cached projection.
 - **C08 — PASS** (provider evidence C)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_recovery_never_assumes_prepared_is_committed;
