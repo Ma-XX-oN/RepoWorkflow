@@ -200,10 +200,16 @@ def _publish(root, remote, record):
     raise ReintegrationError("unready candidate cannot be published")
   ref = f"refs/heads/{v['branch']}"
   actual = _remote_ref(root, remote, ref)
+  if actual is not None and actual != v["candidate"]:
+    raise ReintegrationError("published candidate differs")
+  local = _local_ref(root, ref)
+  if local is None and actual == v["candidate"]:
+    git(root, "fetch", "--no-tags", remote, f"{ref}:{ref}")
+    local = _local_ref(root, ref)
+  if local != v["candidate"]:
+    raise ReintegrationError("candidate local identity unavailable or changed")
   if actual is None:
     git(root, "push", remote, f"{ref}:{ref}")
-  elif actual != v["candidate"]:
-    raise ReintegrationError("published candidate differs")
   if _remote_ref(root, remote, ref) != v["candidate"]:
     raise ReintegrationError("candidate provider readback failed")
   state_ref = f"refs/heads/prelim-reintegration-state/{v['guid']}"
