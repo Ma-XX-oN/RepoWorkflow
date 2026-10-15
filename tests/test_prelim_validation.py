@@ -10,12 +10,12 @@ from repo_workflow.prelim_validation import (
   HostedObservation, PrelimValidationError, validate_prelim,
 )
 from repo_workflow.state_store import StateStoreError, durable_store
-from tests.test_prelim_attempt import PrelimAttemptTests
 
 
 class PrelimValidationTests(unittest.TestCase):
   def setUp(self):
     # Reuse the independently tested #82 real Git/bare-provider fixture.
+    from tests.test_prelim_attempt import PrelimAttemptTests
     PrelimAttemptTests.setUp(self)
     self.candidate = construct_prelim(
       self.root, "7", "refs/heads/issue-7", self.config,
