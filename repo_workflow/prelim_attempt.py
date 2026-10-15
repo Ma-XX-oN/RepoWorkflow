@@ -222,7 +222,7 @@ def construct_prelim(root: Path, issue: str, source_ref: str, config: dict,
                     lifecycle.revision)
     value = {
       "attempt": attempt, "issue": issue,
-      "branch": f"prelim/{issue}/{attempt}",
+      "branch": f"prelim-main-{attempt}",
       "source_ref": source_ref, "source_sha": source,
       "base_sha": base, "lifecycle_revision": lifecycle.revision,
       "bump": bump, "state": "prepared", "candidate_sha": None,
