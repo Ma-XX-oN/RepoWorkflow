@@ -16,6 +16,7 @@ from repo_workflow.relationships import IssueRelationships, RelationshipGraph, r
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.lane_render import render_lanes
+from repo_workflow.current_work_store import CurrentWorkStore
 from repo_workflow.public_cli import _handle_lanes
 from repo_workflow.lane_diagnostics import LaneDiagnostics
 from repo_workflow.lane_selection import LaneSelectionStore
@@ -76,6 +77,44 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertEqual(revised.states, refreshed.states)
     self.assertEqual(lifecycle.read(1), begun)
     self.assertEqual(RelationshipStore(self.root).read(), revised)
+
+  def test_graph_ignores_different_current_worktree_issue(self):
+    # G14: worktree navigation pointer is not the graph-state authority.
+    lifecycle = LifecycleStore(self.root)
+    active = lifecycle.transition(
+      1, "start", "candidate-1", 0, self.writer, None,
+    )
+    completed = lifecycle.transition(
+      2, "start", "candidate-2", 0, self.writer, None,
+    )
+    for action in ("submit-review", "accept", "complete"):
+      completed = lifecycle.transition(
+        2, action, "candidate-2", 0, self.writer, completed.revision,
+      )
+    refreshed = self.store.refresh_states(self.writer)
+    pointer = CurrentWorkStore(self.root).project_start(
+      1, active.revision, refreshed.revision, self.writer, None,
+    )
+    self.assertEqual(pointer.value.current.issue, "1")
+    self.assertEqual(refreshed.states["2"].state, "completed")
+    LaneSelectionStore(self.root).select((2,), self.writer)
+    IssueMetadataStore(self.root).write({
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="open",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }, self.writer)
+    before = self.store.path.read_bytes()
+    with patch.object(
+      CurrentWorkStore, "read",
+      side_effect=AssertionError("graph consumed worktree pointer"),
+    ):
+      graph = "\n".join(render_lanes(self.root))
+    self.assertIn("●", graph)
+    self.assertIn("♥", graph)
+    self.assertEqual(self.store.path.read_bytes(), before)
+    self.assertEqual(CurrentWorkStore(self.root).read(), pointer)
 
   def test_same_active_state_preserves_distinct_dependency_readiness(self):
     # G04: readiness is derived from dependencies, never lifecycle glyph.
