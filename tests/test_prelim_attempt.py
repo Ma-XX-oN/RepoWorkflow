@@ -183,5 +183,35 @@ class PrelimAttemptTests(unittest.TestCase):
     self.assertEqual(self.construct(result.attempt), result)
 
 
+  def test_zero_delta_source_keeps_version_only_candidate(self):
+    # An accepted source already contained in authoritative main still
+    # produces a versioned physical candidate without an empty merge.
+    base = git(self.root, "rev-parse", "main").stdout.strip()
+    git(self.root, "update-ref", "refs/heads/issue-7", base)
+    lifecycle = LifecycleStore(self.root)
+    old = lifecycle.read("7")
+    reopened = lifecycle.transition("7", "reject/reopen", None, 0,
+                                    self.writer, old.revision)
+    review = lifecycle.transition("7", "submit-review", base, 0,
+                                  self.writer, reopened.revision)
+    lifecycle.transition("7", "accept", base, 0, self.writer,
+                         review.revision)
+    result = self.construct()
+    self.assertEqual(result.proposed_version, "1.2.4")
+    self.assertEqual(result.state, "ready")
+    self.assertEqual(git(self.root, "rev-parse", "issue-7").stdout.strip(), base)
+
+  def test_state_branch_republication_preserves_exact_commit(self):
+    result = self.construct()
+    ref = f"refs/heads/prelim-state/{result.attempt}"
+    before = git(self.root, "rev-parse", ref).stdout.strip()
+    git(self.root, "push", "origin", f":{ref}")
+    self.assertEqual(self.construct(result.attempt), result)
+    self.assertEqual(git(self.root, "rev-parse", ref).stdout.strip(), before)
+    self.assertEqual(git(self.root, "ls-remote", "origin", ref).stdout.split()[0],
+                     before)
+
+
+
 if __name__ == "__main__":
   unittest.main()
