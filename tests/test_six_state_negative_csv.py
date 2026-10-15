@@ -230,6 +230,79 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertGreaterEqual(rendered.count("●"), 2)
     self.assertEqual(self.store.path.read_bytes(), before)
 
+  def test_public_default_view_and_selection_never_poll_authority(self):
+    # G01: public default graph path consumes cached CSV only.
+    LaneSelectionStore(self.root).select((2,), self.writer)
+    IssueMetadataStore(self.root).write({
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="open",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }, self.writer)
+    before = self.store.path.read_bytes()
+    output = StringIO()
+    words = ["lanes", "view"]
+    with patch(
+      "repo_workflow.lifecycle_store.LifecycleStore.read",
+      side_effect=AssertionError("default CLI read lifecycle"),
+    ), patch.object(
+      socket, "create_connection",
+      side_effect=AssertionError("default CLI network"),
+    ), patch.object(
+      urllib.request, "urlopen",
+      side_effect=AssertionError("default CLI network"),
+    ), redirect_stdout(output):
+      self.assertEqual(
+        _handle_lanes(
+          self.root, words, LaneDiagnostics(self.root, tuple(words)),
+        ), 0,
+      )
+      result = LaneSelectionStore(self.root).select(
+        (1,), self.writer, expected_revision=0,
+      )
+    self.assertTrue(output.getvalue())
+    self.assertIsNotNone(result.value)
+    self.assertEqual(self.store.path.read_bytes(), before)
+
+  def test_current_refresh_uses_local_lifecycle_not_provider_issue_state(self):
+    # G06: provider issue-state cannot change canonical current projection.
+    LaneSelectionStore(self.root).select((2,), self.writer)
+    IssueMetadataStore(self.root).write({
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="closed",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }, self.writer)
+    LifecycleStore(self.root).transition(
+      1, "start", "candidate", 0, self.writer, None,
+    )
+    words = ["lanes", "view", "--current"]
+    output = StringIO()
+    with patch(
+      "repo_workflow.public_cli.runtime_writer_identity",
+      return_value=self.writer,
+    ), patch(
+      "repo_workflow.ticket_merge.issue_info",
+      side_effect=AssertionError("provider issue-state consulted"),
+    ), patch.object(
+      socket, "create_connection",
+      side_effect=AssertionError("provider network contacted"),
+    ), patch.object(
+      urllib.request, "urlopen",
+      side_effect=AssertionError("provider network contacted"),
+    ), redirect_stdout(output):
+      self.assertEqual(
+        _handle_lanes(
+          self.root, words, LaneDiagnostics(self.root, tuple(words)),
+        ), 0,
+      )
+    self.assertTrue(output.getvalue())
+    actual = self.store.read().states
+    self.assertEqual(actual["1"].state, "active")
+    self.assertEqual(actual["2"].state, "not_started")
+
   def test_mixed_lifecycle_sample_changed_during_refresh_is_rejected(self):
     # P06: changes to earlier issues during later sampling fail atomically.
     lifecycle = LifecycleStore(self.root)
