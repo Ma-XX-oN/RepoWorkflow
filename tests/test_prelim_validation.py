@@ -7,7 +7,7 @@ from unittest.mock import patch
 from repo_workflow.git import git
 from repo_workflow.prelim_attempt import construct_prelim
 from repo_workflow.prelim_publication import (
-  PrelimPublicationError, restore_identity,
+  PrelimPublicationError, restore_identity, restore_validation,
 )
 from repo_workflow.prelim_validation import (
   HostedObservation, PrelimValidationError, validate_prelim,
@@ -159,6 +159,35 @@ class PrelimValidationTests(unittest.TestCase):
     refs = [line.partition("\t")[2] for line in tags.splitlines()]
     self.assertNotIn("refs/tags/v1.2.4", refs)
     self.assertNotIn("refs/tags/v1.2.3", refs)
+
+  def test_physical_candidate_adapter_version_is_revalidated(self):
+    self.publish_tags()
+    self.config["versionCommand"] = [
+      __import__("sys").executable, "-c", "print('9.9.9')",
+    ]
+    with self.assertRaisesRegex(PrelimValidationError, "adapter version"):
+      self.invoke(self.pass_results())
+    with self.assertRaises(StateStoreError):
+      self.identity()
+
+  def test_failed_provider_audit_survives_fresh_clone(self):
+    checks = self.pass_results()
+    checks[0] = {"outcome": "INCOMPLETE", "version": None, "tag": None}
+    self.assertEqual(self.invoke(checks).outcome, "INCOMPLETE")
+    suffix = self.regression.invocation + "-" + self.integration.invocation
+    reference = ("refs/heads/prelim-validation-state/" +
+                 self.candidate.attempt + "/" + suffix)
+    advertised = git(self.root, "ls-remote", "origin", reference)
+    self.assertEqual(len(advertised.stdout.splitlines()), 1)
+    fresh = Path(self.temp.name) / "validation-fresh-clone"
+    git(self.root, "clone", "--branch", "main", str(self.remote),
+        str(fresh))
+    restore_validation(fresh, "origin", self.candidate.attempt,
+                       self.regression.invocation, self.integration.invocation)
+    recovered = durable_store(fresh).read(
+      "prelim/validations/" + self.candidate.attempt + "/" + suffix
+    )
+    self.assertEqual(recovered["value"]["outcome"], "INCOMPLETE")
 
   def test_rejects_unready_attempt(self):
     record = durable_store(self.root).read(
