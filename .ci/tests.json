@@ -19,6 +19,7 @@
     {
       "test-harness": "unittest",
       "issue-82-prelim-candidate": {"type": "regression", "name": "tests.test_prelim_attempt"},
+      "issue-83-stale-prelim": {"type": "regression", "name": "tests.test_prelim_reintegrate"},
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
