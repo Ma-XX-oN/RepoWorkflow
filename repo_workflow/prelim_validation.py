@@ -15,7 +15,9 @@ from .hosted_terminal_binding import bind_hosted_terminal
 from .phase_terminal import plan_phase
 from .prelim_attempt import _remote_ref, _trusted_inputs
 from .prelim_identity import validate_attempt
-from .prelim_publication import (\n  publish_identity, publish_validation, restore_identity, restore_validation,\n)
+from .prelim_publication import (
+  publish_identity, publish_validation, restore_identity, restore_validation,
+)
 from .state_store import StateStoreError, durable_store
 from .terminal_tag import _remote_target
 
@@ -152,7 +154,11 @@ def validate_prelim(
   key = "prelim/validations/" + attempt + "/" + (
     regression.invocation + "-" + integration.invocation
   )
-  restore_validation(root, remote, attempt, regression.invocation,\n                     integration.invocation)\n  audit = _immutable(store, key, payload, writer)\n  publish_validation(root, remote, attempt, regression.invocation,\n                     integration.invocation, audit, value["base_sha"])
+  restore_validation(root, remote, attempt, regression.invocation,
+                     integration.invocation)
+  audit = _immutable(store, key, payload, writer)
+  publish_validation(root, remote, attempt, regression.invocation,
+                     integration.invocation, audit, value["base_sha"])
   if outcome == "PASS":
     restore_identity(root, remote, attempt)
     identity = _immutable(store, "prelim/identities/" + attempt,
