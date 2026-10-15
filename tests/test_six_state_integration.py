@@ -13,7 +13,7 @@ from repo_workflow.lane_selection import LaneSelectionStore
 from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.public_cli import _handle_lanes
 from repo_workflow.public_commands import COMMANDS
-from repo_workflow.relationship_store import RelationshipStore
+from repo_workflow.relationship_store import RelationshipStore, RelationshipStoreError
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.terminal_style import TerminalStyler
@@ -131,6 +131,42 @@ class SixStateGraphIntegrationTests(unittest.TestCase):
       with self.assertRaisesRegex(RuntimeError, "unavailable"):
         self.relationships.refresh_states(self.writer)
     self.assertEqual(self.relationships.path.read_bytes(), original)
+
+  def test_authoritative_transition_during_refresh_does_not_publish_stale_state(self):
+    # P09: lifecycle revisions must remain valid when CSV is published.
+    self.advance(2, ("start",))
+    before = self.relationships.path.read_bytes()
+    original_read = LifecycleStore.read
+    interleaved = False
+
+    def raced_read(store, issue):
+      nonlocal interleaved
+      sampled = original_read(store, issue)
+      if str(issue) == "2" and not interleaved:
+        interleaved = True
+        LifecycleStore(self.root).transition(
+          2, "submit-review", "candidate-2", 0,
+          self.writer, sampled.revision,
+        )
+      return sampled
+
+    with patch(
+      "repo_workflow.relationship_store.LifecycleStore.read",
+      new=raced_read,
+    ):
+      try:
+        result = self.relationships.refresh_states(self.writer)
+      except RelationshipStoreError:
+        self.assertEqual(self.relationships.path.read_bytes(), before)
+      else:
+        self.assertEqual(result.states["2"].state, "in_review")
+        self.assertEqual(
+          self.relationships.read().states["2"].state, "in_review",
+        )
+    self.assertTrue(interleaved)
+    self.assertEqual(
+      LifecycleStore(self.root).read(2).lifecycle.state, "in_review",
+    )
 
   def test_symbols_use_one_terminal_cell(self):
     terminal = TerminalStyler("never")
