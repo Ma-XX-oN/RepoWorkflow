@@ -139,6 +139,44 @@ class LifecycleCsvRecoveryAcceptance(unittest.TestCase):
     self.assertEqual(self.lifecycle.read(1), observed)
     self.assertEqual(self.relationships.path.read_bytes(), original_csv)
 
+  def test_lost_ack_after_full_lifecycle_csv_publish_replays_once(self):
+    # C07: publication succeeds but ACK is lost; use durable txn identity.
+    self.prepare()
+
+    def publish_then_lose_ack(writes):
+      self.materialize(writes)
+      raise TimeoutError("external publish acknowledgment lost")
+
+    with self.assertRaisesRegex(TimeoutError, "acknowledgment lost"):
+      self.coordinator.commit(
+        "lifecycle-projection-one", self.writer, lambda _reads: True,
+        publish_then_lose_ack,
+      )
+    authoritative = self.lifecycle.read(1)
+    before = self.relationships.read()
+    bytes_before = self.relationships.path.read_bytes()
+    txn = self.coordinator.read("lifecycle-projection-one")
+    self.assertEqual(txn["value"]["status"], "committed")
+    self.assertEqual(authoritative.revision, 0)
+    self.assertEqual(len(authoritative.lifecycle.history), 1)
+    self.assertEqual(before.states["1"].state, "active")
+    self.assertEqual(before.states["1"].lifecycle_revision, 0)
+    # Another process re-reads the canonical durable record, never guesses.
+    recovered = SemanticTransactionCoordinator(durable_store(self.root))
+    for _ in range(3):
+      outcome = recovered.recover(
+        "lifecycle-projection-one", self.writer,
+        lambda _reads: self.fail("committed ACK replay validated stale set"),
+        lambda writes: self.materialize(writes),
+      )
+      self.assertEqual(outcome, txn)
+      self.assertEqual(LifecycleStore(self.root).read(1), authoritative)
+      self.assertEqual(RelationshipStore(self.root).read(), before)
+      self.assertEqual(self.relationships.path.read_bytes(), bytes_before)
+      self.assertEqual(
+        len(LifecycleStore(self.root).read(1).lifecycle.history), 1,
+      )
+
   def test_restart_aborts_stale_prepared_without_csv_mutation(self):
     # C08/C10: prepared is never completion, stale authority aborts.
     self.prepare()
