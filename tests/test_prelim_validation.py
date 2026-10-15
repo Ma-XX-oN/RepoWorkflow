@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from repo_workflow.git import git
 from repo_workflow.prelim_attempt import construct_prelim
-from repo_workflow.prelim_validation import (
+from repo_workflow.prelim_publication import (\n  PrelimPublicationError, restore_identity,\n)\nfrom repo_workflow.prelim_validation import (
   HostedObservation, PrelimValidationError, validate_prelim,
 )
 from repo_workflow.state_store import StateStoreError, durable_store
@@ -119,6 +119,42 @@ class PrelimValidationTests(unittest.TestCase):
     checks[1]["version"] = "1.2.3-issue.7.0.2"
     with self.assertRaisesRegex(PrelimValidationError, "different versions"):
       self.invoke(checks)
+
+  def test_provider_identity_is_durable_and_restorable(self):
+    self.publish_tags()
+    accepted = self.invoke(self.pass_results())
+    reference = ("refs/heads/prelim-identity-state/" +
+                 self.candidate.attempt)
+    advertised = git(self.root, "ls-remote", "origin", reference)
+    self.assertEqual(len(advertised.stdout.splitlines()), 1)
+    fresh = Path(self.temp.name) / "identity-fresh-clone"
+    git(self.root, "clone", "--branch", "main", str(self.remote),
+        str(fresh))
+    restore_identity(fresh, "origin", self.candidate.attempt)
+    found = durable_store(fresh).read(
+      "prelim/identities/" + self.candidate.attempt
+    )
+    self.assertEqual(found, self.identity())
+    self.assertEqual(found["value"]["candidate_sha"],
+                     accepted.candidate_sha)
+
+  def test_provider_identity_rewrite_is_rejected(self):
+    self.publish_tags()
+    self.invoke(self.pass_results())
+    reference = ("refs/heads/prelim-identity-state/" +
+                 self.candidate.attempt)
+    git(self.root, "push", "origin", "+refs/heads/main:" + reference)
+    with self.assertRaises(PrelimPublicationError):
+      restore_identity(self.root, "origin", self.candidate.attempt)
+    with self.assertRaises(PrelimPublicationError):
+      self.invoke(self.pass_results())
+
+  def test_no_production_stable_tag_created(self):
+    self.publish_tags()
+    self.invoke(self.pass_results())
+    tags = git(self.root, "ls-remote", "--tags", "origin").stdout
+    self.assertNotIn("refs/tags/v1.2.4\\n", tags)
+    self.assertNotIn("refs/tags/v1.2.3\\n", tags)
 
   def test_rejects_unready_attempt(self):
     record = durable_store(self.root).read(
