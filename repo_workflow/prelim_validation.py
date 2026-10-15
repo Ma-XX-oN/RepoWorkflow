@@ -64,7 +64,7 @@ def _observation(stage: str, candidate: str, item: HostedObservation) -> dict:
   if not isinstance(item, HostedObservation):
     raise PrelimValidationError("missing authenticated hosted observation")
   root = Path(item.root).resolve()
-  log = Path(item.canonical_log).resolve()
+  log = Path(item.canonical_log).absolute()
   result = bind_hosted_terminal(
     root, stage=stage + "-testing", candidate=candidate,
     invocation=item.invocation, run_id=item.run_id, canonical_log=log,
