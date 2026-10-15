@@ -17,6 +17,7 @@ import uuid
 
 from .git import git
 from .lifecycle_store import LifecycleStore
+from .prelim_identity import PrelimIdentityError, validate_attempt
 from .runtime_identity import runtime_writer_identity
 from .state_store import (
   JsonRecordStore, StateStoreError, _validate_record,
@@ -75,7 +76,9 @@ def _key(attempt: str) -> str:
 
 def _record(store: JsonRecordStore, attempt: str) -> dict | None:
   try:
-    return store.read(_key(attempt))
+    record = store.read(_key(attempt))
+    validate_attempt(record["value"])
+    return record
   except StateStoreError as exc:
     if "record is missing:" in str(exc):
       return None
@@ -98,6 +101,7 @@ def _restore_remote_record(root: Path, remote: str, store: JsonRecordStore,
   try:
     payload = json.loads(git(root, "show", f"FETCH_HEAD:{relative}").stdout)
     _validate_record(payload, key)
+    validate_attempt(payload["value"])
   except (ValueError, StateStoreError, TypeError, KeyError) as error:
     raise PrelimError("remote PRELIM attempt record is invalid") from error
   if (payload["value"].get("attempt") != attempt
@@ -155,6 +159,7 @@ def _persist(store: JsonRecordStore, record: dict, writer,
              **updates) -> dict:
   value = dict(record["value"])
   value.update(updates)
+  validate_attempt(value)
   return store.replace(record["key"], record["revision"], value, writer)
 
 
@@ -216,6 +221,10 @@ def _publish(root: Path, remote: str, store: JsonRecordStore,
     git(root, "fetch", remote, f"{ref}:{ref}")
   if _local_ref(root, ref) != candidate:
     raise PrelimError("local candidate ref differs from recorded exact SHA")
+  for ancestor in (value["base_sha"], value["source_sha"]):
+    if git(root, "merge-base", "--is-ancestor", ancestor,
+           candidate, check=False).returncode:
+      raise PrelimError("PRELIM candidate lacks an authoritative ancestor")
   actual = _remote_ref(root, remote, ref)
   if actual is None:
     git(root, "push", remote, f"{ref}:{ref}")
