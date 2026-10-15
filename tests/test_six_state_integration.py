@@ -221,6 +221,38 @@ class SixStateGraphIntegrationTests(unittest.TestCase):
       list(self.relationships.path.parent.glob(".tickets.csv.*.tmp")), [],
     )
 
+  def test_zero_one_many_five_column_refresh_survives_restart(self):
+    # P02: exact zero/one/many canonical CSV migration and restart readback.
+    for count in (0, 1, 6):
+      with self.subTest(issue_count=count):
+        with tempfile.TemporaryDirectory() as directory:
+          root = Path(directory) / "repo"
+          root.mkdir()
+          RepoFixture(root)
+          graph = RelationshipGraph(issues={
+            str(issue): IssueRelationships(f"Ticket {issue}", ())
+            for issue in range(1, count + 1)
+          })
+          store = RelationshipStore(root)
+          original = store.create(graph, self.writer)
+          self.assertIsNone(original.states)
+          refreshed = store.refresh_states(self.writer)
+          self.assertEqual(len(refreshed.graph.issues), count)
+          self.assertEqual(len(refreshed.states), count)
+          self.assertEqual(
+            {item.state for item in refreshed.states.values()},
+            {"not_started"} if count else set(),
+          )
+          self.assertEqual(
+            {item.lifecycle_revision for item in refreshed.states.values()},
+            {None} if count else set(),
+          )
+          self.assertEqual(
+            store.path.read_text(encoding="utf-8").splitlines()[0],
+            "issue,title,dependencies,state,state_revision",
+          )
+          self.assertEqual(RelationshipStore(root).read(), refreshed)
+
   def test_symbols_use_one_terminal_cell(self):
     terminal = TerminalStyler("never")
     for glyph in "○●◎✓♥✕":
