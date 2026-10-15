@@ -34,7 +34,10 @@ def validate_attempt(value: dict) -> None:
     raise PrelimIdentityError("PRELIM issue is invalid")
   if value["branch"] != f"prelim-main-{attempt}":
     raise PrelimIdentityError("PRELIM branch identity is invalid")
-  if value["source_ref"] != f"refs/heads/issue-{issue}":
+  source_ref = value["source_ref"]
+  if (not isinstance(source_ref, str) or re.fullmatch(
+      rf"refs/heads/issue-{issue}(?:-[A-Za-z0-9._/-]+)?", source_ref
+  ) is None):
     raise PrelimIdentityError("PRELIM accepted source identity is invalid")
   for field in ("source_sha", "base_sha"):
     if not isinstance(value[field], str) or not SHA.fullmatch(value[field]):
