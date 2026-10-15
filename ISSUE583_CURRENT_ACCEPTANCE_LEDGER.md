@@ -1,7 +1,7 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 14, 2026 (Toronto).  74 cases: **50 PASS**,
-**23 PARTIAL**, **1 FAIL**.  Last fully hosted-green integrated source:
+Snapshot: October 14, 2026 (Toronto).  74 cases: **55 PASS**,
+**19 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
 `ac7618525674449b3326cd2881d4f100a368192b` in draft PR #666;
 regression `38667171244`, integration `38667178515`.
 This supplement retains the original 74-row historical acceptance ledger.
@@ -20,6 +20,13 @@ This supplement retains the original 74-row historical acceptance ledger.
   regression `38665903456`; integration `38665926447`; PASS.
 - **F** — exact source `ac7618525674449b3326cd2881d4f100a368192b`
   regression `38667171244`; integration `38667178515`; PASS.
+
+- **G** — exact source `1f6c777dd154b80c8dc2f56e4494dccf2f9491ac`
+  regression `38670617447`; integration `38670629514`; PASS.
+- **H** — exact source `273fd951e519318bef93026b99b16eac6e3e3f99`
+  regression `38670776541`; integration `38670785991`; PASS.
+- **I** — exact source `129ace4598b7d8134dad629978446121bc64ff7e`
+  regression `38670939185`; integration `38670947432`; PASS.
 
 ## Independent 74-case verdicts
 
@@ -82,11 +89,9 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **L06 — PASS** (provider evidence A)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_legacy_active_accept_remains_valid_after_upgrade
-- **L07 — PARTIAL**
-  Historical anchor:
-  test_legal_lifecycle_round_trip_preserves_append_only_history
-  Remaining: round trip PASS, but repeated migrations/revisions not
-  exhaustively tested
+- **L07 — PASS** (provider evidence G)
+  Independent hosted proof: repeated migration produces no extra revision.
+
 - **L08 — PARTIAL**
   Historical anchor: test_all_state_action_pairs_from_independent_contract
   Remaining: four-step path and persistence exercised in setup; required
@@ -113,10 +118,9 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **L14 — PASS**
   Historical anchor: test_all_state_action_pairs_from_independent_contract
   Remaining: dependency satisfaction checked after every legal state transition
-- **L15 — PARTIAL**
-  Historical anchor: test_missing_previously_committed_record_fails_closed
-  Remaining: committed history recognized; lost clone/session ownership not
-  independently validated
+- **L15 — PASS** (provider evidence H)
+  Independent hosted proof: fresh clone under replacement writer/session.
+
 - **L16 — PASS** (provider evidence D)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_malformed_value_fails_closed
@@ -250,11 +254,9 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **P18 — PASS** (provider evidence B)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_invalid_cycle_fails_before_write
-- **G01 — FAIL**
-  Historical anchor: test_graph_uses_cached_states_until_explicit_refresh
-  Hosted RED .0.18 runs 38667588818 and 38667595895: default public select
-  requires provider configuration on a fully cached graph. Narrow .0.20
-  remediation pending full gates.
+- **G01 — PASS** (provider evidence G)
+  Independent hosted proof: cached select requires no provider.
+
 - **G02 — PASS**
   Historical anchor: test_graph_uses_cached_states_until_explicit_refresh
   Remaining: unknown state glyph before migration rather than completed
@@ -264,10 +266,9 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **G04 — PASS** (provider evidence D)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_projection_distinguishes_dependencies_and_lifecycle_states
-- **G05 — PARTIAL**
-  Historical anchor: test_graph_uses_cached_states_until_explicit_refresh
-  Remaining: six-node --current refresh/save/render PASS; zero/one display
-  cardinalities missing
+- **G05 — PASS** (provider evidence G)
+  Independent hosted proof: zero/one/many public current rendering.
+
 - **G06 — PASS** (provider evidence F)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_default_graph_reads_saved_status_and_ignores_provider_closed
@@ -291,10 +292,9 @@ This supplement retains the original 74-row historical acceptance ledger.
   test_legend_current_debug_and_lane_filter_preserve_lifecycle
   Remaining: Actual CLI --current/--legend/--debug/lane-filter composition
   verifies graph and stable lifecycle.
-- **G12 — PARTIAL**
-  Historical anchor: test_formatter_controls_encoded_text_and_display_width
-  Remaining: render width cases pass; complete layout/cartesian input matrix
-  unproven
+- **G12 — PASS** (provider evidence I)
+  Independent hosted proof: six-state layouts plus generic route coverage.
+
 - **G13 — PARTIAL**
   Historical anchor: test_symbols_use_one_terminal_cell
   Remaining: terminal-width assertion and hosted OS probes pass, accessibility
@@ -308,24 +308,15 @@ This supplement retains the original 74-row historical acceptance ledger.
   Remaining: Two unchanged refreshes have byte-identical CSV, equal revision,
   unchanged lifecycle.
 
-## In-flight verification (not yet accepted)
+## Pending final-source certification
 
-- **.0.20** — `dec94d58920d39e530a51a17f3bebe65d1f0b0a4`
-  G01 lazy provider configuration. Regression invocation
-  5d22fbfc942af54aae6aad7c21062289be3d9335; integration invocation
-  d36f576326d0b570dbf548b2621ddef074a31411. No terminal verdict claimed.
-- **.0.21** — `1f6c777dd154b80c8dc2f56e4494dccf2f9491ac`
-  G01 repair plus G12 graph determinism. Regression invocation
-  bdf5a0f271415f0e5ebc50d1b4973eb4c5144757; integration invocation
-  ad441bd348851706dc42f3125a7ca8674a76d0b0. No terminal verdict claimed.
-- **.0.22** — `273fd951e519318bef93026b99b16eac6e3e3f99`
-  L15 lost independent clone and writer session. Regression invocation
-  5de95dea09c3d0f15bb1e05499ef1a2c440ef114; integration invocation
-  161d24978a9e886b2d3704353de8cbe9cfb11302. No terminal verdict claimed.
-- **.0.23** — `129ace4598b7d8134dad629978446121bc64ff7e`
-  G12 six-state topology/ordering matrix. Regression invocation
-  fda492a99b2b9f0dadddb925bef4188c3585758d; integration invocation
-  8d2ca634a14a855b4e3d85f0d8a19c655b9882cf. No terminal verdict claimed.
+- `.0.24` source `e2579dff1f98fec133df6d0f875a17f2d0063814`:
+  initial 74-case crosswalk; regression 38671366045 PASS, integration
+  pending.
+- `.0.25` source `5eeb6d3f92bea274f52ef4c9162f23c98b3254ec`:
+  adds six-state monochrome glyph/label tests to Ubuntu, Windows and
+  macOS hosted renderer jobs. Exact stage verdicts pending.
+- This current crosswalk update requires its own exact-source tests.
 
 ## Boundary rules
 
