@@ -230,6 +230,48 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertGreaterEqual(rendered.count("●"), 2)
     self.assertEqual(self.store.path.read_bytes(), before)
 
+  def test_public_current_one_and_many_visible_nodes(self):
+    # G05: no/one/many public CLI graph cases use authoritative projection.
+    metadata = {
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="closed",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }
+    IssueMetadataStore(self.root).write(metadata, self.writer)
+    lifecycle = LifecycleStore(self.root)
+    lifecycle.transition(1, "start", "candidate-1", 0, self.writer, None)
+    lifecycle.transition(2, "start", "candidate-2", 0, self.writer, None)
+    prior = None
+    for selected, expected_glyphs in ((1, ("●",)), (2, ("●", "●"))):
+      selection = LaneSelectionStore(self.root).select(
+        (selected,), self.writer, expected_revision=prior,
+      )
+      prior = selection.revision
+      output = StringIO()
+      words = ["lanes", "view", "--current"]
+      with patch(
+        "repo_workflow.public_cli.runtime_writer_identity",
+        return_value=self.writer,
+      ), redirect_stdout(output):
+        self.assertEqual(
+          _handle_lanes(
+            self.root, words, LaneDiagnostics(self.root, tuple(words)),
+          ),
+          0,
+        )
+      rendered = output.getvalue()
+      self.assertTrue(rendered.strip())
+      for glyph in expected_glyphs:
+        self.assertIn(glyph, rendered)
+      refreshed = RelationshipStore(self.root).read()
+      self.assertEqual(refreshed.states["1"].state, "active")
+      self.assertEqual(refreshed.states["2"].state, "active")
+      self.assertEqual(
+        "\n".join(render_lanes(self.root)), rendered.rstrip(),
+      )
+
   def test_public_default_view_and_selection_never_poll_authority(self):
     # G01: public default graph path consumes cached CSV only.
     LaneSelectionStore(self.root).select((2,), self.writer)
