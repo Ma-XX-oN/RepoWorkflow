@@ -1,7 +1,7 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 14, 2026 (Toronto).  74 cases: **55 PASS**,
-**19 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
+Snapshot: October 14, 2026 (Toronto).  74 cases: **56 PASS**,
+**18 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
 `ac7618525674449b3326cd2881d4f100a368192b` in draft PR #666;
 regression `38667171244`, integration `38667178515`.
 This supplement retains the original 74-row historical acceptance ledger.
@@ -27,6 +27,9 @@ This supplement retains the original 74-row historical acceptance ledger.
   regression `38670776541`; integration `38670785991`; PASS.
 - **I** — exact source `129ace4598b7d8134dad629978446121bc64ff7e`
   regression `38670939185`; integration `38670947432`; PASS.
+
+- **J** — exact source `5eeb6d3f92bea274f52ef4c9162f23c98b3254ec`
+  regression `38672066398`; integration `38672075357`; PASS.
 
 ## Independent 74-case verdicts
 
@@ -295,10 +298,9 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **G12 — PASS** (provider evidence I)
   Independent hosted proof: six-state layouts plus generic route coverage.
 
-- **G13 — PARTIAL**
-  Historical anchor: test_symbols_use_one_terminal_cell
-  Remaining: terminal-width assertion and hosted OS probes pass, accessibility
-  under all terminals not observed
+- **G13 — PASS** (provider evidence J)
+  Native Windows, macOS, Ubuntu one-cell widths for six lifecycle glyphs,
+  unknown marker, monochrome labels and accessible legend; hosted matrix.
 - **G14 — PASS** (provider evidence D)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_projection_distinguishes_dependencies_and_lifecycle_states
