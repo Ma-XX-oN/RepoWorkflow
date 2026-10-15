@@ -63,6 +63,17 @@ def _remote_ref(root: Path, remote: str, ref: str) -> str | None:
   return _sha(sha, ref)
 
 
+def _ensure_authoritative_base(root: Path, remote: str, base: str) -> None:
+  """Fetch the exact server-main object without moving local main."""
+  if git(root, "cat-file", "-e", base + "^{commit}", check=False).returncode:
+    git(root, "fetch", "--no-tags", remote, "refs/heads/main")
+    fetched = git(root, "rev-parse", "FETCH_HEAD").stdout.strip()
+    if fetched != base:
+      raise PrelimError("authoritative main moved during object acquisition")
+  if _remote_ref(root, remote, "refs/heads/main") != base:
+    raise PrelimError("authoritative server main moved during object acquisition")
+
+
 def _local_ref(root: Path, ref: str) -> str | None:
   result = git(root, "show-ref", "--verify", ref, check=False)
   if result.returncode:
@@ -308,6 +319,7 @@ def _construct_prelim_unlocked(root: Path, issue: str, source_ref: str, config: 
       raise PrelimError("accepted lifecycle lacks durable revision")
     _trusted_inputs(root, remote, issue, source_ref, source, base,
                     lifecycle.revision)
+    _ensure_authoritative_base(root, remote, base)
     value = {
       "attempt": attempt, "issue": issue,
       "branch": f"prelim-main-{attempt}",
