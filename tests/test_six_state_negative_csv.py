@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import socket
+from contextlib import redirect_stdout
+from io import StringIO
 import urllib.request
 import tempfile
 import unittest
@@ -14,6 +16,8 @@ from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity
 from repo_workflow.lifecycle_store import LifecycleStore
 from repo_workflow.lane_render import render_lanes
+from repo_workflow.public_cli import _handle_lanes
+from repo_workflow.lane_diagnostics import LaneDiagnostics
 from repo_workflow.lane_selection import LaneSelectionStore
 from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
 from tests.support import RepoFixture
@@ -137,6 +141,33 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertTrue(lines)
     self.assertEqual(self.store.path.read_bytes(), csv_before)
     self.assertIsNone(RelationshipStore(self.root).read().states)
+
+  def test_public_current_unavailable_authority_has_no_partial_output(self):
+    # G06: public --current requires authoritative refresh, never fallback.
+    LaneSelectionStore(self.root).select((2,), self.writer)
+    IssueMetadataStore(self.root).write({
+      issue: IssueMetadata(
+        number=issue, title=f"Ticket {issue}", state="closed",
+        link=f"https://example.invalid/{issue}",
+      )
+      for issue in (1, 2)
+    }, self.writer)
+    before = self.store.path.read_bytes()
+    output = StringIO()
+    words = ["lanes", "view", "--current"]
+    with patch(
+      "repo_workflow.public_cli.runtime_writer_identity",
+      return_value=self.writer,
+    ), patch(
+      "repo_workflow.relationship_store.LifecycleStore.read",
+      side_effect=OSError("provider authority unavailable"),
+    ), redirect_stdout(output):
+      with self.assertRaisesRegex(OSError, "authority unavailable"):
+        _handle_lanes(
+          self.root, words, LaneDiagnostics(self.root, tuple(words)),
+        )
+    self.assertEqual(output.getvalue(), "")
+    self.assertEqual(self.store.path.read_bytes(), before)
 
   def test_explicit_refresh_unavailable_authority_preserves_csv(self):
     # G06: explicit current cannot fabricate state on unavailable authority.
