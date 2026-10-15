@@ -177,6 +177,43 @@ class LifecycleCsvRecoveryAcceptance(unittest.TestCase):
         len(LifecycleStore(self.root).read(1).lifecycle.history), 1,
       )
 
+  def test_aborted_transaction_keeps_unowned_staging_and_no_successor(self):
+    # C10: abort must not clean other owners' staging or publish successor.
+    self.prepare()
+    stage = self.root / ".repoworkflow" / "staging"
+    stage.mkdir(parents=True, exist_ok=True)
+    unrelated = stage / "other-owner-opaque-fixture"
+    unrelated.write_bytes(b"unrelated never-owned content")
+    expected = unrelated.read_bytes()
+    before = self.relationships.path.read_bytes()
+    writer_state = self.lifecycle.read(1)
+    record = self.coordinator.abort(
+      "lifecycle-projection-one", self.writer, "authorized cancellation",
+    )
+    self.assertEqual(record["value"]["status"], "aborted")
+    self.assertEqual(record["value"]["abort_reason"], "authorized cancellation")
+    witness = SemanticTransactionCoordinator(durable_store(self.root))
+    self.assertEqual(
+      witness.recover(
+        "lifecycle-projection-one", self.writer,
+        lambda _reads: self.fail("aborted txn should not revalidate"),
+        lambda _writes: self.fail("aborted txn published a successor"),
+      ),
+      record,
+    )
+    with self.assertRaisesRegex(TransactionError, "aborted"):
+      witness.commit(
+        "lifecycle-projection-one", self.writer,
+        lambda _reads: self.fail("aborted txn validated"),
+        lambda _writes: self.fail("aborted txn materialized"),
+      )
+    self.assertEqual(self.lifecycle.read(1), writer_state)
+    self.assertEqual(RelationshipStore(self.root).path.read_bytes(), before)
+    self.assertEqual(unrelated.read_bytes(), expected)
+    self.assertEqual(witness.abort(
+      "lifecycle-projection-one", self.writer, "again",
+    ), record)
+
   def test_restart_aborts_stale_prepared_without_csv_mutation(self):
     # C08/C10: prepared is never completion, stale authority aborts.
     self.prepare()
