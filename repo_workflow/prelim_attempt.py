@@ -148,6 +148,13 @@ def _merge_workspace(root: Path, base: str, source: str,
     clean = not git(worktree, "ls-files", "-u").stdout.strip()
     return worktree, proposed, clean
   result = git(worktree, "merge", "--no-ff", "--no-commit", source, check=False)
+  if result.returncode:
+    merging = git(worktree, "rev-parse", "MERGE_HEAD", check=False)
+    if merging.returncode:
+      raise PrelimError(
+        "accepted-source merge failed without recoverable conflict: "
+        + (result.stderr or result.stdout).strip()
+      )
   return worktree, proposed, result.returncode == 0
 
 
@@ -180,29 +187,34 @@ def _publish(root: Path, remote: str, store: JsonRecordStore,
   stored = _remote_ref(root, remote, state_ref)
   relative = f".repoworkflow/state/{_key(attempt)}.json"
   if stored is None:
-    workspace = _workspace(root, f"state-{attempt}")
-    if not workspace.exists():
-      workspace.parent.mkdir(parents=True, exist_ok=True)
-      git(root, "worktree", "add", "--detach", str(workspace), value["base_sha"])
-    path = workspace / relative
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-      if json.loads(path.read_text(encoding="utf-8")) != record:
-        raise PrelimError("stale partial state publication")
+    existing_local = _local_ref(root, state_ref)
+    if existing_local is not None:
+      # Re-publish the original immutable commit after remote ref deletion.
+      # Reconstructing it produces another commit SHA and loses identity.
+      saved = json.loads(git(root, "show", f"{state_ref}:{relative}").stdout)
+      if saved != record:
+        raise PrelimError("local state publication ref has mismatched record")
+      git(root, "push", remote, f"{state_ref}:{state_ref}")
     else:
-      path.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    existing_commit = git(workspace, "log", "-1", "--format=%s").stdout.strip()
-    if existing_commit != f"Durable PRELIM attempt {attempt}":
-      git(workspace, "add", "--", relative)
-      git(workspace, "commit", "-m", f"Durable PRELIM attempt {attempt}")
-    state_sha = _sha(git(workspace, "rev-parse", "HEAD").stdout.strip(), "state")
-    old = _local_ref(root, state_ref)
-    if old is None:
+      workspace = _workspace(root, f"state-{attempt}")
+      if not workspace.exists():
+        workspace.parent.mkdir(parents=True, exist_ok=True)
+        git(root, "worktree", "add", "--detach", str(workspace), value["base_sha"])
+      path = workspace / relative
+      path.parent.mkdir(parents=True, exist_ok=True)
+      if path.exists():
+        if json.loads(path.read_text(encoding="utf-8")) != record:
+          raise PrelimError("stale partial state publication")
+      else:
+        path.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+      existing_commit = git(workspace, "log", "-1", "--format=%s").stdout.strip()
+      if existing_commit != f"Durable PRELIM attempt {attempt}":
+        git(workspace, "add", "--", relative)
+        git(workspace, "commit", "-m", f"Durable PRELIM attempt {attempt}")
+      state_sha = _sha(git(workspace, "rev-parse", "HEAD").stdout.strip(), "state")
       git(root, "update-ref", state_ref, state_sha, "0" * 40)
-    elif old != state_sha:
-      raise PrelimError("local state publication ref differs on retry")
-    git(root, "push", remote, f"{state_ref}:{state_ref}")
-    git(root, "worktree", "remove", str(workspace))
+      git(root, "push", remote, f"{state_ref}:{state_ref}")
+      git(root, "worktree", "remove", str(workspace))
   git(root, "fetch", remote, state_ref)
   remote_record = json.loads(git(root, "show", f"FETCH_HEAD:{relative}").stdout)
   if remote_record != record:
@@ -317,7 +329,15 @@ def _finish_prelim_unlocked(root: Path, attempt: str, config: dict,
   else:
     message = git(workspace, "log", "-1", "--format=%s").stdout.strip()
     if message != f"Construct PRELIM candidate {attempt}":
-      raise PrelimError("accepted source has not been merged")
+      # An already-integrated source needs no merge commit. The version
+      # commit is itself the physical candidate when it contains the source.
+      no_op_merge = (
+        message == f"PRELIM proposed version {value['proposed_version']}"
+        and git(workspace, "merge-base", "--is-ancestor",
+                value["source_sha"], "HEAD", check=False).returncode == 0
+      )
+      if not no_op_merge:
+        raise PrelimError("accepted source has not been merged")
     if git(workspace, "status", "--porcelain").stdout.strip():
       raise PrelimError("recovered candidate workspace is dirty")
   candidate = _sha(git(workspace, "rev-parse", "HEAD").stdout.strip(), "candidate")
