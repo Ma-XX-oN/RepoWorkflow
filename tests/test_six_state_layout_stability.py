@@ -82,5 +82,60 @@ class SixStateGraphLayoutStability(unittest.TestCase):
           self.assertEqual(render_graph(a.graph).lines, first.lines)
 
 
+  def test_six_lifecycle_glyphs_across_layouts_and_reordered_inputs(self):
+    # G12: state annotation never changes graph routing or input determinism.
+    states = (
+      ("not_started", "○"),
+      ("active", "●"),
+      ("in_review", "◎"),
+      ("accepted", "✓"),
+      ("completed", "♥"),
+      ("aborted", "✕"),
+    )
+    topologies = (
+      (
+        {
+          "1": IssueRelationships("One", ()),
+          "2": IssueRelationships("Two", ("1",)),
+          "3": IssueRelationships("Three", ("2",)),
+        },
+        {"1": "A", "2": "A", "3": "A"},
+      ),
+      (
+        {
+          "1": IssueRelationships("One", ()),
+          "2": IssueRelationships("Two", ("1",)),
+          "3": IssueRelationships("Three", ("1",)),
+          "4": IssueRelationships("Four", ("2", "3")),
+        },
+        {"1": "A", "2": "A", "3": "B", "4": "B"},
+      ),
+    )
+    for issues, assignment in topologies:
+      for offset in range(6):
+        with self.subTest(ids=tuple(issues), offset=offset):
+          annotated = {
+            issue: states[(int(issue) - 1 + offset) % len(states)][0]
+            for issue in issues
+          }
+          first = self.project(
+            RelationshipGraph(issues), assignment, annotated,
+          )
+          reverse = self.project(
+            RelationshipGraph(dict(reversed(tuple(issues.items())))),
+            dict(reversed(tuple(assignment.items()))), annotated,
+          )
+          a = render_graph(first.graph)
+          b = render_graph(reverse.graph)
+          self.assertEqual(a.lines, b.lines)
+          self.assertEqual(first.issue_text, reverse.issue_text)
+          display = "\n".join(a.lines)
+          for state in annotated.values():
+            symbol = dict(states)[state]
+            self.assertIn(symbol, display)
+          self.assertNotIn("\x1b[", display)
+          self.assertEqual(render_graph(first.graph).lines, a.lines)
+
+
 if __name__ == "__main__":
   unittest.main()
