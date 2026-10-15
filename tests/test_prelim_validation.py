@@ -156,8 +156,9 @@ class PrelimValidationTests(unittest.TestCase):
     self.publish_tags()
     self.invoke(self.pass_results())
     tags = git(self.root, "ls-remote", "--tags", "origin").stdout
-    self.assertNotIn("refs/tags/v1.2.4", tags)
-    self.assertNotIn("refs/tags/v1.2.3", tags)
+    refs = [line.partition("\t")[2] for line in tags.splitlines()]
+    self.assertNotIn("refs/tags/v1.2.4", refs)
+    self.assertNotIn("refs/tags/v1.2.3", refs)
 
   def test_rejects_unready_attempt(self):
     record = durable_store(self.root).read(
