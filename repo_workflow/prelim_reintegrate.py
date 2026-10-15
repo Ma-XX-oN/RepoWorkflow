@@ -293,7 +293,17 @@ def _complete(root, store, remote, record):
       if result.returncode and git(folder, "rev-parse", "MERGE_HEAD",
                                    check=False).returncode:
         raise ReintegrationError("merge aborted without recoverable conflicts")
-      merging = True
+      merging = git(folder, "rev-parse", "MERGE_HEAD",
+                    check=False).returncode == 0
+      if not merging:
+        # The previous candidate may already be an ancestor of new main.
+        # Create a fresh physical identity without laundering old evidence.
+        if git(folder, "merge-base", "--is-ancestor",
+               v["previous_candidate"], v["new_base"],
+               check=False).returncode:
+          raise ReintegrationError("candidate merge produced no merge state")
+        git(folder, "commit", "--allow-empty", "-m",
+            f"Reintegrate PRELIM {v['guid']}")
     elif git(folder, "log", "-1", "--format=%s").stdout.strip() != (
         f"Reintegrate PRELIM {v['guid']}"):
       raise ReintegrationError("unrecognized partial transaction")
