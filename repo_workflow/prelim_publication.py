@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .git import git
+from .git import GitError, git
 from .prelim_attempt import _attempt_lock, _remote_ref, _workspace
 from .state_store import (
   StateStoreError, _validate_record, _write_json_atomic, durable_store,
@@ -40,7 +40,7 @@ def _remote_record(root: Path, remote: str, attempt: str):
   try:
     record = json.loads(git(root, "show", target + ":" + path).stdout)
     _validate_record(record, _key(attempt))
-  except (ValueError, TypeError, KeyError, StateStoreError) as error:
+  except (ValueError, TypeError, KeyError, StateStoreError, GitError) as error:
     raise PrelimPublicationError("published PRELIM identity is malformed") from error
   if _remote_ref(root, remote, ref) != target:
     raise PrelimPublicationError("published PRELIM identity ref moved")
