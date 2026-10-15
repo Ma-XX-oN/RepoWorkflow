@@ -4,6 +4,9 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 import tempfile
+import socket
+import urllib.request
+from unittest.mock import patch
 import unittest
 
 from repo_workflow.issue_metadata import IssueMetadata, IssueMetadataStore
@@ -45,6 +48,32 @@ class TerminalStateAccessibilityAcceptance(unittest.TestCase):
 
   def tearDown(self):
     self.temp.cleanup()
+
+  def test_public_select_reads_cached_sources_without_network(self):
+    # G01: the public select command cannot poll provider or lifecycle.
+    before = self.relationships.path.read_bytes()
+    output = StringIO()
+    words = ["lanes", "select", "2"]
+    with patch(
+      "repo_workflow.lane_selection_cli.runtime_writer_identity",
+      return_value=self.writer,
+    ), patch(
+      "repo_workflow.lifecycle_store.LifecycleStore.read",
+      side_effect=AssertionError("unexpected lifecycle poll"),
+    ), patch.object(
+      socket, "create_connection",
+      side_effect=AssertionError("unexpected network access"),
+    ), patch.object(
+      urllib.request, "urlopen",
+      side_effect=AssertionError("unexpected network access"),
+    ), redirect_stdout(output):
+      self.assertEqual(
+        _handle_lanes(
+          self.root, words, LaneDiagnostics(self.root, tuple(words)),
+        ), 0,
+      )
+    self.assertTrue(output.getvalue())
+    self.assertEqual(self.relationships.path.read_bytes(), before)
 
   def test_monochrome_unknown_and_accessible_legend_are_stable(self):
     # G13: unknown status and six labels distinguish states without colour.
