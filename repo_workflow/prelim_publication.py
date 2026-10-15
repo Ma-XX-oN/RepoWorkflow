@@ -1,7 +1,7 @@
-"""Provider-backed immutable PRELIM acceptance identity.
+"""Provider-backed immutable PRELIM validation and acceptance audit.
 
-The stable tag publisher belongs to #569-#572. This module only persists
-an already authenticated #102 acceptance record on an ephemeral state ref.
+The #569-#572 terminal publisher exclusively owns Git test-result tags.
+These durable branches preserve already authenticated #102 state records.
 """
 from __future__ import annotations
 
@@ -19,100 +19,131 @@ class PrelimPublicationError(ValueError):
   pass
 
 
-def _ref(attempt: str) -> str:
-  return "refs/heads/prelim-identity-state/" + attempt
+def _identity(attempt: str) -> tuple[str, str, str]:
+  return (
+    "refs/heads/prelim-identity-state/" + attempt,
+    "prelim/identities/" + attempt,
+    "identity-" + attempt,
+  )
 
 
-def _key(attempt: str) -> str:
-  return "prelim/identities/" + attempt
+def _validation(attempt: str, regression: str,
+                integration: str) -> tuple[str, str, str]:
+  suffix = regression + "-" + integration
+  return (
+    "refs/heads/prelim-validation-state/" + attempt + "/" + suffix,
+    "prelim/validations/" + attempt + "/" + suffix,
+    "validation-" + attempt + "-" + regression[:12] + "-" + integration[:12],
+  )
 
 
-def _remote_record(root: Path, remote: str, attempt: str):
-  ref = _ref(attempt)
+def _remote_record(root: Path, remote: str, ref: str, key: str):
   target = _remote_ref(root, remote, ref)
   if target is None:
     return None
   git(root, "fetch", "--no-tags", remote, ref)
   if git(root, "cat-file", "-e", target + "^{commit}",
          check=False).returncode:
-    raise PrelimPublicationError("published identity object unavailable")
-  path = ".repoworkflow/state/" + _key(attempt) + ".json"
+    raise PrelimPublicationError("published state object unavailable")
+  relative = ".repoworkflow/state/" + key + ".json"
   try:
-    record = json.loads(git(root, "show", target + ":" + path).stdout)
-    _validate_record(record, _key(attempt))
+    record = json.loads(git(root, "show", target + ":" + relative).stdout)
+    _validate_record(record, key)
   except (ValueError, TypeError, KeyError, StateStoreError, GitError) as error:
-    raise PrelimPublicationError("published PRELIM identity is malformed") from error
+    raise PrelimPublicationError("published PRELIM state is malformed") from error
   if _remote_ref(root, remote, ref) != target:
-    raise PrelimPublicationError("published PRELIM identity ref moved")
+    raise PrelimPublicationError("published PRELIM state ref moved")
   return record
 
 
-def restore_identity(root: Path, remote: str, attempt: str) -> None:
-  """Restore precisely the provider record, never synthesize a new writer."""
+def _restore(root: Path, remote: str, ref: str, key: str) -> None:
   root = Path(root).resolve()
   store = durable_store(root)
-  remote_record = _remote_record(root, remote, attempt)
-  if remote_record is None:
+  record = _remote_record(root, remote, ref, key)
+  if record is None:
     return
-  path = store._path(_key(attempt))
+  path = store._path(key)
   if path.exists():
-    if store.read(_key(attempt)) != remote_record:
-      raise PrelimPublicationError("local/provider identity disagree")
+    if store.read(key) != record:
+      raise PrelimPublicationError("local/provider PRELIM state disagree")
     return
-  _write_json_atomic(path, remote_record)
-  if store.read(_key(attempt)) != remote_record:
-    raise PrelimPublicationError("restored identity readback differs")
+  _write_json_atomic(path, record)
+  if store.read(key) != record:
+    raise PrelimPublicationError("restored PRELIM state readback differs")
+
+
+def _publish(root: Path, remote: str, ref: str, key: str,
+             workspace_id: str, record: dict, base_sha: str) -> None:
+  root = Path(root).resolve()
+  store = durable_store(root)
+  with _attempt_lock(root, store, workspace_id):
+    existing = _remote_record(root, remote, ref, key)
+    if existing is not None:
+      if existing != record:
+        raise PrelimPublicationError("immutable provider PRELIM collision")
+      return
+    workspace = _workspace(root, workspace_id)
+    if not workspace.exists():
+      workspace.parent.mkdir(parents=True, exist_ok=True)
+      git(root, "worktree", "add", "--detach", str(workspace), base_sha)
+    relative = ".repoworkflow/state/" + key + ".json"
+    path = workspace / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+      try:
+        prior = json.loads(path.read_text(encoding="utf-8"))
+      except (ValueError, OSError) as error:
+        raise PrelimPublicationError("partial PRELIM state invalid") from error
+      if prior != record:
+        raise PrelimPublicationError("partial PRELIM state differs")
+    else:
+      path.write_text(json.dumps(record, sort_keys=True, indent=2)
+                      + "\n", encoding="utf-8")
+    subject = git(workspace, "log", "-1", "--format=%s").stdout.strip()
+    expected = "Durable PRELIM state " + workspace_id
+    if subject != expected:
+      git(workspace, "add", "--", relative)
+      git(workspace, "commit", "-m", expected)
+    committed = git(workspace, "rev-parse", "HEAD").stdout.strip()
+    expected_payload = json.dumps(record, sort_keys=True, indent=2) + "\n"
+    if git(workspace, "show", committed + ":" + relative).stdout != expected_payload:
+      raise PrelimPublicationError("committed PRELIM state payload differs")
+    local = git(root, "show-ref", "--verify", ref, check=False)
+    if local.returncode:
+      git(root, "update-ref", ref, committed, "0" * 40)
+    elif local.stdout.split()[0] != committed:
+      raise PrelimPublicationError("local PRELIM state ref conflicts")
+    pushed = git(root, "push", remote, ref + ":" + ref, check=False)
+    if pushed.returncode and _remote_record(root, remote, ref, key) != record:
+      raise PrelimPublicationError("provider PRELIM publication rejected")
+    if _remote_record(root, remote, ref, key) != record:
+      raise PrelimPublicationError("provider PRELIM readback differs")
+    git(root, "worktree", "remove", str(workspace))
+
+
+def restore_identity(root: Path, remote: str, attempt: str) -> None:
+  ref, key, _ = _identity(attempt)
+  _restore(root, remote, ref, key)
 
 
 def publish_identity(
   root: Path, remote: str, attempt: str, record: dict, base_sha: str,
 ) -> None:
-  """Idempotent publication with authoritative provider readback and no tags."""
-  root = Path(root).resolve()
-  store = durable_store(root)
-  with _attempt_lock(root, store, "identity-" + attempt):
-    current = _remote_record(root, remote, attempt)
-    if current is not None:
-      if current != record:
-        raise PrelimPublicationError("immutable provider identity collision")
-      return
-    ref = _ref(attempt)
-    workspace = _workspace(root, "identity-" + attempt)
-    if not workspace.exists():
-      workspace.parent.mkdir(parents=True, exist_ok=True)
-      git(root, "worktree", "add", "--detach", str(workspace), base_sha)
-    relative = ".repoworkflow/state/" + _key(attempt) + ".json"
-    path = workspace / relative
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-      try:
-        existing = json.loads(path.read_text(encoding="utf-8"))
-      except (ValueError, OSError) as error:
-        raise PrelimPublicationError("partial identity record invalid") from error
-      if existing != record:
-        raise PrelimPublicationError("partial identity record differs")
-    else:
-      path.write_text(json.dumps(record, sort_keys=True, indent=2)
-                      + "\n", encoding="utf-8")
-    subject = git(workspace, "log", "-1", "--format=%s").stdout.strip()
-    expected = "Durable PRELIM validation " + attempt
-    if subject != expected:
-      git(workspace, "add", "--", relative)
-      git(workspace, "commit", "-m", expected)
-    committed = git(workspace, "rev-parse", "HEAD").stdout.strip()
-    if git(workspace, "show", committed + ":" + relative).stdout != (
-      json.dumps(record, sort_keys=True, indent=2) + "\n"
-    ):
-      raise PrelimPublicationError("committed identity payload differs")
-    # Existing local ref after interruption is reusable only when exact.
-    local = git(root, "show-ref", "--verify", ref, check=False)
-    if local.returncode:
-      git(root, "update-ref", ref, committed, "0" * 40)
-    elif local.stdout.split()[0] != committed:
-      raise PrelimPublicationError("local identity state ref conflicts")
-    pushed = git(root, "push", remote, ref + ":" + ref, check=False)
-    if pushed.returncode and _remote_record(root, remote, attempt) != record:
-      raise PrelimPublicationError("provider identity publication rejected")
-    if _remote_record(root, remote, attempt) != record:
-      raise PrelimPublicationError("provider identity readback differs")
-    git(root, "worktree", "remove", str(workspace))
+  ref, key, workspace = _identity(attempt)
+  _publish(root, remote, ref, key, workspace, record, base_sha)
+
+
+def restore_validation(
+  root: Path, remote: str, attempt: str,
+  regression: str, integration: str,
+) -> None:
+  ref, key, _ = _validation(attempt, regression, integration)
+  _restore(root, remote, ref, key)
+
+
+def publish_validation(
+  root: Path, remote: str, attempt: str, regression: str, integration: str,
+  record: dict, base_sha: str,
+) -> None:
+  ref, key, workspace = _validation(attempt, regression, integration)
+  _publish(root, remote, ref, key, workspace, record, base_sha)
