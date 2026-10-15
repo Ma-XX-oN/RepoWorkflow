@@ -73,6 +73,45 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertEqual(lifecycle.read(1), begun)
     self.assertEqual(RelationshipStore(self.root).read(), revised)
 
+  def test_mixed_lifecycle_sample_changed_during_refresh_is_rejected(self):
+    # P06: changes to earlier issues during later sampling fail atomically.
+    lifecycle = LifecycleStore(self.root)
+    first = lifecycle.transition(
+      1, "start", "candidate-1", 0, self.writer, None,
+    )
+    lifecycle.transition(2, "start", "candidate-2", 0, self.writer, None)
+    previous = self.store.path.read_bytes()
+    original_read = LifecycleStore.read
+    injected = False
+
+    def interleaved_read(reader, issue):
+      nonlocal injected
+      value = original_read(reader, issue)
+      if str(issue) == "2" and not injected:
+        injected = True
+        lifecycle.transition(
+          1, "submit-review", "candidate-1", 0,
+          self.writer, first.revision,
+        )
+      return value
+
+    with patch(
+      "repo_workflow.relationship_store.LifecycleStore.read",
+      new=interleaved_read,
+    ):
+      with self.assertRaisesRegex(
+        RelationshipStoreError, "stale lifecycle projection",
+      ):
+        self.store.refresh_states(self.writer)
+    self.assertTrue(injected)
+    self.assertEqual(self.store.path.read_bytes(), previous)
+    refreshed = self.store.refresh_states(self.writer)
+    self.assertEqual(refreshed.states["1"].state, "in_review")
+    self.assertEqual(refreshed.states["1"].lifecycle_revision, 1)
+    self.assertEqual(refreshed.states["2"].state, "active")
+    self.assertEqual(refreshed.states["2"].lifecycle_revision, 0)
+    self.assertEqual(RelationshipStore(self.root).read(), refreshed)
+
   def test_default_graph_is_offline_and_never_refreshes_lifecycle(self):
     # G01: cached graph must never consult lifecycle or a remote provider.
     LaneSelectionStore(self.root).select((2,), self.writer)
