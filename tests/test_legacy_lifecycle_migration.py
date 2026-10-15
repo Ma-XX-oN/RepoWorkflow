@@ -61,6 +61,36 @@ class LegacyLifecycleUpgradeAcceptance(unittest.TestCase):
     self.assertEqual(raw["revision"], 1)
     self.assertEqual(len(raw["value"]["history"]), 1)
 
+  def test_repeated_migration_roundtrip_has_no_spurious_revision(self):
+    # L07: repeat normalized read and schema serialization without writes.
+    issue = 99
+    key = f"issues/{issue}/lifecycle"
+    self.lifecycle.records.create(
+      key, legacy_value(issue, 1, 2), self.writer,
+    )
+    original = self.lifecycle.read(issue)
+    self.assertEqual(original.revision, 0)
+    path = self.root / ".repoworkflow/state/issues/99/lifecycle.json"
+    before = path.read_bytes()
+    for _ in range(5):
+      self.assertEqual(self.lifecycle.read(issue), original)
+      self.assertEqual(path.read_bytes(), before)
+    upgraded = self.lifecycle.set_high_risk_aliases(
+      issue, ("graph-renderer",), self.writer, original.revision,
+    )
+    self.assertEqual(upgraded.revision, 1)
+    after = path.read_bytes()
+    for _ in range(5):
+      normalized = IssueLifecycle.from_json_value(
+        upgraded.lifecycle.to_json_value(),
+      )
+      self.assertEqual(normalized, upgraded.lifecycle)
+      self.assertEqual(LifecycleStore(self.root).read(issue), upgraded)
+      self.assertEqual(self.lifecycle.records.read(key)["revision"], 1)
+      self.assertEqual(path.read_bytes(), after)
+    self.assertEqual(len(upgraded.lifecycle.history), 1)
+    self.assertEqual(upgraded.lifecycle.legacy_event_count, 1)
+
   def test_schema_two_zero_one_many_upgrade_preserves_every_event(self):
     for count in (0, 1, 2):
       with self.subTest(legacy_count=count):
