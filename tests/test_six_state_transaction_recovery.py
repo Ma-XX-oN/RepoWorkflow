@@ -214,6 +214,47 @@ class LifecycleCsvRecoveryAcceptance(unittest.TestCase):
       "lifecycle-projection-one", self.writer, "again",
     ), record)
 
+  def test_abort_recovery_preserves_unknown_staging_and_exact_authority(self):
+    # C10: abort never guesses file ownership, publishes no successor,
+    # and never increments canonical revisions upon repeated restart.
+    prepared = self.prepare()
+    stage = self.root / ".repoworkflow" / "staging"
+    stage.mkdir(parents=True, exist_ok=True)
+    files = {
+      "lifecycle-projection-one.tmp": b"candidate-only unknown provenance",
+      "other-owner.tmp": b"external actor non-reconstructable work",
+    }
+    for name, payload in files.items():
+      (stage / name).write_bytes(payload)
+    before_csv = self.relationships.path.read_bytes()
+    before_lifecycle = self.lifecycle.read(1)
+    aborted = self.coordinator.abort(
+      "lifecycle-projection-one", self.writer, "safe cancel",
+    )
+    self.assertEqual(aborted["value"]["status"], "aborted")
+    self.assertEqual(aborted["revision"], prepared["revision"] + 1)
+    original_record = aborted
+    for _ in range(4):
+      recovered = SemanticTransactionCoordinator(
+        durable_store(self.root),
+      ).recover(
+        "lifecycle-projection-one", self.writer,
+        lambda _reads: self.fail("aborted state was revalidated"),
+        lambda _writes: self.fail("aborted state was materialized"),
+      )
+      self.assertEqual(recovered, original_record)
+      self.assertEqual(
+        self.coordinator.abort(
+          "lifecycle-projection-one", self.writer, "repeat",
+        ), original_record,
+      )
+      self.assertEqual(self.lifecycle.read(1), before_lifecycle)
+      self.assertEqual(
+        RelationshipStore(self.root).path.read_bytes(), before_csv,
+      )
+      for name, payload in files.items():
+        self.assertEqual((stage / name).read_bytes(), payload)
+
   def test_restart_aborts_stale_prepared_without_csv_mutation(self):
     # C08/C10: prepared is never completion, stale authority aborts.
     self.prepare()
