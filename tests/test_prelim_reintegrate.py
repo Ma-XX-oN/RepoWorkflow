@@ -84,6 +84,16 @@ class StalePrelimTests(unittest.TestCase):
     self.assertNotEqual(first.guid, again.guid)
     self.assertNotEqual(first.candidate, again.candidate)
 
+  def test_old_candidate_already_on_new_main_still_gets_fresh_identity(self):
+    # Destination fast-forwarded to the physical prior PRELIM candidate:
+    # the old integration is present, but acceptance may not transfer.
+    git(self.root, "push", "origin",
+        f"{self.previous.candidate_sha}:refs/heads/main")
+    result = self.reintegrate()
+    self.assertEqual(result.state, "ready")
+    self.assertNotEqual(result.candidate, self.previous.candidate_sha)
+    self.assertTrue(result.fresh_validation_required)
+
   def test_merge_conflict_requires_resolve_and_new_commit(self):
     self.advance("1.2.5\n", "VERSION")
     guid = str(uuid.uuid4())
