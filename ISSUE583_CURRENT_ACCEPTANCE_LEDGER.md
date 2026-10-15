@@ -1,9 +1,9 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 14, 2026 (Toronto).  74 cases: **59 PASS**,
-**15 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
-`b4c22d49a45e6c23677b90b8d07857b935f85f9c` in draft PR #666;
-regression `38743556356`, integration `38743566936`.
+Snapshot: October 15, 2026 (Toronto).  74 cases: **60 PASS**,
+**14 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
+`7f175d6372db9995edc26e4c37f4c0607e30e90e` in draft PR #666;
+regression `38745590475`, integration `38745604194`.
 This supplement retains the original 74-row historical acceptance ledger.
 
 ## Provider evidence key
@@ -38,6 +38,17 @@ This supplement retains the original 74-row historical acceptance ledger.
 
 - **M** — exact source `b4c22d49a45e6c23677b90b8d07857b935f85f9c`
   regression `38743556356`; integration `38743566936`; PASS.
+
+- **N** — exact source `7f175d6372db9995edc26e4c37f4c0607e30e90e`
+  regression `38745590475`; integration `38745604194`; PASS.
+- **O** — exact source `7f175d6372db9995edc26e4c37f4c0607e30e90e`
+  authenticated live GitHub Git-CLI two-clone provider test:
+  `Ma-XX-oN/Disposable-000` run `38754081321` SUCCESS;
+  artifact `11982193280`, sha256
+  `0b984c4a93dd1053030110c935bcdbc303a810f204228ded1822379102d5e202`.
+  First push accepted; stale second push rejected; fresh third clone
+  verified durable first-writer state/history and byte-identical CSV.
+  Disposable fixture ref deleted and readback confirmed absent.
 
 ## Independent 74-case verdicts
 
@@ -190,11 +201,15 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **C11 — PASS** (provider evidence E)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_conflicting_prepared_transaction_blocks_new_prepare
-- **C12 — PARTIAL**
+- **C12 — PASS** (provider evidence O)
   Historical anchor:
   test_conflicting_lifecycle_revisions_reject_stale_remote_push
-  Remaining: Two local independent clones and shared bare remote reject stale
-  push; authenticated provider path not proven.
+  Authenticated GitHub provider two-clone Git-CLI conflict accepted/rejected.
+  Shared base `d4ade3af28b4c24aa3a88d52c7f87e93b22a9366`.
+  First accepted `6116d6c728feb7527ac24be5f056aab9bff125a7`;
+  fresh third clone read lifecycle revision 0, first writer's history
+  and byte-identical CSV. Competing stale push failed closed.
+
 - **C13 — PASS**
   Historical anchor: test_malformed_identity_and_payload_fail_closed
   Remaining: invalid writer/session identity rejects mutation
@@ -316,22 +331,13 @@ This supplement retains the original 74-row historical acceptance ledger.
   Remaining: Two unchanged refreshes have byte-identical CSV, equal revision,
   unchanged lifecycle.
 
-## Pending final-source certification
+## Latest certification status
 
-- `.0.24` source `e2579dff1f98fec133df6d0f875a17f2d0063814`:
-  initial 74-case crosswalk; regression 38671366045 PASS, integration
-  pending.
-- `.0.25` source `5eeb6d3f92bea274f52ef4c9162f23c98b3254ec`:
-  adds six-state monochrome glyph/label tests to Ubuntu, Windows and
-  macOS hosted renderer jobs. Exact stage verdicts pending.
-- This current crosswalk update requires its own exact-source tests.
-
-## Boundary rules
-
-Real mutating-executor review and authorization gates belong to #109; do not
-accept read-only planner #108 as proof. C12 requires live Git-hosted two-actor
-lifecycle execution and fresh-clone readback, separate from local bare-remote
-and authenticated reference-CAS tests. Mocked provider title authority is not
-live provider proof. Generic green regression does not accept missing or failed
-oracles. No main merge, stable release, protected #85 activation or #583
-closure without all gates and explicit authorization.
+- `.0.36` source hosted regression and integration SUCCESS, all 13
+  integration jobs including all nine platform checks PASS.
+- Authenticated shared GitHub provider C12 PASSED at the same source.
+- This documentation-only acceptance update requires new hosted
+  regression and integration against its exact final source.
+- Remaining 14 PARTIAL rows T01-T08, L08-L10, L17/L18/L20
+  await separately owned #109 mutating executor provider evidence.
+- No protected-main merge, stable tag, #85 activation or closure.
