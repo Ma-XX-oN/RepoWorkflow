@@ -199,6 +199,24 @@ class PrelimAttemptTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimError, "remote candidate"):
       self.construct(result.attempt)
 
+  def test_remote_state_ref_rewritten_during_readback_is_rejected(self):
+    from repo_workflow import prelim_attempt as module
+    result = self.construct()
+    target = f"refs/heads/prelim-state/{result.attempt}"
+    original_git = module.git
+    interleaved_once = [False]
+
+    def interleaved(root, *args, **kwargs):
+      outcome = original_git(root, *args, **kwargs)
+      if not interleaved_once[0] and args == ("fetch", "origin", target):
+        interleaved_once[0] = True
+        original_git(root, "push", "origin", "+refs/heads/main:" + target)
+      return outcome
+
+    with patch.object(module, "git", interleaved):
+      with self.assertRaisesRegex(PrelimError, "remote persisted attempt"):
+        self.construct(result.attempt)
+
   def test_overlapping_state_fetches_preserve_each_guid_readback(self):
     from repo_workflow import prelim_attempt as module
     first = self.construct()
