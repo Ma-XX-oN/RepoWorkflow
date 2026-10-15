@@ -15,6 +15,7 @@ from .hosted_terminal_binding import bind_hosted_terminal
 from .phase_terminal import plan_phase
 from .prelim_attempt import _remote_ref, _trusted_inputs
 from .prelim_identity import validate_attempt
+from .prelim_publication import publish_identity, restore_identity
 from .state_store import StateStoreError, durable_store
 from .terminal_tag import _remote_target
 
@@ -153,7 +154,10 @@ def validate_prelim(
   )
   audit = _immutable(store, key, payload, writer)
   if outcome == "PASS":
-    _immutable(store, "prelim/identities/" + attempt, payload, writer)
+    restore_identity(root, remote, attempt)
+    identity = _immutable(store, "prelim/identities/" + attempt,
+                          payload, writer)
+    publish_identity(root, remote, attempt, identity, value["base_sha"])
   fresh()
   return PrelimValidation(
     attempt, candidate, outcome,
