@@ -2,7 +2,7 @@
 
 > This ledger is an executed-evidence assessment, not the normative expected-result specification. See `SIX_STATE_ACCEPTANCE_MATRIX.md` for the 74 requirements.
 
-**Scope:** existing #583 V3 claim `6134927670`, PR #658. **Status:** 27 full PASS, 47 PARTIAL, 0 full FAIL identified as of the previous exact certified source; not DONE. The 48 PARTIAL rows are not accepted. Latest certified source before P17 addition: `91caaee86c4d08c59c8a411d63a1c9f858dc0e13`, hosted regression run `38648373520`, integration run `38649138881`. Both executed 1,858 tests (14 historical provider-only skips), integration 9/9 platform jobs PASS. P17 local independent-clone reconstruction verified by hosted test at source `d3dd364f73df473b8c48f584c1bb92afa3817365` (provider run 38651029456), conditional on final provider GREEN evidence readback.
+**Scope:** existing #583 V3 claim `6134927670`, PR #658. **Status:** 27 full PASS, 47 PARTIAL, 0 full FAIL identified as of the previous exact certified source; not DONE. The 47 PARTIAL rows are not accepted. Latest certified source before P17 addition: `91caaee86c4d08c59c8a411d63a1c9f858dc0e13`, hosted regression run `38648373520`, integration run `38649138881`. Both executed 1,858 tests (14 historical provider-only skips), integration 9/9 platform jobs PASS. P17 local independent-clone reconstruction verified by hosted test at source `d3dd364f73df473b8c48f584c1bb92afa3817365` (provider run 38651029456), conditional on final provider GREEN evidence readback.
 
 **Proof classes:** named test log + on-disk or provider readback; synthetic local fixtures are not live provider integration. A test anchor does not prove unexercised dimensions. `PARTIAL` retains an explicit unproven aspect. Some anchor names are in `tests/` and others in their `test_*.py` root modules.
 
@@ -89,3 +89,27 @@
 - Hosted exact-source tests: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38648373520 and https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/38649138881; raw/provider artifact hashes and canonical readback in issue #583 comment 6180264034.
 - L18/L20/T03/T08 depend on executable #109 / #577 integration/review gate evidence, not merely read-only planner tests. C12 requires authenticated shared-provider validation. P09 race requires separately executed negative test and safe owner remediation.
 - Do not merge to `main`, publish stable tags, or mark DONE until every row is proven and final source/release gates pass. Historical provider-only test skips remain skips.
+
+## Post-audit acceptance expansion (verification candidate in progress)
+
+The 27 PASS / 47 PARTIAL statement above is the **historical** 74-case
+assessment. Do not confuse it with any future provider-green outcome.
+
+- #577 P09 production repair is separately certified at exact source
+  `88140acdff8b7fb2ad9bd634cb502d63b0e3e2e8` by GitHub hosted
+  regression 38656430048 and integration 38656437615 (9/9 platform probes).
+- The original #583 P09 race assertion independently passed at verification
+  source `16e90ad6389b157339a4f19bfdd63371f07e9e3d` in hosted
+  regression 38659268301 and integration 38659276997 (9/9 probes).
+- This assembled #583 candidate must independently execute its unchanged
+  production repair and its own P09, P11, L13 acceptance tests; earlier
+  independent successes do not replace exact assembled-source verification.
+- Added black-box tests for P02 (zero/one/many CSV refresh and restart),
+  C05 (concurrent independent issue writes), P10 (concurrent CSV compare-and-
+  swap), and L03-L07 (durable schema-1/schema-2 migration cardinalities and
+  event-preserving repeated read/write). All are **PENDING** exact-candidate
+  hosted execution, not automatically promoted to PASS.
+- L18, L20, T03, T08 still require actual #109 mutation/authorization and
+  authenticated review/integration/approval checks. C12 still requires shared
+  provider-backed concurrency proof. No #583 DONE conclusion or main merge
+  follows from the separately certified P09 fix.
