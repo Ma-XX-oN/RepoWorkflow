@@ -106,6 +106,22 @@ class PrelimAttemptTests(unittest.TestCase):
     self.assertEqual(list((self.root / ".repoworkflow" / "state" /
                            "prelim").glob("**/*.json")), [])
 
+  def test_named_issue_source_branch_integrates_accepted_SHA(self):
+    git(self.root, "branch", "-m", "issue-7-feature")
+    ref = "refs/heads/issue-7-feature"
+    result = construct_prelim(self.root, "7", ref, self.config)
+    self.assertEqual(result.state, "ready")
+    self.assertEqual(result.source_sha, self.source)
+    self.assertEqual(git(self.root, "rev-parse", ref).stdout.strip(), self.source)
+    self.assertEqual(construct_prelim(self.root, "7", ref, self.config,
+                                      attempt_id=result.attempt), result)
+
+  def test_different_issue_named_source_branch_rejected(self):
+    git(self.root, "branch", "-m", "issue-7-feature")
+    with self.assertRaisesRegex(PrelimError, "branch does not match issue"):
+      construct_prelim(self.root, "7", "refs/heads/issue-70-feature",
+                       self.config)
+
   def test_lifecycle_and_ref_must_identify_accepted_source(self):
     git(self.root, "commit", "--allow-empty", "-m", "unaccepted mutation")
     with self.assertRaisesRegex(PrelimError, "accepted lifecycle"):
