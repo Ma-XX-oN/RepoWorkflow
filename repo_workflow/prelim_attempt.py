@@ -28,10 +28,8 @@ from .version_adapter import read_version, run_transition
 SHA = re.compile(r"^[0-9a-f]{40}$")
 ISSUE = re.compile(r"^[1-9][0-9]*$")
 
-
 class PrelimError(RuntimeError):
   """A preliminary candidate is invalid, stale or needs operator resolution."""
-
 
 @dataclass(frozen=True)
 class PrelimAttempt:
@@ -67,9 +65,8 @@ def _ensure_authoritative_base(root: Path, remote: str, base: str) -> None:
   """Fetch the exact server-main object without moving local main."""
   if git(root, "cat-file", "-e", base + "^{commit}", check=False).returncode:
     git(root, "fetch", "--no-tags", remote, "refs/heads/main")
-    fetched = git(root, "rev-parse", "FETCH_HEAD").stdout.strip()
-    if fetched != base:
-      raise PrelimError("authoritative main moved during object acquisition")
+    if git(root, "cat-file", "-e", base + "^{commit}", check=False).returncode:
+      raise PrelimError("authoritative server-main object is unavailable")
   if _remote_ref(root, remote, "refs/heads/main") != base:
     raise PrelimError("authoritative server main moved during object acquisition")
 
@@ -104,13 +101,14 @@ def _restore_remote_record(root: Path, remote: str, store: JsonRecordStore,
   if advertised is None:
     return None
   git(root, "fetch", remote, ref)
-  fetched = _sha(git(root, "rev-parse", "FETCH_HEAD").stdout.strip(), "state")
-  if fetched != advertised:
+  fetched = _sha(git(root, "rev-parse", "--verify",
+                     advertised + "^{commit}").stdout.strip(), "state")
+  if fetched != advertised or _remote_ref(root, remote, ref) != advertised:
     raise PrelimError("remote attempt state moved during recovery")
   key = _key(attempt)
   relative = f".repoworkflow/state/{key}.json"
   try:
-    payload = json.loads(git(root, "show", f"FETCH_HEAD:{relative}").stdout)
+    payload = json.loads(git(root, "show", f"{advertised}:{relative}").stdout)
     _validate_record(payload, key)
     validate_attempt(payload["value"])
   except (ValueError, StateStoreError, TypeError, KeyError) as error:
@@ -278,8 +276,11 @@ def _publish(root: Path, remote: str, store: JsonRecordStore,
       git(root, "update-ref", state_ref, state_sha, "0" * 40)
       git(root, "push", remote, f"{state_ref}:{state_ref}")
       git(root, "worktree", "remove", str(workspace))
+  state_tip = _remote_ref(root, remote, state_ref)
+  if state_tip is None:
+    raise PrelimError("remote PRELIM state publication disappeared")
   git(root, "fetch", remote, state_ref)
-  remote_record = json.loads(git(root, "show", f"FETCH_HEAD:{relative}").stdout)
+  remote_record = json.loads(git(root, "show", f"{state_tip}:{relative}").stdout)
   if remote_record != record:
     raise PrelimError("remote persisted attempt record differs from local")
 
