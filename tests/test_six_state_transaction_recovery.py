@@ -9,7 +9,7 @@ from repo_workflow.relationship_store import RelationshipStore
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph
 from repo_workflow.state_store import WriterIdentity, durable_store
 from repo_workflow.transaction import (
-  SemanticTransactionCoordinator, StateReference, StateWrite,
+  SemanticTransactionCoordinator, StateReference, StateWrite, TransactionError,
 )
 from tests.support import RepoFixture
 
@@ -101,6 +101,43 @@ class LifecycleCsvRecoveryAcceptance(unittest.TestCase):
       self.assertEqual(self.lifecycle.read(1).revision, 0)
       self.assertEqual(self.relationships.path.read_bytes(), csv_after)
     self.assertEqual(RelationshipStore(self.root).read(), refreshed)
+
+  def test_conflicting_prepared_rejected_until_authenticated_abort(self):
+    # C11: competing transaction cannot replace active prepared read/write set.
+    first = self.prepare()
+    self.assertEqual(first["value"]["status"], "prepared")
+    observed = self.lifecycle.read(1)
+    original_csv = self.relationships.path.read_bytes()
+    before = self.coordinator.read("lifecycle-projection-one")
+    with self.assertRaisesRegex(
+      TransactionError, "conflicting prepared transaction",
+    ):
+      self.coordinator.prepare(
+        "competing-lifecycle-one",
+        (StateReference("lifecycle", "1", 0, "absent"),),
+        (StateWrite("lifecycle", "1", {"transition": "abort"}),),
+        self.writer,
+      )
+    self.assertEqual(
+      self.coordinator.read("lifecycle-projection-one"), before,
+    )
+    with self.assertRaises(TransactionError):
+      self.coordinator.read("competing-lifecycle-one")
+    self.assertEqual(self.lifecycle.read(1), observed)
+    self.assertEqual(self.relationships.path.read_bytes(), original_csv)
+    abandoned = self.coordinator.abort(
+      "lifecycle-projection-one", self.writer, "cancelled fixture",
+    )
+    self.assertEqual(abandoned["value"]["status"], "aborted")
+    followup = self.coordinator.prepare(
+      "competing-lifecycle-one",
+      (StateReference("lifecycle", "1", 0, "absent"),),
+      (StateWrite("lifecycle", "1", {"transition": "abort"}),),
+      self.writer,
+    )
+    self.assertEqual(followup["value"]["status"], "prepared")
+    self.assertEqual(self.lifecycle.read(1), observed)
+    self.assertEqual(self.relationships.path.read_bytes(), original_csv)
 
   def test_restart_aborts_stale_prepared_without_csv_mutation(self):
     # C08/C10: prepared is never completion, stale authority aborts.
