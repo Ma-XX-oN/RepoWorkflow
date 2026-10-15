@@ -147,8 +147,10 @@ def _fetch_new_base(root, remote, base, guid):
   ref = f"refs/repoworkflow/prelim-fetch/{guid}"
   if git(root, "cat-file", "-e", base + "^{commit}",
          check=False).returncode:
-    git(root, "fetch", "--no-tags", "--no-write-fetch-head", remote,
-        f"refs/heads/main:{ref}")
+    # An empty refmap suppresses remote.origin.fetch's implicit origin/main
+    # update, which otherwise races across different GUIDs in one clone.
+    git(root, "fetch", "--refmap=", "--no-tags", "--no-write-fetch-head",
+        remote, f"refs/heads/main:{ref}")
     if git(root, "cat-file", "-e", base + "^{commit}",
            check=False).returncode:
       raise ReintegrationError("authoritative main object unavailable")
