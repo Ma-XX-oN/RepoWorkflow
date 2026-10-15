@@ -275,5 +275,29 @@ class PrelimAttemptTests(unittest.TestCase):
 
 
 
+  def test_corrupt_local_identity_cannot_be_published(self):
+    from repo_workflow.prelim_identity import PrelimIdentityError
+    result = self.construct()
+    key = f"prelim/attempts/{result.attempt}"
+    path = durable_store(self.root)._path(key)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["value"]["source_ref"] = "refs/heads/issue-999"
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    with self.assertRaises(PrelimIdentityError):
+      self.construct(result.attempt)
+
+  def test_corrupt_attempt_schema_rejected(self):
+    from repo_workflow.prelim_identity import PrelimIdentityError
+    result = self.construct()
+    key = f"prelim/attempts/{result.attempt}"
+    path = durable_store(self.root)._path(key)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["value"]["candidate_sha"] = "not-a-sha"
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    with self.assertRaises(PrelimIdentityError):
+      self.construct(result.attempt)
+
+
+
 if __name__ == "__main__":
   unittest.main()
