@@ -111,6 +111,28 @@ class PrelimAttemptTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimError, "accepted lifecycle"):
       self.construct()
 
+  def test_remote_main_not_fetched_uses_server_tip_without_moving_local_main(self):
+    local_before = git(self.root, "rev-parse", "main").stdout.strip()
+    other = Path(self.temp.name) / "other-clone"
+    git(self.root, "clone", "--branch", "main", str(self.remote), str(other))
+    git(other, "config", "user.name", "Remote writer")
+    git(other, "config", "user.email", "remote@example.invalid")
+    (other / "remote.txt").write_text("server-only change\n")
+    git(other, "add", "remote.txt")
+    git(other, "commit", "-m", "server main advanced")
+    remote_sha = git(other, "rev-parse", "HEAD").stdout.strip()
+    git(other, "push", "origin", "main")
+    self.assertNotEqual(local_before, remote_sha)
+    self.assertNotEqual(git(self.root, "cat-file", "-e", remote_sha,
+                            check=False).returncode, 0)
+    result = self.construct()
+    self.assertEqual(result.base_sha, remote_sha)
+    self.assertEqual(git(self.root, "rev-parse", "main").stdout.strip(),
+                     local_before)
+    self.assertEqual(git(self.root, "merge-base", "--is-ancestor", remote_sha,
+                         result.candidate_sha, check=False).returncode, 0)
+    self.assertEqual(result.state, "ready")
+
   def test_stale_main_rejects_existing_attempt(self):
     existing = self.construct()
     git(self.root, "checkout", "main")
