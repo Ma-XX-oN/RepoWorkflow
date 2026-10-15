@@ -210,13 +210,15 @@ def _merge_workspace(root: Path, base: str, source: str,
       )
   return worktree, proposed, result.returncode == 0
 
-
 def _publish(root: Path, remote: str, store: JsonRecordStore,
              record: dict) -> None:
   value = record["value"]
   attempt = value["attempt"]
   if (value["branch"] != f"prelim-main-{attempt}"
-      or value["source_ref"] != f"refs/heads/issue-{value['issue']}"
+      or re.fullmatch(
+        rf"refs/heads/issue-{value['issue']}(?:-[A-Za-z0-9._/-]+)?",
+        value["source_ref"],
+      ) is None
       or value["state"] != "ready"):
     raise PrelimError("invalid recorded attempt identity")
   _trusted_inputs(root, remote, value["issue"], value["source_ref"],
@@ -285,7 +287,6 @@ def _publish(root: Path, remote: str, store: JsonRecordStore,
       or _remote_ref(root, remote, state_ref) != state_tip):
     raise PrelimError("remote persisted attempt record differs from local")
 
-
 def _construct_prelim_unlocked(root: Path, issue: str, source_ref: str, config: dict,
                      *, bump: str = "patch", attempt_id: str | None = None,
                      store: JsonRecordStore | None = None) -> PrelimAttempt:
@@ -297,7 +298,10 @@ def _construct_prelim_unlocked(root: Path, issue: str, source_ref: str, config: 
     raise PrelimError("unsupported development integration version request")
   if not isinstance(source_ref, str) or not source_ref.startswith("refs/heads/issue-"):
     raise PrelimError("expected an explicit accepted issue branch ref")
-  if source_ref != f"refs/heads/issue-{issue}":
+  if re.fullmatch(
+      rf"refs/heads/issue-{issue}(?:-[A-Za-z0-9._/-]+)?",
+      source_ref,
+  ) is None:
     raise PrelimError("accepted branch does not match issue")
   identity = runtime_writer_identity()
   remote = config["repository"]["authoritativeRemote"]
@@ -360,7 +364,6 @@ def _construct_prelim_unlocked(root: Path, issue: str, source_ref: str, config: 
     _persist(store, record, identity, state="conflict")
     raise PrelimError(f"merge conflicts require explicit resolution in {workspace}")
   return _finish_prelim_unlocked(root, attempt, config, store=store)
-
 
 def _finish_prelim_unlocked(root: Path, attempt: str, config: dict,
                   *, store: JsonRecordStore | None = None) -> PrelimAttempt:
@@ -426,7 +429,6 @@ def _finish_prelim_unlocked(root: Path, attempt: str, config: dict,
   git(root, "worktree", "remove", str(workspace))
   return _snapshot(record)
 
-
 @contextmanager
 def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str):
   """Process-scoped lock released by the OS even after an abrupt crash."""
@@ -468,7 +470,6 @@ def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str):
         fcntl.flock(fd, fcntl.LOCK_UN)
     os.close(fd)
 
-
 def construct_prelim(root: Path, issue: str, source_ref: str, config: dict,
                      *, bump: str = "patch", attempt_id: str | None = None,
                      store: JsonRecordStore | None = None) -> PrelimAttempt:
@@ -484,7 +485,6 @@ def construct_prelim(root: Path, issue: str, source_ref: str, config: dict,
       root, issue, source_ref, config, bump=bump,
       attempt_id=attempt, store=store,
     )
-
 
 def finish_prelim(root: Path, attempt: str, config: dict,
                   *, store: JsonRecordStore | None = None) -> PrelimAttempt:
