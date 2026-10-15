@@ -20,7 +20,9 @@ from .prelim_attempt import (
 )
 from .prelim_identity import validate_attempt
 from .runtime_identity import runtime_writer_identity
-from .state_store import StateStoreError, durable_store
+from .state_store import (
+  StateStoreError, durable_store, _validate_record, _write_json_atomic,
+)
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -108,6 +110,38 @@ def _read(store, guid):
   return record
 
 
+def _restore(root, store, remote, guid):
+  """Recover a new attempt from exact provider bytes in another clone."""
+  ref = f"refs/heads/prelim-reintegration-state/{guid}"
+  tip = _remote_ref(root, remote, ref)
+  if tip is None:
+    return None
+  git(root, "fetch", "--no-tags", remote, ref)
+  if git(root, "cat-file", "-e", tip + "^{commit}",
+         check=False).returncode:
+    raise ReintegrationError("remote reintegration record is unavailable")
+  path = f".repoworkflow/state/{_key(guid)}.json"
+  try:
+    payload = json.loads(git(root, "show", f"{tip}:{path}").stdout)
+    _validate_record(payload, _key(guid))
+    _validate(payload["value"])
+  except (ValueError, StateStoreError, KeyError, TypeError) as error:
+    raise ReintegrationError("invalid remote reintegration record") from error
+  if (payload["value"]["guid"] != guid
+      or payload["value"]["state"] != "ready"
+      or _remote_ref(root, remote, ref) != tip):
+    raise ReintegrationError("remote reintegration record changed")
+  target = store._path(_key(guid))
+  if target.exists():
+    if store.read(_key(guid)) != payload:
+      raise ReintegrationError("local/provider reintegration record conflict")
+  else:
+    _write_json_atomic(target, payload)
+  if store.read(_key(guid)) != payload:
+    raise ReintegrationError("restored reintegration record mismatch")
+  return payload
+
+
 def _source(root, value):
   if _local_ref(root, value["source_ref"]) != value["source_sha"]:
     raise ReintegrationError("accepted source ref moved")
@@ -175,6 +209,10 @@ def _publish(root, remote, record):
   state_ref = f"refs/heads/prelim-reintegration-state/{v['guid']}"
   path = f".repoworkflow/state/{record['key']}.json"
   existing = _local_ref(root, state_ref)
+  if existing is None and _remote_ref(root, remote, state_ref) is not None:
+    git(root, "fetch", "--no-tags", remote,
+        f"{state_ref}:{state_ref}")
+    existing = _local_ref(root, state_ref)
   if existing is None:
     folder = _workspace(root, "reintegration-state-" + v["guid"])
     folder.parent.mkdir(parents=True, exist_ok=True)
@@ -278,6 +316,8 @@ def reintegrate_prelim(root: Path, previous_guid: str, config: dict,
   remote = config["repository"]["authoritativeRemote"]
   with _attempt_lock(root, store, guid):
     record = _read(store, guid)
+    if record is None and attempt_id is not None:
+      record = _restore(root, store, remote, guid)
     if record is None:
       old = _previous(root, store, remote, previous_guid)
       base = _remote_ref(root, remote, "refs/heads/main")
