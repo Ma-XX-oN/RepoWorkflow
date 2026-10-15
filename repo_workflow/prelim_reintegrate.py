@@ -15,7 +15,7 @@ import uuid
 from .git import git
 from .lifecycle_store import LifecycleStore
 from .prelim_attempt import (
-  PrelimError, _attempt_lock, _ensure_authoritative_base, _local_ref,
+  PrelimError, _attempt_lock, _local_ref,
   _record, _remote_ref, _workspace, _restore_remote_record,
 )
 from .prelim_identity import validate_attempt
@@ -140,6 +140,20 @@ def _restore(root, store, remote, guid):
   if store.read(_key(guid)) != payload:
     raise ReintegrationError("restored reintegration record mismatch")
   return payload
+
+
+def _fetch_new_base(root, remote, base, guid):
+  """Acquire server main into an attempt-private ref without origin/main races."""
+  ref = f"refs/repoworkflow/prelim-fetch/{guid}"
+  if git(root, "cat-file", "-e", base + "^{commit}",
+         check=False).returncode:
+    git(root, "fetch", "--no-tags", "--no-write-fetch-head", remote,
+        f"refs/heads/main:{ref}")
+    if git(root, "cat-file", "-e", base + "^{commit}",
+           check=False).returncode:
+      raise ReintegrationError("authoritative main object unavailable")
+  if _remote_ref(root, remote, "refs/heads/main") != base:
+    raise ReintegrationError("main changed during exact object acquisition")
 
 
 def _source(root, value):
@@ -329,7 +343,7 @@ def reintegrate_prelim(root: Path, previous_guid: str, config: dict,
       base = _remote_ref(root, remote, "refs/heads/main")
       if base is None or base == old["base_sha"]:
         raise ReintegrationError("main has not advanced")
-      _ensure_authoritative_base(root, remote, base)
+      _fetch_new_base(root, remote, base, guid)
       if git(root, "merge-base", "--is-ancestor", old["base_sha"], base,
              check=False).returncode:
         raise ReintegrationError("new main is not a descendant of old base")
