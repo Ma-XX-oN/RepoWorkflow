@@ -29,7 +29,7 @@ class LiveProviderTitleMergeAcceptance(unittest.TestCase):
       root.mkdir()
       RepoFixture(root)
       subprocess.run(
-        ["git", "remote", "add", "origin",
+        ["git", "remote", "set-url", "origin",
          "https://github.com/Ma-XX-oN/RepoWorkflow.git"],
         cwd=root, capture_output=True, check=True,
       )
