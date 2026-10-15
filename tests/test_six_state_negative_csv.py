@@ -3,6 +3,8 @@
 from pathlib import Path
 import socket
 from contextlib import redirect_stdout
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from io import StringIO
 import urllib.request
 import tempfile
@@ -14,9 +16,9 @@ from repo_workflow.relationship_store import (
 )
 from repo_workflow.relationships import IssueRelationships, RelationshipGraph, ready_issues
 from repo_workflow.state_store import WriterIdentity
-from repo_workflow.lifecycle_store import LifecycleStore
+from repo_workflow.lifecycle_store import LifecycleStore, LifecycleError
 from repo_workflow.lane_render import render_lanes
-from repo_workflow.current_work_store import CurrentWorkStore
+from repo_workflow.current_work_store import CurrentWorkStore, CurrentWorkError
 from repo_workflow.public_cli import _handle_lanes
 from repo_workflow.lane_diagnostics import LaneDiagnostics
 from repo_workflow.lane_selection import LaneSelectionStore
@@ -76,6 +78,68 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     revised = self.store.replace(refreshed.revision, changed, self.writer)
     self.assertEqual(revised.states, refreshed.states)
     self.assertEqual(lifecycle.read(1), begun)
+    self.assertEqual(RelationshipStore(self.root).read(), revised)
+
+  def test_losing_lifecycle_writer_rereads_and_recomputes(self):
+    # C04: two writers race the same version; loser rereads canonical state.
+    lifecycle = LifecycleStore(self.root)
+    started = lifecycle.transition(
+      1, "start", "candidate", 0, self.writer, None,
+    )
+    barrier = Barrier(2)
+
+    def submit(index):
+      barrier.wait(timeout=5)
+      identity = WriterIdentity(f"actor-{index}", f"session-{index}")
+      try:
+        return ("published", lifecycle.transition(
+          1, "submit-review", "candidate", 0,
+          identity, started.revision,
+        ))
+      except LifecycleError as error:
+        if "stale lifecycle revision" not in str(error):
+          raise
+        snapshot = LifecycleStore(self.root).read(1)
+        self.assertEqual(snapshot.lifecycle.state, "in_review")
+        self.assertEqual(snapshot.lifecycle.history[-1].candidate, "candidate")
+        return ("reconciled", snapshot)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+      results = list(pool.map(submit, (1, 2)))
+    self.assertEqual({item[0] for item in results},
+                     {"published", "reconciled"})
+    canonical = LifecycleStore(self.root).read(1)
+    self.assertEqual(canonical.revision, 1)
+    self.assertEqual(len(canonical.lifecycle.history), 2)
+    for _, snapshot in results:
+      self.assertEqual(snapshot, canonical)
+    refreshed = self.store.refresh_states(self.writer)
+    self.assertEqual(refreshed.states["1"].state, "in_review")
+
+  def test_stale_relationship_pointer_fails_before_consumption(self):
+    # L19: worktree reference must not authorize an updated relationship.
+    base = self.store.read()
+    started = LifecycleStore(self.root).transition(
+      1, "start", "candidate", base.revision, self.writer, None,
+    )
+    pointer = CurrentWorkStore(self.root).project_start(
+      1, started.revision, base.revision, self.writer, None,
+    )
+    self.assertEqual(CurrentWorkStore(self.root).read(
+      validate_durable=True,
+    ), pointer)
+    changed = RelationshipGraph(issues={
+      "1": IssueRelationships("Revised", ()),
+      "2": IssueRelationships("Two", ("1",)),
+    })
+    revised = self.store.replace(base.revision, changed, self.writer)
+    self.assertNotEqual(revised.revision, base.revision)
+    with self.assertRaisesRegex(
+      CurrentWorkError, "stale current relationship revision",
+    ):
+      CurrentWorkStore(self.root).read(validate_durable=True)
+    self.assertEqual(CurrentWorkStore(self.root).read(), pointer)
+    self.assertEqual(LifecycleStore(self.root).read(1), started)
     self.assertEqual(RelationshipStore(self.root).read(), revised)
 
   def test_graph_ignores_different_current_worktree_issue(self):
