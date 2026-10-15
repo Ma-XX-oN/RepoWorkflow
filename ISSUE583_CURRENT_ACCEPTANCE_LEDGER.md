@@ -1,9 +1,9 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 14, 2026 (Toronto).  74 cases: **58 PASS**,
-**16 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
-`6ec6a918d9bc196730ca736dde7fe8e473b8f837` in draft PR #666;
-regression `38676760165`, integration `38676767731`.
+Snapshot: October 14, 2026 (Toronto).  74 cases: **59 PASS**,
+**15 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
+`b4c22d49a45e6c23677b90b8d07857b935f85f9c` in draft PR #666;
+regression `38743556356`, integration `38743566936`.
 This supplement retains the original 74-row historical acceptance ledger.
 
 ## Provider evidence key
@@ -35,6 +35,9 @@ This supplement retains the original 74-row historical acceptance ledger.
   regression `38676034606`; integration `38676043370`; PASS.
 - **L** — exact source `9efa3ccd54d49c78bc1616fa042c0118bf3c596d`
   regression `38677168896`; integration `38677176892`; PASS.
+
+- **M** — exact source `b4c22d49a45e6c23677b90b8d07857b935f85f9c`
+  regression `38743556356`; integration `38743566936`; PASS.
 
 ## Independent 74-case verdicts
 
@@ -180,11 +183,10 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **C09 — PASS** (provider evidence C)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_interrupted_committed_materialization_is_replayed_idempotently
-- **C10 — PARTIAL**
-  Historical anchor: test_recovery_aborts_stale_prepared_transaction;
-  test_committed_transaction_cannot_abort
-  Remaining: Abort state and refusal tested; staging cleanup for real
-  multi-record failure pending.
+- **C10 — PASS** (provider evidence M)
+  Fresh-process abort recovery preserves original lifecycle, exact CSV
+  and unknown-provenance staging. No successor published, no churn.
+
 - **C11 — PASS** (provider evidence E)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_conflicting_prepared_transaction_blocks_new_prepare
