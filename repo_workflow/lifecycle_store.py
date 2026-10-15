@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .git import git
+from .projection_lock import serialized_lifecycle_mutation
 from .state_store import (
   JsonRecordStore,
   StateStoreError,
@@ -195,6 +196,7 @@ class LifecycleStore:
       )
     return LifecycleSnapshot(lifecycle, record["revision"])
 
+  @serialized_lifecycle_mutation
   def transition(
     self,
     issue: str | int,
@@ -260,6 +262,7 @@ class LifecycleStore:
       raise LifecycleError(str(error)) from error
     return LifecycleSnapshot(successor, record["revision"])
 
+  @serialized_lifecycle_mutation
   def set_high_risk_aliases(
     self,
     issue: str | int,
