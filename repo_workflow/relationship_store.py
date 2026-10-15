@@ -18,6 +18,7 @@ from .relationships import (
 )
 from .state_store import WriterIdentity
 from .lifecycle_store import LifecycleStore, STATES
+from .projection_lock import projection_lock
 
 
 TICKET_STATE_PATH = Path(".repoworkflow") / "tickets.csv"
@@ -129,7 +130,20 @@ class RelationshipStore:
     for issue in sorted(current.graph.issues, key=int):
       record = lifecycle.read(issue)
       states[issue] = TicketState(record.lifecycle.state, record.revision)
-    return self._write(current.graph, current.revision, states)
+    # Acquire the same projection lock as every authoritative lifecycle writer.
+    # A changed lifecycle read-set invalidates the snapshot even when the
+    # cached CSV itself has not changed.
+    with projection_lock(self.root):
+      for issue, sampled in states.items():
+        authoritative = lifecycle.read(issue)
+        if (authoritative.revision != sampled.lifecycle_revision
+            or authoritative.lifecycle.state != sampled.state):
+          raise RelationshipStoreError(
+            f"stale lifecycle projection for issue {issue}: "
+            f"sampled {sampled.lifecycle_revision!r}, "
+            f"current {authoritative.revision!r}"
+          )
+      return self._write(current.graph, current.revision, states)
 
   def _write_new(
     self,
