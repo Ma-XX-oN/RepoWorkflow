@@ -199,6 +199,23 @@ class PrelimAttemptTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimError, "remote candidate"):
       self.construct(result.attempt)
 
+  def test_overlapping_state_fetches_preserve_each_guid_readback(self):
+    from repo_workflow import prelim_attempt as module
+    first = self.construct()
+    second = self.construct()
+    target = f"refs/heads/prelim-state/{first.attempt}"
+    competing = f"refs/heads/prelim-state/{second.attempt}"
+    original_git = module.git
+
+    def interleaved(root, *args, **kwargs):
+      outcome = original_git(root, *args, **kwargs)
+      if args == ("fetch", "origin", target):
+        original_git(root, "fetch", "origin", competing)
+      return outcome
+
+    with patch.object(module, "git", interleaved):
+      self.assertEqual(self.construct(first.attempt), first)
+
   def test_mismatched_remote_record_refuses_replay(self):
     result = self.construct()
     state_ref = f"refs/heads/prelim-state/{result.attempt}"
