@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 from repo_workflow.git import git
 from repo_workflow.prelim_attempt import construct_prelim
-from repo_workflow.prelim_publication import (\n  PrelimPublicationError, restore_identity,\n)\nfrom repo_workflow.prelim_validation import (
+from repo_workflow.prelim_publication import (
+  PrelimPublicationError, restore_identity,
+)
+from repo_workflow.prelim_validation import (
   HostedObservation, PrelimValidationError, validate_prelim,
 )
 from repo_workflow.state_store import StateStoreError, durable_store
@@ -153,8 +156,10 @@ class PrelimValidationTests(unittest.TestCase):
     self.publish_tags()
     self.invoke(self.pass_results())
     tags = git(self.root, "ls-remote", "--tags", "origin").stdout
-    self.assertNotIn("refs/tags/v1.2.4\\n", tags)
-    self.assertNotIn("refs/tags/v1.2.3\\n", tags)
+    self.assertNotIn("refs/tags/v1.2.4\
+", tags)
+    self.assertNotIn("refs/tags/v1.2.3\
+", tags)
 
   def test_rejects_unready_attempt(self):
     record = durable_store(self.root).read(
