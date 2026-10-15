@@ -1,5 +1,7 @@
 from contextlib import redirect_stdout
 from io import StringIO
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from pathlib import Path
 import tempfile
 import unittest
@@ -252,6 +254,56 @@ class SixStateGraphIntegrationTests(unittest.TestCase):
             "issue,title,dependencies,state,state_revision",
           )
           self.assertEqual(RelationshipStore(root).read(), refreshed)
+
+  def test_independent_lifecycle_issues_advance_without_interference(self):
+    # C05: real concurrent writers on independent canonical issue records.
+    barrier = Barrier(2)
+
+    def start(issue):
+      lifecycle = LifecycleStore(self.root)
+      barrier.wait(timeout=5)
+      return lifecycle.transition(
+        issue, "start", f"candidate-{issue}", 0, self.writer, None,
+      )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+      values = list(pool.map(start, (2, 3)))
+    for issue, snapshot in zip((2, 3), values):
+      self.assertEqual(snapshot.revision, 0)
+      self.assertEqual(snapshot.lifecycle.state, "active")
+      self.assertEqual(LifecycleStore(self.root).read(issue), snapshot)
+    self.assertIsNone(LifecycleStore(self.root).read(1).revision)
+    self.assertIsNone(self.relationships.read().states)
+
+  def test_two_csv_writers_race_same_revision_one_wins(self):
+    # P10: two concurrent state/graph CSV writes obey content CAS.
+    original = self.relationships.read()
+    barrier = Barrier(2)
+
+    def replace(title):
+      issues = dict(original.graph.issues)
+      relation = issues["1"]
+      issues["1"] = IssueRelationships(title, relation.depends_on)
+      replacement = RelationshipGraph(issues=issues)
+      barrier.wait(timeout=5)
+      try:
+        return self.relationships.replace(
+          original.revision, replacement, self.writer,
+        )
+      except RelationshipStoreError as error:
+        return str(error)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+      results = list(pool.map(replace, ("Writer A", "Writer B")))
+    winners = [item for item in results if not isinstance(item, str)]
+    losers = [item for item in results if isinstance(item, str)]
+    self.assertEqual(len(winners), 1)
+    self.assertEqual(len(losers), 1)
+    self.assertIn("stale ticket-state revision", losers[0])
+    self.assertEqual(RelationshipStore(self.root).read(), winners[0])
+    self.assertIn(
+      winners[0].graph.issues["1"].title, ("Writer A", "Writer B"),
+    )
 
   def test_symbols_use_one_terminal_cell(self):
     terminal = TerminalStyler("never")
