@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "key": "issues/987654/lifecycle",
+  "revision": 0,
+  "previous_revision": null,
+  "writer_id": "provider-second",
+  "session_id": "c12-test",
+  "value": {
+    "schema_version": 3,
+    "issue": "987654",
+    "state": "active",
+    "dependency_satisfied": false,
+    "relationship_revision": 0,
+    "history": [
+      {
+        "sequence": 0,
+        "transition": "start",
+        "from": "not_started",
+        "to": "active",
+        "candidate": "second"
+      }
+    ],
+    "high_risk_aliases": [],
+    "legacy_event_count": 0
+  }
+}
