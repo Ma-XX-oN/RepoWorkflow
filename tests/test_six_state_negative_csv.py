@@ -142,6 +142,29 @@ class StrictCsvAndOfflineAcceptance(unittest.TestCase):
     self.assertEqual(LifecycleStore(self.root).read(1), started)
     self.assertEqual(RelationshipStore(self.root).read(), revised)
 
+  def test_zero_visible_nodes_current_still_renders_empty_graph(self):
+    # G05: cleared selection is a valid zero-visible-node graph case.
+    selected = LaneSelectionStore(self.root).select((1,), self.writer)
+    LaneSelectionStore(self.root).clear(
+      expected_revision=selected.revision,
+    )
+    self.assertIsNone(LaneSelectionStore(self.root).read().value)
+    output = StringIO()
+    words = ["lanes", "view", "--current"]
+    with patch(
+      "repo_workflow.public_cli.runtime_writer_identity",
+      return_value=self.writer,
+    ), redirect_stdout(output):
+      self.assertEqual(
+        _handle_lanes(
+          self.root, words, LaneDiagnostics(self.root, tuple(words)),
+        ),
+        0,
+      )
+    self.assertEqual(output.getvalue().strip(), "")
+    cached = RelationshipStore(self.root).read()
+    self.assertEqual(set(cached.states), {"1", "2"})
+
   def test_graph_ignores_different_current_worktree_issue(self):
     # G14: worktree navigation pointer is not the graph-state authority.
     lifecycle = LifecycleStore(self.root)
