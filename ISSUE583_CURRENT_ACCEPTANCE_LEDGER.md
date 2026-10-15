@@ -1,9 +1,9 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 14, 2026 (Toronto).  74 cases: **56 PASS**,
-**18 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
-`ac7618525674449b3326cd2881d4f100a368192b` in draft PR #666;
-regression `38667171244`, integration `38667178515`.
+Snapshot: October 14, 2026 (Toronto).  74 cases: **58 PASS**,
+**16 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
+`6ec6a918d9bc196730ca736dde7fe8e473b8f837` in draft PR #666;
+regression `38676760165`, integration `38676767731`.
 This supplement retains the original 74-row historical acceptance ledger.
 
 ## Provider evidence key
@@ -30,6 +30,11 @@ This supplement retains the original 74-row historical acceptance ledger.
 
 - **J** — exact source `5eeb6d3f92bea274f52ef4c9162f23c98b3254ec`
   regression `38672066398`; integration `38672075357`; PASS.
+
+- **K** — exact source `a8589d3200e73051871ef3db690c64b1839ef38a`
+  regression `38676034606`; integration `38676043370`; PASS.
+- **L** — exact source `9efa3ccd54d49c78bc1616fa042c0118bf3c596d`
+  regression `38677168896`; integration `38677176892`; PASS.
 
 ## Independent 74-case verdicts
 
@@ -164,11 +169,10 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **C06 — PASS**
   Historical anchor: test_failed_atomic_replace_preserves_prior_record
   Remaining: injected publish failure preserves old authoritative record
-- **C07 — PARTIAL**
-  Historical anchor:
-  test_interrupted_committed_materialization_is_replayed_idempotently
-  Remaining: Transaction replay tested locally, but lost remote publication
-  ACK/exact request identity not proven.
+- **C07 — PASS** (provider evidence K)
+  Independent hosted proof: lost publication ACK; same-identity replay
+  preserves canonical lifecycle revision and exact CSV bytes.
+
 - **C08 — PASS** (provider evidence C)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_recovery_never_assumes_prepared_is_committed;
@@ -230,10 +234,10 @@ This supplement retains the original 74-row historical acceptance ledger.
 - **P11 — PASS** (provider evidence A)
   Verified full criterion via additional black-box oracle. Historical anchor:
   test_failed_atomic_replace_preserves_prior_record
-- **P12 — PARTIAL**
-  Historical anchor: test_divergent_title_uses_provider_authority
-  Remaining: provider title conflict resolved, lifecycle unchanged not
-  independently asserted
+- **P12 — PASS** (provider evidence L)
+  Independent hosted proof: authenticated issue title resolves conflict
+  without changing the authoritative lifecycle file or revision.
+
 - **P13 — PASS**
   Historical anchor:
   test_default_graph_reads_saved_status_and_ignores_provider_closed
