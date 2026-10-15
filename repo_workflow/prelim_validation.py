@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import tempfile
 import re
 import uuid
 
@@ -20,6 +21,7 @@ from .prelim_publication import (
 )
 from .state_store import StateStoreError, durable_store
 from .terminal_tag import _remote_target
+from .version_adapter import read_version
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -120,6 +122,17 @@ def validate_prelim(
       raise PrelimValidationError("PRELIM candidate object unavailable")
 
   fresh()
+  # Query the *physical candidate* through the configured repo adapter,
+  # never the accepted task branch or a directly inspected VERSION file.
+  with tempfile.TemporaryDirectory(prefix="rwf-prelim-version-") as temporary:
+    workspace = Path(temporary) / "candidate"
+    git(root, "worktree", "add", "--detach", str(workspace), candidate)
+    try:
+      actual_version = read_version(workspace, config)
+      if actual_version != value["proposed_version"]:
+        raise PrelimValidationError("candidate adapter version differs")
+    finally:
+      git(root, "worktree", "remove", "--force", str(workspace))
   checks = {
     "regression": _observation("regression", candidate, regression),
     "integration": _observation("integration", candidate, integration),
