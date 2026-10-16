@@ -191,5 +191,96 @@ class IntegrationTests(unittest.TestCase):
     self.assertNotIn("result", self.states)
 
 
+class RealGitIntegrationTests(unittest.TestCase):
+  """Real bare Git remote, authenticated #102 record, subprocess #119 adapter."""
+
+  def setUp(self):
+    from tests.test_prelim_validation import PrelimValidationTests
+    from repo_workflow.prelim_validation import validate_prelim
+    from unittest.mock import patch
+    import json
+    import sys
+
+    PrelimValidationTests.setUp(self)
+    PrelimValidationTests.publish_tags(self)
+    checks = [
+      {"outcome": "PASS", "version": self.version,
+       "tag": "v" + self.version},
+      {"outcome": "PASS", "version": self.version,
+       "tag": "v1.2.3-PRELIM-7.0.1"},
+    ]
+    with patch("repo_workflow.prelim_validation._observation",
+               side_effect=checks):
+      validate_prelim(
+        self.root, self.candidate.attempt, self.config,
+        regression=self.regression, integration=self.integration,
+      )
+    self.script = Path(self.temp.name) / "host-provider.py"
+    self.log = Path(self.temp.name) / "provider-requests.jsonl"
+    self.script.write_text(
+      "import json,sys,pathlib\\n"
+      "r=json.load(sys.stdin)\\n"
+      "ops=('issue.update','issue.comment','pull_request.create',"
+      "'pull_request.update','pull_request.merge','check.publish')\\n"
+      "if r['operation']=='capabilities':\\n"
+      "  result={'operations':{key:True for key in ops}}\\n"
+      "else:\\n"
+      "  p=r['parameters']\\n"
+      "  f=pathlib.Path(" + repr(str(self.log)) + ")\\n"
+      "  with f.open('a') as out: out.write(json.dumps(r)+'\\\\n')\\n"
+      "  result={'number':800,'source_ref':p['source_ref'],"
+      "'target_ref':p['target_ref'],"
+      "'head_sha':p['expected_source_sha'],'draft':p['draft']}\\n"
+      "print(json.dumps({'schema_version':1,'operation':r['operation'],"
+      "'repository':r['repository'],'request_id':r['request_id'],"
+      "'status':'unchanged' if r['operation']=='capabilities' else 'applied',"
+      "'result':result}))\\n",
+      encoding="utf-8",
+    )
+    config_path = self.root / ".ci/repoworkflow.json"
+    configured = json.loads(config_path.read_text(encoding="utf-8"))
+    configured["hostCommand"] = [sys.executable, str(self.script)]
+    config_path.write_text(json.dumps(configured), encoding="utf-8")
+
+  def invoke(self):
+    return api.request_prelim_integration(
+      self.root, self.candidate.attempt, self.config,
+      repository="owner/repo", title="Exact PRELIM integration",
+      body="Distinct request, not a server merge",
+      authorize=lambda *args: True,
+    )
+
+  def test_real_git_provider_request_and_replay(self):
+    from repo_workflow.git import git
+    first = self.invoke()
+    second = self.invoke()
+    self.assertEqual(first, second)
+    self.assertEqual(first.number, 800)
+    self.assertEqual(len(self.log.read_text().splitlines()), 1)
+    ref = ("refs/heads/prelim-integration-result/" +
+           self.candidate.attempt)
+    self.assertTrue(git(self.root, "ls-remote", "origin", ref).stdout.strip())
+    self.assertEqual(git(self.root, "rev-parse", "main").stdout.strip(),
+                     self.base)
+
+  def test_provider_state_can_be_restored_in_another_clone(self):
+    from repo_workflow.git import git
+    from repo_workflow.prelim_integration import _state
+    self.invoke()
+    fresh = Path(self.temp.name) / "other-clone"
+    git(self.root, "clone", "--branch", "main",
+        str(self.remote), str(fresh))
+    result = _state(fresh, "origin", self.candidate.attempt, "result")
+    self.assertEqual(result["value"]["provider"]["number"], 800)
+    self.assertEqual(result["value"]["status"], "requested-not-integrated")
+
+  def test_moved_server_main_blocks_further_mutation(self):
+    from repo_workflow.git import git
+    git(self.root, "push", "origin", "refs/heads/issue-7:refs/heads/main")
+    with self.assertRaises(Exception):
+      self.invoke()
+    self.assertFalse(self.log.exists())
+
+
 if __name__ == "__main__":
   unittest.main()
