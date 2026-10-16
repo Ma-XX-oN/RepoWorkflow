@@ -84,9 +84,9 @@ def _publish(root: Path, remote: str, ref: str, key: str,
       return
     # Restore the original local publication commit after remote ref loss.
     # Reconstructing a new commit would break immutable provider identity.
-    local = git(root, "show-ref", "--verify", ref, check=False)
+    local = git(root, "show-ref", "--verify", "--quiet", ref, check=False)
     if local.returncode == 0:
-      original = local.stdout.split()[0]
+      original = git(root, "rev-parse", "--verify", ref).stdout.strip()
       relative = ".repoworkflow/state/" + key + ".json"
       try:
         saved = json.loads(git(root, "show", original + ":" + relative).stdout)
