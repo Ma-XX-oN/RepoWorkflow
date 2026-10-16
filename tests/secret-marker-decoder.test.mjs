@@ -118,3 +118,21 @@ test('truncated reserved markers and excessive candidates fail closed', () => {
   const long = '[' + 'a'.repeat(32) + '/U/' + 'a'.repeat(400);
   assert.throws(() => decodeText(long, metadata), /MARKER_TOO_LONG/);
 });
+
+test('multi-part text boundaries and Unicode code-unit fidelity', () => {
+  const m = marker('O', '1234');
+  const input = 'Aé界𐐀 [literal] ' + m + ' suffix';
+  const baseline = decodeText(input, metadata);
+  for (let n = 1; n <= 12; n++) {
+    const stream = new SecretMarkerDecoder(metadata);
+    let out = '';
+    for (let i = 0; i < input.length; i += n)
+      out += stream.feed(input.slice(i, i + n));
+    assert.equal(out + stream.finish(), baseline);
+  }
+  assert.deepEqual(measureLogicalLength('Aé界𐐀'), [10, 5]);
+});
+test('large unclassified bracket sequence remains unchanged', () => {
+  const input = '[literal]'.repeat(2048);
+  assert.equal(decodeText(input, metadata), input);
+});
