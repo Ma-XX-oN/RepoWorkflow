@@ -82,6 +82,24 @@ def _publish(root: Path, remote: str, ref: str, key: str,
       if existing != record:
         raise PrelimPublicationError("immutable provider PRELIM collision")
       return
+    # Restore the original local publication commit after remote ref loss.
+    # Reconstructing a new commit would break immutable provider identity.
+    local = git(root, "show-ref", "--verify", ref, check=False)
+    if local.returncode == 0:
+      original = local.stdout.split()[0]
+      relative = ".repoworkflow/state/" + key + ".json"
+      try:
+        saved = json.loads(git(root, "show", original + ":" + relative).stdout)
+      except (ValueError, GitError) as error:
+        raise PrelimPublicationError("local PRELIM identity ref is invalid") from error
+      if saved != record:
+        raise PrelimPublicationError("local PRELIM publication ref differs")
+      git(root, "push", remote, ref + ":" + ref)
+      if _remote_record(root, remote, ref, key) != record:
+        raise PrelimPublicationError("republished PRELIM state differs")
+      return
+    if local.returncode != 1:
+      raise PrelimPublicationError("cannot verify local PRELIM ref")
     workspace = _workspace(root, workspace_id)
     if not workspace.exists():
       workspace.parent.mkdir(parents=True, exist_ok=True)
