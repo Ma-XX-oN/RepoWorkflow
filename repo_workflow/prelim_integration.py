@@ -12,7 +12,7 @@ import uuid
 
 from .host_mutation_dispatch import HostMutationError, dispatch_configured
 from .prelim_attempt import (
-  PrelimError, _attempt_lock, _remote_ref, _restore_remote_record,
+  PrelimError, _remote_ref, _restore_remote_record,
   _trusted_inputs,
 )
 from .prelim_identity import validate_attempt
@@ -53,7 +53,7 @@ def _save(root, remote, attempt, suffix, payload, base):
   ref = "refs/heads/prelim-integration-" + suffix + "/" + attempt
   key = "prelim/integration-" + suffix + "/" + attempt
   store = durable_store(root)
-  with _attempt_lock(root, store, suffix + "-" + attempt):
+  try:
     prior = _state(root, remote, attempt, suffix)
     if prior is None:
       try:
@@ -69,6 +69,8 @@ def _save(root, remote, attempt, suffix, payload, base):
     if observed != prior:
       raise PrelimIntegrationError("provider integration state readback differs")
     return prior
+  except (StateStoreError, ValueError) as error:
+    raise PrelimIntegrationError("cannot persist provider integration state") from error
 
 
 def request_prelim_integration(
@@ -117,10 +119,10 @@ def request_prelim_integration(
   # Never create an integration request by inventing an accepted identity.
   if accepted is None:
     from .prelim_publication import restore_identity
-    restore_identity(root, remote, attempt)
     try:
+      restore_identity(root, remote, attempt)
       accepted = store.read("prelim/identities/" + attempt)
-    except StateStoreError as error:
+    except (StateStoreError, ValueError) as error:
       raise PrelimIntegrationError("accepted PRELIM identity missing") from error
   identity = accepted["value"]
   candidate = value["candidate_sha"]
