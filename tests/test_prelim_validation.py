@@ -160,6 +160,26 @@ class PrelimValidationTests(unittest.TestCase):
     self.assertNotIn("refs/tags/v1.2.4", refs)
     self.assertNotIn("refs/tags/v1.2.3", refs)
 
+  def test_missing_remote_attempt_record_rejected(self):
+    ref = "refs/heads/prelim-state/" + self.candidate.attempt
+    git(self.root, "push", "origin", ":" + ref)
+    with self.assertRaisesRegex(PrelimValidationError, "unavailable"):
+      self.invoke(self.pass_results())
+    with self.assertRaises(StateStoreError):
+      self.accepted_record()
+
+  def test_local_attempt_record_divergence_rejected(self):
+    store = durable_store(self.root)
+    key = "prelim/attempts/" + self.candidate.attempt
+    original = store.read(key)
+    changed = dict(original["value"])
+    changed["proposed_version"] = "8.8.8"
+    store.replace(key, original["revision"], changed, self.writer)
+    with self.assertRaisesRegex(PrelimValidationError, "provider PRELIM attempt"):
+      self.invoke(self.pass_results())
+    with self.assertRaises(StateStoreError):
+      self.accepted_record()
+
   def test_physical_candidate_adapter_version_is_revalidated(self):
     self.publish_tags()
     self.config["versionCommand"] = [
