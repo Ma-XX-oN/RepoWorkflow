@@ -22,7 +22,9 @@ VALUE = {
 IDENTITY = {
   "outcome": "PASS", "attempt": ATTEMPT, "issue": "84",
   "candidate_sha": CANDIDATE, "source_sha": SOURCE,
-  "base_sha": BASE,
+  "base_sha": BASE, "proposed_version": "0.1.123",
+  "regression_tag": "v0.1.123-issue.84.0.3",
+  "integration_tag": "v0.1.123-PRELIM-84.0.3",
 }
 CONFIG = {"repository": {
   "authoritativeRemote": "origin", "integrationBranch": "main",
@@ -56,6 +58,7 @@ class IntegrationTests(unittest.TestCase):
       }),
       patch("repo_workflow.prelim_publication.restore_identity"),
       patch.object(api, "_trusted_inputs"),
+      patch.object(api, "_remote_target", return_value=CANDIDATE),
       patch.object(api, "_remote_ref", side_effect=lambda root, remote, ref:
                    self.remote.get(ref)),
       patch.object(api, "_state", side_effect=self.read_state),
@@ -302,6 +305,13 @@ class RealGitIntegrationTests(unittest.TestCase):
     with self.assertRaises(api.PrelimIntegrationError):
       self.invoke()
     self.assertEqual(len(self.log.read_text().splitlines()), 1)
+
+  def test_missing_terminal_provider_tag_rejected(self):
+    from repo_workflow.git import git
+    git(self.root, "push", "origin", ":refs/tags/v1.2.3-PRELIM-7.0.1")
+    with self.assertRaises(api.PrelimIntegrationError):
+      self.invoke()
+    self.assertFalse(self.log.exists())
 
   def test_moved_server_main_blocks_further_mutation(self):
     from repo_workflow.git import git

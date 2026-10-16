@@ -19,6 +19,7 @@ from .prelim_identity import validate_attempt
 from .prelim_publication import _publish, _restore
 from .state_store import StateStoreError, durable_store
 from .runtime_identity import runtime_writer_identity
+from .terminal_tag import _remote_target
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -147,7 +148,8 @@ def request_prelim_integration(
       or identity.get("candidate_sha") != candidate
       or identity.get("source_sha") != value["source_sha"]
       or identity.get("base_sha") != value["base_sha"]
-      or identity.get("issue") != value["issue"]):
+      or identity.get("issue") != value["issue"]
+      or identity.get("proposed_version") != value["proposed_version"]):
     raise PrelimIntegrationError("accepted PRELIM identity mismatch")
   branch = "refs/heads/" + value["branch"]
 
@@ -161,6 +163,12 @@ def request_prelim_integration(
       raise PrelimIntegrationError("physical PRELIM candidate changed")
     if _remote_ref(root, remote, "refs/heads/main") != value["base_sha"]:
       raise PrelimIntegrationError("integration destination moved")
+    for field in ("regression_tag", "integration_tag"):
+      tag = identity.get(field)
+      if type(tag) is not str or not tag.startswith("v"):
+        raise PrelimIntegrationError("immutable PRELIM terminal identity missing")
+      if _remote_target(root, remote, tag) != candidate:
+        raise PrelimIntegrationError("immutable PRELIM terminal tag differs")
 
   fresh()
   if authorize("pull_request.create", repository, attempt,
