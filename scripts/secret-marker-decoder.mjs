@@ -48,7 +48,7 @@ function jsonObjectPart(value) {
 }
 function jsonPartOfLength(length) {
   // Canonical JSON object forms with controllable byte counts.
-  for (const prefix of ['{"a":"', '{"a":', '{"x":']) {
+  for (const prefix of ['{"":', '{"a":"', '{"a":', '{"x":']) {
     const suffix = prefix.endsWith('"') ? '"}' : '}';
     for (let n = 0; n <= 512; n++) {
       const value = prefix + (prefix.endsWith('"') ? 'a'.repeat(n) :
