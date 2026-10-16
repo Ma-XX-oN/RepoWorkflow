@@ -73,6 +73,16 @@ function bytesFromSeed(seed) {
     return value;
   };
 }
+function canonicalToken(length, next) {
+  if (length % 4 === 1) throw new Error('UNSUPPORTED_B64_SHAPE');
+  const rem = length % 4;
+  const n = Math.floor(length / 4) * 3 + (rem === 2 ? 1 : rem === 3 ? 2 : 0);
+  const bytes = Buffer.alloc(n);
+  for (let i = 0; i < n; i++) bytes[i] = next();
+  const value = bytes.toString('base64url');
+  if (value.length !== length) throw new Error('INVALID_B64_SHAPE');
+  return value;
+}
 function reconstruct(type, params, seed) {
   const next = bytesFromSeed(seed);
   const generate = (alphabet, count) =>
@@ -85,17 +95,10 @@ function reconstruct(type, params, seed) {
   }
   if (type === 'P') return 'g-p-' + generate(HEX, 32);
   if (type === 'H') return generate(HEX, Number(params));
-  if (type === 'B') {
-    for (let i = 0; i < 100; i++) {
-      const value = generate(URL64, Number(params));
-      if (canonicalBase64(value)) return value;
-    }
-    throw new Error('SYNTHETIC_B64_FAILURE');
-  }
+  if (type === 'B') return canonicalToken(Number(params), next);
   if (type === 'J') {
     const [h, p, s] = params.split(',').map(Number);
-    const signature = generate(URL64, s);
-    if (!canonicalBase64(signature)) throw new Error('UNSUPPORTED_JWT_SHAPE');
+    const signature = canonicalToken(s, next);
     return jsonPartOfLength(h) + '.' + jsonPartOfLength(p) + '.' + signature;
   }
   if (type === 'O') {
