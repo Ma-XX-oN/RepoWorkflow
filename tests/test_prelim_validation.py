@@ -227,7 +227,7 @@ class PrelimValidationTests(unittest.TestCase):
     )
     self.assertEqual(recovered["value"]["outcome"], "INCOMPLETE")
 
-  def test_rejects_unready_attempt(self):
+  def test_unready_local_attempt_rejected_before_provider_acceptance(self):
     record = durable_store(self.root).read(
       "prelim/attempts/" + self.candidate.attempt
     )
@@ -237,7 +237,7 @@ class PrelimValidationTests(unittest.TestCase):
     durable_store(self.root).replace(
       record["key"], record["revision"], value, self.writer,
     )
-    with self.assertRaisesRegex(PrelimValidationError, "not ready"):
+    with self.assertRaisesRegex(PrelimValidationError, "provider PRELIM attempt record rejected"):
       self.invoke(self.pass_results())
 
 
