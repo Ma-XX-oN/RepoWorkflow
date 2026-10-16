@@ -145,7 +145,10 @@ export const TYPE_REGISTRY = Object.freeze(Object.fromEntries(
           canonicalBase64(value);
         case 'J': {
           const parts = value.split('.');
-          return parts.length === 3 && parts.slice(0, 2).every(jsonObjectPart) &&
+          return parts.length === 3 &&
+            parts.every(part => part.length >= 4 && part.length <= 512) &&
+            parts.reduce((total, part) => total + part.length, 0) <= 1024 &&
+            parts.slice(0, 2).every(jsonObjectPart) &&
             canonicalBase64(parts[2]);
         }
         case 'O': return false; // requires explicit opaque-secret span metadata
