@@ -182,9 +182,22 @@ def validate_prelim(
   publish_validation(root, remote, attempt, regression.invocation,
                      integration.invocation, audit, value["base_sha"])
   if outcome == "PASS":
+    # Provider run IDs belong to per-observation audit, not to a stable
+    # candidate identity: another matching verification is an idempotent
+    # readback, not a new immutable PRELIM candidate.
+    identity_payload = {
+      "attempt": attempt, "issue": value["issue"],
+      "candidate_sha": candidate, "source_sha": value["source_sha"],
+      "base_sha": value["base_sha"],
+      "proposed_version": value["proposed_version"],
+      "test_version": checks["integration"]["version"],
+      "regression_tag": checks["regression"]["tag"],
+      "integration_tag": checks["integration"]["tag"],
+      "outcome": "PASS",
+    }
     restore_identity(root, remote, attempt)
     identity = _immutable(store, "prelim/identities/" + attempt,
-                          payload, writer)
+                          identity_payload, writer)
     publish_identity(root, remote, attempt, identity, value["base_sha"])
   fresh()
   return PrelimValidation(
