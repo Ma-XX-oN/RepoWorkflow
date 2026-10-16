@@ -153,3 +153,20 @@ test('synthetic collision invalidates scope without encounter-order substitution
   assert.equal(collided, true);
   assert.throws(() => decoder.decodeMarker(marker('H', '2')), /DECODER_INVALIDATED/);
 });
+
+test('canonical Base64URL and shortest supported JWT object segments', () => {
+  const jwt = decodeText(marker('J', '8,8,4'), metadata);
+  const parts = jwt.split('.');
+  assert.deepEqual(parts.map(x => x.length), [8, 8, 4]);
+  for (const part of parts.slice(0, 2)) {
+    const parsed = JSON.parse(Buffer.from(part, 'base64url').toString('utf8'));
+    assert.equal(typeof parsed, 'object');
+    assert.ok(parsed !== null && !Array.isArray(parsed));
+  }
+  for (let index = 0; index < 128; index++) {
+    const id = index.toString(16).padStart(48, '0');
+    const value = decodeText(marker('B', '6', id), metadata);
+    assert.equal(value.length, 6);
+    assert.equal(Buffer.from(value, 'base64url').toString('base64url'), value);
+  }
+});
