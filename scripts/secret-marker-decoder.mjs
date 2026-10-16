@@ -177,6 +177,10 @@ export function parseMarker(marker) {
   if (check !== expected) throw new Error('INVALID_MARKER_CHECK');
   return { type, id, params };
 }
+function hasMarkerPrefix(text) {
+  return text.length >= 34 && text[0] === '[' && text[33] === '/' &&
+    /^[0-9a-f]{32}$/.test(text.slice(1, 33));
+}
 export class SecretMarkerDecoder {
   constructor({ redaction_format, redaction_scope } = {}) {
     if (redaction_format !== FORMAT) throw new Error('UNSUPPORTED_REDACTION_FORMAT');
@@ -227,7 +231,7 @@ export class SecretMarkerDecoder {
       if (char === ']') {
         const candidate = this.pending;
         this.pending = '';
-        if (/^\\[[0-9a-f]{32}\\//.test(candidate)) {
+        if (hasMarkerPrefix(candidate)) {
           if (candidate.length > MAX_MARKER) {
             this.invalidated = true;
             throw new Error('MARKER_TOO_LONG');
@@ -237,7 +241,7 @@ export class SecretMarkerDecoder {
           output.push(candidate);
         }
       } else if (this.pending.length > MAX_MARKER) {
-        if (/^\\[[0-9a-f]{32}\\//.test(this.pending)) {
+        if (hasMarkerPrefix(this.pending)) {
           this.invalidated = true;
           throw new Error('MARKER_TOO_LONG');
         }
@@ -246,7 +250,7 @@ export class SecretMarkerDecoder {
       }
     }
     if (final && this.pending) {
-      if (/^\\[[0-9a-f]{32}\\//.test(this.pending)) {
+      if (hasMarkerPrefix(this.pending)) {
         this.invalidated = true;
         throw new Error('TRUNCATED_MARKER');
       }
