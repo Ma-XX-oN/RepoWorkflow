@@ -202,6 +202,9 @@ class RealGitIntegrationTests(unittest.TestCase):
     import sys
 
     PrelimValidationTests.setUp(self)
+    self.config["repository"]["integrationBranch"] = "main"
+    from repo_workflow.git import git
+    self.original_main = git(self.root, "rev-parse", "main").stdout.strip()
     PrelimValidationTests.publish_tags(self)
     checks = [
       {"outcome": "PASS", "version": self.version,
@@ -238,8 +241,14 @@ class RealGitIntegrationTests(unittest.TestCase):
       encoding="utf-8",
     )
     config_path = self.root / ".ci/repoworkflow.json"
-    configured = json.loads(config_path.read_text(encoding="utf-8"))
-    configured["hostCommand"] = [sys.executable, str(self.script)]
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    configured = {
+      "schema": 1, "versionCommand": self.config["versionCommand"],
+      "repository": dict(self.config["repository"]),
+      "environments": [{"id": "linux",
+                        "validationCommand": [sys.executable, "-V"]}],
+      "hostCommand": [sys.executable, str(self.script)],
+    }
     config_path.write_text(json.dumps(configured), encoding="utf-8")
 
   def invoke(self):
@@ -261,7 +270,7 @@ class RealGitIntegrationTests(unittest.TestCase):
            self.candidate.attempt)
     self.assertTrue(git(self.root, "ls-remote", "origin", ref).stdout.strip())
     self.assertEqual(git(self.root, "rev-parse", "main").stdout.strip(),
-                     self.base)
+                     self.original_main)
 
   def test_provider_state_can_be_restored_in_another_clone(self):
     from repo_workflow.git import git
