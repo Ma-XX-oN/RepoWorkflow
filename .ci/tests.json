@@ -19,6 +19,7 @@
     {
       "test-harness": "unittest",
       "issue-102-prelim-validation": {"type": "regression", "name": "tests.test_prelim_validation"},
+      "issue-84-prelim-integration": {"type": "regression", "name": "tests.test_prelim_integration"},
       "issue-82-prelim-candidate": {"type": "regression", "name": "tests.test_prelim_attempt"},
       "issue-456-command-grammar": {
         "type": "regression",
