@@ -211,46 +211,49 @@ export class SecretMarkerDecoder {
   feed(chunk, final = false) {
     if (this.invalidated) throw new Error('DECODER_INVALIDATED');
     if (typeof chunk !== 'string') throw new TypeError('TEXT_CHUNK_REQUIRED');
-    this.pending += chunk;
-    let result = '';
-    while (this.pending.length) {
-      const start = this.pending.indexOf('[');
-      if (start === -1) {
-        result += this.pending;
-        this.pending = '';
-        break;
-      }
-      result += this.pending.slice(0, start);
-      this.pending = this.pending.slice(start);
-      const end = this.pending.indexOf(']');
-      if (end < 0) {
-        if (this.pending.length > MAX_MARKER && /^\[[0-9a-f]{32}\//.test(this.pending)) {
-          this.invalidated = true;
-          throw new Error('MARKER_TOO_LONG');
-        }
-        if (!final && this.pending.length <= MAX_MARKER) break;
-        if (final && /^\[[0-9a-f]{32}\//.test(this.pending)) {
-          this.invalidated = true;
-          throw new Error('TRUNCATED_MARKER');
-        }
-        result += '[';
-        this.pending = this.pending.slice(1);
+    const output = [];
+    for (const char of chunk) {
+      if (this.pending === '') {
+        if (char === '[') this.pending = '[';
+        else output.push(char);
         continue;
       }
-      const candidate = this.pending.slice(0, end + 1);
-      if (/^\[[0-9a-f]{32}\//.test(candidate)) {
-        if (candidate.length > MAX_MARKER) {
+      if (char === '[') {
+        output.push(this.pending);
+        this.pending = '[';
+        continue;
+      }
+      this.pending += char;
+      if (char === ']') {
+        const candidate = this.pending;
+        this.pending = '';
+        if (/^\\[[0-9a-f]{32}\\//.test(candidate)) {
+          if (candidate.length > MAX_MARKER) {
+            this.invalidated = true;
+            throw new Error('MARKER_TOO_LONG');
+          }
+          output.push(this.decodeMarker(candidate));
+        } else {
+          output.push(candidate);
+        }
+      } else if (this.pending.length > MAX_MARKER) {
+        if (/^\\[[0-9a-f]{32}\\//.test(this.pending)) {
           this.invalidated = true;
           throw new Error('MARKER_TOO_LONG');
         }
-        result += this.decodeMarker(candidate);
-        this.pending = this.pending.slice(candidate.length);
-      } else {
-        result += '[';
-        this.pending = this.pending.slice(1);
+        output.push(this.pending);
+        this.pending = '';
       }
     }
-    return result;
+    if (final && this.pending) {
+      if (/^\\[[0-9a-f]{32}\\//.test(this.pending)) {
+        this.invalidated = true;
+        throw new Error('TRUNCATED_MARKER');
+      }
+      output.push(this.pending);
+      this.pending = '';
+    }
+    return output.join('');
   }
   finish() { return this.feed('', true); }
 }
