@@ -120,6 +120,50 @@ function verifyReplacement(type, params, value) {
   if (type === 'O') return [...value].map(c => Buffer.byteLength(c)).join('') === params;
   return false;
 }
+
+// Type identification is anchored to a complete logical value, never substring text.
+// Consumers must explicitly opt in to a supported classified value context.
+const ACTIVE_CONTEXTS = Object.freeze([
+  'json.string', 'sse.data.json.string', 'http.header.value',
+  'http.query.value', 'ws.text.json.string'
+]);
+const contexts = Object.freeze(Object.fromEntries(ACTIVE_CONTEXTS.map(c => [c, true])));
+export const TYPE_REGISTRY = Object.freeze(Object.fromEntries(
+  ['U', 'H', 'B', 'P', 'J', 'O'].map(type => [type, Object.freeze({
+    contexts,
+    identify(value, context) {
+      if (contexts[context] !== true || typeof value !== 'string') return false;
+      switch (type) {
+        case 'U': return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
+        case 'P': return /^g-p-[0-9a-f]{32}$/.test(value);
+        case 'H': return value.length >= 2 && value.length <= 256 &&
+          value.length % 2 === 0 && /^[0-9a-f]+$/.test(value);
+        case 'B': return value.length >= 4 && value.length <= 256 &&
+          canonicalBase64(value);
+        case 'J': {
+          const parts = value.split('.');
+          return parts.length === 3 && parts.slice(0, 2).every(jsonObjectPart) &&
+            canonicalBase64(parts[2]);
+        }
+        case 'O': return false; // requires explicit opaque-secret span metadata
+        default: return false;
+      }
+    },
+    reconstruct(params, randomSource) {
+      if (!validate(type, params)) throw new Error('UNSUPPORTED_TYPE_OR_PARAMS');
+      if (typeof randomSource !== 'function') throw new TypeError('RANDOM_SOURCE_REQUIRED');
+      return reconstruct(type, params, randomSource());
+    }
+  })])
+));
+
+export function identifyTypes(value, context, allowedTypes = Object.keys(TYPE_REGISTRY)) {
+  const found = allowedTypes.filter(t =>
+    TYPE_REGISTRY[t]?.identify(value, context) === true);
+  if (found.length > 1) throw new Error('AMBIGUOUS_SECRET_TYPE');
+  return found;
+}
+
 export function parseMarker(marker) {
   if (typeof marker !== 'string' || marker.length > MAX_MARKER) {
     throw new Error('MARKER_TOO_LONG_OR_INVALID');
