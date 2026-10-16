@@ -105,7 +105,7 @@ test('pinned DC #300 golden vectors validate without original HMAC key', async (
 test('classified registry rejects overlap and unsupported free-text context', async () => {
   const { TYPE_REGISTRY, identifyTypes } = await import('../scripts/secret-marker-decoder.mjs');
   assert.equal(TYPE_REGISTRY.U.contexts['json.string'], true);
-  assert.deepEqual(identifyTypes('550e8400-e29b-41d4-a716-446655440000', 'json.string'), ['U']);
+  assert.deepEqual(identifyTypes('550e8400-e29b-41d4-a716-446655440000', 'json.string', ['U']), ['U']);
   assert.throws(() => identifyTypes('deadbeefcafe', 'json.string', ['H','B']), /AMBIGUOUS_SECRET_TYPE/);
   assert.deepEqual(identifyTypes('deadbeefcafe', 'text.plain'), []);
   assert.equal(TYPE_REGISTRY.O.identify('Aé界𐐀', 'json.string'), false);
