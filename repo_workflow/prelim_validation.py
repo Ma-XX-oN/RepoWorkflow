@@ -14,7 +14,9 @@ import uuid
 from .git import git
 from .hosted_terminal_binding import bind_hosted_terminal
 from .phase_terminal import plan_phase
-from .prelim_attempt import (\n  PrelimError, _remote_ref, _restore_remote_record, _trusted_inputs,\n)
+from .prelim_attempt import (
+  PrelimError, _remote_ref, _restore_remote_record, _trusted_inputs,
+)
 from .prelim_identity import validate_attempt
 from .prelim_publication import (
   publish_identity, publish_validation, restore_identity, restore_validation,
