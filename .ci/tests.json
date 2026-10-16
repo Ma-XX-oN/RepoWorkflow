@@ -13,6 +13,13 @@
       "layout": [
         "$test"
       ]
+    },
+    "node-test": {
+      "command": "node",
+      "layout": [
+        "--test",
+        "$test"
+      ]
     }
   },
   "tests": [
@@ -392,6 +399,13 @@
       "issue-583-ticket-merge-probe": {
         "type": "regression",
         "name": "scripts/probe-ticket-merge.py"
+      }
+    },
+    {
+      "test-harness": "node-test",
+      "issue-670-javascript-interface-playback": {
+        "type": "regression",
+        "name": "tests/interface-playback.test.mjs"
       }
     }
   ],
