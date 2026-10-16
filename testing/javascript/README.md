@@ -46,9 +46,9 @@ interface.
   Set, buffers and typed arrays are rejected.
 - Type restoration for custom objects requires trusted constructor mappings;
   arbitrary constructor loading is not supported.
-- JSONL is written incrementally by interaction, but `load(path)` currently
-  materializes the entries into memory. A bounded-memory streaming reader
-  and contract-parity tests remain required.
+- JSONL is read and written incrementally, but the in-memory interaction
+  array still grows with total recording size. A bounded-memory lazy cursor
+  and cross-language contract-parity tests remain required.
 - Selective `$unchanged` validates syntax and preserves replay state, but
   comparing selected unchanged fields against the captured pre-state is
   still outstanding.
