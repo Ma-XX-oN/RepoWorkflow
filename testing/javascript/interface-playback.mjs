@@ -2,7 +2,10 @@
  * No network, DOM, repo runtime or production dependencies.
  * Compatible with the grammar specified by RepoWorkflow #518/#553.
  */
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { createInterface } from 'node:readline';
+import { once } from 'node:events';
 import { isDeepStrictEqual } from 'node:util';
 
 export const Free = Symbol('interface-playback.Free');
@@ -85,10 +88,16 @@ export class InterfacePlayback {
   async load(source) {
     let data = source;
     if (typeof source === 'string') {
-      const raw = await readFile(source, 'utf8');
-      const trimmed = raw.trim();
-      data = trimmed.startsWith('[') ? JSON.parse(trimmed) :
-        trimmed ? trimmed.split(/\r?\n/).map(line => JSON.parse(line)) : [];
+      if (source.endsWith('.json')) {
+        data = JSON.parse(await readFile(source, 'utf8'));
+      } else {
+        data = [];
+        const input = createReadStream(source, { encoding: 'utf8' });
+        const lines = createInterface({ input, crlfDelay: Infinity });
+        for await (const line of lines) {
+          if (line.trim()) data.push(JSON.parse(line));
+        }
+      }
     }
     if (!Array.isArray(data)) failure('load', 'expected interaction array or JSONL file');
     data.forEach((entry, i) => validateInteraction(entry, i));
@@ -98,9 +107,18 @@ export class InterfacePlayback {
   }
 
   async save(path) {
-    this.entries.forEach((entry, i) => validateInteraction(entry, i));
-    await writeFile(path, this.entries.map(e => JSON.stringify(e)).join('\n') +
-      (this.entries.length ? '\n' : ''), 'utf8');
+    const output = createWriteStream(path, { encoding: 'utf8' });
+    try {
+      for (const [i, entry] of this.entries.entries()) {
+        validateInteraction(entry, i);
+        if (!output.write(`${JSON.stringify(entry)}\n`)) await once(output, 'drain');
+      }
+      output.end();
+      await once(output, 'finish');
+    } catch (error) {
+      output.destroy();
+      throw error;
+    }
   }
 
   #encode(v, seen = new WeakSet()) {
