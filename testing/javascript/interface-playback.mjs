@@ -3,6 +3,7 @@
  * Compatible with the grammar specified by RepoWorkflow #518/#553.
  */
 import { readFile, writeFile } from 'node:fs/promises';
+import { isDeepStrictEqual } from 'node:util';
 
 export const Free = Symbol('interface-playback.Free');
 const allowed = new Set(['$free', '$unchanged', '$new', '$ref', '$type']);
@@ -230,6 +231,38 @@ export class InterfacePlayback {
     }
   }
 
+  #checkUnchanged(spec, actual, baseline, path) {
+    if (!isObject(spec)) return;
+    if (own(spec, '$unchanged')) {
+      const selected = spec.$unchanged;
+      if (selected === true) {
+        if (!isDeepStrictEqual(actual, baseline)) failure(path, 'Unchanged invariant violated');
+      } else {
+        for (const key of selected.keys) {
+          if (!isObject(actual) || !isObject(baseline) ||
+              !own(actual, key) || !own(baseline, key) ||
+              !isDeepStrictEqual(actual[key], baseline[key])) {
+            failure(`${path}.${key}`, 'selected Unchanged invariant violated');
+          }
+        }
+      }
+      return;
+    }
+    if (Array.isArray(spec)) {
+      spec.forEach((item, i) => this.#checkUnchanged(item, actual?.[i], baseline?.[i], `${path}[${i}]`));
+    } else if (Array.isArray(spec.items)) {
+      spec.items.forEach((item, i) => this.#checkUnchanged(item, actual?.[i], baseline?.[i], `${path}[${i}]`));
+    } else if (plain(spec.items)) {
+      for (const [key, item] of Object.entries(spec.items)) {
+        this.#checkUnchanged(item, actual?.[key], baseline?.[key], `${path}.${key}`);
+      }
+    } else {
+      for (const [key, item] of Object.entries(spec)) {
+        if (!key.startsWith('$')) this.#checkUnchanged(item, actual?.[key], baseline?.[key], `${path}.${key}`);
+      }
+    }
+  }
+
   #apply(spec, target, refs, path) {
     if (spec?.$unchanged) return;
     if (!isObject(spec) || !isObject(target)) return;
@@ -294,8 +327,18 @@ export class InterfacePlayback {
   async test(invoke, receiver, name, args = [], kwargs = {}) {
     if (typeof invoke !== 'function') failure('test', 'expected function');
     const { entry, refs } = this.#expect(receiver, name, args, kwargs);
+    const baseline = structuredClone({
+      receiver: receiver === Free ? null : receiver,
+      args,
+      kwargs
+    });
     let value, thrown;
     try { value = await invoke(...args, ...(Object.keys(kwargs).length ? [kwargs] : [])); } catch (e) { thrown = e; }
+    if (receiver !== Free) this.#checkUnchanged(entry.after.obj, receiver, baseline.receiver, 'after.obj');
+    args.forEach((arg, i) => this.#checkUnchanged(entry.after.args[i], arg, baseline.args[i], `after.args[${i}]`));
+    for (const [key, value] of Object.entries(kwargs)) {
+      this.#checkUnchanged(entry.after.kwargs[key], value, baseline.kwargs[key], `after.kwargs.${key}`);
+    }
     if (receiver !== Free) this.#compare(entry.after.obj, receiver, refs, 'after.obj');
     args.forEach((arg, i) => this.#compare(entry.after.args[i], arg, refs, `after.args[${i}]`));
     for (const [k, v] of Object.entries(kwargs)) this.#compare(entry.after.kwargs[k], v, refs, `after.kwargs.${k}`);
