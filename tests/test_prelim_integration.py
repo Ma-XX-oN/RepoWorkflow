@@ -283,6 +283,25 @@ class RealGitIntegrationTests(unittest.TestCase):
     self.assertEqual(result["value"]["provider"]["number"], 800)
     self.assertEqual(result["value"]["status"], "requested-not-integrated")
 
+  def test_deleted_provider_identity_ref_fails_closed(self):
+    from repo_workflow.git import git
+    ref = ("refs/heads/prelim-identity-state/" +
+           self.candidate.attempt)
+    git(self.root, "push", "origin", ":" + ref)
+    with self.assertRaises(api.PrelimIntegrationError):
+      self.invoke()
+    self.assertFalse(self.log.exists())
+
+  def test_deleted_result_ref_cannot_prove_request(self):
+    from repo_workflow.git import git
+    self.invoke()
+    ref = ("refs/heads/prelim-integration-result/" +
+           self.candidate.attempt)
+    git(self.root, "push", "origin", ":" + ref)
+    with self.assertRaises(api.PrelimIntegrationError):
+      self.invoke()
+    self.assertEqual(len(self.log.read_text().splitlines()), 1)
+
   def test_moved_server_main_blocks_further_mutation(self):
     from repo_workflow.git import git
     git(self.root, "push", "origin", "refs/heads/issue-7:refs/heads/main")

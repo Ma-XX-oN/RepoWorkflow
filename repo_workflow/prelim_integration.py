@@ -39,14 +39,22 @@ class IntegrationRequest:
 def _state(root, remote, attempt, suffix):
   ref = "refs/heads/prelim-integration-" + suffix + "/" + attempt
   key = "prelim/integration-" + suffix + "/" + attempt
+  advertised = _remote_ref(root, remote, ref)
   _restore(root, remote, ref, key)
   store = durable_store(root)
   try:
-    return store.read(key)
+    record = store.read(key)
   except StateStoreError as error:
     if "record is missing:" in str(error):
+      if advertised is not None:
+        raise PrelimIntegrationError("published integration record missing")
       return None
     raise
+  if advertised is None:
+    raise PrelimIntegrationError("integration record lacks provider publication")
+  if _remote_ref(root, remote, ref) != advertised:
+    raise PrelimIntegrationError("integration publication moved")
+  return record
 
 
 def _save(root, remote, attempt, suffix, payload, base):
@@ -54,7 +62,12 @@ def _save(root, remote, attempt, suffix, payload, base):
   key = "prelim/integration-" + suffix + "/" + attempt
   store = durable_store(root)
   try:
-    prior = _state(root, remote, attempt, suffix)
+    try:
+      prior = _state(root, remote, attempt, suffix)
+    except PrelimIntegrationError:
+      # A locally persisted record without a remote ref is not trusted.
+      # Re-publish it through #102 immutable CAS before any acknowledgement.
+      prior = store.read(key)
     if prior is None:
       try:
         prior = store.create(key, payload, runtime_writer_identity())
@@ -120,6 +133,9 @@ def request_prelim_integration(
   if accepted is None:
     from .prelim_publication import restore_identity
     try:
+      if _remote_ref(root, remote,
+          "refs/heads/prelim-identity-state/" + attempt) is None:
+        raise PrelimIntegrationError("PRELIM PASS identity not published")
       restore_identity(root, remote, attempt)
       accepted = store.read("prelim/identities/" + attempt)
     except (StateStoreError, ValueError) as error:
