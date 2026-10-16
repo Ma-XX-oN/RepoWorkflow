@@ -178,6 +178,26 @@ class PrelimValidationTests(unittest.TestCase):
        self.candidate.attempt).glob("*.json")
     )), 2)
 
+  def test_deleted_remote_publication_refs_restore_exact_commits(self):
+    self.publish_tags()
+    first = self.invoke(self.pass_results())
+    attempt = self.candidate.attempt
+    suffix = self.regression.invocation + "-" + self.integration.invocation
+    refs = [
+      "refs/heads/prelim-identity-state/" + attempt,
+      "refs/heads/prelim-validation-state/" + attempt + "/" + suffix,
+    ]
+    originals = {
+      ref: git(self.root, "rev-parse", ref).stdout.strip() for ref in refs
+    }
+    for ref in refs:
+      git(self.root, "push", "origin", ":" + ref)
+    second = self.invoke(self.pass_results())
+    self.assertEqual(first, second)
+    for ref in refs:
+      remote = git(self.root, "ls-remote", "origin", ref).stdout.split()
+      self.assertEqual(remote[0], originals[ref])
+
   def test_missing_remote_attempt_record_rejected(self):
     ref = "refs/heads/prelim-state/" + self.candidate.attempt
     git(self.root, "push", "origin", ":" + ref)
