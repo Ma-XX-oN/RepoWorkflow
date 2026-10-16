@@ -151,3 +151,27 @@ test('filtered real exception mismatch rejects and does not consume', async () =
   await assert.rejects(q.test(() => { throw new TypeError('wrong'); }, Free, 'danger'), /exception mismatch/);
   assert.equal(q.cursor, 0);
 });
+
+test('Unchanged enforces the pre/post invariant for a real implementation', async () => {
+  const p = new InterfacePlayback();
+  await p.load([{ call: { fn_name: 'check', obj: { $free: true } },
+    before: { args: [{ $new: 'one', $type: 'builtins.dict', keys: ['status'], items: { status: 'same' } }], kwargs: {} },
+    after: { args: [{ $unchanged: true }], kwargs: {} }, result: { return: 'ok' } }]);
+  const object = { status: 'same' };
+  await assert.rejects(p.test(arg => { arg.status = 'different'; return 'ok'; }, Free, 'check', [object]), /Unchanged invariant violated/);
+  assert.equal(p.cursor, 0);
+  const unchanged = { status: 'same' };
+  assert.equal(await p.test(() => 'ok', Free, 'check', [unchanged]), 'ok');
+});
+
+test('selective Unchanged only checks selected fields', async () => {
+  const p = new InterfacePlayback();
+  await p.load([{ call: { fn_name: 'check', obj: { $free: true } },
+    before: { args: [{ $new: 'one', $type: 'builtins.dict', keys: ['mode', 'count'], items: { mode: 'same', count: 0 } }], kwargs: {} },
+    after: { args: [{ $unchanged: { keys: ['mode'] } }], kwargs: {} }, result: { return: 1 } }]);
+  const obj = { mode: 'same', count: 0 };
+  assert.equal(await p.test(arg => { arg.count++; return 1; }, Free, 'check', [obj]), 1);
+  p.reset();
+  const changed = { mode: 'same', count: 0 };
+  await assert.rejects(p.test(arg => { arg.mode = 'wrong'; return 1; }, Free, 'check', [changed]), /selected Unchanged invariant violated/);
+});
