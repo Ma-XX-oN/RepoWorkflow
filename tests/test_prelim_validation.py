@@ -160,6 +160,24 @@ class PrelimValidationTests(unittest.TestCase):
     self.assertNotIn("refs/tags/v1.2.4", refs)
     self.assertNotIn("refs/tags/v1.2.3", refs)
 
+  def test_distinct_pass_observations_reuse_immutable_candidate_identity(self):
+    self.publish_tags()
+    first = self.invoke(self.pass_results())
+    immutable = self.accepted_record()
+    self.regression = HostedObservation(
+      self.root, "c" * 40, 1003, self.root / "second-regression.jsonl",
+    )
+    self.integration = HostedObservation(
+      self.root, "d" * 40, 1004, self.root / "second-integration.jsonl",
+    )
+    second = self.invoke(self.pass_results())
+    self.assertEqual(second.candidate_sha, first.candidate_sha)
+    self.assertEqual(self.accepted_record(), immutable)
+    self.assertEqual(len(list(
+      (self.root / ".repoworkflow/state/prelim/validations" /
+       self.candidate.attempt).glob("*.json")
+    )), 2)
+
   def test_missing_remote_attempt_record_rejected(self):
     ref = "refs/heads/prelim-state/" + self.candidate.attempt
     git(self.root, "push", "origin", ":" + ref)
