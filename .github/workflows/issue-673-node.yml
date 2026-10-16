@@ -1,0 +1,21 @@
+name: Secret marker decoder V1
+on:
+  pull_request:
+    paths:
+      - 'scripts/secret-marker-decoder.mjs'
+      - 'tests/secret-marker-decoder.test.mjs'
+      - 'tests/fixtures/redaction-marker-v1.json'
+      - '.github/workflows/issue-673-node.yml'
+  workflow_dispatch:
+jobs:
+  synthetic-decoder:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact synthetic Node acceptance
+        run: node --test tests/secret-marker-decoder.test.mjs
