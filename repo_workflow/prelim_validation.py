@@ -14,7 +14,7 @@ import uuid
 from .git import git
 from .hosted_terminal_binding import bind_hosted_terminal
 from .phase_terminal import plan_phase
-from .prelim_attempt import _remote_ref, _trusted_inputs
+from .prelim_attempt import (\n  PrelimError, _remote_ref, _restore_remote_record, _trusted_inputs,\n)
 from .prelim_identity import validate_attempt
 from .prelim_publication import (
   publish_identity, publish_validation, restore_identity, restore_validation,
@@ -101,7 +101,16 @@ def validate_prelim(
   except (ValueError, TypeError, AttributeError) as error:
     raise PrelimValidationError("invalid PRELIM attempt GUID") from error
   store = durable_store(root)
+  remote = config["repository"]["authoritativeRemote"]
+  try:
+    recorded = _restore_remote_record(root, remote, store, attempt)
+  except (PrelimError, StateStoreError) as error:
+    raise PrelimValidationError("provider PRELIM attempt record rejected") from error
+  if recorded is None:
+    raise PrelimValidationError("provider PRELIM attempt record unavailable")
   record = store.read("prelim/attempts/" + attempt)
+  if record != recorded:
+    raise PrelimValidationError("provider PRELIM attempt record changed")
   value = record["value"]
   validate_attempt(value)
   if value["attempt"] != attempt or value["state"] != "ready":
