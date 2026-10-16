@@ -107,10 +107,10 @@ export class InterfacePlayback {
   }
 
   async save(path) {
+    this.entries.forEach((entry, i) => validateInteraction(entry, i));
     const output = createWriteStream(path, { encoding: 'utf8' });
     try {
-      for (const [i, entry] of this.entries.entries()) {
-        validateInteraction(entry, i);
+      for (const entry of this.entries) {
         if (!output.write(`${JSON.stringify(entry)}\n`)) await once(output, 'drain');
       }
       output.end();
