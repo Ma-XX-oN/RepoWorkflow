@@ -80,3 +80,24 @@ test('legacy redacted placeholders unchanged and no secret HMAC key available', 
   assert.equal(decodeText('[redacted]', metadata), '[redacted]');
   assert.equal('key' in new SecretMarkerDecoder(metadata), false);
 });
+
+test('pinned DC #300 golden vectors validate without original HMAC key', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const path = fileURLToPath(new URL('./fixtures/redaction-marker-v1.json', import.meta.url));
+  const fixture = JSON.parse(readFileSync(path, 'utf8'));
+  assert.equal(fixture.format, 'dc-secret-marker/1');
+  assert.equal(fixture.fixture_version, 1);
+  assert.equal(fixture.synthetic_only, true);
+  const scope = { ...metadata, redaction_scope: fixture.test_scope };
+  for (const vector of fixture.vectors) {
+    const parsed = parseMarker(vector.marker);
+    assert.equal(parsed.type, vector.type);
+    assert.equal(parsed.id, vector.id);
+    assert.equal(parsed.params ?? null, vector.params);
+    const value = decodeText(vector.marker, scope);
+    assert.deepEqual(measureLogicalLength(value),
+      [vector.utf8_bytes, vector.utf16_units]);
+    assert.equal(decodeText(vector.marker, scope), value);
+  }
+});
