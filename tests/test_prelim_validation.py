@@ -54,7 +54,7 @@ class PrelimValidationTests(unittest.TestCase):
        "tag": "v1.2.3-PRELIM-7.0.1"},
     ]
 
-  def identity(self):
+  def accepted_record(self):
     return durable_store(self.root).read(
       "prelim/identities/" + self.candidate.attempt
     )
@@ -66,8 +66,8 @@ class PrelimValidationTests(unittest.TestCase):
     self.assertEqual(first, second)
     self.assertEqual(first.outcome, "PASS")
     self.assertEqual(first.identity_version, self.version)
-    self.assertEqual(self.identity()["revision"], 0)
-    self.assertEqual(self.identity()["value"]["candidate_sha"],
+    self.assertEqual(self.accepted_record()["revision"], 0)
+    self.assertEqual(self.accepted_record()["value"]["candidate_sha"],
                      self.candidate.candidate_sha)
     self.assertEqual(git(self.root, "rev-parse", "issue-7").stdout.strip(),
                      self.source)
@@ -76,7 +76,7 @@ class PrelimValidationTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimValidationError, "tag"):
       self.invoke(self.pass_results())
     with self.assertRaises(StateStoreError):
-      self.identity()
+      self.accepted_record()
 
   def test_failed_terminal_evidence_audited_but_never_accepted(self):
     checks = self.pass_results()
@@ -85,7 +85,7 @@ class PrelimValidationTests(unittest.TestCase):
     result = self.invoke(checks)
     self.assertEqual(result.outcome, "FAIL")
     with self.assertRaises(StateStoreError):
-      self.identity()
+      self.accepted_record()
     self.assertEqual(len(list(
       (self.root / ".repoworkflow/state/prelim/validations" /
        self.candidate.attempt).glob("*.json")
@@ -96,7 +96,7 @@ class PrelimValidationTests(unittest.TestCase):
     checks[0] = {"outcome": "INCOMPLETE", "version": None, "tag": None}
     self.assertEqual(self.invoke(checks).outcome, "INCOMPLETE")
     with self.assertRaises(StateStoreError):
-      self.identity()
+      self.accepted_record()
 
   def test_candidate_remote_ref_rewrite_blocks_acceptance(self):
     self.publish_tags()
@@ -105,7 +105,7 @@ class PrelimValidationTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimValidationError, "candidate changed"):
       self.invoke(self.pass_results())
     with self.assertRaises(StateStoreError):
-      self.identity()
+      self.accepted_record()
 
   def test_conflicting_evidence_for_same_invocations_rejected(self):
     self.publish_tags()
@@ -115,7 +115,7 @@ class PrelimValidationTests(unittest.TestCase):
                  "tag": "v1.2.3-PRELIM-7.0.1-CI-FAIL"}
     with self.assertRaisesRegex(PrelimValidationError, "immutable"):
       self.invoke(checks)
-    self.assertEqual(self.identity()["value"]["outcome"], "PASS")
+    self.assertEqual(self.accepted_record()["value"]["outcome"], "PASS")
 
   def test_different_test_versions_rejected(self):
     checks = self.pass_results()
@@ -137,7 +137,7 @@ class PrelimValidationTests(unittest.TestCase):
     found = durable_store(fresh).read(
       "prelim/identities/" + self.candidate.attempt
     )
-    self.assertEqual(found, self.identity())
+    self.assertEqual(found, self.accepted_record())
     self.assertEqual(found["value"]["candidate_sha"],
                      accepted.candidate_sha)
 
@@ -168,7 +168,7 @@ class PrelimValidationTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimValidationError, "adapter version"):
       self.invoke(self.pass_results())
     with self.assertRaises(StateStoreError):
-      self.identity()
+      self.accepted_record()
 
   def test_failed_provider_audit_survives_fresh_clone(self):
     checks = self.pass_results()
