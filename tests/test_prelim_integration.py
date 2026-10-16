@@ -47,6 +47,7 @@ class IntegrationTests(unittest.TestCase):
     self.remote = {
       "refs/heads/main": BASE,
       "refs/heads/" + VALUE["branch"]: CANDIDATE,
+      "refs/heads/prelim-identity-state/" + ATTEMPT: "e" * 40,
     }
     self.patches = [
       patch.object(api, "durable_store", return_value=self.store),
