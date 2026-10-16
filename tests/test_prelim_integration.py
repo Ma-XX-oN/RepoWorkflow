@@ -87,10 +87,14 @@ class IntegrationTests(unittest.TestCase):
     }}
 
   def execute(self, **kwargs):
+    arguments = {
+      "repository": "owner/repo", "title": "Accept PRELIM",
+      "body": "Validated exact candidate",
+      "authorize": lambda *args: True,
+    }
+    arguments.update(kwargs)
     return api.request_prelim_integration(
-      Path("."), ATTEMPT, CONFIG, repository="owner/repo",
-      title="Accept PRELIM", body="Validated exact candidate",
-      authorize=lambda *args: True, **kwargs,
+      Path("."), ATTEMPT, CONFIG, **arguments,
     )
 
   def test_exact_candidate_recorded_distinct_request(self):
