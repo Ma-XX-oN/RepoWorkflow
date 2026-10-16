@@ -136,3 +136,20 @@ test('large unclassified bracket sequence remains unchanged', () => {
   const input = '[literal]'.repeat(2048);
   assert.equal(decodeText(input, metadata), input);
 });
+
+test('synthetic collision invalidates scope without encounter-order substitution', () => {
+  const decoder = new SecretMarkerDecoder(metadata);
+  let collided = false;
+  for (let i = 0; i < 257; i++) {
+    const id = i.toString(16).padStart(48, '0');
+    try {
+      decoder.decodeMarker(marker('H', '2', id));
+    } catch (error) {
+      assert.match(error.message, /SYNTHETIC_COLLISION/);
+      collided = true;
+      break;
+    }
+  }
+  assert.equal(collided, true);
+  assert.throws(() => decoder.decodeMarker(marker('H', '2')), /DECODER_INVALIDATED/);
+});
