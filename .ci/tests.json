@@ -401,6 +401,10 @@
       "issue-103-retirement-github": {
         "type": "regression",
         "name": "tests.test_prelim_retirement_github"
+      },
+      "issue-103-retirement-remote": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_remote"
       }
     },
     {
