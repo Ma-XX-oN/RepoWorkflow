@@ -87,7 +87,8 @@ def _valid_result(operation, request, result):
   if operation in {"lease.read", "lease.cas"}:
     if set(result) != {"destination", "generation", "holder", "guid"}:
       return False
-    return (result["destination"] == request["destination"]
+    structurally_valid = (
+      result["destination"] == request["destination"]
       and type(result["generation"]) is int and result["generation"] >= 0
       and (result["holder"] is None) == (result["guid"] is None)
       and (result["holder"] is None or (
@@ -95,6 +96,13 @@ def _valid_result(operation, request, result):
       and (result["guid"] is None or (
         type(result["guid"]) is str and
         _GUID.fullmatch(result["guid"]) is not None)))
+    if not structurally_valid:
+      return False
+    if operation == "lease.cas":
+      return (result["generation"] == request["expected_generation"] + 1
+        and result["holder"] == request["holder"]
+        and result["guid"] == request["guid"])
+    return True
   if operation in {"attempt.read", "attempt.record"}:
     if set(result) != {"guid", "status", "sha"} or (
         result["guid"] != request["guid"]):
