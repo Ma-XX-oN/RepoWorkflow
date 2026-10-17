@@ -91,12 +91,33 @@ class GithubIntegrationProviderTests(unittest.TestCase):
       create_int_attempt(self.backend, self.request, authorized=True)
     self.assertEqual(self.backend.calls, [])
 
-  def test_inventory_rejects_partial_page(self):
+  def test_inventory_across_two_pages(self):
+    calls = []
+    def get(route):
+      calls.append(route)
+      page = int(route.split("page=")[-1])
+      values = range(100) if page == 1 else range(100, 102)
+      return [{"ref": f"refs/heads/PRELIM-issue-123/x{index}",
+               "object": {"sha": SHA}} for index in values]
+    self.backend.get = get
+    self.assertEqual(len(inventory_ready_refs(self.backend)), 102)
+    self.assertEqual(len(calls), 2)
+
+  def test_inventory_rejects_repeated_pages(self):
     self.backend.get = lambda route: [
       {"ref": f"refs/heads/PRELIM-issue-123/x{index}",
        "object": {"sha": SHA}} for index in range(100)]
-    with self.assertRaisesRegex(IntegrationProviderError, "paginated"):
+    with self.assertRaisesRegex(IntegrationProviderError, "identity"):
       inventory_ready_refs(self.backend)
+
+  def test_inventory_rejects_pagination_bound(self):
+    def get(route):
+      page = int(route.split("page=")[-1])
+      return [{"ref": f"refs/heads/PRELIM-issue-123/p{page}-x{index}",
+               "object": {"sha": SHA}} for index in range(100)]
+    self.backend.get = get
+    with self.assertRaisesRegex(IntegrationProviderError, "bound"):
+      inventory_ready_refs(self.backend, max_pages=2)
 
 
 if __name__ == "__main__":
