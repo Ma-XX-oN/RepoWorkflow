@@ -22,6 +22,7 @@ class PublishedReady:
 def publish_ready_prelim(
     *, ticket: int, destination: str, guid: str, candidate_sha: str,
     request_id: str, read_remote, create_if_absent,
+    read_publication_record=None,
 ) -> PublishedReady:
   """Publish a prepared exact source SHA; never update an existing PRELIM.
 
@@ -40,13 +41,28 @@ def publish_ready_prelim(
   if type(request_id) is not str or not request_id.strip():
     raise ReadyPublicationError("idempotent publication key is required")
   ref = f"refs/heads/PRELIM-issue-{ticket}/{destination}-{guid}"
+  def exact_replay():
+    if read_publication_record is None:
+      return False
+    record = read_publication_record(request_id)
+    return (type(record) is dict
+            and record == {
+              "ref": ref, "sha": candidate_sha,
+              "request_id": request_id, "status": "published",
+            })
+
   existing = read_remote(ref)
   if existing is not None:
+    if existing == candidate_sha and exact_replay():
+      return PublishedReady(ref, candidate_sha, request_id)
     raise ReadyPublicationError("published PRELIM ref already exists")
   try:
     confirmed = create_if_absent(ref, candidate_sha, request_id)
   except Exception as error:
-    # Do not infer successful publication from an uncertain response.
+    # A lost reply is recoverable only with independent exact request-ID
+    # evidence, not by matching a branch SHA alone.
+    if read_remote(ref) == candidate_sha and exact_replay():
+      return PublishedReady(ref, candidate_sha, request_id)
     raise ReadyPublicationError("publication outcome UNKNOWN; reconcile") from error
   if confirmed is not True:
     raise ReadyPublicationError("provider did not certify initial ref creation")
