@@ -69,3 +69,33 @@ def publish_ready_prelim(
   if read_remote(ref) != candidate_sha:
     raise ReadyPublicationError("published PRELIM identity readback differs")
   return PublishedReady(ref, candidate_sha, request_id)
+
+
+def create_ready_ref_git(root, remote, ref, sha, request_id):
+  """Atomically create a READY PRELIM ref only when remote has no such ref.
+
+  A plain non-force push is insufficient: it might advance an existing ref.
+  The empty expected-oid lease is the create-only condition.
+  """
+  import subprocess
+  from pathlib import Path
+
+  if (type(ref) is not str or not ref.startswith("refs/heads/PRELIM-")
+      or type(sha) is not str or _SHA.fullmatch(sha) is None
+      or type(request_id) is not str or not request_id
+      or type(remote) is not str or not remote or remote.startswith("-")):
+    raise ReadyPublicationError("invalid create-only PRELIM request")
+  root = Path(root)
+  def run(*args):
+    try:
+      return subprocess.run(["git", "-C", str(root), *args],
+        capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+      raise ReadyPublicationError("PRELIM creation outcome UNKNOWN") from error
+  if run("cat-file", "-e", sha + "^{commit}").returncode:
+    raise ReadyPublicationError("PRELIM candidate commit is missing")
+  result = run("push", "--porcelain",
+    "--force-with-lease=" + ref + ":", remote, sha + ":" + ref)
+  if result.returncode:
+    raise ReadyPublicationError("PRELIM create-only push rejected or UNKNOWN")
+  return True
