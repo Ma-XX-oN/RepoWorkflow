@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.prelim_retirement import (
   PrelimRetirementError, RetirementPlan,
@@ -99,6 +100,24 @@ class MainResyncTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimRetirementError, "checked out"):
       resync_inactive_main(self.local, "origin", self.plan)
     self.assertEqual(self.local_main(), self.a)
+
+  def test_concurrent_local_main_move_fails_compare_and_swap(self):
+    original_run = subprocess.run
+    moved = [False]
+    def competing_run(args, **kwargs):
+      if (not moved[0] and len(args) > 4 and
+          args[3] == "update-ref" and args[4] == "refs/heads/main"):
+        moved[0] = True
+        original_run(["git", "-C", str(self.local), "update-ref",
+          "refs/heads/main", self.b, self.a], check=True,
+          capture_output=True, text=True)
+      return original_run(args, **kwargs)
+    with patch("repo_workflow.prelim_main_resync.subprocess.run",
+               side_effect=competing_run):
+      with self.assertRaisesRegex(PrelimRetirementError, "concurrently"):
+        resync_inactive_main(self.local, "origin", self.plan)
+    self.assertTrue(moved[0])
+    self.assertEqual(self.local_main(), self.b)
 
   def test_different_remote_is_not_accepted(self):
     with self.assertRaises(PrelimRetirementError):
