@@ -42,6 +42,7 @@ jobs:
             tests.test_prelim_retirement_github \
             tests.test_prelim_retirement_remote \
             tests.test_prelim_main_resync \
+            tests.test_prelim_retirement_execute \
             tests.test_done_executor
   full-regression:
     runs-on: ubuntu-latest
