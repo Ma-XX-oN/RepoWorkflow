@@ -429,3 +429,25 @@ test('oversized JSONL interaction is rejected by bounded reader', async () => {
   const q = new InterfacePlayback();
   await assert.rejects(q.load(file), /bounded maximum/);
 });
+
+test('custom bounded line limit accepts larger certified interactions', async () => {
+  const p = new InterfacePlayback();
+  const payload = 'y'.repeat(1200000);
+  await p.record(id, () => payload, Free, 'large');
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-config-cap-'));
+  const file = join(dir, 'large.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback({ maxLineBytes: 1300000 });
+  await q.load(file);
+  assert.equal(q.replay(Free, 'large'), payload);
+});
+
+test('inherited prototype type names are not trusted resolvers', async () => {
+  const record = { call: { fn_name: 'x', obj: { $free: true } },
+    before: { args: [], kwargs: {} }, after: { args: [], kwargs: {} },
+    result: { return: { $new: 'untrusted', $type: 'constructor' } } };
+  const p = new InterfacePlayback();
+  await p.load([record]);
+  assert.throws(() => p.replay(Free, 'x'), /unresolved custom type/);
+  assert.equal(p.cursor, 0);
+});
