@@ -397,6 +397,42 @@
       "issue-109-coordination": {
         "type": "regression",
         "name": "tests.test_integration_coordination"
+      },
+      "issue-677-prelim-queue": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue"
+      },
+      "issue-677-ticket-admission": {
+        "type": "regression",
+        "name": "tests.test_ticket_admission"
+      },
+      "issue-677-integration-admission": {
+        "type": "regression",
+        "name": "tests.test_integration_admission"
+      },
+      "issue-677-git-prelim": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue_git"
+      },
+      "issue-681-integration-host-v2": {
+        "type": "regression",
+        "name": "tests.test_integration_host_v2"
+      },
+      "issue-681-github-ref-helper": {
+        "type": "regression",
+        "name": "tests.test_github_integration_provider"
+      },
+      "issue-681-v2-entrypoint": {
+        "type": "regression",
+        "name": "tests.test_integration_host_v2_entrypoint"
+      },
+      "issue-683-prelim-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready"
+      },
+      "issue-103-prelim-retirement": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement"
       }
     },
     {
