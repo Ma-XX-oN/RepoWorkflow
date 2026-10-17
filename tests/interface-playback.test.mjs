@@ -14,7 +14,7 @@ async function captured(method, receiver, name, args) {
   await engine.save(file);
   const check = new InterfacePlayback();
   await check.load(file);
-  assert.equal(check.entries.length, 1);
+  assert.equal(check.entries.length, 0, 'JSONL is not materialized in memory');
   return { engine, check, result, file };
 }
 
