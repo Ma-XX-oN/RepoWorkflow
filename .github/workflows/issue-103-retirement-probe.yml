@@ -22,4 +22,5 @@ jobs:
             tests.test_prelim_retirement_evidence \
             tests.test_prelim_retirement_github \
             tests.test_prelim_retirement_remote \
-            tests.test_prelim_main_resync
+            tests.test_prelim_main_resync \
+            tests.test_prelim_retirement_execute
