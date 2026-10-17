@@ -105,6 +105,14 @@
       "issue-97-provider-transport": {
         "type": "regression",
         "name": "tests.test_repo_host_github_provider"
+      },
+      "issue-681-integration-host-v2": {
+        "type": "regression",
+        "name": "tests.test_integration_host_v2"
+      },
+      "issue-681-github-ref-helper": {
+        "type": "regression",
+        "name": "tests.test_github_integration_provider"
       }
     },
     {
