@@ -75,6 +75,7 @@ def discover_ready_prelims(remote_refs: Mapping[str, str]) -> tuple[ReadyPrelim,
 
 def verify_immutable_prelims(
     recorded: Mapping[str, str], observed: Mapping[str, str],
+    *, terminal_refs: Mapping[str, str] | None = None,
 ) -> tuple[ReadyPrelim, ...]:
   """Reject moved/deleted previously recorded refs; allow new submissions.
 
@@ -84,11 +85,18 @@ def verify_immutable_prelims(
   if not isinstance(recorded, Mapping) or not isinstance(observed, Mapping):
     raise PrelimQueueError("recorded and observed refs must be mappings")
   ready = discover_ready_prelims(observed)
+  # Caller must obtain terminal_refs from independently authenticated durable
+  # history; a missing physical ref is not itself proof of successful cleanup.
+  terminal_refs = {} if terminal_refs is None else terminal_refs
+  if not isinstance(terminal_refs, Mapping):
+    raise PrelimQueueError("terminal evidence must be a mapping")
   for ref, original_sha in recorded.items():
     prior = parse_ready_prelim(ref, original_sha)
     if prior is None:
       raise PrelimQueueError("recorded ref is not a PRELIM submission")
     if ref not in observed:
+      if terminal_refs.get(ref) == original_sha:
+        continue
       raise PrelimQueueError("previously recorded PRELIM ref disappeared")
     if observed[ref] != original_sha:
       raise PrelimQueueError("published PRELIM commit changed")
