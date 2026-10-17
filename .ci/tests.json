@@ -453,6 +453,10 @@
       "issue-103-retirement-remote": {
         "type": "regression",
         "name": "tests.test_prelim_retirement_remote"
+      },
+      "issue-103-main-resync": {
+        "type": "regression",
+        "name": "tests.test_prelim_main_resync"
       }
     },
     {
