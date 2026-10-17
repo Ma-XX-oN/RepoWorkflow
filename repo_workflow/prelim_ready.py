@@ -80,7 +80,15 @@ def create_ready_ref_git(root, remote, ref, sha, request_id):
   import subprocess
   from pathlib import Path
 
-  if (type(ref) is not str or not ref.startswith("refs/heads/PRELIM-")
+  valid_ref = (type(ref) is str and re.fullmatch(
+    r"refs/heads/PRELIM-issue-[1-9][0-9]*/"
+    r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
+    ref) is not None)
+  if valid_ref:
+    destination = ref.split("/", 3)[3][:-37]
+    valid_ref = all(part not in ("", ".", "..")
+                    for part in destination.split("/"))
+  if (not valid_ref
       or type(sha) is not str or _SHA.fullmatch(sha) is None
       or type(request_id) is not str or not request_id
       or type(remote) is not str or not remote or remote.startswith("-")):
@@ -98,4 +106,10 @@ def create_ready_ref_git(root, remote, ref, sha, request_id):
     "--force-with-lease=" + ref + ":", remote, sha + ":" + ref)
   if result.returncode:
     raise ReadyPublicationError("PRELIM create-only push rejected or UNKNOWN")
+  readback = run("ls-remote", "--heads", remote, ref)
+  if readback.returncode:
+    raise ReadyPublicationError("PRELIM create-only readback UNKNOWN")
+  fields = readback.stdout.strip().split()
+  if len(fields) != 2 or fields[0] != sha or fields[1] != ref:
+    raise ReadyPublicationError("PRELIM published ref differs on readback")
   return True
