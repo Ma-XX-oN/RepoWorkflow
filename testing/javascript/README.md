@@ -8,16 +8,23 @@ on main**; cross-language byte-for-byte compatibility remains unverified.
 ## Entry point
 
 `testing/javascript/interface-playback.mjs` exports `InterfacePlayback`,
-`Free` and `validateInteraction`. It imports only Node's standard
-`node:fs/promises` for file loading/saving and has no RepoWorkflow CLI dependency.
+`Free` and `validateInteraction`. It imports only Node standard-library modules, including the adjacent
+`interface-stream.mjs` bounded JSONL reader and has no RepoWorkflow CLI dependency.
 
 Public operations:
 
 - `record(filter, invoke, receiver, functionName, args = [], kwargs = {})`
   executes the implementation, takes before/after snapshots, filters the
   interaction and returns/rethrows the real result.
-- `load(source)` accepts an in-memory interaction array or JSON/JSONL path.
-- `save(path)` writes one canonical interaction per JSONL line.
+- `load(source)` accepts an in-memory interaction array, JSON path, or JSONL
+  path. JSONL is validated in an independent forward scan and replayed lazily
+  with a bounded one-line buffer (1 MiB maximum interaction line). The
+  recording-wide identity map stores logical IDs, not interaction bodies.
+  Malformed/truncated lines, duplicate `$new` and forward/unknown `$ref`
+  fail during loading before any user call executes.
+- `save(path)` writes one canonical interaction per JSONL line; saving a
+  lazy-loaded source uses an independent reader without consuming the replay
+  cursor.
 - `replay(receiver, functionName, args = [], kwargs = {})` verifies the
   next recorded interaction and reproduces mutations/return/exception.
 - `test(invoke, receiver, functionName, args = [], kwargs = {})` executes
@@ -39,19 +46,20 @@ capture must remain **outside every Git repository**. This library does
 adapter must translate captured network events into calls to the real host
 interface.
 
-## Limitations / remaining contract work
+## Limits / compatibility
 
 - Only JSON-native finite scalars, lists, plain objects and enumerable fields
   of explicitly supplied custom instances are supported. Native Date, Map,
   Set, buffers and typed arrays are rejected.
 - Type restoration for custom objects requires trusted constructor mappings;
   arbitrary constructor loading is not supported.
-- JSONL is read and written incrementally, but the in-memory interaction
-  array still grows with total recording size. A bounded-memory lazy cursor
-  and cross-language contract-parity tests remain required.
-- Selective `$unchanged` validates syntax and preserves replay state, but
-  comparing selected unchanged fields against the captured pre-state is
-  still outstanding.
+- JSONL replay is lazy and bounded per line, although identity validation
+  retains recording-local logical identifiers and performs a complete
+  preflight scan. In-memory array and `.json` inputs remain materialized.
+- Full compatibility with a future Python executable implementation remains
+  an explicitly separate gate.
+- Selective `$unchanged` is verified during `test()` against pre-call state.
+  `replay()` preserves those fields without applying a recorded mutation.
 - A source-compatible JavaScript abstraction does not establish parity with
   the unfinished Python implementation or authorize #518/#561 closure.
 - Test-only module. It is not part of a RepoWorkflow or DC production build.
