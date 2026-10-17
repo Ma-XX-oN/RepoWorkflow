@@ -409,6 +409,10 @@
       "issue-683-prelim-ready-authority": {
         "type": "regression",
         "name": "tests.test_prelim_ready_authority"
+      },
+      "issue-683-integration-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration_ready"
       }
     },
     {
