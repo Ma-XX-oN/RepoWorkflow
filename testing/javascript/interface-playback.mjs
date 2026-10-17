@@ -160,6 +160,8 @@ export class InterfacePlayback {
       return v;
     }
     if (v instanceof Map || v instanceof Set || v instanceof Date ||
+        v instanceof RegExp || v instanceof Error || v instanceof Promise ||
+        v instanceof WeakMap || v instanceof WeakSet ||
         ArrayBuffer.isView(v) || v instanceof ArrayBuffer) {
       failure('record', 'unsupported runtime object type');
     }
@@ -175,7 +177,10 @@ export class InterfacePlayback {
     return this.#describe(v, { $new: id, $type: typeName(v) }, seen);
   }
   #describe(v, identity, seen) {
-    if (Array.isArray(v)) return { ...identity, items: v.map(item => this.#encode(item, seen)) };
+    if (Array.isArray(v)) {
+      if (Object.keys(v).length !== v.length) failure('record', 'sparse or extended array unsupported');
+      return { ...identity, items: v.map(item => this.#encode(item, seen)) };
+    }
     if (plain(v)) {
       const items = {};
       for (const [k, value] of Object.entries(v)) items[k] = this.#encode(value, seen);
@@ -194,6 +199,7 @@ export class InterfacePlayback {
   async record(filter, invoke, receiver, functionName, args = [], kwargs = {}) {
     if (typeof filter !== 'function' || typeof invoke !== 'function') failure('record', 'expected filter and function');
     if (!Array.isArray(args) || !plain(kwargs)) failure('record', 'invalid args/kwargs');
+    if (receiver !== Free && !isObject(receiver)) failure('record', 'member receiver must be object');
     const identity = receiver === Free ? { $free: true } : (() => {
       if (this.recordNames.has(receiver)) {
         return { $ref: this.recordNames.get(receiver) };
@@ -351,9 +357,12 @@ export class InterfacePlayback {
     }
     if (spec.$new) {
       if (refs.has(spec.$new)) failure(path, `duplicate $new ${spec.$new}`);
+      if (!['builtins.list', 'builtins.dict'].includes(spec.$type) &&
+          typeof this.types[spec.$type] !== 'function') {
+        failure(path, `unresolved custom type ${spec.$type}`);
+      }
       const out = spec.$type === 'builtins.list' ? [] :
-        spec.$type === 'builtins.dict' ? {} :
-        this.types[spec.$type] ? Object.create(this.types[spec.$type].prototype) : {};
+        spec.$type === 'builtins.dict' ? {} : Object.create(this.types[spec.$type].prototype);
       refs.set(spec.$new, out);
       this.#apply(spec, out, refs, path);
       return out;
