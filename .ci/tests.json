@@ -433,6 +433,10 @@
       "issue-103-prelim-retirement": {
         "type": "regression",
         "name": "tests.test_prelim_retirement"
+      },
+      "issue-681-git-cas": {
+        "type": "regression",
+        "name": "tests.test_integration_host_git_cas"
       }
     },
     {
