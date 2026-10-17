@@ -336,13 +336,17 @@ export class InterfacePlayback {
         for (const k of Object.keys(target)) if (!spec.keys.includes(k)) delete target[k];
       }
       for (const [k, v] of Object.entries(spec.items || {})) {
-        if (isObject(target[k]) && (v?.$ref || v?.$unchanged)) this.#apply(v, target[k], refs, `${path}.${k}`);
+        if (v?.$unchanged || (v?.$ref && refs.get(v.$ref) === target[k])) {
+          this.#apply(v, target[k], refs, `${path}.${k}`);
+        }
         else target[k] = this.#materialize(v, refs, `${path}.${k}`);
       }
     } else {
       for (const [k, v] of Object.entries(spec)) {
         if (k.startsWith('$')) continue;
-        if (isObject(target[k]) && (v?.$ref || v?.$unchanged)) this.#apply(v, target[k], refs, `${path}.${k}`);
+        if (v?.$unchanged || (v?.$ref && refs.get(v.$ref) === target[k])) {
+          this.#apply(v, target[k], refs, `${path}.${k}`);
+        }
         else target[k] = this.#materialize(v, refs, `${path}.${k}`);
       }
     }
@@ -352,7 +356,83 @@ export class InterfacePlayback {
     if (!isObject(spec)) return spec;
     if (spec.$ref) {
       if (!refs.has(spec.$ref)) failure(path, `unknown reference ${spec.$ref}`);
-      return refs.get(spec.$ref);
+      const object = refs.get(spec.$ref);
+      if (Object.keys(spec).some(k => !k.startsWith('
+    }
+    if (Array.isArray(spec)) return spec.map((v, i) => this.#materialize(v, refs, `${path}[${i}]`));
+    if (spec.$new) {
+      if (refs.has(spec.$new)) failure(path, `duplicate $new ${spec.$new}`);
+      const out = spec.$type === 'builtins.list' ? [] : spec.$type === 'builtins.dict' ? {} :
+        this.types[spec.$type] ? Object.create(this.types[spec.$type].prototype) : {};
+      refs.set(spec.$new, out);
+      this.#apply(spec, out, refs, path);
+      return out;
+    }
+    const out = {};
+    for (const [k, v] of Object.entries(spec)) out[k] = this.#materialize(v, refs, `${path}.${k}`);
+    return out;
+  }
+
+  replay(receiver, name, args = [], kwargs = {}) {
+    const { entry, refs } = this.#expect(receiver, name, args, kwargs);
+    let exception;
+    if (own(entry.result, 'raise')) {
+      const spec = entry.result.raise;
+      const ErrorType = { Error, TypeError, RangeError, SyntaxError, ReferenceError }[spec.$type] || this.types[spec.$type];
+      if (typeof ErrorType !== 'function' ||
+          !(ErrorType.prototype instanceof Error || ErrorType === Error)) {
+        failure('result.raise', `unresolved exception type ${spec.$type}`);
+      }
+      exception = new ErrorType(...spec.args);
+    }
+    if (receiver !== Free) this.#apply(entry.after.obj, receiver, refs, 'after.obj');
+    args.forEach((arg, i) => this.#apply(entry.after.args[i], arg, refs, `after.args[${i}]`));
+    for (const [k, v] of Object.entries(kwargs)) this.#apply(entry.after.kwargs[k], v, refs, `after.kwargs.${k}`);
+    let value;
+    if (own(entry.result, 'return')) value = this.#materialize(entry.result.return, refs, 'result.return');
+    this.references = refs;
+    this.cursor++;
+    if (this.stream) this.stream.advance();
+    if (exception) throw exception;
+    return value;
+  }
+
+  async test(invoke, receiver, name, args = [], kwargs = {}) {
+    if (typeof invoke !== 'function') failure('test', 'expected function');
+    const { entry, refs } = this.#expect(receiver, name, args, kwargs);
+    const baseline = structuredClone({
+      receiver: receiver === Free ? null : receiver,
+      args,
+      kwargs
+    });
+    let value, thrown;
+    try { value = await invoke(...args, ...(Object.keys(kwargs).length ? [kwargs] : [])); } catch (e) { thrown = e; }
+    if (receiver !== Free) this.#checkUnchanged(entry.after.obj, receiver, baseline.receiver, 'after.obj');
+    args.forEach((arg, i) => this.#checkUnchanged(entry.after.args[i], arg, baseline.args[i], `after.args[${i}]`));
+    for (const [key, value] of Object.entries(kwargs)) {
+      this.#checkUnchanged(entry.after.kwargs[key], value, baseline.kwargs[key], `after.kwargs.${key}`);
+    }
+    if (receiver !== Free) this.#compare(entry.after.obj, receiver, refs, 'after.obj');
+    args.forEach((arg, i) => this.#compare(entry.after.args[i], arg, refs, `after.args[${i}]`));
+    for (const [k, v] of Object.entries(kwargs)) this.#compare(entry.after.kwargs[k], v, refs, `after.kwargs.${k}`);
+    if (own(entry.result, 'raise')) {
+      const expected = entry.result.raise;
+      if (!thrown || thrown.constructor.name !== expected.$type ||
+          thrown.message !== expected.args?.[0]) failure('result.raise', 'exception mismatch');
+    } else {
+      if (thrown) failure('result.return', `unexpected exception ${thrown.constructor.name}`);
+      this.#compare(entry.result.return, value, refs, 'result.return');
+    }
+    this.references = refs;
+    this.cursor++;
+    if (thrown) throw thrown;
+    return value;
+  }
+}
+))) {
+        this.#apply(spec, object, refs, path);
+      }
+      return object;
     }
     if (Array.isArray(spec)) return spec.map((v, i) => this.#materialize(v, refs, `${path}[${i}]`));
     if (spec.$new) {
