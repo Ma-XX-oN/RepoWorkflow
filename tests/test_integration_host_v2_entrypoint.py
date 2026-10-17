@@ -2,6 +2,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from repo_workflow.integration_host_v2 import IntegrationHostError
 
 
 PATH = Path(__file__).resolve().parents[1] / "adapters" / "repo-host-integration-v2.py"
@@ -69,7 +70,7 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertFalse(self.backend.calls)
 
   def test_absent_proof_prevents_write(self):
-    with self.assertRaises(MOD.IntegrationProviderError):
+    with self.assertRaisesRegex(IntegrationHostError, "proof missing"):
       self.call(verify=lambda request, backend: None)
     self.assertFalse(self.backend.calls)
 
