@@ -1,85 +1,83 @@
-"""Local Git create-only READY PRELIM provider acceptance."""
-from pathlib import Path
-import subprocess
-import tempfile
+"""Provider-atomic create-only PRELIM publication acceptance.
+
+Git push --force-with-lease on an existing equal-SHA ref can be a no-op
+success. This test deliberately uses provider POST /git/refs instead.
+"""
 import unittest
-
 from repo_workflow.prelim_ready import (
-  ReadyPublicationError, create_ready_ref_git,
+  ReadyPublicationError, create_ready_ref_provider,
 )
-
 
 GUID = "11111111-1111-4111-8111-111111111111"
 REF = f"refs/heads/PRELIM-issue-123/main-{GUID}"
+SHA = "a"*40
 
 
-def git(root, *args):
-  p = subprocess.run(["git", "-C", str(root), *args],
-    check=True, capture_output=True, text=True)
-  return p.stdout.strip()
+class Missing(Exception):
+  code = "not_found"
 
 
-class PrelimReadyGitTests(unittest.TestCase):
+class Backend:
+  def __init__(self):
+    self.refs = {}
+    self.posts = []
+    self.ambiguous = False
+
+  def get(self, route):
+    name = "refs/" + route.removeprefix("git/ref/")
+    if name not in self.refs:
+      raise Missing()
+    return {"ref": name, "object": {"sha": self.refs[name]}}
+
+  def post(self, route, value):
+    self.posts.append((route, value))
+    if value["ref"] in self.refs:
+      raise ValueError("already exists")
+    self.refs[value["ref"]] = value["sha"]
+    if self.ambiguous:
+      raise TimeoutError("lost response")
+    return {"ref": value["ref"], "object": {"sha": value["sha"]}}
+
+
+class PrelimReadyProviderTests(unittest.TestCase):
   def setUp(self):
-    self.tmp = tempfile.TemporaryDirectory()
-    self.addCleanup(self.tmp.cleanup)
-    root = Path(self.tmp.name)
-    self.remote = root / "remote.git"
-    self.clone = root / "work"
-    subprocess.run(["git", "init", "--bare", str(self.remote)],
-      capture_output=True, check=True)
-    subprocess.run(["git", "init", "-b", "main", str(self.clone)],
-      capture_output=True, check=True)
-    git(self.clone, "config", "user.name", "RWF Test")
-    git(self.clone, "config", "user.email", "fixture@example.invalid")
-    (self.clone / "file.txt").write_text("A\n")
-    git(self.clone, "add", "file.txt")
-    git(self.clone, "commit", "-m", "A")
-    self.a = git(self.clone, "rev-parse", "HEAD")
-    git(self.clone, "remote", "add", "origin", str(self.remote))
-    git(self.clone, "push", "origin", "main")
-    (self.clone / "file.txt").write_text("B\n")
-    git(self.clone, "commit", "-am", "B")
-    self.b = git(self.clone, "rev-parse", "HEAD")
+    self.backend = Backend()
 
-  def remote_ref(self):
-    out = git(self.clone, "ls-remote", "origin", REF)
-    return out.split()[0] if out else None
+  def create(self, ref=REF, sha=SHA):
+    return create_ready_ref_provider(self.backend, ref, sha, "req-1")
 
-  def test_initial_create_only_publication(self):
-    self.assertTrue(create_ready_ref_git(
-      self.clone, "origin", REF, self.a, "req-1"))
-    self.assertEqual(self.remote_ref(), self.a)
+  def test_first_create_and_readback(self):
+    self.assertTrue(self.create())
+    self.assertEqual(self.backend.refs[REF], SHA)
+    self.assertEqual(len(self.backend.posts), 1)
 
-  def test_same_guid_cannot_advance_even_by_fast_forward(self):
-    create_ready_ref_git(self.clone, "origin", REF, self.a, "req-1")
+  def test_existing_identical_sha_is_not_new_publication(self):
+    self.backend.refs[REF] = SHA
+    with self.assertRaisesRegex(ReadyPublicationError, "already"):
+      self.create()
+    self.assertEqual(self.backend.posts, [])
+
+  def test_existing_different_sha_is_not_mutated(self):
+    self.backend.refs[REF] = "b"*40
     with self.assertRaises(ReadyPublicationError):
-      create_ready_ref_git(self.clone, "origin", REF, self.b, "req-2")
-    self.assertEqual(self.remote_ref(), self.a)
+      self.create()
+    self.assertEqual(self.backend.refs[REF], "b"*40)
 
-  def test_preexisting_ref_rejected_without_modification(self):
-    git(self.clone, "push", "origin", self.a + ":" + REF)
-    with self.assertRaises(ReadyPublicationError):
-      create_ready_ref_git(self.clone, "origin", REF, self.a, "req-1")
-    self.assertEqual(self.remote_ref(), self.a)
+  def test_lost_reply_is_unknown_not_proof_of_create(self):
+    self.backend.ambiguous = True
+    with self.assertRaisesRegex(ReadyPublicationError, "UNKNOWN"):
+      self.create()
+    self.assertEqual(self.backend.refs[REF], SHA)
 
-  def test_malformed_reserved_ref_is_rejected(self):
-    invalid = (
+  def test_non_prelim_or_malformed_ref_rejected(self):
+    for name in ("refs/heads/main",
       "refs/heads/PRELIM-issue-0/main-" + GUID,
       "refs/heads/PRELIM-issue-123/../main-" + GUID,
-      "refs/heads/PRELIM-issue-123/main-not-a-guid",
-    )
-    for ref in invalid:
-      with self.subTest(ref=ref):
+      "refs/heads/PRELIM-issue-123/main-not-a-guid"):
+      with self.subTest(name=name):
         with self.assertRaises(ReadyPublicationError):
-          create_ready_ref_git(self.clone, "origin", ref, self.a, "req-1")
-
-  def test_non_prelim_branch_is_rejected(self):
-    with self.assertRaises(ReadyPublicationError):
-      create_ready_ref_git(self.clone, "origin",
-        "refs/heads/main", self.b, "req-1")
-    self.assertEqual(git(self.clone, "ls-remote", "origin", "main").split()[0],
-                     self.a)
+          self.create(ref=name)
+    self.assertEqual(self.backend.posts, [])
 
 
 if __name__ == "__main__":
