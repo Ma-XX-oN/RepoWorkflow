@@ -5,6 +5,8 @@ The existing repo-host v1 contract and executable remain unchanged.
 """
 import json
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from repo_host_github_authority import authorize
 from repo_host_github_integration import (
@@ -38,8 +40,10 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize):
       raise IntegrationProviderError("trusted authorization proof missing")
     return create_int_attempt(backend, value, authorized=True)
 
+  state = {}
   def transport(value):
     status, result = execute(value)
+    state['status'] = status
     return {
       "schema_version": 2, "repository": value["repository"],
       "operation": value["operation"], "request_id": value["request_id"],
@@ -48,14 +52,14 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize):
   host = IntegrationHost(request.get("repository"), transport)
   result = host.request(
     operation, request.get("request_id"), request.get("parameters"))
-  return transport_response(request, result, operation)
+  return transport_response(request, result, operation, state['status'])
 
 
-def transport_response(request, result, operation):
+def transport_response(request, result, operation, status):
   return {
     "schema_version": 2, "repository": request["repository"],
     "operation": operation, "request_id": request["request_id"],
-    "status": "unchanged" if operation == "refs.list" else "applied",
+    "status": status,
     "result": result,
   }
 
