@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import re
 
 from .done_planner import DonePlan
+from .integration_admission import AdmissionDecision
 
 
 class DoneExecutionError(RuntimeError):
@@ -59,7 +60,12 @@ def execute_certified_done(
     raise DoneExecutionError("fresh completion has missing gates")
   if fresh.disposition not in ("ALLOWED", "QUEUE_ELIGIBLE"):
     raise DoneExecutionError("completion plan is not executable")
-  if admission_check(fresh) is not True:
+  admission = admission_check(fresh)
+  if (not isinstance(admission, AdmissionDecision)
+      or admission.allowed is not True
+      or str(admission.ticket) != fresh.issue
+      or admission.destination != fresh.target
+      or admission.destination_sha != fresh.expected_parent_sha):
     raise DoneExecutionError("destination admission policy denied integration")
   attempt = prepare_and_certify(fresh)
   if not isinstance(attempt, CertifiedAttempt):
