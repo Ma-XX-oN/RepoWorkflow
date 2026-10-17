@@ -4,7 +4,7 @@ from unittest.mock import patch
 import unittest
 
 from repo_workflow.prelim_ready import ReadyPublicationError
-from repo_workflow.prelim_ready_recorded import publish_recorded_ready
+from repo_workflow.prelim_ready_recorded import (\n  publish_recorded_ready, publish_recorded_ready_certified,\n)
 
 G="11111111-1111-4111-8111-111111111111"
 C="c"*40
@@ -84,6 +84,28 @@ class RecordedReadyTests(unittest.TestCase):
     with self.assertRaises(ReadyPublicationError):
       self.publish()
     self.assertFalse(self.backend.posts)
+
+  def test_certified_entrypoint_requires_real_published_pass(self):
+    from unittest.mock import patch
+    with (
+      patch("repo_workflow.prelim_ready_recorded.durable_store",
+            return_value=object()),
+      patch("repo_workflow.prelim_ready_recorded._record",
+            return_value=self.record),
+      patch("repo_workflow.prelim_ready_recorded._remote_ref",
+            return_value=C),
+      patch("repo_workflow.prelim_ready_recorded._trusted_inputs"),
+      patch("repo_workflow.prelim_ready_authority.verify_ready_authority",
+            return_value=False) as verify,
+    ):
+      with self.assertRaises(ReadyPublicationError):
+        publish_recorded_ready_certified(
+          Path("."),{"repository":{"authoritativeRemote":"origin"}},
+          ticket=123,destination="main",guid=G,
+          request_id="published-123",backend=self.backend,
+          resolve_parent=lambda ticket:"main")
+    self.assertTrue(verify.called)
+    self.assertEqual(self.backend.posts, [])
 
   def test_second_call_cannot_adopt_prior_published_ref(self):
     self.publish()
