@@ -3,6 +3,7 @@ from dataclasses import replace
 import unittest
 
 from repo_workflow.done_planner import DonePlan
+from repo_workflow.integration_admission import AdmissionDecision
 from repo_workflow.done_executor import (
   AcceptedIntegration, CertifiedAttempt, DoneExecutionError,
   execute_certified_done,
@@ -29,7 +30,9 @@ class ExecutionGuardTests(unittest.TestCase):
     original = changes.get("original", self.plan)
     refresh = changes.get("fresh", self.plan)
     attempt = changes.get("attempt", self.attempt)
-    admission = changes.get("admission", True)
+    admission = changes.get("admission", AdmissionDecision(
+      123, "main", B, True, "ticket explicitly admitted",
+    ))
     response = changes.get(
       "response", AcceptedIntegration(D, True, "operation-1"),
     )
@@ -58,7 +61,28 @@ class ExecutionGuardTests(unittest.TestCase):
 
   def test_denied_admission_stops_before_mutation(self):
     with self.assertRaises(DoneExecutionError):
-      self.execute(admission=False)
+      self.execute(admission=AdmissionDecision(
+        123, "main", B, False, "ticket not allow-listed",
+      ))
+    self.assertEqual(self.calls, [])
+
+  def test_bare_true_admission_is_not_authoritative(self):
+    with self.assertRaises(DoneExecutionError):
+      self.execute(admission=True)
+    self.assertEqual(self.calls, [])
+
+  def test_stale_admission_revision_stops_before_mutation(self):
+    with self.assertRaises(DoneExecutionError):
+      self.execute(admission=AdmissionDecision(
+        123, "main", D, True, "stale",
+      ))
+    self.assertEqual(self.calls, [])
+
+  def test_wrong_ticket_admission_stops_before_mutation(self):
+    with self.assertRaises(DoneExecutionError):
+      self.execute(admission=AdmissionDecision(
+        124, "main", B, True, "wrong child",
+      ))
     self.assertEqual(self.calls, [])
 
   def test_changed_prelim_source_stops_before_mutation(self):
