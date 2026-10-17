@@ -138,6 +138,8 @@ class IntegrationHost:
                    parameters=parameters)
     try:
       reply = self.transport(request)
+    except IntegrationHostError:
+      raise
     except Exception as error:
       raise IntegrationHostError("provider outcome UNKNOWN; reconcile") from error
     if (type(reply) is not dict or set(reply) != {
