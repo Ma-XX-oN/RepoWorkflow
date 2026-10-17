@@ -31,7 +31,7 @@ jobs:
       - name: Verify source size
         run: |
           for file in testing/javascript/*.mjs tests/interface-playback.test.mjs; do
-            test "$(wc -l < \"$file\")" -lt 500
+            test "$(wc -l < "$file")" -lt 500
           done
       - name: Validate syntax
         run: |
