@@ -82,6 +82,24 @@ class MainResyncTests(unittest.TestCase):
         replace(self.plan, landed_sha="e"*40))
     self.assertEqual(self.local_main(), self.a)
 
+  def test_diverged_local_main_is_not_overwritten(self):
+    git(self.local, "checkout", "main")
+    (self.local / "other").write_text("C\\n")
+    git(self.local, "add", "other")
+    git(self.local, "commit", "-m", "independent main")
+    original = self.local_main()
+    git(self.local, "checkout", "feature")
+    with self.assertRaisesRegex(PrelimRetirementError, "not proved"):
+      resync_inactive_main(self.local, "origin", self.plan)
+    self.assertEqual(self.local_main(), original)
+
+  def test_main_checked_out_in_other_worktree_is_untouched(self):
+    other = self.local.parent / "other-worktree"
+    git(self.local, "worktree", "add", str(other), "main")
+    with self.assertRaisesRegex(PrelimRetirementError, "checked out"):
+      resync_inactive_main(self.local, "origin", self.plan)
+    self.assertEqual(self.local_main(), self.a)
+
   def test_different_remote_is_not_accepted(self):
     with self.assertRaises(PrelimRetirementError):
       resync_inactive_main(self.local, "-bad", self.plan)
