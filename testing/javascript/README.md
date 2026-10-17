@@ -20,6 +20,8 @@ Public operations:
   path. JSONL is validated in an independent forward scan and replayed lazily
   with a bounded one-line buffer (1 MiB maximum interaction line). The
   recording-wide identity map stores logical IDs, not interaction bodies.
+  `new InterfacePlayback({ maxLineBytes: N })` sets a larger explicit bound
+  for legitimate large interactions; the default is 1 MiB.
   Malformed/truncated lines, duplicate `$new` and forward/unknown `$ref`
   fail during loading before any user call executes.
 - `save(path)` writes one canonical interaction per JSONL line; saving a
