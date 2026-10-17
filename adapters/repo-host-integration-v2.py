@@ -30,15 +30,18 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize):
     raise IntegrationProviderError("unsupported v2 provider operation")
   # Validate the request through the exact same boundary used by callers,
   # without invoking a privileged mutation.
-  from repo_workflow.integration_host_v2 import IntegrationHost
+  from repo_workflow.integration_host_v2 import IntegrationHost, IntegrationHostError
   def execute(value):
     backend = backend_factory(value["repository"])
     params = value["parameters"]
     if operation == "refs.list":
       return "unchanged", {"refs": inventory_ready_refs(backend)}
-    decision = verify(value, backend)
+    try:
+      decision = verify(value, backend)
+    except Exception as error:
+      raise IntegrationHostError("trusted authorization denied") from error
     if not isinstance(decision, dict):
-      raise IntegrationProviderError("trusted authorization proof missing")
+      raise IntegrationHostError("trusted authorization proof missing")
     return create_int_attempt(backend, value, authorized=True)
 
   state = {}
