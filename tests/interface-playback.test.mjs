@@ -327,3 +327,43 @@ test('real isolated host-call boundary supports capture and replay', async () =>
   assert.equal(replica.count, 3);
   assert.equal(host.calls, 1, 'replay never invokes the real host');
 });
+
+test('returned reference applies consequential state and preserves alias', async () => {
+  const p = new InterfacePlayback();
+  await p.load([{ call: { fn_name: 'update', obj: { $free: true } },
+    before: { args: [{ $new: 'x', $type: 'builtins.dict', keys: ['v'], items: { v: 1 } }], kwargs: {} },
+    after: { args: [{ $ref: 'x', items: {} }], kwargs: {} },
+    result: { return: { $ref: 'x', items: { v: 4 } } } }]);
+  const arg = { v: 1 };
+  assert.equal(p.replay(Free, 'update', [arg]), arg);
+  assert.equal(arg.v, 4);
+});
+
+test('member mutation can reassign property to existing different reference', async () => {
+  const p = new InterfacePlayback();
+  await p.load([{ call: { fn_name: 'rebind', obj: { $free: true } },
+    before: { args: [
+      { $new: 'outer', $type: 'builtins.dict', keys: ['child'], items: {
+        child: { $new: 'first', $type: 'builtins.dict', keys: ['id'], items: { id: 1 } } } },
+      { $new: 'second', $type: 'builtins.dict', keys: ['id'], items: { id: 2 } }
+    ], kwargs: {} }, after: { args: [
+      { $ref: 'outer', items: { child: { $ref: 'second' } } },
+      { $ref: 'second', items: { id: 2 } }
+    ], kwargs: {} }, result: { return: true } }]);
+  const first = { id: 1 }, second = { id: 2 }, outer = { child: first };
+  assert.equal(p.replay(Free, 'rebind', [outer, second]), true);
+  assert.equal(outer.child, second);
+  assert.notEqual(outer.child, first);
+});
+
+test('unresolvable recorded exception leaves cursor and arguments unchanged', async () => {
+  const p = new InterfacePlayback();
+  await p.load([{ call: { fn_name: 'fail', obj: { $free: true } },
+    before: { args: [{ $new: 'x', $type: 'builtins.dict', keys: ['v'], items: { v: 1 } }], kwargs: {} },
+    after: { args: [{ $ref: 'x', items: { v: 2 } }], kwargs: {} },
+    result: { raise: { $type: 'NoResolver', args: ['cannot instantiate'] } } }]);
+  const value = { v: 1 };
+  assert.throws(() => p.replay(Free, 'fail', [value]), /unresolved exception type/);
+  assert.equal(p.cursor, 0);
+  assert.equal(value.v, 1);
+});
