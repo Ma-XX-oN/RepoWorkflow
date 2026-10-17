@@ -393,6 +393,10 @@
       "issue-103-prelim-retirement": {
         "type": "regression",
         "name": "tests.test_prelim_retirement"
+      },
+      "issue-103-retirement-evidence": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_evidence"
       }
     },
     {
