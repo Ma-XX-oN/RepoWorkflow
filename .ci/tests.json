@@ -441,6 +441,14 @@
       "issue-683-prelim-ready-git": {
         "type": "regression",
         "name": "tests.test_prelim_ready_git"
+      },
+      "issue-103-retirement-evidence": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_evidence"
+      },
+      "issue-103-retirement-github": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_github"
       }
     },
     {
