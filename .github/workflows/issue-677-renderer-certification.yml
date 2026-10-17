@@ -1,5 +1,8 @@
 name: Issue 677 renderer material certification
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - issue-677-renderer-certification-20261017-v1
