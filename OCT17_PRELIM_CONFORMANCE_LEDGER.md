@@ -90,3 +90,11 @@ coordination/locking, server-side PR/merge integration and CAS, authenticated
 full ART/AIT/MIT execution, failed/UNKNOWN recovery and durable queue state,
 remote cleanup, exact evidence promotion, complete #583 executor oracles,
 assembled regression/hosted integration. #85/#86/#676 security deferred.
+
+## 2026-10-17 continuation checkpoint
+
+Source review revealed two mandatory functional prerequisites: #681 (draft PR #682), the v2 host adapter needed for PRELIM inventory/INT-ATTEMPT writes/coordinator CAS/terminal records; and #683 (draft PR #684), the older #82/#84 producer migration to immutable destination-qualified PRELIM submission. Both are OPEN and incomplete. The repo-host v1 six-operation adapter cannot serve the new coordinator as-is. #109 (draft PR #680) now has a provider-neutral destination CAS lease boundary and a terminal-proof exception for deliberately retired PRELIM refs; neither is wired to live provider enforcement yet. #103 remains draft PR #679.
+
+Revised draft graph has 272 nodes and no missing links/cycles. #109 depends on #681 and #683 in addition to its functional predecessors. #677 is downstream certification. Isolated focused Python suite: 71 PASS, including current parser, queue, Git fixtures, claim/release, v2 interface/adapter mocks and producer wrapper. This is NOT hosted full regression or real provider merge proof.
+
+Private disposable GitHub branch `rwf681-cas-20261017-1849` was created for a CAS experiment. The stale expected-SHA connector call gave a GraphQL error, not a definitive stale-ref refusal; provider CAS acceptance is INCOMPLETE. No production merge or ruleset change. #85/#86/#676 stay deferred.
