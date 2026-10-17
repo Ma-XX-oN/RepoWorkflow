@@ -12,14 +12,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from repo_host_github_authority import authorize
 from repo_host_github_integration import (
   IntegrationProviderError, create_int_attempt, inventory_ready_refs,
+  cas_int_attempt_git,
 )
 from repo_host_github_provider import GitHubBackend, ProviderError
 
 
-_OPERATIONS = {"refs.list", "ref.create"}
+_OPERATIONS = {"refs.list", "ref.create", "ref.cas"}
 
 
-def process(request, *, backend_factory=GitHubBackend, verify=authorize):
+def process(request, *, backend_factory=GitHubBackend, verify=authorize,
+            cas_write=cas_int_attempt_git, config_reader=None):
   """Run only implemented provider operations after strict v2 validation."""
   if (type(request) is not dict or set(request) != {
       "schema_version", "repository", "operation",
@@ -42,6 +44,16 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize):
       raise IntegrationHostError("trusted authorization denied") from error
     if not isinstance(decision, dict):
       raise IntegrationHostError("trusted authorization proof missing")
+    if operation == "ref.cas":
+      root = Path(__file__).resolve().parents[1]
+      if config_reader is None:
+        from repo_workflow.config import load_config
+        config = load_config(root)
+      else:
+        config = config_reader(root)
+      remote = config["repository"]["authoritativeRemote"]
+      return "applied", cas_write(
+        root, remote, params["ref"], params["expected_sha"], params["sha"])
     return create_int_attempt(backend, value, authorized=True)
 
   state = {}
