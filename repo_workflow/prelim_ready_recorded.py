@@ -74,3 +74,31 @@ def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
       create_ready_ref_provider(backend, ref, sha, key),
     read_publication_record=read_publication_record,
   )
+
+
+def publish_recorded_ready_certified(
+    root: Path, config: dict, *, ticket: int, destination: str,
+    guid: str, request_id: str, backend, resolve_parent,
+    read_publication_record=None,
+):
+  """Public recorded READY publisher using the real #102 PASS authority.
+
+  An untrusted caller cannot substitute a Boolean success. Both terminal
+  tags, exact remote candidate/base identity and immediate parent are
+  verified before provider-atomic PRELIM ref creation.
+  """
+  from .prelim_ready_authority import verify_ready_authority
+
+  def verify(identity):
+    return verify_ready_authority(
+      Path(root).resolve(),
+      config["repository"]["authoritativeRemote"], identity,
+      resolve_parent=resolve_parent,
+    )
+
+  return publish_recorded_ready(
+    root, config, ticket=ticket, destination=destination, guid=guid,
+    request_id=request_id, backend=backend,
+    verify_parent_and_evidence=verify,
+    read_publication_record=read_publication_record,
+  )
