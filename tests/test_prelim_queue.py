@@ -55,7 +55,7 @@ class PrelimQueueTests(unittest.TestCase):
       "refs/heads/PRELIM-issue-123/main-not-a-guid",
       "refs/heads/PRELIM-issue-123/../main-" + A,
       "refs/heads/PRELIM-issue-123/main//other-" + A,
-      "refs/heads/PRELIM-issue-123/main-" + A.upper(),
+      "refs/heads/PRELIM-issue-123/main-" + ("a" * 8 + "-" + A[9:]).upper(),
     )
     for name in wrong:
       with self.subTest(ref=name):
