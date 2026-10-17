@@ -87,3 +87,51 @@ def create_int_attempt(backend, request, *, authorized):
   if _read_ref(backend, ref) != sha:
     raise IntegrationProviderError("published INT-ATTEMPT SHA differs")
   return "applied", {"ref": ref, "sha": sha}
+
+
+def cas_int_attempt_git(root, remote, ref, expected_sha, new_sha):
+  """Git-protocol expected-old-SHA update restricted to INT-ATTEMPT.
+
+  The caller must provide a trusted configured remote and repository checkout,
+  including the new commit object. A failed or lost response is not PASS.
+  """
+  import subprocess
+  from pathlib import Path
+
+  if (type(ref) is not str or _REF.fullmatch(ref) is None
+      or type(expected_sha) is not str or _SHA.fullmatch(expected_sha) is None
+      or type(new_sha) is not str or _SHA.fullmatch(new_sha) is None
+      or type(remote) is not str or not remote or remote.startswith("-")):
+    raise IntegrationProviderError("invalid INT-ATTEMPT CAS identity")
+  if any(part in ("", ".", "..") for part in ref.split("/")):
+    raise IntegrationProviderError("unsafe INT-ATTEMPT CAS ref")
+  if expected_sha == new_sha:
+    raise IntegrationProviderError("CAS requires changed commit")
+  root = Path(root)
+  def run(*args):
+    try:
+      return subprocess.run(["git", "-C", str(root), *args],
+        capture_output=True, text=True, check=False, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as error:
+      raise IntegrationProviderError("Git CAS outcome UNKNOWN") from error
+
+  if run("cat-file", "-e", new_sha + "^{commit}").returncode:
+    raise IntegrationProviderError("new INT-ATTEMPT commit is unavailable")
+  command = ("push", "--porcelain",
+             "--force-with-lease=" + ref + ":" + expected_sha,
+             remote, new_sha + ":" + ref)
+  result = run(*command)
+  readback = run("ls-remote", "--heads", remote, ref)
+  if readback.returncode:
+    raise IntegrationProviderError("INT-ATTEMPT CAS readback UNKNOWN")
+  lines = readback.stdout.splitlines()
+  if len(lines) != 1 or lines[0].split()[-1] != ref:
+    raise IntegrationProviderError("INT-ATTEMPT CAS identity unavailable")
+  observed_sha = lines[0].split()[0]
+  if result.returncode:
+    if observed_sha != expected_sha:
+      raise IntegrationProviderError("INT-ATTEMPT CAS failed or outcome UNKNOWN")
+    raise IntegrationProviderError("INT-ATTEMPT CAS provider rejected update")
+  if observed_sha != new_sha:
+    raise IntegrationProviderError("INT-ATTEMPT CAS readback differs")
+  return {"ref": ref, "sha": new_sha}
