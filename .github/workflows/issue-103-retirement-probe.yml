@@ -1,0 +1,23 @@
+name: Issue 103 verified retirement probe
+on:
+  push:
+    branches:
+      - issue-103-prelim-retirement-v1
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  retirement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test exact retirement candidate
+        run: |
+          python -m unittest \
+            tests.test_prelim_retirement \
+            tests.test_prelim_retirement_evidence \
+            tests.test_prelim_retirement_github
