@@ -38,6 +38,8 @@ jobs:
             tests.test_prelim_ready \
             tests.test_prelim_ready_git \
             tests.test_prelim_retirement \
+            tests.test_prelim_retirement_evidence \
+            tests.test_prelim_retirement_github \
             tests.test_done_executor
   full-regression:
     runs-on: ubuntu-latest
