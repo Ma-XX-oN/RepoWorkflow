@@ -9,14 +9,12 @@ import { once } from 'node:events';
 import { isDeepStrictEqual } from 'node:util';
 import { resolve } from 'node:path';
 import { identityEntry, identityRecording, JsonlReader } from './interface-stream.mjs';
-
 export const Free = Symbol('interface-playback.Free');
 const allowed = new Set(['$free', '$unchanged', '$new', '$ref', '$type']);
 const plain = v => v !== null && typeof v === 'object' &&
   (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 const own = (v, k) => Object.prototype.hasOwnProperty.call(v, k);
 const failure = (path, description) => { throw new Error(`${path}: ${description}`); };
-
 function check(value, path = 'value') {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
   if (typeof value === 'number' && Number.isFinite(value)) return;
@@ -54,7 +52,6 @@ function check(value, path = 'value') {
     }
   }
 }
-
 export function validateInteraction(entry, index = 0) {
   const path = `interaction[${index}]`;
   check(entry, path);
@@ -86,12 +83,10 @@ export function validateInteraction(entry, index = 0) {
   if (!free && (!own(entry.before, 'obj') || !own(entry.after, 'obj'))) failure(path, 'receiver states missing');
   return entry;
 }
-
 const copy = v => structuredClone(v);
 const isObject = v => v !== null && typeof v === 'object';
 const typeName = v => Array.isArray(v) ? 'builtins.list' : plain(v) ? 'builtins.dict' :
   v.constructor?.name || 'Object';
-
 export class InterfacePlayback {
   constructor({ types = {}, interactions = [] } = {}) {
     this.types = { ...types };
@@ -103,13 +98,11 @@ export class InterfacePlayback {
     this.references = new Map();
     if (interactions.length) this.load(interactions);
   }
-
   reset() {
     this.cursor = 0;
     this.references.clear();
     if (this.stream) this.stream.reset();
   }
-
   async load(source) {
     if (this.stream) { this.stream.close(); this.stream = null; }
     if (typeof source === 'string' && !source.endsWith('.json')) {
@@ -137,7 +130,6 @@ export class InterfacePlayback {
     this.reset();
     return this;
   }
-
   async save(path) {
     if (this.stream && resolve(path) === resolve(this.stream.path)) {
       failure('save', 'cannot replace an active streaming input source');
@@ -159,7 +151,6 @@ export class InterfacePlayback {
       throw error;
     }
   }
-
   #encode(v, seen = new WeakSet()) {
     if (!isObject(v)) {
       if (typeof v === 'number' && !Number.isFinite(v)) failure('record', 'nonfinite number');
@@ -183,7 +174,6 @@ export class InterfacePlayback {
     seen.add(v);
     return this.#describe(v, { $new: id, $type: typeName(v) }, seen);
   }
-
   #describe(v, identity, seen) {
     if (Array.isArray(v)) return { ...identity, items: v.map(item => this.#encode(item, seen)) };
     if (plain(v)) {
@@ -195,14 +185,12 @@ export class InterfacePlayback {
     for (const [k, value] of Object.entries(v)) out[k] = this.#encode(value, seen);
     return out;
   }
-
   #snapshot(receiver, args, kwargs, seen = new WeakSet()) {
     const result = { args: args.map(a => this.#encode(a, seen)), kwargs: {} };
     for (const [key, value] of Object.entries(kwargs)) result.kwargs[key] = this.#encode(value, seen);
     if (receiver !== Free) result.obj = this.#encode(receiver, seen);
     return result;
   }
-
   async record(filter, invoke, receiver, functionName, args = [], kwargs = {}) {
     if (typeof filter !== 'function' || typeof invoke !== 'function') failure('record', 'expected filter and function');
     if (!Array.isArray(args) || !plain(kwargs)) failure('record', 'invalid args/kwargs');
@@ -229,7 +217,6 @@ export class InterfacePlayback {
     if (thrown) throw thrown;
     return value;
   }
-
   #expect(receiver, name, args, kwargs) {
     const entry = this.stream ? this.stream.peek() : this.entries[this.cursor];
     if (!entry) failure(`interaction[${this.cursor}]`, 'recording exhausted');
@@ -248,7 +235,6 @@ export class InterfacePlayback {
     for (const [k, v] of Object.entries(kwargs)) this.#compare(entry.before.kwargs[k], v, refs, `before.kwargs.${k}`);
     return { entry, refs };
   }
-
   #compare(spec, actual, refs, path, skip = false) {
     if (skip) return;
     if (spec === null || typeof spec !== 'object') {
@@ -291,7 +277,6 @@ export class InterfacePlayback {
       }
     }
   }
-
   #checkUnchanged(spec, actual, baseline, path) {
     if (!isObject(spec)) return;
     if (own(spec, '$unchanged')) {
@@ -323,7 +308,6 @@ export class InterfacePlayback {
       }
     }
   }
-
   #apply(spec, target, refs, path) {
     if (spec?.$unchanged) return;
     if (!isObject(spec) || !isObject(target)) return;
