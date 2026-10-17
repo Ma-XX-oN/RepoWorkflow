@@ -116,7 +116,8 @@ def load_config(root: Path) -> dict[str, Any]:
   if not isinstance(data, dict) or data.get("schema") != 1:
     raise ConfigError("repoworkflow.json must declare schema 1")
   allowed_top = {
-    "schema", "versionCommand", "infoCommand", "dependencyCommand", "repository", "environments", "artifacts"
+    "schema", "versionCommand", "infoCommand", "dependencyCommand",
+    "hostCommand", "repository", "environments", "artifacts"
   }
   unknown = sorted(set(data) - allowed_top)
   if unknown:
@@ -128,6 +129,9 @@ def load_config(root: Path) -> dict[str, Any]:
   dependency_command = data.get("dependencyCommand")
   if dependency_command is not None:
     dependency_command = _command(dependency_command, "dependencyCommand")
+  host_command = data.get("hostCommand")
+  if host_command is not None:
+    host_command = _command(host_command, "hostCommand")
   repository = data.get("repository")
   if not isinstance(repository, dict):
     raise ConfigError("repository configuration is required")
@@ -171,6 +175,8 @@ def load_config(root: Path) -> dict[str, Any]:
     result["infoCommand"] = info_command
   if dependency_command is not None:
     result["dependencyCommand"] = dependency_command
+  if host_command is not None:
+    result["hostCommand"] = host_command
   result["repository"] = dict(repository)
   result["environments"] = validated_envs
   result["artifacts"] = validated_artifacts
