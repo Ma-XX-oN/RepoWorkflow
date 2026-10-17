@@ -244,6 +244,9 @@ export class InterfacePlayback {
     const id = spec.$new ?? spec.$ref;
     if (spec.$new) {
       if (refs.has(id)) failure(path, `duplicate $new ${id}`);
+      for (const [otherId, value] of refs) {
+        if (value === actual) failure(path, `distinct logical identities ${otherId} and ${id} alias`);
+      }
       refs.set(id, actual);
     }
     if (spec.$ref && (!refs.has(id) || refs.get(id) !== actual)) failure(path, `identity mismatch ${id}`);
