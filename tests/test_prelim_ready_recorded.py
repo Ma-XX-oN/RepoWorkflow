@@ -4,7 +4,9 @@ from unittest.mock import patch
 import unittest
 
 from repo_workflow.prelim_ready import ReadyPublicationError
-from repo_workflow.prelim_ready_recorded import (\n  publish_recorded_ready, publish_recorded_ready_certified,\n)
+from repo_workflow.prelim_ready_recorded import (
+  publish_recorded_ready, publish_recorded_ready_certified,
+)
 
 G="11111111-1111-4111-8111-111111111111"
 C="c"*40
