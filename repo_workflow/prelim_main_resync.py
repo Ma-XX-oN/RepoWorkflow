@@ -59,10 +59,17 @@ def resync_inactive_main(root: Path, remote: str,
       raise PrelimRetirementError("main fast-forward or landing not proved")
   if old == new:
     return MainResync(old, new, False)
-  updated = command("branch", "-f", "main", new)
-  if updated.returncode:
-    # Git refuses branch -f if main is checked out in any worktree.
+  worktrees = command("worktree", "list", "--porcelain")
+  if worktrees.returncode:
+    raise PrelimRetirementError("local worktree ownership unavailable")
+  if any(line == "branch refs/heads/main"
+         for line in worktrees.stdout.splitlines()):
     raise PrelimRetirementError("main is checked out or update failed")
+  # update-ref's third argument is the expected old SHA: another local
+  # writer advancing main in the meantime must win rather than be reset.
+  updated = command("update-ref", "refs/heads/main", new, old)
+  if updated.returncode:
+    raise PrelimRetirementError("main moved concurrently or update failed")
   final = command("rev-parse", "--verify", "refs/heads/main")
   if final.returncode or final.stdout.strip() != new:
     raise PrelimRetirementError("local main resync readback mismatch")
