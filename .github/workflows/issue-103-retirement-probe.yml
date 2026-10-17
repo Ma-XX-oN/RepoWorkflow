@@ -20,4 +20,5 @@ jobs:
           python -m unittest \
             tests.test_prelim_retirement \
             tests.test_prelim_retirement_evidence \
-            tests.test_prelim_retirement_github
+            tests.test_prelim_retirement_github \
+            tests.test_prelim_retirement_remote
