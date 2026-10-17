@@ -59,6 +59,33 @@ class ReadyPublicationTests(unittest.TestCase):
     with self.assertRaisesRegex(ReadyPublicationError, "UNKNOWN"):
       self.publish(create_if_absent=unknown)
 
+  def test_exact_retry_uses_durable_idempotency_record(self):
+    first = self.publish()
+    record = {"ref": first.ref, "sha": first.sha,
+              "request_id": first.request_id, "status": "published"}
+    second = self.publish(
+      read_publication_record=lambda request: record)
+    self.assertEqual(second, first)
+    self.assertEqual(len(self.created), 1)
+
+  def test_wrong_request_proof_cannot_adopt_existing_ref(self):
+    first = self.publish()
+    record = {"ref": first.ref, "sha": first.sha,
+              "request_id": "different", "status": "published"}
+    with self.assertRaisesRegex(ReadyPublicationError, "already exists"):
+      self.publish(read_publication_record=lambda request: record)
+
+  def test_lost_response_requires_exact_durable_proof(self):
+    expected_ref = f"refs/heads/PRELIM-issue-123/main-{GUID}"
+    record = {"ref": expected_ref, "sha": SHA,
+              "request_id": "ready-123-1", "status": "published"}
+    def unknown(name, sha, request):
+      self.refs[name] = sha
+      raise TimeoutError("lost reply")
+    result = self.publish(create_if_absent=unknown,
+      read_publication_record=lambda request: record)
+    self.assertEqual(result.sha, SHA)
+
   def test_wrong_published_sha_rejected(self):
     def wrong(name, sha, request):
       self.refs[name] = "b"*40
