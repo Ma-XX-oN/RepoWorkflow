@@ -63,6 +63,17 @@ class PrelimReadyGitTests(unittest.TestCase):
       create_ready_ref_git(self.clone, "origin", REF, self.a, "req-1")
     self.assertEqual(self.remote_ref(), self.a)
 
+  def test_malformed_reserved_ref_is_rejected(self):
+    invalid = (
+      "refs/heads/PRELIM-issue-0/main-" + GUID,
+      "refs/heads/PRELIM-issue-123/../main-" + GUID,
+      "refs/heads/PRELIM-issue-123/main-not-a-guid",
+    )
+    for ref in invalid:
+      with self.subTest(ref=ref):
+        with self.assertRaises(ReadyPublicationError):
+          create_ready_ref_git(self.clone, "origin", ref, self.a, "req-1")
+
   def test_non_prelim_branch_is_rejected(self):
     with self.assertRaises(ReadyPublicationError):
       create_ready_ref_git(self.clone, "origin",
