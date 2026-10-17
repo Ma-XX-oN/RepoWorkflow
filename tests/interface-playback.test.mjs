@@ -175,3 +175,94 @@ test('selective Unchanged only checks selected fields', async () => {
   const changed = { mode: 'same', count: 0 };
   await assert.rejects(p.test(arg => { arg.mode = 'wrong'; return 1; }, Free, 'check', [changed]), /selected Unchanged invariant violated/);
 });
+
+test('duplicate logical introduction across interactions is rejected', async () => {
+  const p = new InterfacePlayback();
+  const one = { call: { fn_name: 'a', obj: { $free: true } },
+    before: { args: [{ $new: 'x', $type: 'builtins.dict', items: {} }], kwargs: {} },
+    after: { args: [{ $ref: 'x' }], kwargs: {} }, result: { return: 1 } };
+  const two = structuredClone(one);
+  two.call.fn_name = 'b';
+  await assert.rejects(p.load([one, two]), /duplicate \$new x/);
+});
+
+test('unknown and forward references reject before a call executes', async () => {
+  const p = new InterfacePlayback();
+  const one = { call: { fn_name: 'a', obj: { $free: true } },
+    before: { args: [{ $ref: 'later' }], kwargs: {} },
+    after: { args: [{ $new: 'later', $type: 'builtins.dict', items: {} }], kwargs: {} },
+    result: { return: 1 } };
+  await assert.rejects(p.load([one]), /unknown or forward \$ref later/);
+});
+
+test('bounded JSONL input replays lazily, resets and saves', async () => {
+  const p = new InterfacePlayback();
+  for (let i = 0; i < 1100; i++) {
+    await p.record(id, n => n + 1, Free, 'increment', [i]);
+  }
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-stream-'));
+  const file = join(dir, 'source.jsonl');
+  const copyFile = join(dir, 'copy.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback();
+  await q.load(file);
+  assert.equal(q.entries.length, 0, 'lazy input does not materialize interaction array');
+  assert.equal(q.replay(Free, 'increment', [0]), 1);
+  assert.equal(q.replay(Free, 'increment', [1]), 2);
+  q.reset();
+  assert.equal(q.replay(Free, 'increment', [0]), 1);
+  await q.save(copyFile);
+  assert.equal(await readFile(copyFile, 'utf8'), await readFile(file, 'utf8'));
+  assert.equal(q.cursor, 1, 'independent save does not advance cursor');
+});
+
+test('JSONL duplicate identity fails during load scan', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-invalid-'));
+  const file = join(dir, 'duplicate.jsonl');
+  const { writeFile } = await import('node:fs/promises');
+  const item = { call: { fn_name: 'x', obj: { $free: true } },
+    before: { args: [{ $new: 'a', $type: 'builtins.list', items: [] }], kwargs: {} },
+    after: { args: [{ $ref: 'a' }], kwargs: {} }, result: { return: 1 } };
+  await writeFile(file, JSON.stringify(item) + '\n' + JSON.stringify(item) + '\n');
+  const q = new InterfacePlayback();
+  await assert.rejects(q.load(file), /duplicate \$new a/);
+});
+
+test('JSONL malformed late entry fails before replay', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-late-'));
+  const file = join(dir, 'truncated.jsonl');
+  const { writeFile } = await import('node:fs/promises');
+  const valid = { call: { fn_name: 'ok', obj: { $free: true } },
+    before: { args: [], kwargs: {} }, after: { args: [], kwargs: {} },
+    result: { return: 1 } };
+  await writeFile(file, JSON.stringify(valid) + '\n{"call":');
+  const q = new InterfacePlayback();
+  await assert.rejects(q.load(file), /malformed\/truncated JSONL/);
+});
+
+test('streamed wrong call does not consume next entry', async () => {
+  const p = new InterfacePlayback();
+  await p.record(id, () => 12, Free, 'correct');
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-wrong-'));
+  const file = join(dir, 'x.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback();
+  await q.load(file);
+  assert.throws(() => q.replay(Free, 'incorrect'), /expected correct/);
+  assert.equal(q.cursor, 0);
+  assert.equal(q.replay(Free, 'correct'), 12);
+});
+
+test('distinct equal objects do not alias in streamed replay', async () => {
+  const p = new InterfacePlayback();
+  await p.record(id, () => true, Free, 'distinct', [{ v: 1 }, { v: 1 }]);
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-distinct-'));
+  const file = join(dir, 'x.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback();
+  await q.load(file);
+  const obj = { v: 1 };
+  assert.throws(() => q.replay(Free, 'distinct', [obj, obj]), /identity mismatch|duplicate \$new/);
+  assert.equal(q.cursor, 0);
+  assert.equal(q.replay(Free, 'distinct', [{ v: 1 }, { v: 1 }]), true);
+});
