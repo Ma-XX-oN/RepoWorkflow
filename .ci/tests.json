@@ -393,6 +393,10 @@
       "issue-683-prelim-ready": {
         "type": "regression",
         "name": "tests.test_prelim_ready"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
       }
     },
     {
