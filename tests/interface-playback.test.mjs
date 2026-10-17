@@ -451,3 +451,11 @@ test('inherited prototype type names are not trusted resolvers', async () => {
   assert.throws(() => p.replay(Free, 'x'), /unresolved custom type/);
   assert.equal(p.cursor, 0);
 });
+
+test('member call requires logical receiver identity even with matching fields', async () => {
+  const p = new InterfacePlayback();
+  await assert.rejects(p.load([{ call: { fn_name: 'method', obj: { value: 1 } },
+    before: { obj: { value: 1 }, args: [], kwargs: {} },
+    after: { obj: { value: 2 }, args: [], kwargs: {} },
+    result: { return: 2 } }]), /member call requires logical receiver identity/);
+});
