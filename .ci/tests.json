@@ -405,6 +405,10 @@
       "issue-683-prelim-ready-recorded": {
         "type": "regression",
         "name": "tests.test_prelim_ready_recorded"
+      },
+      "issue-683-prelim-ready-authority": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_authority"
       }
     },
     {
