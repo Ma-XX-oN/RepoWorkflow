@@ -59,3 +59,15 @@ jobs:
         run: |
           python -m json.tool .ci/tests.json > /dev/null
           python -m unittest tests.test_source_size tests.test_test_cli
+
+  repo-full-regression:
+    name: Full RepoWorkflow Python regression (Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run all repository Python unittest cases
+        run: python -m unittest discover -s tests -p 'test_*.py'
