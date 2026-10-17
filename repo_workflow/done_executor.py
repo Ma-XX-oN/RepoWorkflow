@@ -72,7 +72,9 @@ def execute_certified_done(
       or not isinstance(attempt.authorization_ref, str)
       or not attempt.authorization_ref):
     raise DoneExecutionError("certification provenance differs")
-  if (_SHA.fullmatch(attempt.tested_candidate_sha) is None
+  if (not isinstance(attempt.tested_candidate_sha, str)
+      or _SHA.fullmatch(attempt.tested_candidate_sha) is None
+      or not isinstance(fresh.expected_parent_sha, str)
       or _SHA.fullmatch(fresh.expected_parent_sha) is None):
     raise DoneExecutionError("candidate identity is invalid")
   result = integrate_conditional(
@@ -82,7 +84,8 @@ def execute_certified_done(
   )
   if not isinstance(result, AcceptedIntegration):
     raise DoneExecutionError("remote integration outcome UNKNOWN; reconcile")
-  if (_SHA.fullmatch(result.landed_sha) is None or not result.operation_id
+  if (not isinstance(result.landed_sha, str)
+      or _SHA.fullmatch(result.landed_sha) is None or not result.operation_id
       or result.verified is not True):
     raise DoneExecutionError("remote integration has no verified landing")
   if verify_provider_result(fresh, attempt, result) is not True:
