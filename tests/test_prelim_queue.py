@@ -90,6 +90,19 @@ class PrelimQueueTests(unittest.TestCase):
       {old: SHA_A}, {old: SHA_A, new: SHA_B})
     self.assertEqual(len(ready), 2)
 
+  def test_terminal_evidence_permits_only_matching_retired_ref(self):
+    ref_name = ref("issue-123", "main", A)
+    self.assertEqual(
+      verify_immutable_prelims(
+        {ref_name: SHA_A}, {}, terminal_refs={ref_name: SHA_A}), ())
+    with self.assertRaises(PrelimQueueError):
+      verify_immutable_prelims(
+        {ref_name: SHA_A}, {}, terminal_refs={ref_name: SHA_B})
+    with self.assertRaises(PrelimQueueError):
+      verify_immutable_prelims(
+        {ref_name: SHA_A}, {ref_name: SHA_B},
+        terminal_refs={ref_name: SHA_A})
+
   def test_result_order_is_deterministic_not_priority(self):
     first = ref("issue-123", "main", B)
     second = ref("issue-123", "main", A)
