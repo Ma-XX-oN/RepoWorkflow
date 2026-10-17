@@ -406,3 +406,26 @@ test('saving directly over current lazy input fails without truncation', async (
   await assert.rejects(q.save(file), /cannot replace an active streaming input/);
   assert.equal(await readFile(file, 'utf8'), before);
 });
+
+test('UTF-8 scalar crossing the 16 KiB read boundary survives lazy playback', async () => {
+  const p = new InterfacePlayback();
+  const value = 'a'.repeat(16379) + '🙂' + 'é';
+  await p.record(id, () => value, Free, 'unicode');
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-unicode-'));
+  const file = join(dir, 'unicode.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback();
+  await q.load(file);
+  assert.equal(q.replay(Free, 'unicode'), value);
+});
+
+test('oversized JSONL interaction is rejected by bounded reader', async () => {
+  const { writeFile } = await import('node:fs/promises');
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-cap-'));
+  const file = join(dir, 'oversized.jsonl');
+  await writeFile(file, JSON.stringify({ call: { fn_name: 'large', obj: { $free: true } },
+    before: { args: [], kwargs: {} }, after: { args: [], kwargs: {} },
+    result: { return: 'z'.repeat(1100000) } }) + '\n');
+  const q = new InterfacePlayback();
+  await assert.rejects(q.load(file), /bounded maximum/);
+});
