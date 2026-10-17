@@ -88,8 +88,12 @@ const isObject = v => v !== null && typeof v === 'object';
 const typeName = v => Array.isArray(v) ? 'builtins.list' : plain(v) ? 'builtins.dict' :
   v.constructor?.name || 'Object';
 export class InterfacePlayback {
-  constructor({ types = {}, interactions = [] } = {}) {
-    this.types = { ...types };
+  constructor({ types = {}, interactions = [], maxLineBytes = 1048576 } = {}) {
+    if (!Number.isSafeInteger(maxLineBytes) || maxLineBytes < 1024) {
+      failure('constructor', 'maxLineBytes must be an integer >= 1024');
+    }
+    this.maxLineBytes = maxLineBytes;
+    this.types = Object.assign(Object.create(null), types);
     this.entries = [];
     this.stream = null;
     this.cursor = 0;
@@ -112,12 +116,12 @@ export class InterfacePlayback {
         identityEntry(entry, names, index);
       };
       // Validate the entire recording without retaining interactions.
-      const scan = new JsonlReader(source, validate);
+      const scan = new JsonlReader(source, validate, this.maxLineBytes);
       try {
         while (scan.peek() !== undefined) scan.advance();
       } finally { scan.close(); }
       this.entries = [];
-      this.stream = new JsonlReader(source, validateInteraction);
+      this.stream = new JsonlReader(source, validateInteraction, this.maxLineBytes);
       this.reset();
       return this;
     }
@@ -358,7 +362,7 @@ export class InterfacePlayback {
     if (spec.$new) {
       if (refs.has(spec.$new)) failure(path, `duplicate $new ${spec.$new}`);
       if (!['builtins.list', 'builtins.dict'].includes(spec.$type) &&
-          typeof this.types[spec.$type] !== 'function') {
+          (!own(this.types, spec.$type) || typeof this.types[spec.$type] !== 'function')) {
         failure(path, `unresolved custom type ${spec.$type}`);
       }
       const out = spec.$type === 'builtins.list' ? [] :
