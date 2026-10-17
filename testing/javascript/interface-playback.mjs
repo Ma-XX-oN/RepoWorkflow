@@ -7,6 +7,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { isDeepStrictEqual } from 'node:util';
+import { identityEntry, identityRecording, JsonlReader } from './interface-stream.mjs';
 
 export const Free = Symbol('interface-playback.Free');
 const allowed = new Set(['$free', '$unchanged', '$new', '$ref', '$type']);
@@ -76,6 +77,7 @@ export class InterfacePlayback {
   constructor({ types = {}, interactions = [] } = {}) {
     this.types = { ...types };
     this.entries = [];
+    this.stream = null;
     this.cursor = 0;
     this.recordNames = new WeakMap();
     this.recordCount = 0;
@@ -83,34 +85,49 @@ export class InterfacePlayback {
     if (interactions.length) this.load(interactions);
   }
 
-  reset() { this.cursor = 0; this.references.clear(); }
+  reset() {
+    this.cursor = 0;
+    this.references.clear();
+    if (this.stream) this.stream.reset();
+  }
 
   async load(source) {
-    let data = source;
-    if (typeof source === 'string') {
-      if (source.endsWith('.json')) {
-        data = JSON.parse(await readFile(source, 'utf8'));
-      } else {
-        data = [];
-        const input = createReadStream(source, { encoding: 'utf8' });
-        const lines = createInterface({ input, crlfDelay: Infinity });
-        for await (const line of lines) {
-          if (line.trim()) data.push(JSON.parse(line));
-        }
-      }
+    if (this.stream) { this.stream.close(); this.stream = null; }
+    if (typeof source === 'string' && !source.endsWith('.json')) {
+      const names = new Set();
+      const validate = (entry, index) => {
+        validateInteraction(entry, index);
+        identityEntry(entry, names, index);
+      };
+      // Validate the entire recording without retaining interactions.
+      const scan = new JsonlReader(source, validate);
+      try {
+        while (scan.peek() !== undefined) scan.advance();
+      } finally { scan.close(); }
+      this.entries = [];
+      this.stream = new JsonlReader(source, validateInteraction);
+      this.reset();
+      return this;
     }
+    const data = typeof source === 'string' ?
+      JSON.parse(await readFile(source, 'utf8')) : source;
     if (!Array.isArray(data)) failure('load', 'expected interaction array or JSONL file');
     data.forEach((entry, i) => validateInteraction(entry, i));
+    identityRecording(data);
     this.entries = copy(data);
     this.reset();
     return this;
   }
 
   async save(path) {
-    this.entries.forEach((entry, i) => validateInteraction(entry, i));
+    if (!this.stream) {
+      this.entries.forEach((entry, i) => validateInteraction(entry, i));
+      identityRecording(this.entries);
+    }
     const output = createWriteStream(path, { encoding: 'utf8' });
     try {
-      for (const entry of this.entries) {
+      const records = this.stream ? this.stream.records() : this.entries;
+      for (const entry of records) {
         if (!output.write(`${JSON.stringify(entry)}\n`)) await once(output, 'drain');
       }
       output.end();
@@ -185,13 +202,14 @@ export class InterfacePlayback {
       { return: this.#encode(value) };
     const entry = filter({ call, before, after, result });
     validateInteraction(entry, this.entries.length);
+    if (this.stream) failure('record', 'cannot append to loaded streaming source');
     this.entries.push(copy(entry));
     if (thrown) throw thrown;
     return value;
   }
 
   #expect(receiver, name, args, kwargs) {
-    const entry = this.entries[this.cursor];
+    const entry = this.stream ? this.stream.peek() : this.entries[this.cursor];
     if (!entry) failure(`interaction[${this.cursor}]`, 'recording exhausted');
     if (entry.call.fn_name !== name) failure(`interaction[${this.cursor}].call`,
       `expected ${entry.call.fn_name}, received ${name}`);
@@ -334,6 +352,7 @@ export class InterfacePlayback {
     if (own(entry.result, 'return')) value = this.#materialize(entry.result.return, refs, 'result.return');
     this.references = refs;
     this.cursor++;
+    if (this.stream) this.stream.advance();
     if (own(entry.result, 'raise')) {
       const spec = entry.result.raise;
       const ErrorType = { Error, TypeError, RangeError, SyntaxError, ReferenceError }[spec.$type] || Error;
