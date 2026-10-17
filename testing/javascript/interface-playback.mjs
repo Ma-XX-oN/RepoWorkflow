@@ -35,6 +35,7 @@ function check(value, path = 'value') {
     if (typeof id !== 'string' || !id) failure(path, 'invalid logical object id');
   }
   if (own(value, '$type') && (typeof value.$type !== 'string' || !value.$type)) failure(path, 'invalid type');
+  if (own(value, '$new') && !own(value, '$type')) failure(path, '$new requires stable $type');
   if (own(value, '$free') && (Object.keys(value).length !== 1 || value.$free !== true)) failure(path, 'invalid Free');
   if (own(value, '$unchanged')) {
     const q = value.$unchanged;
@@ -62,6 +63,21 @@ export function validateInteraction(entry, index = 0) {
       !plain(entry.after.kwargs)) failure(path, 'invalid call structure');
   if (entry.before.args.length !== entry.after.args.length) failure(path, 'args length changed');
   if (own(entry.result, 'return') === own(entry.result, 'raise')) failure(path, 'exactly one return or raise required');
+  if (Object.keys(entry.call).sort().join() !== 'fn_name,obj') failure(path, 'unexpected call fields');
+  if (Object.keys(entry.before).some(k => !['obj', 'args', 'kwargs'].includes(k)) ||
+      Object.keys(entry.after).some(k => !['obj', 'args', 'kwargs'].includes(k))) {
+    failure(path, 'unexpected before/after fields');
+  }
+  if (Object.keys(entry.result).length !== 1) failure(path, 'unexpected result fields');
+  if (Object.keys(entry.before.kwargs).sort().join() !==
+      Object.keys(entry.after.kwargs).sort().join()) failure(path, 'kwargs keys changed');
+  if (own(entry.result, 'raise')) {
+    const error = entry.result.raise;
+    if (!plain(error) || typeof error.$type !== 'string' || !error.$type ||
+        !Array.isArray(error.args) || Object.keys(error).sort().join() !== '$type,args') {
+      failure(path, 'invalid exception specification');
+    }
+  }
   const free = plain(entry.call.obj) && entry.call.obj.$free === true;
   if (free && (own(entry.before, 'obj') || own(entry.after, 'obj'))) failure(path, 'Free cannot have receiver state');
   if (!free && (!own(entry.before, 'obj') || !own(entry.after, 'obj'))) failure(path, 'receiver states missing');
@@ -358,7 +374,10 @@ export class InterfacePlayback {
     if (this.stream) this.stream.advance();
     if (own(entry.result, 'raise')) {
       const spec = entry.result.raise;
-      const ErrorType = { Error, TypeError, RangeError, SyntaxError, ReferenceError }[spec.$type] || Error;
+      const ErrorType = { Error, TypeError, RangeError, SyntaxError, ReferenceError }[spec.$type] || this.types[spec.$type];
+      if (typeof ErrorType !== 'function' || !(ErrorType.prototype instanceof Error || ErrorType === Error)) {
+        failure('result.raise', `unresolved exception type ${spec.$type}`);
+      }
       throw new ErrorType(...(spec.args || []));
     }
     return value;
