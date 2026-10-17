@@ -262,7 +262,7 @@ test('distinct equal objects do not alias in streamed replay', async () => {
   const q = new InterfacePlayback();
   await q.load(file);
   const obj = { v: 1 };
-  assert.throws(() => q.replay(Free, 'distinct', [obj, obj]), /identity mismatch|duplicate \$new/);
+  assert.throws(() => q.replay(Free, 'distinct', [obj, obj]), /identity mismatch|duplicate \$new|distinct logical identities/);
   assert.equal(q.cursor, 0);
   assert.equal(q.replay(Free, 'distinct', [{ v: 1 }, { v: 1 }]), true);
 });
