@@ -37,6 +37,10 @@ jobs:
             tests.test_integration_host_git_cas \
             tests.test_prelim_ready \
             tests.test_prelim_ready_git \
+            tests.test_prelim_ready_bridge \
+            tests.test_prelim_ready_recorded \
+            tests.test_prelim_ready_authority \
+            tests.test_prelim_integration_ready \
             tests.test_prelim_retirement \
             tests.test_prelim_retirement_evidence \
             tests.test_prelim_retirement_github \
