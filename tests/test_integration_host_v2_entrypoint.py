@@ -82,6 +82,30 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(result["result"], {"refs": {}})
     self.assertFalse(self.backend.calls)
 
+  def test_authorized_ref_cas_uses_configured_remote(self):
+    calls = []
+    request = dict(self.request, operation="ref.cas",
+      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
+    def writer(root, remote, ref, expected, proposed):
+      calls.append((remote, ref, expected, proposed))
+      return {"ref": ref, "sha": proposed}
+    result = MOD.process(request, backend_factory=self.factory,
+      verify=self.verify, cas_write=writer,
+      config_reader=lambda root: {"repository": {
+        "authoritativeRemote": "origin"}})
+    self.assertEqual(result["result"]["sha"], SHA)
+    self.assertEqual(calls, [("origin", REF, "b"*40, SHA)])
+
+  def test_denied_cas_never_reaches_git(self):
+    called = []
+    request = dict(self.request, operation="ref.cas",
+      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
+    with self.assertRaises(IntegrationHostError):
+      MOD.process(request, backend_factory=self.factory,
+        verify=lambda req, provider: None,
+        cas_write=lambda *args: called.append(args))
+    self.assertEqual(called, [])
+
   def test_lease_cas_is_unavailable_not_simulated(self):
     request = dict(self.request, operation="lease.cas", parameters={})
     with self.assertRaises(MOD.IntegrationProviderError):
