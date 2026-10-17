@@ -367,3 +367,42 @@ test('unresolvable recorded exception leaves cursor and arguments unchanged', as
   assert.equal(p.cursor, 0);
   assert.equal(value.v, 1);
 });
+
+test('unsupported intrinsic and sparse arrays fail without recording', async () => {
+  const values = [new RegExp('x'), new Error('no'), new Map(), new Set(),
+    new Date(), new Uint8Array([1]), new Array(2)];
+  for (const value of values) {
+    const p = new InterfacePlayback();
+    await assert.rejects(p.record(id, () => value, Free, 'unsupported'), /unsupported|sparse/);
+    assert.equal(p.entries.length, 0);
+  }
+});
+
+test('unknown custom result type requires explicit trusted resolver', async () => {
+  const record = { call: { fn_name: 'object', obj: { $free: true } },
+    before: { args: [], kwargs: {} }, after: { args: [], kwargs: {} },
+    result: { return: { $new: 'c', $type: 'CustomThing', value: 2 } } };
+  const p = new InterfacePlayback();
+  await p.load([record]);
+  assert.throws(() => p.replay(Free, 'object'), /unresolved custom type/);
+  assert.equal(p.cursor, 0);
+  class CustomThing {}
+  const q = new InterfacePlayback({ types: { CustomThing } });
+  await q.load([record]);
+  const value = q.replay(Free, 'object');
+  assert.equal(value instanceof CustomThing, true);
+  assert.equal(value.value, 2);
+});
+
+test('saving directly over current lazy input fails without truncation', async () => {
+  const p = new InterfacePlayback();
+  await p.record(id, () => 1, Free, 'one');
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-samefile-'));
+  const file = join(dir, 'one.jsonl');
+  await p.save(file);
+  const before = await readFile(file, 'utf8');
+  const q = new InterfacePlayback();
+  await q.load(file);
+  await assert.rejects(q.save(file), /cannot replace an active streaming input/);
+  assert.equal(await readFile(file, 'utf8'), before);
+});
