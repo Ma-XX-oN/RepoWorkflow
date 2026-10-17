@@ -297,6 +297,17 @@ class HostedIdentityTests(unittest.TestCase):
     with self.assertRaisesRegex(HostedVersionError, "different candidate"):
       resolve_hosted_version(self.root, sha, self.log)
 
+  def test_historical_collision_cannot_poison_new_iteration(self):
+    sha = self.invoke()
+    self.evidence(testSHA="e" * 40)
+    self.evidence(testSHA="f" * 40)
+    next_version = "0.1.121-issue.570.0.2"
+    self.evidence(testVersion=next_version)
+    self.assertEqual(
+      resolve_hosted_version(self.root, sha, self.log)["test_version"],
+      next_version,
+    )
+
   def test_other_candidate_with_distinct_version_is_ignored(self):
     sha = self.invoke()
     self.evidence()
