@@ -53,6 +53,11 @@ def plan_retirement(
   `terminal_record_readback` must be read from authoritative durable state.
   Neither input may be inferred from a GREEN test or an open pull request.
   """
+  if not isinstance(landed, LandedIntegration):
+    raise PrelimRetirementError("provider landing record is required")
+  if any(not isinstance(ref, str) for ref in (
+      submitted_ref, expected_int_attempt_ref, destination_ref)):
+    raise PrelimRetirementError("integration refs are invalid")
   for name, value in (
       ("submitted SHA", submitted_sha),
       ("landed candidate", landed.accepted_sha),
@@ -61,8 +66,6 @@ def plan_retirement(
   ):
     if not isinstance(value, str) or _SHA.fullmatch(value) is None:
       raise PrelimRetirementError(f"{name} is not a full Git SHA")
-  if not isinstance(landed, LandedIntegration):
-    raise PrelimRetirementError("provider landing record is required")
   if (not submitted_ref.startswith("refs/heads/PRELIM-")
       or not expected_int_attempt_ref.startswith("refs/heads/INT-ATTEMPT-")
       or not destination_ref.startswith("refs/heads/")):
