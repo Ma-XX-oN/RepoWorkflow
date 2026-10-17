@@ -66,7 +66,7 @@ issue,title,dependencies
 106,Finalize authoritative verification terminal result,118
 107,Orchestrate one-command authoritative verify workflow,105;106
 108,Compute done readiness and integration plan,64;69;80;104;117
-109,Execute approved done integration plan,83;103;108;118;677
+109,Execute approved done integration plan,83;103;108;118
 110,Plan and execute only missing hosted/provider validation,67;70
 111,Render rwf status from canonical workflow projection,72
 112,Project legal next transitions for rwf what-next,72
@@ -268,4 +268,4 @@ issue,title,dependencies
 581,Project authoritative lifecycle state into synchronized tickets CSV,580
 582,Add cached-state graph glyphs and explicit --current refresh,581
 583,Certify six-state lifecycle CSV migration and graph status integration,582
-677,Converge PRELIM branch queue and INT-ATTEMPT admission against October 17 contract,83;84;102;108
+677,Converge PRELIM branch queue and INT-ATTEMPT admission against October 17 contract,83;84;102;108;109
