@@ -71,45 +71,47 @@ def publish_ready_prelim(
   return PublishedReady(ref, candidate_sha, request_id)
 
 
-def create_ready_ref_git(root, remote, ref, sha, request_id):
-  """Atomically create a READY PRELIM ref only when remote has no such ref.
 
-  A plain non-force push is insufficient: it might advance an existing ref.
-  The empty expected-oid lease is the create-only condition.
+def create_ready_ref_provider(backend, ref, sha, request_id):
+  """Create an absent PRELIM ref with the provider's atomic POST /git/refs.
+
+  A Git push with an empty expected ref is unsafe: a same-SHA no-op can
+  succeed even if the ref already exists. Never use push as creation proof.
   """
-  import subprocess
-  from pathlib import Path
-
-  valid_ref = (type(ref) is str and re.fullmatch(
+  valid = (type(ref) is str and re.fullmatch(
     r"refs/heads/PRELIM-issue-[1-9][0-9]*/"
     r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
     ref) is not None)
-  if valid_ref:
-    destination = ref.split("/", 3)[3][:-37]
-    valid_ref = all(part not in ("", ".", "..")
-                    for part in destination.split("/"))
-  if (not valid_ref
-      or type(sha) is not str or _SHA.fullmatch(sha) is None
-      or type(request_id) is not str or not request_id
-      or type(remote) is not str or not remote or remote.startswith("-")):
-    raise ReadyPublicationError("invalid create-only PRELIM request")
-  root = Path(root)
-  def run(*args):
+  if valid:
+    dest = ref.split("/", 3)[3][:-37]
+    valid = all(part not in ("", ".", "..") for part in dest.split("/"))
+  if (not valid or type(sha) is not str or _SHA.fullmatch(sha) is None
+      or type(request_id) is not str or not request_id.strip()):
+    raise ReadyPublicationError("invalid PRELIM create request")
+
+  def read():
     try:
-      return subprocess.run(["git", "-C", str(root), *args],
-        capture_output=True, text=True, timeout=30, check=False)
-    except (OSError, subprocess.TimeoutExpired) as error:
-      raise ReadyPublicationError("PRELIM creation outcome UNKNOWN") from error
-  if run("cat-file", "-e", sha + "^{commit}").returncode:
-    raise ReadyPublicationError("PRELIM candidate commit is missing")
-  result = run("push", "--porcelain",
-    "--force-with-lease=" + ref + ":", remote, sha + ":" + ref)
-  if result.returncode:
-    raise ReadyPublicationError("PRELIM create-only push rejected or UNKNOWN")
-  readback = run("ls-remote", "--heads", remote, ref)
-  if readback.returncode:
-    raise ReadyPublicationError("PRELIM create-only readback UNKNOWN")
-  fields = readback.stdout.strip().split()
-  if len(fields) != 2 or fields[0] != sha or fields[1] != ref:
-    raise ReadyPublicationError("PRELIM published ref differs on readback")
+      record = backend.get("git/ref/" + ref.removeprefix("refs/"))
+    except Exception as error:
+      if getattr(error, "code", None) == "not_found":
+        return None
+      raise ReadyPublicationError("remote PRELIM read UNKNOWN") from error
+    if (type(record) is not dict or record.get("ref") != ref
+        or type(record.get("object")) is not dict):
+      raise ReadyPublicationError("remote PRELIM ref malformed")
+    head = record["object"].get("sha")
+    if type(head) is not str or _SHA.fullmatch(head) is None:
+      raise ReadyPublicationError("remote PRELIM SHA malformed")
+    return head
+
+  if read() is not None:
+    raise ReadyPublicationError("PRELIM already published")
+  try:
+    backend.post("git/refs", {"ref": ref, "sha": sha})
+  except Exception as error:
+    # Even if ref now matches, the mutation outcome is not proven to be
+    # ours. Only the external request-ID reservation can reconcile a retry.
+    raise ReadyPublicationError("PRELIM creation outcome UNKNOWN") from error
+  if read() != sha:
+    raise ReadyPublicationError("published PRELIM readback differs")
   return True
