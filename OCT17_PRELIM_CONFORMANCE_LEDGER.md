@@ -60,3 +60,33 @@ To change this ledger to PASS, provide exact assembled candidate, positive
 and negative test results, hosted regression and integration execution, live
 provider observations, issue and PR links, and explicit acceptance readback.
 Security #85/#86/#676 remains deferred, not falsely reported GREEN.
+
+## Follow-up execution evidence — 2026-10-17
+
+The functional graph dependency correction was revised to avoid a semantic
+completion cycle: #103 depends on #84; #109 depends on #83/#103/#108/#118;
+#677 depends on #83/#84/#102/#108/#109 and is the *downstream*
+assembled-model certification gate. Exact graph parsing on the current draft
+#678 branch: 270 nodes, 0 unknown dependencies, 0 cycles.
+
+Implementation drafts created during the 25-minute bounded run:
+
+- PR #678: offline GUID-qualified published PRELIM discovery, strict
+  destination-at-SHA admission, tests and real local Git two-satellite fixture.
+- PR #679: #103 conservative landed-retirement preflight, stacked on #84.
+- PR #680: #109 guarded mutation boundary, stacked on #103 and reusing #677
+  source files; destination/ticket/SHA-bound admission, expected-old SHA
+  passed to provider, independent landing readback, no false UNKNOWN success.
+
+An equivalent isolated local Python harness ran **35 focused tests PASS**
+including a real local Git stale-writer CAS fixture. This does NOT establish
+full repository regression, GitHub provider acceptance or exact PR-head CI.
+No PR-associated hosted workflow runs were returned for these new draft HEADs
+by the currently available provider query. No PR merged.
+
+**Still NOT CERTIFIED:** production CLI wiring, source-branch publication
+migration from older `prelim-main-<GUID>` paths, genuine per-destination
+coordination/locking, server-side PR/merge integration and CAS, authenticated
+full ART/AIT/MIT execution, failed/UNKNOWN recovery and durable queue state,
+remote cleanup, exact evidence promotion, complete #583 executor oracles,
+assembled regression/hosted integration. #85/#86/#676 security deferred.
