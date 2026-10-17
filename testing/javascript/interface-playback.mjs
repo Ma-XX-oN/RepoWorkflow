@@ -79,6 +79,10 @@ export function validateInteraction(entry, index = 0) {
     }
   }
   const free = plain(entry.call.obj) && entry.call.obj.$free === true;
+  if (!free && (!plain(entry.call.obj) ||
+      !(own(entry.call.obj, '$new') || own(entry.call.obj, '$ref')))) {
+    failure(path, 'member call requires logical receiver identity');
+  }
   if (free && (own(entry.before, 'obj') || own(entry.after, 'obj'))) failure(path, 'Free cannot have receiver state');
   if (!free && (!own(entry.before, 'obj') || !own(entry.after, 'obj'))) failure(path, 'receiver states missing');
   return entry;
