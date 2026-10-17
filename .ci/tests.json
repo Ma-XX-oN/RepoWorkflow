@@ -117,6 +117,10 @@
       "issue-681-v2-entrypoint": {
         "type": "regression",
         "name": "tests.test_integration_host_v2_entrypoint"
+      },
+      "issue-681-git-cas": {
+        "type": "regression",
+        "name": "tests.test_integration_host_git_cas"
       }
     },
     {
