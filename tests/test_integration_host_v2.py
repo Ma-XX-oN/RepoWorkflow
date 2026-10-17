@@ -60,6 +60,30 @@ class IntegrationHostV2Tests(unittest.TestCase):
         with self.assertRaises(IntegrationHostError):
           self.host.request("lease.cas", "claim-2", dict(params, **update))
 
+  def test_lease_result_must_match_requested_owner_and_generation(self):
+    params = dict(destination="main", expected_generation=3,
+                  expected_holder=None, expected_guid=None,
+                  holder="worker-A", guid=GUID)
+    def wrong(request):
+      reply = good(request)
+      reply["result"]["generation"] = 3
+      return reply
+    self.host = IntegrationHost("Org/Repo", wrong)
+    with self.assertRaisesRegex(IntegrationHostError, "result"):
+      self.host.request("lease.cas", "claim-1", params)
+
+  def test_lease_result_wrong_holder_is_not_accepted(self):
+    params = dict(destination="main", expected_generation=0,
+                  expected_holder=None, expected_guid=None,
+                  holder="worker-A", guid=GUID)
+    def wrong(request):
+      reply = good(request)
+      reply["result"]["holder"] = "worker-B"
+      return reply
+    self.host = IntegrationHost("Org/Repo", wrong)
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("lease.cas", "claim-2", params)
+
   def test_stale_echo_rejected(self):
     def wrong(request):
       result = good(request)
