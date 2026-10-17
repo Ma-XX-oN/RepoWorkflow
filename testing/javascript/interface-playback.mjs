@@ -7,6 +7,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { isDeepStrictEqual } from 'node:util';
+import { resolve } from 'node:path';
 import { identityEntry, identityRecording, JsonlReader } from './interface-stream.mjs';
 
 export const Free = Symbol('interface-playback.Free');
@@ -41,12 +42,14 @@ function check(value, path = 'value') {
     const q = value.$unchanged;
     if (Object.keys(value).length !== 1 ||
         (q !== true && !(plain(q) && Object.keys(q).length === 1 &&
-        Array.isArray(q.keys) && q.keys.every(k => typeof k === 'string')))) {
+        Array.isArray(q.keys) && q.keys.every(k => typeof k === 'string') &&
+        new Set(q.keys).size === q.keys.length))) {
       failure(path, 'invalid Unchanged');
     }
   }
   if (own(value, 'keys') && own(value, '$type') && value.$type === 'builtins.dict') {
-    if (!Array.isArray(value.keys) || !value.keys.every(k => typeof k === 'string')) {
+    if (!Array.isArray(value.keys) || !value.keys.every(k => typeof k === 'string') ||
+        new Set(value.keys).size !== value.keys.length) {
       failure(path, 'invalid dictionary keys');
     }
   }
@@ -136,6 +139,9 @@ export class InterfacePlayback {
   }
 
   async save(path) {
+    if (this.stream && resolve(path) === resolve(this.stream.path)) {
+      failure('save', 'cannot replace an active streaming input source');
+    }
     if (!this.stream) {
       this.entries.forEach((entry, i) => validateInteraction(entry, i));
       identityRecording(this.entries);
@@ -364,6 +370,16 @@ export class InterfacePlayback {
 
   replay(receiver, name, args = [], kwargs = {}) {
     const { entry, refs } = this.#expect(receiver, name, args, kwargs);
+    let exception;
+    if (own(entry.result, 'raise')) {
+      const spec = entry.result.raise;
+      const ErrorType = { Error, TypeError, RangeError, SyntaxError, ReferenceError }[spec.$type] || this.types[spec.$type];
+      if (typeof ErrorType !== 'function' ||
+          !(ErrorType.prototype instanceof Error || ErrorType === Error)) {
+        failure('result.raise', `unresolved exception type ${spec.$type}`);
+      }
+      exception = new ErrorType(...spec.args);
+    }
     if (receiver !== Free) this.#apply(entry.after.obj, receiver, refs, 'after.obj');
     args.forEach((arg, i) => this.#apply(entry.after.args[i], arg, refs, `after.args[${i}]`));
     for (const [k, v] of Object.entries(kwargs)) this.#apply(entry.after.kwargs[k], v, refs, `after.kwargs.${k}`);
@@ -372,14 +388,7 @@ export class InterfacePlayback {
     this.references = refs;
     this.cursor++;
     if (this.stream) this.stream.advance();
-    if (own(entry.result, 'raise')) {
-      const spec = entry.result.raise;
-      const ErrorType = { Error, TypeError, RangeError, SyntaxError, ReferenceError }[spec.$type] || this.types[spec.$type];
-      if (typeof ErrorType !== 'function' || !(ErrorType.prototype instanceof Error || ErrorType === Error)) {
-        failure('result.raise', `unresolved exception type ${spec.$type}`);
-      }
-      throw new ErrorType(...(spec.args || []));
-    }
+    if (exception) throw exception;
     return value;
   }
 
