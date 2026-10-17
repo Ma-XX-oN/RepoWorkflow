@@ -437,6 +437,10 @@
       "issue-681-git-cas": {
         "type": "regression",
         "name": "tests.test_integration_host_git_cas"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
       }
     },
     {
