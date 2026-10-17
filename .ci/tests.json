@@ -401,6 +401,10 @@
       "issue-683-prelim-ready-bridge": {
         "type": "regression",
         "name": "tests.test_prelim_ready_bridge"
+      },
+      "issue-683-prelim-ready-recorded": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_recorded"
       }
     },
     {
