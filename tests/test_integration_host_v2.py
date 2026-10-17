@@ -1,4 +1,4 @@
-"""Protocol-negative tests for a separate versioned host extension."""
+"""Negative tests for the separate versioned integration-host contract."""
 import unittest
 from repo_workflow.integration_host_v2 import IntegrationHost, IntegrationHostError
 
@@ -7,79 +7,114 @@ REF = f"refs/heads/INT-ATTEMPT-issue-123/main-{GUID}"
 SHA = "a"*40
 
 
-def accepted(request):
+def good(request):
+  p = request["parameters"]
+  result = {
+    "refs.list": lambda: {"refs": {}},
+    "ref.create": lambda: {"ref": p["ref"], "sha": p["sha"]},
+    "ref.cas": lambda: {"ref": p["ref"], "sha": p["sha"]},
+    "lease.read": lambda: {
+      "destination": p["destination"], "generation": 0,
+      "guid": None, "holder": None},
+    "lease.cas": lambda: {
+      "destination": p["destination"], "generation": p["expected_generation"]+1,
+      "guid": p["guid"], "holder": p["holder"]},
+    "attempt.read": lambda: {"guid": p["guid"], "status": None, "sha": None},
+    "attempt.record": lambda: {
+      "guid": p["guid"], "status": p["status"], "sha": p["sha"]},
+  }[request["operation"]]()
   return dict(schema_version=2, repository=request["repository"],
               operation=request["operation"], request_id=request["request_id"],
-              status="applied", result={"ok": True})
+              status="applied", result=result)
 
 
 class IntegrationHostV2Tests(unittest.TestCase):
   def setUp(self):
-    self.host = IntegrationHost("Org/Repo", accepted)
+    self.host = IntegrationHost("Org/Repo", good)
 
-  def test_v2_request_echo(self):
-    result = self.host.request("ref.create", "request-1", {"ref": REF, "sha": SHA})
-    self.assertTrue(result["ok"])
+  def test_echo(self):
+    result = self.host.request("ref.create", "req-1", {"ref": REF, "sha": SHA})
+    self.assertEqual(result["sha"], SHA)
 
-  def test_published_prelim_mutation_forbidden(self):
+  def test_prelim_mutation_rejected(self):
     with self.assertRaises(IntegrationHostError):
-      self.host.request("ref.create", "request-1", {
-        "ref": f"refs/heads/PRELIM-issue-123/main-{GUID}", "sha": SHA})
+      self.host.request("ref.create", "req-1", {
+        "ref": REF.replace("INT-ATTEMPT", "PRELIM"), "sha": SHA})
 
-  def test_only_reserved_prelim_inventory(self):
-    self.assertTrue(self.host.request("refs.list", "list-1", {
-      "prefix": "refs/heads/PRELIM-"})["ok"])
+  def test_inventory_prefix_only(self):
+    self.assertEqual(self.host.request("refs.list", "list-1", {
+      "prefix": "refs/heads/PRELIM-"})["refs"], {})
     with self.assertRaises(IntegrationHostError):
       self.host.request("refs.list", "list-2", {"prefix": "refs/heads/main"})
 
-  def test_stale_or_malformed_lease_request(self):
+  def test_malformed_lease_request(self):
     params = dict(destination="main", expected_generation=0,
                   expected_holder=None, expected_guid=None,
                   holder="worker-A", guid=GUID)
-    self.assertTrue(self.host.request("lease.cas", "claim-1", params)["ok"])
-    for change in ({"expected_generation": -1}, {"expected_generation": True},
-                   {"holder": ""}, {"unexpected": "field"}):
-      with self.subTest(change=change):
+    self.assertEqual(self.host.request(
+      "lease.cas", "claim-1", params)["generation"], 1)
+    for update in ({"expected_generation": -1}, {"expected_generation": True},
+                   {"holder": ""}, {"expected_guid": GUID},
+                   {"unexpected": "value"}):
+      with self.subTest(update=update):
         with self.assertRaises(IntegrationHostError):
-          self.host.request("lease.cas", "claim-2", dict(params, **change))
+          self.host.request("lease.cas", "claim-2", dict(params, **update))
 
   def test_stale_echo_rejected(self):
     def wrong(request):
-      reply = accepted(request)
-      reply["request_id"] = "other"
-      return reply
+      result = good(request)
+      result["request_id"] = "wrong"
+      return result
     self.host = IntegrationHost("Org/Repo", wrong)
-    with self.assertRaisesRegex(IntegrationHostError, "mismatch"):
-      self.host.request("ref.create", "request-1", {"ref": REF, "sha": SHA})
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("ref.create", "req-1", {"ref": REF, "sha": SHA})
 
-  def test_transport_unknown_is_not_success(self):
+  def test_transport_unknown(self):
     self.host = IntegrationHost("Org/Repo", lambda request: 1/0)
     with self.assertRaisesRegex(IntegrationHostError, "UNKNOWN"):
-      self.host.request("ref.create", "request-1", {"ref": REF, "sha": SHA})
+      self.host.request("ref.create", "req-1", {"ref": REF, "sha": SHA})
 
-  def test_v1_response_not_accepted(self):
-    def legacy(request):
-      response = accepted(request)
-      response["schema_version"] = 1
-      return response
-    self.host = IntegrationHost("Org/Repo", legacy)
+  def test_v1_response_rejected(self):
+    def old(request):
+      result = good(request)
+      result["schema_version"] = 1
+      return result
+    self.host = IntegrationHost("Org/Repo", old)
     with self.assertRaises(IntegrationHostError):
-      self.host.request("ref.create", "request-1", {"ref": REF, "sha": SHA})
+      self.host.request("ref.create", "req-1", {"ref": REF, "sha": SHA})
 
-  def test_invalid_sha_rejected_before_transport(self):
+  def test_invalid_sha_rejected_without_transport(self):
     called = []
     self.host = IntegrationHost("Org/Repo", lambda request: called.append(request))
     with self.assertRaises(IntegrationHostError):
-      self.host.request("ref.cas", "r-1", {
-        "ref": REF, "expected_sha": "invalid", "sha": SHA})
+      self.host.request("ref.cas", "req-1", {
+        "ref": REF, "expected_sha": "bad", "sha": SHA})
     self.assertFalse(called)
 
-  def test_attempt_result_requires_pinned_candidate(self):
-    self.assertTrue(self.host.request("attempt.record", "r-1", {
-      "guid": GUID, "status": "integrated", "sha": SHA})["ok"])
+  def test_terminal_pin(self):
+    self.assertEqual(self.host.request("attempt.record", "req-1", {
+      "guid": GUID, "status": "integrated", "sha": SHA})["sha"], SHA)
     with self.assertRaises(IntegrationHostError):
-      self.host.request("attempt.record", "r-2", {
+      self.host.request("attempt.record", "req-2", {
         "guid": GUID, "status": "timeout-as-fail", "sha": SHA})
+
+  def test_wrong_result_candidate_denied(self):
+    def fake(request):
+      result = good(request)
+      result["result"]["sha"] = "b"*40
+      return result
+    self.host = IntegrationHost("Org/Repo", fake)
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("ref.create", "req-1", {"ref": REF, "sha": SHA})
+
+  def test_wrong_result_shape_denied(self):
+    def fake(request):
+      result = good(request)
+      result["result"]["unexpected"] = "x"
+      return result
+    self.host = IntegrationHost("Org/Repo", fake)
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("refs.list", "req-1", {"prefix": "refs/heads/PRELIM-"})
 
 
 if __name__ == "__main__":
