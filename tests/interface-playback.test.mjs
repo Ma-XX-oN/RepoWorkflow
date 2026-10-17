@@ -266,3 +266,64 @@ test('distinct equal objects do not alias in streamed replay', async () => {
   assert.equal(q.cursor, 0);
   assert.equal(q.replay(Free, 'distinct', [{ v: 1 }, { v: 1 }]), true);
 });
+
+test('rejects missing introduction type and conflicting result variants', async () => {
+  const q = new InterfacePlayback();
+  const fixture = { call: { fn_name: 'bad', obj: { $free: true } },
+    before: { args: [{ $new: 'u', items: [] }], kwargs: {} },
+    after: { args: [{ $ref: 'u' }], kwargs: {} },
+    result: { return: 1 } };
+  await assert.rejects(q.load([fixture]), /\$new requires stable \$type/);
+  fixture.before.args[0].$type = 'builtins.list';
+  fixture.result.raise = { $type: 'TypeError', args: ['oops'] };
+  await assert.rejects(q.load([fixture]), /exactly one return or raise/);
+});
+
+test('unknown raised exception type fails explicitly instead of coercion', async () => {
+  const p = new InterfacePlayback();
+  await p.load([{ call: { fn_name: 'fail', obj: { $free: true } },
+    before: { args: [], kwargs: {} }, after: { args: [], kwargs: {} },
+    result: { raise: { $type: 'ArbitraryCustomFailure', args: ['bad'] } } }]);
+  assert.throws(() => p.replay(Free, 'fail'), /unresolved exception type/);
+});
+
+test('recording-wide identities survive sequential calls through streaming', async () => {
+  const p = new InterfacePlayback();
+  const state = { n: 0 };
+  await p.record(id, () => ++state.n, state, 'next');
+  await p.record(id, () => ++state.n, state, 'next');
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-repeat-'));
+  const file = join(dir, 'seq.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback();
+  await q.load(file);
+  const replica = { n: 0 };
+  assert.equal(q.replay(replica, 'next'), 1);
+  assert.equal(q.replay(replica, 'next'), 2);
+  assert.equal(replica.n, 2);
+  assert.throws(() => q.replay(replica, 'next'), /exhausted/);
+});
+
+test('real isolated host-call boundary supports capture and replay', async () => {
+  const host = { calls: 0, last: null };
+  const p = new InterfacePlayback();
+  const request = { operation: 'synthetic', count: 2 };
+  const send = body => {
+    host.calls++;
+    host.last = body.operation;
+    body.count++;
+    return { ok: true, count: body.count };
+  };
+  const actual = await p.record(id, send, Free, 'host.send', [request]);
+  assert.deepEqual(actual, { ok: true, count: 3 });
+  assert.equal(host.calls, 1);
+  const dir = await mkdtemp(join(tmpdir(), 'rwf670-host-'));
+  const file = join(dir, 'host.jsonl');
+  await p.save(file);
+  const q = new InterfacePlayback();
+  await q.load(file);
+  const replica = { operation: 'synthetic', count: 2 };
+  assert.deepEqual(q.replay(Free, 'host.send', [replica]), { ok: true, count: 3 });
+  assert.equal(replica.count, 3);
+  assert.equal(host.calls, 1, 'replay never invokes the real host');
+});
