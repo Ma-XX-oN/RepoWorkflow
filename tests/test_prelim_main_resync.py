@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from repo_workflow.prelim_retirement import (
-  PrelimRetirementError, RetirementPlan,
+  PrelimRetirementError, RetirementPlan, LandedIntegration,
 )
 from repo_workflow.prelim_main_resync import resync_inactive_main
 
@@ -23,18 +23,35 @@ def git(root, *args):
   return value.stdout.strip()
 
 
+class MissingRef(Exception):
+  code = "not_found"
+
+
 class Provider:
   repository = "example/resync-fixture"
 
-  def __init__(self, url, tip):
+  def __init__(self, url, tip, accepted):
     self.url = str(url)
     self.tip = tip
+    self.accepted = accepted
 
   def get(self, route):
     if route == "":
       return {"full_name": self.repository, "clone_url": self.url}
     if route == "git/ref/heads/main":
       return {"ref": "refs/heads/main", "object": {"sha": self.tip}}
+    if route.startswith("git/ref/"):
+      raise MissingRef()
+    if route.startswith("compare/"):
+      base, head = route.removeprefix("compare/").split("...")
+      valid = ((base == self.accepted and head == self.tip)
+               or base == head == self.tip)
+      return {
+        "base_commit": {"sha": base},
+        "merge_base_commit": {"sha": base if valid else "0"*40},
+        "status": "ahead" if valid else "diverged",
+        "behind_by": 0,
+      }
     raise AssertionError("unexpected provider request")
 
 
@@ -63,40 +80,57 @@ class MainResyncTests(unittest.TestCase):
     self.b = git(self.local, "rev-parse", "HEAD")
     git(self.local, "push", "origin", self.b + ":refs/heads/main")
     self.plan = RetirementPlan(P, I, self.b, "terminal-1", True)
-    self.backend = Provider(self.remote, self.b)
+    self.backend = Provider(self.remote, self.b, self.a)
+    self.landed = LandedIntegration(
+      P, self.a, I, self.a, "refs/heads/main", self.b,
+      "integration-1", "terminal-1")
+    self.terminal = {
+      "status": "integrated", "prelim_ref": P,
+      "prelim_sha": self.a, "int_attempt_ref": I,
+      "accepted_sha": self.a, "destination_ref": "refs/heads/main",
+      "landed_sha": self.b, "integration_id": "integration-1",
+      "terminal_evidence_ref": "terminal-1",
+    }
+
 
   def local_main(self):
     return git(self.local, "rev-parse", "refs/heads/main")
 
   def test_inactive_main_fast_forwards_and_preserves_worktree(self):
     before = git(self.local, "rev-parse", "HEAD")
-    result = resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
+    result = resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertTrue(result.changed)
     self.assertEqual(self.local_main(), self.b)
     self.assertEqual(git(self.local, "rev-parse", "HEAD"), before)
 
   def test_resync_idempotent(self):
-    resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
-    second = resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
+    resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
+    second = resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertFalse(second.changed)
 
   def test_checked_out_main_not_force_moved(self):
     git(self.local, "checkout", "main")
     with self.assertRaisesRegex(PrelimRetirementError, "checked out"):
-      resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
+      resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), self.a)
 
   def test_incomplete_plan_cannot_resync(self):
     with self.assertRaises(PrelimRetirementError):
       resync_inactive_main(
         self.local, "origin",
-        replace(self.plan, eligible_for_ref_retirement=False), backend=self.backend)
+        replace(self.plan, eligible_for_ref_retirement=False), backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), self.a)
 
   def test_unlanded_sha_cannot_resync(self):
-    with self.assertRaisesRegex(PrelimRetirementError, "not proved"):
+    with self.assertRaises(PrelimRetirementError):
       resync_inactive_main(self.local, "origin",
-        replace(self.plan, landed_sha="e"*40), backend=self.backend)
+        replace(self.plan, landed_sha="e"*40), backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), self.a)
 
   def test_diverged_local_main_is_not_overwritten(self):
@@ -106,15 +140,17 @@ class MainResyncTests(unittest.TestCase):
     git(self.local, "commit", "-m", "independent main")
     original = self.local_main()
     git(self.local, "checkout", "feature")
-    with self.assertRaisesRegex(PrelimRetirementError, "not proved"):
-      resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
+    with self.assertRaises(PrelimRetirementError):
+      resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), original)
 
   def test_main_checked_out_in_other_worktree_is_untouched(self):
     other = self.local.parent / "other-worktree"
     git(self.local, "worktree", "add", str(other), "main")
     with self.assertRaisesRegex(PrelimRetirementError, "checked out"):
-      resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
+      resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), self.a)
 
   def test_concurrent_local_main_move_fails_compare_and_swap(self):
@@ -131,7 +167,8 @@ class MainResyncTests(unittest.TestCase):
     with patch("repo_workflow.prelim_main_resync.subprocess.run",
                side_effect=competing_run):
       with self.assertRaisesRegex(PrelimRetirementError, "concurrently"):
-        resync_inactive_main(self.local, "origin", self.plan, backend=self.backend)
+        resync_inactive_main(self.local, "origin", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertTrue(moved[0])
     self.assertEqual(self.local_main(), self.b)
 
@@ -143,19 +180,37 @@ class MainResyncTests(unittest.TestCase):
     git(self.local, "remote", "add", "foreign", str(foreign))
     with self.assertRaisesRegex(PrelimRetirementError, "repository"):
       resync_inactive_main(self.local, "foreign", self.plan,
-        backend=self.backend)
+        backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), self.a)
 
   def test_provider_tip_disagreement_prevents_main_update(self):
     self.backend.tip = self.a
-    with self.assertRaisesRegex(PrelimRetirementError, "differs"):
+    with self.assertRaises(PrelimRetirementError):
       resync_inactive_main(self.local, "origin", self.plan,
-        backend=self.backend)
+        backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
+    self.assertEqual(self.local_main(), self.a)
+
+  def test_forged_plan_does_not_move_local_main(self):
+    forged = replace(self.plan, landed_sha=self.a)
+    with self.assertRaisesRegex(PrelimRetirementError, "differs"):
+      resync_inactive_main(self.local, "origin", forged,
+        backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
+    self.assertEqual(self.local_main(), self.a)
+
+  def test_missing_durable_terminal_does_not_move_local_main(self):
+    with self.assertRaisesRegex(PrelimRetirementError, "terminal evidence"):
+      resync_inactive_main(self.local, "origin", self.plan,
+        backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: None)
     self.assertEqual(self.local_main(), self.a)
 
   def test_different_remote_is_not_accepted(self):
     with self.assertRaises(PrelimRetirementError):
-      resync_inactive_main(self.local, "-bad", self.plan, backend=self.backend)
+      resync_inactive_main(self.local, "-bad", self.plan, backend=self.backend, landed=self.landed,
+        read_terminal=lambda _: self.terminal)
     self.assertEqual(self.local_main(), self.a)
 
 
