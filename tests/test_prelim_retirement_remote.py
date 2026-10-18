@@ -146,6 +146,26 @@ class RemoteRetirementTests(unittest.TestCase):
     self.assertEqual(git(self.root, "ls-remote", str(foreign), P).split()[0],
       self.a)
 
+  def test_separate_push_url_is_rejected(self):
+    foreign = Path(self.tmp.name) / "foreign.git"
+    subprocess.run(["git", "init", "--bare", str(foreign)],
+      capture_output=True, check=True)
+    git(self.root, "remote", "set-url", "--push", "origin", str(foreign))
+    with self.assertRaisesRegex(PrelimRetirementError, "repository"):
+      self.retire(self.plan, P, self.a)
+    self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_git_instead_of_rewrite_to_foreign_is_rejected(self):
+    foreign = Path(self.tmp.name) / "foreign.git"
+    subprocess.run(["git", "init", "--bare", str(foreign)],
+      capture_output=True, check=True)
+    git(self.root, "config", "url."+str(foreign)+".insteadOf",
+      str(self.remote))
+    with self.assertRaisesRegex(PrelimRetirementError, "repository"):
+      self.retire(self.plan, P, self.a)
+    git(self.root, "config", "--unset", "url."+str(foreign)+".insteadOf")
+    self.assertEqual(self.remote_sha(P), self.a)
+
   def test_incorrect_provider_repository_is_rejected(self):
     self.backend.repository = "example/other"
     with self.assertRaisesRegex(PrelimRetirementError, "identity mismatch"):
