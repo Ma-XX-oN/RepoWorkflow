@@ -51,6 +51,11 @@ class IntegrationHostV2Tests(unittest.TestCase):
       self.host.request("ref.create", "req-1", {
         "ref": REF.replace("INT-ATTEMPT", "PRELIM"), "sha": SHA})
 
+  def test_generic_umbrella_int_attempt(self):
+    ref=f"refs/heads/INT-ATTEMPT-team-alpha/main-{GUID}"
+    result=self.host.request("ref.create","generic-1",{"ref":ref,"sha":SHA})
+    self.assertEqual(result["ref"],ref)
+
   def test_inventory_prefix_only(self):
     self.assertEqual(self.host.request("refs.list", "list-1", {
       "prefix": "refs/heads/PRELIM-"})["refs"], {})
