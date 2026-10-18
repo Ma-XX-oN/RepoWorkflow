@@ -24,7 +24,7 @@ class Backend:
     self.refs={P:S,D:T}
     self.calls=[]
     self.status="ahead"
-    self.head=T
+    self.merge_base=L
     self.base=L
     self.behind=0
 
@@ -37,7 +37,7 @@ class Backend:
       return {"ref":ref,"object":{"sha":self.refs[ref]}}
     if path.startswith("compare/"):
       return {"base_commit":{"sha":self.base},
-              "head_commit":{"sha":self.head},
+              "merge_base_commit":{"sha":self.merge_base},
               "status":self.status,"behind_by":self.behind}
     raise AssertionError("unexpected provider operation")
 
@@ -66,8 +66,8 @@ class GithubRetirementTests(unittest.TestCase):
     with self.assertRaises(PrelimRetirementError):
       self.verify()
 
-  def test_forged_head_rejected(self):
-    self.backend.head=S
+  def test_forged_merge_base_rejected(self):
+    self.backend.merge_base=S
     with self.assertRaises(PrelimRetirementError):
       self.verify()
 
