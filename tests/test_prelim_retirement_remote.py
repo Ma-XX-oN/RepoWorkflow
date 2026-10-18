@@ -57,6 +57,18 @@ class RemoteRetirementTests(unittest.TestCase):
     self.assertIsNone(self.remote_sha(P))
     self.assertEqual(self.remote_sha(I), self.a)
 
+  def test_generic_umbrella_ref_is_retired_only_with_its_pair(self):
+    p=P.replace("issue-123", "team-X")
+    i=I.replace("issue-123", "team-X")
+    git(self.root, "push", "origin", self.a + ":" + p)
+    git(self.root, "push", "origin", self.a + ":" + i)
+    plan=RetirementPlan(p,i,self.a,"terminal-team-X",True)
+    self.assertTrue(retire_verified_ref(
+      self.root, "origin", plan, p, self.a).absent_after)
+    self.assertIsNone(self.remote_sha(p))
+    self.assertEqual(self.remote_sha(i),self.a)
+    self.assertEqual(self.remote_sha(P),self.a)
+
   def test_stale_ref_is_not_deleted(self):
     git(self.root, "push", "--force", "origin", self.b + ":" + P)
     with self.assertRaises(PrelimRetirementError):
