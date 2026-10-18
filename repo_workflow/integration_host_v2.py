@@ -60,13 +60,26 @@ def _valid_terminal(value, guid, repository=None):
   if (type(value["destination_ref"]) is not str
       or not value["destination_ref"].startswith("refs/heads/")):
     return False
+  scopes = []
   for key, prefix in (("prelim_ref", "PRELIM-"),
                       ("int_attempt_ref", "INT-ATTEMPT-")):
     ref = value[key]
-    if type(ref) is not str or not ref.startswith("refs/heads/" + prefix):
+    marker = "refs/heads/" + prefix
+    if type(ref) is not str or not ref.startswith(marker):
       return False
     if not ref.endswith("-" + guid):
       return False
+    scope = ref[len(marker):-(len(guid) + 1)]
+    if "/" not in scope:
+      return False
+    umbrella, destination = scope.split("/", 1)
+    if (not umbrella or not destination
+        or any(x in ("", ".", "..") for x in destination.split("/"))):
+      return False
+    scopes.append((umbrella, destination))
+  if (scopes[0] != scopes[1] or
+      value["destination_ref"] != "refs/heads/" + scopes[0][1]):
+    return False
   if (type(value["integration_id"]) is not str
       or _ID.fullmatch(value["integration_id"]) is None
       or type(value["terminal_evidence_ref"]) is not str
