@@ -121,6 +121,10 @@
       "issue-681-git-cas": {
         "type": "regression",
         "name": "tests.test_integration_host_git_cas"
+      },
+      "issue-681-terminal-ledger": {
+        "type": "regression",
+        "name": "tests.test_integration_terminal_github"
       }
     },
     {
