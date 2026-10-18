@@ -180,6 +180,10 @@ class IntegrationHost:
       raise IntegrationHostError("invalid idempotency key")
     if not _valid_params(operation, parameters):
       raise IntegrationHostError("invalid integration parameters")
+    if (operation == "attempt.record" and
+        not _valid_terminal(parameters["record"],
+                            parameters["guid"], self.repository)):
+      raise IntegrationHostError("terminal record repository mismatch")
     request = dict(schema_version=2, repository=self.repository,
                    operation=operation, request_id=request_id,
                    parameters=parameters)
@@ -203,4 +207,9 @@ class IntegrationHost:
       raise IntegrationHostError("integration provider response identity mismatch")
     if not _valid_result(operation, parameters, reply["result"]):
       raise IntegrationHostError("invalid integration provider result")
+    if (operation in {"attempt.read", "attempt.record"}
+        and reply["result"]["record"] is not None
+        and not _valid_terminal(reply["result"]["record"],
+                                parameters["guid"], self.repository)):
+      raise IntegrationHostError("provider terminal repository mismatch")
     return reply["result"]
