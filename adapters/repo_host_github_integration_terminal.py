@@ -101,6 +101,20 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
     raise
   except Exception as error:
     raise TerminalProviderError("destination identity unavailable") from error
+  if record["status"] == "integrated":
+    # The provider, rather than a caller assertion, must confirm both the
+    # accepted INT-ATTEMPT and landed commit remain in destination history.
+    for base, head in (
+        (record["accepted_sha"], record["landed_sha"]),
+        (record["landed_sha"], tip)):
+      try:
+        proof = backend.get("compare/" + base + "..." + head)
+      except Exception as error:
+        raise TerminalProviderError("landed ancestry read UNKNOWN") from error
+      if (type(proof) is not dict
+          or type(proof.get("merge_base_commit")) is not dict
+          or proof["merge_base_commit"].get("sha") != base):
+        raise TerminalProviderError("landed ancestry not proved")
   try:
     made = backend.post("git/commits", {
       "message": _PREFIX + _canonical(record),
