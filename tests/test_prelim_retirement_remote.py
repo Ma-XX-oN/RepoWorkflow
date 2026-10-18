@@ -305,6 +305,25 @@ class RemoteRetirementTests(unittest.TestCase):
     self.assertTrue(raced[0])
     self.assertEqual(self.remote_sha(P), self.b)
 
+  def test_competing_int_writer_keeps_mutable_workspace(self):
+    original = subprocess.run
+    raced = [False]
+    def move_int_ref(args, **kwargs):
+      if not raced[0] and "push" in args:
+        raced[0] = True
+        original(["git", "-C", str(self.root), "push", "--force",
+                  "origin", self.b + ":" + I],
+                 check=True, capture_output=True, text=True)
+      return original(args, **kwargs)
+    from unittest.mock import patch
+    with patch("repo_workflow.prelim_retirement_remote.subprocess.run",
+               side_effect=move_int_ref):
+      with self.assertRaisesRegex(PrelimRetirementError, "UNKNOWN"):
+        self.retire(self.plan, I, self.a)
+    self.assertTrue(raced[0])
+    self.assertEqual(self.remote_sha(I), self.b)
+    self.assertEqual(self.remote_sha(P), self.a)
+
   def test_missing_authenticated_backend_is_rejected(self):
     with self.assertRaisesRegex(PrelimRetirementError, "repository"):
       landed, read_terminal = self.evidence(self.plan)
