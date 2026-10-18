@@ -5,6 +5,16 @@ from repo_workflow.integration_host_v2 import IntegrationHost, IntegrationHostEr
 GUID = "11111111-1111-4111-8111-111111111111"
 REF = f"refs/heads/INT-ATTEMPT-issue-123/main-{GUID}"
 SHA = "a"*40
+TERMINAL = {
+  "repository": "Org/Repo", "guid": GUID, "status": "integrated",
+  "prelim_ref": f"refs/heads/PRELIM-issue-123/main-{GUID}",
+  "prelim_sha": "b"*40,
+  "int_attempt_ref": REF, "accepted_sha": SHA,
+  "destination_ref": "refs/heads/main",
+  "expected_destination_sha": "c"*40, "landed_sha": "d"*40,
+  "integration_id": "integration-123",
+  "terminal_evidence_ref": "terminal-123",
+}
 
 
 def good(request):
@@ -19,9 +29,9 @@ def good(request):
     "lease.cas": lambda: {
       "destination": p["destination"], "generation": p["expected_generation"]+1,
       "guid": p["guid"], "holder": p["holder"]},
-    "attempt.read": lambda: {"guid": p["guid"], "status": None, "sha": None},
+    "attempt.read": lambda: {"guid": p["guid"], "record": None},
     "attempt.record": lambda: {
-      "guid": p["guid"], "status": p["status"], "sha": p["sha"]},
+      "guid": p["guid"], "record": p["record"]},
   }[request["operation"]]()
   return dict(schema_version=2, repository=request["repository"],
               operation=request["operation"], request_id=request["request_id"],
@@ -116,11 +126,51 @@ class IntegrationHostV2Tests(unittest.TestCase):
     self.assertFalse(called)
 
   def test_terminal_pin(self):
-    self.assertEqual(self.host.request("attempt.record", "req-1", {
-      "guid": GUID, "status": "integrated", "sha": SHA})["sha"], SHA)
+    result=self.host.request("attempt.record", "req-1", {
+      "guid": GUID, "record": dict(TERMINAL)})
+    self.assertEqual(result["record"]["landed_sha"], "d"*40)
     with self.assertRaises(IntegrationHostError):
       self.host.request("attempt.record", "req-2", {
-        "guid": GUID, "status": "timeout-as-fail", "sha": SHA})
+        "guid": GUID, "record": dict(TERMINAL,status="timeout-as-fail")})
+
+  def test_terminal_rejects_foreign_repository(self):
+    called=[]
+    self.host=IntegrationHost("Org/Repo",
+      lambda request:called.append(request))
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("attempt.record", "req-3", {
+        "guid":GUID,"record":dict(TERMINAL,repository="Other/Repo")})
+    self.assertEqual(called,[])
+
+  def test_terminal_rejects_missing_provenance(self):
+    for field in ("prelim_ref", "prelim_sha", "int_attempt_ref",
+                  "accepted_sha", "destination_ref", "landed_sha",
+                  "integration_id", "terminal_evidence_ref"):
+      value=dict(TERMINAL)
+      value.pop(field)
+      with self.subTest(field=field):
+        with self.assertRaises(IntegrationHostError):
+          self.host.request("attempt.record", "req-4", {
+            "guid":GUID,"record":value})
+
+  def test_nonlanded_terminal_cannot_assert_landed_sha(self):
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("attempt.record", "req-5", {
+        "guid":GUID,
+        "record":dict(TERMINAL,status="failed")})
+    result=self.host.request("attempt.record", "req-6", {
+      "guid":GUID,
+      "record":dict(TERMINAL,status="failed",landed_sha=None)})
+    self.assertIsNone(result["record"]["landed_sha"])
+
+  def test_readback_rejects_foreign_provider_terminal(self):
+    def foreign(request):
+      reply=good(request)
+      reply["result"]["record"]=dict(TERMINAL,repository="Other/Repo")
+      return reply
+    self.host=IntegrationHost("Org/Repo", foreign)
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("attempt.read", "req-7", {"guid":GUID})
 
   def test_wrong_result_candidate_denied(self):
     def fake(request):
