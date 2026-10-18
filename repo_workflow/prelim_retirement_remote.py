@@ -67,7 +67,7 @@ def retire_verified_ref(
     raise PrelimRetirementError("authenticated repository identity mismatch")
   approved = {
     value for value in (details.get("clone_url"), details.get("ssh_url"))
-    if type(value) is str and value and "\\n" not in value
+    if type(value) is str and value and "\n" not in value
   }
   if not approved:
     raise PrelimRetirementError("authenticated repository URL unavailable")
