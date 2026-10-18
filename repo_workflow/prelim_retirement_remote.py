@@ -1,7 +1,8 @@
-"""Conditional remote cleanup after authoritative #103 retirement preflight.
+"""Repository-bound conditional cleanup after authoritative #103 proof.
 
-Never invoke this for an unverified PRELIM submission. Delete only this
-attempt's named ref with exact old SHA; a stale ref remains untouched.
+No arbitrary Git remote is authorized. Bind the configured remote to the
+independently authenticated provider repository before even reading a ref.
+Delete only this attempt's named ref with exact old SHA.
 """
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +26,7 @@ class RefRetirement:
 
 def retire_verified_ref(
     root: Path, remote: str, plan: RetirementPlan,
-    ref: str, expected_sha: str,
+    ref: str, expected_sha: str, *, backend,
 ) -> RefRetirement:
   """Conditional delete-and-readback; ambiguous results fail closed.
 
@@ -53,8 +54,35 @@ def retire_verified_ref(
     except (OSError, subprocess.TimeoutExpired) as error:
       raise PrelimRetirementError("remote retirement outcome UNKNOWN") from error
 
+  # Never trust the caller-selected remote alone. This identity comes from
+  # the same authenticated, repository-scoped provider used for landing proof.
+  repository = getattr(backend, "repository", None)
+  if type(repository) is not str or not repository:
+    raise PrelimRetirementError("authenticated repository is unavailable")
+  try:
+    details = backend.get("")
+  except Exception as error:
+    raise PrelimRetirementError("repository identity readback unavailable") from error
+  if type(details) is not dict or details.get("full_name") != repository:
+    raise PrelimRetirementError("authenticated repository identity mismatch")
+  approved = {
+    value for value in (details.get("clone_url"), details.get("ssh_url"))
+    if type(value) is str and value and "\\n" not in value
+  }
+  if not approved:
+    raise PrelimRetirementError("authenticated repository URL unavailable")
+  fetch_url = run("remote", "get-url", remote)
+  push_url = run("remote", "get-url", "--push", remote)
+  if (fetch_url.returncode or push_url.returncode
+      or fetch_url.stdout.strip() != push_url.stdout.strip()
+      or fetch_url.stdout.strip() not in approved):
+    raise PrelimRetirementError("Git remote differs from authenticated repository")
+  # Use the verified URL, not the mutable remote alias. A retargeted alias
+  # cannot silently switch the deletion to another repository.
+  endpoint = fetch_url.stdout.strip()
+
   def read():
-    result = run("ls-remote", "--heads", remote, ref)
+    result = run("ls-remote", "--heads", endpoint, ref)
     if result.returncode:
       raise PrelimRetirementError("remote retirement readback UNKNOWN")
     rows = result.stdout.strip().splitlines()
@@ -73,7 +101,7 @@ def retire_verified_ref(
   result = run(
     "push", "--porcelain",
     "--force-with-lease=" + ref + ":" + expected_sha,
-    remote, ":" + ref,
+    endpoint, ":" + ref,
   )
   after = read()
   if result.returncode or after is not None:
