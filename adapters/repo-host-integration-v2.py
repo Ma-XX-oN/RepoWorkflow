@@ -15,13 +15,21 @@ from repo_host_github_integration import (
   cas_int_attempt_git,
 )
 from repo_host_github_provider import GitHubBackend, ProviderError
+from repo_host_github_integration_terminal import (
+  read_terminal, record_terminal,
+)
 
 
-_OPERATIONS = {"refs.list", "ref.create", "ref.cas"}
+_OPERATIONS = {
+  "refs.list", "ref.create", "ref.cas",
+  "attempt.read", "attempt.record",
+}
 
 
 def process(request, *, backend_factory=GitHubBackend, verify=authorize,
-            cas_write=cas_int_attempt_git, config_reader=None):
+            cas_write=cas_int_attempt_git, config_reader=None,
+            terminal_read=read_terminal, terminal_write=record_terminal,
+            verify_terminal_evidence=None):
   """Run only implemented provider operations after strict v2 validation."""
   if (type(request) is not dict or set(request) != {
       "schema_version", "repository", "operation",
@@ -38,12 +46,24 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
     params = value["parameters"]
     if operation == "refs.list":
       return "unchanged", {"refs": inventory_ready_refs(backend)}
+    if operation == "attempt.read":
+      guid = params["guid"]
+      return "unchanged", {
+        "guid": guid, "record": terminal_read(backend, guid),
+      }
     try:
       decision = verify(value, backend)
     except Exception as error:
       raise IntegrationHostError("trusted authorization denied") from error
     if not isinstance(decision, dict):
       raise IntegrationHostError("trusted authorization proof missing")
+    if operation == "attempt.record":
+      if verify_terminal_evidence is None:
+        raise IntegrationHostError("trusted terminal verifier unavailable")
+      return terminal_write(
+        backend, params["record"], authorized=True,
+        verify_evidence=verify_terminal_evidence,
+      )
     if operation == "ref.cas":
       root = Path(__file__).resolve().parents[1]
       if config_reader is None:
