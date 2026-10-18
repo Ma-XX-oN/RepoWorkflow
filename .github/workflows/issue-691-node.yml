@@ -5,6 +5,7 @@ on:
       - 'scripts/secret-marker-decoder.mjs'
       - 'tests/secret-marker-decoder.test.mjs'
       - 'tests/secret-marker-v2.test.mjs'
+      - 'tests/secret-marker-v2-cross-repo.test.mjs'
       - 'tests/fixtures/redaction-marker-v1.json'
       - 'tests/fixtures/redaction-marker-v2.json'
       - '.github/workflows/issue-691-node.yml'
@@ -28,6 +29,13 @@ jobs:
           node-version: '22'
       - name: Frozen V1 and V2 Node acceptance
         run: node --test tests/secret-marker-decoder.test.mjs tests/secret-marker-v2.test.mjs
+      - name: Actual pinned DC #313 synthetic service interoperability
+        run: |
+          curl --fail --silent --show-error --location --retry 2 \
+            https://raw.githubusercontent.com/Ma-XX-oN/DownloadConversation/3fea0ed833ac9c86f004d08ce01ad2e48b6dd28b/src/userscript/02-network-communication/04c-persistent-hmac-service.js \
+            --output "$RUNNER_TEMP/dc313-service.js"
+          DC313_SERVICE_PATH="$RUNNER_TEMP/dc313-service.js" \
+            node --test tests/secret-marker-v2-cross-repo.test.mjs
 
   python-regression:
     runs-on: ubuntu-latest
