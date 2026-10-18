@@ -33,12 +33,12 @@ function independentMarker(vector, publicTestKey) {
   length.writeUInt32BE(value.length);
   const id = createHmac('sha256', Buffer.from(publicTestKey, 'hex'))
     .update(Buffer.concat([
-      Buffer.from('DC-SECRET-ID-V1\\0'), length, value
+      Buffer.from('DC-SECRET-ID-V1\0'), length, value
     ])).digest('hex').slice(0, 48);
   const body = vector.type + '/' + id +
     (vector.params === null ? '' : '/' + vector.params);
   const check = createHash('sha256').update(Buffer.concat([
-    Buffer.from('DC-SECRET-MARKER-V1\\0'), Buffer.from(body, 'ascii')
+    Buffer.from('DC-SECRET-MARKER-V1\0'), Buffer.from(body, 'ascii')
   ])).digest('hex').slice(0, 32);
   return { id, check, marker: '[' + check + '/' + body + ']' };
 }
@@ -123,9 +123,9 @@ test('V1 remains ephemeral and legacy placeholder remains opaque', () => {
 test('V2 context-agnostic decoder preserves JSON SSE WS XHR HTTP framing', () => {
   const a = independentMarker(v1.vectors[0], old.key_hex).marker;
   const b = independentMarker(v1.vectors[1], old.key_hex).marker;
-  const request = 'GET /?credential=' + a + ' HTTP/1.1\\r\\nX-Test: ' + b + '\\r\\n';
+  const request = 'GET /?credential=' + a + ' HTTP/1.1\r\nX-Test: ' + b + '\r\n';
   const json = JSON.stringify({ credential: a, item: b, literal: '[redacted]' });
-  const sse = 'event: message\\ndata: ' + json + '\\n\\n';
+  const sse = 'event: message\ndata: ' + json + '\n\n';
   const ws = JSON.stringify({ event: 'ws', credential: b });
   const xhr = JSON.stringify({ responseText: a });
   for (const text of [request, json, sse, ws, xhr]) {
@@ -135,16 +135,16 @@ test('V2 context-agnostic decoder preserves JSON SSE WS XHR HTTP framing', () =>
     assert.equal(decoded.length > 0, true);
   }
   assert.equal(JSON.parse(decodeText(json, oldMeta)).literal, '[redacted]');
-  assert.ok(decodeText(sse, oldMeta).startsWith('event: message\\ndata: {'));
-  assert.ok(decodeText(sse, oldMeta).endsWith('\\n\\n'));
+  assert.ok(decodeText(sse, oldMeta).startsWith('event: message\ndata: {'));
+  assert.ok(decodeText(sse, oldMeta).endsWith('\n\n'));
   assert.equal(JSON.parse(decodeText(ws, oldMeta)).event, 'ws');
-  assert.ok(decodeText(request, oldMeta).endsWith('\\r\\n'));
+  assert.ok(decodeText(request, oldMeta).endsWith('\r\n'));
 });
 
 test('stream splits preserve Unicode O width and bounded candidate handling', () => {
   const marker = independentMarker(v1.vectors.find(v => v.type === 'O'),
     rotated.key_hex).marker;
-  const input = 'start 😀\\n' + marker + '\\n[literal] end';
+  const input = 'start 😀\n' + marker + '\n[literal] end';
   const baseline = decodeText(input, rotatedMeta);
   assert.ok(baseline.includes('[literal]'));
   for (let i = 1; i < input.length; i++) {
