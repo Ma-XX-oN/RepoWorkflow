@@ -183,6 +183,12 @@ class TerminalLedgerTests(unittest.TestCase):
       retirement_terminal_reader(self.backend, claim)(
         source["terminal_evidence_ref"])
 
+  def test_deferred_mit_does_not_become_irreversible_terminal(self):
+    with self.assertRaisesRegex(TerminalProviderError, "resumable"):
+      self.publish(terminal(status="deferred-mit", landed_sha=None))
+    self.assertEqual(self.backend.writes, [])
+    self.assertIsNone(read_terminal(self.backend, G))
+
   def test_missing_record_is_pending_not_success(self):
     self.assertIsNone(read_terminal(self.backend, G))
 
