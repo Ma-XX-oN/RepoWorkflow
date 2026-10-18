@@ -37,7 +37,8 @@ def authenticated_remote_endpoint(root: Path, remote: str, backend) -> str:
     raise PrelimRetirementError("authenticated repository identity mismatch")
   approved = {
     value for value in (details.get("clone_url"), details.get("ssh_url"))
-    if type(value) is str and value and "\\n" not in value
+    if type(value) is str and value and not any(
+      char in value for char in ("\n", "\r", "\x00"))
   }
   if not approved:
     raise PrelimRetirementError("authenticated repository URL unavailable")
