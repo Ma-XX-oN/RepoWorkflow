@@ -12,6 +12,10 @@ class RetirementTests(unittest.TestCase):
     proof=LandedIntegration(P,'a'*40,I,'b'*40,D,'c'*40,'merge-1','evidence-1')
     with self.assertRaises(PrelimRetirementError):
       plan_retirement(P,'a'*40,I,D,proof,observed_prelim_sha='a'*40,current_destination_sha='c'*40,landed_is_ancestor=True,terminal_record_readback=False)
+  def test_generic_umbrella_and_uppercase_guid_are_accepted(self):
+    p=P.replace('issue-123','team-X').replace('11111111-1111-4111-8111-111111111111','ABCDEFAB-1111-4111-8111-111111111111')
+    i=I.replace('issue-123','team-X')
+    self.assertIsNone(verify_attempt_scope(p,i,D))
   def test_cross_umbrella_ref_is_rejected(self):
     with self.assertRaises(PrelimRetirementError):
       verify_attempt_scope(P,I.replace('issue-123','issue-999'),D)
