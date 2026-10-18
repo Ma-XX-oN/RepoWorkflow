@@ -78,6 +78,10 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
   if (authorized is not True or type(record) is not dict
       or not _valid_terminal(record, record.get("guid"), backend.repository)):
     raise TerminalProviderError("terminal record is invalid or unauthorized")
+  if record["status"] == "deferred-mit":
+    # A deferred submission is resumable.  Freezing this GUID into an
+    # immutable terminal tag would prevent later coordinated MIT recovery.
+    raise TerminalProviderError("deferred MIT needs resumable event history")
   if not callable(verify_evidence) or verify_evidence(record) is not True:
     raise TerminalProviderError("independent terminal evidence unavailable")
   guid = record["guid"]
