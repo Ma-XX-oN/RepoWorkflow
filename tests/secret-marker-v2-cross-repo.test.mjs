@@ -7,33 +7,40 @@ import { decodeText, measureLogicalLength, parseMarker } from
   '../scripts/secret-marker-decoder.mjs';
 
 // WIP #313 producer source is independently pinned. This proves only a
-// source-executed synthetic interface, NOT cross-origin/browser authority.
+// source-executed synthetic interface, NOT authenticated browser certification.
 const sourcePath = process.env.DC313_SERVICE_PATH;
 assert.ok(sourcePath, 'DC313_SERVICE_PATH_REQUIRED');
 const sourceBytes = readFileSync(sourcePath);
 const gitBlobHash = createHash('sha1')
   .update(Buffer.from('blob ' + sourceBytes.length + '\0'))
   .update(sourceBytes).digest('hex');
-assert.equal(gitBlobHash, 'dfa30fec536086088a15f69142f86a1247f0a17c',
+assert.equal(gitBlobHash, 'c9e3f7bbf9c96fe101cb04764f398b5fecf50276',
   'DC313_PINNED_SOURCE_BLOB_MISMATCH');
-const create = vm.runInNewContext(sourceBytes.toString('utf8') +
-  '\ncommunicationPersistentHmacService;',
+const { create, createAuthority } = vm.runInNewContext(
+  sourceBytes.toString('utf8') + '\n({ create: communicationPersistentHmacService,' +
+  ' createAuthority: communicationPersistentHmacChatgptAuthority });',
   { Uint8Array, Array, Map, Set, Object, Number, Error, JSON });
 
 function makeFixture() {
   let current = null;
   let gate = Promise.resolve();
-  const authority = {
-    capability: 'linearizable-cross-origin-fenced-v1',
-    async runExclusive(fn) {
-      const previous = gate;
-      let release;
-      gate = new Promise(resolve => { release = resolve; });
-      await previous;
-      try { return await fn(); }
-      finally { release(); }
+  const navigator = {
+    locks: {
+      async request(name, options, callback) {
+        assert.equal(name, 'downloadconversation:secret-marker-key-v2:all-tabs');
+        assert.equal(options.mode, 'exclusive');
+        const previous = gate;
+        let release;
+        gate = new Promise(resolve => { release = resolve; });
+        await previous;
+        try { return await callback({ mode: 'exclusive' }); }
+        finally { release(); }
+      }
     }
   };
+  const origin = { origin: 'https://chatgpt.com' };
+  const authority = createAuthority(navigator, origin);
+  assert.equal(authority.capability, 'linearizable-chatgpt-web-lock-fenced-v1');
   const storage = {
     async get(_name, fallback) {
       return current === null ? fallback : structuredClone(current);
@@ -46,7 +53,7 @@ function makeFixture() {
   return {
     open: () => create(dependencies),
     record: () => structuredClone(current),
-    dependencies
+    dependencies, navigator, origin
   };
 }
 
@@ -134,5 +141,23 @@ test('exact #313 source rejects unverified authority without leaking key', async
   const service = create({ ...fixture.dependencies, authority: null });
   await assert.rejects(() => service.admit(),
     /shared-authority-unavailable/);
+  assert.equal(fixture.record(), null);
+});
+
+test('actual same-origin Web Locks adapter rejects unsupported origins and failed fences', async () => {
+  const fixture = makeFixture();
+  assert.equal(createAuthority(fixture.navigator,
+    { origin: 'https://chat.openai.com' }), null);
+  assert.equal(createAuthority(fixture.navigator,
+    { origin: 'http://chatgpt.com' }), null);
+  assert.equal(createAuthority({}, fixture.origin), null);
+  const maliciousNavigator = { locks: {
+    async request(_name, _options, callback) {
+      return callback({ mode: 'shared' });
+    }
+  } };
+  const authority = createAuthority(maliciousNavigator, fixture.origin);
+  const service = create({ ...fixture.dependencies, authority });
+  await assert.rejects(() => service.admit(), /web-lock-not-acquired/);
   assert.equal(fixture.record(), null);
 });
