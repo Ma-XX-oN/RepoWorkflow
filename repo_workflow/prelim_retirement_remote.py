@@ -9,7 +9,7 @@ import re
 import subprocess
 
 from .prelim_retirement import (
-  RetirementPlan, PrelimRetirementError,
+  RetirementPlan, PrelimRetirementError, verify_attempt_scope,
 )
 
 
@@ -40,6 +40,7 @@ def retire_verified_ref(
       or type(remote) is not str or not remote or remote.startswith("-")
       or not plan.terminal_evidence_ref):
     raise PrelimRetirementError("remote retirement is not authorized")
+  verify_attempt_scope(plan.prelim_ref, plan.int_attempt_ref)
   if not (ref.startswith("refs/heads/PRELIM-issue-") or
           ref.startswith("refs/heads/INT-ATTEMPT-issue-")):
     raise PrelimRetirementError("ref is outside the permitted attempt")
