@@ -203,6 +203,52 @@ class RemoteRetirementTests(unittest.TestCase):
       self.retire(self.plan, P, self.a)
     self.assertEqual(self.remote_sha(P), self.a)
 
+  def test_forged_eligible_plan_does_not_bypass_live_proof(self):
+    forged = replace(self.plan, landed_sha="f"*40)
+    landed, read_terminal = self.evidence(self.plan)
+    with self.assertRaisesRegex(PrelimRetirementError, "differs"):
+      retire_verified_ref(self.root, "origin", forged, P, self.a,
+        backend=self.backend, landed=landed, read_terminal=read_terminal)
+    self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_no_independent_terminal_readback_refuses_deletion(self):
+    landed, _ = self.evidence(self.plan)
+    with self.assertRaisesRegex(PrelimRetirementError, "terminal evidence"):
+      retire_verified_ref(self.root, "origin", self.plan, P, self.a,
+        backend=self.backend, landed=landed, read_terminal=lambda _: None)
+    self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_unavailable_provider_push_is_unknown_not_success(self):
+    original = subprocess.run
+    def lose_push(args, **kwargs):
+      if "push" in args:
+        raise subprocess.TimeoutExpired(args, 30)
+      return original(args, **kwargs)
+    from unittest.mock import patch
+    with patch("repo_workflow.prelim_retirement_remote.subprocess.run",
+               side_effect=lose_push):
+      with self.assertRaisesRegex(PrelimRetirementError, "UNKNOWN"):
+        self.retire(self.plan, P, self.a)
+    self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_competing_writer_at_push_cannot_delete_ref(self):
+    original = subprocess.run
+    raced = [False]
+    def move_ref(args, **kwargs):
+      if not raced[0] and "push" in args:
+        raced[0] = True
+        original(["git", "-C", str(self.root), "push", "--force",
+                  "origin", self.b + ":" + P],
+                 check=True, capture_output=True, text=True)
+      return original(args, **kwargs)
+    from unittest.mock import patch
+    with patch("repo_workflow.prelim_retirement_remote.subprocess.run",
+               side_effect=move_ref):
+      with self.assertRaisesRegex(PrelimRetirementError, "UNKNOWN"):
+        self.retire(self.plan, P, self.a)
+    self.assertTrue(raced[0])
+    self.assertEqual(self.remote_sha(P), self.b)
+
   def test_missing_authenticated_backend_is_rejected(self):
     with self.assertRaisesRegex(PrelimRetirementError, "repository"):
       landed, read_terminal = self.evidence(self.plan)
