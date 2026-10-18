@@ -27,6 +27,8 @@ class Backend:
     self.merge_base=L
     self.base=L
     self.behind=0
+    self.accepted_merge_base=A
+    self.accepted_status="ahead"
 
   def get(self, path):
     self.calls.append(path)
@@ -36,9 +38,16 @@ class Backend:
         raise Missing()
       return {"ref":ref,"object":{"sha":self.refs[ref]}}
     if path.startswith("compare/"):
-      return {"base_commit":{"sha":self.base},
-              "merge_base_commit":{"sha":self.merge_base},
-              "status":self.status,"behind_by":self.behind}
+      comparison = path.removeprefix("compare/")
+      if comparison == A+"..."+L:
+        return {"base_commit":{"sha":A},
+                "merge_base_commit":{"sha":self.accepted_merge_base},
+                "status":self.accepted_status,"behind_by":0}
+      if comparison == L+"..."+T:
+        return {"base_commit":{"sha":self.base},
+                "merge_base_commit":{"sha":self.merge_base},
+                "status":self.status,"behind_by":self.behind}
+      raise AssertionError("unexpected ancestry identities")
     raise AssertionError("unexpected provider operation")
 
 
@@ -60,6 +69,20 @@ class GithubRetirementTests(unittest.TestCase):
   def test_verified_exact_provider_comparison(self):
     self.assertTrue(self.verify().eligible_for_ref_retirement)
     self.assertIn("compare/"+L+"..."+T,self.backend.calls)
+
+  def test_accepted_candidate_is_proved_ancestor(self):
+    self.assertTrue(self.verify().eligible_for_ref_retirement)
+    self.assertIn("compare/"+A+"..."+L,self.backend.calls)
+
+  def test_accepted_candidate_ancestry_denied_if_unrelated(self):
+    self.backend.accepted_merge_base=S
+    with self.assertRaises(PrelimRetirementError):
+      self.verify()
+
+  def test_changed_integration_workspace_denied(self):
+    self.backend.refs[I]=S
+    with self.assertRaisesRegex(PrelimRetirementError, "INT-ATTEMPT changed"):
+      self.verify()
 
   def test_old_landed_commit_not_ancestor(self):
     self.backend.status="diverged"
