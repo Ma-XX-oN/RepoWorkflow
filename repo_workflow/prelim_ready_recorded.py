@@ -48,7 +48,7 @@ def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
     _trusted_inputs(
       root, remote, str(ticket), value["source_ref"],
       value["source_sha"], value["base_sha"],
-      value["lifecycle_revision"],
+      value["lifecycle_revision"], require_current_base=False,
     )
   except (PrelimError, KeyError, TypeError, ValueError) as error:
     raise ReadyPublicationError("recorded candidate authority unavailable") from error
