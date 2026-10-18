@@ -6,7 +6,7 @@ task-neutral command parser, substitution, execution, recovery and safety rules.
 
 ## 1. Purpose and boundaries
 
-A \`.pmd\` is a reusable, human-readable prompt for a particular family of
+A `.pmd` is a reusable, human-readable prompt for a particular family of
 tasks.  It avoids repeating large instructions whenever another worker needs
 the same workflow.  It is not intrinsically a GitHub ticket worker: future PMDs
 may describe audits, research, maintenance, verification or other assignments.
@@ -27,9 +27,9 @@ is attached before relying on it.
 Every authored PMD MUST:
 
 1. Declare its **exact filename** and a **literal prompt version**, e.g.,
-   \`Prompt filename: example-worker.pmd\` and \`Prompt version: V2\`.
-2. Declare which SPINUP arguments it expects, including \`"version"\`.
-3. Compare the literal supplied \`$version\` to the declared prompt version
+   `Prompt filename: example-worker.pmd` and `Prompt version: V2`.
+2. Declare which SPINUP arguments it expects, including `"version"`.
+3. Compare the literal supplied `$version` to the declared prompt version
    immediately after expansion, **before any claim, mutation or execution**.
 4. Stop clearly on mismatch, naming both expected and supplied versions.
 5. Increment the declared prompt version when revised instructions are
@@ -37,20 +37,20 @@ Every authored PMD MUST:
 
 Example error:
 
-\`\`\`text
+```text
 STOP: PROMPT VERSION MISMATCH
 Expected PMD revision: V2
 Command supplied: V1
 No claim or repository changes made.
-\`\`\`
+```
 
 The version is a **wrong-prompt guard only**.  It is NOT a ticket-claim ID,
 agent identity, ownership namespace, execution mode, authority to replace an
 owner, repository semantic version or CI candidate version.
 
-No checksum, separate \`START/RESUME/TRANSFER\` syntax or independent revision
+No checksum, separate `START/RESUME/TRANSFER` syntax or independent revision
 service is required.  The PMD's literal version declaration and supplied
-\`"version"\` argument are sufficient for this contract.  If a command and
+`"version"` argument are sufficient for this contract.  If a command and
 wrong file happen to declare the same revision, this check alone cannot detect
 that error; the exact filename check remains independently required.
 
@@ -59,6 +59,63 @@ A worker resuming under V2 must find and respect the existing claim/session.
 A different worker may take over only on explicit operator authorisation
 and after verifying the actual claim and recording an auditable transfer.
 **A PMD revision alone never releases or supersedes ownership.**
+
+### Worked example: revising a prompt without changing its ticket claim
+
+First, an author publishes `example-ticket-worker.pmd` at `V1`:
+
+```text
+# example-ticket-worker.pmd (initial revision)
+Prompt filename: example-ticket-worker.pmd
+Prompt version: V1
+Required arguments: "issue", "version"
+Before work: verify supplied $version equals V1; otherwise STOP.
+Task: implement the accepted requirements of example/Repo #$issue.
+```
+
+The operator launches it with:
+
+```text
+AGENT-CMD SPINUP example-ticket-worker.pmd "issue"="101" "version"="V1"
+@example-ticket-worker.pmd
+```
+
+Later, the author improves the instructions.  The new PMD declares `V2`
+and validates against `V2` instead of `V1`.  The filename and the
+repository's existing ticket claim are unchanged:
+
+```text
+# example-ticket-worker.pmd (revised excerpt)
+Prompt filename: example-ticket-worker.pmd
+Prompt version: V2
+Required arguments: "issue", "version"
+Before work: verify supplied $version equals V2; otherwise STOP.
+Task: implement the clarified requirements of example/Repo #$issue.
+```
+
+The revised launch command is:
+
+```text
+AGENT-CMD SPINUP example-ticket-worker.pmd "issue"="101" "version"="V2"
+@example-ticket-worker.pmd
+```
+
+If the `V2` file is attached to the **old V1 command**, execution stops:
+
+```text
+STOP: PROMPT VERSION MISMATCH
+Expected PMD revision: V2
+Command supplied: V1
+No claim or repository changes made.
+```
+
+If `example/Repo #101` was claimed under V1, its recorded claim and
+session **remain valid** under V2.  Resuming that work means verifying and
+continuing the existing claim, not creating another claim.  A new agent
+requires an **explicit takeover instruction** and verified handoff.
+
+These examples use fictional issues; they are not instructions to claim
+tickets in any real repository.
 
 ## 3. Task-specific content
 
@@ -84,8 +141,8 @@ protocol and add only stricter, genuinely task-specific instructions where
 necessary.  A PMD must not override higher-priority instructions or the
 current ticket's authoritative acceptance requirements.
 
-A PMD can include placeholders such as \`$issue\`, \`$version\`, or
-\`$target\`.  Every referenced variable must be supplied, and substitution is
+A PMD can include placeholders such as `$issue`, `$version`, or
+`$target`.  Every referenced variable must be supplied, and substitution is
 literal and nonrecursive.  Do not invent absent values, re-expand substituted
 text or change AGENT-CMD quoting/escaping semantics.
 
@@ -126,21 +183,91 @@ RepoWorkflow's [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md),
 for their respective graph, relationship and branch invariants.  This PMD
 authoring guide does not redefine them.
 
+### Worked example: two parallel tickets and one convergence ticket
+
+Suppose the authoritative ticket graph for fictional `example/Recorder` is:
+
+```text
+example/Recorder #101 (capture contract)  ---+
+                                           +--> #103 (integration)
+example/Recorder #102 (writer contract)   ---+
+```
+
+A dedicated PMD for that family of work could contain this **excerpt**:
+
+```text
+# recorder-ticket-worker.pmd
+Prompt filename: recorder-ticket-worker.pmd
+Prompt version: V2
+Required arguments: "issue", "version"
+Before ANY claim: require supplied $version == V2; otherwise STOP.
+
+Repository: example/Recorder
+Allowed issues: 101, 102, 103
+Direct prerequisites:
+  #101: none
+  #102: none
+  #103: #101 and #102 independently accepted
+
+On start: read live issue, comments, branch, PR and claim history.
+  Verify the selected ticket is eligible and unclaimed, or that an
+  explicit resume/takeover instruction authorizes an existing claim.
+  Preserve owner and worktree boundaries; never infer a new owner
+  from the PMD version.
+
+Ticket-specific deliverables:
+  #101: capture contract and tests; exact source and CI evidence.
+  #102: writer contract and tests; exact source and CI evidence.
+  #103: independently test assembled #101 + #102 integration.
+
+On failure: preserve a precise acceptance ledger and resume checkpoint.
+On completion: record evidence and handoff to direct successors.
+Do not merge or change production without applicable authorization.
+```
+
+Because the two leaves have no prerequisites, the operator can launch
+independent workers in separate conversations using these commands:
+
+```text
+AGENT-CMD SPINUP recorder-ticket-worker.pmd "issue"="101" "version"="V2"
+@recorder-ticket-worker.pmd
+```
+
+```text
+AGENT-CMD SPINUP recorder-ticket-worker.pmd "issue"="102" "version"="V2"
+@recorder-ticket-worker.pmd
+```
+
+**Only after both leaf handoffs are independently accepted**, a third
+worker may be launched for the convergence ticket:
+
+```text
+AGENT-CMD SPINUP recorder-ticket-worker.pmd "issue"="103" "version"="V2"
+@recorder-ticket-worker.pmd
+```
+
+If #101 checkpoints, the next conversation does not automatically claim
+it again.  The worker verifies the original session and resumes it when
+authorized.  If another agent must replace that owner, the operator
+explicitly requests transfer, and the worker audits the handoff first.
+
+All three example issues and the repository name are illustrative.
+
 ## 5. Command-generation convention
 
 When preparing a command for another ChatGPT conversation, output one
 independently copyable complete SPINUP invocation for **each** worker.  The
 filename in the command and final attachment line must match the authored
-PMD exactly.  Put the \`@filename.pmd\` mention on the **last separate line**
+PMD exactly.  Put the `@filename.pmd` mention on the **last separate line**
 of each command block:
 
-\`\`\`text
+```text
 AGENT-CMD SPINUP example-worker.pmd "issue"="123" "version"="V2"
 @example-worker.pmd
-\`\`\`
+```
 
 The person launching the worker must select the actual attachment in the
-ChatGPT \`@\` picker if plain text does not resolve it.  Printing a command
+ChatGPT `@` picker if plain text does not resolve it.  Printing a command
 does not launch any worker or transfer a ticket claim.  The receiving worker
 must still inspect live prerequisites, claims and the prompt revision.
 
@@ -162,15 +289,54 @@ of inventing an issue or forcing an artificial dependency graph.
 6. Existing worker conversations do not automatically reload the changed PMD.
    Resume/notify them explicitly when they need the new instructions.
 
-## 7. Review checklist
+## 7. Project Settings instructions (copyable block)
+
+Copy **only** the contents of the Markdown fence below into the
+relevant ChatGPT Project Settings -> Instructions field.  This is a
+short routing rule, not a substitute for the full authoring standard
+or the general AGENT-CMD protocol.  Keep the block distinct from
+the illustrative examples above.
+
+```markdown
+## AGENT-CMD PMD authoring
+
+RepoWorkflow is the version-controlled authority for the general
+`AGENT-CMD-PROTOCOL.md` and task-specific `PMD_AUTHORING.md`.
+When authoring or revising a `.pmd`, read `PMD_AUTHORING.md`
+from `Ma-XX-oN/RepoWorkflow` at its applicable approved revision.
+Use the general AGENT-CMD protocol for command execution.
+
+Every `.pmd` must declare its exact filename and prompt version.
+Every SPINUP must include the matching `"version"` argument.
+On mismatch, STOP before any claim or mutation and report both versions.
+The version identifies only the prompt revision, not worker ownership.
+Existing issue claims remain valid across PMD revisions.  Resume
+the verified original claim; transfer only when explicitly requested
+and after the ownership handoff is verified and recorded.
+
+For ticket workers, follow the authoring guide's repository-qualified
+issue mapping, dependencies, acceptance, evidence and handoff rules.
+For other worker types, do not invent ticket-specific requirements.
+Keep generic protocol rules separate from task-specific PMD instructions.
+
+When generating SPINUP commands, make each independently copyable
+and put the matching `@filename.pmd` on the final line.
+Repository changes do not automatically update Library/Project
+attachments or already-running workers; verify the runtime copy.
+```
+
+**Do not copy the example ticket numbers or SPINUP commands** into
+Project Settings; they illustrate the authoring convention only.
+
+## 8. Review checklist
 
 - Is the declared PMD filename correct and the literal version unambiguous?
-- Does a mismatched supplied \`$version\` stop **before** any mutation?
+- Does a mismatched supplied `$version` stop **before** any mutation?
 - Does a new version preserve all existing ticket claims by default?
 - Is scope task-specific and free of duplicated generic protocol machinery?
 - Are required arguments, acceptance results and ownership boundaries clear?
 - Are issue numbers repository-qualified and graph edges direct, if relevant?
 - Are external/browser evidence and integration owners distinguished?
-- Does each generated command end with its exact \`@filename.pmd\` line?
+- Does each generated command end with its exact `@filename.pmd` line?
 - Are repository and Library copies clearly distinguished and verified?
 - Have security, merge and production approvals been preserved?
