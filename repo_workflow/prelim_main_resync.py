@@ -35,6 +35,8 @@ def resync_inactive_main(root: Path, remote: str,
     raise PrelimRetirementError("verified integration and safe remote required")
   if not isinstance(landed, LandedIntegration) or not callable(read_terminal):
     raise PrelimRetirementError("authenticated landing proof required")
+  if landed.destination_ref != "refs/heads/main":
+    raise PrelimRetirementError("local main resync requires main destination")
   confirmed = verify_github_retirement(backend, landed, read_terminal)
   if confirmed != plan:
     raise PrelimRetirementError("main resync plan differs from live provider proof")
