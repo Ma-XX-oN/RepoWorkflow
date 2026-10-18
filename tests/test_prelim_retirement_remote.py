@@ -74,6 +74,13 @@ class RemoteRetirementTests(unittest.TestCase):
         replace(self.plan, eligible_for_ref_retirement=False), P, self.a)
     self.assertEqual(self.remote_sha(P), self.a)
 
+  def test_foreign_attempt_cannot_be_retired(self):
+    with self.assertRaises(PrelimRetirementError):
+      retire_verified_ref(self.root, "origin",
+        replace(self.plan, int_attempt_ref=I.replace("issue-123", "issue-999")),
+        P, self.a)
+    self.assertEqual(self.remote_sha(P), self.a)
+
   def test_unrelated_ref_cannot_be_retired(self):
     with self.assertRaises(PrelimRetirementError):
       retire_verified_ref(self.root, "origin", self.plan,
