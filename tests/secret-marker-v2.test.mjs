@@ -107,6 +107,16 @@ test('V2 A to B to A replay and out-of-order chunks respect generation', () => {
   assert.equal(new SecretMarkerDecoder(oldMeta).format, FORMAT_V2);
 });
 
+test('decoder generation is immutable for a whole admitted segment', () => {
+  const decoded = new SecretMarkerDecoder(oldMeta);
+  assert.equal(Reflect.set(decoded, 'scope', rotated.scope), false);
+  assert.equal(Reflect.set(decoded, 'format', FORMAT), false);
+  assert.equal(decoded.scope, old.scope);
+  assert.equal(decoded.format, FORMAT_V2);
+  const m = independentMarker(v1.vectors[0], old.key_hex).marker;
+  assert.equal(decoded.decodeMarker(m), decodeText(m, oldMeta));
+});
+
 test('V1 remains ephemeral and legacy placeholder remains opaque', () => {
   const m = v1.vectors[0].marker;
   assert.equal(decodeText(m, legacyMeta),
