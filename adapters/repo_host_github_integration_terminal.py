@@ -15,7 +15,7 @@ class TerminalProviderError(RuntimeError):
 
 
 _PREFIX = "RWF-INTEGRATION-TERMINAL-V2 "
-_SHA = re.compile(r"[0-9a-f]{40}\\Z")
+_SHA = re.compile(r"[0-9a-f]{40}\Z")
 
 
 def _ref(guid):
