@@ -88,6 +88,10 @@ def retire_verified_ref(
   confirmed = verify_github_retirement(backend, landed, read_terminal)
   if confirmed != plan:
     raise PrelimRetirementError("retirement plan differs from live provider proof")
+  authorised_sha = (
+    landed.prelim_sha if ref == landed.prelim_ref else landed.accepted_sha)
+  if expected_sha != authorised_sha:
+    raise PrelimRetirementError("ref SHA differs from accepted integration proof")
   verify_attempt_scope(plan.prelim_ref, plan.int_attempt_ref)
   if not (ref.startswith("refs/heads/PRELIM-") or
           ref.startswith("refs/heads/INT-ATTEMPT-")):
