@@ -2,18 +2,18 @@
   "schema_version": 1,
   "purpose": "Bind current renderer certification to material graph and routing inputs.",
   "issue": 583,
-  "certified_renderer_candidate": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
+  "certified_renderer_candidate": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f",
   "evidence": {
-    "workflow_run_id": 37991412533,
-    "workflow_name": "RepoWorkflow Self CI",
-    "result": "success",
+    "workflow_run_id": 39147458767,
+    "workflow_name": "RepoWorkflow On-Demand CI",
+    "result": "platform-jobs-success-full-validation-pending",
     "tier": "integration",
-    "tested_head": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
-    "assembled_source_head": "9549f0955fa7228fa80437efe39384fc9b6f3697",
-    "note": "Exact content parity verified for lifecycle, graph, CSV, CLI, renderer manifest and tests between assembled feature and temporary platform certification branch; temporary PR has only the CI-tier and extra platform test override. Authoritative full validation, Ubuntu/Windows/macOS renderer (including six-state and legend), ticket merge, and argv jobs all GREEN in run 37991412533. No test-only workflow change is intended to merge."
+    "tested_head": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f",
+    "assembled_source_head": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f",
+    "note": "Three-platform graph renderer, ticket merge and argv probes completed SUCCESS on independent exact-material branch issue-677-oct18-graph-cert. Overall run has not been declared GREEN; full validation must be rerun after manifest rebind. Old certification preserved."
   },
   "material_inputs": {
-    ".repoworkflow/tickets.csv": "e3b2d421dc2fb9bb100d2e5d4d7c8ee53fe30544",
+    ".repoworkflow/tickets.csv": "0d2cc6494d38d059f8bd513db0674f18e16c36ba",
     "repo_workflow/lane_decomposition.py": "91f636637884615262e95ad05e91e5c76fb6d377",
     "repo_workflow/lane_graph_adapter.py": "55355e50eda3b00cbb2a4b0de7791aae2c2ea7b9",
     "repo_workflow/graph_boundary_order.py": "b0ff781496b8c5f8972636880b2989ce09ddfaa7",
@@ -31,5 +31,37 @@
     "repo_workflow/graph_route_path.py": "0c31ba28e0af845074eb8aa5549b38cc2e84ffde",
     "repo_workflow/graph_route_semantics.py": "6fb2536179ae4fe04a118776c9895bcdd5cce46c",
     "repo_workflow/graph_routing.py": "d9d1a211312738ee568af699af7f0aae8fcf8f00"
+  },
+  "previous_certification": {
+    "certified_renderer_candidate": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
+    "evidence": {
+      "workflow_run_id": 37991412533,
+      "workflow_name": "RepoWorkflow Self CI",
+      "result": "success",
+      "tier": "integration",
+      "tested_head": "a821eb49dd682a365d8ac7a38f7cf0f666e8a63f",
+      "assembled_source_head": "9549f0955fa7228fa80437efe39384fc9b6f3697",
+      "note": "Exact content parity verified for lifecycle, graph, CSV, CLI, renderer manifest and tests between assembled feature and temporary platform certification branch; temporary PR has only the CI-tier and extra platform test override. Authoritative full validation, Ubuntu/Windows/macOS renderer (including six-state and legend), ticket merge, and argv jobs all GREEN in run 37991412533. No test-only workflow change is intended to merge."
+    },
+    "material_inputs": {
+      ".repoworkflow/tickets.csv": "e3b2d421dc2fb9bb100d2e5d4d7c8ee53fe30544",
+      "repo_workflow/lane_decomposition.py": "91f636637884615262e95ad05e91e5c76fb6d377",
+      "repo_workflow/lane_graph_adapter.py": "55355e50eda3b00cbb2a4b0de7791aae2c2ea7b9",
+      "repo_workflow/graph_boundary_order.py": "b0ff781496b8c5f8972636880b2989ce09ddfaa7",
+      "repo_workflow/graph_boundary_plan.py": "051392ec1eef89768507afb72d2edd381c085321",
+      "repo_workflow/graph_geometry.py": "2aa9767aabd88c4edfee992ba98e282121b1322f",
+      "repo_workflow/graph_layout.py": "748fdd622c26d77a5cc0514898c401fb8687564c",
+      "repo_workflow/graph_long_plan.py": "018c5c6449f8e4629f300be67c16a0d1029cffb9",
+      "repo_workflow/graph_long_routes.py": "b7938d2ac55964516ec26344b8ac70fffd5847d5",
+      "repo_workflow/graph_ordering.py": "614e0693fc3af217cf58b4ff52d5ddaecb6011bc",
+      "repo_workflow/graph_quality.py": "c37fe70c625ec638d3d5644d6018720e20d2fa96",
+      "repo_workflow/graph_render.py": "81d2372bdeed7882a344dbd24c7ae9b9c4ed2e42",
+      "repo_workflow/graph_render_model.py": "e9becfee8b5d3310627aba3e7463bc6b452040b9",
+      "repo_workflow/graph_render_types.py": "d17e9d1c48603d949ede9b31b4c7d396b786238c",
+      "repo_workflow/graph_route_interactions.py": "325824362f35cf317fe63f61fbed752dc19f1e65",
+      "repo_workflow/graph_route_path.py": "0c31ba28e0af845074eb8aa5549b38cc2e84ffde",
+      "repo_workflow/graph_route_semantics.py": "6fb2536179ae4fe04a118776c9895bcdd5cce46c",
+      "repo_workflow/graph_routing.py": "d9d1a211312738ee568af699af7f0aae8fcf8f00"
+    }
   }
 }
