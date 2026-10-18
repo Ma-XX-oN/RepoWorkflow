@@ -28,7 +28,7 @@ class Backend:
     if route.startswith("compare/"):
       return {
         "base_commit":{"sha":L},
-        "head_commit":{"sha":T},
+        "merge_base_commit":{"sha":L},
         "status":self.status,
         "behind_by":0,
       }
