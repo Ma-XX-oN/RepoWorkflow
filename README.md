@@ -219,6 +219,11 @@ methodology.
 - [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) defines how size
   limits trigger concise rewrites or responsibility-based splits without
   losing authoritative semantics.
+- [AGENT-CMD-PROTOCOL.md](AGENT-CMD-PROTOCOL.md) preserves the general
+  SPINUP execution and continuation protocol.  Its runtime Library prompt
+  lookup is separate from this repository's version-controlled documentation.
+- [PMD_AUTHORING.md](PMD_AUTHORING.md) defines minimal prompt revision checks
+  and task-specific PMD authoring, including reusable ticket-worker prompts.
 - [TEST_ADEQUACY.md](TEST_ADEQUACY.md) defines the universal repository-neutral
   test adequacy and verification gate applied to RepoWorkflow and consumers.
 - [BUG_INVESTIGATION.md](BUG_INVESTIGATION.md) defines the required
