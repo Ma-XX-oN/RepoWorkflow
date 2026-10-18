@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import re
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_GUID = r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}"
+_GUID = r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"
 _SCOPE = re.compile(rf"(?P<umbrella>[^/]+)/(?P<destination>.+)-{_GUID}\Z")
 
 
