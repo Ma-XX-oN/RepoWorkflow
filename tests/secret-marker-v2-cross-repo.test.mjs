@@ -108,7 +108,8 @@ test('exact #313 service metadata and provisioned synthetic HMAC interoperate wi
     /rotation-draining/);
   await tabA.complete(a.token);
   await tabB.complete(b.token);
-  const next = await fixture.open().admit();
+  const nextService = fixture.open();
+  const next = await nextService.admit();
   assert.equal(next.metadata.redaction_key_epoch, 2);
   assert.notEqual(next.metadata.redaction_scope, a.metadata.redaction_scope);
   const nextTab = fixture.open();
@@ -117,10 +118,14 @@ test('exact #313 service metadata and provisioned synthetic HMAC interoperate wi
     'Aé界𐐀');
   assert.equal(next.metadata.redaction_scope,
     generation.metadata.redaction_scope);
+  assert.equal(newMarker, encodeSynthetic(
+    workerKey(nextService, next.token), 'Aé界𐐀'));
   assert.equal(decodeText(newMarker, generation.metadata),
     decodeText(newMarker, next.metadata));
   // Different generations give no cross-generation original-secret inference.
   await nextTab.complete(generation.token);
+  await nextService.complete(next.token);
+  assert.equal(fixture.record().pending.length, 0);
   assert.equal(decodeText(markerA, a.metadata), replayA);
 });
 
