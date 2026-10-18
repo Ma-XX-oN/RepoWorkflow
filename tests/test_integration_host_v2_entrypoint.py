@@ -106,6 +106,48 @@ class V2EntrypointTests(unittest.TestCase):
         cas_write=lambda *args: called.append(args))
     self.assertEqual(called, [])
 
+  def test_terminal_read_is_provider_bound_and_read_only(self):
+    request = dict(self.request, operation="attempt.read",
+                   parameters={"guid": GUID})
+    observed=[]
+    def read(backend, guid):
+      observed.append((backend, guid))
+      return None
+    result = MOD.process(request, backend_factory=self.factory,
+                         verify=self.verify, terminal_read=read)
+    self.assertEqual(result["status"], "unchanged")
+    self.assertEqual(result["result"], {"guid": GUID, "record": None})
+    self.assertEqual(observed, [(self.backend, GUID)])
+    self.assertFalse(self.backend.calls)
+
+  def test_terminal_write_denied_without_trusted_evidence(self):
+    from tests.test_integration_host_v2 import TERMINAL
+    request = dict(self.request, operation="attempt.record",
+                   parameters={"guid": GUID, "record": dict(TERMINAL)})
+    attempted=[]
+    with self.assertRaisesRegex(IntegrationHostError, "verifier"):
+      MOD.process(request, backend_factory=self.factory,
+                  verify=self.verify,
+                  terminal_write=lambda *args, **kwargs:
+                    attempted.append((args, kwargs)))
+    self.assertEqual(attempted, [])
+
+  def test_authorized_terminal_write_requires_provider_identity(self):
+    from tests.test_integration_host_v2 import TERMINAL
+    request = dict(self.request, operation="attempt.record",
+                   parameters={"guid": GUID, "record": dict(TERMINAL)})
+    observed=[]
+    def write(backend, record, *, authorized, verify_evidence):
+      observed.append((backend, record, authorized))
+      self.assertTrue(verify_evidence(record))
+      return "applied", {"guid": GUID, "record": record}
+    response = MOD.process(
+      request, backend_factory=self.factory, verify=self.verify,
+      terminal_write=write, verify_terminal_evidence=lambda record: True)
+    self.assertEqual(response["result"]["record"], dict(TERMINAL))
+    self.assertEqual(observed,
+                     [(self.backend, dict(TERMINAL), True)])
+
   def test_lease_cas_is_unavailable_not_simulated(self):
     request = dict(self.request, operation="lease.cas", parameters={})
     with self.assertRaises(MOD.IntegrationProviderError):
