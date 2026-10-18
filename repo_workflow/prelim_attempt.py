@@ -148,8 +148,13 @@ def _workspace(root: Path, attempt: str) -> Path:
 
 def _trusted_inputs(root: Path, remote: str, issue: str,
                     source_ref: str, source_sha: str, base_sha: str,
-                    lifecycle_revision: int) -> None:
-  if _remote_ref(root, remote, "refs/heads/main") != base_sha:
+                    lifecycle_revision: int, *,
+                    require_current_base: bool = True) -> None:
+  # Construction/reintegration needs a current parent.  Publishing an
+  # already validated immutable READY candidate need not: its recorded
+  # historical base remains part of the exact #102 evidence identity.
+  if (require_current_base and
+      _remote_ref(root, remote, "refs/heads/main") != base_sha):
     raise PrelimError("authoritative server main moved: new attempt required")
   if _local_ref(root, source_ref) != source_sha:
     raise PrelimError("accepted source ref changed: new acceptance required")
