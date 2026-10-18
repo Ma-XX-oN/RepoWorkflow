@@ -4,6 +4,7 @@ import unittest
 
 from adapters.repo_host_github_integration_terminal import (
   TerminalProviderError, read_terminal, record_terminal,
+  retirement_terminal_reader,
 )
 
 
@@ -158,6 +159,29 @@ class TerminalLedgerTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalProviderError, "ancestry"):
       self.publish()
     self.assertFalse(self.backend.writes)
+
+  def test_provider_terminal_projects_exact_103_callback_fields(self):
+    from types import SimpleNamespace
+    self.publish()
+    source = terminal()
+    landed = SimpleNamespace(**source)
+    reader = retirement_terminal_reader(self.backend, landed)
+    expected = {key: source[key] for key in (
+      "status", "prelim_ref", "prelim_sha", "int_attempt_ref",
+      "accepted_sha", "destination_ref", "landed_sha",
+      "integration_id", "terminal_evidence_ref")}
+    self.assertEqual(reader(source["terminal_evidence_ref"]), expected)
+    with self.assertRaisesRegex(TerminalProviderError, "differs"):
+      reader("another-evidence")
+
+  def test_retirement_projection_rejects_different_landed_claim(self):
+    from types import SimpleNamespace
+    self.publish()
+    source = terminal()
+    claim = SimpleNamespace(**terminal(landed_sha="e"*40))
+    with self.assertRaisesRegex(TerminalProviderError, "differs"):
+      retirement_terminal_reader(self.backend, claim)(
+        source["terminal_evidence_ref"])
 
   def test_missing_record_is_pending_not_success(self):
     self.assertIsNone(read_terminal(self.backend, G))
