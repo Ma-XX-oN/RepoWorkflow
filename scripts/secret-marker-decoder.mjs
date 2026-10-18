@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 export const FORMAT = 'dc-secret-marker/1';
+export const FORMAT_V2 = 'dc-secret-marker/2';
 const MAX_MARKER = 342;
 const DOMAIN = Buffer.from('DC-SECRET-MARKER-V1\0', 'ascii');
 const SYNTH = Buffer.from('DC-SECRET-SYNTH-V1\0', 'ascii');
@@ -187,12 +188,48 @@ function hasMarkerPrefix(text) {
   return text.length >= 34 && text[0] === '[' && text[33] === '/' &&
     /^[0-9a-f]{32}$/.test(text.slice(1, 33));
 }
+// A decoder is bound to one immutable recording-segment generation. No key
+// bytes are accepted or retained; scope is a non-secret generation identifier.
+export function validateScopeMetadata(metadata) {
+  if (metadata === null || typeof metadata !== 'object' ||
+      Array.isArray(metadata)) throw new Error('INVALID_REDACTION_METADATA');
+  const {
+    redaction_format: format, redaction_scope: scope,
+    redaction_key_generation: generation, redaction_key_epoch: epoch,
+    redaction_key_storage: storage
+  } = metadata;
+  if (format !== FORMAT && format !== FORMAT_V2) {
+    throw new Error('UNSUPPORTED_REDACTION_FORMAT');
+  }
+  if (typeof scope !== 'string' || !/^[0-9a-f]{32}$/.test(scope)) {
+    throw new Error('INVALID_REDACTION_SCOPE');
+  }
+  if (format === FORMAT) {
+    // V1's scope is recorder-instance-local. Do not silently mix V2 fields.
+    if (['redaction_key_generation', 'redaction_key_epoch',
+         'redaction_key_storage'].some(k => Object.hasOwn(metadata, k))) {
+      throw new Error('MIXED_REDACTION_METADATA');
+    }
+  } else {
+    if (typeof generation !== 'string' ||
+        !/^[0-9a-f]{32}$/.test(generation)) {
+      throw new Error('INVALID_REDACTION_GENERATION');
+    }
+    if (scope !== generation) throw new Error('REDACTION_GENERATION_MISMATCH');
+    if (!Number.isSafeInteger(epoch) || epoch < 1) {
+      throw new Error('INVALID_REDACTION_EPOCH');
+    }
+    if (storage !== 'tampermonkey-script-installation') {
+      throw new Error('INVALID_REDACTION_STORAGE');
+    }
+  }
+  return Object.freeze({ format, scope, generation, epoch });
+}
 export class SecretMarkerDecoder {
-  constructor({ redaction_format, redaction_scope } = {}) {
-    if (redaction_format !== FORMAT) throw new Error('UNSUPPORTED_REDACTION_FORMAT');
-    if (typeof redaction_scope !== 'string' ||
-        !/^[0-9a-f]{32}$/.test(redaction_scope)) throw new Error('INVALID_REDACTION_SCOPE');
-    this.scope = redaction_scope;
+  constructor(metadata = {}) {
+    const validated = validateScopeMetadata(metadata);
+    this.format = validated.format;
+    this.scope = validated.scope;
     this.cache = new Map();
     this.reverse = new Map();
     this.pending = '';
@@ -201,7 +238,7 @@ export class SecretMarkerDecoder {
   decodeMarker(marker) {
     if (this.invalidated) throw new Error('DECODER_INVALIDATED');
     const { type, id, params } = parseMarker(marker);
-    const parts = [FORMAT, this.scope, type, id, params ?? ''];
+    const parts = [this.format, this.scope, type, id, params ?? ''];
     const key = parts.map(s => Buffer.byteLength(s) + ':' + s).join('');
     if (this.cache.has(key)) return this.cache.get(key);
     const seed = hash(Buffer.concat([SYNTH, Buffer.from(key)]));
