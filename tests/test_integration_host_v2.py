@@ -168,6 +168,20 @@ class IntegrationHostV2Tests(unittest.TestCase):
       "record":dict(TERMINAL,status="failed",landed_sha=None)})
     self.assertIsNone(result["record"]["landed_sha"])
 
+  def test_terminal_rejects_cross_umbrella_and_destination(self):
+    bad_records=(
+      dict(TERMINAL,int_attempt_ref=
+        f"refs/heads/INT-ATTEMPT-other/main-{GUID}"),
+      dict(TERMINAL,destination_ref="refs/heads/issue-999"),
+      dict(TERMINAL,prelim_ref=
+        f"refs/heads/PRELIM-issue-123/other-{GUID}"),
+    )
+    for record in bad_records:
+      with self.subTest(record=record):
+        with self.assertRaises(IntegrationHostError):
+          self.host.request("attempt.record","scope-neg",{
+            "guid":GUID,"record":record})
+
   def test_readback_rejects_foreign_provider_terminal(self):
     def foreign(request):
       reply=good(request)
