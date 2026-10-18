@@ -239,6 +239,20 @@ class RemoteRetirementTests(unittest.TestCase):
         backend=self.backend, landed=landed, read_terminal=read_terminal)
     self.assertEqual(self.remote_sha(P), self.a)
 
+  def test_prelim_deletion_denies_wrong_expected_sha(self):
+    landed, read_terminal = self.evidence(self.plan)
+    with self.assertRaisesRegex(PrelimRetirementError, "ref SHA"):
+      retire_verified_ref(self.root, "origin", self.plan, P, self.b,
+        backend=self.backend, landed=landed, read_terminal=read_terminal)
+    self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_int_attempt_deletion_denies_wrong_expected_sha(self):
+    landed, read_terminal = self.evidence(self.plan)
+    with self.assertRaisesRegex(PrelimRetirementError, "ref SHA"):
+      retire_verified_ref(self.root, "origin", self.plan, I, self.b,
+        backend=self.backend, landed=landed, read_terminal=read_terminal)
+    self.assertEqual(self.remote_sha(I), self.a)
+
   def test_no_independent_terminal_readback_refuses_deletion(self):
     landed, _ = self.evidence(self.plan)
     with self.assertRaisesRegex(PrelimRetirementError, "terminal evidence"):
