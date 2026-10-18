@@ -10,8 +10,10 @@ import re
 import subprocess
 
 from .prelim_retirement import (
-  RetirementPlan, PrelimRetirementError, verify_attempt_scope,
+  RetirementPlan, LandedIntegration, PrelimRetirementError,
+  verify_attempt_scope,
 )
+from .prelim_retirement_github import verify_github_retirement
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -62,6 +64,7 @@ def authenticated_remote_endpoint(root: Path, remote: str, backend) -> str:
 def retire_verified_ref(
     root: Path, remote: str, plan: RetirementPlan,
     ref: str, expected_sha: str, *, backend,
+    landed: LandedIntegration, read_terminal,
 ) -> RefRetirement:
   """Conditional delete-and-readback; ambiguous results fail closed.
 
@@ -76,6 +79,13 @@ def retire_verified_ref(
       or type(remote) is not str or not remote or remote.startswith("-")
       or not plan.terminal_evidence_ref):
     raise PrelimRetirementError("remote retirement is not authorized")
+  # A caller-created RetirementPlan boolean is not authorization. Independently
+  # read the live provider and durable terminal record at the deletion boundary.
+  if not isinstance(landed, LandedIntegration) or not callable(read_terminal):
+    raise PrelimRetirementError("authenticated landing proof required")
+  confirmed = verify_github_retirement(backend, landed, read_terminal)
+  if confirmed != plan:
+    raise PrelimRetirementError("retirement plan differs from live provider proof")
   verify_attempt_scope(plan.prelim_ref, plan.int_attempt_ref)
   if not (ref.startswith("refs/heads/PRELIM-") or
           ref.startswith("refs/heads/INT-ATTEMPT-")):
