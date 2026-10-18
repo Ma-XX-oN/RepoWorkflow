@@ -57,12 +57,14 @@ class RetirementExecuteTests(unittest.TestCase):
       self.run_case()
     args=do.call_args.args
     self.assertEqual((args[3],args[4]),(P,S))
+    self.assertIs(do.call_args.kwargs["backend"],self.backend)
 
   def test_int_attempt_delete_uses_exact_accepted_sha(self):
     with patch("repo_workflow.prelim_retirement_execute.retire_verified_ref") as do:
       self.run_case(kind="INT-ATTEMPT")
     args=do.call_args.args
     self.assertEqual((args[3],args[4]),(I,A))
+    self.assertIs(do.call_args.kwargs["backend"],self.backend)
 
   def test_missing_terminal_prevents_any_delete(self):
     self.terminal=None
