@@ -57,9 +57,13 @@ class ReadyAuthorityTests(unittest.TestCase):
     with self.assertRaises(ReadyPublicationError):
       self.verify()
 
-  def test_destination_moved_denied(self):
+  def test_destination_advanced_allows_immutable_ready_publication(self):
     self.refs["refs/heads/main"]="e"*40
-    with self.assertRaisesRegex(ReadyPublicationError,"moved"):
+    self.assertTrue(self.verify())
+
+  def test_destination_disappeared_denied(self):
+    self.refs.pop("refs/heads/main")
+    with self.assertRaisesRegex(ReadyPublicationError,"missing"):
       self.verify()
 
   def test_missing_published_identity_denied(self):
