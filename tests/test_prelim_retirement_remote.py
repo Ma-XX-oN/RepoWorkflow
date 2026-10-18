@@ -142,6 +142,20 @@ class RemoteRetirementTests(unittest.TestCase):
         P, self.a)
     self.assertEqual(self.remote_sha(P), self.a)
 
+  def test_sibling_attempt_with_same_sha_is_never_deleted(self):
+    sibling = P.replace("11111111-1111-4111-8111-111111111111",
+                        "99999999-9999-4999-8999-999999999999")
+    sibling_int = I.replace("22222222-2222-4222-8222-222222222222",
+                            "88888888-8888-4888-8888-888888888888")
+    git(self.root, "push", "origin", self.a + ":" + sibling)
+    git(self.root, "push", "origin", self.a + ":" + sibling_int)
+    result = self.retire(self.plan, P, self.a)
+    self.assertTrue(result.absent_after)
+    self.assertIsNone(self.remote_sha(P))
+    self.assertEqual(self.remote_sha(I), self.a)
+    self.assertEqual(self.remote_sha(sibling), self.a)
+    self.assertEqual(self.remote_sha(sibling_int), self.a)
+
   def test_unrelated_ref_cannot_be_retired(self):
     with self.assertRaises(PrelimRetirementError):
       self.retire(self.plan,
