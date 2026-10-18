@@ -25,9 +25,56 @@ _OPERATIONS = {
   "lease.cas": {"destination", "expected_generation",
                 "expected_holder", "expected_guid", "holder", "guid"},
   "attempt.read": {"guid"},
-  "attempt.record": {"guid", "status", "sha"},
+  "attempt.record": {"guid", "record"},
 }
 _STATUSES = {"integrated", "failed", "rejected", "deferred-mit"}
+_TERMINAL_FIELDS = {
+  "repository", "guid", "status", "prelim_ref", "prelim_sha",
+  "int_attempt_ref", "accepted_sha", "destination_ref",
+  "expected_destination_sha", "landed_sha", "integration_id",
+  "terminal_evidence_ref",
+}
+
+
+def _valid_terminal(value, guid, repository=None):
+  """A terminal result must contain independent exact integration identities."""
+  if type(value) is not dict or set(value) != _TERMINAL_FIELDS:
+    return False
+  if value["guid"] != guid or value["status"] not in _STATUSES:
+    return False
+  if (type(value["repository"]) is not str
+      or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
+                      value["repository"]) is None):
+    return False
+  if repository is not None and value["repository"] != repository:
+    return False
+  for name in ("prelim_sha", "accepted_sha", "expected_destination_sha"):
+    if type(value[name]) is not str or _SHA.fullmatch(value[name]) is None:
+      return False
+  landed = value["landed_sha"]
+  if value["status"] == "integrated":
+    if type(landed) is not str or _SHA.fullmatch(landed) is None:
+      return False
+  elif landed is not None:
+    return False
+  if (type(value["destination_ref"]) is not str
+      or not value["destination_ref"].startswith("refs/heads/")):
+    return False
+  for key, prefix in (("prelim_ref", "PRELIM-"),
+                      ("int_attempt_ref", "INT-ATTEMPT-")):
+    ref = value[key]
+    if type(ref) is not str or not ref.startswith("refs/heads/" + prefix):
+      return False
+    if not ref.endswith("-" + guid):
+      return False
+  if (type(value["integration_id"]) is not str
+      or _ID.fullmatch(value["integration_id"]) is None
+      or type(value["terminal_evidence_ref"]) is not str
+      or not value["terminal_evidence_ref"].strip()):
+    return False
+  return True
+
+
 
 
 def _valid_ref(ref):
@@ -69,6 +116,8 @@ def _valid_params(op, values):
     return ((values["expected_guid"] is None) ==
             (values["expected_holder"] is None) and
             (values["guid"] is None) == (values["holder"] is None))
+  if op == "attempt.record":
+    return _valid_terminal(values["record"], values["guid"])
   return True
 
 
@@ -104,17 +153,15 @@ def _valid_result(operation, request, result):
         and result["guid"] == request["guid"])
     return True
   if operation in {"attempt.read", "attempt.record"}:
-    if set(result) != {"guid", "status", "sha"} or (
+    if set(result) != {"guid", "record"} or (
         result["guid"] != request["guid"]):
       return False
-    if result["status"] is None:
-      return operation == "attempt.read" and result["sha"] is None
-    return (result["status"] in _STATUSES
-      and type(result["sha"]) is str and
-      _SHA.fullmatch(result["sha"]) is not None
-      and (operation == "attempt.read" or (
-        result["status"] == request["status"] and
-        result["sha"] == request["sha"])))
+    if result["record"] is None:
+      return operation == "attempt.read"
+    if not _valid_terminal(result["record"], request["guid"]):
+      return False
+    return (operation == "attempt.read" or
+            result["record"] == request["record"])
   return False
 
 
