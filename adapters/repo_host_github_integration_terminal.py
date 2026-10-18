@@ -136,3 +136,53 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
   if persisted != record:
     raise TerminalProviderError("terminal publication readback mismatch")
   return "applied", {"guid": guid, "record": persisted}
+
+
+_RETIREMENT_FIELDS = (
+  "status", "prelim_ref", "prelim_sha", "int_attempt_ref",
+  "accepted_sha", "destination_ref", "landed_sha",
+  "integration_id", "terminal_evidence_ref",
+)
+
+
+def retirement_terminal_reader(backend, landed):
+  """Adapt provider v2 full ledger to #103's exact terminal callback shape.
+
+  The returned callback accepts the terminal evidence reference expected by
+  #103.  It re-reads the provider's immutable ledger by verified attempt GUID,
+  preserving all #103 equality checks; it cannot synthesize provider evidence.
+  """
+  try:
+    prelim = landed.prelim_ref
+    attempt = landed.int_attempt_ref
+    guid = prelim[-36:]
+    if (not prelim.endswith("-" + guid)
+        or not attempt.endswith("-" + guid)
+        or not isinstance(landed.terminal_evidence_ref, str)
+        or not landed.terminal_evidence_ref):
+      raise TerminalProviderError("retirement attempt identity malformed")
+    _ref(guid)
+  except (AttributeError, TypeError, ValueError) as error:
+    raise TerminalProviderError("retirement identity unavailable") from error
+
+  def reader(evidence_ref):
+    if evidence_ref != landed.terminal_evidence_ref:
+      raise TerminalProviderError("terminal evidence request differs")
+    record = read_terminal(backend, guid)
+    if record is None or record["status"] != "integrated":
+      raise TerminalProviderError("provider terminal integration absent")
+    expected = {
+      "prelim_ref": landed.prelim_ref,
+      "prelim_sha": landed.prelim_sha,
+      "int_attempt_ref": landed.int_attempt_ref,
+      "accepted_sha": landed.accepted_sha,
+      "destination_ref": landed.destination_ref,
+      "landed_sha": landed.landed_sha,
+      "integration_id": landed.integration_id,
+      "terminal_evidence_ref": landed.terminal_evidence_ref,
+    }
+    if any(record.get(key) != value for key, value in expected.items()):
+      raise TerminalProviderError("provider terminal landing differs")
+    return {key: record[key] for key in _RETIREMENT_FIELDS}
+
+  return reader
