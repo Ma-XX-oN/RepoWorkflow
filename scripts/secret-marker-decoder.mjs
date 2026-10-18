@@ -228,8 +228,10 @@ export function validateScopeMetadata(metadata) {
 export class SecretMarkerDecoder {
   constructor(metadata = {}) {
     const validated = validateScopeMetadata(metadata);
-    this.format = validated.format;
-    this.scope = validated.scope;
+    Object.defineProperties(this, {
+      format: { value: validated.format, enumerable: true },
+      scope: { value: validated.scope, enumerable: true }
+    });
     this.cache = new Map();
     this.reverse = new Map();
     this.pending = '';
