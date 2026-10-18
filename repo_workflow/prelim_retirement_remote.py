@@ -24,6 +24,40 @@ class RefRetirement:
   absent_after: bool
 
 
+def authenticated_remote_endpoint(root: Path, remote: str, backend) -> str:
+  """Confirm the Git remote is the provider's exact scoped repository URL."""
+  repository = getattr(backend, "repository", None)
+  if type(repository) is not str or not repository:
+    raise PrelimRetirementError("authenticated repository is unavailable")
+  try:
+    details = backend.get("")
+  except Exception as error:
+    raise PrelimRetirementError("repository identity readback unavailable") from error
+  if type(details) is not dict or details.get("full_name") != repository:
+    raise PrelimRetirementError("authenticated repository identity mismatch")
+  approved = {
+    value for value in (details.get("clone_url"), details.get("ssh_url"))
+    if type(value) is str and value and "\\n" not in value
+  }
+  if not approved:
+    raise PrelimRetirementError("authenticated repository URL unavailable")
+  def get_url(*args):
+    try:
+      return subprocess.run(
+        ["git", "-C", str(root), *args],
+        capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+      raise PrelimRetirementError("repository remote readback UNKNOWN") from error
+  fetch_url = get_url("remote", "get-url", remote)
+  push_url = get_url("remote", "get-url", "--push", remote)
+  if (fetch_url.returncode or push_url.returncode
+      or fetch_url.stdout.strip() != push_url.stdout.strip()
+      or fetch_url.stdout.strip() not in approved):
+    raise PrelimRetirementError("Git remote differs from authenticated repository")
+  # Use the verified URL rather than the mutable alias at mutation time.
+  return fetch_url.stdout.strip()
+
+
 def retire_verified_ref(
     root: Path, remote: str, plan: RetirementPlan,
     ref: str, expected_sha: str, *, backend,
@@ -54,32 +88,7 @@ def retire_verified_ref(
     except (OSError, subprocess.TimeoutExpired) as error:
       raise PrelimRetirementError("remote retirement outcome UNKNOWN") from error
 
-  # Never trust the caller-selected remote alone. This identity comes from
-  # the same authenticated, repository-scoped provider used for landing proof.
-  repository = getattr(backend, "repository", None)
-  if type(repository) is not str or not repository:
-    raise PrelimRetirementError("authenticated repository is unavailable")
-  try:
-    details = backend.get("")
-  except Exception as error:
-    raise PrelimRetirementError("repository identity readback unavailable") from error
-  if type(details) is not dict or details.get("full_name") != repository:
-    raise PrelimRetirementError("authenticated repository identity mismatch")
-  approved = {
-    value for value in (details.get("clone_url"), details.get("ssh_url"))
-    if type(value) is str and value and "\n" not in value
-  }
-  if not approved:
-    raise PrelimRetirementError("authenticated repository URL unavailable")
-  fetch_url = run("remote", "get-url", remote)
-  push_url = run("remote", "get-url", "--push", remote)
-  if (fetch_url.returncode or push_url.returncode
-      or fetch_url.stdout.strip() != push_url.stdout.strip()
-      or fetch_url.stdout.strip() not in approved):
-    raise PrelimRetirementError("Git remote differs from authenticated repository")
-  # Use the verified URL, not the mutable remote alias. A retargeted alias
-  # cannot silently switch the deletion to another repository.
-  endpoint = fetch_url.stdout.strip()
+  endpoint = authenticated_remote_endpoint(root, remote, backend)
 
   def read():
     result = run("ls-remote", "--heads", endpoint, ref)
