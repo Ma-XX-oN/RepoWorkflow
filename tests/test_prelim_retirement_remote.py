@@ -9,6 +9,7 @@ from repo_workflow.prelim_retirement import (
   PrelimRetirementError, RetirementPlan, LandedIntegration,
 )
 from repo_workflow.prelim_retirement_remote import retire_verified_ref
+from repo_workflow.prelim_retirement_execute import retire_landed_attempt_ref
 
 P = ("refs/heads/PRELIM-issue-123/main-"
      "11111111-1111-4111-8111-111111111111")
@@ -202,6 +203,33 @@ class RemoteRetirementTests(unittest.TestCase):
     with self.assertRaisesRegex(PrelimRetirementError, "identity mismatch"):
       self.retire(self.plan, P, self.a)
     self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_orchestrator_rechecks_live_terminal_at_delete_boundary(self):
+    landed, terminal = self.evidence(self.plan)
+    calls = [0]
+    def changing_result(identity):
+      calls[0] += 1
+      return terminal(identity) if calls[0] == 1 else None
+    with self.assertRaisesRegex(PrelimRetirementError, "terminal evidence"):
+      retire_landed_attempt_ref(root=self.root, remote="origin",
+        backend=self.backend, landed=landed,
+        read_terminal=changing_result, ref_kind="PRELIM")
+    self.assertEqual(calls[0], 2)
+    self.assertEqual(self.remote_sha(P), self.a)
+
+  def test_orchestrator_landed_cleanup_uses_twice_read_terminal(self):
+    landed, terminal = self.evidence(self.plan)
+    calls = [0]
+    def recorded_result(identity):
+      calls[0] += 1
+      return terminal(identity)
+    out = retire_landed_attempt_ref(root=self.root, remote="origin",
+      backend=self.backend, landed=landed,
+      read_terminal=recorded_result, ref_kind="PRELIM")
+    self.assertTrue(out.absent_after)
+    self.assertEqual(calls[0], 2)
+    self.assertIsNone(self.remote_sha(P))
+    self.assertEqual(self.remote_sha(I), self.a)
 
   def test_forged_eligible_plan_does_not_bypass_live_proof(self):
     forged = replace(self.plan, landed_sha="f"*40)
