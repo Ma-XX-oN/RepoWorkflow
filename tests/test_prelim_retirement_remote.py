@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from repo_workflow.prelim_retirement import (
-  PrelimRetirementError, RetirementPlan,
+  PrelimRetirementError, RetirementPlan, LandedIntegration,
 )
 from repo_workflow.prelim_retirement_remote import retire_verified_ref
 
@@ -22,8 +22,12 @@ def git(root, *args):
   return result.stdout.strip()
 
 
+class MissingRef(Exception):
+  code = "not_found"
+
+
 class BoundBackend:
-  """Stand-in for a repository-scoped, authenticated provider readback."""
+  """Independent bare-repo-backed stand-in for authenticated GitHub facts."""
   repository = "example/retirement-fixture"
   server_repository = "example/retirement-fixture"
 
@@ -31,9 +35,22 @@ class BoundBackend:
     self.url = str(url)
 
   def get(self, route):
-    if route != "":
-      raise AssertionError("unexpected provider route")
-    return {"full_name": self.server_repository, "clone_url": self.url}
+    if route == "":
+      return {"full_name": self.server_repository, "clone_url": self.url}
+    if route.startswith("git/ref/"):
+      ref = "refs/" + route.removeprefix("git/ref/")
+      out = subprocess.run(["git", "ls-remote", self.url, ref],
+        capture_output=True, text=True, check=True).stdout.strip()
+      if not out:
+        raise MissingRef()
+      return {"ref": ref, "object": {"sha": out.split()[0]}}
+    if route.startswith("compare/"):
+      base, head = route.removeprefix("compare/").split("...")
+      status = "identical" if base == head else "diverged"
+      return {"base_commit": {"sha": base},
+              "merge_base_commit": {"sha": base if status == "identical" else "0"*40},
+              "status": status, "behind_by": 0}
+    raise AssertionError("unexpected provider route")
 
 
 class RemoteRetirementTests(unittest.TestCase):
@@ -57,14 +74,29 @@ class RemoteRetirementTests(unittest.TestCase):
     git(self.root, "remote", "add", "origin", str(self.remote))
     git(self.root, "push", "origin", self.a + ":" + P)
     git(self.root, "push", "origin", self.a + ":" + I)
+    git(self.root, "push", "origin", self.a + ":refs/heads/main")
     (self.root / "file").write_text("B\n")
     git(self.root, "commit", "-am", "B")
     self.b = git(self.root, "rev-parse", "HEAD")
     self.plan = RetirementPlan(P, I, self.a, "terminal-123", True)
 
+  def evidence(self, plan):
+    landed = LandedIntegration(plan.prelim_ref, self.a,
+      plan.int_attempt_ref, self.a, "refs/heads/main", self.a,
+      "op-123", plan.terminal_evidence_ref)
+    terminal = {
+      "status": "integrated", "prelim_ref": plan.prelim_ref,
+      "prelim_sha": self.a, "int_attempt_ref": plan.int_attempt_ref,
+      "accepted_sha": self.a, "destination_ref": "refs/heads/main",
+      "landed_sha": self.a, "integration_id": "op-123",
+      "terminal_evidence_ref": plan.terminal_evidence_ref,
+    }
+    return landed, lambda _: terminal
+
   def retire(self, plan, ref, sha, *, remote="origin"):
+    landed, read_terminal = self.evidence(plan)
     return retire_verified_ref(self.root, remote, plan, ref, sha,
-      backend=self.backend)
+      backend=self.backend, landed=landed, read_terminal=read_terminal)
 
   def remote_sha(self, ref):
     result = git(self.root, "ls-remote", "origin", ref)
@@ -82,8 +114,7 @@ class RemoteRetirementTests(unittest.TestCase):
     git(self.root, "push", "origin", self.a + ":" + p)
     git(self.root, "push", "origin", self.a + ":" + i)
     plan=RetirementPlan(p,i,self.a,"terminal-team-X",True)
-    self.assertTrue(retire_verified_ref(
-      self.root, "origin", plan, p, self.a, backend=self.backend).absent_after)
+    self.assertTrue(self.retire(plan, p, self.a).absent_after)
     self.assertIsNone(self.remote_sha(p))
     self.assertEqual(self.remote_sha(i),self.a)
     self.assertEqual(self.remote_sha(P),self.a)
@@ -174,8 +205,9 @@ class RemoteRetirementTests(unittest.TestCase):
 
   def test_missing_authenticated_backend_is_rejected(self):
     with self.assertRaisesRegex(PrelimRetirementError, "repository"):
+      landed, read_terminal = self.evidence(self.plan)
       retire_verified_ref(self.root, "origin", self.plan, P, self.a,
-        backend=None)
+        backend=None, landed=landed, read_terminal=read_terminal)
     self.assertEqual(self.remote_sha(P), self.a)
 
 
