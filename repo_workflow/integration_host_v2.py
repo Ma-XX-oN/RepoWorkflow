@@ -15,7 +15,7 @@ _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _GUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _ID = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 _REF = re.compile(
-  r"refs/heads/INT-ATTEMPT-issue-[1-9][0-9]*/"
+  r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
   r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _OPERATIONS = {
   "refs.list": {"prefix"},
