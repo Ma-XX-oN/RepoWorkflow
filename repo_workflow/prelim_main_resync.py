@@ -8,7 +8,8 @@ from pathlib import Path
 import re
 import subprocess
 
-from .prelim_retirement import RetirementPlan, PrelimRetirementError
+from .prelim_retirement import RetirementPlan, LandedIntegration, PrelimRetirementError
+from .prelim_retirement_github import verify_github_retirement
 from .prelim_retirement_remote import authenticated_remote_endpoint
 
 
@@ -23,7 +24,8 @@ class MainResync:
 
 
 def resync_inactive_main(root: Path, remote: str,
-    plan: RetirementPlan, *, backend) -> MainResync:
+    plan: RetirementPlan, *, backend, landed: LandedIntegration,
+    read_terminal) -> MainResync:
   """Fast-forward local main without checking it out or altering user files."""
   if (not isinstance(plan, RetirementPlan)
       or plan.eligible_for_ref_retirement is not True
@@ -31,6 +33,11 @@ def resync_inactive_main(root: Path, remote: str,
       or type(remote) is not str
       or not re.fullmatch(r"[A-Za-z0-9._-]+", remote)):
     raise PrelimRetirementError("verified integration and safe remote required")
+  if not isinstance(landed, LandedIntegration) or not callable(read_terminal):
+    raise PrelimRetirementError("authenticated landing proof required")
+  confirmed = verify_github_retirement(backend, landed, read_terminal)
+  if confirmed != plan:
+    raise PrelimRetirementError("main resync plan differs from live provider proof")
   root = Path(root)
   def command(*args):
     try:
