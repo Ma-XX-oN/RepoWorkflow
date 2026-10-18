@@ -79,6 +79,8 @@ def retire_verified_ref(
       or type(remote) is not str or not remote or remote.startswith("-")
       or not plan.terminal_evidence_ref):
     raise PrelimRetirementError("remote retirement is not authorized")
+  if type(getattr(backend, "repository", None)) is not str or not backend.repository:
+    raise PrelimRetirementError("authenticated repository is unavailable")
   # A caller-created RetirementPlan boolean is not authorization. Independently
   # read the live provider and durable terminal record at the deletion boundary.
   if not isinstance(landed, LandedIntegration) or not callable(read_terminal):
