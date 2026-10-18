@@ -22,10 +22,10 @@ def git(root, *args):
   return result.stdout.strip()
 
 
- 
 class BoundBackend:
   """Stand-in for a repository-scoped, authenticated provider readback."""
   repository = "example/retirement-fixture"
+  server_repository = "example/retirement-fixture"
 
   def __init__(self, url):
     self.url = str(url)
@@ -33,7 +33,7 @@ class BoundBackend:
   def get(self, route):
     if route != "":
       raise AssertionError("unexpected provider route")
-    return {"full_name": self.repository, "clone_url": self.url}
+    return {"full_name": self.server_repository, "clone_url": self.url}
 
 
 class RemoteRetirementTests(unittest.TestCase):
@@ -83,7 +83,7 @@ class RemoteRetirementTests(unittest.TestCase):
     git(self.root, "push", "origin", self.a + ":" + i)
     plan=RetirementPlan(p,i,self.a,"terminal-team-X",True)
     self.assertTrue(retire_verified_ref(
-      self.root, "origin", plan, p, self.a).absent_after)
+      self.root, "origin", plan, p, self.a, backend=self.backend).absent_after)
     self.assertIsNone(self.remote_sha(p))
     self.assertEqual(self.remote_sha(i),self.a)
     self.assertEqual(self.remote_sha(P),self.a)
