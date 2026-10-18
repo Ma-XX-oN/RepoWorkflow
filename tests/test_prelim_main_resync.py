@@ -207,6 +207,14 @@ class MainResyncTests(unittest.TestCase):
         read_terminal=lambda _: None)
     self.assertEqual(self.local_main(), self.a)
 
+  def test_non_main_integration_cannot_resync_main(self):
+    non_main = replace(self.landed, destination_ref="refs/heads/issue-123")
+    with self.assertRaisesRegex(PrelimRetirementError, "main destination"):
+      resync_inactive_main(self.local, "origin", self.plan,
+        backend=self.backend, landed=non_main,
+        read_terminal=lambda _: self.terminal)
+    self.assertEqual(self.local_main(), self.a)
+
   def test_different_remote_is_not_accepted(self):
     with self.assertRaises(PrelimRetirementError):
       resync_inactive_main(self.local, "-bad", self.plan, backend=self.backend, landed=self.landed,
