@@ -25,7 +25,14 @@ class Backend:
     if route.startswith("git/ref/"):
       ref="refs/"+route.removeprefix("git/ref/")
       return {"ref":ref,"object":{"sha":self.refs[ref]}}
-    if route.startswith("compare/"):
+    if route == "compare/"+A+"..."+L:
+      return {
+        "base_commit":{"sha":A},
+        "merge_base_commit":{"sha":A},
+        "status":"ahead",
+        "behind_by":0,
+      }
+    if route == "compare/"+L+"..."+T:
       return {
         "base_commit":{"sha":L},
         "merge_base_commit":{"sha":L},
