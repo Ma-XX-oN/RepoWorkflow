@@ -32,7 +32,7 @@ jobs:
       - name: Actual pinned DC #313 synthetic service interoperability
         run: |
           curl --fail --silent --show-error --location --retry 2 \
-            https://raw.githubusercontent.com/Ma-XX-oN/DownloadConversation/3fea0ed833ac9c86f004d08ce01ad2e48b6dd28b/src/userscript/02-network-communication/04c-persistent-hmac-service.js \
+            https://raw.githubusercontent.com/Ma-XX-oN/DownloadConversation/e8e9ff1f861fa5cf164d1412637e824424a6300b/src/userscript/02-network-communication/04c-persistent-hmac-service.js \
             --output "$RUNNER_TEMP/dc313-service.js"
           DC313_SERVICE_PATH="$RUNNER_TEMP/dc313-service.js" \
             node --test tests/secret-marker-v2-cross-repo.test.mjs
