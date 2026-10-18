@@ -40,3 +40,35 @@ umbrella, destination and GUID on both exact attempt refs at provider terminal
 publication. Production cleanup additionally needs an independently persisted
 ref-retirement operation/audit with expected-old SHA and fresh landing proof.
 No mocked protocol reply is evidence of authenticated provider mutation.
+
+## October 18 — provider terminal primitive (partial)
+
+The provider v2 executable now exposes `attempt.read` and a guarded
+`attempt.record` path.  The latter fails closed until an independently
+trusted terminal-evidence verifier is supplied by deployment.  A separate
+provider primitive creates an append-only, GUID-qualified terminal tag
+whose commit records all exact identities; readback rejects changed records,
+foreign repositories, missing facts and ambiguous mutation responses.
+
+For integrated outcomes, the provider additionally checks that the exact
+accepted INT-ATTEMPT SHA precedes the landed SHA, and that the landed SHA is
+reachable from the current authoritative destination.  This does not grant
+merge authority and does not substitute for #104/#542 acceptance-time CAS.
+
+The `retirement_terminal_reader` callback projects the full provider
+record to #103's exact nine-field retirement evidence comparison without
+weakening #103's historical independent readback checks.  The source and
+negative regression tests are on draft PR #682; exact-current-head hosted
+CI and authenticated disposable-provider acceptance remain outstanding.
+
+**Deferred MIT warning:** This append-only terminal record is not a complete
+resumable deferred-MIT history.  #109 currently releases an attempt with
+`deferred-mit` then rejects a subsequent claim for that same GUID.  That
+would strand it across restarts.  Reconcile terminal versus deferred event
+semantics and add restart/resume tests before enabling durable deferred
+records; see #109 comment 6252852692 and #681 comment 6252857974.
+
+Not implemented or certified: actual hosted terminal provider publication,
+configuring the trusted evidence verifier, destination lease CAS,
+authenticated ref retirement operations/audit, final destination merge CAS,
+and #109/#103 end-to-end integration.  #85/#86/#676 remain deferred.
