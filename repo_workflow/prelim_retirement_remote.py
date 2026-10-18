@@ -41,8 +41,8 @@ def retire_verified_ref(
       or not plan.terminal_evidence_ref):
     raise PrelimRetirementError("remote retirement is not authorized")
   verify_attempt_scope(plan.prelim_ref, plan.int_attempt_ref)
-  if not (ref.startswith("refs/heads/PRELIM-issue-") or
-          ref.startswith("refs/heads/INT-ATTEMPT-issue-")):
+  if not (ref.startswith("refs/heads/PRELIM-") or
+          ref.startswith("refs/heads/INT-ATTEMPT-")):
     raise PrelimRetirementError("ref is outside the permitted attempt")
   root = Path(root)
   def run(*args):
