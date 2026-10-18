@@ -43,6 +43,11 @@ class FakeBackend:
     self.fail_after_create = False
 
   def get(self, route):
+    if route.startswith("compare/"):
+      base, head = route[len("compare/"):].split("...", 1)
+      if (base, head) not in ((C, D), (D, D)):
+        raise RuntimeError("unknown ancestry")
+      return {"merge_base_commit": {"sha": base}}
     if route.startswith("git/ref/"):
       ref = "refs/" + route[len("git/ref/"):]
       if ref not in self.refs:
@@ -143,6 +148,16 @@ class TerminalLedgerTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalProviderError, "UNKNOWN"):
       self.publish()
     self.assertNotEqual(read_terminal(self.backend, G), terminal())
+
+  def test_landed_record_must_have_real_provider_ancestry(self):
+    def reject_ancestry(route):
+      if route.startswith("compare/"):
+        return {"merge_base_commit": {"sha": "a"*40}}
+      return FakeBackend.get(self.backend, route)
+    self.backend.get = reject_ancestry
+    with self.assertRaisesRegex(TerminalProviderError, "ancestry"):
+      self.publish()
+    self.assertFalse(self.backend.writes)
 
   def test_missing_record_is_pending_not_success(self):
     self.assertIsNone(read_terminal(self.backend, G))
