@@ -1,6 +1,6 @@
 # PMD Authoring Specification
 
-Status: authoritative guidance for authoring task-specific AGENT-CMD prompt files.
+Status: authoritative guidance for task-specific AGENT-CMD prompt files.
 See [AGENT-CMD-PROTOCOL.md](AGENT-CMD-PROTOCOL.md) for the separate,
 task-neutral command parser, substitution, execution, recovery and safety rules.
 
