@@ -237,6 +237,16 @@ def submit_ready_prelim(root: Path, attempt: str, config: dict, *,
   certified publisher. Existing request_prelim_integration is retained
   solely as the historical v1 interface during migration.
   """
+  from .prelim_ready_v2_validation import v2_identity_ref
+  from .prelim_ready_v2_publish import publish_destination_prelim
+  remote = config["repository"]["authoritativeRemote"]
+  if _remote_ref(Path(root).resolve(), remote, v2_identity_ref(attempt)):
+    return publish_destination_prelim(
+      root, config, ticket=ticket, destination=destination,
+      guid=attempt, request_id=request_id, backend=backend,
+      resolve_parent=resolve_parent,
+      read_publication_record=read_publication_record,
+    )
   from .prelim_ready_recorded import publish_recorded_ready_certified
   return publish_recorded_ready_certified(
     root, config, ticket=ticket, destination=destination,
