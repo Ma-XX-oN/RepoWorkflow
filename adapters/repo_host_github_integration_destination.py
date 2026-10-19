@@ -28,6 +28,10 @@ def _destination(destination):
 def read_destination_snapshot(backend, destination):
   """Return exact old destination and unparsed allow-list at that commit."""
   ref = _destination(destination)
+  owner_repo = getattr(backend, "repository", None)
+  if (type(owner_repo) is not str or
+      re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", owner_repo) is None):
+    raise DestinationProviderError("provider repository identity invalid")
   try:
     repository = backend.get("")
   except Exception as error:
