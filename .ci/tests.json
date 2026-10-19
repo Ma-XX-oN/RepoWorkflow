@@ -133,6 +133,10 @@
       "issue-681-retirement-audit": {
         "type": "regression",
         "name": "tests.test_integration_retirement_github"
+      },
+      "issue-681-destination-snapshot": {
+        "type": "regression",
+        "name": "tests.test_integration_destination_github"
       }
     },
     {
