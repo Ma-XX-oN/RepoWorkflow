@@ -101,6 +101,8 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
     if (type(tip) is not str or _SHA.fullmatch(tip) is None
         or type(tree) is not str or _SHA.fullmatch(tree) is None):
       raise TerminalProviderError("destination tree identity malformed")
+    if record["observed_destination_sha"] != tip:
+      raise TerminalProviderError("provider destination tip differs from record")
   except TerminalProviderError:
     raise
   except Exception as error:
