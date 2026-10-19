@@ -84,6 +84,16 @@ class IntegrationHostV2Tests(unittest.TestCase):
     self.assertFalse(result["policy_present"])
     self.assertIsNone(result["policy_text"])
 
+  def test_read_only_host_must_not_report_applied_mutation(self):
+    def forged(request):
+      reply=good(request)
+      reply["status"]="applied"
+      return reply
+    host=IntegrationHost("Org/Repo",forged)
+    with self.assertRaisesRegex(IntegrationHostError, "read-only"):
+      host.request("destination.read","read-dest-fake",
+                   {"destination":"main"})
+
   def test_forged_destination_policy_result_rejected(self):
     def invalid(request):
       reply=good(request)
