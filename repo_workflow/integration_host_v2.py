@@ -18,6 +18,7 @@ _REF = re.compile(
   r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
   r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _OPERATIONS = {
+  "destination.read": {"destination"},
   "refs.list": {"prefix"},
   "ref.create": {"ref", "sha"},
   "ref.cas": {"ref", "expected_sha", "sha"},
@@ -182,6 +183,20 @@ def _valid_params(op, values):
 def _valid_result(operation, request, result):
   if type(result) is not dict:
     return False
+  if operation == "destination.read":
+    return (
+      set(result) == {"destination", "ref", "sha",
+                      "policy_present", "policy_text"}
+      and result["destination"] == request["destination"]
+      and result["ref"] == "refs/heads/" + request["destination"]
+      and type(result["sha"]) is str
+      and _SHA.fullmatch(result["sha"]) is not None
+      and type(result["policy_present"]) is bool
+      and ((result["policy_present"] and
+            type(result["policy_text"]) is str)
+           or (not result["policy_present"] and
+               result["policy_text"] is None))
+    )
   if operation == "refs.list":
     return (set(result) == {"refs"} and type(result["refs"]) is dict
       and all(type(ref) is str and ref.startswith("refs/heads/PRELIM-")
