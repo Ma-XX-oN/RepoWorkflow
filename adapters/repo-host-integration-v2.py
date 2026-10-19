@@ -15,13 +15,33 @@ from repo_host_github_integration import (
   cas_int_attempt_git,
 )
 from repo_host_github_provider import GitHubBackend, ProviderError
+from repo_host_github_integration_terminal import (
+  read_terminal, record_terminal,
+)
+from repo_host_github_integration_lease import read_lease, cas_lease, _remote_scope
+from repo_host_github_integration_destination import read_destination_snapshot
+from repo_host_github_integration_retirement import (
+  read_retirement, record_retirement,
+)
 
 
-_OPERATIONS = {"refs.list", "ref.create", "ref.cas"}
+_OPERATIONS = {
+  "destination.read", "refs.list", "ref.create", "ref.cas",
+  "attempt.read", "attempt.record", "lease.read", "lease.cas",
+  "retirement.read", "retirement.record",
+}
 
 
 def process(request, *, backend_factory=GitHubBackend, verify=authorize,
-            cas_write=cas_int_attempt_git, config_reader=None):
+            cas_write=cas_int_attempt_git, config_reader=None,
+            terminal_read=read_terminal, terminal_write=record_terminal,
+            verify_terminal_evidence=None,
+            lease_read=read_lease, lease_write=cas_lease,
+            verify_remote_scope=_remote_scope,
+            destination_read=read_destination_snapshot,
+            retirement_read=read_retirement,
+            retirement_write=record_retirement,
+            verify_retirement_evidence=None):
   """Run only implemented provider operations after strict v2 validation."""
   if (type(request) is not dict or set(request) != {
       "schema_version", "repository", "operation",
@@ -38,13 +58,45 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
     params = value["parameters"]
     if operation == "refs.list":
       return "unchanged", {"refs": inventory_ready_refs(backend)}
+    if operation == "destination.read":
+      return "unchanged", destination_read(backend, params["destination"])
+    if operation == "attempt.read":
+      guid = params["guid"]
+      return "unchanged", {
+        "guid": guid, "record": terminal_read(backend, guid),
+      }
+    if operation == "lease.read":
+      return "unchanged", lease_read(backend, params["destination"])
+    if operation == "retirement.read":
+      return "unchanged", {
+        "guid": params["guid"], "ref_kind": params["ref_kind"],
+        "record": retirement_read(backend, params["guid"], params["ref_kind"]),
+      }
     try:
       decision = verify(value, backend)
     except Exception as error:
       raise IntegrationHostError("trusted authorization denied") from error
     if not isinstance(decision, dict):
       raise IntegrationHostError("trusted authorization proof missing")
-    if operation == "ref.cas":
+    if operation == "attempt.record":
+      if verify_terminal_evidence is None:
+        raise IntegrationHostError("trusted terminal verifier unavailable")
+      return terminal_write(
+        backend, params["record"], authorized=True,
+        verify_evidence=verify_terminal_evidence,
+      )
+    if operation == "retirement.record":
+      if verify_retirement_evidence is None:
+        raise IntegrationHostError("trusted retirement verifier unavailable")
+      status, record = retirement_write(
+        backend, params["record"],
+        verify_deletion=verify_retirement_evidence,
+      )
+      return status, {
+        "guid": params["guid"], "ref_kind": params["ref_kind"],
+        "record": record,
+      }
+    if operation in {"ref.cas", "lease.cas"}:
       root = Path(__file__).resolve().parents[1]
       if config_reader is None:
         from repo_workflow.config import load_config
@@ -52,8 +104,11 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       else:
         config = config_reader(root)
       remote = config["repository"]["authoritativeRemote"]
+      if operation == "lease.cas":
+        return lease_write(backend, value, root, remote)
+      endpoint = verify_remote_scope(root, remote, backend)
       return "applied", cas_write(
-        root, remote, params["ref"], params["expected_sha"], params["sha"])
+        root, endpoint, params["ref"], params["expected_sha"], params["sha"])
     return create_int_attempt(backend, value, authorized=True)
 
   state = {}
