@@ -23,6 +23,16 @@ class DestinationLease:
 
 
 @dataclass(frozen=True)
+class MitDeferredEvent:
+  """Durable, resumable MIT handoff, separate from terminal results."""
+  guid: str
+  destination: str
+  prelim_sha: str
+  lease_generation: int
+  evidence_ref: str
+
+
+@dataclass(frozen=True)
 class MitResumeAuthorization:
   """Provider-read approval to retry one immutable deferred submission."""
   guid: str
@@ -46,6 +56,12 @@ class CoordinationProvider(Protocol):
     """None means pending; otherwise independently persisted disposition."""
     ...
 
+  def read_mit_deferred_event(
+      self, guid: str, destination: str,
+  ) -> MitDeferredEvent | None:
+    """Read most recent separately persisted deferred-MIT event."""
+    ...
+
   def read_mit_resume_authorization(
       self, guid: str, destination: str,
   ) -> MitResumeAuthorization | None:
@@ -53,12 +69,35 @@ class CoordinationProvider(Protocol):
     ...
 
 
-def _claimable(provider, submission: ReadyPrelim) -> MitResumeAuthorization | None:
-  result = provider.read_attempt_result(submission.guid)
-  if result is None:
+def _read_defer(provider, submission: ReadyPrelim) -> MitDeferredEvent | None:
+  read_event = getattr(provider, "read_mit_deferred_event", None)
+  if not callable(read_event):
+    raise CoordinationError("provider lacks deferred MIT event readback")
+  try:
+    event = read_event(submission.guid, submission.destination)
+  except Exception as error:
+    raise CoordinationError("deferred MIT event read UNKNOWN") from error
+  if event is None:
     return None
-  if result != "deferred-mit":
+  if (not isinstance(event, MitDeferredEvent)
+      or event.guid != submission.guid
+      or event.destination != submission.destination
+      or event.prelim_sha != submission.sha
+      or type(event.lease_generation) is not int
+      or event.lease_generation < 1
+      or not isinstance(event.evidence_ref, str)
+      or not event.evidence_ref.strip()):
+    raise CoordinationError("invalid durable deferred MIT event")
+  return event
+
+
+def _claimable(provider, submission: ReadyPrelim):
+  terminal = provider.read_attempt_result(submission.guid)
+  if terminal is not None:
     raise CoordinationError("attempt already has a persisted terminal result")
+  deferred = _read_defer(provider, submission)
+  if deferred is None:
+    return None, None
   read_approval = getattr(provider, "read_mit_resume_authorization", None)
   if not callable(read_approval):
     raise CoordinationError("deferred MIT requires provider resume authority")
@@ -71,13 +110,12 @@ def _claimable(provider, submission: ReadyPrelim) -> MitResumeAuthorization | No
       or approval.destination != submission.destination
       or approval.prelim_sha != submission.sha
       or type(approval.expected_generation) is not int
-      or approval.expected_generation < 0
+      or approval.expected_generation <= deferred.lease_generation
       or approval.approved is not True
       or not isinstance(approval.evidence_ref, str)
       or not approval.evidence_ref.strip()):
     raise CoordinationError("deferred MIT resume is not authoritatively approved")
-  return approval
-
+  return deferred, approval
 
 def claim_prelim(
     provider: CoordinationProvider, submission: ReadyPrelim,
@@ -88,7 +126,7 @@ def claim_prelim(
     raise CoordinationError("a validated READY submission is required")
   if not isinstance(holder, str) or not holder.strip():
     raise CoordinationError("an authenticated coordinator identity is required")
-  approval = _claimable(provider, submission)
+  deferred, approval = _claimable(provider, submission)
   before = provider.read_destination_lease(submission.destination)
   if (not isinstance(before, DestinationLease)
       or before.destination != submission.destination
@@ -106,7 +144,7 @@ def claim_prelim(
   if provider.compare_and_set_destination_lease(before, after) is not True:
     raise CoordinationError("destination claim lost to another coordinator")
   try:
-    if _claimable(provider, submission) != approval:
+    if _claimable(provider, submission) != (deferred, approval):
       raise CoordinationError("attempt status or approval changed; reconcile")
   except CoordinationError:
     # The CAS claim may now be held; recovery must be reconciled through
@@ -129,8 +167,23 @@ def release_prelim(
   before = provider.read_destination_lease(claim.destination)
   if before != claim:
     raise CoordinationError("destination claim changed before release")
-  if provider.read_attempt_result(claim.active_guid) != terminal_result:
-    raise CoordinationError("terminal/deferred result has no authoritative readback")
+  if terminal_result == "deferred-mit":
+    if provider.read_attempt_result(claim.active_guid) is not None:
+      raise CoordinationError("terminal result forbids deferred release")
+    read_event = getattr(provider, "read_mit_deferred_event", None)
+    if not callable(read_event):
+      raise CoordinationError("provider lacks deferred MIT event readback")
+    event = read_event(claim.active_guid, claim.destination)
+    if (not isinstance(event, MitDeferredEvent)
+        or event.guid != claim.active_guid
+        or event.destination != claim.destination
+        or event.lease_generation != claim.generation
+        or not isinstance(event.prelim_sha, str)
+        or not isinstance(event.evidence_ref, str)
+        or not event.evidence_ref.strip()):
+      raise CoordinationError("deferred MIT event has no exact readback")
+  elif provider.read_attempt_result(claim.active_guid) != terminal_result:
+    raise CoordinationError("terminal result has no authoritative readback")
   after = DestinationLease(claim.destination, claim.generation + 1, None, None)
   if provider.compare_and_set_destination_lease(before, after) is not True:
     raise CoordinationError("destination release lost CAS")
