@@ -18,18 +18,20 @@ from repo_host_github_provider import GitHubBackend, ProviderError
 from repo_host_github_integration_terminal import (
   read_terminal, record_terminal,
 )
+from repo_host_github_integration_lease import read_lease, cas_lease
 
 
 _OPERATIONS = {
   "refs.list", "ref.create", "ref.cas",
-  "attempt.read", "attempt.record",
+  "attempt.read", "attempt.record", "lease.read", "lease.cas",
 }
 
 
 def process(request, *, backend_factory=GitHubBackend, verify=authorize,
             cas_write=cas_int_attempt_git, config_reader=None,
             terminal_read=read_terminal, terminal_write=record_terminal,
-            verify_terminal_evidence=None):
+            verify_terminal_evidence=None,
+            lease_read=read_lease, lease_write=cas_lease):
   """Run only implemented provider operations after strict v2 validation."""
   if (type(request) is not dict or set(request) != {
       "schema_version", "repository", "operation",
@@ -51,6 +53,8 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       return "unchanged", {
         "guid": guid, "record": terminal_read(backend, guid),
       }
+    if operation == "lease.read":
+      return "unchanged", lease_read(backend, params["destination"])
     try:
       decision = verify(value, backend)
     except Exception as error:
@@ -64,7 +68,7 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
         backend, params["record"], authorized=True,
         verify_evidence=verify_terminal_evidence,
       )
-    if operation == "ref.cas":
+    if operation in {"ref.cas", "lease.cas"}:
       root = Path(__file__).resolve().parents[1]
       if config_reader is None:
         from repo_workflow.config import load_config
@@ -72,6 +76,8 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       else:
         config = config_reader(root)
       remote = config["repository"]["authoritativeRemote"]
+      if operation == "lease.cas":
+        return lease_write(backend, value, root, remote)
       return "applied", cas_write(
         root, remote, params["ref"], params["expected_sha"], params["sha"])
     return create_int_attempt(backend, value, authorized=True)
