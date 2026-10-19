@@ -11,7 +11,9 @@ TERMINAL = {
   "prelim_sha": "b"*40,
   "int_attempt_ref": REF, "accepted_sha": SHA,
   "destination_ref": "refs/heads/main",
-  "expected_destination_sha": "c"*40, "landed_sha": "d"*40,
+  "expected_destination_sha": "c"*40,
+  "observed_destination_sha": "d"*40, "landed_sha": "d"*40,
+  "provider_operation_id": "merge-op-123", "umbrella": "issue-123",
   "integration_id": "integration-123",
   "terminal_evidence_ref": "terminal-123",
 }
@@ -167,7 +169,9 @@ class IntegrationHostV2Tests(unittest.TestCase):
   def test_terminal_rejects_missing_provenance(self):
     for field in ("prelim_ref", "prelim_sha", "int_attempt_ref",
                   "accepted_sha", "destination_ref", "landed_sha",
-                  "integration_id", "terminal_evidence_ref"):
+                  "integration_id", "provider_operation_id",
+                  "umbrella", "observed_destination_sha",
+                  "terminal_evidence_ref"):
       value=dict(TERMINAL)
       value.pop(field)
       with self.subTest(field=field):
