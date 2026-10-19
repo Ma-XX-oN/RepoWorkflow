@@ -213,6 +213,13 @@ class IntegrationHostV2Tests(unittest.TestCase):
           self.host.request("attempt.record", "req-4", {
             "guid":GUID,"record":value})
 
+  def test_deferred_mit_remains_resumable_not_terminal(self):
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("attempt.record", "deferred-1", {
+        "guid": GUID,
+        "record": dict(TERMINAL, status="deferred-mit", landed_sha=None),
+      })
+
   def test_nonlanded_terminal_cannot_assert_landed_sha(self):
     with self.assertRaises(IntegrationHostError):
       self.host.request("attempt.record", "req-5", {
