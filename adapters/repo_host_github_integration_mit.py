@@ -15,7 +15,8 @@ class MitProviderError(RuntimeError):
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _GUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
-_KINDS = {"deferred": "event", "resume": "authorization"}
+_KINDS = {"deferred": "event", "resume": "authorization",
+          "resume-revoke": "authorization"}
 _MESSAGE = "RWF-MIT-EVIDENCE-V2 "
 _MAX_PAGES = 100
 
@@ -35,10 +36,13 @@ def _canonical(value):
 
 def _validate(backend, record, kind, guid, destination):
   if not _valid_mit_record(record, guid, destination, backend.repository,
-                           resume=(kind == "resume")):
+                           resume=(kind in {"resume", "resume-revoke"})):
     raise MitProviderError("MIT persisted record identity invalid")
+  if (kind == "resume" and record["approved"] is not True
+      or kind == "resume-revoke" and record["approved"] is not False):
+    raise MitProviderError("MIT approval/revocation type differs")
   generation = record[
-    "expected_generation" if kind == "resume" else "lease_generation"]
+    "expected_generation" if kind != "deferred" else "lease_generation"]
   _ref(kind, guid, generation)
   return generation
 
@@ -72,7 +76,19 @@ def _read_at(backend, kind, guid, destination, generation):
 
 
 def read_mit(backend, kind, guid, destination):
-  """Read newest durable event; fail closed on incomplete inventory."""
+  """Read newest durable event; revocation wins the same lease generation."""
+  if kind == "resume":
+    approved = _read_latest(backend, "resume", guid, destination)
+    revoked = _read_latest(backend, "resume-revoke", guid, destination)
+    if revoked is not None and (
+        approved is None or
+        revoked["expected_generation"] >= approved["expected_generation"]):
+      return revoked
+    return approved
+  return _read_latest(backend, kind, guid, destination)
+
+
+def _read_latest(backend, kind, guid, destination):
   if kind not in _KINDS or type(guid) is not str or _GUID.fullmatch(guid) is None:
     raise MitProviderError("invalid MIT lookup")
   prefix = "refs/tags/rwf-mit-" + kind + "-v2-" + guid + "-"
@@ -111,6 +127,8 @@ def record_mit(backend, kind, record, *, verify_evidence):
     raise MitProviderError("invalid MIT record")
   guid = record.get("guid")
   dest = record.get("destination")
+  if kind == "resume" and record.get("approved") is False:
+    kind = "resume-revoke"
   generation = _validate(backend, record, kind, guid, dest)
   if not callable(verify_evidence) or verify_evidence(record) is not True:
     raise MitProviderError("independent MIT evidence/authority unavailable")
@@ -118,6 +136,9 @@ def record_mit(backend, kind, record, *, verify_evidence):
   from adapters.repo_host_github_integration_terminal import read_terminal
   if read_terminal(backend, guid) is not None:
     raise MitProviderError("terminal attempt forbids MIT reuse")
+  if (kind == "resume" and
+      _read_at(backend, "resume-revoke", guid, dest, generation) is not None):
+    raise MitProviderError("MIT authorization already revoked")
   existing = _read_at(backend, kind, guid, dest, generation)
   if existing is not None:
     if existing != record:
