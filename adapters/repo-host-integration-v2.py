@@ -19,11 +19,15 @@ from repo_host_github_integration_terminal import (
   read_terminal, record_terminal,
 )
 from repo_host_github_integration_lease import read_lease, cas_lease
+from repo_host_github_integration_retirement import (
+  read_retirement, record_retirement,
+)
 
 
 _OPERATIONS = {
   "refs.list", "ref.create", "ref.cas",
   "attempt.read", "attempt.record", "lease.read", "lease.cas",
+  "retirement.read", "retirement.record",
 }
 
 
@@ -31,7 +35,10 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
             cas_write=cas_int_attempt_git, config_reader=None,
             terminal_read=read_terminal, terminal_write=record_terminal,
             verify_terminal_evidence=None,
-            lease_read=read_lease, lease_write=cas_lease):
+            lease_read=read_lease, lease_write=cas_lease,
+            retirement_read=read_retirement,
+            retirement_write=record_retirement,
+            verify_retirement_evidence=None):
   """Run only implemented provider operations after strict v2 validation."""
   if (type(request) is not dict or set(request) != {
       "schema_version", "repository", "operation",
@@ -55,6 +62,11 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       }
     if operation == "lease.read":
       return "unchanged", lease_read(backend, params["destination"])
+    if operation == "retirement.read":
+      return "unchanged", {
+        "guid": params["guid"], "ref_kind": params["ref_kind"],
+        "record": retirement_read(backend, params["guid"], params["ref_kind"]),
+      }
     try:
       decision = verify(value, backend)
     except Exception as error:
@@ -68,6 +80,17 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
         backend, params["record"], authorized=True,
         verify_evidence=verify_terminal_evidence,
       )
+    if operation == "retirement.record":
+      if verify_retirement_evidence is None:
+        raise IntegrationHostError("trusted retirement verifier unavailable")
+      status, record = retirement_write(
+        backend, params["record"],
+        verify_deletion=verify_retirement_evidence,
+      )
+      return status, {
+        "guid": params["guid"], "ref_kind": params["ref_kind"],
+        "record": record,
+      }
     if operation in {"ref.cas", "lease.cas"}:
       root = Path(__file__).resolve().parents[1]
       if config_reader is None:
