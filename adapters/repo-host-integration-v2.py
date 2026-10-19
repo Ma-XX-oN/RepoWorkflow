@@ -20,6 +20,7 @@ from repo_host_github_integration_terminal import (
 )
 from repo_host_github_integration_lease import read_lease, cas_lease, _remote_scope
 from repo_host_github_integration_destination import read_destination_snapshot
+from repo_host_github_integration_mit import read_mit, record_mit
 from repo_host_github_integration_retirement import (
   read_retirement, record_retirement,
 )
@@ -29,6 +30,8 @@ _OPERATIONS = {
   "destination.read", "refs.list", "ref.create", "ref.cas",
   "attempt.read", "attempt.record", "lease.read", "lease.cas",
   "retirement.read", "retirement.record",
+  "mit.deferred.read", "mit.deferred.record",
+  "mit.resume.read", "mit.resume.record",
 }
 
 
@@ -41,7 +44,9 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
             destination_read=read_destination_snapshot,
             retirement_read=read_retirement,
             retirement_write=record_retirement,
-            verify_retirement_evidence=None):
+            verify_retirement_evidence=None,
+            mit_read=read_mit, mit_write=record_mit,
+            verify_mit_evidence=None):
   """Run only implemented provider operations after strict v2 validation."""
   if (type(request) is not dict or set(request) != {
       "schema_version", "repository", "operation",
@@ -67,6 +72,13 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       }
     if operation == "lease.read":
       return "unchanged", lease_read(backend, params["destination"])
+    if operation in {"mit.deferred.read", "mit.resume.read"}:
+      kind = "resume" if operation.startswith("mit.resume") else "deferred"
+      key = "authorization" if kind == "resume" else "event"
+      return "unchanged", {
+        "guid": params["guid"], "destination": params["destination"],
+        key: mit_read(backend, kind, params["guid"], params["destination"]),
+      }
     if operation == "retirement.read":
       return "unchanged", {
         "guid": params["guid"], "ref_kind": params["ref_kind"],
@@ -85,6 +97,17 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
         backend, params["record"], authorized=True,
         verify_evidence=verify_terminal_evidence,
       )
+    if operation in {"mit.deferred.record", "mit.resume.record"}:
+      if verify_mit_evidence is None:
+        raise IntegrationHostError("trusted MIT event verifier unavailable")
+      kind = "resume" if operation.startswith("mit.resume") else "deferred"
+      key = "authorization" if kind == "resume" else "event"
+      status, record = mit_write(
+        backend, kind, params[key], verify_evidence=verify_mit_evidence)
+      return status, {
+        "guid": params["guid"], "destination": params["destination"],
+        key: record,
+      }
     if operation == "retirement.record":
       if verify_retirement_evidence is None:
         raise IntegrationHostError("trusted retirement verifier unavailable")
