@@ -2,7 +2,8 @@
 import unittest
 
 from repo_workflow.integration_coordination import (
-  CoordinationError, DestinationLease, claim_prelim, release_prelim,
+  CoordinationError, DestinationLease, MitResumeAuthorization,
+  claim_prelim, release_prelim,
 )
 from repo_workflow.prelim_queue import parse_ready_prelim
 
@@ -20,6 +21,8 @@ class CasProvider:
     self.leases = {}
     self.outcomes = {}
     self.fail_cas = False
+    self.approvals = {}
+    self.rechecks = 0
 
   def read_destination_lease(self, destination):
     return self.leases.get(
@@ -32,7 +35,11 @@ class CasProvider:
     return True
 
   def read_attempt_result(self, guid):
+    self.rechecks += 1
     return self.outcomes.get(guid)
+
+  def read_mit_resume_authorization(self, guid, destination):
+    return self.approvals.get((guid, destination))
 
 
 class IntegrationCoordinationTests(unittest.TestCase):
@@ -92,6 +99,57 @@ class IntegrationCoordinationTests(unittest.TestCase):
     self.p.outcomes[GUID1] = "deferred-mit"
     released = release_prelim(self.p, one, "worker-A", terminal_result="deferred-mit")
     self.assertIsNone(released.active_guid)
+
+  def test_deferred_mit_restart_requires_exact_provider_approval(self):
+    first=claim_prelim(self.p,self.a,"worker-A")
+    self.p.outcomes[GUID1]="deferred-mit"
+    release_prelim(self.p,first,"worker-A",terminal_result="deferred-mit")
+    with self.assertRaisesRegex(CoordinationError,"approved"):
+      claim_prelim(self.p,self.a,"worker-B")
+    self.p.approvals[(GUID1,"main")]=MitResumeAuthorization(
+      GUID1,"main",self.a.sha,"mit-approval-1",True)
+    resumed=claim_prelim(self.p,self.a,"worker-B")
+    self.assertEqual(resumed.active_guid,GUID1)
+    self.assertEqual(resumed.generation,3)
+    with self.assertRaisesRegex(CoordinationError,"another coordinator"):
+      claim_prelim(self.p,self.a,"worker-C")
+
+  def test_deferred_resume_foreign_sha_or_destination_denied(self):
+    self.p.outcomes[GUID1]="deferred-mit"
+    for approval in (
+      MitResumeAuthorization(GUID1,"main","b"*40,"proof",True),
+      MitResumeAuthorization(GUID1,"other",self.a.sha,"proof",True),
+      MitResumeAuthorization(GUID2,"main",self.a.sha,"proof",True),
+      MitResumeAuthorization(GUID1,"main",self.a.sha,"",True),
+      MitResumeAuthorization(GUID1,"main",self.a.sha,"proof",False),
+    ):
+      self.p.approvals[(GUID1,"main")]=approval
+      with self.subTest(approval=approval):
+        with self.assertRaisesRegex(CoordinationError,"approved"):
+          claim_prelim(self.p,self.a,"worker-B")
+      self.assertIsNone(self.p.read_destination_lease("main").active_guid)
+
+  def test_approval_changed_during_claim_is_rejected(self):
+    self.p.outcomes[GUID1]="deferred-mit"
+    approved=MitResumeAuthorization(GUID1,"main",self.a.sha,"proof",True)
+    self.p.approvals[(GUID1,"main")]=approved
+    original=self.p.compare_and_set_destination_lease
+    def revoke(before,after):
+      outcome=original(before,after)
+      self.p.approvals.pop((GUID1,"main"),None)
+      return outcome
+    self.p.compare_and_set_destination_lease=revoke
+    with self.assertRaisesRegex(CoordinationError,"approved"):
+      claim_prelim(self.p,self.a,"worker-B")
+    # The claimed lease must be reconciled: never assume an automatic rollback.
+    self.assertEqual(self.p.read_destination_lease("main").active_guid,GUID1)
+
+  def test_terminal_result_cannot_reuse_deferred_approval(self):
+    self.p.outcomes[GUID1]="integrated"
+    self.p.approvals[(GUID1,"main")]=MitResumeAuthorization(
+      GUID1,"main",self.a.sha,"old-approval",True)
+    with self.assertRaisesRegex(CoordinationError,"terminal"):
+      claim_prelim(self.p,self.a,"worker-B")
 
   def test_released_claim_cannot_be_replayed(self):
     one = claim_prelim(self.p, self.a, "worker-A")
