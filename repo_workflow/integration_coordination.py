@@ -88,6 +88,7 @@ def _read_defer(provider, submission: ReadyPrelim) -> MitDeferredEvent | None:
       or event.lease_generation < 1
       or not isinstance(event.evidence_ref, str)
       or not event.evidence_ref.strip()
+      or type(event.reason) is not str
       or event.reason not in {"timeout", "awaiting-manual"}):
     raise CoordinationError("invalid durable deferred MIT event")
   return event
@@ -188,7 +189,8 @@ def release_prelim(
         or not isinstance(event.prelim_sha, str)
         or not isinstance(event.evidence_ref, str)
         or not event.evidence_ref.strip()
-        or event.reason not in {"timeout", "awaiting-manual"}):
+        or type(event.reason) is not str
+      or event.reason not in {"timeout", "awaiting-manual"}):
       raise CoordinationError("deferred MIT event has no exact readback")
   elif provider.read_attempt_result(claim.active_guid) != terminal_result:
     raise CoordinationError("terminal result has no authoritative readback")
