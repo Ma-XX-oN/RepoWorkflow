@@ -2,7 +2,8 @@
 import unittest
 
 from repo_workflow.integration_coordination import (
-  CoordinationError, DestinationLease, MitResumeAuthorization,
+  CoordinationError, DestinationLease, MitDeferredEvent,
+  MitResumeAuthorization,
   claim_prelim, release_prelim,
 )
 from repo_workflow.prelim_queue import parse_ready_prelim
@@ -22,6 +23,7 @@ class CasProvider:
     self.outcomes = {}
     self.fail_cas = False
     self.approvals = {}
+    self.deferred_events = {}
     self.rechecks = 0
 
   def read_destination_lease(self, destination):
@@ -37,6 +39,9 @@ class CasProvider:
   def read_attempt_result(self, guid):
     self.rechecks += 1
     return self.outcomes.get(guid)
+
+  def read_mit_deferred_event(self, guid, destination):
+    return self.deferred_events.get((guid, destination))
 
   def read_mit_resume_authorization(self, guid, destination):
     return self.approvals.get((guid, destination))
@@ -96,13 +101,15 @@ class IntegrationCoordinationTests(unittest.TestCase):
     one = claim_prelim(self.p, self.a, "worker-A")
     with self.assertRaises(CoordinationError):
       release_prelim(self.p, one, "worker-A", terminal_result="deferred-mit")
-    self.p.outcomes[GUID1] = "deferred-mit"
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,1,"mit-defer-1")
     released = release_prelim(self.p, one, "worker-A", terminal_result="deferred-mit")
     self.assertIsNone(released.active_guid)
 
   def test_deferred_mit_restart_requires_exact_provider_approval(self):
     first=claim_prelim(self.p,self.a,"worker-A")
-    self.p.outcomes[GUID1]="deferred-mit"
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,1,"mit-defer-1")
     release_prelim(self.p,first,"worker-A",terminal_result="deferred-mit")
     with self.assertRaisesRegex(CoordinationError,"approved"):
       claim_prelim(self.p,self.a,"worker-B")
@@ -115,7 +122,8 @@ class IntegrationCoordinationTests(unittest.TestCase):
       claim_prelim(self.p,self.a,"worker-C")
 
   def test_deferred_resume_foreign_sha_or_destination_denied(self):
-    self.p.outcomes[GUID1]="deferred-mit"
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,1,"mit-defer-1")
     for approval in (
       MitResumeAuthorization(GUID1,"main","b"*40,0,"proof",True),
       MitResumeAuthorization(GUID1,"other",self.a.sha,0,"proof",True),
@@ -130,7 +138,8 @@ class IntegrationCoordinationTests(unittest.TestCase):
       self.assertIsNone(self.p.read_destination_lease("main").active_guid)
 
   def test_approval_changed_during_claim_is_rejected(self):
-    self.p.outcomes[GUID1]="deferred-mit"
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,1,"mit-defer-1")
     approved=MitResumeAuthorization(GUID1,"main",self.a.sha,0,"proof",True)
     self.p.approvals[(GUID1,"main")]=approved
     original=self.p.compare_and_set_destination_lease
@@ -146,11 +155,14 @@ class IntegrationCoordinationTests(unittest.TestCase):
 
   def test_old_approval_cannot_resume_after_another_defer(self):
     first=claim_prelim(self.p,self.a,"worker-A")
-    self.p.outcomes[GUID1]="deferred-mit"
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,1,"mit-defer-1")
     release_prelim(self.p,first,"worker-A",terminal_result="deferred-mit")
     self.p.approvals[(GUID1,"main")]=MitResumeAuthorization(
       GUID1,"main",self.a.sha,2,"mit-approval-1",True)
     resumed=claim_prelim(self.p,self.a,"worker-B")
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,resumed.generation,"mit-defer-2")
     release_prelim(self.p,resumed,"worker-B",terminal_result="deferred-mit")
     with self.assertRaisesRegex(CoordinationError,"stale"):
       claim_prelim(self.p,self.a,"worker-C")
