@@ -87,6 +87,8 @@ def _valid_terminal(value, guid, repository=None):
     return False
   if (type(value["integration_id"]) is not str
       or _ID.fullmatch(value["integration_id"]) is None
+      or type(value["provider_operation_id"]) is not str
+      or _ID.fullmatch(value["provider_operation_id"]) is None
       or type(value["terminal_evidence_ref"]) is not str
       or not value["terminal_evidence_ref"].strip()):
     return False
