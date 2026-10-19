@@ -36,6 +36,10 @@ class Backend:
 
 class RecordedReadyTests(unittest.TestCase):
   def setUp(self):
+    # Repository endpoint validation has its own isolated provider tests.
+    scope=patch("repo_workflow.prelim_ready_recorded.verify_ready_provider_scope")
+    scope.start()
+    self.addCleanup(scope.stop)
     self.backend=Backend()
     self.value={
       "attempt":G,"issue":"123","branch":"prelim-main-"+G,
@@ -68,6 +72,25 @@ class RecordedReadyTests(unittest.TestCase):
     self.assertEqual(result.sha,C)
     self.assertEqual(len(self.backend.posts),1)
     self.assertEqual(result.ref,"refs/heads/PRELIM-issue-123/main-"+G)
+
+  def test_offline_publication_uses_historical_base_without_stale_gate(self):
+    with (
+      patch("repo_workflow.prelim_ready_recorded.durable_store",
+            return_value=object()),
+      patch("repo_workflow.prelim_ready_recorded._record",
+            return_value=self.record),
+      patch("repo_workflow.prelim_ready_recorded._remote_ref",
+            return_value=C),
+      patch("repo_workflow.prelim_ready_recorded._trusted_inputs") as trusted,
+    ):
+      result=publish_recorded_ready(
+        Path("."),{"repository":{"authoritativeRemote":"origin"}},
+        ticket=123,destination="main",guid=G,request_id="offline-123",
+        backend=self.backend,
+        verify_parent_and_evidence=lambda info:True)
+    self.assertEqual(result.sha,C)
+    self.assertEqual(trusted.call_args.kwargs,
+                     {"require_current_base":False})
 
   def test_owner_mismatch_fails_before_any_ref_write(self):
     self.value["issue"]="456"
