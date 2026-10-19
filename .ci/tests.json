@@ -410,6 +410,10 @@
         "type": "regression",
         "name": "tests.test_prelim_ready_authority"
       },
+      "issue-683-provider-scope": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_provider_scope"
+      },
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
