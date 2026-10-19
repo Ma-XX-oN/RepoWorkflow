@@ -226,6 +226,49 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(result["result"]["record"], RETIREMENT)
     self.assertEqual(seen, [(self.backend, RETIREMENT)])
 
+  def test_mit_provider_reads_are_independent_of_mutation_authority(self):
+    from tests.test_integration_host_v2 import MIT_DEFERRED, MIT_APPROVAL
+    for op,kind,key,expected in (
+      ("mit.deferred.read","deferred","event",MIT_DEFERRED),
+      ("mit.resume.read","resume","authorization",MIT_APPROVAL),
+    ):
+      seen=[]
+      def read(backend, actual_kind, guid, destination):
+        seen.append((backend, actual_kind, guid, destination))
+        return dict(expected)
+      request=dict(self.request,operation=op,parameters={
+        "guid":GUID,"destination":"main"})
+      result=MOD.process(request,backend_factory=self.factory,
+                         mit_read=read)
+      self.assertEqual(result["status"],"unchanged")
+      self.assertEqual(result["result"][key],expected)
+      self.assertEqual(seen,[(self.backend,kind,GUID,"main")])
+
+  def test_mit_provider_write_requires_independent_authority(self):
+    from tests.test_integration_host_v2 import MIT_DEFERRED, MIT_APPROVAL
+    for op,kind,key,value in (
+      ("mit.deferred.record","deferred","event",MIT_DEFERRED),
+      ("mit.resume.record","resume","authorization",MIT_APPROVAL),
+    ):
+      request=dict(self.request,operation=op,parameters={
+        "guid":GUID,"destination":"main",key:dict(value)})
+      seen=[]
+      def write(backend,actual_kind,record,*,verify_evidence):
+        seen.append((backend,actual_kind,record))
+        if verify_evidence(record) is not True:
+          raise IntegrationHostError("trusted verifier denied")
+        return "applied",dict(record)
+      with self.assertRaisesRegex(IntegrationHostError,"verifier"):
+        MOD.process(request,backend_factory=self.factory,verify=self.verify,
+                    mit_write=write)
+      self.assertFalse(seen)
+      result=MOD.process(
+        request,backend_factory=self.factory,verify=self.verify,
+        mit_write=write,verify_mit_evidence=lambda record:True)
+      self.assertEqual(result["status"],"applied")
+      self.assertEqual(result["result"][key],value)
+      self.assertEqual(seen,[(self.backend,kind,value)])
+
   def test_lease_cas_rejects_incomplete_identity(self):
     request = dict(self.request, operation="lease.cas", parameters={})
     with self.assertRaises(IntegrationHostError):
