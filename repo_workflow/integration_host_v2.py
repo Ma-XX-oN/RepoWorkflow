@@ -167,8 +167,10 @@ def _valid_params(op, values):
     if values["ref_kind"] not in ("PRELIM", "INT-ATTEMPT"):
       return False
     if op == "retirement.record":
-      return _valid_retirement(values["record"], values["guid"],
-                               values["ref_kind"], values["record"].get("repository"))
+      record = values["record"]
+      return (type(record) is dict and
+              _valid_retirement(record, values["guid"],
+                                values["ref_kind"], record.get("repository")))
   return True
 
 
@@ -221,7 +223,9 @@ def _valid_result(operation, request, result):
     if result["record"] is None:
       return operation == "retirement.read"
     if not _valid_retirement(result["record"], request["guid"],
-                             request["ref_kind"], result["record"].get("repository")):
+                             request["ref_kind"],
+                             result["record"].get("repository")
+                             if type(result["record"]) is dict else None):
       return False
     return (operation == "retirement.read" or
             result["record"] == request["record"])
