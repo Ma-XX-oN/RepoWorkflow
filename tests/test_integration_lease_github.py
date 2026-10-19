@@ -198,10 +198,10 @@ class LeaseAcceptance(unittest.TestCase):
 
   def test_provider_url_containing_embedded_control_bytes_denied(self):
     original = self.backend.get
-    malicious = "https://github.com/Org/Repo.git\\nhttps://evil.invalid/other"
-    for control in ("\\n", "\\r", "\\x00"):
+    malicious = "https://github.com/Org/Repo.git\nhttps://evil.invalid/other"
+    for control in ("\n", "\r", "\x00"):
       with self.subTest(control=repr(control)):
-        injected = malicious.replace("\\n", control)
+        injected = malicious.replace("\n", control)
         def poisoned(route):
           if route == "":
             data = dict(original(route))
