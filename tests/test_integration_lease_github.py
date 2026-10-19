@@ -196,6 +196,27 @@ class LeaseAcceptance(unittest.TestCase):
         cas_lease(self.backend, request("lease.cas"),
                   Path("/isolated"), "origin")
 
+  def test_provider_url_containing_embedded_control_bytes_denied(self):
+    original = self.backend.get
+    malicious = "https://github.com/Org/Repo.git\\nhttps://evil.invalid/other"
+    for control in ("\\n", "\\r", "\\x00"):
+      with self.subTest(control=repr(control)):
+        injected = malicious.replace("\\n", control)
+        def poisoned(route):
+          if route == "":
+            data = dict(original(route))
+            data["clone_url"] = injected
+            data["ssh_url"] = injected
+            return data
+          return original(route)
+        with patch.object(self.backend, "get", side_effect=poisoned):
+          with patch("adapters.repo_host_github_integration_lease.subprocess.run",
+                     side_effect=AssertionError("untrusted URL reached Git")):
+            with self.assertRaisesRegex(LeaseProviderError, "endpoint"):
+              cas_lease(self.backend, request("lease.cas"),
+                        Path("/isolated"), "origin")
+    self.assertEqual(self.backend.refs, {})
+
   def test_push_url_mismatch_rejected_before_commit(self):
     original = self.git
     def bad_push_url(argv, **kw):
