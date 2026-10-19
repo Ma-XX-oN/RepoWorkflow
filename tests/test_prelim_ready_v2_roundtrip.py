@@ -28,6 +28,12 @@ class GitProvider:
     self.writes = []
 
   def get(self, route):
+    if route.startswith("git/commits/"):
+      sha = route.removeprefix("git/commits/")
+      if git(self.bare, "cat-file", "-e", sha + "^{commit}",
+             check=False).returncode:
+        raise MissingRef()
+      return {"sha": sha}
     assert route.startswith("git/ref/")
     ref = "refs/" + route[len("git/ref/"):]
     observed = git(self.bare, "rev-parse", "--verify", ref, check=False)
