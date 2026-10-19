@@ -65,12 +65,12 @@ def good(request):
     "attempt.record": lambda: {
       "guid": p["guid"], "record": p["record"]},
     "mit.deferred.read": lambda: {
-      "guid":p["guid"],"destination":p["destination"],"event":MIT_DEFERRED},
+      "guid":p["guid"],"destination":p["destination"],"event":dict(MIT_DEFERRED)},
     "mit.deferred.record": lambda: {
       "guid":p["guid"],"destination":p["destination"],"event":p["event"]},
     "mit.resume.read": lambda: {
       "guid":p["guid"],"destination":p["destination"],
-      "authorization":MIT_APPROVAL},
+      "authorization":dict(MIT_APPROVAL)},
     "mit.resume.record": lambda: {
       "guid":p["guid"],"destination":p["destination"],
       "authorization":p["authorization"]},
