@@ -165,6 +165,21 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(observed,
                      [(self.backend, dict(TERMINAL), True)])
 
+  def test_destination_snapshot_reads_without_mutation_authority(self):
+    request = dict(self.request, operation="destination.read",
+                   parameters={"destination": "main"})
+    seen = []
+    def read(backend, destination):
+      seen.append((backend, destination))
+      return {"destination": destination, "ref": "refs/heads/main",
+              "sha": SHA, "policy_present": True, "policy_text": ""}
+    response = MOD.process(
+      request, backend_factory=self.factory, destination_read=read)
+    self.assertEqual(response["status"], "unchanged")
+    self.assertEqual(response["result"]["policy_text"], "")
+    self.assertEqual(seen, [(self.backend, "main")])
+    self.assertFalse(self.backend.calls)
+
   def test_retirement_read_is_provider_only(self):
     request = dict(self.request, operation="retirement.read",
                    parameters={"guid": GUID, "ref_kind": "PRELIM"})
