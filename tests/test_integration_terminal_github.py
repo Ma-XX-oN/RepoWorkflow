@@ -152,6 +152,11 @@ class TerminalLedgerTests(unittest.TestCase):
       self.publish()
     self.assertNotEqual(read_terminal(self.backend, G), terminal())
 
+  def test_recorded_destination_tip_requires_exact_provider_readback(self):
+    with self.assertRaises(TerminalProviderError):
+      self.publish(terminal(observed_destination_sha="f"*40))
+    self.assertFalse(self.backend.writes)
+
   def test_landed_record_must_have_real_provider_ancestry(self):
     def reject_ancestry(route):
       if route.startswith("compare/"):
