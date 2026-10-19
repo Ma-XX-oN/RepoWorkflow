@@ -135,6 +135,15 @@ class IntegrationCoordinationTests(unittest.TestCase):
     resumed=claim_prelim(self.p,self.a,"worker-B")
     self.assertEqual(resumed.generation,3)
 
+  def test_malformed_provider_defer_reason_fails_closed(self):
+    claim=claim_prelim(self.p,self.a,"worker-A")
+    self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
+      GUID1,"main",self.a.sha,claim.generation,"bad",["timeout"])
+    with self.assertRaises(CoordinationError):
+      release_prelim(self.p,claim,"worker-A",terminal_result="deferred-mit",
+                     submission=self.a)
+    self.assertEqual(self.p.read_destination_lease("main"),claim)
+
   def test_invalid_defer_reason_does_not_release_lease(self):
     claim=claim_prelim(self.p,self.a,"worker-A")
     self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
