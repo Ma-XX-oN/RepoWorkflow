@@ -362,7 +362,8 @@ class IntegrationHost:
         type(reply["status"]) is not str):
       raise IntegrationHostError("integration provider response identity mismatch")
     if (operation in {"destination.read", "refs.list", "lease.read",
-                      "attempt.read", "retirement.read"}
+                      "attempt.read", "retirement.read",
+                      "mit.deferred.read", "mit.resume.read"}
         and reply["status"] != "unchanged"):
       raise IntegrationHostError("read-only provider operation claimed mutation")
     if not _valid_result(operation, parameters, reply["result"]):
