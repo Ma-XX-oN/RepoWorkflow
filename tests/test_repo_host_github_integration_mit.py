@@ -152,6 +152,20 @@ class MitProviderTests(unittest.TestCase):
       self.save("resume",approval(prelim_sha="d"*40))
     self.assertIsNone(read_mit(self.backend,"resume",GUID,"main"))
 
+  def test_restart_reads_prior_defer_and_revocation(self):
+    self.save("deferred",deferred())
+    self.save("resume",approval())
+    self.save("resume",approval(approved=False,evidence_ref="revoke-2"))
+    fresh=Backend()
+    fresh.refs=dict(self.backend.refs)
+    fresh.commits=dict(self.backend.commits)
+    self.assertEqual(read_mit(fresh,"deferred",GUID,"main"),deferred())
+    self.assertEqual(
+      read_mit(fresh,"resume",GUID,"main")["approved"],False)
+    with self.assertRaisesRegex(MitProviderError,"revoked"):
+      record_mit(fresh,"resume",approval(),
+                 verify_evidence=lambda record:True)
+
   def test_untrusted_authorization_never_publishes(self):
     with self.assertRaises(MitProviderError):
       self.save("resume",approval(),lambda record:False)
