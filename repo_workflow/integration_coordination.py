@@ -28,6 +28,7 @@ class MitResumeAuthorization:
   guid: str
   destination: str
   prelim_sha: str
+  expected_generation: int
   evidence_ref: str
   approved: bool
 
@@ -69,6 +70,8 @@ def _claimable(provider, submission: ReadyPrelim) -> MitResumeAuthorization | No
       or approval.guid != submission.guid
       or approval.destination != submission.destination
       or approval.prelim_sha != submission.sha
+      or type(approval.expected_generation) is not int
+      or approval.expected_generation < 0
       or approval.approved is not True
       or not isinstance(approval.evidence_ref, str)
       or not approval.evidence_ref.strip()):
@@ -93,6 +96,9 @@ def claim_prelim(
     raise CoordinationError("invalid authoritative destination lease")
   if before.active_guid is not None or before.holder is not None:
     raise CoordinationError("another coordinator owns this destination")
+  if (approval is not None
+      and approval.expected_generation != before.generation):
+    raise CoordinationError("deferred MIT approval is stale for destination lease")
   after = DestinationLease(
     submission.destination, before.generation + 1,
     submission.guid, holder,
