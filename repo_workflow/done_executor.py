@@ -83,6 +83,24 @@ def execute_certified_done(
       or not isinstance(fresh.expected_parent_sha, str)
       or _SHA.fullmatch(fresh.expected_parent_sha) is None):
     raise DoneExecutionError("candidate identity is invalid")
+  # PRELIM preparation and hosted certification can take significant
+  # time.  Re-read the actual current destination policy and plan at the
+  # acceptance boundary; the original admission is only a preflight.
+  acceptance_plan = refresh_plan()
+  if (not isinstance(acceptance_plan, DonePlan)
+      or not acceptance_plan.allowed
+      or acceptance_plan.missing_gates
+      or acceptance_plan.disposition not in ("ALLOWED", "QUEUE_ELIGIBLE")
+      or any(getattr(fresh, key) != getattr(acceptance_plan, key)
+             for key in compared)):
+    raise DoneExecutionError("completion plan changed during certification")
+  acceptance = admission_check(acceptance_plan)
+  if (not isinstance(acceptance, AdmissionDecision)
+      or acceptance.allowed is not True
+      or str(acceptance.ticket) != acceptance_plan.issue
+      or acceptance.destination != acceptance_plan.target
+      or acceptance.destination_sha != acceptance_plan.expected_parent_sha):
+    raise DoneExecutionError("destination admission changed before acceptance")
   result = integrate_conditional(
     attempt.int_attempt_ref, attempt.tested_candidate_sha,
     fresh.target, fresh.expected_parent_sha,
