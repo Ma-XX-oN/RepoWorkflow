@@ -148,6 +148,52 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(observed,
                      [(self.backend, dict(TERMINAL), True)])
 
+  def test_retirement_read_is_provider_only(self):
+    request = dict(self.request, operation="retirement.read",
+                   parameters={"guid": GUID, "ref_kind": "PRELIM"})
+    seen = []
+    def read(backend, guid, kind):
+      seen.append((backend, guid, kind))
+      return None
+    reply = MOD.process(request, backend_factory=self.factory,
+                        retirement_read=read)
+    self.assertEqual(reply["result"], {
+      "guid": GUID, "ref_kind": "PRELIM", "record": None})
+    self.assertEqual(seen, [(self.backend, GUID, "PRELIM")])
+    self.assertFalse(self.backend.calls)
+
+  def test_retirement_write_denied_without_independent_verifier(self):
+    from tests.test_integration_host_v2 import RETIREMENT
+    request = dict(self.request, operation="retirement.record",
+                   request_id="retire-1", parameters={
+                     "guid": GUID, "ref_kind": "PRELIM",
+                     "record": dict(RETIREMENT)})
+    called=[]
+    with self.assertRaisesRegex(IntegrationHostError, "retirement verifier"):
+      MOD.process(request, backend_factory=self.factory, verify=self.verify,
+        retirement_write=lambda *args, **kwargs:
+          called.append((args, kwargs)))
+    self.assertEqual(called, [])
+
+  def test_authorized_retirement_write_is_provider_scoped(self):
+    from tests.test_integration_host_v2 import RETIREMENT
+    request = dict(self.request, operation="retirement.record",
+                   request_id="retire-1", parameters={
+                     "guid": GUID, "ref_kind": "PRELIM",
+                     "record": dict(RETIREMENT)})
+    seen=[]
+    def write(backend, record, *, verify_deletion):
+      seen.append((backend, record))
+      self.assertTrue(verify_deletion(record))
+      return "applied", record
+    result = MOD.process(
+      request, backend_factory=self.factory, verify=self.verify,
+      retirement_write=write,
+      verify_retirement_evidence=lambda record: True)
+    self.assertEqual(result["status"], "applied")
+    self.assertEqual(result["result"]["record"], RETIREMENT)
+    self.assertEqual(seen, [(self.backend, RETIREMENT)])
+
   def test_lease_cas_rejects_incomplete_identity(self):
     request = dict(self.request, operation="lease.cas", parameters={})
     with self.assertRaises(IntegrationHostError):
