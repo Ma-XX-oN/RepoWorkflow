@@ -129,6 +129,10 @@
       "issue-681-github-lease-cas": {
         "type": "regression",
         "name": "tests.test_integration_lease_github"
+      },
+      "issue-681-retirement-audit": {
+        "type": "regression",
+        "name": "tests.test_integration_retirement_github"
       }
     },
     {
