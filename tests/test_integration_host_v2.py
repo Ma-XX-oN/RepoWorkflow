@@ -58,7 +58,10 @@ def good(request):
   }[request["operation"]]()
   return dict(schema_version=2, repository=request["repository"],
               operation=request["operation"], request_id=request["request_id"],
-              status="applied", result=result)
+              status=("unchanged" if request["operation"] in {
+                "destination.read", "refs.list", "lease.read",
+                "attempt.read", "retirement.read"} else "applied"),
+              result=result)
 
 
 class IntegrationHostV2Tests(unittest.TestCase):
