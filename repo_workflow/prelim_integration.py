@@ -225,3 +225,22 @@ def request_prelim_integration(
   return IntegrationRequest(
     attempt, candidate, request_id, provider["number"], saved["revision"],
   )
+
+
+def submit_ready_prelim(root: Path, attempt: str, config: dict, *,
+    ticket: int, destination: str, request_id: str, backend,
+    resolve_parent, read_publication_record=None):
+  """Publish the READY branch itself, not a separate PR/queue request.
+
+  The #82 recorded candidate, #102 published PASS validation, current
+  authoritative parent and immutable target are checked by #683's
+  certified publisher. Existing request_prelim_integration is retained
+  solely as the historical v1 interface during migration.
+  """
+  from .prelim_ready_recorded import publish_recorded_ready_certified
+  return publish_recorded_ready_certified(
+    root, config, ticket=ticket, destination=destination,
+    guid=attempt, request_id=request_id, backend=backend,
+    resolve_parent=resolve_parent,
+    read_publication_record=read_publication_record,
+  )
