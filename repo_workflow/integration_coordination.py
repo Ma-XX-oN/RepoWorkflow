@@ -40,6 +40,7 @@ class MitResumeAuthorization:
   destination: str
   prelim_sha: str
   expected_generation: int
+  deferred_evidence_ref: str
   evidence_ref: str
   approved: bool
 
@@ -112,6 +113,7 @@ def _claimable(provider, submission: ReadyPrelim):
       or approval.guid != submission.guid
       or approval.destination != submission.destination
       or approval.prelim_sha != submission.sha
+      or approval.deferred_evidence_ref != deferred.evidence_ref
       or type(approval.expected_generation) is not int
       or approval.expected_generation <= deferred.lease_generation
       or approval.approved is not True
