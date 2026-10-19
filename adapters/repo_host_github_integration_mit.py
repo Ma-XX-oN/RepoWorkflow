@@ -115,7 +115,7 @@ def record_mit(backend, kind, record, *, verify_evidence):
   if not callable(verify_evidence) or verify_evidence(record) is not True:
     raise MitProviderError("independent MIT evidence/authority unavailable")
   # Neither deferral nor resumption may bypass an already terminal attempt.
-  from repo_host_github_integration_terminal import read_terminal
+  from adapters.repo_host_github_integration_terminal import read_terminal
   if read_terminal(backend, guid) is not None:
     raise MitProviderError("terminal attempt forbids MIT reuse")
   existing = _read_at(backend, kind, guid, dest, generation)
