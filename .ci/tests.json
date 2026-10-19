@@ -518,6 +518,10 @@
         "type": "regression",
         "name": "tests.test_hosted_version_history_collision"
       },
+      "issue-677-dependency-closure": {
+        "type": "regression",
+        "name": "tests.test_oct17_dependency_closure"
+      },
       "issue-677-terminal-interop": {
         "type": "regression",
         "name": "tests.test_integration_terminal_bridge"
