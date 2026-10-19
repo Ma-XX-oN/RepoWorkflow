@@ -30,7 +30,7 @@ _OPERATIONS = {
   "retirement.read": {"guid", "ref_kind"},
   "retirement.record": {"guid", "ref_kind", "record"},
 }
-_STATUSES = {"integrated", "failed", "rejected", "deferred-mit"}
+_STATUSES = {"integrated", "failed", "rejected"}
 _TERMINAL_FIELDS = {
   "repository", "guid", "status", "prelim_ref", "prelim_sha",
   "int_attempt_ref", "accepted_sha", "destination_ref",
