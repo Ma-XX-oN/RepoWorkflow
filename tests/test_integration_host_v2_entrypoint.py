@@ -92,9 +92,26 @@ class V2EntrypointTests(unittest.TestCase):
     result = MOD.process(request, backend_factory=self.factory,
       verify=self.verify, cas_write=writer,
       config_reader=lambda root: {"repository": {
-        "authoritativeRemote": "origin"}})
+        "authoritativeRemote": "origin"}},
+      verify_remote_scope=lambda root, remote, backend:
+        "https://github.com/Org/Repo.git")
     self.assertEqual(result["result"]["sha"], SHA)
-    self.assertEqual(calls, [("origin", REF, "b"*40, SHA)])
+    self.assertEqual(calls, [("https://github.com/Org/Repo.git",
+                              REF, "b"*40, SHA)])
+
+  def test_cas_rejects_repository_scope_failure_before_git(self):
+    request = dict(self.request, operation="ref.cas",
+      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
+    attempted = []
+    def reject(*args):
+      raise IntegrationHostError("provider repository differs")
+    with self.assertRaisesRegex(IntegrationHostError, "repository"):
+      MOD.process(request, backend_factory=self.factory, verify=self.verify,
+        cas_write=lambda *args: attempted.append(args),
+        verify_remote_scope=reject,
+        config_reader=lambda root: {"repository": {
+          "authoritativeRemote": "origin"}})
+    self.assertEqual(attempted, [])
 
   def test_denied_cas_never_reaches_git(self):
     called = []
