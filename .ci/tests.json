@@ -418,6 +418,10 @@
         "type": "regression",
         "name": "tests.test_hosted_candidate"
       },
+      "issue-683-destination-preparation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_prepare"
+      },
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
