@@ -36,6 +36,10 @@ class Backend:
 
 class RecordedReadyTests(unittest.TestCase):
   def setUp(self):
+    # Repository endpoint validation has its own isolated provider tests.
+    scope=patch("repo_workflow.prelim_ready_recorded.verify_ready_provider_scope")
+    scope.start()
+    self.addCleanup(scope.stop)
     self.backend=Backend()
     self.value={
       "attempt":G,"issue":"123","branch":"prelim-main-"+G,
