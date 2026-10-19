@@ -44,7 +44,7 @@ class DestinationPreparationTests(unittest.TestCase):
     result = self.make()
     git(self.root, "checkout", "main")
     (self.root / "later.txt").write_text("new parent\n")
-    git(self.root, "add", ".")
+    git(self.root, "add", "--", "later.txt")
     git(self.root, "commit", "-m", "parent advances")
     git(self.root, "push", "origin", "main")
     git(self.root, "checkout", "issue-7")
