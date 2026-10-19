@@ -44,6 +44,17 @@ class ReadyPublicationTests(unittest.TestCase):
     result = self.publish(destination="issue-100")
     self.assertIn("/issue-100-", result.ref)
 
+  def test_two_umbrellas_submit_independently_to_same_destination(self):
+    first = self.publish()
+    second = self.publish(
+      ticket=124,
+      guid="22222222-2222-4222-8222-222222222222",
+      request_id="ready-124-1",
+    )
+    self.assertNotEqual(first.ref, second.ref)
+    self.assertEqual(len(self.refs), 2)
+    self.assertTrue(all("/main-" in ref for ref in self.refs))
+
   def test_invalid_destination_and_sha_fail_before_mutation(self):
     for changes in ({"destination": "../main"}, {"candidate_sha": "bad"},
                     {"ticket": 0}, {"guid": "not-a-guid"}):
