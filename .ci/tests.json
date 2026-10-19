@@ -137,6 +137,10 @@
       "issue-681-destination-snapshot": {
         "type": "regression",
         "name": "tests.test_integration_destination_github"
+      },
+      "issue-681-mit-evidence": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_integration_mit"
       }
     },
     {
