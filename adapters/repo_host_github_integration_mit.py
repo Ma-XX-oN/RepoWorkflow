@@ -130,6 +130,13 @@ def record_mit(backend, kind, record, *, verify_evidence):
   if kind == "resume" and record.get("approved") is False:
     kind = "resume-revoke"
   generation = _validate(backend, record, kind, guid, dest)
+  if kind in {"resume", "resume-revoke"}:
+    deferred = read_mit(backend, "deferred", guid, dest)
+    if (deferred is None
+        or deferred["evidence_ref"] != record["deferred_evidence_ref"]
+        or deferred["prelim_sha"] != record["prelim_sha"]
+        or record["expected_generation"] <= deferred["lease_generation"]):
+      raise MitProviderError("MIT resume is not bound to latest deferral")
   if not callable(verify_evidence) or verify_evidence(record) is not True:
     raise MitProviderError("independent MIT evidence/authority unavailable")
   # Neither deferral nor resumption may bypass an already terminal attempt.
