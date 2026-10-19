@@ -22,6 +22,16 @@ class DestinationLease:
   holder: str | None
 
 
+@dataclass(frozen=True)
+class MitResumeAuthorization:
+  """Provider-read approval to retry one immutable deferred submission."""
+  guid: str
+  destination: str
+  prelim_sha: str
+  evidence_ref: str
+  approved: bool
+
+
 class CoordinationProvider(Protocol):
   def read_destination_lease(self, destination: str) -> DestinationLease:
     ...
@@ -35,6 +45,36 @@ class CoordinationProvider(Protocol):
     """None means pending; otherwise independently persisted disposition."""
     ...
 
+  def read_mit_resume_authorization(
+      self, guid: str, destination: str,
+  ) -> MitResumeAuthorization | None:
+    """Provider-backed approved resumption event; never a bare PASS Boolean."""
+    ...
+
+
+def _claimable(provider, submission: ReadyPrelim) -> MitResumeAuthorization | None:
+  result = provider.read_attempt_result(submission.guid)
+  if result is None:
+    return None
+  if result != "deferred-mit":
+    raise CoordinationError("attempt already has a persisted terminal result")
+  read_approval = getattr(provider, "read_mit_resume_authorization", None)
+  if not callable(read_approval):
+    raise CoordinationError("deferred MIT requires provider resume authority")
+  try:
+    approval = read_approval(submission.guid, submission.destination)
+  except Exception as error:
+    raise CoordinationError("deferred MIT resume authority UNKNOWN") from error
+  if (not isinstance(approval, MitResumeAuthorization)
+      or approval.guid != submission.guid
+      or approval.destination != submission.destination
+      or approval.prelim_sha != submission.sha
+      or approval.approved is not True
+      or not isinstance(approval.evidence_ref, str)
+      or not approval.evidence_ref.strip()):
+    raise CoordinationError("deferred MIT resume is not authoritatively approved")
+  return approval
+
 
 def claim_prelim(
     provider: CoordinationProvider, submission: ReadyPrelim,
@@ -45,8 +85,7 @@ def claim_prelim(
     raise CoordinationError("a validated READY submission is required")
   if not isinstance(holder, str) or not holder.strip():
     raise CoordinationError("an authenticated coordinator identity is required")
-  if provider.read_attempt_result(submission.guid) is not None:
-    raise CoordinationError("attempt already has a persisted terminal result")
+  approval = _claimable(provider, submission)
   before = provider.read_destination_lease(submission.destination)
   if (not isinstance(before, DestinationLease)
       or before.destination != submission.destination
@@ -60,8 +99,13 @@ def claim_prelim(
   )
   if provider.compare_and_set_destination_lease(before, after) is not True:
     raise CoordinationError("destination claim lost to another coordinator")
-  if provider.read_attempt_result(submission.guid) is not None:
-    raise CoordinationError("attempt became terminal during claim; reconcile")
+  try:
+    if _claimable(provider, submission) != approval:
+      raise CoordinationError("attempt status or approval changed; reconcile")
+  except CoordinationError:
+    # The CAS claim may now be held; recovery must be reconciled through
+    # the authoritative lease, never silently assumed rolled back.
+    raise
   return after
 
 
