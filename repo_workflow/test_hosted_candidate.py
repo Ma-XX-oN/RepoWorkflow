@@ -27,3 +27,10 @@ def hosted_candidate_bound(root: Path) -> bool:
       or os.environ.get("GITHUB_REF_NAME") != current_branch(root)):
     raise TestCommandError("hosted test candidate identity changed")
   return True
+
+def publish_if_local(root: Path, *, stage: str) -> None:
+  """Hosted result tags belong to the separate authenticated publisher."""
+  if not hosted_candidate_bound(root):
+    from .local_terminal import publish_local_terminal
+    publish_local_terminal(root, stage=stage)
+
