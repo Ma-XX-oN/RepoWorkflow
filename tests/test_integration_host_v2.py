@@ -19,6 +19,20 @@ TERMINAL = {
 }
 
 
+MIT_DEFERRED = {
+  "repository":"Org/Repo", "guid":GUID, "destination":"main",
+  "prelim_sha":"b"*40, "lease_generation":1,
+  "evidence_ref":"mit-defer-v1", "reason":"timeout",
+}
+
+MIT_APPROVAL = {
+  "repository":"Org/Repo", "guid":GUID, "destination":"main",
+  "prelim_sha":"b"*40, "expected_generation":2,
+  "deferred_evidence_ref":"mit-defer-v1",
+  "evidence_ref":"mit-approval-v1", "approved":True,
+}
+
+
 RETIREMENT = {
   "repository": "Org/Repo", "guid": GUID, "ref_kind": "PRELIM",
   "retired_ref": TERMINAL["prelim_ref"],
@@ -50,6 +64,16 @@ def good(request):
     "attempt.read": lambda: {"guid": p["guid"], "record": None},
     "attempt.record": lambda: {
       "guid": p["guid"], "record": p["record"]},
+    "mit.deferred.read": lambda: {
+      "guid":p["guid"],"destination":p["destination"],"event":MIT_DEFERRED},
+    "mit.deferred.record": lambda: {
+      "guid":p["guid"],"destination":p["destination"],"event":p["event"]},
+    "mit.resume.read": lambda: {
+      "guid":p["guid"],"destination":p["destination"],
+      "authorization":MIT_APPROVAL},
+    "mit.resume.record": lambda: {
+      "guid":p["guid"],"destination":p["destination"],
+      "authorization":p["authorization"]},
     "retirement.read": lambda: {
       "guid": p["guid"], "ref_kind": p["ref_kind"], "record": None},
     "retirement.record": lambda: {
@@ -60,7 +84,8 @@ def good(request):
               operation=request["operation"], request_id=request["request_id"],
               status=("unchanged" if request["operation"] in {
                 "destination.read", "refs.list", "lease.read",
-                "attempt.read", "retirement.read"} else "applied"),
+                "attempt.read", "retirement.read",
+                "mit.deferred.read", "mit.resume.read"} else "applied"),
               result=result)
 
 
@@ -246,6 +271,66 @@ class IntegrationHostV2Tests(unittest.TestCase):
         with self.assertRaises(IntegrationHostError):
           self.host.request("attempt.record","scope-neg",{
             "guid":GUID,"record":record})
+
+  def test_deferred_mit_event_is_not_immutable_terminal(self):
+    event=self.host.request("mit.deferred.record","defer-1",{
+      "guid":GUID,"destination":"main","event":dict(MIT_DEFERRED)})
+    self.assertEqual(event["event"]["reason"],"timeout")
+    self.assertEqual(self.host.request("mit.deferred.read","read-1",{
+      "guid":GUID,"destination":"main"})["event"], MIT_DEFERRED)
+    self.assertEqual(self.host.request("attempt.read","no-terminal",{
+      "guid":GUID})["record"],None)
+
+  def test_resume_authorization_is_separate_and_pinned(self):
+    approval=self.host.request("mit.resume.record","approve-1",{
+      "guid":GUID,"destination":"main",
+      "authorization":dict(MIT_APPROVAL)})
+    self.assertEqual(approval["authorization"]["deferred_evidence_ref"],
+                     MIT_DEFERRED["evidence_ref"])
+
+  def test_mit_event_and_approval_validate_identity(self):
+    for op,key,original in (
+      ("mit.deferred.record","event",MIT_DEFERRED),
+      ("mit.resume.record","authorization",MIT_APPROVAL),
+    ):
+      for changed in (
+        {"repository":"Foreign/Repo"}, {"guid":"invalid"},
+        {"destination":"wrong"},{"prelim_sha":"invalid"},
+        {"evidence_ref":""},
+      ):
+        with self.subTest(op=op,changed=changed):
+          with self.assertRaises(IntegrationHostError):
+            self.host.request(op,"mut-1",{
+              "guid":GUID,"destination":"main",
+              key:dict(original,**changed)})
+      for field in ("lease_generation",) if key=="event" else (
+          "expected_generation",):
+        with self.assertRaises(IntegrationHostError):
+          self.host.request(op,"mut-2",{
+            "guid":GUID,"destination":"main",
+            key:dict(original,**{field:True})})
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("mit.resume.record","mut-3",{
+        "guid":GUID,"destination":"main",
+        "authorization":dict(MIT_APPROVAL,approved="yes")})
+
+  def test_mit_read_refuses_forged_repository_and_mutation(self):
+    for op,key in (("mit.deferred.read","event"),
+                   ("mit.resume.read","authorization")):
+      def forged(request):
+        reply=good(request)
+        reply["result"][key]["repository"]="Foreign/Repo"
+        return reply
+      with self.assertRaises(IntegrationHostError):
+        IntegrationHost("Org/Repo",forged).request(
+          op,"read-foreign",{"guid":GUID,"destination":"main"})
+      def wrong_status(request):
+        reply=good(request)
+        reply["status"]="applied"
+        return reply
+      with self.assertRaisesRegex(IntegrationHostError,"read-only"):
+        IntegrationHost("Org/Repo",wrong_status).request(
+          op,"read-mutating",{"guid":GUID,"destination":"main"})
 
   def test_retirement_record_bound_to_request_and_repository(self):
     p={"guid": GUID, "ref_kind": "PRELIM", "record": dict(RETIREMENT)}
