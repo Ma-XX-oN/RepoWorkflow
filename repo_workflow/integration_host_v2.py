@@ -26,6 +26,8 @@ _OPERATIONS = {
                 "expected_holder", "expected_guid", "holder", "guid"},
   "attempt.read": {"guid"},
   "attempt.record": {"guid", "record"},
+  "retirement.read": {"guid", "ref_kind"},
+  "retirement.record": {"guid", "ref_kind", "record"},
 }
 _STATUSES = {"integrated", "failed", "rejected", "deferred-mit"}
 _TERMINAL_FIELDS = {
@@ -88,6 +90,36 @@ def _valid_terminal(value, guid, repository=None):
   return True
 
 
+_RETIREMENT_FIELDS = {
+  "repository", "guid", "ref_kind", "retired_ref", "expected_sha",
+  "operation_id", "terminal_evidence_ref", "destination_ref",
+  "landed_sha", "outcome",
+}
+
+
+def _valid_retirement(record, guid, kind, repository):
+  if (type(record) is not dict or set(record) != _RETIREMENT_FIELDS
+      or record["repository"] != repository or record["guid"] != guid
+      or record["ref_kind"] != kind or
+      record["outcome"] != "retired"):
+    return False
+  if kind not in {"PRELIM", "INT-ATTEMPT"}:
+    return False
+  if any(type(record[k]) is not str or _SHA.fullmatch(record[k]) is None
+         for k in ("expected_sha", "landed_sha")):
+    return False
+  marker = "refs/heads/" + kind + "-"
+  if (type(record["retired_ref"]) is not str
+      or not record["retired_ref"].startswith(marker)
+      or not record["retired_ref"].endswith("-" + guid)
+      or type(record["destination_ref"]) is not str
+      or not record["destination_ref"].startswith("refs/heads/")
+      or type(record["operation_id"]) is not str
+      or _ID.fullmatch(record["operation_id"]) is None
+      or type(record["terminal_evidence_ref"]) is not str
+      or not record["terminal_evidence_ref"].strip()):
+    return False
+  return True
 
 
 def _valid_ref(ref):
@@ -131,6 +163,12 @@ def _valid_params(op, values):
             (values["guid"] is None) == (values["holder"] is None))
   if op == "attempt.record":
     return _valid_terminal(values["record"], values["guid"])
+  if op.startswith("retirement."):
+    if values["ref_kind"] not in ("PRELIM", "INT-ATTEMPT"):
+      return False
+    if op == "retirement.record":
+      return _valid_retirement(values["record"], values["guid"],
+                               values["ref_kind"], values["record"].get("repository"))
   return True
 
 
@@ -175,6 +213,18 @@ def _valid_result(operation, request, result):
       return False
     return (operation == "attempt.read" or
             result["record"] == request["record"])
+  if operation in {"retirement.read", "retirement.record"}:
+    if (set(result) != {"guid", "ref_kind", "record"}
+        or result["guid"] != request["guid"]
+        or result["ref_kind"] != request["ref_kind"]):
+      return False
+    if result["record"] is None:
+      return operation == "retirement.read"
+    if not _valid_retirement(result["record"], request["guid"],
+                             request["ref_kind"], result["record"].get("repository")):
+      return False
+    return (operation == "retirement.read" or
+            result["record"] == request["record"])
   return False
 
 
@@ -197,6 +247,10 @@ class IntegrationHost:
         not _valid_terminal(parameters["record"],
                             parameters["guid"], self.repository)):
       raise IntegrationHostError("terminal record repository mismatch")
+    if operation == "retirement.record" and (
+        parameters["record"]["repository"] != self.repository or
+        parameters["record"]["operation_id"] != request_id):
+      raise IntegrationHostError("retirement request/repository binding mismatch")
     request = dict(schema_version=2, repository=self.repository,
                    operation=operation, request_id=request_id,
                    parameters=parameters)
@@ -225,4 +279,9 @@ class IntegrationHost:
         and not _valid_terminal(reply["result"]["record"],
                                 parameters["guid"], self.repository)):
       raise IntegrationHostError("provider terminal repository mismatch")
+    if operation in {"retirement.read", "retirement.record"} and (
+        reply["result"]["record"] is not None and
+        not _valid_retirement(reply["result"]["record"], parameters["guid"],
+                               parameters["ref_kind"], self.repository)):
+      raise IntegrationHostError("provider retirement repository mismatch")
     return reply["result"]
