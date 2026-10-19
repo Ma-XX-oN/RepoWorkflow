@@ -46,14 +46,27 @@ def verify_retirement_evidence(
   if observed_prelim is not None and (
       type(observed_prelim) is not str or observed_prelim != landed.prelim_sha):
     raise PrelimRetirementError("published PRELIM changed")
-  compare = compare_commits(landed.landed_sha, tip)
-  if (type(compare) is not dict
-      or compare.get("base_sha") != landed.landed_sha
-      or compare.get("head_sha") != tip
-      or compare.get("status") not in {"ahead", "identical"}
-      or type(compare.get("behind_by")) is not int
-      or compare["behind_by"] != 0):
-    raise PrelimRetirementError("landed ancestry not proved by provider")
+  # The accepted integration candidate must be on the landed history.
+  # Merely finding a landed commit on the destination proves nothing about
+  # whether the purported accepted candidate was actually integrated.
+  observed_int = read_ref(landed.int_attempt_ref)
+  if observed_int is not None and (
+      type(observed_int) is not str
+      or observed_int != landed.accepted_sha):
+    raise PrelimRetirementError("INT-ATTEMPT changed after acceptance")
+
+  def require_ancestor(base, head, label):
+    comparison = compare_commits(base, head)
+    if (type(comparison) is not dict
+        or comparison.get("base_sha") != base
+        or comparison.get("head_sha") != head
+        or comparison.get("status") not in {"ahead", "identical"}
+        or type(comparison.get("behind_by")) is not int
+        or comparison["behind_by"] != 0):
+      raise PrelimRetirementError(label + " ancestry not proved by provider")
+
+  require_ancestor(landed.accepted_sha, landed.landed_sha, "accepted candidate")
+  require_ancestor(landed.landed_sha, tip, "landed")
   terminal = read_terminal(landed.terminal_evidence_ref)
   expected = {
     "status": "integrated",
