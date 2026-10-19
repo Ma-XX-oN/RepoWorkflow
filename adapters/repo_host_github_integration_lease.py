@@ -96,23 +96,31 @@ def _git(root, *args):
   return result
 
 
-def _remote_scope(root, remote, repository):
+def _remote_scope(root, remote, backend):
+  """Resolve the exact provider-authenticated URL, not a mutable Git alias."""
   if type(remote) is not str or not remote or remote.startswith("-"):
     raise LeaseProviderError("invalid configured remote")
-  result = _git(root, "remote", "get-url", remote)
-  if result.returncode:
-    raise LeaseProviderError("configured Git remote unreadable")
-  url = result.stdout.strip()
-  accepted = {
-    "https://github.com/" + repository,
-    "https://github.com/" + repository + ".git",
-    "git@github.com:" + repository,
-    "git@github.com:" + repository + ".git",
-    "ssh://git@github.com/" + repository,
-    "ssh://git@github.com/" + repository + ".git",
+  try:
+    details = backend.get("")
+  except Exception as error:
+    raise LeaseProviderError("provider repository identity unavailable") from error
+  repository = backend.repository
+  if (type(details) is not dict or details.get("full_name") != repository):
+    raise LeaseProviderError("provider repository identity mismatch")
+  approved = {
+    url for url in (details.get("clone_url"), details.get("ssh_url"))
+    if type(url) is str and url and not any(
+      ch in url for ch in ("\\n", "\\r", "\\x00"))
   }
-  if url not in accepted:
+  if not approved:
+    raise LeaseProviderError("provider repository endpoint unavailable")
+  fetch = _git(root, "remote", "get-url", remote)
+  push = _git(root, "remote", "get-url", "--push", remote)
+  if (fetch.returncode or push.returncode
+      or fetch.stdout.strip() != push.stdout.strip()
+      or fetch.stdout.strip() not in approved):
     raise LeaseProviderError("configured Git remote repository differs")
+  return fetch.stdout.strip()
 
 
 def cas_lease(backend, request, root, remote):
@@ -129,7 +137,7 @@ def cas_lease(backend, request, root, remote):
               p["expected_guid"])
   proposed = (p["holder"], p["guid"])
   root = Path(root)
-  _remote_scope(root, remote, repository)
+  endpoint = _remote_scope(root, remote, backend)
   old_sha, previous = _read(backend, dest)
   old = (previous["generation"], previous["holder"], previous["guid"]) if (
     previous is not None) else (0, None, None)
@@ -147,7 +155,7 @@ def cas_lease(backend, request, root, remote):
   # CAS has no blanket override.  Only a force-with-lease of this one internal
   # tag is allowed, conditioned on exactly the provider-observed prior SHA.
   origin = ref if old_sha is not None else "refs/heads/" + dest
-  fetching = _git(root, "fetch", "--no-tags", remote, origin)
+  fetching = _git(root, "fetch", "--no-tags", endpoint, origin)
   if fetching.returncode:
     raise LeaseProviderError("provider lease parent unavailable")
   parent = _git(root, "rev-parse", "--verify", "FETCH_HEAD")
@@ -169,7 +177,7 @@ def cas_lease(backend, request, root, remote):
   lease_expect = old_sha if old_sha is not None else ""
   push = _git(root, "push", "--porcelain",
     "--force-with-lease=" + ref + ":" + lease_expect,
-    remote, "+" + candidate + ":" + ref)
+    endpoint, "+" + candidate + ":" + ref)
   observed_sha, observed = _read(backend, dest)
   if observed_sha != candidate or observed != record:
     raise LeaseProviderError("lease CAS rejected or provider outcome UNKNOWN")
