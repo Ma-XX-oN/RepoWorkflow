@@ -196,6 +196,9 @@ class IntegrationHostV2Tests(unittest.TestCase):
       dict(TERMINAL,destination_ref="refs/heads/issue-999"),
       dict(TERMINAL,prelim_ref=
         f"refs/heads/PRELIM-issue-123/other-{GUID}"),
+      dict(TERMINAL,umbrella="issue-999"),
+      dict(TERMINAL,provider_operation_id=""),
+      dict(TERMINAL,observed_destination_sha="invalid"),
     )
     for record in bad_records:
       with self.subTest(record=record):
