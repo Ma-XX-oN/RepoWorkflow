@@ -18,7 +18,7 @@ from repo_host_github_provider import GitHubBackend, ProviderError
 from repo_host_github_integration_terminal import (
   read_terminal, record_terminal,
 )
-from repo_host_github_integration_lease import read_lease, cas_lease
+from repo_host_github_integration_lease import read_lease, cas_lease, _remote_scope
 from repo_host_github_integration_retirement import (
   read_retirement, record_retirement,
 )
@@ -36,6 +36,7 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
             terminal_read=read_terminal, terminal_write=record_terminal,
             verify_terminal_evidence=None,
             lease_read=read_lease, lease_write=cas_lease,
+            verify_remote_scope=_remote_scope,
             retirement_read=read_retirement,
             retirement_write=record_retirement,
             verify_retirement_evidence=None):
@@ -101,8 +102,9 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       remote = config["repository"]["authoritativeRemote"]
       if operation == "lease.cas":
         return lease_write(backend, value, root, remote)
+      endpoint = verify_remote_scope(root, remote, backend)
       return "applied", cas_write(
-        root, remote, params["ref"], params["expected_sha"], params["sha"])
+        root, endpoint, params["ref"], params["expected_sha"], params["sha"])
     return create_int_attempt(backend, value, authorized=True)
 
   state = {}
