@@ -67,6 +67,15 @@ def publish_destination_prelim(
   remote = config["repository"]["authoritativeRemote"]
   verify_ready_provider_scope(root, remote, backend)
   value = _verified_v2_identity(root, remote, guid, ticket, destination)
+  # The #572 terminal-tag publisher must have made the exact physical
+  # candidate object available to the authenticated provider first.
+  try:
+    candidate_commit = backend.get("git/commits/" + value["candidate_sha"])
+  except Exception as error:
+    raise ReadyPublicationError("provider candidate object unavailable") from error
+  if (type(candidate_commit) is not dict or
+      candidate_commit.get("sha") != value["candidate_sha"]):
+    raise ReadyPublicationError("provider candidate object identity differs")
   destination_ref = "refs/heads/" + destination
   if _remote_ref(root, remote, destination_ref) is None:
     raise ReadyPublicationError("authoritative destination no longer exists")
