@@ -10,6 +10,7 @@ from .prelim_ready import (
   ReadyPublicationError, create_ready_ref_provider,
 )
 from .prelim_ready_bridge import publish_verified_attempt
+from .prelim_ready_provider_scope import verify_ready_provider_scope
 from .state_store import durable_store
 
 
@@ -29,6 +30,7 @@ def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
     raise ReadyPublicationError("invalid attempt GUID") from error
   root = Path(root).resolve()
   remote = config["repository"]["authoritativeRemote"]
+  verify_ready_provider_scope(root, remote, backend)
   store = durable_store(root)
   try:
     record = _record(store, guid)
@@ -48,7 +50,7 @@ def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
     _trusted_inputs(
       root, remote, str(ticket), value["source_ref"],
       value["source_sha"], value["base_sha"],
-      value["lifecycle_revision"],
+      value["lifecycle_revision"], require_current_base=False,
     )
   except (PrelimError, KeyError, TypeError, ValueError) as error:
     raise ReadyPublicationError("recorded candidate authority unavailable") from error
