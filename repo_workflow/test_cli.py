@@ -27,6 +27,7 @@ from .terminal_tag import publish_terminal_tag
 from .local_terminal import publish_local_terminal, verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
+from .test_hosted_candidate import hosted_candidate_bound
 from .test_worktree import tracked_input_changes
 
 STAGES = {
@@ -413,10 +414,9 @@ def run_test(
     return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    if (
-      root.resolve() == engine_root.resolve()
-      and (root / "VERSION").is_file()
-    ):
+    if (root.resolve() == engine_root.resolve()
+        and (root / "VERSION").is_file()
+        and not hosted_candidate_bound(root)):
       match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
       if match is None:
         raise TestCommandError("integration requires issue branch")
@@ -434,10 +434,9 @@ def run_test(
       for name in selected:
         # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
-    if (
-      root.resolve() == engine_root.resolve()
-      and (root / "VERSION").is_file()
-    ):
+    if (root.resolve() == engine_root.resolve()
+        and (root / "VERSION").is_file()
+        and not hosted_candidate_bound(root)):
       match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
       if match is None:
         raise TestCommandError("regression requires issue branch")
