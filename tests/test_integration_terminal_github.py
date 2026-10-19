@@ -23,7 +23,9 @@ def terminal(**updates):
     "status": "integrated", "prelim_ref": REF, "prelim_sha": P,
     "int_attempt_ref": INT, "accepted_sha": C,
     "destination_ref": "refs/heads/main",
-    "expected_destination_sha": B, "landed_sha": D,
+    "expected_destination_sha": B,
+    "observed_destination_sha": D, "landed_sha": D,
+    "provider_operation_id": "merge-op-123", "umbrella": "issue-123",
     "integration_id": "op-123", "terminal_evidence_ref": "test-log-123",
   }
   value.update(updates)
