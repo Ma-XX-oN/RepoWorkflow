@@ -24,7 +24,7 @@ from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
-from .local_terminal import publish_local_terminal, verify_consumer_retry
+from .local_terminal import verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
 from .test_hosted_candidate import hosted_candidate_bound, publish_if_local
