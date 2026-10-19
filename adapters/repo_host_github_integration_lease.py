@@ -110,7 +110,7 @@ def _remote_scope(root, remote, backend):
   approved = {
     url for url in (details.get("clone_url"), details.get("ssh_url"))
     if type(url) is str and url and not any(
-      ch in url for ch in ("\\n", "\\r", "\\x00"))
+      ch in url for ch in ("\n", "\r", "\x00"))
   }
   if not approved:
     raise LeaseProviderError("provider repository endpoint unavailable")
