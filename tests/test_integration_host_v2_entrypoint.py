@@ -92,9 +92,26 @@ class V2EntrypointTests(unittest.TestCase):
     result = MOD.process(request, backend_factory=self.factory,
       verify=self.verify, cas_write=writer,
       config_reader=lambda root: {"repository": {
-        "authoritativeRemote": "origin"}})
+        "authoritativeRemote": "origin"}},
+      verify_remote_scope=lambda root, remote, backend:
+        "https://github.com/Org/Repo.git")
     self.assertEqual(result["result"]["sha"], SHA)
-    self.assertEqual(calls, [("origin", REF, "b"*40, SHA)])
+    self.assertEqual(calls, [("https://github.com/Org/Repo.git",
+                              REF, "b"*40, SHA)])
+
+  def test_cas_rejects_repository_scope_failure_before_git(self):
+    request = dict(self.request, operation="ref.cas",
+      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
+    attempted = []
+    def reject(*args):
+      raise IntegrationHostError("provider repository differs")
+    with self.assertRaisesRegex(IntegrationHostError, "repository"):
+      MOD.process(request, backend_factory=self.factory, verify=self.verify,
+        cas_write=lambda *args: attempted.append(args),
+        verify_remote_scope=reject,
+        config_reader=lambda root: {"repository": {
+          "authoritativeRemote": "origin"}})
+    self.assertEqual(attempted, [])
 
   def test_denied_cas_never_reaches_git(self):
     called = []
@@ -106,11 +123,152 @@ class V2EntrypointTests(unittest.TestCase):
         cas_write=lambda *args: called.append(args))
     self.assertEqual(called, [])
 
-  def test_lease_cas_is_unavailable_not_simulated(self):
+  def test_terminal_read_is_provider_bound_and_read_only(self):
+    request = dict(self.request, operation="attempt.read",
+                   parameters={"guid": GUID})
+    observed=[]
+    def read(backend, guid):
+      observed.append((backend, guid))
+      return None
+    result = MOD.process(request, backend_factory=self.factory,
+                         verify=self.verify, terminal_read=read)
+    self.assertEqual(result["status"], "unchanged")
+    self.assertEqual(result["result"], {"guid": GUID, "record": None})
+    self.assertEqual(observed, [(self.backend, GUID)])
+    self.assertFalse(self.backend.calls)
+
+  def test_terminal_write_denied_without_trusted_evidence(self):
+    from tests.test_integration_host_v2 import TERMINAL
+    request = dict(self.request, operation="attempt.record",
+                   parameters={"guid": GUID, "record": dict(TERMINAL)})
+    attempted=[]
+    with self.assertRaisesRegex(IntegrationHostError, "verifier"):
+      MOD.process(request, backend_factory=self.factory,
+                  verify=self.verify,
+                  terminal_write=lambda *args, **kwargs:
+                    attempted.append((args, kwargs)))
+    self.assertEqual(attempted, [])
+
+  def test_authorized_terminal_write_requires_provider_identity(self):
+    from tests.test_integration_host_v2 import TERMINAL
+    request = dict(self.request, operation="attempt.record",
+                   parameters={"guid": GUID, "record": dict(TERMINAL)})
+    observed=[]
+    def write(backend, record, *, authorized, verify_evidence):
+      observed.append((backend, record, authorized))
+      self.assertTrue(verify_evidence(record))
+      return "applied", {"guid": GUID, "record": record}
+    response = MOD.process(
+      request, backend_factory=self.factory, verify=self.verify,
+      terminal_write=write, verify_terminal_evidence=lambda record: True)
+    self.assertEqual(response["result"]["record"], dict(TERMINAL))
+    self.assertEqual(observed,
+                     [(self.backend, dict(TERMINAL), True)])
+
+  def test_destination_snapshot_reads_without_mutation_authority(self):
+    request = dict(self.request, operation="destination.read",
+                   parameters={"destination": "main"})
+    seen = []
+    def read(backend, destination):
+      seen.append((backend, destination))
+      return {"destination": destination, "ref": "refs/heads/main",
+              "sha": SHA, "policy_present": True, "policy_text": ""}
+    response = MOD.process(
+      request, backend_factory=self.factory, destination_read=read)
+    self.assertEqual(response["status"], "unchanged")
+    self.assertEqual(response["result"]["policy_text"], "")
+    self.assertEqual(seen, [(self.backend, "main")])
+    self.assertFalse(self.backend.calls)
+
+  def test_retirement_read_is_provider_only(self):
+    request = dict(self.request, operation="retirement.read",
+                   parameters={"guid": GUID, "ref_kind": "PRELIM"})
+    seen = []
+    def read(backend, guid, kind):
+      seen.append((backend, guid, kind))
+      return None
+    reply = MOD.process(request, backend_factory=self.factory,
+                        retirement_read=read)
+    self.assertEqual(reply["result"], {
+      "guid": GUID, "ref_kind": "PRELIM", "record": None})
+    self.assertEqual(seen, [(self.backend, GUID, "PRELIM")])
+    self.assertFalse(self.backend.calls)
+
+  def test_retirement_write_denied_without_independent_verifier(self):
+    from tests.test_integration_host_v2 import RETIREMENT
+    request = dict(self.request, operation="retirement.record",
+                   request_id="retire-1", parameters={
+                     "guid": GUID, "ref_kind": "PRELIM",
+                     "record": dict(RETIREMENT)})
+    called=[]
+    with self.assertRaisesRegex(IntegrationHostError, "retirement verifier"):
+      MOD.process(request, backend_factory=self.factory, verify=self.verify,
+        retirement_write=lambda *args, **kwargs:
+          called.append((args, kwargs)))
+    self.assertEqual(called, [])
+
+  def test_authorized_retirement_write_is_provider_scoped(self):
+    from tests.test_integration_host_v2 import RETIREMENT
+    request = dict(self.request, operation="retirement.record",
+                   request_id="retire-1", parameters={
+                     "guid": GUID, "ref_kind": "PRELIM",
+                     "record": dict(RETIREMENT)})
+    seen=[]
+    def write(backend, record, *, verify_deletion):
+      seen.append((backend, record))
+      self.assertTrue(verify_deletion(record))
+      return "applied", record
+    result = MOD.process(
+      request, backend_factory=self.factory, verify=self.verify,
+      retirement_write=write,
+      verify_retirement_evidence=lambda record: True)
+    self.assertEqual(result["status"], "applied")
+    self.assertEqual(result["result"]["record"], RETIREMENT)
+    self.assertEqual(seen, [(self.backend, RETIREMENT)])
+
+  def test_lease_cas_rejects_incomplete_identity(self):
     request = dict(self.request, operation="lease.cas", parameters={})
-    with self.assertRaises(MOD.IntegrationProviderError):
+    with self.assertRaises(IntegrationHostError):
       self.call(request=request)
     self.assertFalse(self.backend.calls)
+
+  def test_lease_read_is_provider_scoped_without_mutation(self):
+    request = dict(self.request, operation="lease.read",
+                   parameters={"destination": "main"})
+    seen = []
+    def reader(backend, destination):
+      seen.append((backend, destination))
+      return {"destination": destination, "generation": 0,
+              "holder": None, "guid": None}
+    result = MOD.process(request, backend_factory=self.factory,
+                         lease_read=reader)
+    self.assertEqual(result["status"], "unchanged")
+    self.assertEqual(result["result"]["generation"], 0)
+    self.assertEqual(seen, [(self.backend, "main")])
+    self.assertFalse(self.backend.calls)
+
+  def test_lease_cas_requires_trusted_authorization(self):
+    params = {"destination": "main", "expected_generation": 0,
+              "expected_holder": None, "expected_guid": None,
+              "holder": "worker-a", "guid": GUID}
+    request = dict(self.request, operation="lease.cas", parameters=params)
+    calls = []
+    def writer(backend, value, root, remote):
+      calls.append((backend, value, remote))
+      return "applied", {"destination": "main", "generation": 1,
+                         "holder": "worker-a", "guid": GUID}
+    with self.assertRaises(IntegrationHostError):
+      MOD.process(request, backend_factory=self.factory,
+        verify=lambda *args: None, lease_write=writer)
+    self.assertEqual(calls, [])
+    result = MOD.process(request, backend_factory=self.factory,
+      verify=self.verify, lease_write=writer,
+      config_reader=lambda root: {"repository": {
+        "authoritativeRemote": "origin"}})
+    self.assertEqual(result["result"]["generation"], 1)
+    self.assertEqual(result["status"], "applied")
+    self.assertEqual(calls[0][0], self.backend)
+    self.assertEqual(calls[0][2], "origin")
 
 
 if __name__ == "__main__":
