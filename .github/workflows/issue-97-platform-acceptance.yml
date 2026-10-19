@@ -5,6 +5,11 @@ on:
     paths:
       - 'adapters/repo-host-github.py'
       - 'adapters/repo_host_github_*.py'
+      - 'adapters/repo-host-integration-v2.py'
+      - 'repo_workflow/integration_host_v2.py'
+      - 'tests/test_integration_*.py'
+      - 'scripts/probe-repo-host-integration-v2-read.py'
+      - 'INTEGRATION_HOST_V2_CONTRACT.md'
       - 'tests/test_repo_host_github*.py'
       - 'scripts/probe-repo-host-github*.py'
       - 'GITHUB_HOST_MUTATION_ACCEPTANCE_AUDIT.md'
@@ -103,6 +108,26 @@ jobs:
           GITHUB_TOKEN: ''
           RWF_REPO_HOST_AUTH_COMMAND: ''
         run: python scripts/validate.py
+
+  live-provider-read-681:
+    name: Authenticated v2 destination read (ubuntu-latest)
+    if: github.event.pull_request.number == 682
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Read exact GitHub destination and scoped allow-policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python scripts/probe-repo-host-integration-v2-read.py
 
   live-provider-read:
     name: Authenticated GitHub backend reads (ubuntu-latest)
