@@ -98,3 +98,52 @@ Source review revealed two mandatory functional prerequisites: #681 (draft PR #6
 Revised draft graph has 272 nodes and no missing links/cycles. #109 depends on #681 and #683 in addition to its functional predecessors. #677 is downstream certification. Isolated focused Python suite: 71 PASS, including current parser, queue, Git fixtures, claim/release, v2 interface/adapter mocks and producer wrapper. This is NOT hosted full regression or real provider merge proof.
 
 Private disposable GitHub branch `rwf681-cas-20261017-1849` was created for a CAS experiment. The stale expected-SHA connector call gave a GraphQL error, not a definitive stale-ref refusal; provider CAS acceptance is INCOMPLETE. No production merge or ruleset change. #85/#86/#676 stay deferred.
+
+## 2026-10-19 re-audit and dependency gate
+
+The October 18 correction establishes an acyclic functional dependency
+closure at CSV blob `0d2cc6494d38d059f8bd513db0674f18e16c36ba`:
+
+- #681 -> #103: independently provider-landed retirement needs authenticated
+  terminal/ref evidence, without requiring #683 producer completion.
+- #681/#683/#103 -> #109: functional provider, READY producer and verified
+  retirement are executor prerequisites.
+- #109 -> #583 -> #677: independently owned 14 partial executor oracles
+  must be completed before final integration certification.
+- #85/#86/#676 remain deferred security, never silently passed.
+
+Regression `tests/test_oct17_dependency_closure.py` now asserts these exact
+edges, the absence of forbidden deferred security predecessors on this
+functional path, full ID coverage and DAG acyclicity.  It is registered in
+`.ci/tests.json` at source `4f342cedf840bb03ae3048db7bf18debab7f033c`.
+
+Provider interfaces still need real integration certification:
+
+1. #681 must supply independently persisted full terminal records, lease
+   CAS, exact destination policy read and conditional retirement readback.
+2. #683 must publish immutable READY after offline destination advancement,
+   preserving historical candidate identity; #109 then reconstructs and
+   revalidates against the new current destination.
+3. #109 must distinguish durable **resumable** deferred-MIT events from
+   final immutable integrated/rejected/failed results.  The #109 source
+   now requires `read_mit_deferred_event` and
+   `read_mit_resume_authorization`; #681 v2 operation grammar had not
+   exposed them at the October 19 cross-branch check.  See issue #681
+   comment 6276606758 for the exact adapter handoff.
+4. #103 provider-backed acceptance uses an independently landed fixture;
+   #677 later verifies real #683 -> #109 -> #103 end-to-end operation.
+5. #583 still has 14 PARTIAL independent T01–T08/L08/L09/L10/L17/L18/L20
+   acceptance rows.  They must be proved by actual executor behaviour.
+
+Independent hosted renderer jobs in run 39147458767 passed on Ubuntu,
+Windows and macOS, but the same run's validation FAILED because its
+material-input certificate still named the old ticket CSV hash.  The
+development manifest now binds the new CSV blob but must earn its own
+terminal GREEN validation.  Do not carry old source results forward.
+
+Latest new exact-source regression request (not yet certified):
+invocation `88af6b7527715fcc759384bd5b2401a368fc986d`
+for source `4f342cedf840bb03ae3048db7bf18debab7f033c`.
+
+This ledger is a status/evidence record, **not** authorization to merge,
+retire production refs, activate security or publish stable tags.
