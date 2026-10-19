@@ -51,7 +51,8 @@ def _valid_terminal(value, guid, repository=None):
     return False
   if repository is not None and value["repository"] != repository:
     return False
-  for name in ("prelim_sha", "accepted_sha", "expected_destination_sha"):
+  for name in ("prelim_sha", "accepted_sha", "expected_destination_sha",
+               "observed_destination_sha"):
     if type(value[name]) is not str or _SHA.fullmatch(value[name]) is None:
       return False
   landed = value["landed_sha"]
