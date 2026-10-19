@@ -422,6 +422,14 @@
         "type": "regression",
         "name": "tests.test_prelim_ready_v2_prepare"
       },
+      "issue-683-destination-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_validation"
+      },
+      "issue-683-destination-publication": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_publish"
+      },
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
