@@ -60,7 +60,7 @@ issue,title,dependencies
 100,Define stale-state reconstruction and recovery invariants,99
 101,Implement .repoworkflow state-store primitives,99;100
 102,Validate prelim candidate and record immutable PRELIM identity,69;82;118
-103,Retire prelim attempt after verified server integration,84
+103,Retire prelim attempt after verified server integration,84;681
 104,Enforce exact-candidate and current-base integration gate,69;119
 105,Prepare authoritative verification candidate transaction,118
 106,Finalize authoritative verification terminal result,118
@@ -267,7 +267,7 @@ issue,title,dependencies
 580,Implement six-state lifecycle transitions and lossless migration,579
 581,Project authoritative lifecycle state into synchronized tickets CSV,580
 582,Add cached-state graph glyphs and explicit --current refresh,581
-583,Certify six-state lifecycle CSV migration and graph status integration,582
-677,Converge PRELIM branch queue and INT-ATTEMPT admission against October 17 contract,83;84;102;108;109
+583,Certify six-state lifecycle CSV migration and graph status integration,109;582
+677,Converge PRELIM branch queue and INT-ATTEMPT admission against October 17 contract,83;84;102;108;109;583
 681,Extend repo-host for PRELIM ref inventory INT-ATTEMPT CAS and durable destination coordinator,81;97;119
 683,Migrate certified PRELIM producer to immutable destination-qualified READY refs,82;83;84;102
