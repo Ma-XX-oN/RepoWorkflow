@@ -25,6 +25,7 @@ class CertifiedAttempt:
   expected_destination_sha: str
   evidence_ref: str
   authorization_ref: str
+  operation_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ def execute_certified_done(
     admission_check,
     integrate_conditional,
     verify_provider_result,
+    reconcile_unknown=None,
 ) -> AcceptedIntegration:
   """Execute only through a provider with an atomic destination condition.
 
@@ -101,13 +103,30 @@ def execute_certified_done(
       or acceptance.destination != acceptance_plan.target
       or acceptance.destination_sha != acceptance_plan.expected_parent_sha):
     raise DoneExecutionError("destination admission changed before acceptance")
-  result = integrate_conditional(
-    attempt.int_attempt_ref, attempt.tested_candidate_sha,
-    fresh.target, fresh.expected_parent_sha,
-    attempt.evidence_ref, attempt.authorization_ref,
-  )
+  # Integration requests are NEVER retried blindly after a lost response.
+  # A recovery callback can only read independently persisted provider
+  # evidence under the exact preallocated operation identity.
+  try:
+    result = integrate_conditional(
+      attempt.int_attempt_ref, attempt.tested_candidate_sha,
+      fresh.target, fresh.expected_parent_sha,
+      attempt.evidence_ref, attempt.authorization_ref,
+    )
+  except Exception:
+    result = None
   if not isinstance(result, AcceptedIntegration):
-    raise DoneExecutionError("remote integration outcome UNKNOWN; reconcile")
+    if (not isinstance(attempt.operation_id, str)
+        or not attempt.operation_id.strip()
+        or not callable(reconcile_unknown)):
+      raise DoneExecutionError("remote integration outcome UNKNOWN; reconcile")
+    try:
+      result = reconcile_unknown(fresh, attempt)
+    except Exception as error:
+      raise DoneExecutionError("provider readback UNKNOWN; reconcile") from error
+  if (not isinstance(result, AcceptedIntegration)
+      or (attempt.operation_id is not None
+          and result.operation_id != attempt.operation_id)):
+    raise DoneExecutionError("provider operation identity UNKNOWN; reconcile")
   if (not isinstance(result.landed_sha, str)
       or _SHA.fullmatch(result.landed_sha) is None or not result.operation_id
       or result.verified is not True):
