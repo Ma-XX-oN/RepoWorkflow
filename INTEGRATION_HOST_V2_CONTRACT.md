@@ -72,3 +72,39 @@ Not implemented or certified: actual hosted terminal provider publication,
 configuring the trusted evidence verifier, destination lease CAS,
 authenticated ref retirement operations/audit, final destination merge CAS,
 and #109/#103 end-to-end integration.  #85/#86/#676 remain deferred.
+
+## October 19 — provider read/write implementation checkpoint
+
+The original October 18 "not implemented" statements above are historical
+checkpoints, not the current executable inventory.  The unmerged development
+adapter now exposes `lease.read` / `lease.cas`, full immutable
+`attempt.read` / guarded `attempt.record`, and separate per-ref immutable
+`retirement.read` / guarded `retirement.record` evidence.  The latter
+requires an independent deletion verifier and does **not** itself delete a
+ref or authorize an integration.  Terminal records include provider
+operation ID, umbrella, expected and observed destination SHAs, exact
+PRELIM/INT SHA identities, landed SHA only on an integrated result, and
+immutable evidence ID.  Deferred MIT remains a resumable-event problem
+owned by #109; it is not safe to finalize as a terminal tag.
+
+New `destination.read` is strictly read-only and returns the authenticated
+repository's exact current destination ref/SHA and the unparsed policy bytes
+obtained using that exact SHA as the GitHub Contents API `ref`.  Returned
+`policy_present=false, policy_text=null` means absent; present with
+`policy_text=""` means explicitly empty.  Consumers #108/#109, not the
+provider, parse immediate-child allow-list semantics.  The adapter rereads
+the destination SHA and refuses a mixed snapshot when it changes mid-read.
+A provider read must respond `unchanged`, never `applied`.
+
+Git-protocol mutations are bound to the provider's authenticated full repo
+identity and to matching effective fetch/push URLs.  INT-ATTEMPT and lease
+CAS have independent stale-writer, forged-repo and lost-response tests; the
+retirement audit tests reject conflicting event IDs and missing verified
+terminal provenance.
+
+**Not certified:** live disposable GitHub CAS/tag/retirement acceptance;
+deployment of independent evidence and deletion verifiers; coordinator
+crash/restart with deferred MIT; final destination-tip acceptance under
+#104/#542; complete producer/executor/retirement path under #683/#109/#103;
+and #677's independent assembled certification.  Existing v1 contract,
+protected branches, release tags and hard security gates remain unchanged.
