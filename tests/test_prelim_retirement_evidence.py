@@ -20,9 +20,11 @@ class RetirementEvidenceTests(unittest.TestCase):
   def setUp(self):
     self.landed = LandedIntegration(
       P, S, I, A, D, L, "operation-1", "terminal-1")
-    self.refs = {P: S, D: T}
+    self.refs = {P: S, I: A, D: T}
     self.compare = {"base_sha": L, "head_sha": T,
                     "status": "ahead", "behind_by": 0}
+    self.accepted_compare = {"base_sha": A, "head_sha": L,
+                             "status": "ahead", "behind_by": 0}
     self.terminal = dict(
       status="integrated", prelim_ref=P, prelim_sha=S,
       int_attempt_ref=I, accepted_sha=A, destination_ref=D,
@@ -33,7 +35,9 @@ class RetirementEvidenceTests(unittest.TestCase):
     return verify_retirement_evidence(
       self.landed,
       read_ref=lambda ref: self.refs.get(ref),
-      compare_commits=lambda base, head: self.compare,
+      compare_commits=lambda base, head: (
+        self.accepted_compare if (base, head) == (A, L)
+        else self.compare if (base, head) == (L, T) else None),
       read_terminal=lambda ref: self.terminal)
 
   def test_exact_provider_evidence_is_sufficient_for_preflight(self):
@@ -65,6 +69,28 @@ class RetirementEvidenceTests(unittest.TestCase):
         with self.assertRaises(PrelimRetirementError):
           self.check()
         self.compare = before
+
+  def test_unrelated_accepted_candidate_cannot_retire(self):
+    self.accepted_compare["status"] = "diverged"
+    with self.assertRaisesRegex(PrelimRetirementError, "accepted candidate"):
+      self.check()
+
+  def test_accepted_sha_must_be_actual_comparison_base(self):
+    self.accepted_compare["base_sha"] = S
+    with self.assertRaisesRegex(PrelimRetirementError, "accepted candidate"):
+      self.check()
+
+  def test_int_attempt_changed_after_acceptance_is_rejected(self):
+    self.refs[I] = S
+    with self.assertRaisesRegex(PrelimRetirementError, "INT-ATTEMPT changed"):
+      self.check()
+
+  def test_retired_int_attempt_requires_terminal_proof(self):
+    self.refs.pop(I)
+    self.assertTrue(self.check().eligible_for_ref_retirement)
+    self.terminal = None
+    with self.assertRaises(PrelimRetirementError):
+      self.check()
 
   def test_wrong_candidate_or_evidence_id_denied(self):
     for change in ({"accepted_sha": S},
