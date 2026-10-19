@@ -474,6 +474,10 @@
         "type": "regression",
         "name": "tests.test_prelim_ready_authority"
       },
+      "issue-677-terminal-interop": {
+        "type": "regression",
+        "name": "tests.test_integration_terminal_bridge"
+      },
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
