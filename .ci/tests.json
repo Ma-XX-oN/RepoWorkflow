@@ -434,6 +434,10 @@
         "type": "regression",
         "name": "tests.test_prelim_ready_v2_roundtrip"
       },
+      "issue-683-historical-version-collision": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_history_collision"
+      },
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
