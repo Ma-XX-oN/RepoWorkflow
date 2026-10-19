@@ -75,6 +75,8 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
   testing, landing and authorization facts; this primitive never constructs
   those facts or accepts a bare unverified client result.
   """
+  if type(record) is dict and record.get("status") == "deferred-mit":
+    raise TerminalProviderError("deferred MIT needs resumable event history")
   if (authorized is not True or type(record) is not dict
       or not _valid_terminal(record, record.get("guid"), backend.repository)):
     raise TerminalProviderError("terminal record is invalid or unauthorized")
