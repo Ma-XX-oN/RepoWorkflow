@@ -11,7 +11,7 @@ class IntegrationProviderError(RuntimeError):
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_REF = re.compile(r"refs/heads/INT-ATTEMPT-issue-[1-9][0-9]*/.+\Z")
+_REF = re.compile(r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/.+\Z")
 
 
 def inventory_ready_refs(backend, *, max_pages=100):
