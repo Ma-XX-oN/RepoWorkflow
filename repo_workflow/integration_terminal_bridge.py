@@ -11,10 +11,6 @@ from .prelim_retirement import LandedIntegration, PrelimRetirementError
 from .prelim_retirement import verify_attempt_scope
 
 
-_GUID = re.compile(
-  r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\\Z")
-
-
 @dataclass(frozen=True)
 class VerifiedTerminalReader:
   """Callable read_terminal callback for #103's exact evidence verifier."""
@@ -32,7 +28,7 @@ class VerifiedTerminalReader:
     verify_attempt_scope(
       self.landed.prelim_ref, self.landed.int_attempt_ref,
       self.landed.destination_ref)
-    match = re.search(r"-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\\Z",
+    match = re.search(r"-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\Z",
                       self.landed.prelim_ref)
     if match is None:
       raise PrelimRetirementError("immutable PRELIM GUID unavailable")
