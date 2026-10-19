@@ -430,6 +430,10 @@
         "type": "regression",
         "name": "tests.test_prelim_ready_v2_publish"
       },
+      "issue-683-destination-roundtrip": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_roundtrip"
+      },
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
