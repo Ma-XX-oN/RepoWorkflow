@@ -19,13 +19,14 @@ from repo_host_github_integration_terminal import (
   read_terminal, record_terminal,
 )
 from repo_host_github_integration_lease import read_lease, cas_lease, _remote_scope
+from repo_host_github_integration_destination import read_destination_snapshot
 from repo_host_github_integration_retirement import (
   read_retirement, record_retirement,
 )
 
 
 _OPERATIONS = {
-  "refs.list", "ref.create", "ref.cas",
+  "destination.read", "refs.list", "ref.create", "ref.cas",
   "attempt.read", "attempt.record", "lease.read", "lease.cas",
   "retirement.read", "retirement.record",
 }
@@ -37,6 +38,7 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
             verify_terminal_evidence=None,
             lease_read=read_lease, lease_write=cas_lease,
             verify_remote_scope=_remote_scope,
+            destination_read=read_destination_snapshot,
             retirement_read=read_retirement,
             retirement_write=record_retirement,
             verify_retirement_evidence=None):
@@ -56,6 +58,8 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
     params = value["parameters"]
     if operation == "refs.list":
       return "unchanged", {"refs": inventory_ready_refs(backend)}
+    if operation == "destination.read":
+      return "unchanged", destination_read(backend, params["destination"])
     if operation == "attempt.read":
       guid = params["guid"]
       return "unchanged", {
