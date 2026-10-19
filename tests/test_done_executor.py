@@ -144,6 +144,59 @@ class ExecutionGuardTests(unittest.TestCase):
       self.execute(response=None)
     self.assertEqual(len(self.calls), 1)
 
+  def test_unknown_provider_response_recovers_only_exact_operation(self):
+    pinned=replace(self.attempt,operation_id="operation-1")
+    calls={"merge":0,"reconcile":0,"readback":0}
+    def merge(*args):
+      calls["merge"]+=1
+      return None
+    def reconcile(plan,attempt):
+      calls["reconcile"]+=1
+      self.assertEqual(attempt.operation_id,"operation-1")
+      return AcceptedIntegration(D,True,"operation-1")
+    def verify(*args):
+      calls["readback"]+=1
+      return True
+    result=execute_certified_done(
+      self.plan,lambda:self.plan,lambda p:pinned,
+      lambda p:AdmissionDecision(123,"main",B,True,"current"),
+      merge,verify,reconcile_unknown=reconcile)
+    self.assertEqual(result.landed_sha,D)
+    self.assertEqual(calls,{"merge":1,"reconcile":1,"readback":1})
+
+  def test_unknown_provider_reconciliation_cannot_adopt_other_operation(self):
+    pinned=replace(self.attempt,operation_id="operation-1")
+    with self.assertRaisesRegex(DoneExecutionError,"operation identity UNKNOWN"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,lambda p:pinned,
+        lambda p:AdmissionDecision(123,"main",B,True,"current"),
+        lambda *args:None,lambda *args:True,
+        reconcile_unknown=lambda p,a:AcceptedIntegration(D,True,"foreign-op"))
+
+  def test_exception_response_is_not_blindly_retried(self):
+    pinned=replace(self.attempt,operation_id="operation-1")
+    calls={"count":0}
+    def fail(*args):
+      calls["count"]+=1
+      raise TimeoutError("lost provider ACK")
+    with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,lambda p:pinned,
+        lambda p:AdmissionDecision(123,"main",B,True,"current"),
+        fail,lambda *args:True,
+        reconcile_unknown=lambda p,a:None)
+    self.assertEqual(calls["count"],1)
+
+  def test_unknown_recovery_refuses_absent_operation_id(self):
+    recovered=[]
+    with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,lambda p:self.attempt,
+        lambda p:AdmissionDecision(123,"main",B,True,"current"),
+        lambda *args:None,lambda *args:True,
+        reconcile_unknown=lambda p,a:recovered.append(a))
+    self.assertEqual(recovered,[])
+
   def test_planner_block_stops_before_mutation(self):
     with self.assertRaises(DoneExecutionError):
       self.execute(original=replace(self.plan, allowed=False))
