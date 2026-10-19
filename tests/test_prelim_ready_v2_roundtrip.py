@@ -55,6 +55,12 @@ class DestinationRoundTripTests(unittest.TestCase):
       git(self.root, "ls-remote", "origin",
           "refs/heads/PRELIM-*").stdout.strip(), "")
 
+    # The independent hosted terminal publisher makes the exact tested
+    # object reachable through its immutable evidence tags, not READY refs.
+    for tag in ("v1.2.4-REGRESSION-PASS", "v1.2.4-INTEGRATION-PASS"):
+      git(self.root, "tag", tag, candidate.candidate_sha)
+      git(self.root, "push", "origin", "refs/tags/" + tag)
+
     def observation(stage, sha, obj):
       self.assertEqual(sha, candidate.candidate_sha)
       return {"outcome": "PASS", "version": "1.2.4",
