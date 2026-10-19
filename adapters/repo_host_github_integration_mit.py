@@ -13,8 +13,8 @@ class MitProviderError(RuntimeError):
   """MIT handoff authority or persistent provider history is unavailable."""
 
 
-_SHA = re.compile(r"[0-9a-f]{40}\\Z")
-_GUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\\Z")
+_SHA = re.compile(r"[0-9a-f]{40}\Z")
+_GUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _KINDS = {"deferred": "event", "resume": "authorization"}
 _MESSAGE = "RWF-MIT-EVIDENCE-V2 "
 _MAX_PAGES = 100
