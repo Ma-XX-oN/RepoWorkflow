@@ -18,7 +18,9 @@ def hosted_candidate_bound(root: Path) -> bool:
   """True only for exact GitHub-hosted test source, never an unbound local test."""
   expected = os.environ.get("RWF_HOSTED_TEST_CANDIDATE")
   if expected is None:
-    return False
+    return (os.environ.get("GITHUB_ACTIONS") == "true"
+      and os.environ.get("GITHUB_WORKFLOW") == "RepoWorkflow On-Demand CI"
+      and os.environ.get("GITHUB_REF_NAME") == current_branch(root))
   if (os.environ.get("GITHUB_ACTIONS") != "true"
       or type(expected) is not str or _SHA.fullmatch(expected) is None
       or head_sha(root) != expected
