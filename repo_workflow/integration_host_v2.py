@@ -82,7 +82,8 @@ def _valid_terminal(value, guid, repository=None):
       return False
     scopes.append((umbrella, destination))
   if (scopes[0] != scopes[1] or
-      value["destination_ref"] != "refs/heads/" + scopes[0][1]):
+      value["destination_ref"] != "refs/heads/" + scopes[0][1]
+      or value["umbrella"] != scopes[0][0]):
     return False
   if (type(value["integration_id"]) is not str
       or _ID.fullmatch(value["integration_id"]) is None
