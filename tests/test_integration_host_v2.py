@@ -34,6 +34,10 @@ RETIREMENT = {
 def good(request):
   p = request["parameters"]
   result = {
+    "destination.read": lambda: {
+      "destination": p["destination"],
+      "ref": "refs/heads/" + p["destination"], "sha": SHA,
+      "policy_present": False, "policy_text": None},
     "refs.list": lambda: {"refs": {}},
     "ref.create": lambda: {"ref": p["ref"], "sha": p["sha"]},
     "ref.cas": lambda: {"ref": p["ref"], "sha": p["sha"]},
@@ -69,6 +73,23 @@ class IntegrationHostV2Tests(unittest.TestCase):
     with self.assertRaises(IntegrationHostError):
       self.host.request("ref.create", "req-1", {
         "ref": REF.replace("INT-ATTEMPT", "PRELIM"), "sha": SHA})
+
+  def test_exact_destination_policy_snapshot_contract(self):
+    result=self.host.request("destination.read","read-dest-1",
+                             {"destination":"main"})
+    self.assertEqual(result["sha"],SHA)
+    self.assertFalse(result["policy_present"])
+    self.assertIsNone(result["policy_text"])
+
+  def test_forged_destination_policy_result_rejected(self):
+    def invalid(request):
+      reply=good(request)
+      reply["result"]["policy_present"]=True
+      return reply
+    host=IntegrationHost("Org/Repo",invalid)
+    with self.assertRaises(IntegrationHostError):
+      host.request("destination.read","read-dest-2",
+                   {"destination":"main"})
 
   def test_generic_umbrella_int_attempt(self):
     ref=f"refs/heads/INT-ATTEMPT-team-alpha/main-{GUID}"
