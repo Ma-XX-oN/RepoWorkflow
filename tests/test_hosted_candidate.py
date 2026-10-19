@@ -23,6 +23,30 @@ class HostedCandidateTests(unittest.TestCase):
     ):
       return hosted_candidate_bound(Path("."))
 
+  def test_hosted_regression_defers_tag_to_hosted_publisher(self):
+    from repo_workflow.test_hosted_candidate import publish_if_local
+    with (
+      patch.dict(os.environ, {
+        "GITHUB_ACTIONS": "true",
+        "GITHUB_WORKFLOW": "RepoWorkflow On-Demand CI",
+        "GITHUB_REF_NAME": BRANCH,
+      }, clear=True),
+      patch("repo_workflow.test_hosted_candidate.current_branch",
+            return_value=BRANCH),
+      patch("repo_workflow.local_terminal.publish_local_terminal") as issuer,
+    ):
+      publish_if_local(Path("."), stage="regression")
+    issuer.assert_not_called()
+
+  def test_local_regression_retains_local_terminal(self):
+    from repo_workflow.test_hosted_candidate import publish_if_local
+    with (
+      patch.dict(os.environ, {}, clear=True),
+      patch("repo_workflow.local_terminal.publish_local_terminal") as issuer,
+    ):
+      publish_if_local(Path("."), stage="regression")
+    issuer.assert_called_once_with(Path("."), stage="regression")
+
   def test_local_run_still_prepares_version(self):
     self.assertFalse(self.verify({}))
 
