@@ -155,7 +155,7 @@ def claim_prelim(
 
 def release_prelim(
     provider: CoordinationProvider, claim: DestinationLease, holder: str,
-    *, terminal_result: str,
+    *, terminal_result: str, submission: ReadyPrelim | None = None,
 ) -> DestinationLease:
   """Release only after authoritative terminal/deferred evidence readback."""
   if terminal_result not in {"integrated", "rejected", "failed", "deferred-mit"}:
@@ -168,6 +168,10 @@ def release_prelim(
   if before != claim:
     raise CoordinationError("destination claim changed before release")
   if terminal_result == "deferred-mit":
+    if (not isinstance(submission, ReadyPrelim)
+        or submission.guid != claim.active_guid
+        or submission.destination != claim.destination):
+      raise CoordinationError("deferred MIT exact PRELIM identity required")
     if provider.read_attempt_result(claim.active_guid) is not None:
       raise CoordinationError("terminal result forbids deferred release")
     read_event = getattr(provider, "read_mit_deferred_event", None)
@@ -178,6 +182,7 @@ def release_prelim(
         or event.guid != claim.active_guid
         or event.destination != claim.destination
         or event.lease_generation != claim.generation
+        or event.prelim_sha != submission.sha
         or not isinstance(event.prelim_sha, str)
         or not isinstance(event.evidence_ref, str)
         or not event.evidence_ref.strip()):
