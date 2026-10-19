@@ -18,6 +18,7 @@ HOSTED = {
   "GITHUB_WORKFLOW": "RepoWorkflow On-Demand CI",
   "GITHUB_REF_NAME": BRANCH,
   "GITHUB_SHA": INV,
+  "GITHUB_WORKSPACE": str(Path(".").resolve()),
 }
 
 
@@ -69,6 +70,10 @@ class HostedCandidateTests(unittest.TestCase):
         else "regression-testing " + SHA)
     with self.assertRaisesRegex(TestCommandError, "exact-source"):
       self.verify(HOSTED, forged)
+
+  def test_nested_consumer_repository_retains_local_semantics(self):
+    with patch.dict(os.environ, HOSTED, clear=True):
+      self.assertFalse(hosted_candidate_bound(Path(".") / "consumer"))
 
   def test_other_source_sha_denied(self):
     def forged(root, *args):
