@@ -22,8 +22,13 @@ class Backend:
   def __init__(self):
     self.refs = {}
     self.writes = []
+    self.candidate_available = True
 
   def get(self, route):
+    if route.startswith("git/commits/"):
+      if not self.candidate_available:
+        raise NotFound()
+      return {"sha": route.removeprefix("git/commits/")}
     ref = "refs/" + route.removeprefix("git/ref/")
     if ref not in self.refs:
       raise NotFound()
@@ -119,6 +124,12 @@ class QualifiedPublishTests(unittest.TestCase):
     self.tag_sha = C
     self.identity["outcome"] = "FAIL"
     with self.assertRaises(ReadyPublicationError):
+      self.publish()
+    self.assertFalse(self.backend.writes)
+
+  def test_missing_provider_candidate_object_refuses_ready(self):
+    self.backend.candidate_available = False
+    with self.assertRaisesRegex(ReadyPublicationError, "object unavailable"):
       self.publish()
     self.assertFalse(self.backend.writes)
 
