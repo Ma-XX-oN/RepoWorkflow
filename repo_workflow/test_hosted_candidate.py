@@ -24,6 +24,12 @@ def _git(root, *args):
 
 def hosted_candidate_bound(root: Path) -> bool:
   """Hosted stage is immutable only when its exact invocation was verified."""
+  # Only the checked-out workflow repository is the authoritative hosted
+  # source. Tests using temporary consumer repositories remain local tests,
+  # even when the parent process is running under GitHub Actions.
+  workspace = os.environ.get("GITHUB_WORKSPACE")
+  if not workspace or root.resolve() != Path(workspace).resolve():
+    return False
   expected = os.environ.get("RWF_HOSTED_TEST_CANDIDATE")
   hosted = (os.environ.get("GITHUB_ACTIONS") == "true"
             and os.environ.get("GITHUB_WORKFLOW") == "RepoWorkflow On-Demand CI")
