@@ -7,10 +7,35 @@ from dataclasses import dataclass
 import re
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
+_GUID = r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"
+_SCOPE = re.compile(rf"(?P<umbrella>[^/]+)/(?P<destination>.+)-{_GUID}\Z")
 
 
 class PrelimRetirementError(ValueError):
   """Landing or durable completion proof is insufficient for retirement."""
+
+
+def verify_attempt_scope(prelim_ref: str, int_ref: str,
+    destination_ref: str | None = None) -> None:
+  """Prevent one integration from retiring another umbrella/destination."""
+  refs = (
+    (prelim_ref, "refs/heads/PRELIM-"),
+    (int_ref, "refs/heads/INT-ATTEMPT-"),
+  )
+  matches = []
+  for ref, prefix in refs:
+    if type(ref) is not str or not ref.startswith(prefix):
+      raise PrelimRetirementError("attempt reference prefix is invalid")
+    match = _SCOPE.fullmatch(ref[len(prefix):])
+    if match is None:
+      raise PrelimRetirementError("attempt reference identity is invalid")
+    matches.append((match["umbrella"], match["destination"]))
+  if matches[0] != matches[1]:
+    raise PrelimRetirementError("attempt references belong to different scopes")
+  if destination_ref is not None and (
+      type(destination_ref) is not str
+      or destination_ref != "refs/heads/" + matches[0][1]):
+    raise PrelimRetirementError("attempt destination differs from landing")
 
 
 @dataclass(frozen=True)
@@ -70,6 +95,8 @@ def plan_retirement(
       or not expected_int_attempt_ref.startswith("refs/heads/INT-ATTEMPT-")
       or not destination_ref.startswith("refs/heads/")):
     raise PrelimRetirementError("integration refs are invalid")
+  verify_attempt_scope(
+    submitted_ref, expected_int_attempt_ref, destination_ref)
   if (landed.prelim_ref != submitted_ref
       or landed.prelim_sha != submitted_sha
       or landed.int_attempt_ref != expected_int_attempt_ref
