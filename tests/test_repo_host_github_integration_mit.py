@@ -133,10 +133,24 @@ class MitProviderTests(unittest.TestCase):
       self.save("resume",approval())
 
   def test_later_generation_approval_does_not_reuse_revoked_event(self):
+    self.save("deferred",deferred())
     self.save("resume",approval(approved=False,evidence_ref="revoke-2"))
+    self.save("deferred",deferred(3))
     fresh=approval(4,deferred_evidence_ref="defer-3")
     self.save("resume",fresh)
     self.assertEqual(read_mit(self.backend,"resume",GUID,"main"),fresh)
+
+  def test_resume_requires_latest_independent_defer(self):
+    with self.assertRaisesRegex(MitProviderError,"deferral"):
+      self.save("resume",approval())
+    self.save("deferred",deferred())
+    with self.assertRaisesRegex(MitProviderError,"deferral"):
+      self.save("resume",approval(deferred_evidence_ref="forged"))
+    with self.assertRaisesRegex(MitProviderError,"deferral"):
+      self.save("resume",approval(expected_generation=1))
+    with self.assertRaisesRegex(MitProviderError,"deferral"):
+      self.save("resume",approval(prelim_sha="d"*40))
+    self.assertIsNone(read_mit(self.backend,"resume",GUID,"main"))
 
   def test_untrusted_authorization_never_publishes(self):
     with self.assertRaises(MitProviderError):
