@@ -14,7 +14,9 @@ class AuditBackend(FakeBackend):
   def post(self, route, payload):
     if (route == "git/commits" and
         payload["message"].startswith("RWF-INTEGRATION-RETIREMENT-V2 ")):
-      sha = "9" * 40
+      self.retirement_commit_count = getattr(
+        self, "retirement_commit_count", 0) + 1
+      sha = format(1000 + self.retirement_commit_count, "040x")
       self.commits[sha] = {
         "message": payload["message"], "tree": {"sha": payload["tree"]}}
       self.writes.append((route, payload))
