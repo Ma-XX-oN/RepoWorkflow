@@ -69,7 +69,8 @@ def read_destination_snapshot(backend, destination):
         or len(file["content"]) > 1400000):
       raise DestinationProviderError("destination policy payload invalid")
     try:
-      raw = base64.b64decode(file["content"], validate=False)
+      encoded = "".join(file["content"].split())
+      raw = base64.b64decode(encoded, validate=True)
       if len(raw) > 1048576:
         raise ValueError("allow-list exceeds one MiB")
       content = raw.decode("utf-8")
