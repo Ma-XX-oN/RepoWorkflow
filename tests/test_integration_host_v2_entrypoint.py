@@ -148,11 +148,49 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(observed,
                      [(self.backend, dict(TERMINAL), True)])
 
-  def test_lease_cas_is_unavailable_not_simulated(self):
+  def test_lease_cas_rejects_incomplete_identity(self):
     request = dict(self.request, operation="lease.cas", parameters={})
-    with self.assertRaises(MOD.IntegrationProviderError):
+    with self.assertRaises(IntegrationHostError):
       self.call(request=request)
     self.assertFalse(self.backend.calls)
+
+  def test_lease_read_is_provider_scoped_without_mutation(self):
+    request = dict(self.request, operation="lease.read",
+                   parameters={"destination": "main"})
+    seen = []
+    def reader(backend, destination):
+      seen.append((backend, destination))
+      return {"destination": destination, "generation": 0,
+              "holder": None, "guid": None}
+    result = MOD.process(request, backend_factory=self.factory,
+                         lease_read=reader)
+    self.assertEqual(result["status"], "unchanged")
+    self.assertEqual(result["result"]["generation"], 0)
+    self.assertEqual(seen, [(self.backend, "main")])
+    self.assertFalse(self.backend.calls)
+
+  def test_lease_cas_requires_trusted_authorization(self):
+    params = {"destination": "main", "expected_generation": 0,
+              "expected_holder": None, "expected_guid": None,
+              "holder": "worker-a", "guid": GUID}
+    request = dict(self.request, operation="lease.cas", parameters=params)
+    calls = []
+    def writer(backend, value, root, remote):
+      calls.append((backend, value, remote))
+      return "applied", {"destination": "main", "generation": 1,
+                         "holder": "worker-a", "guid": GUID}
+    with self.assertRaises(IntegrationHostError):
+      MOD.process(request, backend_factory=self.factory,
+        verify=lambda *args: None, lease_write=writer)
+    self.assertEqual(calls, [])
+    result = MOD.process(request, backend_factory=self.factory,
+      verify=self.verify, lease_write=writer,
+      config_reader=lambda root: {"repository": {
+        "authoritativeRemote": "origin"}})
+    self.assertEqual(result["result"]["generation"], 1)
+    self.assertEqual(result["status"], "applied")
+    self.assertEqual(calls[0][0], self.backend)
+    self.assertEqual(calls[0][2], "origin")
 
 
 if __name__ == "__main__":
