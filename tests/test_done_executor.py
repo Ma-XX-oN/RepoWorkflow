@@ -54,6 +54,50 @@ class ExecutionGuardTests(unittest.TestCase):
     self.assertEqual(self.calls[0][3], B)
     self.assertEqual(self.calls[0][1], C)
 
+  def test_policy_denied_after_candidate_preparation(self):
+    calls={"read":0,"prepare":0}
+    good=AdmissionDecision(123,"main",B,True,"allowed at queue time")
+    denied=AdmissionDecision(123,"main",B,False,"removed while queued")
+    def check(plan):
+      calls["read"]+=1
+      return good if calls["read"]==1 else denied
+    def prepare(plan):
+      calls["prepare"]+=1
+      return self.attempt
+    with self.assertRaisesRegex(DoneExecutionError,"admission changed"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,prepare,check,
+        lambda *args:self.fail("must not integrate"),
+        lambda *args:self.fail("must not verify"))
+    self.assertEqual(calls,{"read":2,"prepare":1})
+
+  def test_parent_advances_during_certification(self):
+    count={"read":0}
+    def refresh():
+      count["read"]+=1
+      if count["read"]==1:
+        return self.plan
+      return replace(self.plan,expected_parent_sha=D)
+    with self.assertRaisesRegex(DoneExecutionError,"during certification"):
+      execute_certified_done(
+        self.plan,refresh,lambda p:self.attempt,
+        lambda p:AdmissionDecision(123,"main",B,True,"initially allowed"),
+        lambda *args:self.fail("must not integrate"),
+        lambda *args:self.fail("must not verify"))
+    self.assertEqual(count["read"],2)
+
+  def test_post_preparation_admission_uses_new_provider_read(self):
+    calls={"read":0}
+    def check(plan):
+      calls["read"]+=1
+      return AdmissionDecision(123,"main",B,True,"current")
+    result=execute_certified_done(
+      self.plan,lambda:self.plan,lambda p:self.attempt,check,
+      lambda *args:AcceptedIntegration(D,True,"op"),
+      lambda *args:True)
+    self.assertEqual(result.landed_sha,D)
+    self.assertEqual(calls["read"],2)
+
   def test_stale_destination_stops_before_mutation(self):
     with self.assertRaises(DoneExecutionError):
       self.execute(fresh=replace(self.plan, expected_parent_sha=D))
@@ -99,6 +143,59 @@ class ExecutionGuardTests(unittest.TestCase):
     with self.assertRaisesRegex(DoneExecutionError, "UNKNOWN"):
       self.execute(response=None)
     self.assertEqual(len(self.calls), 1)
+
+  def test_unknown_provider_response_recovers_only_exact_operation(self):
+    pinned=replace(self.attempt,operation_id="operation-1")
+    calls={"merge":0,"reconcile":0,"readback":0}
+    def merge(*args):
+      calls["merge"]+=1
+      return None
+    def reconcile(plan,attempt):
+      calls["reconcile"]+=1
+      self.assertEqual(attempt.operation_id,"operation-1")
+      return AcceptedIntegration(D,True,"operation-1")
+    def verify(*args):
+      calls["readback"]+=1
+      return True
+    result=execute_certified_done(
+      self.plan,lambda:self.plan,lambda p:pinned,
+      lambda p:AdmissionDecision(123,"main",B,True,"current"),
+      merge,verify,reconcile_unknown=reconcile)
+    self.assertEqual(result.landed_sha,D)
+    self.assertEqual(calls,{"merge":1,"reconcile":1,"readback":1})
+
+  def test_unknown_provider_reconciliation_cannot_adopt_other_operation(self):
+    pinned=replace(self.attempt,operation_id="operation-1")
+    with self.assertRaisesRegex(DoneExecutionError,"operation identity UNKNOWN"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,lambda p:pinned,
+        lambda p:AdmissionDecision(123,"main",B,True,"current"),
+        lambda *args:None,lambda *args:True,
+        reconcile_unknown=lambda p,a:AcceptedIntegration(D,True,"foreign-op"))
+
+  def test_exception_response_is_not_blindly_retried(self):
+    pinned=replace(self.attempt,operation_id="operation-1")
+    calls={"count":0}
+    def fail(*args):
+      calls["count"]+=1
+      raise TimeoutError("lost provider ACK")
+    with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,lambda p:pinned,
+        lambda p:AdmissionDecision(123,"main",B,True,"current"),
+        fail,lambda *args:True,
+        reconcile_unknown=lambda p,a:None)
+    self.assertEqual(calls["count"],1)
+
+  def test_unknown_recovery_refuses_absent_operation_id(self):
+    recovered=[]
+    with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
+      execute_certified_done(
+        self.plan,lambda:self.plan,lambda p:self.attempt,
+        lambda p:AdmissionDecision(123,"main",B,True,"current"),
+        lambda *args:None,lambda *args:True,
+        reconcile_unknown=lambda p,a:recovered.append(a))
+    self.assertEqual(recovered,[])
 
   def test_planner_block_stops_before_mutation(self):
     with self.assertRaises(DoneExecutionError):
