@@ -17,7 +17,7 @@ _DEST = re.compile(r"[A-Za-z0-9._/-]+\Z")
 
 
 def _destination(destination):
-  if (type(destination) is not str
+  if (type(destination) is not str or destination.startswith("-")
       or _DEST.fullmatch(destination) is None
       or any(segment in ("", ".", "..")
              for segment in destination.split("/"))):
