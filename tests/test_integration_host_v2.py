@@ -17,6 +17,18 @@ TERMINAL = {
 }
 
 
+RETIREMENT = {
+  "repository": "Org/Repo", "guid": GUID, "ref_kind": "PRELIM",
+  "retired_ref": TERMINAL["prelim_ref"],
+  "expected_sha": TERMINAL["prelim_sha"],
+  "operation_id": "retire-1",
+  "terminal_evidence_ref": TERMINAL["terminal_evidence_ref"],
+  "destination_ref": TERMINAL["destination_ref"],
+  "landed_sha": TERMINAL["landed_sha"],
+  "outcome": "retired",
+}
+
+
 def good(request):
   p = request["parameters"]
   result = {
@@ -32,6 +44,11 @@ def good(request):
     "attempt.read": lambda: {"guid": p["guid"], "record": None},
     "attempt.record": lambda: {
       "guid": p["guid"], "record": p["record"]},
+    "retirement.read": lambda: {
+      "guid": p["guid"], "ref_kind": p["ref_kind"], "record": None},
+    "retirement.record": lambda: {
+      "guid": p["guid"], "ref_kind": p["ref_kind"],
+      "record": p["record"]},
   }[request["operation"]]()
   return dict(schema_version=2, repository=request["repository"],
               operation=request["operation"], request_id=request["request_id"],
@@ -181,6 +198,42 @@ class IntegrationHostV2Tests(unittest.TestCase):
         with self.assertRaises(IntegrationHostError):
           self.host.request("attempt.record","scope-neg",{
             "guid":GUID,"record":record})
+
+  def test_retirement_record_bound_to_request_and_repository(self):
+    p={"guid": GUID, "ref_kind": "PRELIM", "record": dict(RETIREMENT)}
+    value=self.host.request("retirement.record", "retire-1", p)
+    self.assertEqual(value["record"], RETIREMENT)
+    for change in (
+      {"operation_id": "different"},
+      {"repository": "Other/Repo"},
+      {"guid": "22222222-2222-4222-8222-222222222222"},
+      {"retired_ref": TERMINAL["int_attempt_ref"]},
+      {"outcome": "unknown"},
+      {"ref_kind": "bad"},
+    ):
+      with self.subTest(change=change):
+        with self.assertRaises(IntegrationHostError):
+          self.host.request("retirement.record", "retire-1", {
+            "guid": GUID, "ref_kind": "PRELIM",
+            "record": dict(RETIREMENT, **change)})
+    with self.assertRaises(IntegrationHostError):
+      self.host.request("retirement.record", "retire-1", {
+        "guid":GUID, "ref_kind":"PRELIM", "record":"not-a-dict"})
+
+  def test_retirement_read_absence_is_not_success(self):
+    result=self.host.request("retirement.read", "audit-read", {
+      "guid": GUID, "ref_kind": "INT-ATTEMPT"})
+    self.assertIsNone(result["record"])
+
+  def test_retirement_read_rejects_forged_repository(self):
+    def foreign(request):
+      reply=good(request)
+      reply["result"]["record"]=dict(RETIREMENT,repository="Other/Repo")
+      return reply
+    host=IntegrationHost("Org/Repo", foreign)
+    with self.assertRaises(IntegrationHostError):
+      host.request("retirement.read","forged-audit",{
+        "guid":GUID,"ref_kind":"PRELIM"})
 
   def test_readback_rejects_foreign_provider_terminal(self):
     def foreign(request):
