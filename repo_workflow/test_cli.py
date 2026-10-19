@@ -422,7 +422,7 @@ def run_test(
         raise TestCommandError("integration requires issue branch")
       prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
     rc = run_local_integration(root, engine_root=engine_root)
-    publish_local_terminal(root, stage="integration")
+    publish_if_local(root, stage="integration")
     return rc
   if stage == "regression":
     temporary = Path(".ci/temp-tests.json")
