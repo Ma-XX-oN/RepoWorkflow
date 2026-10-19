@@ -33,7 +33,8 @@ _STATUSES = {"integrated", "failed", "rejected", "deferred-mit"}
 _TERMINAL_FIELDS = {
   "repository", "guid", "status", "prelim_ref", "prelim_sha",
   "int_attempt_ref", "accepted_sha", "destination_ref",
-  "expected_destination_sha", "landed_sha", "integration_id",
+  "expected_destination_sha", "observed_destination_sha",
+  "landed_sha", "integration_id", "provider_operation_id", "umbrella",
   "terminal_evidence_ref",
 }
 
