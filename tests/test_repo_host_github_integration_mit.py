@@ -1,5 +1,6 @@
 """Real-shaped provider MIT event ledger tests without protected ref mutation."""
 import unittest
+from unittest.mock import patch
 
 from adapters.repo_host_github_integration_mit import (
   MitProviderError, read_mit, record_mit,
@@ -143,9 +144,10 @@ class MitProviderTests(unittest.TestCase):
       read_mit(self.backend,"deferred",GUID,"main")
 
   def test_terminal_result_forbids_repeated_mit(self):
-    self.backend.refs["refs/tags/rwf-integration-terminal-v2-" + GUID] = HEAD
-    with self.assertRaises(MitProviderError):
-      self.save("deferred",deferred())
+    with patch("adapters.repo_host_github_integration_terminal.read_terminal",
+               return_value={"status":"integrated"}):
+      with self.assertRaisesRegex(MitProviderError,"terminal"):
+        self.save("deferred",deferred())
 
 
 if __name__ == "__main__":
