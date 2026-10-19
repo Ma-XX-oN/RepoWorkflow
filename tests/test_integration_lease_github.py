@@ -27,6 +27,10 @@ class Backend:
     self.commits = {}
 
   def get(self, route):
+    if route == "":
+      return {"full_name": self.repository,
+              "clone_url": "https://github.com/" + self.repository + ".git",
+              "ssh_url": "git@github.com:" + self.repository + ".git"}
     if route.startswith("git/ref/"):
       ref = "refs/" + route[len("git/ref/"):]
       if ref not in self.refs:
@@ -118,6 +122,8 @@ class LeaseAcceptance(unittest.TestCase):
     status, result = self.write()
     self.assertEqual((status, result["generation"]), ("applied", 1))
     self.assertEqual(result["guid"], G)
+    push = next(x for x in self.git.commands if x[3] == "push")
+    self.assertIn("https://github.com/Org/Repo.git", push)
     # A second process reads the same repository-scoped provider record.
     self.assertEqual(read_lease(self.backend, "main"), result)
     status, result = self.write(expected_generation=1,
@@ -181,6 +187,28 @@ class LeaseAcceptance(unittest.TestCase):
       with self.assertRaisesRegex(LeaseProviderError, "repository differs"):
         cas_lease(self.backend, request("lease.cas"),
                   Path("/isolated"), "origin")
+
+  def test_provider_repository_identity_mismatch_fails_closed(self):
+    self.backend.repository = "Org/Changed"
+    with patch("adapters.repo_host_github_integration_lease.subprocess.run",
+               side_effect=self.git):
+      with self.assertRaisesRegex(LeaseProviderError, "repository differs"):
+        cas_lease(self.backend, request("lease.cas"),
+                  Path("/isolated"), "origin")
+
+  def test_push_url_mismatch_rejected_before_commit(self):
+    original = self.git
+    def bad_push_url(argv, **kw):
+      if argv[-4:] == ["remote", "get-url", "--push", "origin"]:
+        return SimpleNamespace(returncode=0,
+          stdout="https://github.com/Org/Other.git\n", stderr="")
+      return original(argv, **kw)
+    with patch("adapters.repo_host_github_integration_lease.subprocess.run",
+               side_effect=bad_push_url):
+      with self.assertRaisesRegex(LeaseProviderError, "repository differs"):
+        cas_lease(self.backend, request("lease.cas"),
+                  Path("/isolated"), "origin")
+    self.assertEqual(self.backend.refs, {})
 
 
 if __name__ == "__main__":
