@@ -50,24 +50,24 @@ def publish_int_workspace(*, host, ready, expected_parent_sha, accepted_sha,
       "refs/heads/INT-ATTEMPT-"):
     raise IntPreparationError("incorrect integration workspace scope")
 
-  def published_ready():
-    result = host.request("refs.list", create_id + "-inventory", {
+  def published_ready(phase):
+    result = host.request("refs.list", create_id + "-inventory-" + phase, {
       "prefix": "refs/heads/PRELIM-"})
     if (type(result) is not dict
         or type(result.get("refs")) is not dict
         or result["refs"].get(ready.ref) != ready.sha):
       raise IntPreparationError("immutable READY ref changed or disappeared")
 
-  def current_destination():
-    record = host.request("destination.read", update_id + "-destination", {
+  def current_destination(phase):
+    record = host.request("destination.read", update_id + "-destination-" + phase, {
       "destination": ready.destination})
     if (type(record) is not dict
         or record.get("ref") != "refs/heads/" + ready.destination
         or record.get("sha") != expected_parent_sha):
       raise IntPreparationError("destination moved during INT preparation")
 
-  published_ready()
-  current_destination()
+  published_ready("before")
+  current_destination("before")
   created = host.request("ref.create", create_id, {
     "ref": int_ref, "sha": ready.sha})
   if created != {"ref": int_ref, "sha": ready.sha}:
@@ -77,8 +77,8 @@ def publish_int_workspace(*, host, ready, expected_parent_sha, accepted_sha,
       "ref": int_ref, "expected_sha": ready.sha, "sha": accepted_sha})
     if updated != {"ref": int_ref, "sha": accepted_sha}:
       raise IntPreparationError("INT accepted source was not confirmed")
-  published_ready()
-  current_destination()
+  published_ready("after")
+  current_destination("after")
   return PreparedIntWorkspace(
     ready.ref, ready.sha, int_ref, accepted_sha, expected_parent_sha,
     create_id, update_id)
