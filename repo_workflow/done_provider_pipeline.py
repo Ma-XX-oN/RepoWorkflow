@@ -4,6 +4,7 @@ Post-terminal #103 retirement, evidence promotion, queue scheduling and
 lifecycle completion are distinct required stages, not completed here.
 """
 from dataclasses import dataclass
+import re
 
 from .done_executor import (
   CertifiedAttempt, DoneExecutionError, execute_certified_done,
@@ -37,17 +38,21 @@ def accept_one_ready_submission(
   """Bind actual provider operations; no implicit PASS or remote retry."""
   if not isinstance(ready, ReadyPrelim):
     raise DoneExecutionError("immutable published READY required")
+  if (not isinstance(provider_facts, DestinationAcceptanceFacts)
+      or not isinstance(ready.umbrella, str)
+      or re.fullmatch(r"issue-([1-9][0-9]*)", ready.umbrella) is None
+      or provider_facts.repository != getattr(host, "repository", None)
+      or provider_facts.ticket != int(ready.umbrella.removeprefix("issue-"))
+      or provider_facts.destination != ready.destination
+      or provider_facts.guid != ready.guid
+      or provider_facts.holder != holder
+      or str(provider_facts.ticket) != original_plan.issue):
+    raise DoneExecutionError("acceptance identity differs before lease claim")
   provider = IntegrationHostCoordinator(host)
   if ready not in provider.read_ready_prelims():
     raise DoneExecutionError("READY physical SHA differs from submission")
   lease = claim_prelim(provider, ready, holder)
-  if (not isinstance(provider_facts, DestinationAcceptanceFacts)
-      or provider_facts.repository != host.repository
-      or provider_facts.ticket != int(ready.umbrella.removeprefix("issue-"))
-      or provider_facts.destination != ready.destination
-      or provider_facts.guid != ready.guid
-      or provider_facts.lease_generation != lease.generation
-      or provider_facts.holder != holder):
+  if provider_facts.lease_generation != lease.generation:
     raise DoneExecutionError("acceptance facts mismatch authoritative lease")
 
   prepared = []
