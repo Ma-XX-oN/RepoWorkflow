@@ -80,7 +80,13 @@ def accept_one_ready_submission(
                            plan.expected_parent_sha)
     if (not isinstance(stages, CertifiedStages)
         or stages.source_sha != attempt.tested_candidate_sha
-        or stages.parent_sha != plan.expected_parent_sha):
+        or stages.parent_sha != plan.expected_parent_sha
+        or stages.mit_policy.source_sha != attempt.tested_candidate_sha
+        or stages.mit_policy.parent_sha != plan.expected_parent_sha
+        or stages.mit_policy.independently_authenticated is not True
+        or {receipt.stage for receipt in stages.stages}
+           != ({'ART', 'AIT', 'release', 'MIT'}
+               if stages.mit_policy.required else {'ART', 'AIT', 'release'})):
       raise DoneExecutionError('authenticated stage identity differs')
     workspace = publish_int_workspace(
       host=host, ready=ready,
