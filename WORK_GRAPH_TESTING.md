@@ -106,8 +106,18 @@ child closure invariants in
 - Rejected/unknown ownership transfer fails closed.  Missing provider authority
   or required MIT blocks retirement.  Closing authority never permits merge.
 
-These tests define required policy behaviour, not proof that RWF currently
-implements automated handoff and retirement commands.
+Before dispatching work, additionally inspect **actual agent prompts**:
+- A contributor prompt names the converger, asks for an evidence-complete
+  handoff, and distinguishes independent completion from final closure.
+- A converger prompt names the child tickets and PRs, owns final acceptance
+  and closure, closes children before itself, and forbids unapproved merge.
+- Continuation and restart prompts preserve the same handoff rules; merely
+  linking the methodology does not satisfy prompt completeness.
+- Where the receiving owner is not yet designated, the dispatch must say so
+  explicitly instead of inventing authority.
+
+These checks are **prompt/document review criteria**, not proof that RWF
+currently implements automated handoff or retirement commands.
 
 ## 5. Dependency review
 
