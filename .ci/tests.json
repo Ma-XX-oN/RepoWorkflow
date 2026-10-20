@@ -406,6 +406,10 @@
         "type": "regression",
         "name": "tests.test_done_int_workspace"
       },
+      "issue-109-current-policy": {
+        "type": "regression",
+        "name": "tests.test_done_current_policy"
+      },
       "issue-109-stage-certification": {
         "type": "regression",
         "name": "tests.test_done_stage_certification"
