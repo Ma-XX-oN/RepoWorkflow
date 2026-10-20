@@ -38,6 +38,7 @@ class CertifiedAttempt:
   evidence_ref: str
   authorization_ref: str
   operation_id: str | None = None
+  source_prelim_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,10 @@ def execute_certified_done(
   if not isinstance(attempt, CertifiedAttempt):
     raise DoneExecutionError("INT-ATTEMPT certified result is absent")
   if (attempt.source_prelim_sha != fresh.candidate_sha
+      or not isinstance(attempt.source_prelim_ref, str)
+      or not attempt.source_prelim_ref.startswith("refs/heads/PRELIM-")
+      or attempt.source_prelim_ref.removeprefix("refs/heads/PRELIM-")
+         != attempt.int_attempt_ref.removeprefix("refs/heads/INT-ATTEMPT-")
       or attempt.expected_destination_sha != fresh.expected_parent_sha
       or not _matches_int_attempt(
         attempt.int_attempt_ref, fresh.issue, fresh.target)
