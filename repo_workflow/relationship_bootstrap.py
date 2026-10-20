@@ -59,8 +59,8 @@ def ensure_relationship_graph(
   requested_set = set(requested)
   policy = FollowPolicy() if follow is None else follow
   context = ShowChildrenPolicy() if show_children is None else show_children
-  dependency_config = resolve_dependency_config(root)
-  info_config = resolve_info_config(root)
+  dependency_config = None
+  info_config = None
   if (
     refresh
     and snapshot is not None
@@ -106,6 +106,9 @@ def ensure_relationship_graph(
     current = issues.get(issue)
     provider: IssueRelationships | None = None
     if refresh or current is None:
+      if dependency_config is None:
+        dependency_config = resolve_dependency_config(root)
+        info_config = resolve_info_config(root)
       cached_provider = provider_cache.get(issue)
       if cached_provider is not None:
         provider, provider_dependants, info = cached_provider

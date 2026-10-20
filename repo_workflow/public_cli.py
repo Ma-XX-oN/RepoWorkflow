@@ -282,12 +282,19 @@ def _handle_lanes(
     else:
       if links:
         raise ValueError("lanes view does not accept --links")
-      for line in render_lanes(
+      # --current may refresh the canonical CSV with an empty lane
+      # selection.  In that case there are no displayed nodes to draw.
+      # Ordinary non-current view still requires an existing selection.
+      empty_current = (
+        current_states and LaneSelectionStore(root).read().value is None
+      )
+      lines = () if empty_current else render_lanes(
         root,
         lane=lane,
         titles=False,
         diagnostics=diagnostics,
-      ):
+      )
+      for line in lines:
         print(line)
       diagnostics.phase("render", started)
       if legend:
