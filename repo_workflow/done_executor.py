@@ -15,6 +15,18 @@ class DoneExecutionError(RuntimeError):
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
+_GUID = re.compile(
+  r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+  r"[0-9a-f]{4}-[0-9a-f]{12}\Z"
+)
+
+
+def _matches_int_attempt(ref: str, issue: str, destination: str) -> bool:
+  """Bind the physical INT workspace to the approved ticket and parent."""
+  prefix = f"refs/heads/INT-ATTEMPT-issue-{issue}/{destination}-"
+  return (isinstance(ref, str) and ref.startswith(prefix)
+          and _GUID.fullmatch(ref[len(prefix):]) is not None)
+
 
 
 @dataclass(frozen=True)
@@ -74,8 +86,8 @@ def execute_certified_done(
     raise DoneExecutionError("INT-ATTEMPT certified result is absent")
   if (attempt.source_prelim_sha != fresh.candidate_sha
       or attempt.expected_destination_sha != fresh.expected_parent_sha
-      or not isinstance(attempt.int_attempt_ref, str)
-      or not attempt.int_attempt_ref.startswith("refs/heads/INT-ATTEMPT-")
+      or not _matches_int_attempt(
+        attempt.int_attempt_ref, fresh.issue, fresh.target)
       or not isinstance(attempt.evidence_ref, str) or not attempt.evidence_ref
       or not isinstance(attempt.authorization_ref, str)
       or not attempt.authorization_ref):
