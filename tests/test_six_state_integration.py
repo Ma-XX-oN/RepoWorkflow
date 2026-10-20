@@ -312,6 +312,63 @@ class SixStateGraphIntegrationTests(unittest.TestCase):
         self.assertEqual(terminal.display_width(glyph), 1)
 
 
+  def test_cached_cli_stays_stale_until_current_after_lifecycle_revision(self):
+    # Independent graph/CSV oracle: normal viewing is cache-only, while
+    # --current must reconcile an advanced canonical lifecycle revision.
+    initial = self.relationships.refresh_states(self.writer)
+    original_csv = self.relationships.path.read_bytes()
+    original_graph = "\n".join(render_lanes(self.root))
+    self.assertEqual(initial.states["2"].state, "not_started")
+
+    advanced = self.advance(2, ("start", "submit-review"))
+    self.assertEqual(advanced.lifecycle.state, "in_review")
+    before_history = advanced.lifecycle.history
+    self.assertEqual(
+      "\n".join(render_lanes(self.root)), original_graph,
+    )
+    self.assertEqual(self.relationships.path.read_bytes(), original_csv)
+
+    def invoke(words):
+      output = StringIO()
+      with patch(
+        "repo_workflow.public_cli.runtime_writer_identity",
+        return_value=self.writer,
+      ):
+        with redirect_stdout(output):
+          _handle_lanes(
+            self.root, words, LaneDiagnostics(self.root, tuple(words)),
+          )
+      return output.getvalue()
+
+    default_view = invoke(["lanes", "view"])
+    self.assertIn("○", default_view)
+    self.assertEqual(self.relationships.path.read_bytes(), original_csv)
+    self.assertEqual(self.relationships.read().states["2"].state, "not_started")
+
+    current_view = invoke(["lanes", "view", "--current"])
+    updated = self.relationships.read()
+    self.assertEqual(updated.states["2"].state, "in_review")
+    self.assertEqual(
+      updated.states["2"].lifecycle_revision, advanced.revision,
+    )
+    self.assertEqual(
+      {item.state for key, item in updated.states.items() if key != "2"},
+      {"not_started"},
+    )
+    self.assertNotEqual(self.relationships.path.read_bytes(), original_csv)
+    self.assertIn("◎", current_view)
+    self.assertEqual(
+      LifecycleStore(self.root).read(2).lifecycle.history, before_history,
+    )
+
+    # A second explicit refresh with unchanged authority is byte-stable.
+    reconciled_csv = self.relationships.path.read_bytes()
+    self.assertEqual(invoke(["lanes", "view", "--current"]), current_view)
+    self.assertEqual(self.relationships.path.read_bytes(), reconciled_csv)
+    self.assertEqual(
+      LifecycleStore(self.root).read(2).lifecycle.history, before_history,
+    )
+
   def test_repeated_current_refresh_has_identical_csv_and_lifecycle(self):
     # G15: unchanged authority must not create lifecycle history or drift.
     self.seed_all_states()
