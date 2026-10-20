@@ -106,6 +106,10 @@
         "type": "regression",
         "name": "tests.test_repo_host_github_provider"
       },
+      "issue-681-acceptance-intent": {
+        "type": "regression",
+        "name": "tests.test_integration_acceptance_intent"
+      },
       "issue-681-destination-accept": {
         "type": "regression",
         "name": "tests.test_integration_destination_accept_github"
