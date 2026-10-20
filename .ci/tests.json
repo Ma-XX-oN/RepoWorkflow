@@ -406,6 +406,10 @@
         "type": "regression",
         "name": "tests.test_done_int_workspace"
       },
+      "issue-109-mit-defer-v2": {
+        "type": "regression",
+        "name": "tests.test_done_mit_defer_v2"
+      },
       "issue-109-evidence-provider": {
         "type": "regression",
         "name": "tests.test_done_evidence_provider"
