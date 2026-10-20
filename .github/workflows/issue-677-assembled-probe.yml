@@ -47,7 +47,18 @@ jobs:
             tests.test_prelim_retirement_remote \
             tests.test_prelim_main_resync \
             tests.test_prelim_retirement_execute \
-            tests.test_done_executor
+            tests.test_done_executor \
+            tests.test_done_provider_pipeline \
+            tests.test_done_retirement_bridge \
+            tests.test_done_terminal_v2 \
+            tests.test_done_provider_acceptance \
+            tests.test_done_host_coordinator \
+            tests.test_integration_acceptance_intent \
+            tests.test_repo_host_github_integration_mit \
+            tests.test_integration_destination_accept_github \
+            tests.test_prelim_ready_v2_publish \
+            tests.test_prelim_ready_v2_roundtrip \
+            tests.test_integration_terminal_bridge
   full-regression:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -29,4 +29,4 @@ def retire_landed_attempt_ref(
   old_sha = landed.prelim_sha if ref_kind == "PRELIM" else landed.accepted_sha
   # The provider proof validates the integrated candidate; git push uses
   # --force-with-lease for an atomic expected-old ref comparison.
-  return retire_verified_ref(root, remote, plan, ref, old_sha)
+  return retire_verified_ref(root, remote, plan, ref, old_sha, backend=backend, landed=landed, read_terminal=read_terminal)

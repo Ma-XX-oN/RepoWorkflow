@@ -15,6 +15,18 @@ class DoneExecutionError(RuntimeError):
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
+_GUID = re.compile(
+  r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+  r"[0-9a-f]{4}-[0-9a-f]{12}\Z"
+)
+
+
+def _matches_int_attempt(ref: str, issue: str, destination: str) -> bool:
+  """Bind the physical INT workspace to the approved ticket and parent."""
+  prefix = f"refs/heads/INT-ATTEMPT-issue-{issue}/{destination}-"
+  return (isinstance(ref, str) and ref.startswith(prefix)
+          and _GUID.fullmatch(ref[len(prefix):]) is not None)
+
 
 
 @dataclass(frozen=True)
@@ -26,6 +38,7 @@ class CertifiedAttempt:
   evidence_ref: str
   authorization_ref: str
   operation_id: str | None = None
+  source_prelim_ref: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,12 +86,19 @@ def execute_certified_done(
   if not isinstance(attempt, CertifiedAttempt):
     raise DoneExecutionError("INT-ATTEMPT certified result is absent")
   if (attempt.source_prelim_sha != fresh.candidate_sha
-      or attempt.expected_destination_sha != fresh.expected_parent_sha
+      or not isinstance(attempt.source_prelim_ref, str)
+      or not attempt.source_prelim_ref.startswith("refs/heads/PRELIM-")
       or not isinstance(attempt.int_attempt_ref, str)
-      or not attempt.int_attempt_ref.startswith("refs/heads/INT-ATTEMPT-")
+      or attempt.source_prelim_ref.removeprefix("refs/heads/PRELIM-")
+         != attempt.int_attempt_ref.removeprefix("refs/heads/INT-ATTEMPT-")
+      or attempt.expected_destination_sha != fresh.expected_parent_sha
+      or not _matches_int_attempt(
+        attempt.int_attempt_ref, fresh.issue, fresh.target)
       or not isinstance(attempt.evidence_ref, str) or not attempt.evidence_ref
       or not isinstance(attempt.authorization_ref, str)
-      or not attempt.authorization_ref):
+      or not attempt.authorization_ref
+      or not isinstance(attempt.operation_id, str)
+      or not attempt.operation_id.strip()):
     raise DoneExecutionError("certification provenance differs")
   if (not isinstance(attempt.tested_candidate_sha, str)
       or _SHA.fullmatch(attempt.tested_candidate_sha) is None
@@ -110,7 +130,7 @@ def execute_certified_done(
     result = integrate_conditional(
       attempt.int_attempt_ref, attempt.tested_candidate_sha,
       fresh.target, fresh.expected_parent_sha,
-      attempt.evidence_ref, attempt.authorization_ref,
+      attempt.evidence_ref, attempt.authorization_ref, attempt.operation_id,
     )
   except Exception:
     result = None
@@ -124,8 +144,7 @@ def execute_certified_done(
     except Exception as error:
       raise DoneExecutionError("provider readback UNKNOWN; reconcile") from error
   if (not isinstance(result, AcceptedIntegration)
-      or (attempt.operation_id is not None
-          and result.operation_id != attempt.operation_id)):
+      or result.operation_id != attempt.operation_id):
     raise DoneExecutionError("provider operation identity UNKNOWN; reconcile")
   if (not isinstance(result.landed_sha, str)
       or _SHA.fullmatch(result.landed_sha) is None or not result.operation_id

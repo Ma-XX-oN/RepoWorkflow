@@ -22,13 +22,18 @@ class DestinationValidationTests(unittest.TestCase):
       guid=G, resolve_parent=lambda _: "main",
     )
 
-  def validate(self, *, reject=None, tag_target=None):
+  def validate(self, *, reject=None, tag_target=None, bad_tag=None,
+               bad_version=None):
     candidate = self.prepare()
     def observation(stage, sha, evidence):
       self.assertEqual(sha, candidate.candidate_sha)
+      expected = {
+        "regression": "v1.2.4-issue.7.0.1",
+        "integration": "v1.2.4-PRELIM-7.0.1",
+      }[stage]
       return {"outcome": "FAIL" if reject == stage else "PASS",
-              "version": "1.2.4",
-              "tag": "v1.2.4-" + stage.upper() + "-PASS"}
+              "version": bad_version or "1.2.4-issue.7.0.1",
+              "tag": bad_tag if stage == "integration" and bad_tag else expected}
     self.provider_writes = []
     def publish(*args):
       self.provider_writes.append(args)
@@ -67,6 +72,16 @@ class DestinationValidationTests(unittest.TestCase):
   def test_invalid_provider_tag_refuses_validation(self):
     with self.assertRaisesRegex(PrelimValidationError, "tag"):
       self.validate(tag_target="f"*40)
+    self.assertEqual(self.provider_writes, [])
+
+  def test_wrong_terminal_phase_tag_is_rejected(self):
+    with self.assertRaisesRegex(PrelimValidationError, "wrong phase"):
+      self.validate(bad_tag="v1.2.4-issue.7.0.1")
+    self.assertEqual(self.provider_writes, [])
+
+  def test_wrong_ticket_terminal_version_is_rejected(self):
+    with self.assertRaisesRegex(PrelimValidationError, "version invalid"):
+      self.validate(bad_version="1.2.4-issue.8.0.1")
     self.assertEqual(self.provider_writes, [])
 
   def test_historical_base_can_advance_before_validation(self):

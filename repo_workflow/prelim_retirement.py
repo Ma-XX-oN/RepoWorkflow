@@ -8,7 +8,7 @@ import re
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _GUID = r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"
-_SCOPE = re.compile(rf"(?P<umbrella>[^/]+)/(?P<destination>.+)-{_GUID}\Z")
+_SCOPE = re.compile(rf"(?P<umbrella>[^/]+)/(?P<destination>.+)-(?P<guid>{_GUID})\Z")
 
 
 class PrelimRetirementError(ValueError):
@@ -29,7 +29,8 @@ def verify_attempt_scope(prelim_ref: str, int_ref: str,
     match = _SCOPE.fullmatch(ref[len(prefix):])
     if match is None:
       raise PrelimRetirementError("attempt reference identity is invalid")
-    matches.append((match["umbrella"], match["destination"]))
+    matches.append((match["umbrella"], match["destination"],
+                    match["guid"].lower()))
   if matches[0] != matches[1]:
     raise PrelimRetirementError("attempt references belong to different scopes")
   if destination_ref is not None and (

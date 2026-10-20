@@ -8,7 +8,7 @@ from repo_workflow.prelim_retirement import (
 from repo_workflow.prelim_retirement_execute import retire_landed_attempt_ref
 
 P="refs/heads/PRELIM-issue-123/main-11111111-1111-4111-8111-111111111111"
-I="refs/heads/INT-ATTEMPT-issue-123/main-22222222-2222-4222-8222-222222222222"
+I="refs/heads/INT-ATTEMPT-issue-123/main-11111111-1111-4111-8111-111111111111"
 D="refs/heads/main"
 S="a"*40
 A="b"*40
@@ -25,10 +25,17 @@ class Backend:
     if route.startswith("git/ref/"):
       ref="refs/"+route.removeprefix("git/ref/")
       return {"ref":ref,"object":{"sha":self.refs[ref]}}
-    if route.startswith("compare/"):
+    if route == "compare/"+A+"..."+L:
+      return {
+        "base_commit":{"sha":A},
+        "merge_base_commit":{"sha":A},
+        "status":"ahead",
+        "behind_by":0,
+      }
+    if route == "compare/"+L+"..."+T:
       return {
         "base_commit":{"sha":L},
-        "head_commit":{"sha":T},
+        "merge_base_commit":{"sha":L},
         "status":self.status,
         "behind_by":0,
       }
@@ -57,12 +64,14 @@ class RetirementExecuteTests(unittest.TestCase):
       self.run_case()
     args=do.call_args.args
     self.assertEqual((args[3],args[4]),(P,S))
+    self.assertIs(do.call_args.kwargs["backend"],self.backend)
 
   def test_int_attempt_delete_uses_exact_accepted_sha(self):
     with patch("repo_workflow.prelim_retirement_execute.retire_verified_ref") as do:
       self.run_case(kind="INT-ATTEMPT")
     args=do.call_args.args
     self.assertEqual((args[3],args[4]),(I,A))
+    self.assertIs(do.call_args.kwargs["backend"],self.backend)
 
   def test_missing_terminal_prevents_any_delete(self):
     self.terminal=None

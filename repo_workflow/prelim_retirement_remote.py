@@ -1,7 +1,8 @@
-"""Conditional remote cleanup after authoritative #103 retirement preflight.
+"""Repository-bound conditional cleanup after authoritative #103 proof.
 
-Never invoke this for an unverified PRELIM submission. Delete only this
-attempt's named ref with exact old SHA; a stale ref remains untouched.
+No arbitrary Git remote is authorized. Bind the configured remote to the
+independently authenticated provider repository before even reading a ref.
+Delete only this attempt's named ref with exact old SHA.
 """
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,8 +10,10 @@ import re
 import subprocess
 
 from .prelim_retirement import (
-  RetirementPlan, PrelimRetirementError,
+  RetirementPlan, LandedIntegration, PrelimRetirementError,
+  verify_attempt_scope,
 )
+from .prelim_retirement_github import verify_github_retirement
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -23,9 +26,45 @@ class RefRetirement:
   absent_after: bool
 
 
+def authenticated_remote_endpoint(root: Path, remote: str, backend) -> str:
+  """Confirm the Git remote is the provider's exact scoped repository URL."""
+  repository = getattr(backend, "repository", None)
+  if type(repository) is not str or not repository:
+    raise PrelimRetirementError("authenticated repository is unavailable")
+  try:
+    details = backend.get("")
+  except Exception as error:
+    raise PrelimRetirementError("repository identity readback unavailable") from error
+  if type(details) is not dict or details.get("full_name") != repository:
+    raise PrelimRetirementError("authenticated repository identity mismatch")
+  approved = {
+    value for value in (details.get("clone_url"), details.get("ssh_url"))
+    if type(value) is str and value and not any(
+      char in value for char in ("\n", "\r", "\x00"))
+  }
+  if not approved:
+    raise PrelimRetirementError("authenticated repository URL unavailable")
+  def get_url(*args):
+    try:
+      return subprocess.run(
+        ["git", "-C", str(root), *args],
+        capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+      raise PrelimRetirementError("repository remote readback UNKNOWN") from error
+  fetch_url = get_url("remote", "get-url", remote)
+  push_url = get_url("remote", "get-url", "--push", remote)
+  if (fetch_url.returncode or push_url.returncode
+      or fetch_url.stdout.strip() != push_url.stdout.strip()
+      or fetch_url.stdout.strip() not in approved):
+    raise PrelimRetirementError("Git remote differs from authenticated repository")
+  # Use the verified URL rather than the mutable alias at mutation time.
+  return fetch_url.stdout.strip()
+
+
 def retire_verified_ref(
     root: Path, remote: str, plan: RetirementPlan,
-    ref: str, expected_sha: str,
+    ref: str, expected_sha: str, *, backend,
+    landed: LandedIntegration, read_terminal,
 ) -> RefRetirement:
   """Conditional delete-and-readback; ambiguous results fail closed.
 
@@ -40,8 +79,22 @@ def retire_verified_ref(
       or type(remote) is not str or not remote or remote.startswith("-")
       or not plan.terminal_evidence_ref):
     raise PrelimRetirementError("remote retirement is not authorized")
-  if not (ref.startswith("refs/heads/PRELIM-issue-") or
-          ref.startswith("refs/heads/INT-ATTEMPT-issue-")):
+  if type(getattr(backend, "repository", None)) is not str or not backend.repository:
+    raise PrelimRetirementError("authenticated repository is unavailable")
+  # A caller-created RetirementPlan boolean is not authorization. Independently
+  # read the live provider and durable terminal record at the deletion boundary.
+  if not isinstance(landed, LandedIntegration) or not callable(read_terminal):
+    raise PrelimRetirementError("authenticated landing proof required")
+  confirmed = verify_github_retirement(backend, landed, read_terminal)
+  if confirmed != plan:
+    raise PrelimRetirementError("retirement plan differs from live provider proof")
+  authorised_sha = (
+    landed.prelim_sha if ref == landed.prelim_ref else landed.accepted_sha)
+  if expected_sha != authorised_sha:
+    raise PrelimRetirementError("ref SHA differs from accepted integration proof")
+  verify_attempt_scope(plan.prelim_ref, plan.int_attempt_ref)
+  if not (ref.startswith("refs/heads/PRELIM-") or
+          ref.startswith("refs/heads/INT-ATTEMPT-")):
     raise PrelimRetirementError("ref is outside the permitted attempt")
   root = Path(root)
   def run(*args):
@@ -52,8 +105,10 @@ def retire_verified_ref(
     except (OSError, subprocess.TimeoutExpired) as error:
       raise PrelimRetirementError("remote retirement outcome UNKNOWN") from error
 
+  endpoint = authenticated_remote_endpoint(root, remote, backend)
+
   def read():
-    result = run("ls-remote", "--heads", remote, ref)
+    result = run("ls-remote", "--heads", endpoint, ref)
     if result.returncode:
       raise PrelimRetirementError("remote retirement readback UNKNOWN")
     rows = result.stdout.strip().splitlines()
@@ -72,7 +127,7 @@ def retire_verified_ref(
   result = run(
     "push", "--porcelain",
     "--force-with-lease=" + ref + ":" + expected_sha,
-    remote, ":" + ref,
+    endpoint, ":" + ref,
   )
   after = read()
   if result.returncode or after is not None:

@@ -529,6 +529,94 @@
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
+      },
+      "issue-681-acceptance-intent": {
+        "type": "regression",
+        "name": "tests.test_integration_acceptance_intent"
+      },
+      "issue-681-destination-accept": {
+        "type": "regression",
+        "name": "tests.test_integration_destination_accept_github"
+      },
+      "issue-681-external-evidence-authority": {
+        "type": "regression",
+        "name": "tests.test_integration_evidence_external"
+      },
+      "issue-681-terminal-ledger": {
+        "type": "regression",
+        "name": "tests.test_integration_terminal_github"
+      },
+      "issue-681-github-lease-cas": {
+        "type": "regression",
+        "name": "tests.test_integration_lease_github"
+      },
+      "issue-681-retirement-audit": {
+        "type": "regression",
+        "name": "tests.test_integration_retirement_github"
+      },
+      "issue-681-destination-snapshot": {
+        "type": "regression",
+        "name": "tests.test_integration_destination_github"
+      },
+      "issue-681-mit-evidence": {
+        "type": "regression",
+        "name": "tests.test_repo_host_github_integration_mit"
+      },
+      "issue-683-provider-scope": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_provider_scope"
+      },
+      "issue-683-hosted-candidate-pin": {
+        "type": "regression",
+        "name": "tests.test_hosted_candidate"
+      },
+      "issue-683-destination-preparation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_prepare"
+      },
+      "issue-683-destination-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_validation"
+      },
+      "issue-683-destination-publication": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_publish"
+      },
+      "issue-683-destination-roundtrip": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_roundtrip"
+      },
+      "issue-683-historical-version-collision": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_history_collision"
+      },
+      "issue-109-provider-pipeline": {
+        "type": "regression",
+        "name": "tests.test_done_provider_pipeline"
+      },
+      "issue-109-retirement-bridge": {
+        "type": "regression",
+        "name": "tests.test_done_retirement_bridge"
+      },
+      "issue-109-terminal-v2": {
+        "type": "regression",
+        "name": "tests.test_done_terminal_v2"
+      },
+      "issue-109-int-workspace": {
+        "type": "regression",
+        "name": "tests.test_done_int_workspace"
+      },
+      "issue-109-evidence-promotion": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_promotion"
+      },
+      "issue-109-host-coordination": {
+        "type": "regression",
+        "name": "tests.test_done_host_coordinator"
+      },
+      "issue-109-provider-acceptance": {
+        "type": "regression",
+        "name": "tests.test_done_provider_acceptance"
       }
     },
     {

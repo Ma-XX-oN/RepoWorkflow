@@ -8,7 +8,9 @@ from pathlib import Path
 import re
 import subprocess
 
-from .prelim_retirement import RetirementPlan, PrelimRetirementError
+from .prelim_retirement import RetirementPlan, LandedIntegration, PrelimRetirementError
+from .prelim_retirement_github import verify_github_retirement
+from .prelim_retirement_remote import authenticated_remote_endpoint
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -22,7 +24,8 @@ class MainResync:
 
 
 def resync_inactive_main(root: Path, remote: str,
-    plan: RetirementPlan) -> MainResync:
+    plan: RetirementPlan, *, backend, landed: LandedIntegration,
+    read_terminal) -> MainResync:
   """Fast-forward local main without checking it out or altering user files."""
   if (not isinstance(plan, RetirementPlan)
       or plan.eligible_for_ref_retirement is not True
@@ -30,6 +33,13 @@ def resync_inactive_main(root: Path, remote: str,
       or type(remote) is not str
       or not re.fullmatch(r"[A-Za-z0-9._-]+", remote)):
     raise PrelimRetirementError("verified integration and safe remote required")
+  if not isinstance(landed, LandedIntegration) or not callable(read_terminal):
+    raise PrelimRetirementError("authenticated landing proof required")
+  if landed.destination_ref != "refs/heads/main":
+    raise PrelimRetirementError("local main resync requires main destination")
+  confirmed = verify_github_retirement(backend, landed, read_terminal)
+  if confirmed != plan:
+    raise PrelimRetirementError("main resync plan differs from live provider proof")
   root = Path(root)
   def command(*args):
     try:
@@ -45,7 +55,19 @@ def resync_inactive_main(root: Path, remote: str,
   old = local.stdout.strip()
   if _SHA.fullmatch(old) is None:
     raise PrelimRetirementError("local main SHA malformed")
-  fetched = command("fetch", "--no-tags", remote, "refs/heads/main")
+  # Verify both provider repository identity and the exact authoritative tip.
+  endpoint = authenticated_remote_endpoint(root, remote, backend)
+  try:
+    observed = backend.get("git/ref/heads/main")
+  except Exception as error:
+    raise PrelimRetirementError("provider main readback unavailable") from error
+  if (type(observed) is not dict or observed.get("ref") != "refs/heads/main"
+      or type(observed.get("object")) is not dict):
+    raise PrelimRetirementError("provider main identity mismatch")
+  server_tip = observed["object"].get("sha")
+  if type(server_tip) is not str or _SHA.fullmatch(server_tip) is None:
+    raise PrelimRetirementError("provider main SHA invalid")
+  fetched = command("fetch", "--no-tags", endpoint, "refs/heads/main")
   if fetched.returncode:
     raise PrelimRetirementError("remote main fetch unavailable")
   new_result = command("rev-parse", "--verify", "FETCH_HEAD")
@@ -54,6 +76,8 @@ def resync_inactive_main(root: Path, remote: str,
   new = new_result.stdout.strip()
   if _SHA.fullmatch(new) is None:
     raise PrelimRetirementError("remote main SHA malformed")
+  if new != server_tip:
+    raise PrelimRetirementError("fetched main differs from provider readback")
   for ancestor in (plan.landed_sha, old):
     if command("merge-base", "--is-ancestor", ancestor, new).returncode:
       raise PrelimRetirementError("main fast-forward or landing not proved")

@@ -73,12 +73,12 @@ def create_int_attempt(backend, request, *, authorized):
   except Exception as error:
     raise IntegrationProviderError("request reservation outcome UNKNOWN") from error
   observed = _read_ref(backend, ref)
-  if not fresh:
-    if observed != sha:
-      raise IntegrationProviderError("reserved request lacks matching ref")
+  if not fresh and observed == sha:
     return "unchanged", {"ref": ref, "sha": sha}
   if observed is not None:
     raise IntegrationProviderError("INT-ATTEMPT ref already exists")
+  # The exact reservation can survive a crash before ref publication.
+  # Continue only when the same reserved request has no published ref.
   try:
     backend.post("git/refs", {"ref": ref, "sha": sha})
   except Exception:
@@ -129,6 +129,10 @@ def cas_int_attempt_git(root, remote, ref, expected_sha, new_sha):
     raise IntegrationProviderError("INT-ATTEMPT CAS identity unavailable")
   observed_sha = lines[0].split()[0]
   if result.returncode:
+    # The remote may have applied the exact update before its ACK was lost.
+    # A readback equal to new_sha reconciles this operation without replay.
+    if observed_sha == new_sha:
+      return {"ref": ref, "sha": new_sha}
     if observed_sha != expected_sha:
       raise IntegrationProviderError("INT-ATTEMPT CAS failed or outcome UNKNOWN")
     raise IntegrationProviderError("INT-ATTEMPT CAS provider rejected update")

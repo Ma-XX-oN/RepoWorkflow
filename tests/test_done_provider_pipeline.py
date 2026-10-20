@@ -1,0 +1,140 @@
+"""End-to-end local v2 transport simulation for a single READY attempt.
+
+This is not authenticated provider certification or #103 ref cleanup.
+"""
+import unittest
+
+from repo_workflow.done_executor import CertifiedAttempt, DoneExecutionError
+from repo_workflow.done_planner import DonePlan
+from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
+from repo_workflow.done_provider_pipeline import accept_one_ready_submission
+from repo_workflow.integration_admission import AdmissionDecision
+from repo_workflow.prelim_queue import parse_ready_prelim
+
+
+G = "11111111-1111-4111-8111-111111111111"
+P = f"refs/heads/PRELIM-issue-123/main-{G}"
+I = P.replace("PRELIM-", "INT-ATTEMPT-")
+A, B, C, D = ("a"*40, "b"*40, "c"*40, "d"*40)
+
+
+class Provider:
+  repository = "Org/Repo"
+  def __init__(self):
+    self.main = B
+    self.int_sha = None
+    self.terminal = None
+    self.lease = {"destination":"main","generation":0,
+                  "holder":None,"guid":None}
+    self.calls = []
+    self.fail = None
+  def request(self, operation, key, p):
+    self.calls.append(operation)
+    if operation == self.fail:
+      raise ConnectionError("UNKNOWN")
+    if operation == "refs.list":
+      return {"refs":{P:A}}
+    if operation == "lease.read":
+      return dict(self.lease)
+    if operation == "lease.cas":
+      if (self.lease["generation"] != p["expected_generation"]
+          or self.lease["guid"] != p["expected_guid"]
+          or self.lease["holder"] != p["expected_holder"]):
+        raise ValueError("stale lease")
+      self.lease = {"destination":"main",
+                    "generation":p["expected_generation"]+1,
+                    "holder":p["holder"],"guid":p["guid"]}
+      return dict(self.lease)
+    if operation == "attempt.read":
+      return {"guid":G,"record":self.terminal}
+    if operation in ("mit.deferred.read","mit.resume.read"):
+      return {"guid":G,"destination":"main",
+              "event" if operation=="mit.deferred.read"
+              else "authorization":None}
+    if operation == "destination.read":
+      return {"ref":"refs/heads/main","sha":self.main}
+    if operation == "ref.create":
+      self.int_sha = p["sha"]
+      return {"ref":p["ref"],"sha":self.int_sha}
+    if operation == "ref.cas":
+      assert p["expected_sha"] == self.int_sha
+      self.int_sha = p["sha"]
+      return {"ref":p["ref"],"sha":self.int_sha}
+    if operation == "destination.accept":
+      assert p["record"]["accepted_sha"] == self.int_sha
+      assert p["record"]["expected_destination_sha"] == self.main
+      self.main = p["record"]["proposed_sha"]
+      return {"destination":"main","expected_sha":B,
+              "landed_sha":D,"operation_id":"op-1"}
+    if operation == "attempt.record":
+      self.terminal = p["record"]
+      return {"guid":G,"record":self.terminal}
+    raise AssertionError(operation)
+
+
+class PipelineTests(unittest.TestCase):
+  def setUp(self):
+    self.host = Provider()
+    self.ready = parse_ready_prelim(P,A)
+    self.plan = DonePlan(
+      "123","patch","main",A,B,"ALLOWED",True,False,None,(),())
+    self.calls = {"prepare":0}
+  def run(self, **overrides):
+    def prepare(plan):
+      self.calls["prepare"] += 1
+      return CertifiedAttempt(A,I,C,B,"tests-1","auth-1",
+                              "op-1",P)
+    args = {
+      "host":self.host,"ready":self.ready,"holder":"worker-A",
+      "original_plan":self.plan,"refresh_plan":lambda:self.plan,
+      "prepare_and_certify":prepare,
+      "admission_check":lambda p:AdmissionDecision(
+        123,"main",B,True,"admitted"),
+      "provider_facts":DestinationAcceptanceFacts(
+        "Org/Repo",123,"main",G,1,"worker-A",D),
+      "verify_provider_result":lambda *a:True,
+      "create_id":"create-1","update_id":"update-1",
+      "integration_id":"integration-1",
+      "terminal_evidence_ref":"terminal-proof-1",
+      "terminal_request_id":"terminal-1",
+    }
+    return accept_one_ready_submission(**{**args,**overrides})
+
+  def test_one_ready_end_to_end_local_provider_simulation(self):
+    result=self.run()
+    self.assertEqual(result.accepted.landed_sha,D)
+    self.assertEqual(result.terminal.accepted_sha,C)
+    self.assertEqual(self.host.terminal["status"],"integrated")
+    self.assertEqual(self.host.main,D)
+    self.assertEqual(self.host.lease["generation"],2)
+    self.assertIsNone(self.host.lease["holder"])
+    self.assertEqual(self.calls["prepare"],1)
+
+  def test_missing_current_ready_prevents_claim(self):
+    original=self.host.request
+    def missing(op,key,params):
+      if op=="refs.list":
+        return {"refs":{}}
+      return original(op,key,params)
+    self.host.request=missing
+    with self.assertRaisesRegex(DoneExecutionError,"READY physical"):
+      self.run()
+    self.assertEqual(self.host.lease["generation"],0)
+
+  def test_failing_terminal_leaves_lease_for_recovery(self):
+    self.host.fail="attempt.record"
+    with self.assertRaises(Exception):
+      self.run()
+    self.assertEqual(self.host.main,D)
+    self.assertEqual(self.host.lease["holder"],"worker-A")
+
+  def test_wrong_lease_generation_rejected_without_destination_mutation(self):
+    wrong=DestinationAcceptanceFacts(
+      "Org/Repo",123,"main",G,9,"worker-A",D)
+    with self.assertRaisesRegex(DoneExecutionError,"lease"):
+      self.run(provider_facts=wrong)
+    self.assertEqual(self.host.main,B)
+
+
+if __name__=="__main__":
+  unittest.main()

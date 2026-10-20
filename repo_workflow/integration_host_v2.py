@@ -19,6 +19,7 @@ _REF = re.compile(
   r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _OPERATIONS = {
   "destination.read": {"destination"},
+  "destination.accept": {"record"},
   "refs.list": {"prefix"},
   "ref.create": {"ref", "sha"},
   "ref.cas": {"ref", "expected_sha", "sha"},
@@ -27,6 +28,10 @@ _OPERATIONS = {
                 "expected_holder", "expected_guid", "holder", "guid"},
   "attempt.read": {"guid"},
   "attempt.record": {"guid", "record"},
+  "mit.deferred.read": {"guid", "destination"},
+  "mit.deferred.record": {"guid", "destination", "event"},
+  "mit.resume.read": {"guid", "destination"},
+  "mit.resume.record": {"guid", "destination", "authorization"},
   "retirement.read": {"guid", "ref_kind"},
   "retirement.record": {"guid", "ref_kind", "record"},
 }
@@ -96,6 +101,37 @@ def _valid_terminal(value, guid, repository=None):
   return True
 
 
+_MIT_DEFER_FIELDS = {
+  "repository", "guid", "destination", "prelim_sha",
+  "lease_generation", "evidence_ref", "reason",
+}
+_MIT_RESUME_FIELDS = {
+  "repository", "guid", "destination", "prelim_sha",
+  "expected_generation", "deferred_evidence_ref", "evidence_ref",
+  "approved",
+}
+
+
+def _valid_mit_record(value, guid, destination, repository, *, resume):
+  fields = _MIT_RESUME_FIELDS if resume else _MIT_DEFER_FIELDS
+  if type(value) is not dict or set(value) != fields:
+    return False
+  if (value["guid"] != guid or value["destination"] != destination
+      or value["repository"] != repository
+      or type(value["prelim_sha"]) is not str
+      or _SHA.fullmatch(value["prelim_sha"]) is None):
+    return False
+  key = "expected_generation" if resume else "lease_generation"
+  if type(value[key]) is not int or value[key] < 1:
+    return False
+  refs = ("evidence_ref", "deferred_evidence_ref") if resume else ("evidence_ref",)
+  if any(type(value[k]) is not str or not value[k].strip() for k in refs):
+    return False
+  if resume:
+    return type(value["approved"]) is bool
+  return value["reason"] in {"timeout", "awaiting-manual"}
+
+
 _RETIREMENT_FIELDS = {
   "repository", "guid", "ref_kind", "retired_ref", "expected_sha",
   "operation_id", "terminal_evidence_ref", "destination_ref",
@@ -126,6 +162,43 @@ def _valid_retirement(record, guid, kind, repository):
       or not record["terminal_evidence_ref"].strip()):
     return False
   return True
+
+
+_ACCEPT_FIELDS = {
+  "repository", "destination", "int_attempt_ref", "accepted_sha",
+  "expected_destination_sha", "proposed_sha", "guid", "lease_generation",
+  "holder", "authorization_ref", "evidence_ref", "operation_id",
+}
+
+
+def _valid_acceptance(v):
+  if type(v) is not dict or set(v) != _ACCEPT_FIELDS:
+    return False
+  if (type(v["repository"]) is not str
+      or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
+                      v["repository"]) is None
+      or type(v["destination"]) is not str
+      or re.fullmatch(r"[A-Za-z0-9._/-]+", v["destination"]) is None
+      or any(x in ("", ".", "..") for x in v["destination"].split("/"))
+      or type(v["guid"]) is not str or not _GUID.fullmatch(v["guid"])
+      or type(v["lease_generation"]) is not int
+      or v["lease_generation"] < 1
+      or type(v["holder"]) is not str or not v["holder"].strip()):
+    return False
+  for key in ("accepted_sha", "expected_destination_sha", "proposed_sha"):
+    if type(v[key]) is not str or _SHA.fullmatch(v[key]) is None:
+      return False
+  if (v["expected_destination_sha"] == v["proposed_sha"]
+      or type(v["int_attempt_ref"]) is not str
+      or re.fullmatch(
+        r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
+        + re.escape(v["destination"]) + "-" + re.escape(v["guid"]),
+        v["int_attempt_ref"]) is None
+      or type(v["operation_id"]) is not str
+      or _ID.fullmatch(v["operation_id"]) is None):
+    return False
+  return all(type(v[k]) is str and bool(v[k].strip())
+             for k in ("authorization_ref", "evidence_ref"))
 
 
 def _valid_ref(ref):
@@ -159,6 +232,8 @@ def _valid_params(op, values):
         type(value) is not str or not value or
         any(part in ("", ".", "..") for part in value.split("/"))):
       return False
+  if op == "destination.accept":
+    return _valid_acceptance(values["record"])
   if op == "refs.list":
     return values["prefix"] == "refs/heads/PRELIM-"
   if op in {"ref.create", "ref.cas"}:
@@ -169,6 +244,15 @@ def _valid_params(op, values):
             (values["guid"] is None) == (values["holder"] is None))
   if op == "attempt.record":
     return _valid_terminal(values["record"], values["guid"])
+  if op.startswith("mit."):
+    if op.endswith(".read"):
+      return True
+    kind = "authorization" if op.startswith("mit.resume") else "event"
+    # Repository identity is authenticated against IntegrationHost.repository.
+    return _valid_mit_record(
+      values[kind], values["guid"], values["destination"],
+      values[kind].get("repository") if type(values[kind]) is dict else None,
+      resume=(kind == "authorization"))
   if op.startswith("retirement."):
     if values["ref_kind"] not in ("PRELIM", "INT-ATTEMPT"):
       return False
@@ -197,6 +281,13 @@ def _valid_result(operation, request, result):
            or (not result["policy_present"] and
                result["policy_text"] is None))
     )
+  if operation == "destination.accept":
+    return (set(result) == {"destination", "expected_sha", "landed_sha",
+                            "operation_id"}
+      and result["destination"] == request["record"]["destination"]
+      and result["expected_sha"] == request["record"]["expected_destination_sha"]
+      and result["landed_sha"] == request["record"]["proposed_sha"]
+      and result["operation_id"] == request["record"]["operation_id"])
   if operation == "refs.list":
     return (set(result) == {"refs"} and type(result["refs"]) is dict
       and all(type(ref) is str and ref.startswith("refs/heads/PRELIM-")
@@ -235,6 +326,21 @@ def _valid_result(operation, request, result):
       return False
     return (operation == "attempt.read" or
             result["record"] == request["record"])
+  if operation.startswith("mit."):
+    key = "authorization" if operation.startswith("mit.resume") else "event"
+    if (set(result) != {"guid", "destination", key}
+        or result["guid"] != request["guid"]
+        or result["destination"] != request["destination"]):
+      return False
+    record = result[key]
+    if record is None:
+      return operation.endswith(".read")
+    if not _valid_mit_record(
+        record, request["guid"], request["destination"],
+        record.get("repository") if type(record) is dict else None,
+        resume=(key == "authorization")):
+      return False
+    return operation.endswith(".read") or record == request[key]
   if operation in {"retirement.read", "retirement.record"}:
     if (set(result) != {"guid", "ref_kind", "record"}
         or result["guid"] != request["guid"]
@@ -267,10 +373,20 @@ class IntegrationHost:
       raise IntegrationHostError("invalid idempotency key")
     if not _valid_params(operation, parameters):
       raise IntegrationHostError("invalid integration parameters")
+    if operation == "destination.accept" and (
+        parameters["record"]["repository"] != self.repository
+        or parameters["record"]["operation_id"] != request_id):
+      raise IntegrationHostError("acceptance request/repository mismatch")
     if (operation == "attempt.record" and
         not _valid_terminal(parameters["record"],
                             parameters["guid"], self.repository)):
       raise IntegrationHostError("terminal record repository mismatch")
+    if operation.startswith("mit.") and operation.endswith(".record"):
+      key = "authorization" if operation.startswith("mit.resume") else "event"
+      if not _valid_mit_record(
+          parameters[key], parameters["guid"], parameters["destination"],
+          self.repository, resume=(key == "authorization")):
+        raise IntegrationHostError("MIT event repository or identity mismatch")
     if operation == "retirement.record" and (
         parameters["record"]["repository"] != self.repository or
         parameters["record"]["operation_id"] != request_id):
@@ -297,11 +413,19 @@ class IntegrationHost:
         type(reply["status"]) is not str):
       raise IntegrationHostError("integration provider response identity mismatch")
     if (operation in {"destination.read", "refs.list", "lease.read",
-                      "attempt.read", "retirement.read"}
+                      "attempt.read", "retirement.read",
+                      "mit.deferred.read", "mit.resume.read"}
         and reply["status"] != "unchanged"):
       raise IntegrationHostError("read-only provider operation claimed mutation")
     if not _valid_result(operation, parameters, reply["result"]):
       raise IntegrationHostError("invalid integration provider result")
+    if operation.startswith("mit."):
+      key = "authorization" if operation.startswith("mit.resume") else "event"
+      event = reply["result"][key]
+      if event is not None and not _valid_mit_record(
+          event, parameters["guid"], parameters["destination"],
+          self.repository, resume=(key == "authorization")):
+        raise IntegrationHostError("provider MIT record repository mismatch")
     if (operation in {"attempt.read", "attempt.record"}
         and reply["result"]["record"] is not None
         and not _valid_terminal(reply["result"]["record"],

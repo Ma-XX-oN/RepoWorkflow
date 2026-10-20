@@ -10,6 +10,7 @@ from .prelim_ready import (
 )
 from .prelim_ready_provider_scope import verify_ready_provider_scope
 from .prelim_ready_v2_validation import v2_identity_key, v2_identity_ref
+from .prelim_ready_v2_tags import expected_v2_terminal_tags
 from .state_store import durable_store
 from .terminal_tag import _remote_target
 
@@ -41,9 +42,15 @@ def _verified_v2_identity(root, remote, guid, ticket, destination):
     sha = value[name]
     if type(sha) is not str or _SHA.fullmatch(sha) is None:
       raise ReadyPublicationError("provider source/candidate SHA malformed")
-  for name in ("regression_tag", "integration_tag"):
-    tag = value[name]
+  try:
+    required_tags = expected_v2_terminal_tags(
+      value["test_version"], str(ticket))
+  except ValueError as error:
+    raise ReadyPublicationError("provider PASS terminal version invalid") from error
+  for phase in ("regression", "integration"):
+    tag = value[phase + "_tag"]
     if (type(tag) is not str or _TAG.fullmatch(tag) is None
+        or tag != required_tags[phase]
         or _remote_target(root, remote, tag) != value["candidate_sha"]):
       raise ReadyPublicationError("independent terminal tag identity changed")
   return value

@@ -51,9 +51,10 @@ class QualifiedPublishTests(unittest.TestCase):
       "kind": "destination-qualified-v2", "attempt": G,
       "issue": "7", "destination": "issue-10",
       "source_sha": S, "base_sha": B, "candidate_sha": C,
-      "proposed_version": "1.2.4", "test_version": "1.2.4",
-      "regression_tag": "v1.2.4-REGRESSION-PASS",
-      "integration_tag": "v1.2.4-INTEGRATION-PASS",
+      "proposed_version": "1.2.4",
+      "test_version": "1.2.4-issue.7.0.1",
+      "regression_tag": "v1.2.4-issue.7.0.1",
+      "integration_tag": "v1.2.4-PRELIM-7.0.1",
       "outcome": "PASS",
     }
     self.root = Path(".")
@@ -124,6 +125,18 @@ class QualifiedPublishTests(unittest.TestCase):
     self.tag_sha = C
     self.identity["outcome"] = "FAIL"
     with self.assertRaises(ReadyPublicationError):
+      self.publish()
+    self.assertFalse(self.backend.writes)
+
+  def test_wrong_phase_tag_is_rejected_even_if_sha_matches(self):
+    self.identity["integration_tag"] = "v1.2.4-issue.7.0.1"
+    with self.assertRaisesRegex(ReadyPublicationError, "tag identity"):
+      self.publish()
+    self.assertFalse(self.backend.writes)
+
+  def test_wrong_ticket_version_is_rejected(self):
+    self.identity["test_version"] = "1.2.4-issue.8.0.1"
+    with self.assertRaisesRegex(ReadyPublicationError, "version invalid"):
       self.publish()
     self.assertFalse(self.backend.writes)
 

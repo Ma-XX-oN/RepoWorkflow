@@ -39,17 +39,17 @@ def verify_github_retirement(backend, landed: LandedIntegration,
     except Exception as error:
       raise PrelimRetirementError("GitHub ancestry unavailable") from error
     if (type(response) is not dict
-        or type(response.get("base_commit")) is not dict):
+        or type(response.get("base_commit")) is not dict
+        or type(response.get("merge_base_commit")) is not dict):
       raise PrelimRetirementError("GitHub comparison response malformed")
-    head_record = response.get("commits")
-    # GitHub's compare endpoint can return no commits for an identical ref.
-    # Its head_commit must still identify the exact requested destination.
-    head_commit = response.get("head_commit")
-    if type(head_commit) is not dict:
-      raise PrelimRetirementError("GitHub head comparison missing")
+    # GitHub's REST compare response supplies base_commit and
+    # merge_base_commit, not head_commit. The authenticated request URL
+    # pins the exact head; the merge base proves ancestry independently.
+    if response["merge_base_commit"].get("sha") != base:
+      raise PrelimRetirementError("GitHub merge base differs from landed commit")
     return {
       "base_sha": response["base_commit"].get("sha"),
-      "head_sha": head_commit.get("sha"),
+      "head_sha": head,
       "status": response.get("status"),
       "behind_by": response.get("behind_by"),
     }

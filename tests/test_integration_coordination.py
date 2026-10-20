@@ -199,8 +199,11 @@ class IntegrationCoordinationTests(unittest.TestCase):
     self.assertIsNone(self.p.read_destination_lease("main").active_guid)
 
   def test_approval_changed_during_claim_is_rejected(self):
+    first=claim_prelim(self.p,self.a,"worker-A")
     self.p.deferred_events[(GUID1,"main")]=MitDeferredEvent(
       GUID1,"main",self.a.sha,1,"mit-defer-1","timeout")
+    release_prelim(self.p,first,"worker-A",terminal_result="deferred-mit",
+                   submission=self.a)
     approved=MitResumeAuthorization(GUID1,"main",self.a.sha,2,"mit-defer-1","proof",True)
     self.p.approvals[(GUID1,"main")]=approved
     original=self.p.compare_and_set_destination_lease
@@ -258,7 +261,7 @@ class IntegrationCoordinationTests(unittest.TestCase):
         "defer-changed","timeout")
       return result
     self.p.compare_and_set_destination_lease=mutate_event
-    with self.assertRaisesRegex(CoordinationError,"changed"):
+    with self.assertRaisesRegex(CoordinationError,"not authoritatively approved"):
       claim_prelim(self.p,self.a,"worker-B")
     self.assertEqual(self.p.read_destination_lease("main").holder,"worker-B")
 

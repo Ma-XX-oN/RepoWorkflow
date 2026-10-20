@@ -23,7 +23,9 @@ class ExecutionGuardTests(unittest.TestCase):
       "123", "patch", "main", A, B, "ALLOWED",
       True, False, None, (), (),
     )
-    self.attempt = CertifiedAttempt(A, INT, C, B, "evidence-1", "auth-1")
+    self.attempt = CertifiedAttempt(
+      A, INT, C, B, "evidence-1", "auth-1", "operation-1",
+      INT.replace("INT-ATTEMPT-", "PRELIM-"))
     self.calls = []
 
   def execute(self, **changes):
@@ -93,7 +95,7 @@ class ExecutionGuardTests(unittest.TestCase):
       return AdmissionDecision(123,"main",B,True,"current")
     result=execute_certified_done(
       self.plan,lambda:self.plan,lambda p:self.attempt,check,
-      lambda *args:AcceptedIntegration(D,True,"op"),
+      lambda *args:AcceptedIntegration(D,True,"operation-1"),
       lambda *args:True)
     self.assertEqual(result.landed_sha,D)
     self.assertEqual(calls["read"],2)
@@ -129,6 +131,45 @@ class ExecutionGuardTests(unittest.TestCase):
       ))
     self.assertEqual(self.calls, [])
 
+  def test_missing_original_prelim_ref_is_rejected(self):
+    with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
+      self.execute(attempt=replace(self.attempt,source_prelim_ref=None))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_prelim_guid_is_rejected(self):
+    other=self.attempt.source_prelim_ref.replace(
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222")
+    with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
+      self.execute(attempt=replace(self.attempt,source_prelim_ref=other))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_prelim_ticket_is_rejected(self):
+    other=self.attempt.source_prelim_ref.replace("issue-123/", "issue-124/")
+    with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
+      self.execute(attempt=replace(self.attempt,source_prelim_ref=other))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_int_attempt_ticket_is_rejected(self):
+    foreign=replace(self.attempt,int_attempt_ref=INT.replace(
+      "issue-123/", "issue-124/"))
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=foreign)
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_int_attempt_destination_is_rejected(self):
+    foreign=replace(self.attempt,int_attempt_ref=INT.replace(
+      "/main-", "/issue-456-"))
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=foreign)
+    self.assertEqual(self.calls, [])
+
+  def test_invalid_int_attempt_guid_is_rejected(self):
+    foreign=replace(self.attempt,int_attempt_ref=INT[:-36]+"malformed")
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=foreign)
+    self.assertEqual(self.calls, [])
+
   def test_changed_prelim_source_stops_before_mutation(self):
     with self.assertRaises(DoneExecutionError):
       self.execute(attempt=replace(self.attempt, source_prelim_sha=D))
@@ -138,6 +179,20 @@ class ExecutionGuardTests(unittest.TestCase):
     with self.assertRaises(DoneExecutionError):
       self.execute(attempt=replace(self.attempt, evidence_ref=""))
     self.assertEqual(self.calls, [])
+
+  def test_missing_operation_id_stops_before_provider_mutation(self):
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=replace(self.attempt,operation_id=None))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_provider_operation_cannot_be_accepted(self):
+    with self.assertRaisesRegex(DoneExecutionError,"operation identity UNKNOWN"):
+      self.execute(response=AcceptedIntegration(D,True,"foreign-operation"))
+    self.assertEqual(len(self.calls),1)
+
+  def test_provider_receives_pinned_operation_identity(self):
+    self.execute()
+    self.assertEqual(self.calls[0][-1],"operation-1")
 
   def test_unknown_remote_response_cannot_be_success(self):
     with self.assertRaisesRegex(DoneExecutionError, "UNKNOWN"):
@@ -189,9 +244,9 @@ class ExecutionGuardTests(unittest.TestCase):
 
   def test_unknown_recovery_refuses_absent_operation_id(self):
     recovered=[]
-    with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
       execute_certified_done(
-        self.plan,lambda:self.plan,lambda p:self.attempt,
+        self.plan,lambda:self.plan,lambda p:replace(self.attempt,operation_id=None),
         lambda p:AdmissionDecision(123,"main",B,True,"current"),
         lambda *args:None,lambda *args:True,
         reconcile_unknown=lambda p,a:recovered.append(a))
