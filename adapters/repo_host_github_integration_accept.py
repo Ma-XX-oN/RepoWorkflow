@@ -143,6 +143,10 @@ def accept_destination(backend, request, root, remote, *, verify_evidence):
   # Publishing this tag does NOT advance the destination. It makes a later
   # observed exact-SHA landing attributable to one authenticated request.
   publish_intent(backend, request)
+  # Independent authorization can be revoked while preparing the intent.
+  # It must still be valid at the actual provider acceptance boundary.
+  if verify_evidence(record) is not True:
+    raise AcceptanceProviderError("independent acceptance evidence revoked")
   # Revalidation immediately before mutation, even on resumed intent.
   if (read_lease(backend, dest) != lease
       or _sha(backend, "refs/heads/" + dest) != before):
