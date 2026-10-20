@@ -43,7 +43,8 @@ class FakeBackend:
     if path=="git/commits":
       self.counter+=1
       sha=f"{self.counter:040x}"
-      self.commits[sha]=dict(data)
+      self.commits[sha]={**data,
+        "parents":[{"sha":parent} for parent in data["parents"]]}
       return {"sha":sha}
     if path=="git/refs":
       if data["ref"] in self.tags:
