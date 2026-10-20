@@ -79,7 +79,7 @@ class PipelineTests(unittest.TestCase):
     self.plan = DonePlan(
       "123","patch","main",A,B,"ALLOWED",True,False,None,(),())
     self.calls = {"prepare":0}
-  def run(self, **overrides):
+  def invoke(self, **overrides):
     def prepare(plan):
       self.calls["prepare"] += 1
       return CertifiedAttempt(A,I,C,B,"tests-1","auth-1",
@@ -101,7 +101,7 @@ class PipelineTests(unittest.TestCase):
     return accept_one_ready_submission(**{**args,**overrides})
 
   def test_one_ready_end_to_end_local_provider_simulation(self):
-    result=self.run()
+    result=self.invoke()
     self.assertEqual(result.accepted.landed_sha,D)
     self.assertEqual(result.terminal.accepted_sha,C)
     self.assertEqual(self.host.terminal["status"],"integrated")
@@ -118,13 +118,13 @@ class PipelineTests(unittest.TestCase):
       return original(op,key,params)
     self.host.request=missing
     with self.assertRaisesRegex(DoneExecutionError,"READY physical"):
-      self.run()
+      self.invoke()
     self.assertEqual(self.host.lease["generation"],0)
 
   def test_failing_terminal_leaves_lease_for_recovery(self):
     self.host.fail="attempt.record"
     with self.assertRaises(Exception):
-      self.run()
+      self.invoke()
     self.assertEqual(self.host.main,D)
     self.assertEqual(self.host.lease["holder"],"worker-A")
 
@@ -132,7 +132,7 @@ class PipelineTests(unittest.TestCase):
     wrong=DestinationAcceptanceFacts(
       "Org/Repo",123,"main",G,9,"worker-A",D)
     with self.assertRaisesRegex(DoneExecutionError,"lease"):
-      self.run(provider_facts=wrong)
+      self.invoke(provider_facts=wrong)
     self.assertEqual(self.host.main,B)
 
 
