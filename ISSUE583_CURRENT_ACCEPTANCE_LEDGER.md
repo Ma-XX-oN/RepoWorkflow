@@ -1,9 +1,9 @@
 # RepoWorkflow #583 — Current independent acceptance crosswalk
 
-Snapshot: October 15, 2026 (Toronto).  74 cases: **60 PASS**,
-**14 PARTIAL**, **0 FAIL**.  Last fully hosted-green integrated source:
-`7f175d6372db9995edc26e4c37f4c0607e30e90e` in draft PR #666;
-regression `38745590475`, integration `38745604194`.
+Snapshot: October 20, 2026 (Toronto).  74 cases: **60 PASS**,
+**14 PARTIAL**, **0 FAIL**.  Last fully hosted-green executable source:
+`84c0ffbda82f95f3825131484fc09e375c7b9f74` in draft PR #666;
+regression `39503202539`, integration `39503212658`.
 This supplement retains the original 74-row historical acceptance ledger.
 
 ## Provider evidence key
@@ -49,6 +49,16 @@ This supplement retains the original 74-row historical acceptance ledger.
   First push accepted; stale second push rejected; fresh third clone
   verified durable first-writer state/history and byte-identical CSV.
   Disposable fixture ref deleted and readback confirmed absent.
+
+- **P** — exact source `84c0ffbda82f95f3825131484fc09e375c7b9f74`
+  regression `39503202539`; integration `39503212658`; PASS.
+  The added independent cached-graph/CSV lifecycle test passed
+  in both full 1,904-test runs (14 skips); all nine integration
+  platform probes passed. No executor #109 evidence was inferred.
+  Regression provider artifact `12301639359`, sha256
+  `5a67ce68f2baf4a4c817c2b35408bfd94e6dfeef38f19f247b63e74c2a3c04d3`.
+  Integration provider artifact `12301684623`, sha256
+  `daf5f9b2d5e85b37987a9ccd76158c7feb5ce61f842b1a6636d47cc4f43460f6`.
 
 ## Independent 74-case verdicts
 
@@ -333,11 +343,17 @@ This supplement retains the original 74-row historical acceptance ledger.
 
 ## Latest certification status
 
-- `.0.36` source hosted regression and integration SUCCESS, all 13
-  integration jobs including all nine platform checks PASS.
-- Authenticated shared GitHub provider C12 PASSED at the same source.
-- This documentation-only acceptance update requires new hosted
-  regression and integration against its exact final source.
-- Remaining 14 PARTIAL rows T01-T08, L08-L10, L17/L18/L20
-  await separately owned #109 mutating executor provider evidence.
+- `.0.38` hosted regression and integration SUCCESS at exact executable
+  source `84c0ffbda82f95f3825131484fc09e375c7b9f74`, 1,904 tests,
+  zero final suite failures, 14 skips, nine platform jobs passed.
+- The new independent graph/CSV oracle verifies default cached state,
+  explicit `--current` authoritative lifecycle revision refresh, and
+  byte-stable repeat refresh without lifecycle history changes.
+- C12 shared GitHub provider PASS remains preserved (evidence O).
+- #109 is an explicit direct prerequisite for final #583 DONE per the
+  October 18 authoritative issue update. T01-T08/L08-L10/L17/L18/L20
+  remain 14 PARTIAL, awaiting authenticated executor evidence from #109.
+- #677 is a separate convergence owner; no #109/#677 ownership transfer.
+- This documentation/version descendant requires fresh hosted gates
+  before treating the final ledger commit as fully certified.
 - No protected-main merge, stable tag, #85 activation or closure.
