@@ -173,8 +173,9 @@ class PipelineTests(unittest.TestCase):
   def test_empty_current_policy_denies_before_int(self):
     self.host.policy_present=True
     self.host.policy_text=""
-    with self.assertRaisesRegex(DoneExecutionError,"policy denied"):
+    with self.assertRaisesRegex(DoneExecutionError,"admission denied before claim"):
       self.invoke()
+    self.assertEqual(self.host.lease["generation"],0)
     self.assertIsNone(self.host.int_sha)
     self.assertEqual(self.host.main,B)
 
@@ -246,6 +247,7 @@ class PipelineTests(unittest.TestCase):
     with self.assertRaisesRegex(DoneExecutionError,"lease"):
       self.invoke(provider_facts=wrong)
     self.assertEqual(self.host.main,B)
+    self.assertEqual(self.host.lease["generation"],0)
 
 
 if __name__=="__main__":
