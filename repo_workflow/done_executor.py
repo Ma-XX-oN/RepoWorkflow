@@ -88,6 +88,7 @@ def execute_certified_done(
   if (attempt.source_prelim_sha != fresh.candidate_sha
       or not isinstance(attempt.source_prelim_ref, str)
       or not attempt.source_prelim_ref.startswith("refs/heads/PRELIM-")
+      or not isinstance(attempt.int_attempt_ref, str)
       or attempt.source_prelim_ref.removeprefix("refs/heads/PRELIM-")
          != attempt.int_attempt_ref.removeprefix("refs/heads/INT-ATTEMPT-")
       or attempt.expected_destination_sha != fresh.expected_parent_sha
