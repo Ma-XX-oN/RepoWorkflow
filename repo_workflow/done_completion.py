@@ -10,7 +10,6 @@ from .done_executor import DoneExecutionError
 from .done_provider_pipeline import AcceptedProviderAttempt
 from .done_retirement_bridge import retirement_bridge_from_v2
 from .done_evidence_promotion import Promotion
-from .prelim_retirement_remote import RefRetirement
 
 
 class CompletionError(DoneExecutionError):
@@ -22,7 +21,7 @@ class VerifiedCompletion:
   operation_id: str
   landed_sha: str
   terminal: object
-  retired: tuple[RefRetirement, RefRetirement]
+  retired: tuple[object, object]
   promotion: Promotion
   lifecycle: object
 
@@ -60,8 +59,7 @@ def complete_accepted_provider_attempt(
       result=retire_ref(landed,bridge.read_terminal,kind)
     except Exception as error:
       raise CompletionError("physical retirement UNKNOWN") from error
-    if (not isinstance(result,RefRetirement)
-        or result.ref != ref
+    if (getattr(result, 'ref', None) != ref
         or result.previously_observed_sha != sha
         or result.absent_after is not True):
       raise CompletionError("physical attempt retirement unverified")
