@@ -10,6 +10,8 @@ from .done_executor import (
   CertifiedAttempt, DoneExecutionError, execute_certified_done,
 )
 from .done_host_coordinator import IntegrationHostCoordinator
+from .done_mit_defer_v2 import defer_mit_with_provider
+from .done_stage_certification import MitTimedOut
 from .done_int_workspace import publish_int_workspace
 from .done_provider_acceptance import (
   DestinationAcceptanceFacts, bind_v2_destination_accept,
@@ -17,6 +19,13 @@ from .done_provider_acceptance import (
 from .done_terminal_v2 import publish_integrated_terminal
 from .integration_coordination import claim_prelim, release_prelim
 from .prelim_queue import ReadyPrelim
+
+
+@dataclass(frozen=True)
+class DeferredProviderAttempt:
+  ready: ReadyPrelim
+  evidence_ref: str
+  released_generation: int
 
 
 @dataclass(frozen=True)
@@ -34,6 +43,7 @@ def accept_one_ready_submission(
     create_id, update_id, integration_id,
     terminal_evidence_ref, terminal_request_id,
     reconcile_unknown=None,
+    mit_event_request_id=None, mit_read_request_id=None,
 ):
   """Bind actual provider operations; no implicit PASS or remote retry."""
   if not isinstance(ready, ReadyPrelim):
@@ -74,10 +84,22 @@ def accept_one_ready_submission(
     prepared.append(attempt)
     return attempt
 
-  accepted = execute_certified_done(
-    original_plan, refresh_plan, prepare, admission_check,
-    bind_v2_destination_accept(host, provider_facts),
-    verify_provider_result, reconcile_unknown=reconcile_unknown)
+  try:
+    accepted = execute_certified_done(
+      original_plan, refresh_plan, prepare, admission_check,
+      bind_v2_destination_accept(host, provider_facts),
+      verify_provider_result, reconcile_unknown=reconcile_unknown)
+  except MitTimedOut as deferred:
+    if (type(mit_event_request_id) is not str
+        or type(mit_read_request_id) is not str):
+      raise DoneExecutionError("MIT defer event IDs required") from deferred
+    recorded = defer_mit_with_provider(
+      host=host, ready=ready, lease=lease, holder=holder,
+      reason="timeout", evidence_ref=deferred.evidence_ref,
+      event_request_id=mit_event_request_id,
+      read_request_id=mit_read_request_id)
+    return DeferredProviderAttempt(
+      ready, deferred.evidence_ref, recorded.released_generation)
   if len(prepared) != 1:
     raise DoneExecutionError("certified INT attempt is not unique")
   terminal = publish_integrated_terminal(
