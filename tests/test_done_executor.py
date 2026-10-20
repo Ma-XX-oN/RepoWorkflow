@@ -226,7 +226,7 @@ class ExecutionGuardTests(unittest.TestCase):
     recovered=[]
     with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
       execute_certified_done(
-        self.plan,lambda:self.plan,lambda p:self.attempt,
+        self.plan,lambda:self.plan,lambda p:replace(self.attempt,operation_id=None),
         lambda p:AdmissionDecision(123,"main",B,True,"current"),
         lambda *args:None,lambda *args:True,
         reconcile_unknown=lambda p,a:recovered.append(a))
