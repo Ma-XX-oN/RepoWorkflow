@@ -11,7 +11,9 @@ from .done_executor import (
 )
 from .done_host_coordinator import IntegrationHostCoordinator
 from .done_mit_defer_v2 import defer_mit_with_provider
-from .done_stage_certification import MitTimedOut, CertifiedStages
+from .done_stage_certification import (
+  MitTimedOut, CertifiedStages, VerifiedStage,
+)
 from .done_int_workspace import publish_int_workspace
 from .done_policy_admission import current_destination_admission
 from .done_provider_acceptance import (
@@ -93,6 +95,12 @@ def accept_one_ready_submission(
         or stages.mit_policy.source_sha != attempt.tested_candidate_sha
         or stages.mit_policy.parent_sha != plan.expected_parent_sha
         or stages.mit_policy.independently_authenticated is not True
+        or any(not isinstance(receipt, VerifiedStage)
+               or receipt.status != "PASS"
+               or receipt.independently_authenticated is not True
+               or receipt.source_sha != attempt.tested_candidate_sha
+               or receipt.parent_sha != plan.expected_parent_sha
+               for receipt in stages.stages)
         or {receipt.stage for receipt in stages.stages}
            != ({'ART', 'AIT', 'release', 'MIT'}
                if stages.mit_policy.required else {'ART', 'AIT', 'release'})):
