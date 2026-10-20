@@ -120,6 +120,8 @@ def assemble():
     check=True)
   print("Executing strict #681 IntegrationHost transport interoperability",
         flush=True)
+  import sys
+  sys.path.insert(0, str(Path.cwd()))
   from repo_workflow.integration_host_v2 import IntegrationHost
   from tests.test_done_provider_pipeline import PipelineTests
   example = PipelineTests("test_one_ready_end_to_end_local_provider_simulation")
