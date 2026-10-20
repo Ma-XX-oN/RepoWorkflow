@@ -390,6 +390,10 @@
         "type": "regression",
         "name": "tests.test_local_terminal"
       },
+      "issue-109-evidence-promotion": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_promotion"
+      },
       "issue-109-host-coordination": {
         "type": "regression",
         "name": "tests.test_done_host_coordinator"
