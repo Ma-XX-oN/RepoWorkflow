@@ -86,4 +86,10 @@ def promote_from_provider(*, operation_id, tested_source_sha,
       raise PromotionError("post-publication stage readback UNKNOWN") from error
     if current != previous:
       raise PromotionError("source evidence changed during publication")
+  try:
+    still_landed = read_landing(operation_id)
+  except Exception as error:
+    raise PromotionError("post-publication landed readback UNKNOWN") from error
+  if still_landed != landing:
+    raise PromotionError("landing changed during promotion")
   return outcome
