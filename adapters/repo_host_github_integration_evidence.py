@@ -25,6 +25,7 @@ _RESPONSE_FIELDS = {
 }
 _KEY_BY_OP = {
   "attempt.record": "record",
+  "destination.accept": "record",
   "retirement.record": "record",
   "mit.deferred.record": "event",
   "mit.resume.record": "authorization",
