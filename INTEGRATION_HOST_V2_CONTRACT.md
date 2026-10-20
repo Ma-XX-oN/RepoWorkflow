@@ -161,3 +161,56 @@ policy rechecks (#104/#542); assembled #109 tested producer/executor path;
 end-to-end certification. Prior green CI is not the final source candidate.
 #683 is an independent producer and must not block #681 provider testing.
 #85/#86/#676 adversarial protected-production enforcement is deferred.
+
+
+## October 20 — authenticated destination acceptance provider (#681)
+
+This section freezes the *additive* provider v2 acceptance contract. No
+change to the existing v1 six-operation transport, PRELIM READY admission,
+producer ownership or #109 planner/executor API is implied.
+
+The new provider request `destination.accept` takes exactly one `record`
+containing:
+
+- `repository`, `destination`, `int_attempt_ref`, `accepted_sha`;
+- `expected_destination_sha`, `proposed_sha`, `guid`;
+- `lease_generation`, `holder`, `authorization_ref`, `evidence_ref`;
+- `operation_id` (must match the transport `request_id`).
+
+The successful provider result is `destination`, `expected_sha`,
+`landed_sha` and `operation_id`, with `landed_sha=proposed_sha`.
+This is a functional provider primitive, not permission to merge. It requires
+a separately authenticated #80 permission verdict and an out-of-checkout
+independent evidence-verifier verdict bound to exact request, record, actor
+and repository. Its verifier issuer is a deployment responsibility external
+to this source; no untrusted client-provided PASS is accepted.
+
+The provider independently checks authenticated Git remotes, the current
+destination SHA/policy snapshot, current exclusive destination lease
+generation/GUID/holder, immutable INT-ATTEMPT ref/accepted SHA, local proposed
+commit existence and destination ancestry. It sends exactly one Git-protocol
+expected-old-SHA remote update, checks the resulting provider tip and does not
+turn any lost/rejected Git ACK into an inferred integration PASS. UNKNOWN
+requires independently authenticated reconciliation and an exact terminal
+record; a verified success requires the original authority and identity.
+This new operation never modifies PRELIM refs or emits a queue item.
+
+Provider evidence:
+- Disposable-000 real destination acceptance and stale second contender
+  [run 39459815265](https://github.com/Ma-XX-oN/Disposable-000/actions/runs/39459815265)
+  PASS using source `b4316a2a3c84b65311e8bd00f2cb492f39e35223`.
+- External verifier/no-grant rejection, permitted first CAS, stale retry
+  refusal, destination lease binding, verified source and real cleanup PASS.
+  The production default branch was untouched; isolated disposable destination
+  was deleted. Earlier sandbox remote-binding test failure 39459642054
+  was corrected before the successful run, not reclassified as PASS.
+- Issue-681 destination provider-neutral and negative acceptance cases are
+  registered under `issue-681-destination-accept` and hosted with the
+  repository regression catalogue.
+
+Not asserted here: production deployment of independently protected
+authorization/evidence issuance; #109's actual ART/AIT/MIT certification
+and source-to-landed promotion; #103's retirement of a real #109 attempt;
+#677 assembled downstream conformance; or activation of hard security
+#85/#86/#676. #683 is independently owned and not a prerequisite of
+#681 provider-primitive acceptance.
