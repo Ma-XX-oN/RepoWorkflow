@@ -406,6 +406,10 @@
         "type": "regression",
         "name": "tests.test_done_int_workspace"
       },
+      "issue-109-ready-scheduler": {
+        "type": "regression",
+        "name": "tests.test_done_ready_scheduler"
+      },
       "issue-109-current-policy": {
         "type": "regression",
         "name": "tests.test_done_current_policy"
