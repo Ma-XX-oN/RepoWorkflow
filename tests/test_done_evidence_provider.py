@@ -26,6 +26,7 @@ class Provider:
     self.events=[]
     self.fail_publish=False
     self.corrupt_after_persist=False
+    self.move_landing_after_persist=False
 
   def landing_reader(self,operation):
     self.events.append(("landing",operation))
@@ -41,6 +42,8 @@ class Provider:
     if self.corrupt_after_persist:
       self.stages["release"]=replace(
         self.stages["release"],artifact_digest="changed-artifact")
+    if self.move_landing_after_persist:
+      self.landing=replace(self.landing,landed_sha=B)
     if self.fail_publish:
       raise TimeoutError("ACK dropped after append")
 
@@ -117,6 +120,12 @@ class ProviderEvidenceTests(unittest.TestCase):
   def test_changed_evidence_after_append_cannot_be_certified(self):
     self.p.corrupt_after_persist=True
     with self.assertRaisesRegex(PromotionError,"changed during"):
+      self.p.invoke()
+    self.assertIn("operation-1",self.p.persisted)
+
+  def test_changed_destination_after_promotion_fails_closed(self):
+    self.p.move_landing_after_persist=True
+    with self.assertRaisesRegex(PromotionError,"landing changed"):
       self.p.invoke()
     self.assertIn("operation-1",self.p.persisted)
 
