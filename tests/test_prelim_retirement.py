@@ -14,8 +14,12 @@ class RetirementTests(unittest.TestCase):
       plan_retirement(P,'a'*40,I,D,proof,observed_prelim_sha='a'*40,current_destination_sha='c'*40,landed_is_ancestor=True,terminal_record_readback=False)
   def test_generic_umbrella_and_uppercase_guid_are_accepted(self):
     p=P.replace('issue-123','team-X').replace('11111111-1111-4111-8111-111111111111','ABCDEFAB-1111-4111-8111-111111111111')
-    i=I.replace('issue-123','team-X')
+    i=I.replace('issue-123','team-X').replace('11111111-1111-4111-8111-111111111111','abcdefab-1111-4111-8111-111111111111')
     self.assertIsNone(verify_attempt_scope(p,i,D))
+  def test_same_scope_but_different_guids_cannot_retire_other_attempt(self):
+    other=I.replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222')
+    with self.assertRaisesRegex(PrelimRetirementError,'different scopes'):
+      verify_attempt_scope(P,other,D)
   def test_cross_umbrella_ref_is_rejected(self):
     with self.assertRaises(PrelimRetirementError):
       verify_attempt_scope(P,I.replace('issue-123','issue-999'),D)
