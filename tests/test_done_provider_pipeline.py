@@ -11,7 +11,7 @@ from repo_workflow.done_provider_pipeline import DeferredProviderAttempt
 from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
 from repo_workflow.done_provider_pipeline import accept_one_ready_submission
 from repo_workflow.done_stage_certification import (
-  CertifiedStages, VerifiedMitPolicy, MitTimedOut,
+  CertifiedStages, VerifiedMitPolicy, VerifiedStage, MitTimedOut,
 )
 from repo_workflow.integration_admission import AdmissionDecision
 from repo_workflow.prelim_queue import parse_ready_prelim
@@ -104,8 +104,11 @@ class PipelineTests(unittest.TestCase):
         "Org/Repo",123,"main",G,1,"worker-A",D),
       "verify_provider_result":lambda *a:True,
       "stage_certify":lambda source,parent:CertifiedStages(
-        source,parent,(),VerifiedMitPolicy(
-          source,parent,False,"policy-ref",True)),
+        source,parent,tuple(VerifiedStage(
+          name,source,parent,"PASS","run-"+name,"proof-"+name,
+          "catalogue","config","inputs","2027-01-01T00:00:00Z",True)
+          for name in ("ART","AIT","release")),
+        VerifiedMitPolicy(source,parent,False,"policy-ref",True)),
       "create_id":"create-1","update_id":"update-1",
       "integration_id":"integration-1",
       "terminal_evidence_ref":"terminal-proof-1",
