@@ -390,6 +390,10 @@
         "type": "regression",
         "name": "tests.test_local_terminal"
       },
+      "issue-109-retirement-bridge": {
+        "type": "regression",
+        "name": "tests.test_done_retirement_bridge"
+      },
       "issue-109-terminal-v2": {
         "type": "regression",
         "name": "tests.test_done_terminal_v2"
