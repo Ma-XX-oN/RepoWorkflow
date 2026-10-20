@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: e068959f8a68e04dacd659773d35fff25cd2ceb0
+          ref: 450f0980e69a435453816d0fed8d0bbf0a24f5ab
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -128,4 +128,4 @@ PY
           RESULT: ${{ job.status }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 assembly preflight source e068959f8a68e04dacd659773d35fff25cd2ceb0: $RESULT. Run https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Disposable local merges only; no production mutation or acceptance promotion."
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 assembly preflight source 450f0980e69a435453816d0fed8d0bbf0a24f5ab: $RESULT. Run https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Disposable local merges only; no production mutation or acceptance promotion."
