@@ -138,6 +138,29 @@ class DestinationRoundTripTests(unittest.TestCase):
       git(self.root, "ls-remote", "origin", result.ref)
       .stdout.split()[0], candidate.candidate_sha)
 
+    # A separate coordinator-owned integration candidate must be rebuilt
+    # against the current parent; historic PRELIM PASS is not promoted.
+    git(self.root, "fetch", "origin", "refs/heads/main")
+    advanced = git(self.root, "rev-parse", "FETCH_HEAD").stdout.strip()
+    git(self.root, "checkout", "-b", "INT-ATTEMPT-issue-7/main-" + G,
+        advanced)
+    git(self.root, "merge", "--no-ff", "--no-edit", candidate.candidate_sha)
+    reconstructed = git(self.root, "rev-parse", "HEAD").stdout.strip()
+    self.assertNotEqual(reconstructed, candidate.candidate_sha)
+    for ancestor in (advanced, candidate.candidate_sha):
+      self.assertEqual(
+        git(self.root, "merge-base", "--is-ancestor", ancestor,
+            reconstructed, check=False).returncode, 0)
+    self.assertEqual(
+      durable_store(self.root).read(v2_identity_key(G))
+      ["value"]["candidate_sha"], candidate.candidate_sha)
+    self.assertEqual(
+      git(self.root, "ls-remote", "origin", result.ref)
+      .stdout.split()[0], candidate.candidate_sha)
+    self.assertEqual(
+      git(self.root, "ls-remote", "origin",
+          "refs/heads/INT-ATTEMPT-*").stdout.strip(), "")
+
 
 if __name__ == "__main__":
   unittest.main()
