@@ -19,6 +19,7 @@ _REF = re.compile(
   r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _OPERATIONS = {
   "destination.read": {"destination"},
+  "destination.accept": {"record"},
   "refs.list": {"prefix"},
   "ref.create": {"ref", "sha"},
   "ref.cas": {"ref", "expected_sha", "sha"},
@@ -163,6 +164,43 @@ def _valid_retirement(record, guid, kind, repository):
   return True
 
 
+_ACCEPT_FIELDS = {
+  "repository", "destination", "int_attempt_ref", "accepted_sha",
+  "expected_destination_sha", "proposed_sha", "guid", "lease_generation",
+  "holder", "authorization_ref", "evidence_ref", "operation_id",
+}
+
+
+def _valid_acceptance(v):
+  if type(v) is not dict or set(v) != _ACCEPT_FIELDS:
+    return False
+  if (type(v["repository"]) is not str
+      or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
+                      v["repository"]) is None
+      or type(v["destination"]) is not str
+      or re.fullmatch(r"[A-Za-z0-9._/-]+", v["destination"]) is None
+      or any(x in ("", ".", "..") for x in v["destination"].split("/"))
+      or type(v["guid"]) is not str or not _GUID.fullmatch(v["guid"])
+      or type(v["lease_generation"]) is not int
+      or v["lease_generation"] < 1
+      or type(v["holder"]) is not str or not v["holder"].strip()):
+    return False
+  for key in ("accepted_sha", "expected_destination_sha", "proposed_sha"):
+    if type(v[key]) is not str or _SHA.fullmatch(v[key]) is None:
+      return False
+  if (v["expected_destination_sha"] == v["proposed_sha"]
+      or type(v["int_attempt_ref"]) is not str
+      or re.fullmatch(
+        r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
+        + re.escape(v["destination"]) + "-" + re.escape(v["guid"]),
+        v["int_attempt_ref"]) is None
+      or type(v["operation_id"]) is not str
+      or _ID.fullmatch(v["operation_id"]) is None):
+    return False
+  return all(type(v[k]) is str and bool(v[k].strip())
+             for k in ("authorization_ref", "evidence_ref"))
+
+
 def _valid_ref(ref):
   if type(ref) is not str or not _REF.fullmatch(ref):
     return False
@@ -194,6 +232,8 @@ def _valid_params(op, values):
         type(value) is not str or not value or
         any(part in ("", ".", "..") for part in value.split("/"))):
       return False
+  if op == "destination.accept":
+    return _valid_acceptance(values["record"])
   if op == "refs.list":
     return values["prefix"] == "refs/heads/PRELIM-"
   if op in {"ref.create", "ref.cas"}:
@@ -241,8 +281,15 @@ def _valid_result(operation, request, result):
            or (not result["policy_present"] and
                result["policy_text"] is None))
     )
+  if operation == "destination.accept":
+    return (set(result) == {"destination", "expected_sha", "landed_sha",
+                            "operation_id"}
+      and result["destination"] == request["record"]["destination"]
+      and result["expected_sha"] == request["record"]["expected_destination_sha"]
+      and result["landed_sha"] == request["record"]["proposed_sha"]
+      and result["operation_id"] == request["record"]["operation_id"])
   if operation == "refs.list":
-    return (set(result) == {"refs"} and type(result["refs"]) is dict
+    return (set(result) == {"refs" and type(result["refs"]) is dict
       and all(type(ref) is str and ref.startswith("refs/heads/PRELIM-")
               and type(sha) is str and _SHA.fullmatch(sha)
               for ref, sha in result["refs"].items()))
@@ -326,6 +373,10 @@ class IntegrationHost:
       raise IntegrationHostError("invalid idempotency key")
     if not _valid_params(operation, parameters):
       raise IntegrationHostError("invalid integration parameters")
+    if operation == "destination.accept" and (
+        parameters["record"]["repository"] != self.repository
+        or parameters["record"]["operation_id"] != request_id):
+      raise IntegrationHostError("acceptance request/repository mismatch")
     if (operation == "attempt.record" and
         not _valid_terminal(parameters["record"],
                             parameters["guid"], self.repository)):
