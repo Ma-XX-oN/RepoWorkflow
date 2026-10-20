@@ -197,7 +197,10 @@ to validation/audit evidence and task-version history; it does not create a
 same-state lifecycle event merely to record activity.
 
 Completion is distinct from acceptance because integration/authorization policy
-can remain between those facts.
+can remain between those facts.  For a designated convergence owner, the
+handoff and child-closure responsibilities are defined in
+[WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) section 13.4.
+Handoff itself introduces no lifecycle transition or dependency satisfaction.
 
 ## 8. Relationship reference
 
