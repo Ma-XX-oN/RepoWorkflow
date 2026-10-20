@@ -107,7 +107,7 @@ class ProviderCoordinatorTests(unittest.TestCase):
       "repository": "Other/Repo", "guid": GUID,
       "destination": "main", "prelim_sha": A, "lease_generation": 1,
       "evidence_ref": "x", "reason": "timeout"}
-    with self.assertRaisesRegex(CoordinationError, "provenance"):
+    with self.assertRaisesRegex(CoordinationError, "UNKNOWN"):
       claim_prelim(self.coord, self.ready, "worker-A")
     self.assertEqual(self.host.lease["generation"], 0)
 
