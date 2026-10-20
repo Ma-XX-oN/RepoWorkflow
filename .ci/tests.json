@@ -390,82 +390,25 @@
         "type": "regression",
         "name": "tests.test_local_terminal"
       },
-      "issue-109-provider-pipeline": {
-        "type": "regression",
-        "name": "tests.test_done_provider_pipeline"
-      },
-      "issue-109-retirement-bridge": {
-        "type": "regression",
-        "name": "tests.test_done_retirement_bridge"
-      },
-      "issue-109-terminal-v2": {
-        "type": "regression",
-        "name": "tests.test_done_terminal_v2"
-      },
-      "issue-109-int-workspace": {
-        "type": "regression",
-        "name": "tests.test_done_int_workspace"
-      },
-      "issue-109-lifecycle-binding": {
-        "type": "regression",
-        "name": "tests.test_done_lifecycle_binding"
-      },
-      "issue-109-landed-results": {
-        "type": "regression",
-        "name": "tests.test_done_landed_results"
-      },
-      "issue-109-failed-terminal": {
-        "type": "regression",
-        "name": "tests.test_done_failed_attempt"
-      },
-      "issue-109-ready-scheduler": {
-        "type": "regression",
-        "name": "tests.test_done_ready_scheduler"
-      },
-      "issue-109-current-policy": {
-        "type": "regression",
-        "name": "tests.test_done_current_policy"
-      },
-      "issue-109-completion": {
-        "type": "regression",
-        "name": "tests.test_done_completion"
-      },
-      "issue-109-policy-admission": {
-        "type": "regression",
-        "name": "tests.test_done_policy_admission"
-      },
-      "issue-109-stage-certification": {
-        "type": "regression",
-        "name": "tests.test_done_stage_certification"
-      },
-      "issue-109-mit-defer-v2": {
-        "type": "regression",
-        "name": "tests.test_done_mit_defer_v2"
-      },
-      "issue-109-evidence-provider": {
-        "type": "regression",
-        "name": "tests.test_done_evidence_provider"
-      },
-      "issue-109-evidence-promotion": {
-        "type": "regression",
-        "name": "tests.test_done_evidence_promotion"
-      },
-      "issue-109-host-coordination": {
-        "type": "regression",
-        "name": "tests.test_done_host_coordinator"
-      },
-      "issue-109-provider-acceptance": {
-        "type": "regression",
-        "name": "tests.test_done_provider_acceptance"
-      },
-      "issue-109-executor": {
-        "type": "regression",
-        "name": "tests.test_done_executor"
-      },
-      "issue-109-coordination": {
-        "type": "regression",
-        "name": "tests.test_integration_coordination"
-      }
+      "issue-109-provider-pipeline": {"type": "regression", "name": "tests.test_done_provider_pipeline"},
+      "issue-109-retirement-bridge": {"type": "regression", "name": "tests.test_done_retirement_bridge"},
+      "issue-109-terminal-v2": {"type": "regression", "name": "tests.test_done_terminal_v2"},
+      "issue-109-int-workspace": {"type": "regression", "name": "tests.test_done_int_workspace"},
+      "issue-109-lifecycle-binding": {"type": "regression", "name": "tests.test_done_lifecycle_binding"},
+      "issue-109-landed-results": {"type": "regression", "name": "tests.test_done_landed_results"},
+      "issue-109-failed-terminal": {"type": "regression", "name": "tests.test_done_failed_attempt"},
+      "issue-109-ready-scheduler": {"type": "regression", "name": "tests.test_done_ready_scheduler"},
+      "issue-109-current-policy": {"type": "regression", "name": "tests.test_done_current_policy"},
+      "issue-109-completion": {"type": "regression", "name": "tests.test_done_completion"},
+      "issue-109-policy-admission": {"type": "regression", "name": "tests.test_done_policy_admission"},
+      "issue-109-stage-certification": {"type": "regression", "name": "tests.test_done_stage_certification"},
+      "issue-109-mit-defer-v2": {"type": "regression", "name": "tests.test_done_mit_defer_v2"},
+      "issue-109-evidence-provider": {"type": "regression", "name": "tests.test_done_evidence_provider"},
+      "issue-109-evidence-promotion": {"type": "regression", "name": "tests.test_done_evidence_promotion"},
+      "issue-109-host-coordination": {"type": "regression", "name": "tests.test_done_host_coordinator"},
+      "issue-109-provider-acceptance": {"type": "regression", "name": "tests.test_done_provider_acceptance"},
+      "issue-109-executor": {"type": "regression", "name": "tests.test_done_executor"},
+      "issue-109-coordination": {"type": "regression", "name": "tests.test_integration_coordination"}
     },
     {
       "test-harness": "script-runner",
