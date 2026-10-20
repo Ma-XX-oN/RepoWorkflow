@@ -11,7 +11,7 @@ from .done_executor import (
 )
 from .done_host_coordinator import IntegrationHostCoordinator
 from .done_mit_defer_v2 import defer_mit_with_provider
-from .done_stage_certification import MitTimedOut
+from .done_stage_certification import MitTimedOut, CertifiedStages
 from .done_int_workspace import publish_int_workspace
 from .done_provider_acceptance import (
   DestinationAcceptanceFacts, bind_v2_destination_accept,
@@ -44,6 +44,7 @@ def accept_one_ready_submission(
     terminal_evidence_ref, terminal_request_id,
     reconcile_unknown=None,
     mit_event_request_id=None, mit_read_request_id=None,
+    stage_certify=None,
 ):
   """Bind actual provider operations; no implicit PASS or remote retry."""
   if not isinstance(ready, ReadyPrelim):
@@ -65,6 +66,8 @@ def accept_one_ready_submission(
   if provider_facts.lease_generation != lease.generation:
     raise DoneExecutionError("acceptance facts mismatch authoritative lease")
 
+  if not callable(stage_certify):
+    raise DoneExecutionError('independent stage certification is mandatory')
   prepared = []
 
   def prepare(plan):
@@ -73,6 +76,12 @@ def accept_one_ready_submission(
         or attempt.source_prelim_ref != ready.ref
         or attempt.source_prelim_sha != ready.sha):
       raise DoneExecutionError("certified source differs from immutable READY")
+    stages = stage_certify(attempt.tested_candidate_sha,
+                           plan.expected_parent_sha)
+    if (not isinstance(stages, CertifiedStages)
+        or stages.source_sha != attempt.tested_candidate_sha
+        or stages.parent_sha != plan.expected_parent_sha):
+      raise DoneExecutionError('authenticated stage identity differs')
     workspace = publish_int_workspace(
       host=host, ready=ready,
       expected_parent_sha=plan.expected_parent_sha,
