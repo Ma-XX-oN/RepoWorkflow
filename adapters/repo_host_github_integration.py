@@ -73,12 +73,12 @@ def create_int_attempt(backend, request, *, authorized):
   except Exception as error:
     raise IntegrationProviderError("request reservation outcome UNKNOWN") from error
   observed = _read_ref(backend, ref)
-  if not fresh:
-    if observed != sha:
-      raise IntegrationProviderError("reserved request lacks matching ref")
+  if not fresh and observed == sha:
     return "unchanged", {"ref": ref, "sha": sha}
   if observed is not None:
     raise IntegrationProviderError("INT-ATTEMPT ref already exists")
+  # The exact reservation can survive a crash before ref publication.
+  # Continue only when the same reserved request has no published ref.
   try:
     backend.post("git/refs", {"ref": ref, "sha": sha})
   except Exception:
