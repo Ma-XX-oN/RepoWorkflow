@@ -28,7 +28,7 @@ jobs:
             conflicts="$(git diff --name-only --diff-filter=U)"
             while IFS= read -r path; do
               case "$path" in
-                .ci/run|.ci/tests.json) ;;
+                .ci/run|.ci/tests.json|.ci/engine-version) ;;
                 *) echo "UNEXPECTED CONFLICT: $path"; exit 1 ;;
               esac
             done <<< "$conflicts"
@@ -85,7 +85,20 @@ jobs:
               git checkout --ours -- .ci/run
               git add .ci/run
             fi
-            git diff --name-only --diff-filter=U | grep -q . && exit 1 || true
+            if git ls-files -u -- .ci/engine-version | grep -q .; then
+    python - <<'PY'
+import re
+import subprocess
+for stage in (2, 3):
+  version = subprocess.check_output(
+    ["git", "show", f":{stage}:.ci/engine-version"], text=True)
+  assert re.fullmatch(r"0\.1\.122-issue\.(109|683)\.0\.[0-9]+\n",
+                      version), version
+PY
+    git checkout --ours -- .ci/engine-version
+    git add .ci/engine-version
+  fi
+  git diff --name-only --diff-filter=U | grep -q . && exit 1 || true
             git commit --no-edit
           }
           echo "ASSEMBLE #103 d6acd97219ac45a90634d0a8c0b90780e9b7e5ff"
