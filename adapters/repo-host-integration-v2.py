@@ -21,6 +21,7 @@ from repo_host_github_integration_terminal import (
 from repo_host_github_integration_lease import read_lease, cas_lease, _remote_scope
 from repo_host_github_integration_destination import read_destination_snapshot
 from repo_host_github_integration_mit import read_mit, record_mit
+from repo_host_github_integration_evidence import make_evidence_verifier
 from repo_host_github_integration_retirement import (
   read_retirement, record_retirement,
 )
@@ -91,29 +92,36 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
     if not isinstance(decision, dict):
       raise IntegrationHostError("trusted authorization proof missing")
     if operation == "attempt.record":
-      if verify_terminal_evidence is None:
+      witness = (verify_terminal_evidence if verify_terminal_evidence is not None
+                 else make_evidence_verifier(value, backend))
+      if witness is None:
         raise IntegrationHostError("trusted terminal verifier unavailable")
       return terminal_write(
         backend, params["record"], authorized=True,
-        verify_evidence=verify_terminal_evidence,
+        verify_evidence=witness,
       )
     if operation in {"mit.deferred.record", "mit.resume.record"}:
-      if verify_mit_evidence is None:
+      witness = (verify_mit_evidence if verify_mit_evidence is not None
+                 else make_evidence_verifier(value, backend))
+      if witness is None:
         raise IntegrationHostError("trusted MIT event verifier unavailable")
       kind = "resume" if operation.startswith("mit.resume") else "deferred"
       key = "authorization" if kind == "resume" else "event"
       status, record = mit_write(
-        backend, kind, params[key], verify_evidence=verify_mit_evidence)
+        backend, kind, params[key], verify_evidence=witness)
       return status, {
         "guid": params["guid"], "destination": params["destination"],
         key: record,
       }
     if operation == "retirement.record":
-      if verify_retirement_evidence is None:
+      witness = (verify_retirement_evidence
+                 if verify_retirement_evidence is not None
+                 else make_evidence_verifier(value, backend))
+      if witness is None:
         raise IntegrationHostError("trusted retirement verifier unavailable")
       status, record = retirement_write(
         backend, params["record"],
-        verify_deletion=verify_retirement_evidence,
+        verify_deletion=witness,
       )
       return status, {
         "guid": params["guid"], "ref_kind": params["ref_kind"],
