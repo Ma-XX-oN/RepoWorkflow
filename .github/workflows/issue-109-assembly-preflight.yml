@@ -1,4 +1,4 @@
-name: RWF 109 disposable dependency assembly
+name: RWF 109 isolated certified-source assembly
 on:
   push:
     branches:
@@ -7,125 +7,25 @@ permissions:
   contents: read
   issues: write
 jobs:
-  assembly:
+  assemble:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 450f0980e69a435453816d0fed8d0bbf0a24f5ab
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Assemble exact certified sources without remote mutation
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "RWF acceptance"
-          git config user.email "rwf-acceptance@example.invalid"
-          resolve_catalogue() {
-            local conflicts
-            conflicts="$(git diff --name-only --diff-filter=U)"
-            while IFS= read -r path; do
-              case "$path" in
-                .ci/run|.ci/tests.json|.ci/engine-version) ;;
-                *) echo "UNEXPECTED CONFLICT: $path"; exit 1 ;;
-              esac
-            done <<< "$conflicts"
-            if git ls-files -u -- .ci/tests.json | grep -q .; then
-              python - <<'PY'
-          import json
-          import subprocess
-          from pathlib import Path
-          def load(stage):
-            return json.loads(subprocess.check_output(
-              ["git", "show", f":{stage}:.ci/tests.json"]))
-          ours, theirs = load(2), load(3)
-          assert set(ours) == set(theirs)
-          for category in ("test-harnesses", "aliases"):
-            for name, value in theirs[category].items():
-              assert name not in ours[category] or ours[category][name] == value
-              ours[category][name] = value
-          by_key = {}
-          for group in ours["tests"]:
-            for name, value in group.items():
-              if name != "test-harness":
-                by_key[(group["test-harness"], name)] = value
-          for group in theirs["tests"]:
-            harness = group["test-harness"]
-            for name, value in group.items():
-              if name == "test-harness":
-                continue
-              key = (harness, name)
-              assert key not in by_key or by_key[key] == value, key
-              if key not in by_key:
-                target = next((g for g in ours["tests"]
-                  if g["test-harness"] == harness), None)
-                if target is None:
-                  target = {"test-harness": harness}
-                  ours["tests"].append(target)
-                target[name] = value
-                by_key[key] = value
-          Path(".ci/tests.json").write_text(
-            json.dumps(ours, indent=2) + "\n", encoding="utf-8")
-          print(f"Merged {len(by_key)} unique catalogue entries")
-          PY
-              git add .ci/tests.json
-            fi
-            if git ls-files -u -- .ci/run | grep -q .; then
-              python - <<'PY'
-          import re
-          import subprocess
-          for stage in (2, 3):
-            marker = subprocess.check_output(
-              ["git", "show", f":{stage}:.ci/run"], text=True)
-            assert re.fullmatch(
-              r"(?:regression-testing|integration-testing) [0-9a-f]{40}\n", marker)
-          PY
-              git checkout --ours -- .ci/run
-              git add .ci/run
-            fi
-            if git ls-files -u -- .ci/engine-version | grep -q .; then
-    python - <<'PY'
-import re
-import subprocess
-for stage in (2, 3):
-  version = subprocess.check_output(
-    ["git", "show", f":{stage}:.ci/engine-version"], text=True)
-  assert re.fullmatch(r"0\.1\.122-issue\.(109|683)\.0\.[0-9]+\n",
-                      version), version
-PY
-    git checkout --ours -- .ci/engine-version
-    git add .ci/engine-version
-  fi
-  git diff --name-only --diff-filter=U | grep -q . && exit 1 || true
-            git commit --no-edit
-          }
-          echo "ASSEMBLE #103 d6acd97219ac45a90634d0a8c0b90780e9b7e5ff"
-          git fetch --no-tags origin d6acd97219ac45a90634d0a8c0b90780e9b7e5ff
-          if ! git merge --no-ff --no-edit d6acd97219ac45a90634d0a8c0b90780e9b7e5ff; then
-            resolve_catalogue
-          fi
-          echo "ASSEMBLE #681 4938f73312691e7e593cd758965eb538f9e40baf"
-          git fetch --no-tags origin 4938f73312691e7e593cd758965eb538f9e40baf
-          if ! git merge --no-ff --no-edit 4938f73312691e7e593cd758965eb538f9e40baf; then
-            resolve_catalogue
-          fi
-          echo "ASSEMBLE #683 ba3dde739701fcd358a01faf6f134078b0bf7924"
-          git fetch --no-tags origin ba3dde739701fcd358a01faf6f134078b0bf7924
-          if ! git merge --no-ff --no-edit ba3dde739701fcd358a01faf6f134078b0bf7924; then
-            resolve_catalogue
-          fi
-          echo "FINAL ASSEMBLY SOURCE:"
-          git rev-parse HEAD
-          git status --porcelain
-          python -m unittest -v tests.test_done_executor tests.test_done_provider_acceptance
-      - name: Report terminal result to issue
+      - name: Install declared runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Assemble #109 plus certified #103 #681 #683 without remote mutation
+        run: python scripts/issue-109-assemble-probe.py
+      - name: Report exact-source assembly result
         if: always()
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ job.status }}
+          OUTCOME: ${{ job.status }}
           RUN_ID: ${{ github.run_id }}
+        shell: bash
         run: |
-          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 assembly preflight source 450f0980e69a435453816d0fed8d0bbf0a24f5ab: $RESULT. Run https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Disposable local merges only; no production mutation or acceptance promotion."
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 disposable exact-source assembly (no remote merge) f90dff9bd1c461fb0420a9153e4be3955d8ac4c2 + #103 d6acd97219ac45a90634d0a8c0b90780e9b7e5ff + #681 4938f73312691e7e593cd758965eb538f9e40baf + #683 ba3dde739701fcd358a01faf6f134078b0bf7924: $OUTCOME. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID"
