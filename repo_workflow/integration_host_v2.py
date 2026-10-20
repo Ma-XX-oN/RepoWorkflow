@@ -289,7 +289,7 @@ def _valid_result(operation, request, result):
       and result["landed_sha"] == request["record"]["proposed_sha"]
       and result["operation_id"] == request["record"]["operation_id"])
   if operation == "refs.list":
-    return (set(result) == {"refs" and type(result["refs"]) is dict
+    return (set(result) == {"refs"} and type(result["refs"]) is dict
       and all(type(ref) is str and ref.startswith("refs/heads/PRELIM-")
               and type(sha) is str and _SHA.fullmatch(sha)
               for ref, sha in result["refs"].items()))
