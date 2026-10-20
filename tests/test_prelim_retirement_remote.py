@@ -14,7 +14,7 @@ from repo_workflow.prelim_retirement_execute import retire_landed_attempt_ref
 P = ("refs/heads/PRELIM-issue-123/main-"
      "11111111-1111-4111-8111-111111111111")
 I = ("refs/heads/INT-ATTEMPT-issue-123/main-"
-     "22222222-2222-4222-8222-222222222222")
+     "11111111-1111-4111-8111-111111111111")
 
 
 def git(root, *args):
@@ -145,7 +145,7 @@ class RemoteRetirementTests(unittest.TestCase):
   def test_sibling_attempt_with_same_sha_is_never_deleted(self):
     sibling = P.replace("11111111-1111-4111-8111-111111111111",
                         "99999999-9999-4999-8999-999999999999")
-    sibling_int = I.replace("22222222-2222-4222-8222-222222222222",
+    sibling_int = I.replace("11111111-1111-4111-8111-111111111111",
                             "88888888-8888-4888-8888-888888888888")
     git(self.root, "push", "origin", self.a + ":" + sibling)
     git(self.root, "push", "origin", self.a + ":" + sibling_int)
