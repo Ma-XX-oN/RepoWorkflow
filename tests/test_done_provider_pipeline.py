@@ -128,6 +128,33 @@ class PipelineTests(unittest.TestCase):
     self.assertEqual(self.host.main,D)
     self.assertEqual(self.host.lease["holder"],"worker-A")
 
+  def test_foreign_authority_denied_without_acquiring_lease(self):
+    variations = (
+      DestinationAcceptanceFacts(
+        "Other/Repo",123,"main",G,1,"worker-A",D),
+      DestinationAcceptanceFacts(
+        "Org/Repo",124,"main",G,1,"worker-A",D),
+      DestinationAcceptanceFacts(
+        "Org/Repo",123,"other",G,1,"worker-A",D),
+      DestinationAcceptanceFacts(
+        "Org/Repo",123,"main",G,1,"worker-Z",D),
+    )
+    for facts in variations:
+      with self.subTest(facts=facts):
+        with self.assertRaisesRegex(
+            DoneExecutionError,"before lease claim"):
+          self.invoke(provider_facts=facts)
+    self.assertEqual(self.host.lease["generation"],0)
+    self.assertEqual(self.host.main,B)
+
+  def test_cross_submission_plan_denied_before_lease(self):
+    other = DonePlan(
+      "124","patch","main",A,B,"ALLOWED",True,False,None,(),())
+    with self.assertRaisesRegex(
+        DoneExecutionError, "before lease claim"):
+      self.invoke(original_plan=other)
+    self.assertEqual(self.host.lease["generation"],0)
+
   def test_wrong_lease_generation_rejected_without_destination_mutation(self):
     wrong=DestinationAcceptanceFacts(
       "Org/Repo",123,"main",G,9,"worker-A",D)

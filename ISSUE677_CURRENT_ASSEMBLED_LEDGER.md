@@ -63,3 +63,25 @@ The provider log identifies `PipelineTests.run()` shadowing the
 the fixture in its separate owned branch.  The source blob is imported
 on #677 assembly; this is not owner transfer.  New hosted testing is
 required.  Neither prior job is a PASS.
+
+## Previous exact-source acceptance — terminal GREEN
+
+Source `4491be28b0abb74e6bcd51197495addb6f000462` is genuinely
+hosted certified for its own scope.  #677 assembly probe
+`39506896851` completed SUCCESS in both focused and full regression
+jobs; 2416 unittest cases ran, 14 historical skips, zero final suite
+failures.  The exact-source integration request `a72bc1d6656b76e23f034d9f44fba2e2324105a4`
+ran `39507229178` SUCCESS: 2416 tests, 14 skips, all nine
+Ubuntu/Windows/macOS probes PASS, validator PASS, publish PASS and
+read-only results PASS.  Stage artifact 12304482579 and provider artifact
+12304957169 were published.  No actual end-to-end authenticated provider
+integration/retirement was thereby certified.
+
+## New owner source reconciliation
+
+#109 PR #680 advanced to exact `5273b33564b3546b3cc68834f1359c57913247df`.  Its
+provider-pipeline pre-lease identity verification and fail-closed
+cross-submission negatives replace the older #109 pipeline snapshot here.
+The source is imported as exact blobs and focused tests are expanded.
+The latest source requires its own exact-SHA hosted results; do not treat
+previous integration PASS as certification of this changed code.
