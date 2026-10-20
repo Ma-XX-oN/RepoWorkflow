@@ -244,7 +244,7 @@ class ExecutionGuardTests(unittest.TestCase):
 
   def test_unknown_recovery_refuses_absent_operation_id(self):
     recovered=[]
-    with self.assertRaisesRegex(DoneExecutionError,"UNKNOWN"):
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
       execute_certified_done(
         self.plan,lambda:self.plan,lambda p:replace(self.attempt,operation_id=None),
         lambda p:AdmissionDecision(123,"main",B,True,"current"),
