@@ -24,7 +24,8 @@ class ExecutionGuardTests(unittest.TestCase):
       True, False, None, (), (),
     )
     self.attempt = CertifiedAttempt(
-      A, INT, C, B, "evidence-1", "auth-1", "operation-1")
+      A, INT, C, B, "evidence-1", "auth-1", "operation-1",
+      INT.replace("INT-ATTEMPT-", "PRELIM-"))
     self.calls = []
 
   def execute(self, **changes):
@@ -128,6 +129,25 @@ class ExecutionGuardTests(unittest.TestCase):
       self.execute(admission=AdmissionDecision(
         124, "main", B, True, "wrong child",
       ))
+    self.assertEqual(self.calls, [])
+
+  def test_missing_original_prelim_ref_is_rejected(self):
+    with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
+      self.execute(attempt=replace(self.attempt,source_prelim_ref=None))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_prelim_guid_is_rejected(self):
+    other=self.attempt.source_prelim_ref.replace(
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222")
+    with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
+      self.execute(attempt=replace(self.attempt,source_prelim_ref=other))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_prelim_ticket_is_rejected(self):
+    other=self.attempt.source_prelim_ref.replace("issue-123/", "issue-124/")
+    with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
+      self.execute(attempt=replace(self.attempt,source_prelim_ref=other))
     self.assertEqual(self.calls, [])
 
   def test_foreign_int_attempt_ticket_is_rejected(self):
