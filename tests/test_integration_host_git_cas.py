@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "adapters"))
 from repo_host_github_integration import (
@@ -63,6 +64,20 @@ class GitCasTests(unittest.TestCase):
     self.assertEqual(result["sha"], self.b)
     with self.assertRaisesRegex(IntegrationProviderError, "CAS"):
       cas_int_attempt_git(self.two, "origin", REF, self.a, self.c)
+    self.assertEqual(self.remote_sha(), self.b)
+
+  def test_lost_ack_after_actual_provider_write_is_reconciled(self):
+    original_run = subprocess.run
+
+    def drop_push_ack(*args, **kwargs):
+      result = original_run(*args, **kwargs)
+      if "push" in args[0] and result.returncode == 0:
+        return subprocess.CompletedProcess(args[0], 1, "", "ACK lost")
+      return result
+
+    with patch("subprocess.run", side_effect=drop_push_ack):
+      result = cas_int_attempt_git(self.one, "origin", REF, self.a, self.b)
+    self.assertEqual(result, {"ref": REF, "sha": self.b})
     self.assertEqual(self.remote_sha(), self.b)
 
   def test_prelim_update_is_forbidden(self):
