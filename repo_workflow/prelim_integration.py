@@ -227,26 +227,49 @@ def request_prelim_integration(
   )
 
 
+def prepare_ready_prelim(root: Path, ticket: int, source_ref: str,
+    destination: str, config: dict, *, resolve_parent, guid=None,
+    bump="patch"):
+  """Default first-use producer: construct a local, not-yet-READY candidate."""
+  from .prelim_ready_v2_prepare import prepare_destination_prelim
+  if type(ticket) is not int or ticket < 1:
+    raise PrelimIntegrationError("invalid READY ticket")
+  return prepare_destination_prelim(
+    root, str(ticket), source_ref, destination, config,
+    resolve_parent=resolve_parent, guid=guid, bump=bump,
+  )
+
+
+def validate_ready_prelim(root: Path, attempt: str, config: dict, *,
+    regression, integration):
+  """Accept only independently authenticated #102 exact-candidate evidence."""
+  from .prelim_ready_v2_validation import validate_destination_prelim
+  return validate_destination_prelim(
+    root, attempt, config, regression=regression, integration=integration,
+  )
+
+
 def submit_ready_prelim(root: Path, attempt: str, config: dict, *,
     ticket: int, destination: str, request_id: str, backend,
     resolve_parent, read_publication_record=None):
-  """Publish the READY branch itself, not a separate PR/queue request.
+  """Default READY event: publish only a validated v2 physical candidate.
 
-  The #82 recorded candidate, #102 published PASS validation, current
-  authoritative parent and immutable target are checked by #683's
-  certified publisher. Existing request_prelim_integration is retained
-  solely as the historical v1 interface during migration.
+  A missing v2 PASS identity fails closed. It must never silently select the
+  historical prelim-main publisher or create an integration PR/queue marker.
   """
-  from .prelim_ready_v2_validation import v2_identity_ref
   from .prelim_ready_v2_publish import publish_destination_prelim
-  remote = config["repository"]["authoritativeRemote"]
-  if _remote_ref(Path(root).resolve(), remote, v2_identity_ref(attempt)):
-    return publish_destination_prelim(
-      root, config, ticket=ticket, destination=destination,
-      guid=attempt, request_id=request_id, backend=backend,
-      resolve_parent=resolve_parent,
-      read_publication_record=read_publication_record,
-    )
+  return publish_destination_prelim(
+    root, config, ticket=ticket, destination=destination,
+    guid=attempt, request_id=request_id, backend=backend,
+    resolve_parent=resolve_parent,
+    read_publication_record=read_publication_record,
+  )
+
+
+def submit_legacy_recorded_ready(root: Path, attempt: str, config: dict, *,
+    ticket: int, destination: str, request_id: str, backend,
+    resolve_parent, read_publication_record=None):
+  """Explicit migration-only path for a certified historical v1 attempt."""
   from .prelim_ready_recorded import publish_recorded_ready_certified
   return publish_recorded_ready_certified(
     root, config, ticket=ticket, destination=destination,

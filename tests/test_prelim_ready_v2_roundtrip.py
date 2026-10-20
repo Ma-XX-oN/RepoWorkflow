@@ -89,6 +89,18 @@ class DestinationRoundTripTests(unittest.TestCase):
       git(self.root, "ls-remote", "origin",
           "refs/heads/PRELIM-*").stdout.strip(), "")
 
+    # A historical offline candidate may first become READY after destination
+    # advancement. Its accepted SHA and tags remain historical; no rebase.
+    git(self.root, "checkout", "main")
+    (self.root / "later.txt").write_text("new remote parent\\n")
+    git(self.root, "add", "--", "later.txt")
+    git(self.root, "commit", "-m", "advance destination after PASS")
+    git(self.root, "push", "origin", "main")
+    git(self.root, "checkout", "issue-7")
+    self.assertNotEqual(
+      git(self.root, "ls-remote", "origin", "refs/heads/main")
+      .stdout.split()[0], candidate.base_sha)
+
     # Restart recovery reads independent published state, not a local READY flag.
     local = durable_store(self.root)._path(v2_identity_key(G))
     local.unlink()
@@ -104,6 +116,17 @@ class DestinationRoundTripTests(unittest.TestCase):
         resolve_parent=lambda _: "main",
       )
       self.assertEqual(result.sha, candidate.candidate_sha)
+      self.assertEqual(len(provider.writes), 1)
+      replay = publish_destination_prelim(
+        self.root, self.config, ticket=7, destination="main",
+        guid=G, request_id="publish-7", backend=provider,
+        resolve_parent=lambda _: "main",
+        read_publication_record=lambda request_id: {
+          "ref": result.ref, "sha": result.sha,
+          "request_id": request_id, "status": "published",
+        },
+      )
+      self.assertEqual(replay, result)
       self.assertEqual(len(provider.writes), 1)
       with self.assertRaises(ReadyPublicationError):
         publish_destination_prelim(
