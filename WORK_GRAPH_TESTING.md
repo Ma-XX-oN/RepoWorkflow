@@ -86,6 +86,29 @@ Before using one, ask:
 If the final answer is no, the decomposition is mixing presentation taxonomy
 with executable graph semantics.
 
+## 4.1 Convergence handoff and retirement acceptance
+
+For **every** explicitly designated convergence ticket, test the handoff and
+child closure invariants in
+[WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) section 13.4:
+
+- Single child and several serial/parallel/speculative child branches, including
+  an integration or certification ticket with no container-title prefix.
+- Independent implementation evidence transferred with exact issue/PR/commit/
+  candidate/CI identity; old worker releases its active claim; convergence
+  owner acknowledges/acquires ownership without competing active claims.
+- Accepted but not completed child stays unsatisfied; failed/stale integration
+  cannot close it.  Corrected work is explicitly returned/reassigned.
+- Completed child can be closed by the convergence owner after exact-source
+  acceptance, then its dependency becomes satisfied; convergence closes last.
+- Already completed independent child stays completed without artificial
+  reopen.  Graph edges and lane ownership remain unchanged.
+- Rejected/unknown ownership transfer fails closed.  Missing provider authority
+  or required MIT blocks retirement.  Closing authority never permits merge.
+
+These tests define required policy behaviour, not proof that RWF currently
+implements automated handoff and retirement commands.
+
 ## 5. Dependency review
 
 For each direct edge A -> B, verify that A genuinely requires B's exact result.
