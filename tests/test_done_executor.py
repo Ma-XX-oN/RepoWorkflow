@@ -129,6 +129,26 @@ class ExecutionGuardTests(unittest.TestCase):
       ))
     self.assertEqual(self.calls, [])
 
+  def test_foreign_int_attempt_ticket_is_rejected(self):
+    foreign=replace(self.attempt,int_attempt_ref=INT.replace(
+      "issue-123/", "issue-124/"))
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=foreign)
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_int_attempt_destination_is_rejected(self):
+    foreign=replace(self.attempt,int_attempt_ref=INT.replace(
+      "/main-", "/issue-456-"))
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=foreign)
+    self.assertEqual(self.calls, [])
+
+  def test_invalid_int_attempt_guid_is_rejected(self):
+    foreign=replace(self.attempt,int_attempt_ref=INT[:-36]+"malformed")
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=foreign)
+    self.assertEqual(self.calls, [])
+
   def test_changed_prelim_source_stops_before_mutation(self):
     with self.assertRaises(DoneExecutionError):
       self.execute(attempt=replace(self.attempt, source_prelim_sha=D))
