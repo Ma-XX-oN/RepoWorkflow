@@ -90,7 +90,9 @@ def execute_certified_done(
         attempt.int_attempt_ref, fresh.issue, fresh.target)
       or not isinstance(attempt.evidence_ref, str) or not attempt.evidence_ref
       or not isinstance(attempt.authorization_ref, str)
-      or not attempt.authorization_ref):
+      or not attempt.authorization_ref
+      or not isinstance(attempt.operation_id, str)
+      or not attempt.operation_id.strip()):
     raise DoneExecutionError("certification provenance differs")
   if (not isinstance(attempt.tested_candidate_sha, str)
       or _SHA.fullmatch(attempt.tested_candidate_sha) is None
@@ -122,7 +124,7 @@ def execute_certified_done(
     result = integrate_conditional(
       attempt.int_attempt_ref, attempt.tested_candidate_sha,
       fresh.target, fresh.expected_parent_sha,
-      attempt.evidence_ref, attempt.authorization_ref,
+      attempt.evidence_ref, attempt.authorization_ref, attempt.operation_id,
     )
   except Exception:
     result = None
@@ -136,8 +138,7 @@ def execute_certified_done(
     except Exception as error:
       raise DoneExecutionError("provider readback UNKNOWN; reconcile") from error
   if (not isinstance(result, AcceptedIntegration)
-      or (attempt.operation_id is not None
-          and result.operation_id != attempt.operation_id)):
+      or result.operation_id != attempt.operation_id):
     raise DoneExecutionError("provider operation identity UNKNOWN; reconcile")
   if (not isinstance(result.landed_sha, str)
       or _SHA.fullmatch(result.landed_sha) is None or not result.operation_id
