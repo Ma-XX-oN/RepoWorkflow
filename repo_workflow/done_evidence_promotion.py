@@ -4,6 +4,7 @@ A promotion records provenance, not a claim that hosted tests ran on the
 landed SHA. Source evidence must be authenticated by a separate verifier.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import re
 
 
@@ -45,7 +46,8 @@ class Promotion:
 def make_promotion(*, operation_id, tested_source_sha, accepted_candidate_sha,
                    target_before_sha, landed_sha, landed_tree_sha,
                    source_tree_sha, context_digest, stages,
-                   independently_verified_landing, equivalent_test_inputs):
+                   independently_verified_landing, equivalent_test_inputs,
+                   as_of_utc):
   """Require complete authenticated source-stage facts, no inferred PASS."""
   sha_values = (
     tested_source_sha, accepted_candidate_sha, target_before_sha,
@@ -64,6 +66,11 @@ def make_promotion(*, operation_id, tested_source_sha, accepted_candidate_sha,
       or {s.stage for s in stages if isinstance(s, AuthenticatedStage)}
          != {"regression", "integration", "release"}):
     raise PromotionError("complete independent release and integration stages required")
+  if (not isinstance(as_of_utc, datetime)
+      or as_of_utc.tzinfo is None
+      or as_of_utc.utcoffset() is None):
+    raise PromotionError("verified UTC evaluation time required")
+  now = as_of_utc.astimezone(timezone.utc)
   for stage in stages:
     if (not isinstance(stage, AuthenticatedStage)
         or stage.source_sha != tested_source_sha
@@ -75,6 +82,13 @@ def make_promotion(*, operation_id, tested_source_sha, accepted_candidate_sha,
                  "provider_run_id", "artifact_digest", "catalogue_digest",
                  "config_digest", "inputs_digest", "expires_at"))):
       raise PromotionError("unauthenticated, incomplete or foreign stage")
+    try:
+      if (not stage.expires_at.endswith("Z")
+          or datetime.fromisoformat(
+            stage.expires_at.replace("Z", "+00:00")) <= now):
+        raise PromotionError("authenticated stage evidence expired")
+    except (ValueError, TypeError, AttributeError) as error:
+      raise PromotionError("malformed stage evidence expiry") from error
   if (len({(s.catalogue_digest, s.config_digest, s.inputs_digest)
            for s in stages}) != 1):
     raise PromotionError("stage material inputs are inconsistent")
