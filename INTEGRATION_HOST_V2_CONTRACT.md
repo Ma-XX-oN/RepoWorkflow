@@ -108,3 +108,56 @@ crash/restart with deferred MIT; final destination-tip acceptance under
 #104/#542; complete producer/executor/retirement path under #683/#109/#103;
 and #677's independent assembled certification.  Existing v1 contract,
 protected branches, release tags and hard security gates remain unchanged.
+
+
+## October 20 — real disposable provider and independent-verifier continuation
+
+Entries above are historical, not exact-current-source PASS. Existing open
+draft PR #682 and v1 contract are unchanged; production destination and
+stable release refs were not updated.
+
+Implemented in #681 source:
+
+- RWF_REPO_HOST_INTEGRATION_EVIDENCE_COMMAND specifies one external,
+  absolute-path verifier executable, outside the unreviewed checkout.
+  Before terminal, MIT deferred/resume and retirement audit publication,
+  the v2 executable authenticates actor and validates fresh, strict,
+  request/record-digest-bound, repository/operation/request/actor-scoped
+  independent evidence. Missing, revoked, stale or forged evidence refuses.
+  This is a verifier consumer, not a production approval issuer.
+- Interrupted INT-ATTEMPT creation can now resume once its identical
+  request reservation is persisted but the worker crashed before ref creation.
+  Changed-source replay with the same reservation is refused.
+- Lost-ACK INT-ATTEMPT push reconciles only when provider readback exactly
+  matches new target SHA; competing/stale outcomes remain refused.
+- Resumable MIT deferral remains separate from immutable terminal disposition.
+  Same-generation revocation overrides approved, while separately authorized
+  later generations can resume; no second READY queue is created.
+
+Real disposable GitHub provider acceptances:
+
+- 39298257126: real INT ref create/CAS, stale writer rejection, destination
+  generation lease PASS.
+- 39298816723: real terminal persistence, PRELIM and INT-ATTEMPT conditional
+  retirement and independently read back audits PASS.
+- 39453443687: real provider MIT persistence, lost ACK, revocation, fresh
+  backend replay and cleanup PASS.
+- 39454041162: v2 ref create using independent sandbox #80 authorization,
+  absent/revoked/forged/stale/foreign actor denials, replay and cleanup PASS.
+- 39454729185: full v2 executable MIT defer/resume/revoke with separately
+  executable independent authorization and evidence verification, fresh
+  restart and negative forged-evidence acceptance PASS.
+- 39455594549: real persisted reservation, separate-provider restart after
+  crash, exact replay, changed-source denial and cleanup PASS.
+
+Every sandbox run confirmed private Disposable-000 main unchanged. All
+disposable test-verifier executables are isolated authority fixtures, not
+deployment of an independent production grant/revocation service.
+
+Uncertified remains: actual production trust deployment; provider destination
+integration with exact pre-write expected-old SHA and current eligibility/
+policy rechecks (#104/#542); assembled #109 tested producer/executor path;
+#103 retirement using true #109 landed integration; and #677 independent
+end-to-end certification. Prior green CI is not the final source candidate.
+#683 is an independent producer and must not block #681 provider testing.
+#85/#86/#676 adversarial protected-production enforcement is deferred.
