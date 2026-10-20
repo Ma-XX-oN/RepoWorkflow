@@ -93,7 +93,11 @@ def complete_accepted_provider_attempt(
     raise CompletionError("source-to-landed promotion UNKNOWN") from error
   if (not isinstance(proof,Promotion)
       or proof.operation_id != accepted.accepted.operation_id
-      or proof.landed_sha != terminal.landed_sha):
+      or proof.landed_sha != terminal.landed_sha
+      or proof.accepted_candidate_sha != terminal.accepted_sha
+      or proof.target_before_sha != terminal.record.get(
+        'expected_destination_sha')
+      or proof.tested_source_sha != terminal.accepted_sha):
     raise CompletionError("promotion provenance differs")
   try:
     persist_lifecycle(accepted,proof)
