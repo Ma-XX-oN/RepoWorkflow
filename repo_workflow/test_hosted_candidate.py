@@ -5,6 +5,7 @@ import re
 import subprocess
 
 from .ci_invocation import parse_invocation
+from .hosted_version_identity import HostedVersionError, resolve_invocation
 from .git import current_branch, head_sha
 from .test_results_reader import TestCommandError
 
@@ -51,9 +52,21 @@ def hosted_candidate_bound(root: Path) -> bool:
         or marker.previous_tip != ancestors[1] or changed != [".ci/run"]):
       raise TestCommandError("hosted invocation is not an exact-source request")
     expected = marker.previous_tip
-  if (type(expected) is not str or _SHA.fullmatch(expected) is None
-      or candidate != expected):
+  if type(expected) is not str or _SHA.fullmatch(expected) is None:
     raise TestCommandError("hosted test candidate identity changed")
+  if candidate != expected:
+    # In chained dedicated invocations the immediate parent is another
+    # marker-only commit, not the physical tested candidate. Reconstruct its
+    # exact authenticated ancestry rather than silently treating the marker
+    # as a changed source. Explicit candidate pins cannot be overridden.
+    if os.environ.get("RWF_HOSTED_TEST_CANDIDATE") is not None:
+      raise TestCommandError("hosted test candidate identity changed")
+    try:
+      resolved = resolve_invocation(root, invocation)
+    except HostedVersionError as error:
+      raise TestCommandError("hosted invocation ancestry invalid") from error
+    if resolved["candidate_sha"] != candidate:
+      raise TestCommandError("hosted test candidate identity changed")
   return True
 
 
