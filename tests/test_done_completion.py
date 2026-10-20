@@ -1,12 +1,14 @@
 """Retirement/evidence/lifecycle completion ordering and refusal tests."""
 from dataclasses import replace
+from collections import namedtuple
 import unittest
 
 from repo_workflow.done_completion import (
   CompletionError, complete_accepted_provider_attempt,
 )
 from repo_workflow.done_evidence_promotion import Promotion
-from repo_workflow.prelim_retirement_remote import RefRetirement
+RefRetirement = namedtuple(
+  'RefRetirement', 'ref previously_observed_sha absent_after')
 from tests.test_done_provider_pipeline import PipelineTests, G, A, B, C, D
 
 
