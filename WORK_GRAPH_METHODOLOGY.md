@@ -76,6 +76,9 @@ When splitting:
 3. Express *real* direct dependencies; do not serialize independent leaves.
 4. Give each leaf a usable DONE artifact and reproducible acceptance evidence.
 5. Add a small explicit integration/convergence ticket only where needed.
+   Explicitly designate its final child-acceptance/closure ownership;
+   [WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) section 13.4
+   governs the eventual handoff regardless of convergence type.
 6. Keep parent acceptance requirements traceable across all split tickets.
 7. Update and validate the canonical ticket graph immediately.
 
