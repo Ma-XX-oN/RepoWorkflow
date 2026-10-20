@@ -188,12 +188,19 @@ to this source; no untrusted client-provided PASS is accepted.
 The provider independently checks authenticated Git remotes, the current
 destination SHA/policy snapshot, current exclusive destination lease
 generation/GUID/holder, immutable INT-ATTEMPT ref/accepted SHA, local proposed
-commit existence and destination ancestry. It sends exactly one Git-protocol
-expected-old-SHA remote update, checks the resulting provider tip and does not
-turn any lost/rejected Git ACK into an inferred integration PASS. UNKNOWN
-requires independently authenticated reconciliation and an exact terminal
-record; a verified success requires the original authority and identity.
-This new operation never modifies PRELIM refs or emits a queue item.
+commit existence and destination ancestry. Before the Git-protocol
+expected-old-SHA remote update it persists an immutable operation-intent
+tag, bound to canonical request digest, provider actor, GUID, accepted source,
+expected old SHA, proposed landed SHA and exact operation identity.
+
+A lost ACK is reconciled only when a fresh provider read proves the exact
+landed SHA, unchanged authoritative lease, and matching persisted operation
+intent under renewed independent authorization. A fresh process does not
+need a local candidate to read that proof. Other tips, stale permissions,
+foreign actors and conflicting intents remain UNKNOWN or refused. The
+independent verifier is checked again immediately before mutation to
+reject revocation during preparation. This intent is audit evidence,
+not a READY queue or proof by itself of an integration landing.
 
 Provider evidence:
 - Disposable-000 real destination acceptance and stale second contender
@@ -214,3 +221,31 @@ and source-to-landed promotion; #103's retirement of a real #109 attempt;
 #677 assembled downstream conformance; or activation of hard security
 #85/#86/#676. #683 is independently owned and not a prerequisite of
 #681 provider-primitive acceptance.
+
+
+## October 20 — operation-intent recovery and real provider acceptance
+
+Commit `5e1f52ac19cc8028ec9151ba7a6888db89f6b398` adds the
+immutable per-request intent tag and independent authorization recheck.
+The tag is scoped by SHA-256 of repository plus a NUL separator plus the
+operation ID; it is not an integration queue or a terminal PASS.
+
+Independent Disposable-000 provider runs:
+
+- 39465051536: real successful destination update with lost Git ACK,
+  exact intent readback, fresh-process recovery and conflicting-operation
+  rejection; isolated refs cleaned and default main unchanged.
+- 39465418619: persisted intent, interrupted pre-push worker, fresh
+  provider restart, lost ACK, exact readback and cleanup.
+- 39465820919: revocation between intent publication and the mutation
+  was refused before changing destination; authorized retry, lost ACK,
+  restart and cleanup passed.
+- 39466294625: one real disposable sequence chaining destination CAS,
+  terminal ledger and per-ref retirement. Its terminal provider result
+  must be checked before marking this assembled fixture PASS.
+
+The external verifiers in Disposable-000 are independent test fixtures,
+not deployment of a production protected #80 issuer. Hard security
+#85/#86/#676 is deferred, never claimed PASS. The #109 scheduler and
+#103 final cleanup, #677 downstream assembly and independently owned #683
+retain their own contracts.
