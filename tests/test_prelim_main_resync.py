@@ -14,7 +14,7 @@ from repo_workflow.prelim_main_resync import resync_inactive_main
 P = ("refs/heads/PRELIM-issue-123/main-"
      "11111111-1111-4111-8111-111111111111")
 I = ("refs/heads/INT-ATTEMPT-issue-123/main-"
-     "22222222-2222-4222-8222-222222222222")
+     "11111111-1111-4111-8111-111111111111")
 
 
 def git(root, *args):
