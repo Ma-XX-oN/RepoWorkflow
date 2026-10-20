@@ -24,27 +24,168 @@ jobs:
           git fetch --no-tags origin d6acd97219ac45a90634d0a8c0b90780e9b7e5ff
           if ! git merge --no-ff --no-edit d6acd97219ac45a90634d0a8c0b90780e9b7e5ff; then
             echo "CONFLICTS:"
-            git diff --name-only --diff-filter=U
-            git status --short
-            exit 1
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            printf "%s\n" "$conflicts"
+            if [[ "$conflicts" != ".ci/tests.json" ]]; then
+              git status --short
+              exit 1
+            fi
+            python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          def load(stage):
+            data = subprocess.check_output([
+              "git", "show", f":{stage}:.ci/tests.json"])
+            return json.loads(data)
+          ours, theirs = load(2), load(3)
+          assert set(ours) == set(theirs) == {
+            "test-harnesses", "tests", "aliases"}
+          for key in ("test-harnesses", "aliases"):
+            for name, value in theirs[key].items():
+              if name in ours[key] and ours[key][name] != value:
+                raise AssertionError(f"semantic {key} conflict: {name}")
+              ours[key][name] = value
+          entries = {}
+          for group in ours["tests"]:
+            harness = group["test-harness"]
+            for name, value in group.items():
+              if name != "test-harness":
+                entries[(harness, name)] = value
+          for group in theirs["tests"]:
+            harness = group["test-harness"]
+            for name, value in group.items():
+              if name == "test-harness":
+                continue
+              key = (harness, name)
+              if key in entries and entries[key] != value:
+                raise AssertionError(f"semantic test conflict: {key}")
+              if key not in entries:
+                target = next((g for g in ours["tests"]
+                  if g["test-harness"] == harness), None)
+                if target is None:
+                  target = {"test-harness": harness}
+                  ours["tests"].append(target)
+                target[name] = value
+                entries[key] = value
+          Path(".ci/tests.json").write_text(
+            json.dumps(ours, indent=2) + "\n", encoding="utf-8")
+          print(f"Semantic catalogue union: {len(entries)} tests")
+          PY
+            git add .ci/tests.json
+            git commit --no-edit
           fi
           echo "::endgroup::"
           echo "::group::merge #681 source 4938f73312691e7e593cd758965eb538f9e40baf"
           git fetch --no-tags origin 4938f73312691e7e593cd758965eb538f9e40baf
           if ! git merge --no-ff --no-edit 4938f73312691e7e593cd758965eb538f9e40baf; then
             echo "CONFLICTS:"
-            git diff --name-only --diff-filter=U
-            git status --short
-            exit 1
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            printf "%s\n" "$conflicts"
+            if [[ "$conflicts" != ".ci/tests.json" ]]; then
+              git status --short
+              exit 1
+            fi
+            python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          def load(stage):
+            data = subprocess.check_output([
+              "git", "show", f":{stage}:.ci/tests.json"])
+            return json.loads(data)
+          ours, theirs = load(2), load(3)
+          assert set(ours) == set(theirs) == {
+            "test-harnesses", "tests", "aliases"}
+          for key in ("test-harnesses", "aliases"):
+            for name, value in theirs[key].items():
+              if name in ours[key] and ours[key][name] != value:
+                raise AssertionError(f"semantic {key} conflict: {name}")
+              ours[key][name] = value
+          entries = {}
+          for group in ours["tests"]:
+            harness = group["test-harness"]
+            for name, value in group.items():
+              if name != "test-harness":
+                entries[(harness, name)] = value
+          for group in theirs["tests"]:
+            harness = group["test-harness"]
+            for name, value in group.items():
+              if name == "test-harness":
+                continue
+              key = (harness, name)
+              if key in entries and entries[key] != value:
+                raise AssertionError(f"semantic test conflict: {key}")
+              if key not in entries:
+                target = next((g for g in ours["tests"]
+                  if g["test-harness"] == harness), None)
+                if target is None:
+                  target = {"test-harness": harness}
+                  ours["tests"].append(target)
+                target[name] = value
+                entries[key] = value
+          Path(".ci/tests.json").write_text(
+            json.dumps(ours, indent=2) + "\n", encoding="utf-8")
+          print(f"Semantic catalogue union: {len(entries)} tests")
+          PY
+            git add .ci/tests.json
+            git commit --no-edit
           fi
           echo "::endgroup::"
           echo "::group::merge #683 source ba3dde739701fcd358a01faf6f134078b0bf7924"
           git fetch --no-tags origin ba3dde739701fcd358a01faf6f134078b0bf7924
           if ! git merge --no-ff --no-edit ba3dde739701fcd358a01faf6f134078b0bf7924; then
             echo "CONFLICTS:"
-            git diff --name-only --diff-filter=U
-            git status --short
-            exit 1
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            printf "%s\n" "$conflicts"
+            if [[ "$conflicts" != ".ci/tests.json" ]]; then
+              git status --short
+              exit 1
+            fi
+            python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          def load(stage):
+            data = subprocess.check_output([
+              "git", "show", f":{stage}:.ci/tests.json"])
+            return json.loads(data)
+          ours, theirs = load(2), load(3)
+          assert set(ours) == set(theirs) == {
+            "test-harnesses", "tests", "aliases"}
+          for key in ("test-harnesses", "aliases"):
+            for name, value in theirs[key].items():
+              if name in ours[key] and ours[key][name] != value:
+                raise AssertionError(f"semantic {key} conflict: {name}")
+              ours[key][name] = value
+          entries = {}
+          for group in ours["tests"]:
+            harness = group["test-harness"]
+            for name, value in group.items():
+              if name != "test-harness":
+                entries[(harness, name)] = value
+          for group in theirs["tests"]:
+            harness = group["test-harness"]
+            for name, value in group.items():
+              if name == "test-harness":
+                continue
+              key = (harness, name)
+              if key in entries and entries[key] != value:
+                raise AssertionError(f"semantic test conflict: {key}")
+              if key not in entries:
+                target = next((g for g in ours["tests"]
+                  if g["test-harness"] == harness), None)
+                if target is None:
+                  target = {"test-harness": harness}
+                  ours["tests"].append(target)
+                target[name] = value
+                entries[key] = value
+          Path(".ci/tests.json").write_text(
+            json.dumps(ours, indent=2) + "\n", encoding="utf-8")
+          print(f"Semantic catalogue union: {len(entries)} tests")
+          PY
+            git add .ci/tests.json
+            git commit --no-edit
           fi
           echo "::endgroup::"
           echo "PROVISIONAL TREE:"
