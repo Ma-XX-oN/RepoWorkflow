@@ -22,13 +22,14 @@ from repo_host_github_integration_lease import read_lease, cas_lease, _remote_sc
 from repo_host_github_integration_destination import read_destination_snapshot
 from repo_host_github_integration_mit import read_mit, record_mit
 from repo_host_github_integration_evidence import make_evidence_verifier
+from adapters.repo_host_github_integration_accept import accept_destination
 from repo_host_github_integration_retirement import (
   read_retirement, record_retirement,
 )
 
 
 _OPERATIONS = {
-  "destination.read", "refs.list", "ref.create", "ref.cas",
+  "destination.read", "destination.accept", "refs.list", "ref.create", "ref.cas",
   "attempt.read", "attempt.record", "lease.read", "lease.cas",
   "retirement.read", "retirement.record",
   "mit.deferred.read", "mit.deferred.record",
@@ -113,6 +114,20 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
         "guid": params["guid"], "destination": params["destination"],
         key: record,
       }
+    if operation == "destination.accept":
+      witness = make_evidence_verifier(value, backend)
+      if witness is None:
+        raise IntegrationHostError("trusted destination verifier unavailable")
+      root = Path(__file__).resolve().parents[1]
+      if config_reader is None:
+        from repo_workflow.config import load_config
+        config = load_config(root)
+      else:
+        config = config_reader(root)
+      return accept_destination(
+        backend, value, root, config["repository"]["authoritativeRemote"],
+        verify_evidence=witness,
+      )
     if operation == "retirement.record":
       witness = (verify_retirement_evidence
                  if verify_retirement_evidence is not None
