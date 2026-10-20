@@ -45,7 +45,11 @@ def record_failed_attempt(*, host, ready: ReadyPrelim,
   provider=IntegrationHostCoordinator(host)
   if provider.read_destination_lease(ready.destination) != lease:
     raise FailureRecordError("destination lease changed before failed terminal")
-  if provider.read_attempt_result(ready.guid) is not None:
+  try:
+    previous = provider.read_attempt_result(ready.guid)
+  except Exception as error:
+    raise FailureRecordError("prior terminal record unverified") from error
+  if previous is not None:
     raise FailureRecordError("a prior terminal result already exists")
   record={
     "repository":host.repository,
