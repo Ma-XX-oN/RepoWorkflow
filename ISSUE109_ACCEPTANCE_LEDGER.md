@@ -1,0 +1,66 @@
+# RWF #109 — exact-source executor acceptance ledger
+
+Updated: 2026-10-20 EDT. Owner: existing V3 claim 6273106943.
+PR: #680 (draft; no merge). Security #85/#86 remain deferred.
+
+## Proof levels
+
+- Unit fixtures and simulated provider transport are **not** proof of
+  actual provider operations or independently authenticated stage PASS.
+- GitHub Actions hosted jobs prove only the exact source they checked.
+- Real Disposable-000 runs prove only their specified test-only permissions,
+  source, branches, operations and recorded side effects.
+- Independently owned #583 and #677 must certify their respective contracts.
+- Failed/retried/UNKNOWN is not PASS; never promote incomplete source evidence.
+
+## Acceptance matrix
+
+| Criterion | Expected independent behaviour | Evidence | State |
+|---|---|---|---|
+| P01 ownership | Preserve claim/PR, no merge | #109 claim 6273106943; PR #680 | PASS |
+| P02 dependencies | #103/#681/#683 certified | Closed GitHub issues | PASS |
+| P03 immutable READY | Keep PRELIM SHA fixed, mutable INT separate | Disposable run 39517395210, earlier 39511297332 | PASS (test provider) |
+| P04 destination claim/CAS | Only one holder, expected-old SHA | Same disposable runs | PASS (test provider) |
+| P05 current policy | Read current destination, no descendant permission | done_policy_admission and acceptance tests | INCOMPLETE (live matrix) |
+| P06 source ART/AIT | Current-parent independently authenticated, no invented PASS | done_stage_certification | INCOMPLETE (live provider issuer) |
+| P07 MIT | Distinct PASS/FAIL/TIMEOUT, defer/restart authority | done_mit_defer_v2 fixtures | INCOMPLETE (live MIT) |
+| P08 terminal history | Exact authenticated terminal, recovery after lost ACK | Disposable run 39517395210 | PASS (test provider) |
+| P09 ref retirement | Exact #103 PRELIM and INT physical retirement, readback | Disposable run 39517395210 | PASS (test provider) |
+| P10 release evidence | Separate authenticated release and integration stages | done_evidence_provider fixtures | INCOMPLETE (actual provider artifacts) |
+| P11 source-to-landed | Immutable attestation, verified landed tree and inputs | done_evidence_promotion / done_completion fixtures | INCOMPLETE (canonical publication) |
+| P12 lifecycle | Complete legal transitions with durable source of truth | done_completion guarded interface | INCOMPLETE (live lifecycle) |
+| P13 CLI | Native rwf done patch/minor/major executable | No certified native command | INCOMPLETE |
+| P14 queue | Competing umbrellas, per-destination serialization, recovery | READY coordinator contract only | INCOMPLETE (multi-item end to end) |
+| P15 full assembled tests | Exact current #109 plus #103/#681/#683 | Most recent assembled probe requested | INCOMPLETE until terminal run |
+| P16 independent oracle | #583 74-case matrix and #677 downstream | #583 60 PASS/14 PARTIAL, #677 open | INCOMPLETE |
+
+## Hosted source and provider anchors
+
+- #109 prior source `3c3762fbca367423a4a5530461685cfcc2541db0`:
+  run 39513674277 SUCCESS, 2,068 tests / 14 skips, focused Ubuntu/
+  Windows/macOS SUCCESS.
+- Prior assembled source `3c3762fb...` plus certified #103/#681/#683:
+  run 39513807802 SUCCESS, 2,517 tests / 14 skips, strict v2 PASS.
+- `1798e95f907dfb7c971749d70121209112b34624`: isolated provider
+  run 39517395210 SUCCESS. Default Disposable-000 main unchanged, physical
+  PRELIM/INT retirement and scoped cleanup verified. ART/AIT and MIT policy
+  observations were TEST-ONLY fixtures and MUST NOT be promoted to #583 PASS.
+- Independent current source: consult PR #680 HEAD at time of verification,
+  then require new exact-source hosted/full assembled and provider run receipts.
+- Earlier regression 39517273059 FAIL: forged prior terminal surfaced a
+  raw CoordinationError. Code/test were corrected; historical FAIL remains.
+
+## Immediate continuation path
+
+1. Read current PR HEAD and exact current hosted/assembled terminal results.
+2. Repair any actual failures; distinguish expected embedded negative fixtures
+   from the final unittest conclusion.
+3. Prove current destination allow-list changes against real provider and
+   same-destination multi-umbrella CAS contention.
+4. Complete authenticated ART/AIT/release/MIT provider evidence, tested
+   current-parent candidate, explicit MIT TIMEOUT/defer and resumed approval.
+5. Complete provider-backed canonical source-to-landed results publication,
+   independent lifecycle readback and native done command.
+6. Supply exact source/run/artifact/readback matrix to the separate #583 owner
+   for T01–T08/L08/L09/L10/L17/L18/L20. Keep #677 downstream independent.
+7. Do not mark DONE, activate production, or merge without explicit authority.
