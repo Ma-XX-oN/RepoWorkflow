@@ -4,6 +4,36 @@ Status: **INCOMPLETE**. This is a source-bound audit, **not**
 certification of the revised model. No production merge or protection
 activation is authorized.
 
+## Current October 20 direct dependency reconciliation
+
+The *current* corrected CSV on PR #678 and PR #685 is blob
+`0d2cc6494d38d059f8bd513db0674f18e16c36ba`.
+It contains 272 distinct ticket IDs, no malformed/duplicate rows,
+no unknown dependency IDs and no directed cycles.  The issue
+contracts require these exact immediate dependencies:
+
+| Issue | Direct dependencies |
+| --- | --- |
+| #103 | #84, #681 |
+| #109 | #83, #103, #108, #118, #681, #683 |
+| #583 | #109, #582 |
+| #677 | #83, #84, #102, #108, #109, #583 |
+| #681 | #81, #97, #119 |
+| #683 | #82, #83, #84, #102 |
+
+#103, #681 and #683 are CLOSED with separate owner handoffs;
+#109 and #583 remain OPEN.  #583 owns 14 independent executor
+oracles, still PARTIAL.  #677 remains OPEN and cannot claim DONE
+until #109 and #583 are DONE and actual assembled provider
+acceptance is independently GREEN.  No completion dependency
+points from #109 back to #677.  #85/#86/#676 remain deferred
+security requirements, never functional PASS.
+
+The October 17 first-draft graph, older baseline findings and
+earlier uncertified test summaries below are preserved *as
+historical evidence*, not as the current dependency contract.
+All exact-source CI evidence must be checked independently.
+
 ## Exact evidence
 
 | Scope | Source | Finding |
@@ -17,7 +47,7 @@ activation is authorized.
 | #103 | Issue and CSV contract | Old #85 functional blocker conflicts with deferred hard security policy |
 | #109 | Issue and CSV contract | Old #86 functional blocker conflicts with deferred protected stable-tag policy |
 
-## Convergence graph correction (PR #678)
+## Historical first-draft graph correction (superseded)
 
 - #103 dependencies `84;85` -> `84`; #85 stays OPEN/deferred.
 - #109 dependencies `83;86;103;108;118` -> `83;103;108;118;677`; #86 stays OPEN/deferred.
@@ -61,7 +91,7 @@ and negative test results, hosted regression and integration execution, live
 provider observations, issue and PR links, and explicit acceptance readback.
 Security #85/#86/#676 remains deferred, not falsely reported GREEN.
 
-## Follow-up execution evidence — 2026-10-17
+## Historical follow-up evidence — 2026-10-17
 
 The functional graph dependency correction was revised to avoid a semantic
 completion cycle: #103 depends on #84; #109 depends on #83/#103/#108/#118;
