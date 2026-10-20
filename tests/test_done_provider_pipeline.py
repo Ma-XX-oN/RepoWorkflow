@@ -34,6 +34,9 @@ class Provider:
                   "holder":None,"guid":None}
     self.calls = []
     self.fail = None
+    self.policy_present = False
+    self.policy_text = None
+    self.policy_reads = 0
   def request(self, operation, key, p):
     self.calls.append(operation)
     if operation == self.fail:
@@ -62,7 +65,10 @@ class Provider:
               else "authorization":self.deferred if operation=="mit.deferred.read"
               else None}
     if operation == "destination.read":
-      return {"ref":"refs/heads/main","sha":self.main}
+      self.policy_reads += 1
+      return {"destination":"main","ref":"refs/heads/main",
+              "sha":self.main,"policy_present":self.policy_present,
+              "policy_text":self.policy_text}
     if operation == "ref.create":
       self.int_sha = p["sha"]
       return {"ref":p["ref"],"sha":self.int_sha}
@@ -103,6 +109,8 @@ class PipelineTests(unittest.TestCase):
       "provider_facts":DestinationAcceptanceFacts(
         "Org/Repo",123,"main",G,1,"worker-A",D),
       "verify_provider_result":lambda *a:True,
+      "immediate_parent_oracle":lambda issue,target: (
+        issue=="123" and target=="main"),
       "stage_certify":lambda source,parent:CertifiedStages(
         source,parent,tuple(VerifiedStage(
           name,source,parent,"PASS","run-"+name,"proof-"+name,
@@ -160,6 +168,31 @@ class PipelineTests(unittest.TestCase):
       B,parent,(),VerifiedMitPolicy(B,parent,False,"policy-ref",True))
     with self.assertRaisesRegex(DoneExecutionError,"stage identity"):
       self.invoke(stage_certify=bad)
+    self.assertIsNone(self.host.int_sha)
+
+  def test_empty_current_policy_denies_before_int(self):
+    self.host.policy_present=True
+    self.host.policy_text=""
+    with self.assertRaisesRegex(DoneExecutionError,"policy denied"):
+      self.invoke()
+    self.assertIsNone(self.host.int_sha)
+    self.assertEqual(self.host.main,B)
+
+  def test_current_policy_change_refuses_landing(self):
+    original=self.host.request
+    def change_policy(op,key,params):
+      if op=="destination.read" and self.host.policy_reads>=2:
+        self.host.policy_present=True
+        self.host.policy_text="456"
+      return original(op,key,params)
+    self.host.request=change_policy
+    with self.assertRaisesRegex(DoneExecutionError,"policy denied"):
+      self.invoke()
+    self.assertEqual(self.host.main,B)
+
+  def test_immediate_child_verdict_is_mandatory(self):
+    with self.assertRaisesRegex(DoneExecutionError,"parent oracle"):
+      self.invoke(immediate_parent_oracle=None)
     self.assertIsNone(self.host.int_sha)
 
   def test_missing_current_ready_prevents_claim(self):
