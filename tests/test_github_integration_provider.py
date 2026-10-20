@@ -73,6 +73,17 @@ class GithubIntegrationProviderTests(unittest.TestCase):
     with self.assertRaises(IntegrationProviderError):
       create_int_attempt(self.backend, self.request, authorized=True)
 
+  def test_reservation_survives_crash_before_ref_creation(self):
+    self.backend.fresh = False
+    self.assertNotIn(REF, self.backend.refs)
+    status, result = create_int_attempt(
+      self.backend, self.request, authorized=True)
+    self.assertEqual(status, "applied")
+    self.assertEqual(result, {"ref": REF, "sha": SHA})
+    self.assertEqual(self.backend.refs[REF], SHA)
+    self.assertEqual(create_int_attempt(
+      self.backend, self.request, authorized=True)[0], "unchanged")
+
   def test_reserved_idempotent_readback(self):
     self.backend.fresh = False
     self.backend.refs[REF] = SHA
