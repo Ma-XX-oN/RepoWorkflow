@@ -60,17 +60,23 @@ def accept_one_ready_submission(
       or provider_facts.holder != holder
       or str(provider_facts.ticket) != original_plan.issue):
     raise DoneExecutionError("acceptance identity differs before lease claim")
+  if not callable(stage_certify):
+    raise DoneExecutionError("independent stage certification is mandatory")
+  if not callable(immediate_parent_oracle):
+    raise DoneExecutionError("current destination parent oracle required")
   provider = IntegrationHostCoordinator(host)
   if ready not in provider.read_ready_prelims():
     raise DoneExecutionError("READY physical SHA differs from submission")
+  preflight = current_destination_admission(
+    host, original_plan, immediate_parent_oracle)
+  if preflight.allowed is not True:
+    raise DoneExecutionError("current destination admission denied before claim")
+  before_claim = provider.read_destination_lease(ready.destination)
+  if provider_facts.lease_generation != before_claim.generation + 1:
+    raise DoneExecutionError("destination lease generation is stale")
   lease = claim_prelim(provider, ready, holder)
   if provider_facts.lease_generation != lease.generation:
     raise DoneExecutionError("acceptance facts mismatch authoritative lease")
-
-  if not callable(stage_certify):
-    raise DoneExecutionError('independent stage certification is mandatory')
-  if not callable(immediate_parent_oracle):
-    raise DoneExecutionError('current destination parent oracle required')
   prepared = []
 
   def prepare(plan):
