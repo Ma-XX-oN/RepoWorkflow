@@ -9,6 +9,7 @@ import tempfile
 import uuid
 
 from .git import git
+from .prelim_ready_v2_tags import expected_v2_terminal_tags
 from .prelim_attempt import _local_ref, _trusted_inputs
 from .prelim_publication import _publish, _restore
 from .prelim_ready_v2_record import (
@@ -80,7 +81,14 @@ def validate_destination_prelim(
   versions = {item["version"] for item in checks.values()}
   if len(versions) != 1:
     raise PrelimValidationError("candidate terminal versions disagree")
-  for item in checks.values():
+  version = next(iter(versions))
+  try:
+    required_tags = expected_v2_terminal_tags(version, candidate.issue)
+  except ValueError as error:
+    raise PrelimValidationError("candidate terminal version invalid") from error
+  for stage, item in checks.items():
+    if item["tag"] != required_tags[stage]:
+      raise PrelimValidationError("candidate terminal tag has wrong phase")
     if _remote_target(root, remote, item["tag"]) != candidate.candidate_sha:
       raise PrelimValidationError("immutable candidate terminal tag differs")
   fresh()
