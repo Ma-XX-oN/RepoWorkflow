@@ -137,64 +137,63 @@ artifact provenance, security gates, mandatory tests, user acceptance or
 repository-specific merge authorization.  **Authority to close an issue
 does not grant authority to merge its PR.**
 
-### Required instructions in every convergence work prompt
+### Required convergence ownership in issue contracts
 
-**Prompt authors must include the ownership and handoff contract when
-dispatching work.**  The agent carrying out a task cannot be expected to
-infer this procedure from a ticket number, title, graph or prior chat.
-The instruction belongs in the actual copyable worker/converger prompt;
-a link to this methodology alone is not sufficient.
+**The tickets themselves are the durable source of truth.**  Record the
+handoff and final closure responsibilities in the current authoritative
+issue bodies **at decomposition/assignment time**, rather than relying on
+an agent prompt, a chat history, or an inferred container graph.  A
+handoff comment can record an actual transfer, but it does not replace
+the issue's standing ownership and acceptance contract.
 
-A contributing **implementation-worker prompt** must state:
+Every **contributing implementation/certification ticket** that will be
+closed by a designated convergence owner must identify:
 
-- The specific convergence issue/owner receiving the eventual handoff, or
-  clearly mark that designation unresolved before work is assigned.
-- The worker owns implementation and independent testing of its assigned
-  scope, but the named converger owns final integrated acceptance and
-  closure of the handed-off issue.
-- Before leaving the work, the worker records and offers a handoff with
-  exact issue/PR/branch/commit/artifact/CI references, interface revision,
-  passed/failed/not-run acceptance, unresolved issues and necessary next
-  actions.  It must release its own active claim only through supported,
-  authorized means and must never surrender someone else's claim.
-- A handoff does not mean DONE, close the issue, satisfy dependencies, or
-  authorize a merge.  Unfinished independent work is not falsely handed
-  off as complete; record remaining work and continue if actionable.
-- Source corrections subsequently requested by the converger require an
-  explicit return/reassignment and preserved ownership provenance.
+- The exact convergence ticket/owner responsible for final integration,
+  acceptance and closure.  Do not invent an owner when designation is
+  unresolved; resolve it before treating dispatch as complete.
+- Its own independent implementation/test scope and the evidence that
+  will accompany handoff: issue, PR, branch, exact commit/artifact,
+  interface revision, executed/failed/not-run tests and CI, remaining
+  defects and applicable final integration gates.
+- The required handoff point: the worker offers evidence and releases
+  only its own claim through supported, authorized means.  Handoff is
+  not DONE, dependency satisfaction, issue closure or merge authority.
+  A later correction is returned through explicit reassignment.
 
-The designated **convergence-worker prompt** must state:
+Every **designated convergence ticket** must identify:
 
-- Exactly which contributing tickets and existing owned PRs it receives,
-  and that it must verify rather than assume each handoff/claim state.
-- The converger acknowledges/acquires handoffs and owns final interface
-  reconciliation, exact-source integration, required acceptance tests and
-  justified completion/closure of **each** contributing ticket.
-- If a child is blocked or a correction is needed, the converger keeps it
-  open, assigns the repair to the appropriate owner explicitly, and
-  retains exact evidence and tracked blockers.  No premature DONE.
-- Close children only after their individual requirements pass on the
-  relevant real integrated result, then complete the convergence ticket
-  **last**.  Already completed independent children need no fabricated
-  transfer/reopen.  Maintain all existing direct dependencies.
-- **Closing issues and merging PRs are separate authorities.**  No merge
-  without explicit repository/user authorization.
+- The exact contributing ticket IDs (and existing PRs when known),
+  without adding artificial dependency edges to encode membership.
+- The convergence owner's responsibility to acknowledge and safely
+  acquire handoffs, reconcile actual interfaces and exact revisions,
+  execute required real integration/acceptance, and record a separate
+  decision and evidence for closing each contributing ticket.
+- Failure handling: leave incomplete tickets open, return specific
+  corrections to the appropriate worker, and prevent competing active
+  claims or stale integration evidence from being treated as accepted.
+- Completion order: close qualifying child tickets only after their
+  actual acceptance contracts pass, then close the convergence ticket
+  **last**.  Do not reopen legitimately completed independent leaves
+  solely to manufacture a transfer; issue closure does not permit merge.
 
-For a multi-worker dispatch, include both sets of instructions in the
-initial individual prompts; do not wait for workers to announce DONE and
-then retrofit the handoff.  Carry the same rule through continuation,
-context-recovery, blocker-resolution and acceptance prompts.
+**Prompt usage:** Worker and converger prompts should explicitly instruct
+agents to read and follow their current issue bodies and linked
+convergence/handoff contracts.  They may briefly identify the designated
+convergence ticket for clarity, but do **not** need to duplicate the
+ticket's standing handoff procedure in each prompt.  Initial, continued,
+recovered and acceptance work must reread the authoritative ticket after
+a material contract or ownership change.
 
-This is an **agent-prompt and documented handoff requirement**.  Manual
-issue comments and explicit handoff acknowledgements are sufficient when
-no safe automated ownership transfer exists; a missing automatic command
-must not block documentation or sensible agent instructions.  Never claim
-an atomic provider operation or change a live claim without authority.
+Where no automated claim-transfer command exists, explicit documented
+issue handoff and acknowledgement can satisfy the procedural rule,
+subject to actual provider authority and single-owner safety.  Do not
+claim an atomic transfer or mutate a live claim without permission.
 
 The transfer/closure invariant is required even where RWF has no automated
 claim-transfer or child-retirement command yet.  Record explicit, verifiable
 human/agent handoffs; report missing automation as an optional enhancement,
-not a prerequisite for applying the prompt-level policy.  Never claim an
+not a prerequisite for applying the ticket-level policy.  Never claim an
 unsupported atomic transfer occurred.  See the
 completion evidence checklist in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
