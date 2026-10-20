@@ -406,6 +406,10 @@
         "type": "regression",
         "name": "tests.test_done_int_workspace"
       },
+      "issue-109-lifecycle-binding": {
+        "type": "regression",
+        "name": "tests.test_done_lifecycle_binding"
+      },
       "issue-109-landed-results": {
         "type": "regression",
         "name": "tests.test_done_landed_results"
