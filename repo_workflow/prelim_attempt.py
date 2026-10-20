@@ -7,15 +7,13 @@ and binds immutable PRELIM identity under #102.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from contextlib import contextmanager
-import os
-import time
 import json
 from pathlib import Path
 import re
 import uuid
 
 from .git import git
+from .prelim_attempt_lock import PrelimError, _attempt_lock, _workspace
 from .lifecycle_store import LifecycleStore
 from .prelim_identity import PrelimIdentityError, validate_attempt
 from .runtime_identity import runtime_writer_identity
@@ -27,9 +25,6 @@ from .version_adapter import read_version, run_transition
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 ISSUE = re.compile(r"^[1-9][0-9]*$")
-
-class PrelimError(RuntimeError):
-  """A preliminary candidate is invalid, stale or needs operator resolution."""
 
 @dataclass(frozen=True)
 class PrelimAttempt:
@@ -139,17 +134,15 @@ def _snapshot(record: dict) -> PrelimAttempt:
   )
 
 
-def _workspace(root: Path, attempt: str) -> Path:
-  common = Path(git(root, "rev-parse", "--git-common-dir").stdout.strip())
-  if not common.is_absolute():
-    common = (root / common).resolve()
-  return common / "repoworkflow" / "prelim-worktrees" / attempt
-
-
 def _trusted_inputs(root: Path, remote: str, issue: str,
                     source_ref: str, source_sha: str, base_sha: str,
-                    lifecycle_revision: int) -> None:
-  if _remote_ref(root, remote, "refs/heads/main") != base_sha:
+                    lifecycle_revision: int, *,
+                    require_current_base: bool = True) -> None:
+  # Construction/reintegration needs a current parent.  Publishing an
+  # already validated immutable READY candidate need not: its recorded
+  # historical base remains part of the exact #102 evidence identity.
+  if (require_current_base and
+      _remote_ref(root, remote, "refs/heads/main") != base_sha):
     raise PrelimError("authoritative server main moved: new attempt required")
   if _local_ref(root, source_ref) != source_sha:
     raise PrelimError("accepted source ref changed: new acceptance required")
@@ -428,47 +421,6 @@ def _finish_prelim_unlocked(root: Path, attempt: str, config: dict,
   _publish(root, remote, store, record)
   git(root, "worktree", "remove", str(workspace))
   return _snapshot(record)
-
-@contextmanager
-def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str):
-  """Process-scoped lock released by the OS even after an abrupt crash."""
-  # Locks are clone-local coordination metadata, never tracked workflow
-  # records. Keep the inode stable so simultaneous waiters cannot split locks.
-  path = (_workspace(root, attempt).parent.parent / "prelim-locks" /
-          f"{attempt}.lock")
-  path.parent.mkdir(parents=True, exist_ok=True)
-  fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
-  locked = False
-  try:
-    if os.fstat(fd).st_size == 0:
-      os.write(fd, b"0")
-    deadline = time.monotonic() + 5.0
-    while True:
-      try:
-        if os.name == "nt":
-          import msvcrt
-          os.lseek(fd, 0, os.SEEK_SET)
-          msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-        else:
-          import fcntl
-          fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        locked = True
-        break
-      except OSError as exc:
-        if time.monotonic() >= deadline:
-          raise PrelimError(f"attempt lock is busy: {path}") from exc
-        time.sleep(0.01)
-    yield
-  finally:
-    if locked:
-      if os.name == "nt":
-        import msvcrt
-        os.lseek(fd, 0, os.SEEK_SET)
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-      else:
-        import fcntl
-        fcntl.flock(fd, fcntl.LOCK_UN)
-    os.close(fd)
 
 def construct_prelim(root: Path, issue: str, source_ref: str, config: dict,
                      *, bump: str = "patch", attempt_id: str | None = None,

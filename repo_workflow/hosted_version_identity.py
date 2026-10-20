@@ -187,7 +187,8 @@ def resolve_hosted_version(
   versions = set()
   version_owners: dict[str, tuple[str, str]] = {}
   conflicting_owners: set[tuple[str, str]] = set()
-  terminal_outcomes: dict[str, str] = {}
+  terminal_outcomes: dict[tuple[str, str], str] = {}
+  conflicting_outcomes: set[tuple[str, str]] = set()
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except (OSError, UnicodeError) as error:
@@ -229,7 +230,7 @@ def resolve_hosted_version(
     terminal_result = record["result"]
     earlier_result = terminal_outcomes.get(namespace)
     if earlier_result is not None and earlier_result != terminal_result:
-      raise HostedVersionError("conflicting terminal version outcomes")
+      conflicting_outcomes.add(namespace)
     terminal_outcomes[namespace] = terminal_result
     if owner[0] != identity["candidate_sha"]:
       continue
@@ -245,6 +246,9 @@ def resolve_hosted_version(
     if record.get("uncommittedChanges") != []:
       raise HostedVersionError("version evidence used dirty inputs")
     versions.add(version)
+  if any((version, identity["stage"]) in conflicting_outcomes
+         for version in versions):
+    raise HostedVersionError("conflicting terminal version outcomes")
   if any((version, identity["stage"]) in conflicting_owners
          for version in versions):
     raise HostedVersionError(

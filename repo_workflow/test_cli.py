@@ -24,9 +24,10 @@ from .test_catalogue import load_test_catalogue
 from .test_results_reader import TestCommandError, results as read_results
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
-from .local_terminal import publish_local_terminal, verify_consumer_retry
+from .local_terminal import verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
+from .test_hosted_candidate import hosted_candidate_bound, publish_if_local
 from .test_worktree import tracked_input_changes
 
 STAGES = {
@@ -413,16 +414,15 @@ def run_test(
     return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    if (
-      root.resolve() == engine_root.resolve()
-      and (root / "VERSION").is_file()
-    ):
+    if (root.resolve() == engine_root.resolve()
+        and (root / "VERSION").is_file()
+        and not hosted_candidate_bound(root)):
       match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
       if match is None:
         raise TestCommandError("integration requires issue branch")
       prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
     rc = run_local_integration(root, engine_root=engine_root)
-    publish_local_terminal(root, stage="integration")
+    publish_if_local(root, stage="integration")
     return rc
   if stage == "regression":
     temporary = Path(".ci/temp-tests.json")
@@ -434,10 +434,9 @@ def run_test(
       for name in selected:
         # Validate every selected harness before transactional verification.
         group_command(root, name, temporary)
-    if (
-      root.resolve() == engine_root.resolve()
-      and (root / "VERSION").is_file()
-    ):
+    if (root.resolve() == engine_root.resolve()
+        and (root / "VERSION").is_file()
+        and not hosted_candidate_bound(root)):
       match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
       if match is None:
         raise TestCommandError("regression requires issue branch")
@@ -494,6 +493,6 @@ def run_test(
     }
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
-    publish_local_terminal(root, stage="regression")
+    publish_if_local(root, stage="regression")
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")

@@ -18,9 +18,18 @@
   "tests": [
     {
       "test-harness": "unittest",
-      "issue-102-prelim-validation": {"type": "regression", "name": "tests.test_prelim_validation"},
-      "issue-84-prelim-integration": {"type": "regression", "name": "tests.test_prelim_integration"},
-      "issue-82-prelim-candidate": {"type": "regression", "name": "tests.test_prelim_attempt"},
+      "issue-102-prelim-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_validation"
+      },
+      "issue-84-prelim-integration": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration"
+      },
+      "issue-82-prelim-candidate": {
+        "type": "regression",
+        "name": "tests.test_prelim_attempt"
+      },
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
@@ -380,6 +389,58 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "issue-683-prelim-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
+      },
+      "issue-683-prelim-ready-bridge": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_bridge"
+      },
+      "issue-683-prelim-ready-recorded": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_recorded"
+      },
+      "issue-683-prelim-ready-authority": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_authority"
+      },
+      "issue-683-provider-scope": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_provider_scope"
+      },
+      "issue-683-hosted-candidate-pin": {
+        "type": "regression",
+        "name": "tests.test_hosted_candidate"
+      },
+      "issue-683-destination-preparation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_prepare"
+      },
+      "issue-683-destination-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_validation"
+      },
+      "issue-683-destination-publication": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_publish"
+      },
+      "issue-683-destination-roundtrip": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_roundtrip"
+      },
+      "issue-683-historical-version-collision": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_history_collision"
+      },
+      "issue-683-integration-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration_ready"
       }
     },
     {
