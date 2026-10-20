@@ -118,6 +118,41 @@ def assemble():
      "tests.test_done_provider_acceptance", "tests.test_done_host_coordinator",
      "tests.test_done_provider_pipeline", "tests.test_done_retirement_bridge"],
     check=True)
+  print("Executing strict #681 IntegrationHost transport interoperability",
+        flush=True)
+  from repo_workflow.integration_host_v2 import IntegrationHost
+  from tests.test_done_provider_pipeline import PipelineTests
+  example = PipelineTests("test_one_ready_end_to_end_local_provider_simulation")
+  example.setUp()
+  backing = example.host
+  readonly = {
+    "refs.list", "destination.read", "lease.read", "attempt.read",
+    "mit.deferred.read", "mit.resume.read",
+  }
+  def transport(request):
+    op = request["operation"]
+    params = request["parameters"]
+    result = backing.request(op, request["request_id"], params)
+    if op == "destination.read":
+      result = {
+        "destination": params["destination"],
+        **result, "policy_present": False, "policy_text": None}
+    return {
+      "schema_version": 2, "repository": request["repository"],
+      "operation": op, "request_id": request["request_id"],
+      "status": "unchanged" if op in readonly else "applied",
+      "result": result,
+    }
+  host = IntegrationHost("Org/Repo", transport)
+  outcome = example.invoke(host=host)
+  if (outcome.accepted.landed_sha != "d" * 40
+      or backing.terminal["status"] != "integrated"
+      or backing.lease["generation"] != 2):
+    raise RuntimeError("provider-neutral v2 interoperation did not persist")
+  print("STRICT V2 HOST INTEROP: PASS (simulated transport only)", flush=True)
+  print("Running full assembled-source unittest regression", flush=True)
+  subprocess.run(
+    ["python", "-m", "unittest", "discover", "-s", "tests"], check=True)
 
 
 if __name__ == "__main__":
