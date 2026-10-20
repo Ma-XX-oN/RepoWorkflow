@@ -124,6 +124,15 @@ class DestinationAcceptanceTests(unittest.TestCase):
     with self.assertRaisesRegex(AcceptanceProviderError,"UNKNOWN"):
       accepted_request(observed="f"*40)
 
+  def test_revocation_after_intent_before_provider_push(self):
+    calls={"count":0}
+    def verifier(record):
+      calls["count"]+=1
+      return calls["count"]==1
+    with self.assertRaisesRegex(AcceptanceProviderError,"revoked"):
+      accepted_request(verify=verifier)
+    self.assertEqual(calls["count"],2)
+
   def test_crash_restart_readback_without_second_push(self):
     (status,receipt),calls=accepted_request(
       snapshot=NEW,observed=NEW,intent_exists=True)
