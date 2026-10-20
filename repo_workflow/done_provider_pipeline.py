@@ -13,6 +13,7 @@ from .done_host_coordinator import IntegrationHostCoordinator
 from .done_mit_defer_v2 import defer_mit_with_provider
 from .done_stage_certification import MitTimedOut, CertifiedStages
 from .done_int_workspace import publish_int_workspace
+from .done_policy_admission import current_destination_admission
 from .done_provider_acceptance import (
   DestinationAcceptanceFacts, bind_v2_destination_accept,
 )
@@ -44,7 +45,7 @@ def accept_one_ready_submission(
     terminal_evidence_ref, terminal_request_id,
     reconcile_unknown=None,
     mit_event_request_id=None, mit_read_request_id=None,
-    stage_certify=None,
+    stage_certify=None, immediate_parent_oracle=None,
 ):
   """Bind actual provider operations; no implicit PASS or remote retry."""
   if not isinstance(ready, ReadyPrelim):
@@ -68,6 +69,8 @@ def accept_one_ready_submission(
 
   if not callable(stage_certify):
     raise DoneExecutionError('independent stage certification is mandatory')
+  if not callable(immediate_parent_oracle):
+    raise DoneExecutionError('current destination parent oracle required')
   prepared = []
 
   def prepare(plan):
@@ -99,9 +102,16 @@ def accept_one_ready_submission(
     prepared.append(attempt)
     return attempt
 
+  def current_admission(plan):
+    observation = current_destination_admission(
+      host, plan, immediate_parent_oracle)
+    if observation.allowed is not True:
+      return observation
+    return admission_check(plan)
+
   try:
     accepted = execute_certified_done(
-      original_plan, refresh_plan, prepare, admission_check,
+      original_plan, refresh_plan, prepare, current_admission,
       bind_v2_destination_accept(host, provider_facts),
       verify_provider_result, reconcile_unknown=reconcile_unknown)
   except MitTimedOut as deferred:
