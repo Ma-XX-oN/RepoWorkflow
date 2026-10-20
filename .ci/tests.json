@@ -422,6 +422,10 @@
         "type": "regression",
         "name": "tests.test_done_current_policy"
       },
+      "issue-109-completion": {
+        "type": "regression",
+        "name": "tests.test_done_completion"
+      },
       "issue-109-policy-admission": {
         "type": "regression",
         "name": "tests.test_done_policy_admission"
