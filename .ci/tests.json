@@ -106,6 +106,10 @@
         "type": "regression",
         "name": "tests.test_repo_host_github_provider"
       },
+      "issue-681-external-evidence-authority": {
+        "type": "regression",
+        "name": "tests.test_integration_evidence_external"
+      },
       "issue-681-integration-host-v2": {
         "type": "regression",
         "name": "tests.test_integration_host_v2"
