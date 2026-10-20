@@ -1,5 +1,6 @@
 """Independent negative contracts for exact source-to-landed promotion."""
 from dataclasses import replace
+from datetime import datetime, timezone
 import unittest
 
 from repo_workflow.done_evidence_promotion import (
@@ -32,6 +33,7 @@ class PromotionTests(unittest.TestCase):
       "stages": self.stages,
       "independently_verified_landing": True,
       "equivalent_test_inputs": True,
+      "as_of_utc": datetime(2026,10,20,tzinfo=timezone.utc),
     }
 
   def make(self, **changes):
@@ -71,6 +73,18 @@ class PromotionTests(unittest.TestCase):
       with self.subTest(changes=changes):
         with self.assertRaises(PromotionError):
           self.make(**changes)
+
+  def test_expired_or_malformed_evidence_is_denied(self):
+    for expiry in ("2026-10-19T00:00:00Z", "not-a-date",
+                   "2026-10-20T00:00:00Z"):
+      bad=replace(self.stages[0], expires_at=expiry)
+      with self.subTest(expiry=expiry):
+        with self.assertRaises(PromotionError):
+          self.make(stages=(bad,self.stages[1],self.stages[2]))
+
+  def test_untrusted_clock_is_rejected(self):
+    with self.assertRaisesRegex(PromotionError,"UTC evaluation"):
+      self.make(as_of_utc=datetime(2026,10,20))
 
   def test_mixed_catalogue_and_config_denied(self):
     bad=replace(self.stages[1], catalogue_digest="other-catalogue")
