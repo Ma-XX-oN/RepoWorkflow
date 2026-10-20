@@ -85,8 +85,6 @@ independent deliverable that can truly reach DONE without its successor or
 predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
-Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
-
 ## 13.4 Convergence-owner handoff and child-ticket closure
 
 **Every explicitly designated convergence ticket** carries final acceptance
@@ -145,3 +143,5 @@ explicit, verifiable human/agent handoffs and the remaining enforcement
 gap; never claim an unsupported atomic transfer occurred.  See the
 completion evidence checklist in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
+
+Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
