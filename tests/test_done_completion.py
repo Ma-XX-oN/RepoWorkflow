@@ -50,7 +50,7 @@ class CompletionTests(unittest.TestCase):
     self.events.append(("promote",accepted.accepted.operation_id))
     if self.fail=="promotion":
       raise TimeoutError("hosted stage unknown")
-    return Promotion("op-1",A,C,B,D,A,A,"context",())
+    return Promotion("op-1",C,C,B,D,A,A,"context",())
 
   def persist_lifecycle(self,accepted,proof):
     self.events.append(("lifecycle.record",G))
@@ -102,6 +102,21 @@ class CompletionTests(unittest.TestCase):
   def test_missing_retirement_history_cannot_complete(self):
     self.fail="retirement.record"
     with self.assertRaisesRegex(CompletionError,"history absent"):
+      self.invoke()
+    self.assertIsNone(self.lifecycle)
+
+  def test_foreign_tested_source_cannot_be_promoted_as_done(self):
+    old=self.promotion
+    self.promotion=lambda accepted:Promotion(
+      "op-1",A,C,B,D,A,A,"context",())
+    with self.assertRaisesRegex(CompletionError,"promotion provenance"):
+      self.invoke()
+    self.assertIsNone(self.lifecycle)
+
+  def test_foreign_old_parent_is_not_completion(self):
+    self.promotion=lambda accepted:Promotion(
+      "op-1",C,C,A,D,A,A,"context",())
+    with self.assertRaisesRegex(CompletionError,"promotion provenance"):
       self.invoke()
     self.assertIsNone(self.lifecycle)
 
