@@ -106,17 +106,21 @@ child closure invariants in
 - Rejected/unknown ownership transfer fails closed.  Missing provider authority
   or required MIT blocks retirement.  Closing authority never permits merge.
 
-Before dispatching work, additionally inspect **actual agent prompts**:
-- A contributor prompt names the converger, asks for an evidence-complete
-  handoff, and distinguishes independent completion from final closure.
-- A converger prompt names the child tickets and PRs, owns final acceptance
-  and closure, closes children before itself, and forbids unapproved merge.
-- Continuation and restart prompts preserve the same handoff rules; merely
-  linking the methodology does not satisfy prompt completeness.
-- Where the receiving owner is not yet designated, the dispatch must say so
-  explicitly instead of inventing authority.
+Before dispatching work, inspect the **authoritative ticket bodies**:
 
-These checks are **prompt/document review criteria**, not proof that RWF
+- Each contributing ticket names its receiving convergence issue, scope,
+  evidence-complete handoff, and final acceptance/closure owner.
+- Each convergence ticket names contributing ticket IDs, integration and
+  acceptance duties, defect reassignment, closure order, and merge boundary.
+- The designation is explicit even for serial work and unprefixed tickets;
+  unknown receiving ownership is resolved before dispatch, not fabricated.
+- Prompts tell workers to read the current ticket and its handoff contract;
+  they need not duplicate all standing ticket requirements.
+- Continuation/recovery rereads the ticket when contract or ownership changes.
+- A real handoff leaves reviewable issue/PR/SHA/test evidence and a distinct
+  convergence acknowledgment, not an untracked chat-only claim.
+
+These are **ticket-contract and review criteria**, not proof that RWF
 currently implements automated handoff or retirement commands.
 
 ## 5. Dependency review
