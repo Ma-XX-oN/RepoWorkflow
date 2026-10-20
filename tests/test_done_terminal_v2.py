@@ -1,6 +1,7 @@
 """Terminal v2 positive, lost-ACK and forged record refusal tests."""
 import unittest
 
+from repo_workflow.done_executor import AcceptedIntegration
 from repo_workflow.done_terminal_v2 import (
   TerminalPublicationError, publish_integrated_terminal,
 )
@@ -50,6 +51,7 @@ class TerminalV2Tests(unittest.TestCase):
       "operation_id": "op-1", "integration_id": "integration-1",
       "terminal_evidence_ref": "provider-verified-terminal-1",
       "record_request_id": "terminal-1",
+      "accepted_integration": AcceptedIntegration(D, True, "op-1"),
     }
 
   def publish(self, **changes):
@@ -84,6 +86,17 @@ class TerminalV2Tests(unittest.TestCase):
     self.host.request = no_publication
     with self.assertRaisesRegex(TerminalPublicationError, "missing"):
       self.publish()
+
+  def test_foreign_cas_receipt_denied_before_persist(self):
+    for receipt in (
+      None, AcceptedIntegration(A, True, "op-1"),
+      AcceptedIntegration(D, False, "op-1"),
+      AcceptedIntegration(D, True, "other-operation"),
+    ):
+      with self.subTest(receipt=receipt):
+        with self.assertRaisesRegex(TerminalPublicationError, "CAS receipt"):
+          self.publish(accepted_integration=receipt)
+    self.assertEqual(self.host.calls, [])
 
   def test_wrong_landed_tip_denied_before_publish(self):
     self.host.destination = A
