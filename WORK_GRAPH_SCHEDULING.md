@@ -137,10 +137,65 @@ artifact provenance, security gates, mandatory tests, user acceptance or
 repository-specific merge authorization.  **Authority to close an issue
 does not grant authority to merge its PR.**
 
+### Required instructions in every convergence work prompt
+
+**Prompt authors must include the ownership and handoff contract when
+dispatching work.**  The agent carrying out a task cannot be expected to
+infer this procedure from a ticket number, title, graph or prior chat.
+The instruction belongs in the actual copyable worker/converger prompt;
+a link to this methodology alone is not sufficient.
+
+A contributing **implementation-worker prompt** must state:
+
+- The specific convergence issue/owner receiving the eventual handoff, or
+  clearly mark that designation unresolved before work is assigned.
+- The worker owns implementation and independent testing of its assigned
+  scope, but the named converger owns final integrated acceptance and
+  closure of the handed-off issue.
+- Before leaving the work, the worker records and offers a handoff with
+  exact issue/PR/branch/commit/artifact/CI references, interface revision,
+  passed/failed/not-run acceptance, unresolved issues and necessary next
+  actions.  It must release its own active claim only through supported,
+  authorized means and must never surrender someone else's claim.
+- A handoff does not mean DONE, close the issue, satisfy dependencies, or
+  authorize a merge.  Unfinished independent work is not falsely handed
+  off as complete; record remaining work and continue if actionable.
+- Source corrections subsequently requested by the converger require an
+  explicit return/reassignment and preserved ownership provenance.
+
+The designated **convergence-worker prompt** must state:
+
+- Exactly which contributing tickets and existing owned PRs it receives,
+  and that it must verify rather than assume each handoff/claim state.
+- The converger acknowledges/acquires handoffs and owns final interface
+  reconciliation, exact-source integration, required acceptance tests and
+  justified completion/closure of **each** contributing ticket.
+- If a child is blocked or a correction is needed, the converger keeps it
+  open, assigns the repair to the appropriate owner explicitly, and
+  retains exact evidence and tracked blockers.  No premature DONE.
+- Close children only after their individual requirements pass on the
+  relevant real integrated result, then complete the convergence ticket
+  **last**.  Already completed independent children need no fabricated
+  transfer/reopen.  Maintain all existing direct dependencies.
+- **Closing issues and merging PRs are separate authorities.**  No merge
+  without explicit repository/user authorization.
+
+For a multi-worker dispatch, include both sets of instructions in the
+initial individual prompts; do not wait for workers to announce DONE and
+then retrofit the handoff.  Carry the same rule through continuation,
+context-recovery, blocker-resolution and acceptance prompts.
+
+This is an **agent-prompt and documented handoff requirement**.  Manual
+issue comments and explicit handoff acknowledgements are sufficient when
+no safe automated ownership transfer exists; a missing automatic command
+must not block documentation or sensible agent instructions.  Never claim
+an atomic provider operation or change a live claim without authority.
+
 The transfer/closure invariant is required even where RWF has no automated
-claim-transfer or child-retirement command yet.  In that case record
-explicit, verifiable human/agent handoffs and the remaining enforcement
-gap; never claim an unsupported atomic transfer occurred.  See the
+claim-transfer or child-retirement command yet.  Record explicit, verifiable
+human/agent handoffs; report missing automation as an optional enhancement,
+not a prerequisite for applying the prompt-level policy.  Never claim an
+unsupported atomic transfer occurred.  See the
 completion evidence checklist in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
 
