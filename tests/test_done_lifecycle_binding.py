@@ -1,5 +1,5 @@
 """Lifecycle revision CAS waits for live integration and exact evidence."""
-from dataclasses import replace
+from dataclasses import replace, dataclass
 import unittest
 
 from repo_workflow.done_lifecycle_binding import (
@@ -9,7 +9,11 @@ from repo_workflow.done_terminal_v2 import IntegratedTerminal
 from repo_workflow.lifecycle_store import (
   IssueLifecycle, LifecycleEvent, LifecycleSnapshot,
 )
-from repo_workflow.prelim_retirement_remote import RefRetirement
+@dataclass(frozen=True)
+class RefRetirement:
+  ref: str
+  previously_observed_sha: str
+  absent_after: bool
 from repo_workflow.state_store import WriterIdentity
 from tests.test_done_evidence_promotion import PromotionTests, B, D
 
