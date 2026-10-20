@@ -6,6 +6,8 @@ import unittest
 
 from repo_workflow.done_executor import CertifiedAttempt, DoneExecutionError
 from repo_workflow.done_planner import DonePlan
+from repo_workflow.done_stage_certification import MitTimedOut
+from repo_workflow.done_provider_pipeline import DeferredProviderAttempt
 from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
 from repo_workflow.done_provider_pipeline import accept_one_ready_submission
 from repo_workflow.integration_admission import AdmissionDecision
@@ -24,6 +26,7 @@ class Provider:
     self.main = B
     self.int_sha = None
     self.terminal = None
+    self.deferred = None
     self.lease = {"destination":"main","generation":0,
                   "holder":None,"guid":None}
     self.calls = []
@@ -47,10 +50,14 @@ class Provider:
       return dict(self.lease)
     if operation == "attempt.read":
       return {"guid":G,"record":self.terminal}
+    if operation == "mit.deferred.record":
+      self.deferred = dict(p["event"])
+      return dict(p)
     if operation in ("mit.deferred.read","mit.resume.read"):
       return {"guid":G,"destination":"main",
               "event" if operation=="mit.deferred.read"
-              else "authorization":None}
+              else "authorization":self.deferred if operation=="mit.deferred.read"
+              else None}
     if operation == "destination.read":
       return {"ref":"refs/heads/main","sha":self.main}
     if operation == "ref.create":
@@ -99,6 +106,29 @@ class PipelineTests(unittest.TestCase):
       "terminal_request_id":"terminal-1",
     }
     return accept_one_ready_submission(**{**args,**overrides})
+
+  def test_mit_timeout_persists_deferral_and_releases_lease(self):
+    def timeout(plan):
+      raise MitTimedOut("independent-mit-timeout-1")
+    result=self.invoke(
+      prepare_and_certify=timeout,
+      mit_event_request_id="mit-defer-1",
+      mit_read_request_id="mit-read-1")
+    self.assertIsInstance(result,DeferredProviderAttempt)
+    self.assertEqual(result.released_generation,2)
+    self.assertEqual(self.host.deferred["reason"],"timeout")
+    self.assertEqual(self.host.main,B)
+    self.assertIsNone(self.host.terminal)
+    self.assertEqual(self.host.lease["holder"],None)
+
+  def test_mit_timeout_missing_event_ids_does_not_release(self):
+    def timeout(plan):
+      raise MitTimedOut("independent-mit-timeout-2")
+    with self.assertRaisesRegex(DoneExecutionError,"event IDs"):
+      self.invoke(prepare_and_certify=timeout)
+    self.assertIsNone(self.host.deferred)
+    self.assertEqual(self.host.lease["generation"],1)
+    self.assertEqual(self.host.main,B)
 
   def test_one_ready_end_to_end_local_provider_simulation(self):
     result=self.invoke()
