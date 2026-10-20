@@ -6,8 +6,15 @@ This adapter cannot create an acceptance or turn a simulated test into PASS.
 from .done_evidence_promotion import Promotion
 from .done_terminal_v2 import IntegratedTerminal
 from .lifecycle_store import LifecycleSnapshot, LifecycleStore
-from .prelim_retirement_remote import RefRetirement
+from typing import Protocol, runtime_checkable
 from .state_store import WriterIdentity
+
+
+@runtime_checkable
+class RefRetirement(Protocol):
+  ref: str
+  previously_observed_sha: str
+  absent_after: bool
 
 
 class CompletionHandoffError(RuntimeError):
@@ -47,8 +54,9 @@ def complete_after_provider(
   }
   if (len(expected) != 2
       or {r.ref for r in retirements} != set(expected)
-      or any(not r.absent_after or
-             r.previously_observed_sha != expected[r.ref]
+      or any(type(r.absent_after) is not bool or not r.absent_after
+             or type(r.previously_observed_sha) is not str
+             or r.previously_observed_sha != expected[r.ref]
              for r in retirements)):
     raise CompletionHandoffError("physical retirement not independently proven")
   before=store.read(issue)
