@@ -18,9 +18,18 @@
   "tests": [
     {
       "test-harness": "unittest",
-      "issue-102-prelim-validation": {"type": "regression", "name": "tests.test_prelim_validation"},
-      "issue-84-prelim-integration": {"type": "regression", "name": "tests.test_prelim_integration"},
-      "issue-82-prelim-candidate": {"type": "regression", "name": "tests.test_prelim_attempt"},
+      "issue-102-prelim-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_validation"
+      },
+      "issue-84-prelim-integration": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration"
+      },
+      "issue-82-prelim-candidate": {
+        "type": "regression",
+        "name": "tests.test_prelim_attempt"
+      },
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
@@ -380,6 +389,30 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "issue-103-prelim-retirement": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement"
+      },
+      "issue-103-retirement-evidence": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_evidence"
+      },
+      "issue-103-retirement-github": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_github"
+      },
+      "issue-103-retirement-remote": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_remote"
+      },
+      "issue-103-main-resync": {
+        "type": "regression",
+        "name": "tests.test_prelim_main_resync"
+      },
+      "issue-103-retirement-execute": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_execute"
       }
     },
     {
