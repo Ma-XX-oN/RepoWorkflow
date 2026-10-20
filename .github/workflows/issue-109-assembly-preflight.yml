@@ -1,0 +1,61 @@
+name: RWF 109 source assembly preflight
+on:
+  push:
+    branches:
+      - issue-109-v3-stack-assembly-probe-20261020
+permissions:
+  contents: read
+  issues: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3881776362349ea7a177be36e4f8871fd33e1802
+          fetch-depth: 0
+      - name: Merge certified dependent sources in disposable workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "RWF exact-source acceptance"
+          git config user.email "rwf-probe@example.invalid"
+          echo "::group::merge #103 source d6acd97219ac45a90634d0a8c0b90780e9b7e5ff"
+          git fetch --no-tags origin d6acd97219ac45a90634d0a8c0b90780e9b7e5ff
+          if ! git merge --no-ff --no-edit d6acd97219ac45a90634d0a8c0b90780e9b7e5ff; then
+            echo "CONFLICTS:"
+            git diff --name-only --diff-filter=U
+            git status --short
+            exit 1
+          fi
+          echo "::endgroup::"
+          echo "::group::merge #681 source 4938f73312691e7e593cd758965eb538f9e40baf"
+          git fetch --no-tags origin 4938f73312691e7e593cd758965eb538f9e40baf
+          if ! git merge --no-ff --no-edit 4938f73312691e7e593cd758965eb538f9e40baf; then
+            echo "CONFLICTS:"
+            git diff --name-only --diff-filter=U
+            git status --short
+            exit 1
+          fi
+          echo "::endgroup::"
+          echo "::group::merge #683 source ba3dde739701fcd358a01faf6f134078b0bf7924"
+          git fetch --no-tags origin ba3dde739701fcd358a01faf6f134078b0bf7924
+          if ! git merge --no-ff --no-edit ba3dde739701fcd358a01faf6f134078b0bf7924; then
+            echo "CONFLICTS:"
+            git diff --name-only --diff-filter=U
+            git status --short
+            exit 1
+          fi
+          echo "::endgroup::"
+          echo "PROVISIONAL TREE:"
+          git rev-parse HEAD
+          git status --short
+      - name: Publish assembly outcome and log identity
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 disposable stack-assembly preflight (not merge). Exact #109 source 3881776362349ea7a177be36e4f8871fd33e1802, #103 d6acd97219ac45a90634d0a8c0b90780e9b7e5ff, #681 4938f73312691e7e593cd758965eb538f9e40baf, #683 ba3dde739701fcd358a01faf6f134078b0bf7924. Outcome: $OUTCOME. Run https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. A failure is not executor acceptance; inspect conflicted paths."
