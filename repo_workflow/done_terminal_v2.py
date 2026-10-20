@@ -6,6 +6,7 @@ Provider v2 independently authenticates the external evidence reference.
 from dataclasses import dataclass
 import re
 
+from .done_executor import AcceptedIntegration
 from .prelim_queue import ReadyPrelim
 
 
@@ -33,6 +34,7 @@ def publish_integrated_terminal(
     *, host, ready: ReadyPrelim, int_attempt_ref,
     accepted_sha, old_destination_sha, landed_sha, operation_id,
     integration_id, terminal_evidence_ref, record_request_id,
+    accepted_integration,
 ):
   """Append exactly once after provider-confirmed destination CAS."""
   if not isinstance(ready, ReadyPrelim):
@@ -48,6 +50,11 @@ def publish_integrated_terminal(
       operation_id, integration_id, terminal_evidence_ref,
       record_request_id)):
     raise TerminalPublicationError("missing immutable terminal provenance")
+  if (not isinstance(accepted_integration, AcceptedIntegration)
+      or accepted_integration.verified is not True
+      or accepted_integration.landed_sha != landed_sha
+      or accepted_integration.operation_id != operation_id):
+    raise TerminalPublicationError("independently verified CAS receipt required")
   repository = getattr(host, "repository", None)
   if (not isinstance(repository, str)
       or not callable(getattr(host, "request", None))):
