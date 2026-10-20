@@ -3,7 +3,7 @@
 An independently authorized, already-certified INT-ATTEMPT may be integrated
 only against the exact provider-observed old destination ref SHA. The caller
 must independently certify tested source, current allow-policy and review.
-A failed/ambiguous push is UNKNOWN; never forge an integration PASS.
+Ambiguous pushes reconcile only using durable exact-operation intent.
 """
 import re
 import subprocess
@@ -13,6 +13,9 @@ from adapters.repo_host_github_integration_lease import (
 )
 from adapters.repo_host_github_integration_destination import (
   read_destination_snapshot,
+)
+from adapters.repo_host_github_integration_intent import (
+  read_intent, publish_intent,
 )
 
 
@@ -96,47 +99,66 @@ def _sha(backend, ref):
 
 
 def accept_destination(backend, request, root, remote, *, verify_evidence):
-  """Apply exact provider CAS only with an independently checked grant.
+  """Apply/reconcile one durable, exact-operation destination CAS.
 
-  Distinct request operation IDs are NOT proof of authorization. The verifier
-  must authenticate #104/#542 current testing/approval/admission evidence.
+  A provider-authenticated intent is persisted BEFORE the remote update.
+  A fresh process can reconcile lost ACK only against that immutable intent,
+  exact destination SHA, current lease, exact source and new authorization.
   """
-  record=_validate(request,backend.repository)
+  record = _validate(request, backend.repository)
   if (not callable(verify_evidence)
       or verify_evidence(record) is not True):
     raise AcceptanceProviderError("independent acceptance evidence denied")
-  dest=record["destination"]
-  before=record["expected_destination_sha"]
-  proposed=record["proposed_sha"]
-  lease=read_lease(backend,dest)
-  if lease!={"destination":dest,"generation":record["lease_generation"],
-             "holder":record["holder"],"guid":record["guid"]}:
+  dest = record["destination"]
+  before = record["expected_destination_sha"]
+  proposed = record["proposed_sha"]
+  lease = {"destination": dest, "generation": record["lease_generation"],
+           "holder": record["holder"], "guid": record["guid"]}
+  if read_lease(backend, dest) != lease:
     raise AcceptanceProviderError("destination lease no longer authoritative")
-  snapshot=read_destination_snapshot(backend,dest)
-  if snapshot["sha"]!=before:
-    raise AcceptanceProviderError("current destination differs; replan")
-  if _sha(backend,record["int_attempt_ref"])!=record["accepted_sha"]:
+  if _sha(backend, record["int_attempt_ref"]) != record["accepted_sha"]:
     raise AcceptanceProviderError("certified attempt source changed")
-  endpoint=_remote_scope(root,remote,backend)
-  if _git(root,"cat-file","-e",proposed+"^{commit}").returncode:
-    raise AcceptanceProviderError("proposed landed commit unavailable")
-  if _git(root,"merge-base","--is-ancestor",before,proposed).returncode:
-    raise AcceptanceProviderError("proposed landed commit is not descendant")
-  # A direct compare-and-swap at the provider transport, not a GET+merge.
-  target="refs/heads/"+dest
-  result=_git(root,"push","--porcelain",
-    "--force-with-lease="+target+":"+before,
-    endpoint,proposed+":"+target)
-  observed=_sha(backend,target)
-  if result.returncode:
-    # Even observed==proposed is not independently attributable to this
-    # operation without the later immutable integration terminal record.
-    raise AcceptanceProviderError("destination CAS failed or outcome UNKNOWN")
-  if observed!=proposed:
-    raise AcceptanceProviderError("destination acceptance readback UNKNOWN")
-  if read_lease(backend,dest)!=lease:
-    raise AcceptanceProviderError("lease changed during acceptance; reconcile")
-  return "applied",{
-    "destination":dest,"expected_sha":before,
-    "landed_sha":proposed,"operation_id":record["operation_id"],
+  intent = read_intent(backend, request)
+  snapshot = read_destination_snapshot(backend, dest)
+  receipt = {
+    "destination": dest, "expected_sha": before,
+    "landed_sha": proposed, "operation_id": record["operation_id"],
   }
+  if snapshot["sha"] == proposed:
+    if intent is None:
+      raise AcceptanceProviderError(
+        "destination changed without persisted operation intent")
+    if read_lease(backend, dest) != lease:
+      raise AcceptanceProviderError("destination lease changed; reconcile")
+    if _sha(backend, "refs/heads/" + dest) != proposed:
+      raise AcceptanceProviderError("destination recovery readback UNKNOWN")
+    return "unchanged", receipt
+  if snapshot["sha"] != before:
+    raise AcceptanceProviderError("current destination differs; replan")
+  endpoint = _remote_scope(root, remote, backend)
+  if _git(root, "cat-file", "-e", proposed + "^{commit}").returncode:
+    raise AcceptanceProviderError("proposed landed commit unavailable")
+  if _git(root, "merge-base", "--is-ancestor", before, proposed).returncode:
+    raise AcceptanceProviderError("proposed landed commit is not descendant")
+  # Publishing this tag does NOT advance the destination. It makes a later
+  # observed exact-SHA landing attributable to one authenticated request.
+  publish_intent(backend, request)
+  # Revalidation immediately before mutation, even on resumed intent.
+  if (read_lease(backend, dest) != lease
+      or _sha(backend, "refs/heads/" + dest) != before):
+    raise AcceptanceProviderError("destination moved before acceptance")
+  target = "refs/heads/" + dest
+  result = _git(root, "push", "--porcelain",
+    "--force-with-lease=" + target + ":" + before,
+    endpoint, proposed + ":" + target)
+  observed = _sha(backend, target)
+  if observed != proposed:
+    raise AcceptanceProviderError(
+      "destination CAS refused or provider outcome UNKNOWN")
+  if read_intent(backend, request) is None:
+    raise AcceptanceProviderError("acceptance operation identity UNKNOWN")
+  if read_lease(backend, dest) != lease:
+    raise AcceptanceProviderError("lease changed during acceptance; reconcile")
+  # An ACK loss is recoverable only because immutable operation evidence was
+  # already persisted and both the exact provider tip and lease now match.
+  return ("applied" if result.returncode == 0 else "unchanged"), receipt
