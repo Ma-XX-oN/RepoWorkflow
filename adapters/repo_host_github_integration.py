@@ -129,6 +129,10 @@ def cas_int_attempt_git(root, remote, ref, expected_sha, new_sha):
     raise IntegrationProviderError("INT-ATTEMPT CAS identity unavailable")
   observed_sha = lines[0].split()[0]
   if result.returncode:
+    # The remote may have applied the exact update before its ACK was lost.
+    # A readback equal to new_sha reconciles this operation without replay.
+    if observed_sha == new_sha:
+      return {"ref": ref, "sha": new_sha}
     if observed_sha != expected_sha:
       raise IntegrationProviderError("INT-ATTEMPT CAS failed or outcome UNKNOWN")
     raise IntegrationProviderError("INT-ATTEMPT CAS provider rejected update")
