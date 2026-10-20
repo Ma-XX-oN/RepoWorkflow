@@ -53,3 +53,13 @@ Deferred #85/#86/#676 security is not asserted complete.
 Do not promote mocked tests, historical exact-SHA jobs or an isolated
 owner's hosted PASS to this assembled revision.  No merge, protected ref
 mutation or stable tag is part of this work.
+
+## First assembled hosted run — non-GREEN
+
+At source `aa6901eaa280afb351fc64ad5bddee4370de61e2`,
+run 39506429246 FAILED in both focused and full-regression jobs.
+The provider log identifies `PipelineTests.run()` shadowing the
+`unittest.TestCase.run()` framework entry point.  #109 PR #680 fixed
+the fixture in its separate owned branch.  The source blob is imported
+on #677 assembly; this is not owner transfer.  New hosted testing is
+required.  Neither prior job is a PASS.
