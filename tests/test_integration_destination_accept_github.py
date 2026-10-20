@@ -41,12 +41,15 @@ class Backend:
 
 
 def accepted_request(*,observed=NEW,returncode=0,verify=lambda _:True,
-                     snapshot=OLD,lease=True,source=SOURCE,ancestor=True):
+                     snapshot=OLD,lease=True,source=SOURCE,ancestor=True,
+                     intent_exists=False):
   reply=request()
   proof={"destination":"target","generation":9,
          "holder":"worker-one","guid":GUID}
   successful=SimpleNamespace(returncode=0)
   calls=[]
+  state={"pushed":False,"intent":{"bound":True} if intent_exists else None}
+
   def git(root,*argv):
     calls.append(argv)
     if argv[0]=="cat-file":
@@ -54,8 +57,21 @@ def accepted_request(*,observed=NEW,returncode=0,verify=lambda _:True,
     if argv[0]=="merge-base":
       return SimpleNamespace(returncode=0 if ancestor else 1)
     if argv[0]=="push":
+      state["pushed"]=True
       return SimpleNamespace(returncode=returncode)
     raise AssertionError(argv)
+
+  def sha(backend,ref):
+    if ref==REF:
+      return source
+    if ref=="refs/heads/target":
+      return observed if state["pushed"] else snapshot
+    raise AssertionError(ref)
+
+  def publish(backend,request):
+    state["intent"]={"bound":True}
+    return state["intent"]
+
   with (patch("adapters.repo_host_github_integration_accept._remote_scope",
               return_value="https://github.com/Org/Repo.git"),
         patch("adapters.repo_host_github_integration_accept.read_lease",
@@ -63,13 +79,16 @@ def accepted_request(*,observed=NEW,returncode=0,verify=lambda _:True,
         patch("adapters.repo_host_github_integration_accept.read_destination_snapshot",
               return_value={"sha":snapshot}),
         patch("adapters.repo_host_github_integration_accept._sha",
-              side_effect=[source,observed]),
+              side_effect=sha),
         patch("adapters.repo_host_github_integration_accept._git",
-              side_effect=git)):
+              side_effect=git),
+        patch("adapters.repo_host_github_integration_accept.read_intent",
+              side_effect=lambda backend,request:state["intent"]),
+        patch("adapters.repo_host_github_integration_accept.publish_intent",
+              side_effect=publish)):
     answer=accept_destination(Backend(),reply,Path("/sandbox"),"origin",
                               verify_evidence=verify)
   return answer,calls
-
 
 class DestinationAcceptanceTests(unittest.TestCase):
   def test_correct_atomic_acceptance_has_exact_receipt(self):
@@ -97,11 +116,24 @@ class DestinationAcceptanceTests(unittest.TestCase):
         with self.assertRaisesRegex(AcceptanceProviderError,word):
           accepted_request(**changes)
 
-  def test_remote_ack_loss_is_unknown_even_if_sha_matches(self):
+  def test_remote_ack_loss_reconciles_exact_persisted_operation(self):
+    (status,receipt),calls=accepted_request(returncode=1)
+    self.assertEqual(status,"unchanged")
+    self.assertEqual(receipt["operation_id"],"accept-once")
+    self.assertEqual(sum(c[0]=="push" for c in calls),1)
     with self.assertRaisesRegex(AcceptanceProviderError,"UNKNOWN"):
-      accepted_request(returncode=1)
-    with self.assertRaisesRegex(AcceptanceProviderError,"readback UNKNOWN"):
       accepted_request(observed="f"*40)
+
+  def test_crash_restart_readback_without_second_push(self):
+    (status,receipt),calls=accepted_request(
+      snapshot=NEW,observed=NEW,intent_exists=True)
+    self.assertEqual(status,"unchanged")
+    self.assertEqual(receipt["landed_sha"],NEW)
+    self.assertFalse(any(c[0]=="push" for c in calls))
+    with self.assertRaisesRegex(AcceptanceProviderError,"without persisted"):
+      accepted_request(snapshot=NEW,observed=NEW)
+    with self.assertRaisesRegex(AcceptanceProviderError,"destination differs"):
+      accepted_request(snapshot="d"*40,intent_exists=True)
 
   def test_reject_forged_or_stale_fields(self):
     for kw in ({"repository":"Foreign/Repo"},
