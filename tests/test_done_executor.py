@@ -23,7 +23,8 @@ class ExecutionGuardTests(unittest.TestCase):
       "123", "patch", "main", A, B, "ALLOWED",
       True, False, None, (), (),
     )
-    self.attempt = CertifiedAttempt(A, INT, C, B, "evidence-1", "auth-1")
+    self.attempt = CertifiedAttempt(
+      A, INT, C, B, "evidence-1", "auth-1", "operation-1")
     self.calls = []
 
   def execute(self, **changes):
@@ -93,7 +94,7 @@ class ExecutionGuardTests(unittest.TestCase):
       return AdmissionDecision(123,"main",B,True,"current")
     result=execute_certified_done(
       self.plan,lambda:self.plan,lambda p:self.attempt,check,
-      lambda *args:AcceptedIntegration(D,True,"op"),
+      lambda *args:AcceptedIntegration(D,True,"operation-1"),
       lambda *args:True)
     self.assertEqual(result.landed_sha,D)
     self.assertEqual(calls["read"],2)
@@ -158,6 +159,20 @@ class ExecutionGuardTests(unittest.TestCase):
     with self.assertRaises(DoneExecutionError):
       self.execute(attempt=replace(self.attempt, evidence_ref=""))
     self.assertEqual(self.calls, [])
+
+  def test_missing_operation_id_stops_before_provider_mutation(self):
+    with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
+      self.execute(attempt=replace(self.attempt,operation_id=None))
+    self.assertEqual(self.calls, [])
+
+  def test_foreign_provider_operation_cannot_be_accepted(self):
+    with self.assertRaisesRegex(DoneExecutionError,"operation identity UNKNOWN"):
+      self.execute(response=AcceptedIntegration(D,True,"foreign-operation"))
+    self.assertEqual(len(self.calls),1)
+
+  def test_provider_receives_pinned_operation_identity(self):
+    self.execute()
+    self.assertEqual(self.calls[0][-1],"operation-1")
 
   def test_unknown_remote_response_cannot_be_success(self):
     with self.assertRaisesRegex(DoneExecutionError, "UNKNOWN"):
