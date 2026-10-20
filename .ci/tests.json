@@ -406,6 +406,10 @@
         "type": "regression",
         "name": "tests.test_done_int_workspace"
       },
+      "issue-109-evidence-provider": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_provider"
+      },
       "issue-109-evidence-promotion": {
         "type": "regression",
         "name": "tests.test_done_evidence_promotion"
