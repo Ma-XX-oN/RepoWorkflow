@@ -63,14 +63,17 @@ class DestinationRoundTripTests(unittest.TestCase):
 
     # The independent hosted terminal publisher makes the exact tested
     # object reachable through its immutable evidence tags, not READY refs.
-    for tag in ("v1.2.4-REGRESSION-PASS", "v1.2.4-INTEGRATION-PASS"):
+    for tag in ("v1.2.4-issue.7.0.1", "v1.2.4-PRELIM-7.0.1"):
       git(self.root, "tag", tag, candidate.candidate_sha)
       git(self.root, "push", "origin", "refs/tags/" + tag)
 
     def observation(stage, sha, obj):
       self.assertEqual(sha, candidate.candidate_sha)
-      return {"outcome": "PASS", "version": "1.2.4",
-              "tag": "v1.2.4-" + stage.upper() + "-PASS"}
+      return {
+        "outcome": "PASS", "version": "1.2.4-issue.7.0.1",
+        "tag": {"regression": "v1.2.4-issue.7.0.1",
+                "integration": "v1.2.4-PRELIM-7.0.1"}[stage],
+      }
 
     with (
       patch("repo_workflow.prelim_ready_v2_validation._observation",
