@@ -186,7 +186,7 @@ class PipelineTests(unittest.TestCase):
         self.host.policy_text="456"
       return original(op,key,params)
     self.host.request=change_policy
-    with self.assertRaisesRegex(DoneExecutionError,"policy denied"):
+    with self.assertRaisesRegex(DoneExecutionError,"destination admission changed"):
       self.invoke()
     self.assertEqual(self.host.main,B)
 
