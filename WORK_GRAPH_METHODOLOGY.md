@@ -79,6 +79,8 @@ When splitting:
    Explicitly designate its final child-acceptance/closure ownership;
    [WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) section 13.4
    governs the eventual handoff regardless of convergence type.
+   Every worker and convergence prompt must state that ownership contract
+   explicitly; a ticket link alone is insufficient.
 6. Keep parent acceptance requirements traceable across all split tickets.
 7. Update and validate the canonical ticket graph immediately.
 
