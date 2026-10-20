@@ -30,7 +30,7 @@ class FailedHost(FakeHost):
       if self.ack_lost:
         raise TimeoutError("lost ACK")
       return dict(params)
-    if op=="attempt.read" and self.forge:
+    if op=="attempt.read" and self.forge and self.terminal is not None:
       return {"guid":GUID,"record":{"status":"integrated"}}
     return super().request(op,key,params)
 
