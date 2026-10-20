@@ -86,3 +86,62 @@ predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
 Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
+
+## 13.4 Convergence-owner handoff and child-ticket closure
+
+**Every explicitly designated convergence ticket** carries final acceptance
+and closure responsibility for its contributing executable tickets.  This
+applies to integration, certification, consolidation and other convergence
+work, whether the path was serial, parallel, speculative, multi-lane or
+cross-repository.  The designation comes from the agreed ticket/work
+contract, **not** from an Initiative/Epic/Feature prefix, title wording,
+graph position, or inferred container membership.
+
+The worker who owns a contributing ticket remains responsible for its
+independent implementation and tests.  When that scope is ready for
+convergence, the worker must:
+
+1. Record the exact issue/PR, source and artifact revisions, interface
+   contract, executed tests/CI, results, unresolved failures, remaining
+   integration gates and lifecycle state.
+2. Explicitly hand off final acceptance/closure responsibility to the
+   designated convergence owner and release the active claim through the
+   authoritative ownership mechanism.  Do not abandon a live claim or
+   silently transfer another worker's session/identity.
+3. Retain durable authorship and evidence; a handoff does not erase
+   implementation ownership history or mark the ticket completed.
+
+The convergence owner must acknowledge and legitimately acquire each
+handoff before acting on its closure authority.  It then owns the exact
+integration/revalidation work, resolves mismatches through the appropriate
+source owner, and records its acceptance decision for **each** handed-off
+ticket.  A failed or stale integration result must reopen the necessary
+work or return a specific correction to its former worker with a new
+explicit ownership transfer.  No simultaneous active owners.
+
+**Handoff is not DONE.**  A child may be `accepted` independently without
+yet being `completed`; final closure by the convergence owner requires
+that child's actual acceptance contract and applicable integrated tests to
+pass against the exact candidate.  The convergence owner may perform
+explicitly authorized preparation/verification needed to retire child
+dependencies while its own convergence ticket remains blocked.  This does
+not make the blocked ticket ready or allow it to advance prematurely.
+Only a child's canonical durable `completed` state with
+`dependency_satisfied=true` satisfies its dependency edges.  Once all
+children are genuinely completed, finish the convergence ticket's own
+acceptance and close **the convergence ticket last**.
+
+This policy must not force already independently completed tickets to be
+reopened just to manufacture a handoff.  It must not introduce new graph
+edges to encode ownership, invent a separate parent/container graph, or
+let the convergence owner bypass issue claims, provider permissions,
+artifact provenance, security gates, mandatory tests, user acceptance or
+repository-specific merge authorization.  **Authority to close an issue
+does not grant authority to merge its PR.**
+
+The transfer/closure invariant is required even where RWF has no automated
+claim-transfer or child-retirement command yet.  In that case record
+explicit, verifiable human/agent handoffs and the remaining enforcement
+gap; never claim an unsupported atomic transfer occurred.  See the
+completion evidence checklist in
+[WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md).
