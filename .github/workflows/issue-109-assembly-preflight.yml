@@ -26,7 +26,7 @@ jobs:
             echo "CONFLICTS:"
             conflicts="$(git diff --name-only --diff-filter=U)"
             printf "%s\n" "$conflicts"
-            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" !=  ]]; then
+            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != "$(printf '.ci/run\\n.ci/tests.json')" ]]; then
               git status --short
               exit 1
             fi
@@ -97,7 +97,7 @@ jobs:
             echo "CONFLICTS:"
             conflicts="$(git diff --name-only --diff-filter=U)"
             printf "%s\n" "$conflicts"
-            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != $'.ci/run\\n.ci/tests.json' ]]; then
+            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != "$(printf '.ci/run\\n.ci/tests.json')" ]]; then
               git status --short
               exit 1
             fi
@@ -168,7 +168,7 @@ jobs:
             echo "CONFLICTS:"
             conflicts="$(git diff --name-only --diff-filter=U)"
             printf "%s\n" "$conflicts"
-            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != $'.ci/run\\n.ci/tests.json' ]]; then
+            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != "$(printf '.ci/run\\n.ci/tests.json')" ]]; then
               git status --short
               exit 1
             fi
@@ -316,7 +316,7 @@ jobs:
             echo "CONFLICTS:"
             conflicts="$(git diff --name-only --diff-filter=U)"
             printf "%s\n" "$conflicts"
-            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" !=  ]]; then
+            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != "$(printf '.ci/run\\n.ci/tests.json')" ]]; then
               git status --short
               exit 1
             fi
@@ -387,7 +387,7 @@ jobs:
             echo "CONFLICTS:"
             conflicts="$(git diff --name-only --diff-filter=U)"
             printf "%s\n" "$conflicts"
-            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != $'.ci/run\\n.ci/tests.json' ]]; then
+            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != "$(printf '.ci/run\\n.ci/tests.json')" ]]; then
               git status --short
               exit 1
             fi
@@ -535,7 +535,7 @@ jobs:
             echo "CONFLICTS:"
             conflicts="$(git diff --name-only --diff-filter=U)"
             printf "%s\n" "$conflicts"
-            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" !=  ]]; then
+            if [[ "$conflicts" != ".ci/tests.json" && "$conflicts" != "$(printf '.ci/run\\n.ci/tests.json')" ]]; then
               git status --short
               exit 1
             fi
