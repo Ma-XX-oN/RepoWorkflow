@@ -70,7 +70,7 @@ def read_active_manual_selection(root, issue, candidate_sha):
     return None
   return data
 
-def record_manual_result(root, issue, candidate_sha, result):
+def record_manual_result(root, issue, candidate_sha, result, *, operator, evidence_ref):
   selected = read_active_manual_selection(root, issue, candidate_sha)
   assert selected is not None
   records = read_manual_case_results(root, issue, candidate_sha)
@@ -86,6 +86,8 @@ def record_manual_result(root, issue, candidate_sha, result):
   evidence = {
     "kind": "manual-integration", "runner": "operator-fixture",
     "testSHA": candidate_sha, "result": result, "manualCase": selected["name"],
+    "definitionDigest": selected["definition_digest"],
+    "operator": operator, "evidenceRef": evidence_ref,
   }
   with log.open("a") as handle:
     handle.write(json.dumps(evidence) + "\\n")
@@ -109,6 +111,9 @@ class TestManualLauncher(unittest.TestCase):
       CATALOGUE_STUB
     )
     (self.engine / "repo_workflow" / "manual_test_result.py").write_text(
+      RESULT_STUB
+    )
+    (self.engine / "repo_workflow" / "manual_test_state.py").write_text(
       RESULT_STUB
     )
     self.root = base / "consumer"
