@@ -86,6 +86,7 @@ def read_manual_cases(root: Path, issue: int) -> tuple[ManualCase, ...]:
 
   catalogue = _load_catalogue(root)
   cases: list[ManualCase] = []
+  declared_manual_names: set[str] = set()
   harnesses = catalogue["test-harnesses"]
   for index, declaration in enumerate(catalogue["tests"]):
     harness_name = declaration["test-harness"]
@@ -101,6 +102,11 @@ def read_manual_cases(root: Path, issue: int) -> tuple[ManualCase, ...]:
         raise ManualCatalogueError(f"invalid manual case name: {name}")
       if not manual_type:
         raise ManualCatalogueError(f"manual case {name} requires type=manual")
+      if "command" in declaration:
+        raise ManualCatalogueError(
+          f"manual case {name} cannot declare executable command override"
+        )
+      declared_manual_names.add(name)
       if metadata.keys() != _MANUAL_FIELDS:
         raise ManualCatalogueError(
           f"manual case {name} requires exactly: type, instructions, expected_result"
@@ -124,6 +130,11 @@ def read_manual_cases(root: Path, issue: int) -> tuple[ManualCase, ...]:
         expected_result=metadata["expected_result"],
         definition_digest=_digest(name, metadata, harness_name, harness),
       ))
+  for alias, members in catalogue.get("aliases", {}).items():
+    if any(member in declared_manual_names for member in members):
+      raise ManualCatalogueError(
+        f"test alias {alias} cannot include a manual case"
+      )
   return tuple(sorted(cases, key=lambda case: case.name))
 
 
