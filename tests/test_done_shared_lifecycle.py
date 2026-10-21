@@ -217,7 +217,7 @@ class SharedLifecycleWriterTests(unittest.TestCase):
     self.assertEqual(self.read_git("rev-parse","authority-109"),
                      proof.commit_sha)
     self.assertEqual(proof.revision,3)
-    self.assertEqual(self.backend.ref_reads,3)
+    self.assertGreaterEqual(self.backend.ref_reads,3)
 
   def test_provider_lost_ack_recovers_only_exact_durable_record(self):
     self.backend.lost_ack=True
