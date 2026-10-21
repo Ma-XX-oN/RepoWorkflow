@@ -78,7 +78,7 @@ def resolve_engine_version():
   # Issue #109 retains the exact assembled version authority. #683's
   # independent development version is a control-plane input, not a merge.
   expected = git("show", f"{SOURCE}:.ci/engine-version").stdout
-  dependency = re.compile(r"0\\.1\\.122-issue\\.683\\.0\\.[1-9][0-9]*\\n")
+  dependency = re.compile(r"0\.1\.122-issue\.683\.0\.[1-9][0-9]*\n")
   if versions[0] != expected or not dependency.fullmatch(versions[1]):
     raise RuntimeError(f"semantic version collision: {versions!r}")
   git("checkout", "--ours", "--", ".ci/engine-version")
