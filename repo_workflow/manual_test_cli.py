@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import sys
 
-from .git import current_branch, head_sha
+from .git import GitError, current_branch, head_sha
 from .test_results_reader import TestCommandError
 
 
@@ -81,7 +81,7 @@ def manual_case_completions(context) -> list:
   try:
     issue = _issue(context.root)
     cases = _catalogue(context.root, issue)
-  except (TestCommandError, ValueError):
+  except (TestCommandError, GitError, ValueError, OSError):
     return []
   return [
     {case.name: "Select manual integration test " + case.name}
@@ -100,7 +100,7 @@ def manual_result_completions(context) -> list:
     issue = _issue(root)
     cases = _catalogue(root, issue)
     _selected(_result_api(), root, issue, head_sha(root), cases)
-  except (TestCommandError, ValueError, OSError):
+  except (TestCommandError, GitError, ValueError, OSError):
     return []
   return [
     {"succeeded": "Record PASS for the selected manual test"},
