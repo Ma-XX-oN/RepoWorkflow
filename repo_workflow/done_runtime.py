@@ -25,6 +25,8 @@ class VerifiedNativeDone:
   completion: VerifiedCompletion
   shared: SharedLifecycleEvidence
   authority: SharedAuthorityObservation
+  plan: DonePlan
+  source: EffectiveSource
 
 
 @dataclass(frozen=True)
@@ -131,7 +133,8 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
         or len(shared.intent_digest)!=64):
       raise DoneRuntimeError(
         "shared authoritative lifecycle missing or foreign; no DONE")
-    return VerifiedNativeDone(completed,shared,authority_after)
+    return VerifiedNativeDone(
+      completed,shared,authority_after,plan,original_source_verified)
   if isinstance(attempt,DeferredProviderAttempt):
     if attempt.ready!=ready:
       raise DoneRuntimeError("foreign MIT deferral")
