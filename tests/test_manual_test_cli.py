@@ -240,6 +240,8 @@ class TestManualLauncher(unittest.TestCase):
       with self.subTest(args=args):
         result = self.cli(*args)
         self.assertNotEqual(result.returncode, 0)
+        if "--remote" in args:
+          self.assertIn("manual integration cannot use --remote", result.stderr)
     self.assertFalse((self.root / ".ci/run").exists())
     self.assertFalse((self.root / ".manual-active.json").exists())
     (self.root / ".manual-cases.json").write_text("[]")
@@ -277,6 +279,17 @@ class TestManualLauncher(unittest.TestCase):
 
 
 class TestAutomaticIntegrationPresentation(unittest.TestCase):
+  def test_shipped_help_outside_git_checkout(self):
+    with tempfile.TemporaryDirectory() as temp:
+      proc = subprocess.run(
+        ["sh", str(SOURCE / "rwf"), "--root", temp, "test", "--help"],
+        capture_output=True, text=True, check=False,
+      )
+      self.assertEqual(proc.returncode, 0, proc.stderr)
+      self.assertIn("integration", proc.stdout)
+      self.assertNotIn("succeeded", proc.stdout)
+      self.assertNotIn("failed", proc.stdout)
+
   def test_terminal_publication_is_blocked_until_mit_finishes(self):
     from repo_workflow.test_cli import run_test
     with tempfile.TemporaryDirectory() as temp:
