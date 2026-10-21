@@ -13,6 +13,8 @@ from .done_runtime import (
 from .done_shared_lifecycle import (
   SharedLifecycleEvidence,SharedAuthorityObservation,
 )
+from .done_planner import DonePlan
+from .done_source_identity import EffectiveSource
 
 
 class DoneCommandError(ValueError):
@@ -34,9 +36,20 @@ def execute_done_command(release, *, trusted_executor, emit):
     completed=outcome.completion
     shared=outcome.shared
     authority=outcome.authority
-    if (not isinstance(completed,VerifiedCompletion)
+    plan=outcome.plan
+    source=outcome.source
+    if (not isinstance(plan,DonePlan)
+        or plan.release!=release
+        or plan.allowed is not True
+        or plan.disposition not in ("ALLOWED","QUEUE_ELIGIBLE")
+        or type(plan.issue) is not str
+        or not plan.issue.isdecimal()
+        or not isinstance(source,EffectiveSource)
+        or source.tested_source_sha!=plan.candidate_sha
+        or not isinstance(completed,VerifiedCompletion)
         or not isinstance(shared,SharedLifecycleEvidence)
         or not isinstance(authority,SharedAuthorityObservation)
+        or shared.issue!=int(plan.issue)
         or shared.independently_authenticated is not True
         or authority.independently_authenticated is not True
         or shared.repository!=authority.repository
