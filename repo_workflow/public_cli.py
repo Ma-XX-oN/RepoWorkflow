@@ -134,6 +134,10 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     words = [words[0], words[1], "--remote", words[2]]
   if words in (["test", "succeeded"], ["test", "failed"]):
     return record_selected(root, outcome=words[1])
+  if words[:2] == ["test", "integration"] and "--remote" in words and (
+    "--manual" in words or any("-manual--" in token for token in words[2:])
+  ):
+    raise CommandGrammarError("manual integration cannot use --remote")
   general, legal, facts, plan, state, failure = _diagnose(
     root,
     words,
