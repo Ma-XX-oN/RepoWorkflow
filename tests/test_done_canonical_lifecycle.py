@@ -100,7 +100,7 @@ class CanonicalLifecycleTests(unittest.TestCase):
 
   def test_read_method_does_not_create_missing_completion(self):
     with self.assertRaisesRegex(
-        CanonicalLifecycleError,"completed revision"):
+        CanonicalLifecycleError,"operation identity missing"):
       self.bridge.read_lifecycle(
         self.fixture.accepted,self.proof,self.retirements())
     self.assertEqual(self.store.read(123).revision,2)
@@ -137,6 +137,41 @@ class CanonicalLifecycleTests(unittest.TestCase):
     with self.assertRaisesRegex(CanonicalLifecycleError,"revision"):
       wrong.read_lifecycle(
         self.fixture.accepted,self.proof,self.retirements())
+
+
+  def test_lost_intent_ack_is_recovered_without_duplicate_record(self):
+    original=self.store.records.create
+    def create_then_lose_ack(*args):
+      original(*args)
+      raise TimeoutError("durable intent persisted but ACK lost")
+    self.store.records.create=create_then_lose_ack
+    result=self.invoke()
+    self.assertEqual(result.lifecycle["revision"],3)
+    key="issues/123/done-intent"
+    record=self.store.records.read(key)
+    self.assertEqual(record["revision"],0)
+    self.assertEqual(record["value"]["operation_id"],self.terminal.operation_id)
+
+  def test_foreign_operation_intent_prevents_same_candidate_replay(self):
+    payload=self.bridge._intent_payload(self.fixture.accepted,self.terminal)
+    payload["operation_id"]="other-integration-actor"
+    self.store.records.create(
+      "issues/123/done-intent",payload,self.writer)
+    with self.assertRaisesRegex(CompletionError,"lifecycle"):
+      self.invoke()
+    self.assertEqual(self.store.read(123).revision,2)
+    stored=self.store.records.read("issues/123/done-intent")
+    self.assertEqual(stored["value"]["operation_id"],"other-integration-actor")
+
+  def test_changed_review_state_cannot_create_intent(self):
+    state=self.store.read(123)
+    self.store.transition(
+      123,"reject/reopen",None,3,self.writer,state.revision)
+    with self.assertRaisesRegex(CompletionError,"lifecycle"):
+      self.invoke()
+    self.assertEqual(self.store.read(123).lifecycle.state,"active")
+    with self.assertRaisesRegex(Exception,"record is missing"):
+      self.store.records.read("issues/123/done-intent")
 
 
 if __name__=="__main__":
