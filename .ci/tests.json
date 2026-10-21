@@ -438,6 +438,7 @@
       "issue-109-completion": {"type": "regression", "name": "tests.test_done_completion"},
       "issue-109-canonical-lifecycle": {"type": "regression", "name": "tests.test_done_canonical_lifecycle"},
       "issue-109-shared-lifecycle": {"type": "regression", "name": "tests.test_done_shared_lifecycle"},
+      "issue-109-check-issuer": {"type": "regression", "name": "tests.test_done_check_issuer"},
       "issue-109-hosted-stages": {"type": "regression", "name": "tests.test_done_hosted_stage_pipeline"},
       "issue-109-policy-admission": {"type": "regression", "name": "tests.test_done_policy_admission"},
       "issue-109-stage-certification": {"type": "regression", "name": "tests.test_done_stage_certification"},
