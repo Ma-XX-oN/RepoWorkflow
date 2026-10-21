@@ -21,6 +21,11 @@ class StageCertificationError(DoneExecutionError):
 class StageFailed(StageCertificationError):
   """Exact-source ART/AIT/release/MIT failed; requires repair."""
 
+  def __init__(self, stage, receipt):
+    super().__init__(stage+" independently certified FAIL")
+    self.stage=stage
+    self.receipt=receipt
+
 
 class MitTimedOut(StageCertificationError):
   """Durable MIT timeout must be recorded and resumed, not merged."""
@@ -116,7 +121,7 @@ def certify_stages(*, source_sha, parent_sha, read_stage, read_mit_policy):
     if receipt.status == "TIMEOUT" and stage == "MIT":
       raise MitTimedOut(receipt.evidence_ref)
     if receipt.status == "FAIL":
-      raise StageFailed(stage+" independently certified FAIL")
+      raise StageFailed(stage,receipt)
     if receipt.status != "PASS":
       raise StageCertificationError(stage+" is not independently PASS")
     receipts.append(receipt)
