@@ -10,7 +10,9 @@ from repo_workflow.done_planner import DonePlan
 from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
-from repo_workflow.done_shared_lifecycle import SharedLifecycleEvidence
+from repo_workflow.done_shared_lifecycle import (
+  SharedLifecycleEvidence,SharedAuthorityObservation,
+)
 from repo_workflow.done_runtime import (
   DoneRuntimeError, VerifiedDeferredDone, VerifiedFailedDone,
   execute_ready_done,
@@ -47,8 +49,36 @@ class RuntimeTests(unittest.TestCase):
         done.lifecycle["revision"],done.operation_id,
         done.terminal.accepted_sha,done.landed_sha,
         "b"*64,"c"*64,True),
+      read_shared_authority=lambda plan,ready:SharedAuthorityObservation(
+        "Org/Repo","authorized-state","a"*40,True),
     )
     return execute_ready_done(**{**args,**changes})
+
+  def test_missing_shared_authority_registration_denies_command(self):
+    with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
+      self.invoke(read_shared_authority=None)
+
+  def test_forged_or_foreign_state_scope_rejected(self):
+    for forged in (
+        None,True,
+        SharedAuthorityObservation("Other/Repo","authorized-state","a"*40,True),
+        SharedAuthorityObservation("Org/Repo","foreign-state","a"*40,True),
+        SharedAuthorityObservation("Org/Repo","authorized-state","f"*40,True),
+        SharedAuthorityObservation("Org/Repo","authorized-state","a"*40,False)):
+      with self.subTest(forged=forged):
+        with self.assertRaisesRegex(DoneRuntimeError,"no DONE"):
+          self.invoke(read_shared_authority=lambda *args:forged)
+
+  def test_state_ref_changed_during_shared_readback_refuses_done(self):
+    seen=[]
+    def moved(*args):
+      seen.append(1)
+      return SharedAuthorityObservation(
+        "Org/Repo","authorized-state",
+        "a"*40 if len(seen)==1 else "f"*40,True)
+    with self.assertRaisesRegex(DoneRuntimeError,"moved"):
+      self.invoke(read_shared_authority=moved)
+    self.assertEqual(len(seen),2)
 
   def test_real_composition_requires_completed_provenance(self):
     result=self.invoke()
