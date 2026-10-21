@@ -339,3 +339,12 @@ def test_cli_no_identity_rejected(setup, monkeypatch):
   with pytest.raises(ManualResultError, match="operator identity"):
     record_manual_result(root, 701, sha, "succeeded", cases=cases)
   assert not _log(root).exists()
+
+
+def test_terminal_pass_cannot_be_reselected_directly(setup):
+  root, sha, cases = setup
+  _selected(root, sha, cases)
+  _record(root, sha, cases)
+  with pytest.raises(ManualSelectionError, match="recorded terminal"):
+    _selected(root, sha, cases)
+  assert len(_log(root).read_text().splitlines()) == 1
