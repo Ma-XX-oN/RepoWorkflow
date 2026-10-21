@@ -8,7 +8,7 @@ from .done_lifecycle_binding import complete_after_provider
 from .done_provider_pipeline import AcceptedProviderAttempt
 from .done_terminal_v2 import IntegratedTerminal
 from .lifecycle_store import LifecycleStore, LifecycleSnapshot
-from .state_store import WriterIdentity
+from .state_store import WriterIdentity, StateStoreError
 
 
 class CanonicalLifecycleError(RuntimeError):
@@ -71,8 +71,68 @@ class CanonicalLifecycleCompletion:
       raise CanonicalLifecycleError("both exact retirements required")
     return terminal
 
+  def _intent_payload(self, accepted, terminal):
+    """Record operation identity separately, without redefining lifecycle."""
+    return {
+      "schema_version":1,
+      "issue":str(self.issue),
+      "expected_revision":self.expected_revision,
+      "relationship_revision":self.relationship_revision,
+      "guid":terminal.guid,
+      "operation_id":terminal.operation_id,
+      "destination":accepted.ready.destination,
+      "prelim_ref":accepted.ready.ref,
+      "prelim_sha":accepted.ready.sha,
+      "accepted_sha":terminal.accepted_sha,
+      "landed_sha":terminal.landed_sha,
+    }
+
+  def _read_intent(self, expected, *, create):
+    """The first completion owns the issue; a different operation is foreign."""
+    key="issues/"+str(self.issue)+"/done-intent"
+    try:
+      record=self.store.records.read(key)
+    except StateStoreError as error:
+      if "record is missing:" not in str(error):
+        raise CanonicalLifecycleError(
+          "completion intent store UNKNOWN") from error
+      if not create:
+        raise CanonicalLifecycleError(
+          "durable completion operation identity missing") from error
+      try:
+        self.store.records.create(key,expected,self.writer)
+      except Exception:
+        # Missing acknowledgment or a concurrent writer: read, never overwrite.
+        pass
+      try:
+        record=self.store.records.read(key)
+      except Exception as read_error:
+        raise CanonicalLifecycleError(
+          "completion intent append/readback UNKNOWN") from read_error
+    if (type(record) is not dict or record.get("revision")!=0
+        or record.get("value")!=expected):
+      raise CanonicalLifecycleError(
+        "foreign completion operation already owns lifecycle")
+    return record
+
   def persist_lifecycle(self, accepted, proof, retirements):
     terminal=self._scope(accepted,proof,retirements)
+    before=self.store.read(self.issue)
+    state=before.lifecycle
+    if (before.revision not in {
+          self.expected_revision,self.expected_revision+1}
+        or state.issue!=str(self.issue)
+        or state.relationship_revision!=self.relationship_revision
+        or state.state not in {"accepted","completed"}
+        or not state.history
+        or state.history[-1].candidate!=terminal.accepted_sha):
+      raise CanonicalLifecycleError(
+        "accepted lifecycle candidate/revision missing before intent")
+    if (self.reread_terminal(terminal.guid)!=terminal.record
+        or self.reread_promotion(proof.operation_id)!=proof):
+      raise CanonicalLifecycleError(
+        "provider completion differs before intent")
+    self._read_intent(self._intent_payload(accepted,terminal),create=True)
     return complete_after_provider(
       store=self.store,issue=self.issue,
       expected_revision=self.expected_revision,
@@ -85,6 +145,7 @@ class CanonicalLifecycleCompletion:
   def read_lifecycle(self, accepted, proof, retirements):
     """Read only: never create a completed transition on failed publication."""
     terminal=self._scope(accepted,proof,retirements)
+    self._read_intent(self._intent_payload(accepted,terminal),create=False)
     try:
       before=self.store.read(self.issue)
       history=before.lifecycle.history
