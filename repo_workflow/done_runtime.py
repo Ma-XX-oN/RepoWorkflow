@@ -19,13 +19,15 @@ class DoneRuntimeError(RuntimeError):
 
 def execute_ready_done(*, release, read_current_plan, select_ready,
                        execute_provider_attempt, complete_accepted,
-                       read_deferred_mit, publish_failure_handoff):
+                       read_deferred_mit, publish_failure_handoff,
+                       verify_source_lineage):
   """Compose exact plan/READY/provider/outcome without fabricating PASS."""
   if (type(release) is not str
       or release not in {"patch","minor","major"}
       or any(not callable(fn) for fn in (
         read_current_plan,select_ready,execute_provider_attempt,
-        complete_accepted,read_deferred_mit,publish_failure_handoff))):
+        complete_accepted,read_deferred_mit,publish_failure_handoff,
+        verify_source_lineage))):
     raise DoneRuntimeError("authenticated native done bindings required")
   try:
     plan=read_current_plan(release)
@@ -45,6 +47,12 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
       or ready.destination!=plan.target
       or ready.sha!=plan.candidate_sha):
     raise DoneRuntimeError("selected READY identity differs from plan")
+  try:
+    original_source_verified=verify_source_lineage(plan,ready)
+  except Exception as error:
+    raise DoneRuntimeError("invocation/source provenance UNKNOWN") from error
+  if original_source_verified is not True:
+    raise DoneRuntimeError("current original tested SHA was not verified")
   try:
     attempt=execute_provider_attempt(ready,plan)
   except Exception as error:
