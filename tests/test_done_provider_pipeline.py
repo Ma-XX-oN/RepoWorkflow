@@ -12,6 +12,7 @@ from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
 from repo_workflow.done_provider_pipeline import accept_one_ready_submission
 from repo_workflow.done_stage_certification import (
   CertifiedStages, VerifiedMitPolicy, VerifiedStage, MitTimedOut,
+  StageFailed,
 )
 from repo_workflow.integration_admission import AdmissionDecision
 from repo_workflow.prelim_queue import parse_ready_prelim
@@ -209,6 +210,33 @@ class PipelineTests(unittest.TestCase):
     with self.assertRaisesRegex(DoneExecutionError,"stage identity"):
       self.invoke(stage_certify=forged)
     self.assertIsNone(self.host.int_sha)
+    self.assertEqual(self.host.main,B)
+
+  def test_authenticated_ait_fail_is_durable_without_parent_mutation(self):
+    def failed(source,parent):
+      evidence=VerifiedStage(
+        "AIT",source,parent,"FAIL","run-ait","ait-failure-proof",
+        "catalogue","config","inputs","2027-01-01T00:00:00Z",True)
+      raise StageFailed("AIT",evidence)
+    result=self.invoke(stage_certify=failed)
+    self.assertEqual(result.failed_stage,"AIT")
+    self.assertEqual(result.evidence_ref,"ait-failure-proof")
+    self.assertEqual(result.released_generation,2)
+    self.assertEqual(self.host.terminal["status"],"failed")
+    self.assertEqual(self.host.lease["holder"],None)
+    self.assertIsNone(self.host.int_sha)
+    self.assertEqual(self.host.main,B)
+
+  def test_forged_failure_receipt_cannot_release_claim(self):
+    def forged(source,parent):
+      proof=VerifiedStage(
+        "AIT",source,parent,"PASS","run-ait","wrong-status",
+        "catalogue","config","inputs","2027-01-01T00:00:00Z",True)
+      raise StageFailed("AIT",proof)
+    with self.assertRaisesRegex(DoneExecutionError,"unverified"):
+      self.invoke(stage_certify=forged)
+    self.assertEqual(self.host.lease["generation"],1)
+    self.assertIsNone(self.host.terminal)
     self.assertEqual(self.host.main,B)
 
   def test_missing_current_ready_prevents_claim(self):
