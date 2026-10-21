@@ -36,6 +36,11 @@ from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
 from .test_cli import run_test
+from .manual_test_cli import (
+  after_automatic_integration,
+  record_selected,
+  select_requested,
+)
 from .workspace_cli import handle_workspace
 
 
@@ -126,6 +131,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     and words[3] == "--remote" and not words[2].startswith("--")
   ):
     words = [words[0], words[1], "--remote", words[2]]
+  if words in (["test", "succeeded"], ["test", "failed"]):
+    return record_selected(root, outcome=words[1])
   general, legal, facts, plan, state, failure = _diagnose(
     root,
     words,
@@ -207,11 +214,28 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   if command == "test":
-    return run_test(
-      root, words[1], remote="--remote" in words,
+    remote = "--remote" in words
+    if words[1] == "integration" and (
+      "--manual" in words or any(
+        token not in {"--remote", "--manual"} for token in words[2:]
+      )
+    ):
+      names = [token for token in words[2:] if not token.startswith("--")]
+      if "--manual" in words and names:
+        raise CommandGrammarError(
+          "--manual cannot be combined with an explicit test name"
+        )
+      return select_requested(
+        root, name=names[0] if names else None, remote=remote,
+      )
+    result = run_test(
+      root, words[1], remote=remote,
       engine_root=engine_root,
       group=next((value for value in words[2:] if value != "--remote"), None),
     )
+    if words[1] == "integration" and not remote and result == 0:
+      return after_automatic_integration(root)
+    return result
 
   if command == "version":
     config = load_config(root)
