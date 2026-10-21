@@ -14,8 +14,8 @@ from .done_completion import VerifiedCompletion
 from .lifecycle_store import LifecycleStore
 
 
-_SHA=re.compile(r"[0-9a-f]{40}\\Z")
-_BRANCH=re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*\\Z")
+_SHA=re.compile(r"[0-9a-f]{40}\Z")
+_BRANCH=re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
 
 
 class SharedLifecycleError(RuntimeError):
@@ -72,7 +72,7 @@ def _git_blob(backend, commit, path):
         raise SharedLifecycleError("provider blob encoding unknown")
       try:
         raw=base64.b64decode(blob["content"],validate=False)
-        if hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\\0"+raw).hexdigest()!=node["sha"]:
+        if hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()!=node["sha"]:
           raise ValueError("blob SHA differs")
         data=json.loads(raw.decode("utf-8"))
       except (ValueError,UnicodeError) as error:
