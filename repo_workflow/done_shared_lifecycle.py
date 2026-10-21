@@ -223,7 +223,7 @@ def publish_shared_completion(*, backend, state_branch, expected_old_commit,
       "tree":[{
         "path":prefix+name+".json",
         "mode":"100644","type":"blob",
-        "content":json.dumps(data,indent=2,sort_keys=True)+"\\n",
+        "content":json.dumps(data,indent=2,sort_keys=True)+"\n",
       } for name,data in (
         ("lifecycle",current),("done-intent",intent))]})
     if not _sha(tree.get("sha")):
