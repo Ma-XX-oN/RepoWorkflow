@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ff86d1503ac15aba143b8f127f1a7dc30df74c21
+          ref: 13682b27baf21e6f5d1abc2620ec23a7587f13d6
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ff86d1503ac15aba143b8f127f1a7dc30df74c21
+          ref: 13682b27baf21e6f5d1abc2620ec23a7587f13d6
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -48,4 +48,4 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
-          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 isolated exact-source hosted acceptance. Source: ff86d1503ac15aba143b8f127f1a7dc30df74c21. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Focused platform matrix: $FOCUSED. Ubuntu full unittest regression: $REGRESSION. This is not end-to-end executor certification or permission to merge."
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 isolated exact-source hosted acceptance. Source: 13682b27baf21e6f5d1abc2620ec23a7587f13d6. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Focused platform matrix: $FOCUSED. Ubuntu full unittest regression: $REGRESSION. This is not end-to-end executor certification or permission to merge."
