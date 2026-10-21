@@ -82,7 +82,7 @@ class IssuerTests(unittest.TestCase):
     self.assertEqual([x[0] for x in self.records],["ART","AIT"])
     self.assertEqual(len(self.bindings),4)
     self.assertEqual(len(self.verifications),2)
-    self.assertEqual(self.release_reads,[(SOURCE,PARENT)])
+    self.assertEqual(self.release_reads,[(SOURCE,PARENT)]*2)
     self.assertEqual(self.mit_reads,[])
 
   def test_required_mit_uses_separate_authenticated_issuer(self):
@@ -90,7 +90,7 @@ class IssuerTests(unittest.TestCase):
     result=self.invoke()
     self.assertEqual([x.stage for x in result.stages],
                      ["ART","AIT","release","MIT"])
-    self.assertEqual(self.mit_reads,[(SOURCE,PARENT)])
+    self.assertEqual(self.mit_reads,[(SOURCE,PARENT)]*2)
 
   def test_missing_release_authority_never_reuses_art_receipt(self):
     with self.assertRaisesRegex(StageCertificationError,"authorities"):
@@ -153,6 +153,41 @@ class IssuerTests(unittest.TestCase):
     with self.assertRaisesRegex(StageCertificationError,"invalid exact source"):
       self.invoke(source_sha="not-sha")
     self.assertEqual(self.records,[])
+
+
+  def test_revoked_release_between_two_provider_reads_is_refused(self):
+    reads=[]
+    def revoked(source,parent):
+      reads.append(1)
+      return self.stage("release",source,parent,
+                        "PASS" if len(reads)==1 else "FAIL")
+    with self.assertRaisesRegex(StageCertificationError,
+                                "authority changed"):
+      self.invoke(read_release_stage=revoked)
+    self.assertEqual(len(reads),2)
+
+  def test_new_mit_requirement_after_first_policy_read_is_refused(self):
+    reads=[]
+    def changed(source,parent):
+      reads.append(1)
+      return VerifiedMitPolicy(source,parent,len(reads)>1,
+                               "provider-policy-proof",True)
+    with self.assertRaisesRegex(StageCertificationError,
+                                "authority changed"):
+      self.invoke(read_mit_policy=changed)
+    self.assertEqual(len(reads),2)
+
+  def test_withdrawn_mit_approval_after_first_read_is_refused(self):
+    self.required=True
+    reads=[]
+    def withdrawn(source,parent):
+      reads.append(1)
+      return self.stage("MIT",source,parent,
+                        "PASS" if len(reads)==1 else "FAIL")
+    with self.assertRaisesRegex(StageCertificationError,
+                                "authority changed"):
+      self.invoke(read_mit_stage=withdrawn)
+    self.assertEqual(len(reads),2)
 
 
 if __name__=="__main__":
