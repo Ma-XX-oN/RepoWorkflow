@@ -7,7 +7,7 @@ import re
 import subprocess
 
 
-SOURCE = "0862cc8694f8e5af3019c509a4a0e2a64d2a5299"
+SOURCE = "2b6105b9015250b4478241495d1b5dab3b640bd7"
 DEPS = (
   ("#103", "d6acd97219ac45a90634d0a8c0b90780e9b7e5ff"),
   ("#681", "4938f73312691e7e593cd758965eb538f9e40baf"),
