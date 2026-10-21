@@ -7,9 +7,7 @@ retirement, promotion and lifecycle result, not an asserted PASS boolean.
 import json
 
 from .done_completion import VerifiedCompletion
-from .done_provider_pipeline import (
-  DeferredProviderAttempt,FailedProviderAttempt,
-)
+from .done_runtime import VerifiedDeferredDone,VerifiedFailedDone
 
 
 class DoneCommandError(ValueError):
@@ -53,7 +51,15 @@ def execute_done_command(release, *, trusted_executor, emit):
       "evidence":"source-tested-accepted-at-destination",
     },sort_keys=True))
     return 0
-  if isinstance(outcome,DeferredProviderAttempt):
+  if isinstance(outcome,VerifiedDeferredDone):
+    event=outcome.provider_event
+    outcome=outcome.attempt
+    if (getattr(event,"guid",None)!=outcome.ready.guid
+        or getattr(event,"prelim_sha",None)!=outcome.ready.sha
+        or getattr(event,"evidence_ref",None)!=outcome.evidence_ref
+        or type(getattr(event,"lease_generation",None)) is not int
+        or event.lease_generation+1!=outcome.released_generation):
+      raise DoneCommandError("MIT deferred provider evidence differs")
     if (outcome.ready.guid
         and type(outcome.evidence_ref) is str
         and outcome.evidence_ref.strip()
@@ -66,7 +72,14 @@ def execute_done_command(release, *, trusted_executor, emit):
       },sort_keys=True))
       return 3
     raise DoneCommandError("MIT defer readback is incomplete")
-  if isinstance(outcome,FailedProviderAttempt):
+  if isinstance(outcome,VerifiedFailedDone):
+    handoff=outcome.persisted_handoff
+    outcome=outcome.attempt
+    if (handoff.handoff.guid!=outcome.ready.guid
+        or handoff.handoff.prelim_sha!=outcome.ready.sha
+        or handoff.handoff.failure_kind!=outcome.failed_stage+"_FAIL"
+        or not handoff.per_issue_refs):
+      raise DoneCommandError("durable owner handoff differs")
     if (outcome.ready.guid
         and outcome.failed_stage in {"ART","AIT","release","MIT"}
         and type(outcome.evidence_ref) is str
