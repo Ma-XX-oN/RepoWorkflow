@@ -43,7 +43,10 @@ def _selection(root):
 def _results(root):
   return root / ".manual-results.json"
 
-def read_manual_case_results(root, issue, candidate_sha):
+def read_manual_case_results(root, issue, candidate_sha, *, cases=None):
+  pending = root / '.repoworkflow' / 'manual' / ('pending-' + str(issue) + '.json')
+  if pending.exists():
+    raise ValueError('manual outcome UNKNOWN; reconcile before use')
   path = _results(root)
   if not path.exists():
     return {}
@@ -211,6 +214,16 @@ class TestManualLauncher(unittest.TestCase):
     self.assertEqual([x["manualCase"] for x in records],
                      ["issue-702-manual--a-first",
                       "issue-702-manual--z-last"])
+
+  def test_pending_manual_result_must_not_complete_gate(self):
+    self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
+    pending = self.root / ".repoworkflow" / "manual" / "pending-702.json"
+    pending.parent.mkdir(parents=True)
+    pending.write_text('{"phase":"handoff"}')
+    response = self.cli("test", "succeeded")
+    self.assertEqual(response.returncode, 2)
+    self.assertIn("UNKNOWN", response.stderr)
+    self.assertFalse((self.root / ".manual-results.json").exists())
 
   def test_failed_case_blocks_same_candidate_and_retains_evidence(self):
     selected = self.cli("test", "integration", "issue-702-manual--z-last")
