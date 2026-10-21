@@ -75,8 +75,11 @@ def resolve_command_marker():
 def resolve_engine_version():
   versions = [git("show", f":{n}:.ci/engine-version").stdout
               for n in (2, 3)]
-  pattern = re.compile(r"0\.1\.122-issue\.(109|683)\.0\.[0-9]+\n")
-  if not all(pattern.fullmatch(v) for v in versions):
+  # Issue #109 retains the exact assembled version authority. #683's
+  # independent development version is a control-plane input, not a merge.
+  expected = git("show", f"{SOURCE}:.ci/engine-version").stdout
+  dependency = re.compile(r"0\\.1\\.122-issue\\.683\\.0\\.[1-9][0-9]*\\n")
+  if versions[0] != expected or not dependency.fullmatch(versions[1]):
     raise RuntimeError(f"semantic version collision: {versions!r}")
   git("checkout", "--ours", "--", ".ci/engine-version")
   git("add", ".ci/engine-version")
