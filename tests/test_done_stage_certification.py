@@ -67,6 +67,29 @@ class Stages(unittest.TestCase):
     with self.assertRaises(StageCertificationError):
       self.certify()
 
+  def test_stages_expiring_during_readback_cannot_certify(self):
+    from datetime import datetime,timezone
+    from unittest.mock import patch
+
+    before=datetime(2026,12,31,23,59,59,tzinfo=timezone.utc)
+    after=datetime(2027,1,1,0,0,1,tzinfo=timezone.utc)
+
+    class Clock:
+      reads=0
+
+      @classmethod
+      def now(cls,zone):
+        cls.reads+=1
+        return before if cls.reads<=4 else after
+
+      @staticmethod
+      def fromisoformat(value):
+        return datetime.fromisoformat(value)
+
+    with patch("repo_workflow.done_stage_certification.datetime",Clock):
+      with self.assertRaisesRegex(StageCertificationError,"expired"):
+        self.certify()
+
 
 if __name__=="__main__":
   unittest.main()
