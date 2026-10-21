@@ -9,12 +9,13 @@ from repo_workflow.done_stage_certification import (
   CertifiedStages, MitTimedOut, StageFailed, VerifiedMitPolicy, VerifiedStage,
 )
 from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
-from tests.test_done_provider_pipeline import PipelineTests, B
+from tests import test_done_provider_pipeline as fixture_module
+from repo_workflow.integration_coordination import CoordinationError
 
 
 class ManualMitNegativeAcceptanceTests(unittest.TestCase):
   def setUp(self):
-    self.fixture = PipelineTests(
+    self.fixture = fixture_module.PipelineTests(
       "test_one_ready_end_to_end_local_provider_simulation")
     self.fixture.setUp()
     self.host = self.fixture.host
@@ -51,7 +52,7 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
     self.assertEqual(result.evidence_ref, "mit-fail-actual")
     self.assertEqual(self.host.terminal["status"], "failed")
     self.assertEqual(self.host.terminal["accepted_sha"], "c" * 40)
-    self.assertEqual(self.host.terminal["expected_destination_sha"], B)
+    self.assertEqual(self.host.terminal["expected_destination_sha"], fixture_module.B)
     self.assertIsNone(self.host.terminal["landed_sha"])
     self.assertIsNone(self.host.int_sha)
     self.assertIsNone(self.host.lease["holder"])
@@ -150,7 +151,8 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
       self.host.lease["generation"] + 1, "worker-A", "d" * 40)
     # RED guard. A failed immutable READY cannot later be accepted under
     # the same identity when the mocked stage oracle changes to PASS.
-    with self.assertRaises(DoneExecutionError):
+    with self.assertRaisesRegex(
+        CoordinationError, "persisted terminal result"):
       self.fixture.invoke(
         stage_certify=self.pass_required, provider_facts=facts)
     self.assert_no_landing()
