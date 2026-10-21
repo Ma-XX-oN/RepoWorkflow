@@ -436,6 +436,7 @@
         "name": "tests.test_done_queue_scheduler"
       },
       "issue-109-completion": {"type": "regression", "name": "tests.test_done_completion"},
+      "issue-109-canonical-lifecycle": {"type": "regression", "name": "tests.test_done_canonical_lifecycle"},
       "issue-109-policy-admission": {"type": "regression", "name": "tests.test_done_policy_admission"},
       "issue-109-stage-certification": {"type": "regression", "name": "tests.test_done_stage_certification"},
       "issue-109-mit-defer-v2": {"type": "regression", "name": "tests.test_done_mit_defer_v2"},
