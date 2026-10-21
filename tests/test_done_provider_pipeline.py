@@ -293,5 +293,74 @@ class PipelineTests(unittest.TestCase):
     self.assertEqual(self.host.lease["generation"],0)
 
 
+  def test_release_revoked_after_int_preparation_prevents_landing(self):
+    calls=[]
+    def certification(source,parent):
+      calls.append(1)
+      if len(calls)==1:
+        return self.invoke_stage_fixture(source,parent)
+      receipt=VerifiedStage(
+        "release",source,parent,"FAIL","run-release",
+        "release-revoked","catalogue","config","inputs",
+        "2027-01-01T00:00:00Z",True)
+      raise StageFailed("release",receipt)
+    result=self.invoke(stage_certify=certification)
+    self.assertEqual(len(calls),2)
+    self.assertEqual(result.failed_stage,"release")
+    self.assertEqual(self.host.terminal["status"],"failed")
+    self.assertEqual(self.host.main,B)
+    self.assertIsNone(self.host.lease["holder"])
+
+  def test_mit_timeout_at_acceptance_is_deferred_not_a_pass(self):
+    calls=[]
+    def certification(source,parent):
+      calls.append(1)
+      if len(calls)==1:
+        return self.invoke_stage_fixture(source,parent)
+      raise MitTimedOut("provider-mit-deadline-proof")
+    result=self.invoke(
+      stage_certify=certification,
+      mit_event_request_id="mit-defer-post-int",
+      mit_read_request_id="mit-read-post-int")
+    self.assertEqual(len(calls),2)
+    self.assertIsInstance(result,DeferredProviderAttempt)
+    self.assertEqual(result.evidence_ref,"provider-mit-deadline-proof")
+    self.assertIsNone(self.host.terminal)
+    self.assertEqual(self.host.main,B)
+    self.assertIsNone(self.host.lease["holder"])
+
+  def test_changed_authenticated_pass_receipts_stop_pre_cas(self):
+    calls=[]
+    def certification(source,parent):
+      calls.append(1)
+      previous=self.invoke_stage_fixture(source,parent)
+      if len(calls)>1:
+        return CertifiedStages(
+          previous.source_sha,previous.parent_sha,
+          tuple(VerifiedStage(
+            r.stage,r.source_sha,r.parent_sha,r.status,
+            r.provider_run_id,r.evidence_ref+"-changed",
+            r.catalogue_digest,r.config_digest,r.inputs_digest,
+            r.expires_at,r.independently_authenticated)
+            for r in previous.stages),
+          previous.mit_policy)
+      return previous
+    with self.assertRaisesRegex(DoneExecutionError,
+                                "stages changed before integration CAS"):
+      self.invoke(stage_certify=certification)
+    self.assertEqual(len(calls),2)
+    self.assertEqual(self.host.main,B)
+    self.assertIsNone(self.host.terminal)
+    self.assertEqual(self.host.lease["generation"],1)
+
+  def invoke_stage_fixture(self,source,parent):
+    return CertifiedStages(
+      source,parent,tuple(VerifiedStage(
+        name,source,parent,"PASS","run-"+name,"proof-"+name,
+        "catalogue","config","inputs","2027-01-01T00:00:00Z",True)
+        for name in ("ART","AIT","release")),
+      VerifiedMitPolicy(source,parent,False,"policy-ref",True))
+
+
 if __name__=="__main__":
   unittest.main()
