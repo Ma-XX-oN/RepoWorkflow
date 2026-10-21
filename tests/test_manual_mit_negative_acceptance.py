@@ -158,5 +158,72 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
     self.assert_no_landing()
 
 
+  def test_failed_write_unknown_never_lands_and_retains_claim(self):
+    from repo_workflow.done_failed_attempt import FailureRecordError
+    original = self.host.request
+    def fail_before_write(operation, request_id, params):
+      if operation == "attempt.record":
+        raise ConnectionError("provider inaccessible before append")
+      return original(operation, request_id, params)
+    self.host.request = fail_before_write
+    with self.assertRaisesRegex(FailureRecordError, "missing or mismatched"):
+      self.fixture.invoke(stage_certify=self.fail_mit)
+    self.assertIsNone(self.host.terminal)
+    self.assertEqual(self.host.lease["generation"], 1)
+    self.assertEqual(self.host.lease["holder"], "worker-A")
+    self.assert_no_landing()
+
+  def test_mit_failed_outcome_requires_handoff_and_never_completes(self):
+    from repo_workflow.done_runtime import VerifiedFailedDone
+    from repo_workflow.done_failure_handoff import (
+      FailureHandoff, PersistedFailureHandoff,
+    )
+    from repo_workflow.done_provider_pipeline import FailedProviderAttempt
+    from tests import test_done_runtime as runtime_fixture
+    from tests.test_done_provider_pipeline import A, B, C, G
+    fixture = runtime_fixture.RuntimeTests(
+      "test_failed_stage_requires_durable_issue_handoff")
+    fixture.setUp()
+    failed = FailedProviderAttempt(fixture.ready, "MIT", "mit-failure-proof", 2)
+    handoff = FailureHandoff(
+      G, 123, "main", A, B, C, "MIT_FAIL", "mit-failure-proof",
+      (123,), "operator-proof", (), "not-a-conflict", "operation-1")
+    persisted = PersistedFailureHandoff(
+      handoff, ((123, "issue-comment-703"),))
+    completion_calls = []
+    handoff_calls = []
+    def never_complete(result):
+      completion_calls.append(result)
+      raise AssertionError("completion forbidden after MIT FAIL")
+    def record_handoff(result):
+      handoff_calls.append(result)
+      return persisted
+    result = fixture.invoke(
+      execute_provider_attempt=lambda *args:failed,
+      complete_accepted=never_complete,
+      publish_failure_handoff=record_handoff)
+    self.assertIsInstance(result, VerifiedFailedDone)
+    self.assertEqual(result.attempt, failed)
+    self.assertEqual(result.persisted_handoff, persisted)
+    self.assertEqual(completion_calls, [])
+    self.assertEqual(handoff_calls, [failed])
+
+  def test_missing_mit_failure_handoff_cannot_claim_done(self):
+    from repo_workflow.done_runtime import DoneRuntimeError
+    from repo_workflow.done_provider_pipeline import FailedProviderAttempt
+    from tests import test_done_runtime as runtime_fixture
+    fixture = runtime_fixture.RuntimeTests(
+      "test_failed_stage_requires_durable_issue_handoff")
+    fixture.setUp()
+    failed = FailedProviderAttempt(fixture.ready, "MIT", "mit-failure-proof", 2)
+    completion_calls = []
+    with self.assertRaisesRegex(DoneRuntimeError, "durable owner handoff"):
+      fixture.invoke(
+        execute_provider_attempt=lambda *args:failed,
+        complete_accepted=lambda result:completion_calls.append(result),
+        publish_failure_handoff=lambda result:None)
+    self.assertEqual(completion_calls, [])
+
+
 if __name__ == "__main__":
   unittest.main()
