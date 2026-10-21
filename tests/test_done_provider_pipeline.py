@@ -196,6 +196,21 @@ class PipelineTests(unittest.TestCase):
       self.invoke(immediate_parent_oracle=None)
     self.assertIsNone(self.host.int_sha)
 
+  def test_forged_stage_status_cannot_create_int(self):
+    def forged(source,parent):
+      receipts=tuple(VerifiedStage(
+        name,source,parent,"FAIL" if name=="AIT" else "PASS",
+        "run-"+name,"proof-"+name,"cat","cfg","inputs",
+        "2027-01-01T00:00:00Z",True)
+        for name in ("ART","AIT","release"))
+      return CertifiedStages(
+        source,parent,receipts,
+        VerifiedMitPolicy(source,parent,False,"policy-ref",True))
+    with self.assertRaisesRegex(DoneExecutionError,"stage identity"):
+      self.invoke(stage_certify=forged)
+    self.assertIsNone(self.host.int_sha)
+    self.assertEqual(self.host.main,B)
+
   def test_missing_current_ready_prevents_claim(self):
     original=self.host.request
     def missing(op,key,params):
