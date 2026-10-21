@@ -28,4 +28,4 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
-          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 disposable exact-source assembly (no remote merge) ead90fbe80483b375eee4b547c7adf7897873960 + #103 d6acd97219ac45a90634d0a8c0b90780e9b7e5ff + #681 4938f73312691e7e593cd758965eb538f9e40baf + #683 ba3dde739701fcd358a01faf6f134078b0bf7924: $OUTCOME. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID"
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 disposable exact-source assembly (no remote merge) 3b0ba4762f6a5bff24a2829139f3f16e707539d5 + #103 d6acd97219ac45a90634d0a8c0b90780e9b7e5ff + #681 4938f73312691e7e593cd758965eb538f9e40baf + #683 ba3dde739701fcd358a01faf6f134078b0bf7924: $OUTCOME. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID"
