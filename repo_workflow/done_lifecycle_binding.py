@@ -21,6 +21,27 @@ class CompletionHandoffError(RuntimeError):
   """Provider landing cannot be safely committed to lifecycle history."""
 
 
+def _matching_completed_revision(snapshot, issue, expected_revision,
+                                 relationship_revision, candidate):
+  """Recognize only the exact completed revision after an ambiguous ACK."""
+  if not isinstance(snapshot, LifecycleSnapshot):
+    return False
+  history=snapshot.lifecycle.history
+  return (
+    snapshot.revision == expected_revision+1
+    and snapshot.lifecycle.issue == str(issue)
+    and snapshot.lifecycle.state == "completed"
+    and snapshot.lifecycle.dependency_satisfied is True
+    and snapshot.lifecycle.relationship_revision == relationship_revision
+    and len(history)>=2
+    and history[-2].transition == "accept"
+    and history[-2].candidate == candidate
+    and history[-1].transition == "complete"
+    and history[-1].candidate == candidate
+    and history[-1].sequence == history[-2].sequence+1
+  )
+
+
 def complete_after_provider(
     *, store: LifecycleStore, issue: int, expected_revision: int,
     relationship_revision: int, writer: WriterIdentity,
@@ -60,14 +81,20 @@ def complete_after_provider(
              for r in retirements)):
     raise CompletionHandoffError("physical retirement not independently proven")
   before=store.read(issue)
-  if (not isinstance(before, LifecycleSnapshot)
-      or before.revision != expected_revision
-      or before.lifecycle.state != "accepted"
-      or before.lifecycle.issue != str(issue)
-      or before.lifecycle.relationship_revision != relationship_revision
-      or not before.lifecycle.history
-      or before.lifecycle.history[-1].transition != "accept"
-      or before.lifecycle.history[-1].candidate != terminal.accepted_sha):
+  accepted=(
+    isinstance(before, LifecycleSnapshot)
+    and before.revision == expected_revision
+    and before.lifecycle.state == "accepted"
+    and before.lifecycle.issue == str(issue)
+    and before.lifecycle.relationship_revision == relationship_revision
+    and bool(before.lifecycle.history)
+    and before.lifecycle.history[-1].transition == "accept"
+    and before.lifecycle.history[-1].candidate == terminal.accepted_sha
+  )
+  recovered=_matching_completed_revision(
+    before,issue,expected_revision,relationship_revision,
+    terminal.accepted_sha)
+  if not accepted and not recovered:
     raise CompletionHandoffError("accepted lifecycle revision/candidate mismatch")
   try:
     observed_terminal=reread_terminal(terminal.guid)
@@ -76,13 +103,31 @@ def complete_after_provider(
     raise CompletionHandoffError("provider terminal/promotion readback UNKNOWN") from error
   if observed_terminal != terminal.record or observed_promotion != promotions:
     raise CompletionHandoffError("provider facts changed before lifecycle CAS")
-  advanced=store.transition(
-    issue,"complete",terminal.accepted_sha,
-    relationship_revision,writer,expected_revision)
-  if (not isinstance(advanced,LifecycleSnapshot)
-      or advanced.lifecycle.state != "completed"
-      or advanced.lifecycle.dependency_satisfied is not True
-      or advanced.revision != expected_revision+1):
+  if recovered:
+    check=store.read(issue)
+    if check != before:
+      raise CompletionHandoffError("lifecycle retry readback UNKNOWN")
+    return before
+  try:
+    advanced=store.transition(
+      issue,"complete",terminal.accepted_sha,
+      relationship_revision,writer,expected_revision)
+  except Exception as error:
+    # The CAS write can commit even when its acknowledgment is lost.
+    # Do not replay it; re-read the one permitted successor revision.
+    try:
+      advanced=store.read(issue)
+    except Exception as read_error:
+      raise CompletionHandoffError(
+        "lifecycle completion readback UNKNOWN") from read_error
+    if not _matching_completed_revision(
+        advanced,issue,expected_revision,relationship_revision,
+        terminal.accepted_sha):
+      raise CompletionHandoffError(
+        "lifecycle completion outcome UNKNOWN") from error
+  if (not _matching_completed_revision(
+      advanced,issue,expected_revision,relationship_revision,
+      terminal.accepted_sha)):
     raise CompletionHandoffError("authoritative completion readback differed")
   check=store.read(issue)
   if check != advanced:
