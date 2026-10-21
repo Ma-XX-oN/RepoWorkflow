@@ -312,10 +312,11 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
       (root / ".ci" / "tests.json").write_text(
         '{"tests": [{"issue-702-manual--first": {}}]}'
       )
-      with patch("repo_workflow.manual_test_cli._issue", return_value=702):
-        with patch("repo_workflow.manual_test_cli.head_sha", return_value="a" * 40):
-          with self.assertRaisesRegex(Exception, "catalogue"):
-            after_automatic_integration(root)
+      with patch.dict(sys.modules, {"repo_workflow.manual_test_catalogue": None}):
+        with patch("repo_workflow.manual_test_cli._issue", return_value=702):
+          with patch("repo_workflow.manual_test_cli.head_sha", return_value="a" * 40):
+            with self.assertRaisesRegex(Exception, "catalogue"):
+              after_automatic_integration(root)
 
 
 if __name__ == "__main__":
