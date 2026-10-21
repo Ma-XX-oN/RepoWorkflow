@@ -7,7 +7,12 @@ retirement, promotion and lifecycle result, not an asserted PASS boolean.
 import json
 
 from .done_completion import VerifiedCompletion
-from .done_runtime import VerifiedDeferredDone,VerifiedFailedDone
+from .done_runtime import (
+  VerifiedNativeDone,VerifiedDeferredDone,VerifiedFailedDone,
+)
+from .done_shared_lifecycle import (
+  SharedLifecycleEvidence,SharedAuthorityObservation,
+)
 
 
 class DoneCommandError(ValueError):
@@ -25,30 +30,53 @@ def execute_done_command(release, *, trusted_executor, emit):
   except Exception as error:
     raise DoneCommandError(
       "done provider outcome UNKNOWN; readback required") from error
-  if isinstance(outcome,VerifiedCompletion):
-    terminal=outcome.terminal
-    proof=outcome.promotion
-    lifecycle=outcome.lifecycle
-    if (proof.operation_id != outcome.operation_id
-        or proof.landed_sha != outcome.landed_sha
+  if isinstance(outcome,VerifiedNativeDone):
+    completed=outcome.completion
+    shared=outcome.shared
+    authority=outcome.authority
+    if (not isinstance(completed,VerifiedCompletion)
+        or not isinstance(shared,SharedLifecycleEvidence)
+        or not isinstance(authority,SharedAuthorityObservation)
+        or shared.independently_authenticated is not True
+        or authority.independently_authenticated is not True
+        or shared.repository!=authority.repository
+        or shared.branch!=authority.branch
+        or shared.commit_sha!=authority.commit_sha
+        or shared.operation_id!=completed.operation_id
+        or shared.accepted_sha!=completed.terminal.accepted_sha
+        or shared.landed_sha!=completed.landed_sha
+        or shared.revision!=completed.lifecycle.get("revision")
+        or type(shared.lifecycle_digest) is not str
+        or len(shared.lifecycle_digest)!=64
+        or type(shared.intent_digest) is not str
+        or len(shared.intent_digest)!=64):
+      raise DoneCommandError(
+        "shared canonical authority was not certified before native DONE")
+    terminal=completed.terminal
+    proof=completed.promotion
+    lifecycle=completed.lifecycle
+    if (proof.operation_id != completed.operation_id
+        or proof.landed_sha != completed.landed_sha
         or proof.accepted_candidate_sha != terminal.accepted_sha
-        or terminal.operation_id != outcome.operation_id
-        or terminal.landed_sha != outcome.landed_sha
-        or len(outcome.retired)!=2
+        or terminal.operation_id != completed.operation_id
+        or terminal.landed_sha != completed.landed_sha
+        or len(completed.retired)!=2
         or any(getattr(r,"absent_after",None) is not True
-               for r in outcome.retired)
+               for r in completed.retired)
         or type(lifecycle) is not dict
         or lifecycle.get("result")!="done"
-        or lifecycle.get("operation_id")!=outcome.operation_id
-        or lifecycle.get("landed_sha")!=outcome.landed_sha
+        or lifecycle.get("operation_id")!=completed.operation_id
+        or lifecycle.get("landed_sha")!=completed.landed_sha
         or type(lifecycle.get("revision")) is not int
         or lifecycle["revision"]<1):
       raise DoneCommandError("provider completed result is not certified")
     emit(json.dumps({
       "status":"DONE","release":release,
-      "landed_sha":outcome.landed_sha,
-      "operation_id":outcome.operation_id,
+      "landed_sha":completed.landed_sha,
+      "operation_id":completed.operation_id,
       "evidence":"source-tested-accepted-at-destination",
+      "canonical_commit_sha":shared.commit_sha,
+      "canonical_lifecycle_revision":shared.revision,
     },sort_keys=True))
     return 0
   if isinstance(outcome,VerifiedDeferredDone):
