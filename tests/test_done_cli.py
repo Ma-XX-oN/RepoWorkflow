@@ -8,6 +8,11 @@ from repo_workflow.done_cli import DoneCommandError,execute_done_command
 from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
+from repo_workflow.done_runtime import VerifiedDeferredDone,VerifiedFailedDone
+from repo_workflow.done_failure_handoff import (
+  FailureHandoff,PersistedFailureHandoff,
+)
+from repo_workflow.integration_coordination import MitDeferredEvent
 from repo_workflow.public_commands import COMMANDS,PUBLIC_COMMANDS
 from repo_workflow.public_cli import handle_public
 from repo_workflow.command_grammar import Context
@@ -104,12 +109,29 @@ class CommandTests(unittest.TestCase):
   def test_failed_or_deferred_never_return_done(self):
     ready=self.fixture.accepted.ready
     deferred=DeferredProviderAttempt(ready,"mit-timeout-proof",2)
-    self.assertEqual(self.run_command(outcome=deferred),3)
+    with self.assertRaisesRegex(DoneCommandError,"unverified"):
+      self.run_command(outcome=deferred)
+    self.assertEqual(self.messages,[])
+    evidence=MitDeferredEvent(
+      ready.guid,ready.destination,ready.sha,1,"mit-timeout-proof","timeout")
+    self.assertEqual(self.run_command(
+      outcome=VerifiedDeferredDone(deferred,evidence)),3)
     self.assertEqual(json.loads(self.messages[-1])["status"],
                      "MIT_TIMEOUT_DEFERRED")
     self.messages.clear()
     failed=FailedProviderAttempt(ready,"AIT","provider-failure",2)
-    self.assertEqual(self.run_command(outcome=failed),4)
+    self.messages.clear()
+    with self.assertRaisesRegex(DoneCommandError,"unverified"):
+      self.run_command(outcome=failed)
+    self.assertEqual(self.messages,[])
+    evidence=FailureHandoff(
+      ready.guid,123,ready.destination,ready.sha,"b"*40,"c"*40,
+      "AIT_FAIL","provider-failure",(123,),"repro",(),"owner uncertain",
+      "provider-op-1")
+    persisted=PersistedFailureHandoff(
+      evidence,((123,"issue-comment-1"),))
+    self.assertEqual(self.run_command(
+      outcome=VerifiedFailedDone(failed,persisted)),4)
     self.assertEqual(json.loads(self.messages[-1])["status"],
                      "FAILED_STAGE")
 
