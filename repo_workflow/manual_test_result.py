@@ -172,7 +172,7 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
       f"observed {before} -> {after}; repair handoff required"
     )
   return FailureHandoff(observed.state, False, before, after,
-                        f"RWF #{issue} repair owner")
+                        writer_id)
 
 
 def record_manual_result(
