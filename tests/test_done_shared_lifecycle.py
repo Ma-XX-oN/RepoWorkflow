@@ -1,5 +1,7 @@
 """Provider-style Git readback of canonical #583 records (isolated fixture)."""
 import base64
+import os
+import tempfile
 from dataclasses import replace
 from pathlib import Path
 import subprocess
@@ -7,6 +9,7 @@ import unittest
 
 from repo_workflow.done_shared_lifecycle import (
   SharedLifecycleError,SharedLifecycleEvidence,verify_shared_completion,
+  publish_shared_completion,
 )
 from tests.test_done_canonical_lifecycle import CanonicalLifecycleTests
 
@@ -55,6 +58,40 @@ class GitReadOnlyProvider:
         raw=b'{"forged":true}'
       return {"encoding":"base64","content":base64.b64encode(raw).decode()}
     raise AssertionError("unexpected provider method "+path)
+
+
+  def post(self,path,body):
+    if path=="git/trees":
+      with tempfile.TemporaryDirectory() as temp:
+        env={**os.environ,"GIT_INDEX_FILE":str(Path(temp)/"index")}
+        def run(*args,inp=None):
+          return subprocess.run(
+            ["git","-C",str(self.root),*args],
+            input=inp,capture_output=True,check=True,env=env).stdout
+        run("read-tree",body["base_tree"])
+        for item in body["tree"]:
+          blob=run("hash-object","-w","--stdin",
+                   inp=item["content"].encode()).decode().strip()
+          run("update-index","--add","--cacheinfo",
+              "100644,"+blob+","+item["path"])
+        tree=run("write-tree").decode().strip()
+      return {"sha":tree}
+    if path=="git/commits":
+      b=self.git("commit-tree",body["tree"],"-p",body["parents"][0],
+                 "-m",body["message"])
+      return {"sha":b.decode().strip()}
+    raise AssertionError("unexpected Git provider POST "+path)
+
+  def patch(self,path,body):
+    if not path.startswith("git/refs/heads/") or body.get("force") is not False:
+      raise AssertionError("unsafe Git update request")
+    ref=path.removeprefix("git/")
+    proposed=body["sha"]
+    before=self.git("rev-parse",proposed+"^").decode().strip()
+    self.git("update-ref",ref,proposed,before)
+    if getattr(self,"lost_ack",False):
+      raise TimeoutError("Git ref committed, provider ACK lost")
+    return {"ref":ref,"object":{"sha":proposed}}
 
 
 class SharedLifecycleTests(unittest.TestCase):
@@ -137,6 +174,81 @@ class SharedLifecycleTests(unittest.TestCase):
     with self.assertRaisesRegex(SharedLifecycleError,"identity differs"):
       self.verify(completion=bad)
     self.assertEqual(self.provider.ref_reads,0)
+
+
+
+class SharedLifecycleWriterTests(unittest.TestCase):
+  def setUp(self):
+    self.case=CanonicalLifecycleTests(
+      "test_real_canonical_store_completed_after_retirement_promotion")
+    self.case.setUp()
+    self.root=self.case.root
+    self.git("config","user.name","Isolated #109 writer")
+    self.git("config","user.email","writer@example.invalid")
+    self.git("checkout","-qb","authority-109")
+    self.git("add","-f",".repoworkflow/state")
+    self.git("commit","-qm","accepted canonical lifecycle")
+    self.previous=self.read_git("rev-parse","HEAD")
+    self.completed=self.case.invoke()
+    self.backend=GitReadOnlyProvider(self.root)
+
+  def tearDown(self):
+    self.case.tearDown()
+
+  def read_git(self,*args):
+    return subprocess.check_output(
+      ["git","-C",str(self.root),*args],text=True).strip()
+
+  def git(self,*args):
+    subprocess.run(
+      ["git","-C",str(self.root),*args],check=True,capture_output=True)
+
+  def publish(self,**changes):
+    params=dict(
+      backend=self.backend,state_branch="authority-109",
+      expected_old_commit=self.previous,
+      local_store=self.case.store,issue=123,completion=self.completed)
+    return publish_shared_completion(**{**params,**changes})
+
+  def test_remote_cas_publishes_only_canonical_complete_and_intent(self):
+    proof=self.publish()
+    self.assertIsInstance(proof,SharedLifecycleEvidence)
+    self.assertNotEqual(proof.commit_sha,self.previous)
+    self.assertEqual(self.read_git("rev-parse","authority-109"),
+                     proof.commit_sha)
+    self.assertEqual(proof.revision,3)
+    self.assertEqual(self.backend.ref_reads,3)
+
+  def test_provider_lost_ack_recovers_only_exact_durable_record(self):
+    self.backend.lost_ack=True
+    proof=self.publish()
+    self.assertEqual(proof.revision,3)
+    self.assertEqual(self.read_git("rev-parse","authority-109"),
+                     proof.commit_sha)
+    again=self.publish()
+    self.assertEqual(proof,again)
+
+  def test_changed_old_commit_is_refused_without_write(self):
+    with self.assertRaisesRegex(SharedLifecycleError,"stale"):
+      self.publish(expected_old_commit="f"*40)
+    self.assertEqual(self.read_git("rev-parse","authority-109"),
+                     self.previous)
+
+  def test_uncommitted_completion_cannot_be_claimed_read_only(self):
+    with self.assertRaises(SharedLifecycleError):
+      verify_shared_completion(
+        backend=self.backend,state_branch="authority-109",
+        local_store=self.case.store,issue=123,completion=self.completed)
+    self.assertEqual(self.read_git("rev-parse","authority-109"),
+                     self.previous)
+
+  def test_foreign_remote_accepted_candidate_prevents_publication(self):
+    from dataclasses import replace
+    foreign=replace(self.completed,operation_id="different-operation")
+    with self.assertRaisesRegex(SharedLifecycleError,"predecessor"):
+      self.publish(completion=foreign)
+    self.assertEqual(self.read_git("rev-parse","authority-109"),
+                     self.previous)
 
 
 if __name__=="__main__":
