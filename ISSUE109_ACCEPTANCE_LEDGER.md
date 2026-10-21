@@ -1,6 +1,6 @@
 # RWF #109 — exact-source executor acceptance ledger
 
-Updated: 2026-10-20 EDT. Owner: existing V3 claim 6273106943.
+Updated: 2026-10-20 21:41 EDT. Owner: existing V3 claim 6273106943.
 PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 
 ## Proof levels
@@ -23,14 +23,14 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 | P04 destination claim/CAS | Only one holder, expected-old SHA | Same disposable runs | PASS (test provider) |
 | P05 current policy | Read current destination, no descendant permission | done_policy_admission and acceptance tests | INCOMPLETE (live matrix) |
 | P06 source ART/AIT | Current-parent independently authenticated, no invented PASS | done_stage_certification | INCOMPLETE (live provider issuer) |
-| P07 MIT | Distinct PASS/FAIL/TIMEOUT, defer/restart authority | done_mit_defer_v2 fixtures | INCOMPLETE (live MIT) |
+| P07 MIT | Distinct PASS/FAIL/TIMEOUT, defer/restart authority | Real Disposable run 39527393835; plus fixture negatives | PARTIAL (test-only external approval; no production MIT certification) |
 | P08 terminal history | Exact authenticated terminal, recovery after lost ACK | Disposable run 39517395210 | PASS (test provider) |
 | P09 ref retirement | Exact #103 PRELIM and INT physical retirement, readback | Disposable run 39517395210 | PASS (test provider) |
 | P10 release evidence | Separate authenticated release and integration stages | done_evidence_provider fixtures | INCOMPLETE (actual provider artifacts) |
 | P11 source-to-landed | Immutable attestation, verified landed tree and inputs | done_evidence_promotion / done_completion fixtures | INCOMPLETE (canonical publication) |
 | P12 lifecycle | Complete legal transitions with durable source of truth | done_completion guarded interface | INCOMPLETE (live lifecycle) |
 | P13 CLI | Native rwf done patch/minor/major executable | No certified native command | INCOMPLETE |
-| P14 queue | Competing umbrellas, per-destination serialization, recovery | READY coordinator contract only | INCOMPLETE (multi-item end to end) |
+| P14 queue | Competing umbrellas, per-destination serialization, recovery | done_queue_scheduler / done_queue_cycle; live probe 39528668265 pending | PARTIAL (await real contention and lifecycle evidence) |
 | P15 full assembled tests | Exact current #109 plus #103/#681/#683 | Most recent assembled probe requested | INCOMPLETE until terminal run |
 | P16 independent oracle | #583 74-case matrix and #677 downstream | #583 60 PASS/14 PARTIAL, #677 open | INCOMPLETE |
 
@@ -45,6 +45,14 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
   run 39517395210 SUCCESS. Default Disposable-000 main unchanged, physical
   PRELIM/INT retirement and scoped cleanup verified. ART/AIT and MIT policy
   observations were TEST-ONLY fixtures and MUST NOT be promoted to #583 PASS.
+- MIT deferred/resume actual provider run 39527393835 SUCCESS: external isolated
+  authority, durable timeout generation 1, approved resume generation 3,
+  unapproved attempt refusal, immutable PRELIM and verified cleanup; no
+  production MIT issuer or proof of complete current-source executor.
+- Queue scheduler and handoff: new source modules and focused fixtures include
+  A-complete/B-failed-handoff/C-complete, same-destination cross-umbrella
+  contention, strict no-retry UNKNOWN, and exact MIT generation authorization;
+  full regression/assembly pending at this ledger revision.
 - Independent current source: consult PR #680 HEAD at time of verification,
   then require new exact-source hosted/full assembled and provider run receipts.
 - Earlier regression 39517273059 FAIL: forged prior terminal surfaced a
