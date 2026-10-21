@@ -105,6 +105,8 @@ class TestManualLauncher(unittest.TestCase):
     self.engine.mkdir()
     shutil.copy2(SOURCE / "repo_workflow.py", self.engine)
     shutil.copy2(SOURCE / "rwf", self.engine)
+    shutil.copytree(SOURCE / "scripts", self.engine / "scripts",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     shutil.copytree(SOURCE / "repo_workflow", self.engine / "repo_workflow",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     (self.engine / "repo_workflow" / "manual_test_catalogue.py").write_text(
