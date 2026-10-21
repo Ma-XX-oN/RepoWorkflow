@@ -130,6 +130,29 @@ class CheckIssuerTests(unittest.TestCase):
         with self.assertRaisesRegex(CheckIssuerError,"foreign"):
           self.invoke(read_check=lambda *x:self.check(**change))
 
+  def test_expired_release_and_manual_check_never_pass(self):
+    for stage in ("release","MIT"):
+      with self.subTest(stage=stage):
+        self.reads=[]
+        self.binding=replace(
+          self.binding,stage=stage,
+          expires_at="2020-01-01T00:00:00Z",
+          tester_id="human-109" if stage=="MIT" else None)
+        with self.assertRaisesRegex(CheckIssuerError,"expired"):
+          self.invoke()
+        self.assertEqual(self.reads,[])
+
+  def test_malformed_or_naive_expiry_rejected_before_provider(self):
+    for invalid in ("2027-01-01T00:00:00",
+                    "2027-01-01T00:00:00+00:00",
+                    "tomorrow","2026-02-30T00:00:00Z"):
+      with self.subTest(invalid=invalid):
+        self.reads=[]
+        self.binding=replace(self.binding,expires_at=invalid)
+        with self.assertRaisesRegex(CheckIssuerError,"expired or invalid"):
+          self.invoke()
+        self.assertEqual(self.reads,[])
+
   def test_issuer_cannot_extend_expiry_of_completed_check(self):
     approved=self.check()
     self.binding=replace(
