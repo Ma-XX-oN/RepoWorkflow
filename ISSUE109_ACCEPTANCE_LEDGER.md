@@ -189,3 +189,53 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
    canonical lifecycle source, then certify all #583 remaining cases.
 5. Keep #677 downstream, existing claim and PR. Do not merge or
    declare DONE until every acceptance requirement is independently proven.
+
+
+## 2026-10-21, window 16 — current provider evidence and decision gates
+
+- Existing claim 6273106943 and PR #680 remain unchanged; no protected main
+  merge, production release/tag or ruleset/security activation.
+- Exact previous candidate `2b6105b9015250b4478241495d1b5dab3b640bd7`,
+  development version `0.1.122-issue.109.1.5`, passed standalone hosted
+  39653498763 and isolated four-branch assembly 39653601949. Those runs
+  certify only the named source and do not replace independent production
+  ART/AIT/release/MIT authority.
+- Genuine GitHub ART run 39653741550 for that candidate **FAILED** because
+  `tests.test_hosted_version_identity` raised `OSError: [Errno 39]
+  Directory not empty` during temporary Git directory cleanup. The run
+  published `v0.1.122-issue.109.1.5-CI-FAIL`. The test fixture failure
+  is evidence of a red hosted gate, not a legitimate stage PASS.
+- Prior exact-source ART 39649302325 and chained AIT 39651182981 were
+  both terminal SUCCESS at `13682b27...` (`.1.3`); neither may certify
+  materially changed source or its current destination parent.
+- The genuine GitHub provider runs at source `13682b27...` and later
+  `2b6105b9...` remain scoped to Disposable-000. Real expected-old
+  destination and shared lifecycle CAS, lost-ACK reconciliation, immutable
+  physical retirement and scoped ref deletion were tested. Test-only
+  stage/lifecycle permissions do not establish the production oracle.
+- Direct GitHub App release/MIT issuer verification now checks source,
+  current parent, issue, manual tester, app ID, immutable evidence digest,
+  provider evidence ref, issued expiry, unchanged double-read and
+  **actual unexpired time**. A trusted issuer has not been configured.
+- Native `rwf done` now requires `VerifiedNativeDone`, retaining approved
+  plan/release/issue and tested-source provenance, with independently
+  authenticated provider terminal/retirement/promotion plus stable
+  provider-shared canonical lifecycle ref. A bare `VerifiedCompletion`
+  can no longer produce native DONE. The default public CLI still has
+  **no production trusted executor binding** and must continue refusing.
+- Independent #583 maintains its own claim, #677 its own graph/renderer
+  work; neither is silently completed by #109 evidence handoffs.
+
+### Exact-current-candidate checklist
+
+1. Freeze one final material source and development version after code edits.
+2. Certify focused Ubuntu/macOS/Windows and full hosted + four-branch assembly
+   against that exact source; preserve every historical red run.
+3. Require authentic GitHub ART then chained AIT on that same source,
+   with independent artifact hashes, stage identity and a bound current parent.
+4. Demand a distinct actual release issuer and MIT policy/tester issuer
+   (including FAIL/TIMEOUT/defer), never code-generated PASS fixtures.
+5. Bind an authorised production shared lifecycle ref and public native
+   executor, verify source-to-landed terminal/promotion and #583 oracles.
+6. Handoff exact provider/test evidence without merging, claiming #583/#677,
+   publishing stable release tags or activating deferred security #85/#86.
