@@ -29,6 +29,9 @@ class QueueHost(FakeHost):
       if self.change_ref_after_first and self.inventory_reads==1:
         self.refs[ALT]=A
       return result
+    if operation=="lease.read" and params["destination"]=="side":
+      return {"destination":"side","generation":0,
+              "guid":None,"holder":None}
     if operation=="attempt.read":
       return {"guid":params["guid"],
               "record":self.terminals.get(params["guid"])}
