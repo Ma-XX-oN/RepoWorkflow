@@ -69,18 +69,27 @@ class IntegrationHostCoordinator:
     }
     request_id = _request_id(
       "lease-cas", self.host.repository, *params.values())
+    failed=None
     try:
       result = self.host.request("lease.cas", request_id, params)
     except Exception as error:
-      raise CoordinationError("destination lease CAS UNKNOWN") from error
-    if (type(result) is not dict
-        or result != {
+      failed=error
+      result=None
+    if failed is None and (type(result) is not dict or result != {
           "destination": after.destination,
           "generation": after.generation,
           "guid": after.active_guid,
           "holder": after.holder,
         }):
-      raise CoordinationError("destination lease CAS readback differs")
+      raise CoordinationError("destination lease CAS response differs")
+    # The write can commit before the response is lost. A fresh independent
+    # provider read (never a reused idempotency key) is the only authority.
+    try:
+      observed=self.read_destination_lease(after.destination)
+    except Exception as error:
+      raise CoordinationError("destination lease CAS readback UNKNOWN") from error
+    if observed != after:
+      raise CoordinationError("destination lease CAS readback differs") from failed
     return True
 
   def read_attempt_result(self, guid):
