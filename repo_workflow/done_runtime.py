@@ -99,7 +99,8 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
     except Exception as error:
       raise DoneRuntimeError(
         "shared provider lifecycle readback UNKNOWN; no DONE") from error
-    if (not isinstance(authority_before,SharedAuthorityObservation)
+    if (not isinstance(shared,SharedLifecycleEvidence)
+        or not isinstance(authority_before,SharedAuthorityObservation)
         or authority_before.independently_authenticated is not True
         or authority_before!=authority_after
         or authority_before.repository!=shared.repository
