@@ -7,6 +7,7 @@ retirement, canonical promotion, lifecycle and failed-item handoff.
 from dataclasses import dataclass
 
 from .done_completion import VerifiedCompletion
+from .done_shared_lifecycle import SharedLifecycleEvidence
 from .done_planner import DonePlan
 from .done_provider_pipeline import (
   AcceptedProviderAttempt,DeferredProviderAttempt,FailedProviderAttempt,
@@ -35,14 +36,14 @@ class DoneRuntimeError(RuntimeError):
 def execute_ready_done(*, release, read_current_plan, select_ready,
                        execute_provider_attempt, complete_accepted,
                        read_deferred_mit, publish_failure_handoff,
-                       verify_source_lineage):
+                       verify_source_lineage,verify_shared_lifecycle=None):
   """Compose exact plan/READY/provider/outcome without fabricating PASS."""
   if (type(release) is not str
       or release not in {"patch","minor","major"}
       or any(not callable(fn) for fn in (
         read_current_plan,select_ready,execute_provider_attempt,
         complete_accepted,read_deferred_mit,publish_failure_handoff,
-        verify_source_lineage))):
+        verify_source_lineage,verify_shared_lifecycle))):
     raise DoneRuntimeError("authenticated native done bindings required")
   try:
     plan=read_current_plan(release)
@@ -87,6 +88,26 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
         or completed.terminal.guid!=ready.guid
         or completed.promotion.operation_id!=completed.operation_id):
       raise DoneRuntimeError("accepted but unverified DONE lifecycle")
+    try:
+      shared=verify_shared_lifecycle(completed,plan,ready)
+    except Exception as error:
+      raise DoneRuntimeError(
+        "shared provider lifecycle readback UNKNOWN; no DONE") from error
+    if (not isinstance(shared,SharedLifecycleEvidence)
+        or shared.independently_authenticated is not True
+        or shared.issue!=int(plan.issue)
+        or shared.operation_id!=completed.operation_id
+        or shared.accepted_sha!=completed.terminal.accepted_sha
+        or shared.landed_sha!=completed.landed_sha
+        or shared.revision!=completed.lifecycle.get("revision")
+        or type(shared.commit_sha) is not str
+        or len(shared.commit_sha)!=40
+        or type(shared.lifecycle_digest) is not str
+        or len(shared.lifecycle_digest)!=64
+        or type(shared.intent_digest) is not str
+        or len(shared.intent_digest)!=64):
+      raise DoneRuntimeError(
+        "shared authoritative lifecycle missing or foreign; no DONE")
     return completed
   if isinstance(attempt,DeferredProviderAttempt):
     if attempt.ready!=ready:
