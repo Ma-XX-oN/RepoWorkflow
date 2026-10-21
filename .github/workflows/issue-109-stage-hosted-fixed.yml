@@ -16,18 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 3170a1c443a173f1e7021ae62c9c8742f799eb87
+          ref: 37a9bc42fc8ffe1d46da28fdc1cdf6792ad5294d
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Exact-source focused acceptance
-        run: python -m unittest -v tests.test_done_executor tests.test_done_provider_acceptance tests.test_done_stage_hosted tests.test_done_source_identity tests.test_done_runtime tests.test_done_cli tests.test_done_promotion_provider tests.test_done_results_discovery tests.test_done_failure_handoff tests.test_done_queue_cycle tests.test_done_queue_scheduler tests.test_done_completion tests.test_done_policy_admission tests.test_done_stage_certification tests.test_done_mit_defer_v2 tests.test_done_evidence_provider tests.test_done_host_coordinator tests.test_done_evidence_promotion tests.test_done_lifecycle_binding tests.test_done_canonical_lifecycle tests.test_done_int_workspace tests.test_done_terminal_v2 tests.test_done_retirement_bridge tests.test_done_provider_pipeline
+        run: python -m unittest -v tests.test_done_executor tests.test_done_provider_acceptance tests.test_done_stage_hosted tests.test_done_hosted_stage_pipeline tests.test_done_source_identity tests.test_done_runtime tests.test_done_cli tests.test_done_promotion_provider tests.test_done_results_discovery tests.test_done_failure_handoff tests.test_done_queue_cycle tests.test_done_queue_scheduler tests.test_done_completion tests.test_done_policy_admission tests.test_done_stage_certification tests.test_done_mit_defer_v2 tests.test_done_evidence_provider tests.test_done_host_coordinator tests.test_done_evidence_promotion tests.test_done_lifecycle_binding tests.test_done_canonical_lifecycle tests.test_done_int_workspace tests.test_done_terminal_v2 tests.test_done_retirement_bridge tests.test_done_provider_pipeline
   regression:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 3170a1c443a173f1e7021ae62c9c8742f799eb87
+          ref: 37a9bc42fc8ffe1d46da28fdc1cdf6792ad5294d
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -48,4 +48,4 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
-          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 isolated exact-source hosted acceptance. Source: 3170a1c443a173f1e7021ae62c9c8742f799eb87. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Focused platform matrix: $FOCUSED. Ubuntu full unittest regression: $REGRESSION. This is not end-to-end executor certification or permission to merge."
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 isolated exact-source hosted acceptance. Source: 37a9bc42fc8ffe1d46da28fdc1cdf6792ad5294d. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Focused platform matrix: $FOCUSED. Ubuntu full unittest regression: $REGRESSION. This is not end-to-end executor certification or permission to merge."
