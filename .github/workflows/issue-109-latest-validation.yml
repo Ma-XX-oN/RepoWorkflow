@@ -1,0 +1,51 @@
+name: RWF 109 exact-source acceptance
+on:
+  push:
+    branches:
+      - issue-109-v3-latest-validation-20261020
+permissions:
+  contents: read
+  issues: write
+jobs:
+  focused:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 777c5c55ad3aa8f70ed51d9559605d192695f36e
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Exact-source focused acceptance
+        run: python -m unittest -v tests.test_done_executor tests.test_done_provider_acceptance tests.test_done_lifecycle_binding tests.test_done_failed_attempt tests.test_done_landed_results tests.test_done_ready_scheduler tests.test_done_current_policy tests.test_done_stage_certification tests.test_done_mit_defer_v2 tests.test_done_evidence_provider tests.test_done_host_coordinator tests.test_done_evidence_promotion tests.test_done_int_workspace tests.test_done_terminal_v2 tests.test_done_retirement_bridge tests.test_done_provider_pipeline
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 777c5c55ad3aa8f70ed51d9559605d192695f36e
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install declared runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Full unittest regression
+        run: python -m unittest discover -s tests
+  report:
+    if: always()
+    needs: [focused, regression]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish exact-source terminal outcomes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOCUSED: ${{ needs.focused.result }}
+          REGRESSION: ${{ needs.regression.result }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          gh issue comment 109 -R Ma-XX-oN/RepoWorkflow --body "RWF #109 isolated exact-source hosted acceptance. Source: 777c5c55ad3aa8f70ed51d9559605d192695f36e. Run: https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/$RUN_ID. Focused platform matrix: $FOCUSED. Ubuntu full unittest regression: $REGRESSION. This is not end-to-end executor certification or permission to merge."
