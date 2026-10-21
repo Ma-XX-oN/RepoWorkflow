@@ -229,7 +229,7 @@ class IssuerTests(unittest.TestCase):
   def test_mit_required_without_distinct_app_never_passes(self):
     self.required=True
     with self.assertRaisesRegex(StageCertificationError,
-                                "manual tester issuer is unconfigured"):
+                                "MIT provider readback"):
       self.invoke_app()
 
   def test_github_app_release_and_mit_are_distinct_checked_oracles(self):
