@@ -67,6 +67,8 @@ def _diagnose(
   completion: bool,
 ):
   general, legal, facts, plan, state = _contexts(root)
+  if words and words[0] == "test" and not legal.legal_only:
+    legal = Context(root, legal_only=True)
   failure = analyse_failure(
     COMMANDS,
     words,
