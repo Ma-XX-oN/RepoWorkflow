@@ -12,9 +12,10 @@ from .done_executor import (
 from .done_host_coordinator import IntegrationHostCoordinator
 from .done_mit_defer_v2 import defer_mit_with_provider
 from .done_stage_certification import (
-  MitTimedOut, CertifiedStages, VerifiedStage,
+  MitTimedOut, StageFailed, CertifiedStages, VerifiedStage,
 )
 from .done_int_workspace import publish_int_workspace
+from .done_failed_attempt import FailedIntegrationEvidence, record_failed_attempt
 from .done_policy_admission import current_destination_admission
 from .done_provider_acceptance import (
   DestinationAcceptanceFacts, bind_v2_destination_accept,
@@ -22,6 +23,14 @@ from .done_provider_acceptance import (
 from .done_terminal_v2 import publish_integrated_terminal
 from .integration_coordination import claim_prelim, release_prelim
 from .prelim_queue import ReadyPrelim
+
+
+@dataclass(frozen=True)
+class FailedProviderAttempt:
+  ready: ReadyPrelim
+  failed_stage: str
+  evidence_ref: str
+  released_generation: int
 
 
 @dataclass(frozen=True)
@@ -80,6 +89,7 @@ def accept_one_ready_submission(
   if provider_facts.lease_generation != lease.generation:
     raise DoneExecutionError("acceptance facts mismatch authoritative lease")
   prepared = []
+  observed_failure = []
 
   def prepare(plan):
     attempt = prepare_and_certify(plan)
@@ -87,8 +97,12 @@ def accept_one_ready_submission(
         or attempt.source_prelim_ref != ready.ref
         or attempt.source_prelim_sha != ready.sha):
       raise DoneExecutionError("certified source differs from immutable READY")
-    stages = stage_certify(attempt.tested_candidate_sha,
-                           plan.expected_parent_sha)
+    try:
+      stages = stage_certify(attempt.tested_candidate_sha,
+                             plan.expected_parent_sha)
+    except StageFailed as failed:
+      observed_failure.append((attempt,plan,failed))
+      raise
     if (not isinstance(stages, CertifiedStages)
         or stages.source_sha != attempt.tested_candidate_sha
         or stages.parent_sha != plan.expected_parent_sha
@@ -128,6 +142,31 @@ def accept_one_ready_submission(
       original_plan, refresh_plan, prepare, current_admission,
       bind_v2_destination_accept(host, provider_facts),
       verify_provider_result, reconcile_unknown=reconcile_unknown)
+  except StageFailed as failure:
+    if len(observed_failure) != 1:
+      raise DoneExecutionError("failed-stage provenance UNKNOWN") from failure
+    attempt, failed_plan, observed = observed_failure[0]
+    receipt=observed.receipt
+    if (failure is not observed
+        or not isinstance(receipt, VerifiedStage)
+        or receipt.stage != failure.stage
+        or receipt.status != "FAIL"
+        or receipt.independently_authenticated is not True
+        or receipt.source_sha != attempt.tested_candidate_sha
+        or receipt.parent_sha != failed_plan.expected_parent_sha
+        or not receipt.evidence_ref):
+      raise DoneExecutionError("failed-stage provider evidence unverified")
+    verified_failure=FailedIntegrationEvidence(
+      ready.guid,attempt.tested_candidate_sha,
+      failed_plan.expected_parent_sha,failed_plan.expected_parent_sha,
+      integration_id,attempt.operation_id,receipt.evidence_ref,True)
+    _,released=record_failed_attempt(
+      host=host,ready=ready,lease=lease,holder=holder,
+      evidence=verified_failure,
+      terminal_request_id=terminal_request_id,
+      read_request_id=terminal_request_id+"-failed-read")
+    return FailedProviderAttempt(
+      ready,failure.stage,receipt.evidence_ref,released.generation)
   except MitTimedOut as deferred:
     if (type(mit_event_request_id) is not str
         or type(mit_read_request_id) is not str):
