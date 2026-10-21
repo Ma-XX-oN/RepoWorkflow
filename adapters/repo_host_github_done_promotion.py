@@ -83,7 +83,8 @@ def read_done_promotion(backend,destination,operation_id):
   if type(commit) is not str or _SHA.fullmatch(commit) is None:
     raise DonePromotionProviderError("promotion Git commit SHA malformed")
   try:
-    message=backend.get("git/commits/"+commit)["message"]
+    git_commit=backend.get("git/commits/"+commit)
+    message=git_commit["message"]
     if not isinstance(message,str) or not message.startswith(_MESSAGE):
       raise ValueError("not a promotion commit")
     data=json.loads(message[len(_MESSAGE):])
@@ -107,6 +108,14 @@ def read_done_promotion(backend,destination,operation_id):
   if proof.operation_id!=operation_id:
     raise DonePromotionProviderError("promotion operation identity differs")
   _validate(backend,destination,proof)
+  # The Git object itself is part of the evidence. A matching JSON message
+  # on an unrelated commit must never certify a different landed candidate.
+  parents=git_commit.get("parents")
+  if (type(parents) is not list or len(parents)!=1
+      or type(parents[0]) is not dict
+      or parents[0].get("sha")!=proof.landed_sha
+      or git_commit.get("tree",{}).get("sha")!=proof.landed_tree_sha):
+    raise DonePromotionProviderError("promotion Git ancestry or tree differs")
   return proof
 
 
@@ -132,6 +141,9 @@ def record_done_promotion(backend,destination,promotion,*,
   tree=commit.get("tree",{}).get("sha")
   if tree!=promotion.landed_tree_sha:
     raise DonePromotionProviderError("landed tree no longer equivalent")
+  source_commit=backend.get("git/commits/"+promotion.accepted_candidate_sha)
+  if source_commit.get("tree",{}).get("sha")!=promotion.source_tree_sha:
+    raise DonePromotionProviderError("original tested candidate tree differs")
   body=_MESSAGE+_canonical(_record(backend.repository,destination,promotion))
   try:
     made=backend.post("git/commits",{
@@ -142,7 +154,12 @@ def record_done_promotion(backend,destination,promotion,*,
   except Exception as error:
     # Do not duplicate a committed attestation after an ambiguous ACK.
     if read_done_promotion(backend,destination,promotion.operation_id)==promotion:
-      return promotion
+      current=backend.get("git/ref/heads/"+destination)
+      if (current.get("ref")=="refs/heads/"+destination
+          and current.get("object",{}).get("sha")==promotion.landed_sha):
+        return promotion
+      raise DonePromotionProviderError(
+        "destination advanced during lost publication ACK") from error
     raise DonePromotionProviderError("promotion append UNKNOWN") from error
   observed=read_done_promotion(backend,destination,promotion.operation_id)
   if observed!=promotion:
