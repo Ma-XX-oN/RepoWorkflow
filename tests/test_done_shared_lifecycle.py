@@ -41,10 +41,10 @@ class GitReadOnlyProvider:
     if path.startswith("git/trees/"):
       raw=self.git("ls-tree","-z",path[len("git/trees/"):])
       entries=[]
-      for line in raw.split(b"\\0"):
+      for line in raw.split(b"\0"):
         if not line:
           continue
-        spec,name=line.split(b"\\t",1)
+        spec,name=line.split(b"\t",1)
         mode,kind,sha=spec.decode().split(" ")
         entries.append({
           "path":name.decode(),"mode":mode,"type":kind,"sha":sha})
