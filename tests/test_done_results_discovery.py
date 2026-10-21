@@ -6,6 +6,7 @@ import unittest
 from repo_workflow.done_evidence_promotion import (
   AuthenticatedStage, Promotion,
 )
+from repo_workflow.test_results_reader import results_for_landed_tip
 from repo_workflow.done_results_discovery import (
   LandedResultsError, discover_landed_results,
 )
@@ -102,6 +103,35 @@ class LandedTests(unittest.TestCase):
     self.p.source='{"testSHA":"'+A+'","testSHA":"'+A+'"}'
     with self.assertRaisesRegex(LandedResultsError,"UNKNOWN"):
       self.p.read()
+
+  def test_canonical_interface_preserves_source_and_separate_relation(self):
+    emitted=[]
+    result=results_for_landed_tip(
+      destination="main",landed_sha=B,
+      read_destination=self.p.destination,
+      read_promotion=self.p.relation,
+      read_source_log=self.p.logs,
+      emit=emitted.append)
+    self.assertEqual(result,0)
+    self.assertEqual(len(emitted),2)
+    original,link=(json.loads(x) for x in emitted)
+    self.assertEqual(original["testSHA"],A)
+    self.assertNotIn("testSHA",link)
+    self.assertEqual(link["landedSHA"],B)
+    self.assertEqual(link["testedSourceSHA"],A)
+    self.assertEqual(link["result"],"promoted")
+    self.assertNotEqual(link["result"],"PASS")
+
+  def test_canonical_interface_no_partial_output_on_failed_source(self):
+    emitted=[]
+    self.p.source="malformed-source"
+    with self.assertRaises(LandedResultsError):
+      results_for_landed_tip(
+        destination="main",landed_sha=B,
+        read_destination=self.p.destination,
+        read_promotion=self.p.relation,
+        read_source_log=self.p.logs,emit=emitted.append)
+    self.assertEqual(emitted,[])
 
   def test_missing_provider_never_discovers_result(self):
     with self.assertRaisesRegex(LandedResultsError,"readers"):
