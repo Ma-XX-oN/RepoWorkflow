@@ -9,7 +9,7 @@ import unittest
 
 from repo_workflow.done_shared_lifecycle import (
   SharedLifecycleError,SharedLifecycleEvidence,verify_shared_completion,
-  publish_shared_completion,
+  publish_shared_completion,read_shared_authority,
 )
 from tests.test_done_canonical_lifecycle import CanonicalLifecycleTests
 
@@ -209,6 +209,22 @@ class SharedLifecycleWriterTests(unittest.TestCase):
       expected_old_commit=self.previous,
       local_store=self.case.store,issue=123,completion=self.completed)
     return publish_shared_completion(**{**params,**changes})
+
+  def test_registration_returns_exact_stable_remote_ref(self):
+    completed=self.publish()
+    ref=read_shared_authority(
+      backend=self.backend,state_branch="authority-109")
+    self.assertEqual(ref.repository,"Org/Repo")
+    self.assertEqual(ref.branch,"authority-109")
+    self.assertEqual(ref.commit_sha,completed.commit_sha)
+    self.assertTrue(ref.independently_authenticated)
+
+  def test_registration_rejects_absent_or_invalid_branch(self):
+    for branch in ("nonexistent","../malformed","/outside"):
+      with self.subTest(branch=branch):
+        with self.assertRaises(SharedLifecycleError):
+          read_shared_authority(
+            backend=self.backend,state_branch=branch)
 
   def test_remote_cas_publishes_only_canonical_complete_and_intent(self):
     proof=self.publish()
