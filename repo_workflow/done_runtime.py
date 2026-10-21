@@ -7,7 +7,9 @@ retirement, canonical promotion, lifecycle and failed-item handoff.
 from dataclasses import dataclass
 
 from .done_completion import VerifiedCompletion
-from .done_shared_lifecycle import SharedLifecycleEvidence
+from .done_shared_lifecycle import (
+  SharedLifecycleEvidence,SharedAuthorityObservation,
+)
 from .done_planner import DonePlan
 from .done_provider_pipeline import (
   AcceptedProviderAttempt,DeferredProviderAttempt,FailedProviderAttempt,
@@ -36,14 +38,16 @@ class DoneRuntimeError(RuntimeError):
 def execute_ready_done(*, release, read_current_plan, select_ready,
                        execute_provider_attempt, complete_accepted,
                        read_deferred_mit, publish_failure_handoff,
-                       verify_source_lineage,verify_shared_lifecycle=None):
+                       verify_source_lineage,verify_shared_lifecycle=None,
+                       read_shared_authority=None):
   """Compose exact plan/READY/provider/outcome without fabricating PASS."""
   if (type(release) is not str
       or release not in {"patch","minor","major"}
       or any(not callable(fn) for fn in (
         read_current_plan,select_ready,execute_provider_attempt,
         complete_accepted,read_deferred_mit,publish_failure_handoff,
-        verify_source_lineage,verify_shared_lifecycle))):
+        verify_source_lineage,verify_shared_lifecycle,
+        read_shared_authority))):
     raise DoneRuntimeError("authenticated native done bindings required")
   try:
     plan=read_current_plan(release)
@@ -89,10 +93,20 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
         or completed.promotion.operation_id!=completed.operation_id):
       raise DoneRuntimeError("accepted but unverified DONE lifecycle")
     try:
+      authority_before=read_shared_authority(plan,ready)
       shared=verify_shared_lifecycle(completed,plan,ready)
+      authority_after=read_shared_authority(plan,ready)
     except Exception as error:
       raise DoneRuntimeError(
         "shared provider lifecycle readback UNKNOWN; no DONE") from error
+    if (not isinstance(authority_before,SharedAuthorityObservation)
+        or authority_before.independently_authenticated is not True
+        or authority_before!=authority_after
+        or authority_before.repository!=shared.repository
+        or authority_before.branch!=shared.branch
+        or authority_before.commit_sha!=shared.commit_sha):
+      raise DoneRuntimeError(
+        "canonical state authority moved or is unregistered; no DONE")
     if (not isinstance(shared,SharedLifecycleEvidence)
         or shared.independently_authenticated is not True
         or shared.issue!=int(plan.issue)
