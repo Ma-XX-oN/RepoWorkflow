@@ -60,6 +60,9 @@ def _external_id(binding):
     "catalogue_digest":binding.catalogue_digest,
     "config_digest":binding.config_digest,
     "inputs_digest":binding.inputs_digest,
+    "provider_evidence_ref":binding.provider_evidence_ref,
+    "app_id":binding.app_id,
+    "expires_at":binding.expires_at,
     "tester_id":binding.tester_id,
   }
   return "rwf-done-v1-"+hashlib.sha256(
