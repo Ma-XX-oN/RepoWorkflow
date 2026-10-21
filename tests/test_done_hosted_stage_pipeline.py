@@ -2,7 +2,10 @@
 from dataclasses import replace
 import unittest
 
-from repo_workflow.done_hosted_stage_pipeline import certify_provider_stages
+from repo_workflow.done_hosted_stage_pipeline import (
+  certify_provider_stages,certify_github_app_stages,
+)
+from repo_workflow.done_check_issuer import CheckIssuerBinding,_external_id
 from repo_workflow.done_stage_hosted import HostedStageBinding
 from repo_workflow.done_stage_certification import (
   CertifiedStages,VerifiedMitPolicy,VerifiedStage,StageCertificationError,
@@ -188,6 +191,60 @@ class IssuerTests(unittest.TestCase):
                                 "authority changed"):
       self.invoke(read_mit_stage=withdrawn)
     self.assertEqual(len(reads),2)
+
+
+  def invoke_app(self,mit_binding=None,read_check=None,**changes):
+    release=CheckIssuerBinding(
+      "Org/Repo","release",109,SOURCE,PARENT,2345,89123,
+      "check-release","catalogue","config","inputs",EXPIRY)
+    app_binding=mit_binding or CheckIssuerBinding(
+      "Org/Repo","MIT",109,SOURCE,PARENT,2346,89124,
+      "check-manual","catalogue","config","inputs",EXPIRY,
+      "tester-approved-109")
+    def provider(repo,check_id):
+      b={2345:release,2346:app_binding}[check_id]
+      return {
+        "id":b.check_run_id,"name":(
+          "rwf-done-release" if b.stage=="release" else
+          "rwf-done-manual-test"),
+        "head_sha":b.source_sha,"external_id":_external_id(b),
+        "app":{"id":b.app_id,"slug":"independent-stage-provider"},
+        "status":"completed","conclusion":"success",
+      }
+    args=dict(
+      repository="Org/Repo",source_sha=SOURCE,parent_sha=PARENT,
+      read_hosted_record=self.record,read_hosted_binding=self.binding,
+      verify_hosted_artifact=self.verify,
+      release_binding=release,release_app_id=89123,
+      mit_binding=mit_binding,mit_app_id=89124,
+      read_mit_policy=self.policy,
+      read_check=read_check or provider)
+    return certify_github_app_stages(**{**args,**changes})
+
+  def test_github_app_release_and_art_ait_are_independent(self):
+    verified=self.invoke_app()
+    self.assertEqual(
+      [x.stage for x in verified.stages],["ART","AIT","release"])
+
+  def test_mit_required_without_distinct_app_never_passes(self):
+    self.required=True
+    with self.assertRaisesRegex(StageCertificationError,
+                                "manual tester issuer is unconfigured"):
+      self.invoke_app()
+
+  def test_github_app_release_and_mit_are_distinct_checked_oracles(self):
+    self.required=True
+    binding=CheckIssuerBinding(
+      "Org/Repo","MIT",109,SOURCE,PARENT,2346,89124,
+      "check-manual","catalogue","config","inputs",EXPIRY,
+      "tester-approved-109")
+    verified=self.invoke_app(mit_binding=binding)
+    self.assertEqual(
+      [x.stage for x in verified.stages],["ART","AIT","release","MIT"])
+
+  def test_foreign_app_cannot_authorize_release(self):
+    with self.assertRaisesRegex(StageCertificationError,"release provider"):
+      self.invoke_app(release_app_id=54321)
 
 
 if __name__=="__main__":
