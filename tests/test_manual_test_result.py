@@ -16,7 +16,7 @@ from repo_workflow.manual_test_state import (
 )
 from repo_workflow.manual_test_result import (
   FailureHandoff, ManualResultError, reconcile_manual_result, record_manual_result,
-  require_manual_completion,
+  require_manual_completion, read_manual_case_results,
 )
 
 
@@ -308,3 +308,34 @@ def test_mit_fail_after_int_preparation_does_not_advance_sha(setup):
   assert marker.read_text() == "integration-testing " + sha + "\n"
   with pytest.raises(ManualResultError, match="MIT FAIL"):
     require_manual_completion(root, 701, prepared_sha, cases=cases)
+
+
+def test_result_read_model_and_no_stale_pass(setup):
+  root, sha, cases = setup
+  _selected(root, sha, cases)
+  _record(root, sha, cases)
+  assert read_manual_case_results(root, 701, sha, cases=cases) == {
+    cases[0].name: "succeeded",
+  }
+  changed = (Case(cases[0].name, "c" * 64), cases[1])
+  assert read_manual_case_results(root, 701, sha, cases=changed) == {}
+
+
+def test_cli_identity_env_and_local_evidence_ref(setup, monkeypatch):
+  root, sha, cases = setup
+  monkeypatch.setenv("RWF_WRITER_ID", "known-operator")
+  _selected(root, sha, cases)
+  out = record_manual_result(root, 701, sha, "succeeded", cases=cases)
+  entry = json.loads(_log(root).read_text())
+  assert entry["operator"] == "known-operator"
+  assert entry["evidenceRef"].endswith(out.evidence_id)
+  assert entry["evidenceRef"].startswith(".repoworkflow/validation/testResults-701.jsonl")
+
+
+def test_cli_no_identity_rejected(setup, monkeypatch):
+  root, sha, cases = setup
+  monkeypatch.delenv("RWF_WRITER_ID", raising=False)
+  _selected(root, sha, cases)
+  with pytest.raises(ManualResultError, match="operator identity"):
+    record_manual_result(root, 701, sha, "succeeded", cases=cases)
+  assert not _log(root).exists()
