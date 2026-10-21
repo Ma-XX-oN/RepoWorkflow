@@ -399,6 +399,10 @@
       "issue-109-failed-terminal": {"type": "regression", "name": "tests.test_done_failed_attempt"},
       "issue-109-ready-scheduler": {"type": "regression", "name": "tests.test_done_ready_scheduler"},
       "issue-109-current-policy": {"type": "regression", "name": "tests.test_done_current_policy"},
+      "issue-109-failure-handoff": {
+        "type": "regression",
+        "name": "tests.test_done_failure_handoff"
+      },
       "issue-109-queue-cycle": {
         "type": "regression",
         "name": "tests.test_done_queue_cycle"
