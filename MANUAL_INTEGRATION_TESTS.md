@@ -50,8 +50,9 @@ itself makes no file, branch, or state mutation.
 
 The reader validates `.ci/tests.json` using the repository's existing
 `parse_test_catalogue` grammar, rejects repeated JSON keys, duplicate groups,
-invalid/missing manual metadata, wrong manual names, unknown harnesses, and
-malformed JSON.  An automatic group containing the substring `manual--` is
+invalid/missing manual metadata, wrong manual names, unknown harnesses,
+manual cases in automatic aliases, executable declaration-level command
+overrides, and malformed JSON.  An automatic group containing the substring `manual--` is
 **not** a manual case merely because of that substring.  A group beginning
 `issue-X-manual--` but lacking `type: manual` is rejected; likewise an entry
 with `type: manual` but an invalid name.  Properly declared cases for other
