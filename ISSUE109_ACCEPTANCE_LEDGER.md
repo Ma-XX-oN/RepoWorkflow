@@ -126,3 +126,66 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
   authenticated ART/AIT/release/MIT, provider-backed complete lifecycle and
   canonical results readback in an actual integration, full latest assembled
   hosted platform matrix, independent #583 oracle crossing and #677 conformance.
+
+## 2026-10-21, window 15 — source-specific evidence update
+
+- Existing claim 6273106943, PR #680 OPEN/DRAFT/UNMERGED. Main unchanged,
+  no production permission or stable-tag publication.
+- Authenticated ART for predecessor 13682b27baf21e6f5d1abc2620ec23a7587f13d6
+  ran as GitHub Actions 39649302325: COMPLETED/SUCCESS.
+  Artifact 12369625215 SHA-256
+  36a432596af41f7c1ada69b20429ef32ac46a95f66691029033ee5bc746a83c5
+  independently downloaded and parsed. Its successful row has exact
+  testSHA/providerCandidateSHA 13682b27..., invocation 50af6c93...,
+  testVersion 0.1.122-issue.109.1.3, runner github-actions,
+  result succeeded, reusable true, no dirty worktree. Historical failed
+  rows in the same artifact are not promoted.
+- AIT for the same predecessor requested from the provider-published
+  ART branch, invocation bf1e73641a3283221ab4840dbf501725e8a4e281,
+  run 39651182981. Plan and nine platform jobs PASS; terminal AIT
+  provider publication remained unverified at this ledger timestamp.
+- Exact-source hosted predecessor 39649334956 SUCCESS, 2,378 tests,
+  14 skipped, focused Ubuntu/Windows/macOS 370 each PASS. Four-branch
+  assembly 39649407300 SUCCESS, 2,827 tests, 14 skipped, strict v2
+  simulated transport PASS; assembled source 0ec492a92b13f68405e715ee9b7317235198dd50.
+- Real Disposable-000 provider 39649470589 SUCCESS at that predecessor:
+  5/5 live destination policy, PRELIM immutability, destination CAS,
+  terminal, dual physical retirement, tested-source promotion,
+  actual claim/release lost-ACK reconciliation and run-scoped
+  canonical lifecycle Git CAS. Confirmed temporary 8/8 refs absent.
+  Stage authorities there are TEST FIXTURES, NOT production issuer.
+- Subsequent native proof hardening requires an externally authenticated
+  shared lifecycle envelope containing the exact plan, original tested
+  source SHA, operation, provider result and stable canonical-state ref.
+  A bare VerifiedCompletion or release/issue/source mismatch is now
+  rejected by native CLI. Release/MIT independent GitHub App Check Runs
+  are bound to source, parent, issue, app, actual test inputs, expiry
+  and evidence ref; an expired/check-relabelled PASS is not reusable.
+- Current candidate at ledger revision:
+  0862cc8694f8e5af3019c509a4a0e2a64d2a5299,
+  development version 0.1.122-issue.109.1.4 (unconsumed at request).
+  Runs launched: hosted 39652773372, certified assembly 39652871383,
+  real Disposable-000 39652926747, authenticated ART 39653025698.
+  Terminal checks are pending; preceding successful source evidence
+  CANNOT be reused for this materially changed SHA.
+- There is still no configured independent release/MIT App issuer,
+  globally designated production canonical state branch, or default
+  trusted rwf done server service. GitHub Checks API at predecessor
+  candidate returned zero release/MIT check-runs. No protected
+  production main/rulesets or stable release activation.
+- P01-P05/P08/P09 scoped PASS (7); P06/P07/P11/P12/P13/P14 PARTIAL
+  (6); P10/P15/P16 INCOMPLETE (3) until exact final candidate proofs,
+  independent human issuer and independent #583/#677 handoffs.
+  Historical failed runs remain failed evidence; this is NOT DONE.
+
+### Next authorised actions
+
+1. Verify terminal final-candidate ART, focused/full, assembled and
+   Disposable-000 results, including independent cleanup.
+2. Chain genuine AIT on the very same tested SHA after provider ART PASS.
+3. Bind distinct independent current-parent release/MIT Check Run issuers,
+   preserve missing/FAIL/TIMEOUT/UNKNOWN and durable defer semantics.
+4. Install trusted native runtime and actual globally authoritative
+   canonical lifecycle source, then certify all #583 remaining cases.
+5. Keep #677 downstream, existing claim and PR. Do not merge or
+   declare DONE until every acceptance requirement is independently proven.
