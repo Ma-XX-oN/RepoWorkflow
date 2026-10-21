@@ -14,7 +14,7 @@ from repo_workflow.done_shared_lifecycle import (
   SharedLifecycleEvidence,SharedAuthorityObservation,
 )
 from repo_workflow.done_runtime import (
-  DoneRuntimeError, VerifiedDeferredDone, VerifiedFailedDone,
+  DoneRuntimeError, VerifiedNativeDone, VerifiedDeferredDone, VerifiedFailedDone,
   execute_ready_done,
 )
 from repo_workflow.done_source_identity import EffectiveSource
@@ -82,9 +82,12 @@ class RuntimeTests(unittest.TestCase):
 
   def test_real_composition_requires_completed_provenance(self):
     result=self.invoke()
-    self.assertIsInstance(result,VerifiedCompletion)
-    self.assertEqual(result.operation_id,"op-1")
-    self.assertEqual(result.landed_sha,"d"*40)
+    self.assertIsInstance(result,VerifiedNativeDone)
+    self.assertIsInstance(result.completion,VerifiedCompletion)
+    self.assertEqual(result.completion.operation_id,"op-1")
+    self.assertEqual(result.completion.landed_sha,"d"*40)
+    self.assertEqual(result.shared.commit_sha,result.authority.commit_sha)
+    self.assertTrue(result.shared.independently_authenticated)
 
   def test_unbound_shared_lifecycle_provider_cannot_publish_done(self):
     with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
