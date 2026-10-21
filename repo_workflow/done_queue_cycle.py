@@ -6,6 +6,8 @@ UNKNOWN integration. Each durable outcome is verified before advancing.
 from dataclasses import dataclass
 
 from .done_completion import VerifiedCompletion
+from .done_terminal_v2 import IntegratedTerminal
+from .done_evidence_promotion import Promotion
 from .done_host_coordinator import IntegrationHostCoordinator
 from .done_provider_pipeline import DeferredProviderAttempt
 from .done_queue_scheduler import choose_submission
@@ -32,7 +34,8 @@ class QueueCycle:
 
 
 def process_destination_cycle(*, host, destination, select_authorized,
-                              execute_and_complete, max_items=1):
+                              execute_and_complete, verify_handoff,
+                              max_items=1):
   """Advance only after exact terminal/deferred evidence and lease release.
 
   The executor owns reconstruction, ART/AIT/MIT, CAS, retirement,
@@ -40,6 +43,7 @@ def process_destination_cycle(*, host, destination, select_authorized,
   Never treat an accepted-but-not-retired attempt as complete.
   """
   if (not callable(execute_and_complete)
+      or not callable(verify_handoff)
       or type(max_items) is not int
       or not 1 <= max_items <= 100):
     raise QueueCycleError("bounded authenticated executor required")
@@ -57,8 +61,16 @@ def process_destination_cycle(*, host, destination, select_authorized,
     except Exception as error:
       raise QueueCycleError("attempt result UNKNOWN; reconcile") from error
     if isinstance(outcome,VerifiedCompletion):
-      if (outcome.terminal.guid != selected.guid
-          or outcome.terminal.landed_sha != outcome.landed_sha):
+      if (not isinstance(outcome.terminal,IntegratedTerminal)
+          or not isinstance(outcome.promotion,Promotion)
+          or outcome.terminal.guid != selected.guid
+          or outcome.terminal.landed_sha != outcome.landed_sha
+          or outcome.promotion.operation_id != outcome.operation_id
+          or outcome.promotion.landed_sha != outcome.landed_sha
+          or outcome.promotion.accepted_candidate_sha
+             != outcome.terminal.accepted_sha
+          or type(outcome.lifecycle) is not dict
+          or outcome.lifecycle.get("result") != "done"):
         raise QueueCycleError("completion identity differs from READY")
       expected="integrated"
       label="completed"
@@ -71,7 +83,8 @@ def process_destination_cycle(*, host, destination, select_authorized,
         selected.guid,destination)
       if (event is None or event.guid != selected.guid
           or event.prelim_sha != selected.sha
-          or event.evidence_ref != outcome.evidence_ref):
+          or event.evidence_ref != outcome.evidence_ref
+          or event.lease_generation + 1 != outcome.released_generation):
         raise QueueCycleError("MIT deferral not durably recorded")
       expected=None
       label="deferred-mit"
@@ -82,6 +95,12 @@ def process_destination_cycle(*, host, destination, select_authorized,
           or not outcome.handoff_ref.strip()
           or outcome.independently_recorded is not True):
         raise QueueCycleError("failed attempt has no durable handoff")
+      try:
+        verified=verify_handoff(outcome,selected)
+      except Exception as error:
+        raise QueueCycleError("durable handoff readback UNKNOWN") from error
+      if verified is not True:
+        raise QueueCycleError("failed-item handoff not independently verified")
       expected=outcome.terminal_status
       label="failed-handoff"
     else:
