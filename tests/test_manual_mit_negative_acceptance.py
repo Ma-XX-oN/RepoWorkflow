@@ -1,0 +1,160 @@
+"""Independent RED oracle for RWF #703 (#699). Simulation is not provider proof."""
+import unittest
+
+from repo_workflow.done_executor import DoneExecutionError
+from repo_workflow.done_provider_pipeline import (
+  DeferredProviderAttempt, FailedProviderAttempt,
+)
+from repo_workflow.done_stage_certification import (
+  CertifiedStages, MitTimedOut, StageFailed, VerifiedMitPolicy, VerifiedStage,
+)
+from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
+from tests.test_done_provider_pipeline import PipelineTests, B
+
+
+class ManualMitNegativeAcceptanceTests(unittest.TestCase):
+  def setUp(self):
+    self.fixture = PipelineTests(
+      "test_one_ready_end_to_end_local_provider_simulation")
+    self.fixture.setUp()
+    self.host = self.fixture.host
+    self.initial_tip = self.host.main
+
+  @staticmethod
+  def stage(name, source, parent, status="PASS", evidence=None):
+    return VerifiedStage(
+      name, source, parent, status, "run-" + name,
+      evidence or "evidence-" + name, "catalogue-v1",
+      "config-v1", "inputs-v1", "2027-01-01T00:00:00Z", True)
+
+  def pass_required(self, source, parent):
+    return CertifiedStages(
+      source, parent,
+      tuple(self.stage(stage, source, parent)
+            for stage in ("ART", "AIT", "release", "MIT")),
+      VerifiedMitPolicy(source, parent, True, "policy-required", True))
+
+  def fail_mit(self, source, parent, evidence="mit-fail-actual"):
+    raise StageFailed(
+      "MIT", self.stage("MIT", source, parent, "FAIL", evidence))
+
+  def assert_no_landing(self):
+    self.assertEqual(self.host.main, self.initial_tip)
+    self.assertNotIn("destination.accept", self.host.calls)
+    self.assertFalse(self.host.terminal and
+                     self.host.terminal.get("status") == "integrated")
+
+  def test_fail_before_int_is_durable_and_denies_cas(self):
+    result = self.fixture.invoke(stage_certify=self.fail_mit)
+    self.assertIsInstance(result, FailedProviderAttempt)
+    self.assertEqual(result.failed_stage, "MIT")
+    self.assertEqual(result.evidence_ref, "mit-fail-actual")
+    self.assertEqual(self.host.terminal["status"], "failed")
+    self.assertEqual(self.host.terminal["accepted_sha"], "c" * 40)
+    self.assertEqual(self.host.terminal["expected_destination_sha"], B)
+    self.assertIsNone(self.host.terminal["landed_sha"])
+    self.assertIsNone(self.host.int_sha)
+    self.assertIsNone(self.host.lease["holder"])
+    self.assert_no_landing()
+
+  def test_fail_after_int_preparation_denies_cas(self):
+    calls = []
+    def stage_certify(source, parent):
+      calls.append((source, parent))
+      if len(calls) == 1:
+        return self.pass_required(source, parent)
+      self.fail_mit(source, parent, "mit-fail-after-preparation")
+    result = self.fixture.invoke(stage_certify=stage_certify)
+    self.assertEqual(len(calls), 2)
+    self.assertIsInstance(result, FailedProviderAttempt)
+    self.assertEqual(result.failed_stage, "MIT")
+    self.assertEqual(result.evidence_ref, "mit-fail-after-preparation")
+    self.assertEqual(self.host.terminal["status"], "failed")
+    self.assertEqual(self.host.int_sha, "c" * 40)
+    self.assert_no_landing()
+
+  def test_foreign_failure_provenance_rejects_without_terminal(self):
+    def foreign(source, parent):
+      raise StageFailed(
+        "MIT", self.stage("MIT", "f" * 40, parent, "FAIL"))
+    with self.assertRaisesRegex(DoneExecutionError, "unverified"):
+      self.fixture.invoke(stage_certify=foreign)
+    self.assertEqual(self.host.lease["generation"], 1)
+    self.assertIsNone(self.host.terminal)
+    self.assert_no_landing()
+
+  def test_lost_ack_reconciles_exactly_one_failure_record(self):
+    original = self.host.request
+    posted = []
+    def lose_ack(operation, request_id, params):
+      response = original(operation, request_id, params)
+      if operation == "attempt.record":
+        posted.append(request_id)
+        raise ConnectionError("ACK lost after durable append")
+      return response
+    self.host.request = lose_ack
+    result = self.fixture.invoke(stage_certify=self.fail_mit)
+    self.assertIsInstance(result, FailedProviderAttempt)
+    self.assertEqual(len(posted), 1)
+    self.assertEqual(self.host.terminal["status"], "failed")
+    self.assert_no_landing()
+
+  def test_required_mit_without_receipt_does_not_pass(self):
+    def omit(source, parent):
+      stages = tuple(self.stage(s, source, parent)
+                     for s in ("ART", "AIT", "release"))
+      return CertifiedStages(
+        source, parent, stages,
+        VerifiedMitPolicy(source, parent, True, "policy-required", True))
+    with self.assertRaisesRegex(DoneExecutionError, "stage identity"):
+      self.fixture.invoke(stage_certify=omit)
+    self.assertIsNone(self.host.terminal)
+    self.assertIsNone(self.host.int_sha)
+    self.assert_no_landing()
+
+  def test_timeout_is_deferred_not_failed(self):
+    def timeout(_source, _parent):
+      raise MitTimedOut("mit-timeout-evidence")
+    result = self.fixture.invoke(
+      stage_certify=timeout,
+      mit_event_request_id="issue-703-timeout-event-1",
+      mit_read_request_id="issue-703-timeout-read-1")
+    self.assertIsInstance(result, DeferredProviderAttempt)
+    self.assertEqual(self.host.deferred["reason"], "timeout")
+    self.assertIsNone(self.host.terminal)
+    self.assertIsNone(self.host.lease["holder"])
+    self.assert_no_landing()
+
+  def test_stale_mit_pass_after_preparation_denies_cas(self):
+    calls = []
+    def drift(source, parent):
+      calls.append(1)
+      prior = self.pass_required(source, parent)
+      if len(calls) == 1:
+        return prior
+      changed = tuple(self.stage(
+        receipt.stage, source, parent, evidence=receipt.evidence_ref + "-new")
+        for receipt in prior.stages)
+      return CertifiedStages(source, parent, changed, prior.mit_policy)
+    with self.assertRaisesRegex(
+        DoneExecutionError, "stages changed before integration CAS"):
+      self.fixture.invoke(stage_certify=drift)
+    self.assertEqual(len(calls), 2)
+    self.assert_no_landing()
+
+  def test_failed_exact_candidate_cannot_replay_as_pass(self):
+    first = self.fixture.invoke(stage_certify=self.fail_mit)
+    self.assertIsInstance(first, FailedProviderAttempt)
+    facts = DestinationAcceptanceFacts(
+      self.host.repository, 123, "main", self.fixture.ready.guid,
+      self.host.lease["generation"] + 1, "worker-A", "d" * 40)
+    # RED guard. A failed immutable READY cannot later be accepted under
+    # the same identity when the mocked stage oracle changes to PASS.
+    with self.assertRaises(DoneExecutionError):
+      self.fixture.invoke(
+        stage_certify=self.pass_required, provider_facts=facts)
+    self.assert_no_landing()
+
+
+if __name__ == "__main__":
+  unittest.main()
