@@ -217,5 +217,66 @@ class ProviderCoordinatorTests(unittest.TestCase):
     self.assertEqual(len(cache),2)
 
 
+  def test_lost_claim_cas_ack_reconciles_exact_durable_lease(self):
+    original=self.host.request
+    def commit_then_lose_ack(op,key,params):
+      if op=="lease.cas":
+        original(op,key,params)
+        raise TimeoutError("provider wrote lease; ACK lost")
+      return original(op,key,params)
+    self.host.request=commit_then_lose_ack
+    lease=claim_prelim(self.coord,self.ready,"worker-A")
+    self.assertEqual(lease.generation,1)
+    self.assertEqual(self.host.lease["guid"],GUID)
+    self.assertEqual(self.coord.read_destination_lease("main"),lease)
+
+  def test_lost_release_cas_ack_recovers_without_second_write(self):
+    claim=claim_prelim(self.coord,self.ready,"worker-A")
+    self.host.terminal={
+      "repository":"Org/Repo","guid":GUID,"status":"integrated"}
+    original=self.host.request
+    calls=[]
+    def commit_then_lose_ack(op,key,params):
+      if op=="lease.cas":
+        calls.append(key)
+        original(op,key,params)
+        raise TimeoutError("provider released lease; ACK lost")
+      return original(op,key,params)
+    self.host.request=commit_then_lose_ack
+    released=release_prelim(
+      self.coord,claim,"worker-A",terminal_result="integrated")
+    self.assertEqual(len(calls),1)
+    self.assertEqual(released.generation,2)
+    self.assertIsNone(released.active_guid)
+    self.assertEqual(self.coord.read_destination_lease("main"),released)
+
+  def test_forged_positive_lease_receipt_without_write_is_denied(self):
+    original=self.host.request
+    def forged(op,key,params):
+      if op=="lease.cas":
+        return {
+          "destination":params["destination"],
+          "generation":params["expected_generation"]+1,
+          "guid":params["guid"],"holder":params["holder"]}
+      return original(op,key,params)
+    self.host.request=forged
+    with self.assertRaisesRegex(CoordinationError,"readback differs"):
+      claim_prelim(self.coord,self.ready,"worker-A")
+    self.assertEqual(self.host.lease["generation"],0)
+
+  def test_changed_lease_after_lost_ack_is_unknown_not_success(self):
+    original=self.host.request
+    def replaced(op,key,params):
+      if op=="lease.cas":
+        original(op,key,params)
+        self.host.lease["holder"]="other-worker"
+        raise TimeoutError("ACK lost and another actor changed lease")
+      return original(op,key,params)
+    self.host.request=replaced
+    with self.assertRaisesRegex(CoordinationError,"UNKNOWN"):
+      claim_prelim(self.coord,self.ready,"worker-A")
+    self.assertEqual(self.host.lease["holder"],"other-worker")
+
+
 if __name__ == "__main__":
   unittest.main()
