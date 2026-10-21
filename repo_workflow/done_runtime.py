@@ -11,6 +11,7 @@ from .done_provider_pipeline import (
 )
 from .done_failure_handoff import PersistedFailureHandoff
 from .prelim_queue import ReadyPrelim
+from .done_source_identity import EffectiveSource
 
 
 class DoneRuntimeError(RuntimeError):
@@ -51,7 +52,8 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
     original_source_verified=verify_source_lineage(plan,ready)
   except Exception as error:
     raise DoneRuntimeError("invocation/source provenance UNKNOWN") from error
-  if original_source_verified is not True:
+  if (not isinstance(original_source_verified,EffectiveSource)
+      or original_source_verified.tested_source_sha != plan.candidate_sha):
     raise DoneRuntimeError("current original tested SHA was not verified")
   try:
     attempt=execute_provider_attempt(ready,plan)
