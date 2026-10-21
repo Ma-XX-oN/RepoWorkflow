@@ -423,9 +423,10 @@ manual selections or results.
 
 The CLI calls `select_manual_case` and `read_active_manual_selection`
 from B `manual_test_state.py`, and `record_manual_result` from B
-`manual_test_result.py`. For the first-outstanding projection it reads the
-existing canonical per-issue testing JSONL, verifying current case names,
-definition digests and candidate SHA. This is a read-only projection, not
-another selection or evidence store. Result submission passes explicit
+`manual_test_result.py`. For the first-outstanding projection it calls B's
+`read_manual_case_results(root, issue, candidate_sha, cases=...)`. B
+validates the current case definitions and canonical per-issue testing
+JSONL and rejects a pending journal as UNKNOWN before any result is reused.
+No other selection or evidence store is introduced. Result submission passes explicit
 clone-local writer provenance and a `local-operator-assertion:` evidence
 reference; it never claims an external provider check ran.
