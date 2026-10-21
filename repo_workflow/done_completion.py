@@ -98,11 +98,11 @@ def complete_accepted_provider_attempt(
       or proof.tested_source_sha != terminal.accepted_sha):
     raise CompletionError("promotion provenance differs")
   try:
-    persist_lifecycle(accepted,proof)
+    persist_lifecycle(accepted,proof,tuple(observed))
   except Exception:
     pass
   try:
-    lifecycle=read_lifecycle(accepted)
+    lifecycle=read_lifecycle(accepted,proof,tuple(observed))
   except Exception as error:
     raise CompletionError("lifecycle revision readback UNKNOWN") from error
   if (type(lifecycle) is not dict
