@@ -9,7 +9,7 @@ import re
 import sys
 
 from .git import GitError, current_branch, head_sha
-from .test_results_reader import TestCommandError, parse_testing_log
+from .test_results_reader import TestCommandError
 from .invocation_identity import ensure_public_runtime_identity
 
 
@@ -41,7 +41,7 @@ def _result_api():
     ) from error
   for module, names in (
     (manual_test_state, ("read_active_manual_selection", "select_manual_case")),
-    (manual_test_result, ("record_manual_result",)),
+    (manual_test_result, ("record_manual_result", "read_manual_case_results")),
   ):
     for name in names:
       if not callable(getattr(module, name, None)):
@@ -52,6 +52,7 @@ def _result_api():
     read_active_manual_selection=manual_test_state.read_active_manual_selection,
     select_manual_case=manual_test_state.select_manual_case,
     record_manual_result=manual_test_result.record_manual_result,
+    read_manual_case_results=manual_test_result.read_manual_case_results,
   )
 
 def _name(selection):
@@ -115,28 +116,15 @@ def manual_result_completions(context) -> list:
 
 
 def _results(api, root: Path, issue: int, sha: str, cases):
-  # Read the existing canonical JSONL, not a second result database.
-  path = root / ".repoworkflow" / "validation" / (
-    "testResults-" + str(issue) + ".jsonl"
-  )
-  try:
-    raw = path.read_text(encoding="utf-8")
-  except FileNotFoundError:
-    return {}
-  records = parse_testing_log(raw)
-  by_name = {case.name: case for case in cases}
-  values = {}
-  for record in records:
-    if record.get("kind") != "manual-integration" or record["testSHA"] != sha:
-      continue
-    name = record.get("manualCase")
-    case = by_name.get(name)
-    if case is None or record.get("definitionDigest") != case.definition_digest:
-      raise TestCommandError("manual test evidence is stale or undeclared")
-    outcome = record.get("result")
-    if outcome not in {"succeeded", "failed"} or name in values:
-      raise TestCommandError("manual test evidence is invalid or duplicated")
-    values[name] = outcome
+  # B verifies current case digests and pending-journal UNKNOWN before
+  # accepting any result. Never parse canonical JSONL around B's gate.
+  values = api.read_manual_case_results(root, issue, sha, cases=cases)
+  if not isinstance(values, dict):
+    raise TestCommandError("manual result readback must be a name/result map")
+  if not set(values).issubset({case.name for case in cases}):
+    raise TestCommandError("manual results include undeclared cases")
+  if any(result not in {"succeeded", "failed"} for result in values.values()):
+    raise TestCommandError("invalid manual result from durable state service")
   return values
 
 def _outstanding(root: Path):
