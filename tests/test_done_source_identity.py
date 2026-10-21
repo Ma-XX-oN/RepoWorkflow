@@ -74,7 +74,8 @@ class IdentityTests(unittest.TestCase):
 
   def test_missing_or_malformed_request_proof_fails_closed(self):
     with self.assertRaisesRegex(SourceIdentityError,"readers"):
-      self.peel(verify_invocation=None)
+      peel_tested_source(command_head_sha=D,expected_tested_sha=A,
+                         read_commit=self.read,verify_invocation=None)
     self.nodes[D]=replace(self.nodes[D],parents=())
     with self.assertRaises(SourceIdentityError):
       self.peel()
