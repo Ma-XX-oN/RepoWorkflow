@@ -134,7 +134,7 @@ class CanonicalLifecycleTests(unittest.TestCase):
   def test_external_lifecycle_revision_change_rejected_on_readback(self):
     self.invoke()
     wrong=self.make_bridge(expected_revision=1)
-    with self.assertRaisesRegex(CanonicalLifecycleError,"revision"):
+    with self.assertRaisesRegex(CanonicalLifecycleError,"foreign completion operation"):
       wrong.read_lifecycle(
         self.fixture.accepted,self.proof,self.retirements())
 

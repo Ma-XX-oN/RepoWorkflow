@@ -113,3 +113,17 @@ Current owner #109 additionally added real Git-backed authoritative
 lifecycle completion at `8d9cbd4b3f8a8c795674163a613fb191349d0b07`.
 Exact two blobs and the canonical lifecycle suite are assembled and
 registered here.  Scope-only source snapshots never establish DONE.
+
+## October 21 focused-failure reconciliation (.0.9 → .0.10)
+
+Probe 39626928251 executed 513 focused tests and failed one
+#109-owned assertion.  The Git-backed lifecycle verifier correctly
+refused a foreign completion operation after revision change,
+but `test_external_lifecycle_revision_change_rejected_on_readback`
+expected the substring `revision`; observed error was `foreign
+completion operation already owns lifecycle`.  Exact source
+`284d4179145885236ca644c82ed713b320409ca9` is NOT GREEN.
+#109 owner updated the expectation and additional policy negatives
+at `ddef8942ed8a6b293da6385b1bc2166310edc004`.
+The assembly imports these three corrected owner blobs without
+modifying PR #680.  A fresh exact-SHA host run is mandatory.

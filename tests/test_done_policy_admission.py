@@ -58,6 +58,23 @@ class PolicyTests(unittest.TestCase):
     self.assertFalse(self.invoke().allowed)
     self.assertEqual(len(self.host.calls),2)
 
+  def test_provider_read_memoization_cannot_hide_policy_revocation(self):
+    seen={}
+    original=self.host.request
+
+    def memoized(op,key,params):
+      if key not in seen:
+        seen[key]=original(op,key,params)
+      return dict(seen[key])
+
+    self.host.request=memoized
+    self.assertTrue(self.invoke().allowed)
+    self.host.observation.update(
+      policy_present=True,policy_text="")
+    self.assertFalse(self.invoke().allowed)
+    self.assertEqual(len(seen),2)
+    self.assertEqual(len({key for op,key,args in self.host.calls}),2)
+
   def test_changed_parent_never_admitted(self):
     self.host.observation["sha"]=B
     self.assertFalse(self.invoke().allowed)
