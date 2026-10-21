@@ -171,6 +171,20 @@ class ManualCatalogueTests(unittest.TestCase):
         with self.assertRaisesRegex(ManualCatalogueError, "requires exactly"):
           read_manual_cases(self.root, 700)
 
+  def test_manual_case_in_automated_alias_is_rejected(self):
+    value = self.value_with(self.manual())
+    value["aliases"]["bad"] = ["issue-700-manual--sample"]
+    self.write(value)
+    with self.assertRaisesRegex(ManualCatalogueError, "cannot include a manual case"):
+      read_manual_cases(self.root, 700)
+
+  def test_manual_case_with_runnable_command_override_is_rejected(self):
+    value = self.value_with(self.manual())
+    value["tests"][0]["command"] = "python"
+    self.write(value)
+    with self.assertRaisesRegex(ManualCatalogueError, "executable command override"):
+      read_manual_cases(self.root, 700)
+
   def test_duplicate_group_names_across_declarations_fail(self):
     value = self.value_with(self.manual())
     value["tests"].append({"test-harness": "unittest", **dict([self.manual()])})
