@@ -130,6 +130,27 @@ class CheckIssuerTests(unittest.TestCase):
         with self.assertRaisesRegex(CheckIssuerError,"foreign"):
           self.invoke(read_check=lambda *x:self.check(**change))
 
+  def test_issuer_cannot_extend_expiry_of_completed_check(self):
+    approved=self.check()
+    self.binding=replace(
+      self.binding,expires_at="2099-01-01T00:00:00Z")
+    with self.assertRaisesRegex(CheckIssuerError,"foreign"):
+      self.invoke(read_check=lambda *args:approved)
+
+  def test_issuer_cannot_relabel_evidence_ref_after_approval(self):
+    approved=self.check()
+    self.binding=replace(
+      self.binding,provider_evidence_ref="invented-artifact")
+    with self.assertRaisesRegex(CheckIssuerError,"foreign"):
+      self.invoke(read_check=lambda *args:approved)
+
+  def test_issuer_cannot_swap_app_authority_inside_binding(self):
+    approved=self.check()
+    self.binding=replace(self.binding,app_id=89124)
+    with self.assertRaisesRegex(CheckIssuerError,"foreign"):
+      self.invoke(
+        trusted_app_id=89124,read_check=lambda *args:approved)
+
   def test_status_transition_during_double_read_denied(self):
     self.changed=True
     with self.assertRaisesRegex(CheckIssuerError,"changed"):
