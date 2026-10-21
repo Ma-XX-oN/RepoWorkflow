@@ -58,14 +58,15 @@ jobs:
             tests.test_integration_destination_accept_github \
             tests.test_prelim_ready_v2_publish \
             tests.test_prelim_ready_v2_roundtrip \
-            tests.test_done_cli
-            tests.test_done_completion
-            tests.test_done_lifecycle_binding
-            tests.test_done_queue_cycle
-            tests.test_done_stage_certification
-            tests.test_done_promotion_provider
-            tests.test_done_current_policy
-            tests.test_done_runtime
+            tests.test_done_cli \
+            tests.test_done_completion \
+            tests.test_done_lifecycle_binding \
+            tests.test_done_queue_cycle \
+            tests.test_done_stage_certification \
+            tests.test_done_promotion_provider \
+            tests.test_done_current_policy \
+            tests.test_done_runtime \
+            tests.test_done_canonical_lifecycle \
             tests.test_integration_terminal_bridge
   full-regression:
     runs-on: ubuntu-latest

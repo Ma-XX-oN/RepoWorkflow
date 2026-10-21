@@ -100,3 +100,16 @@ Leaf-owner PR #680 and previous #103/#681/#683 contract branches
 are not modified.  Fresh exact-source regression/integration is
 REQUIRED.  Historical PASS at `06328be...` does not apply to
 this candidate.  #109 and #583 still own their separate gates.
+
+## October 21 conformance probe feedback / canonical lifecycle revision
+
+Original .0.8 focused probe 39626293072 failed its *shell
+invocation*, not the tested Python assertions: first 384 tests
+passed; absent shell line-continuation after the added module names
+caused `tests.test_done_completion: command not found` (exit 127).
+This is FAIL and no certification can be transferred from .0.8.
+The corrected workflow validates every multiline unittest argument.
+Current owner #109 additionally added real Git-backed authoritative
+lifecycle completion at `8d9cbd4b3f8a8c795674163a613fb191349d0b07`.
+Exact two blobs and the canonical lifecycle suite are assembled and
+registered here.  Scope-only source snapshots never establish DONE.

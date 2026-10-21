@@ -693,6 +693,10 @@
       "issue-109-evidence-provider": {
         "type": "regression",
         "name": "tests.test_done_evidence_provider"
+      },
+      "issue-109-canonical-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_done_canonical_lifecycle"
       }
     },
     {
