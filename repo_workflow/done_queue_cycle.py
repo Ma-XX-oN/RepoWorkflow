@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from .done_completion import VerifiedCompletion
 from .done_terminal_v2 import IntegratedTerminal
 from .done_evidence_promotion import Promotion
+from .done_failure_handoff import PersistedFailureHandoff
 from .done_host_coordinator import IntegrationHostCoordinator
 from .done_provider_pipeline import DeferredProviderAttempt
 from .done_queue_scheduler import choose_submission
@@ -23,6 +24,26 @@ class VerifiedFailure:
   terminal_status: str
   handoff_ref: str
   independently_recorded: bool
+
+
+def failure_outcome_from_handoff(ready, terminal_status, persisted):
+  """Connect a verified issue/PR handoff to one terminal queue outcome."""
+  if (not isinstance(persisted,PersistedFailureHandoff)
+      or not hasattr(ready,"guid")
+      or persisted.handoff.guid != ready.guid
+      or persisted.handoff.prelim_sha != ready.sha
+      or persisted.handoff.destination != ready.destination
+      or terminal_status not in {"failed","rejected"}
+      or len(persisted.per_issue_refs)
+         != len(persisted.handoff.owner_issue_ids)
+      or {issue for issue,_ in persisted.per_issue_refs}
+         != set(persisted.handoff.owner_issue_ids)
+      or any(type(ref) is not str or not ref.strip()
+             for _,ref in persisted.per_issue_refs)):
+    raise QueueCycleError("durable failed-item handoff differs from READY")
+  return VerifiedFailure(
+    ready.guid,terminal_status,
+    persisted.handoff.operation_id,True)
 
 
 @dataclass(frozen=True)
