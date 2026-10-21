@@ -5,6 +5,7 @@ A separate authoritative relationship oracle must verify immediate parenthood.
 """
 from dataclasses import dataclass
 import re
+from uuid import uuid4
 
 from .done_planner import DonePlan
 from .integration_admission import AdmissionDecision
@@ -38,7 +39,7 @@ def current_destination_admission(host, plan, is_immediate_child):
       or _DECIMAL.fullmatch(plan.issue) is None):
     raise DestinationPolicyError("plan or relationship oracle unverified")
   observation = host.request("destination.read",
-    "policy-" + plan.issue + "-" + plan.expected_parent_sha, {
+    "policy-" + plan.issue + "-" + uuid4().hex, {
       "destination":plan.target})
   if (type(observation) is not dict
       or set(observation) != {
