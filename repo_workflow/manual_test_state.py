@@ -196,6 +196,10 @@ def select_manual_case(root: Path, issue: int, candidate_sha: str, case, *,
       raise ManualSelectionError("manual case is not declared for this candidate")
     chosen = ManualSelection(issue, candidate_sha,
                              matching[0].name, matching[0].definition_digest)
+    from .manual_test_result import read_manual_case_results
+    if chosen.name in read_manual_case_results(root, issue, candidate_sha,
+                                              cases=cases):
+      raise ManualSelectionError("manual case has a recorded terminal result")
     _atomic(selection, {"schema": 1, "active": [vars(chosen)]})
     if _active(root, issue, candidate_sha, cases) != chosen:
       raise ManualSelectionError("manual selection readback UNKNOWN")
