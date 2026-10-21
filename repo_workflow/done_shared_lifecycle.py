@@ -148,3 +148,108 @@ def verify_shared_completion(*, backend, state_branch, local_store,
     completion.operation_id,completion.terminal.accepted_sha,
     completion.landed_sha,_digest(remote_lifecycle),_digest(remote_intent),
     True)
+
+
+def publish_shared_completion(*, backend, state_branch, expected_old_commit,
+                              local_store, issue, completion):
+  """CAS-publish existing #583 records on an already authorised state ref.
+
+  The existing remote lifecycle must be accepted at exactly revision N-1.
+  A loss of the Git ref-update acknowledgment is recovered only by an exact
+  independent reread of both canonical records, never by force or rollback.
+  """
+  if not _sha(expected_old_commit):
+    raise SharedLifecycleError("expected old authoritative commit required")
+  kwargs=dict(
+    backend=backend,state_branch=state_branch,local_store=local_store,
+    issue=issue,completion=completion)
+  try:
+    # An exact already-published result is an idempotent retry, not a write.
+    return verify_shared_completion(**kwargs)
+  except SharedLifecycleError:
+    pass
+  if (not isinstance(local_store,LifecycleStore)
+      or not isinstance(completion,VerifiedCompletion)
+      or type(issue) is not int or issue<1
+      or type(state_branch) is not str
+      or _BRANCH.fullmatch(state_branch) is None
+      or ".." in state_branch):
+    raise SharedLifecycleError("trusted lifecycle publication scope required")
+  ref="refs/heads/"+state_branch
+  prefix=".repoworkflow/state/issues/"+str(issue)+"/"
+  try:
+    remote=backend.get("git/ref/heads/"+state_branch)
+    if (type(remote) is not dict or remote.get("ref")!=ref
+        or remote.get("object",{}).get("sha")!=expected_old_commit):
+      raise SharedLifecycleError("stale authoritative lifecycle ref")
+    previous=_git_blob(
+      backend,expected_old_commit,prefix+"lifecycle.json")
+    current=local_store.records.read("issues/"+str(issue)+"/lifecycle")
+    intent=local_store.records.read("issues/"+str(issue)+"/done-intent")
+    before=previous.get("value",{})
+    after=current.get("value",{})
+    prior_history=before.get("history")
+    next_history=after.get("history")
+    if (previous.get("revision")!=completion.lifecycle.get("revision")-1
+        or current.get("revision")!=completion.lifecycle.get("revision")
+        or before.get("state")!="accepted"
+        or after.get("state")!="completed"
+        or before.get("issue")!=str(issue)
+        or after.get("issue")!=str(issue)
+        or before.get("relationship_revision")
+           !=after.get("relationship_revision")
+        or not isinstance(prior_history,list) or not prior_history
+        or not isinstance(next_history,list)
+        or next_history[:-1]!=prior_history
+        or prior_history[-1].get("transition")!="accept"
+        or prior_history[-1].get("candidate")
+           !=completion.terminal.accepted_sha
+        or next_history[-1].get("transition")!="complete"
+        or next_history[-1].get("candidate")
+           !=completion.terminal.accepted_sha
+        or intent.get("revision")!=0
+        or intent.get("value",{}).get("operation_id")
+           !=completion.operation_id
+        or intent.get("value",{}).get("landed_sha")
+           !=completion.landed_sha):
+      raise SharedLifecycleError(
+        "accepted remote lifecycle is not exact predecessor")
+    original=backend.get("git/commits/"+expected_old_commit)
+    oldtree=original.get("tree",{}).get("sha")
+    if not _sha(oldtree):
+      raise SharedLifecycleError("old lifecycle tree malformed")
+    tree=backend.post("git/trees",{
+      "base_tree":oldtree,
+      "tree":[{
+        "path":prefix+name+".json",
+        "mode":"100644","type":"blob",
+        "content":json.dumps(data,indent=2,sort_keys=True)+"\\n",
+      } for name,data in (
+        ("lifecycle",current),("done-intent",intent))]})
+    if not _sha(tree.get("sha")):
+      raise SharedLifecycleError("created lifecycle tree invalid")
+    made=backend.post("git/commits",{
+      "message":"RWF-CANONICAL-LIFECYCLE-V1 issue "+str(issue),
+      "tree":tree["sha"],"parents":[expected_old_commit]})
+    if not _sha(made.get("sha")):
+      raise SharedLifecycleError("created lifecycle commit invalid")
+    proposed=made["sha"]
+  except SharedLifecycleError:
+    raise
+  except Exception as error:
+    raise SharedLifecycleError("shared lifecycle publication preparation UNKNOWN") from error
+  try:
+    backend.patch(
+      "git/refs/heads/"+state_branch,{"sha":proposed,"force":False})
+  except Exception as error:
+    # A failed CAS and a committed write with lost ACK have the same
+    # transport symptom. Only exact remote bytes can resolve the ambiguity.
+    try:
+      return verify_shared_completion(**kwargs)
+    except Exception as read_error:
+      raise SharedLifecycleError(
+        "shared lifecycle Git CAS UNKNOWN; do not retry blindly") from error
+  proof=verify_shared_completion(**kwargs)
+  if proof.commit_sha!=proposed:
+    raise SharedLifecycleError("unexpected canonical lifecycle commit")
+  return proof
