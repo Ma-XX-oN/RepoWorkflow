@@ -4,6 +4,8 @@ This module is only the flow boundary. A real host runtime must supply the
 authoritative planner, READY selector, verified provider executor, #103
 retirement, canonical promotion, lifecycle and failed-item handoff.
 """
+from dataclasses import dataclass
+
 from .done_completion import VerifiedCompletion
 from .done_planner import DonePlan
 from .done_provider_pipeline import (
@@ -12,6 +14,18 @@ from .done_provider_pipeline import (
 from .done_failure_handoff import PersistedFailureHandoff
 from .prelim_queue import ReadyPrelim
 from .done_source_identity import EffectiveSource
+
+
+@dataclass(frozen=True)
+class VerifiedDeferredDone:
+  attempt: DeferredProviderAttempt
+  provider_event: object
+
+
+@dataclass(frozen=True)
+class VerifiedFailedDone:
+  attempt: FailedProviderAttempt
+  persisted_handoff: PersistedFailureHandoff
 
 
 class DoneRuntimeError(RuntimeError):
@@ -87,7 +101,7 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
         or type(getattr(event,"lease_generation",None)) is not int
         or event.lease_generation+1!=attempt.released_generation):
       raise DoneRuntimeError("MIT deferral missing exact provider evidence")
-    return attempt
+    return VerifiedDeferredDone(attempt,event)
   if isinstance(attempt,FailedProviderAttempt):
     if attempt.ready!=ready:
       raise DoneRuntimeError("foreign ART/AIT/MIT failed attempt")
@@ -101,5 +115,5 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
         or persisted.handoff.failure_kind!=attempt.failed_stage+"_FAIL"
         or len(persisted.per_issue_refs)==0):
       raise DoneRuntimeError("failed attempt lacks durable owner handoff")
-    return attempt
+    return VerifiedFailedDone(attempt,persisted)
   raise DoneRuntimeError("provider attempt disposition unverified")
