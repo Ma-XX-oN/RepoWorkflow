@@ -78,7 +78,7 @@ class FailedTerminalTests(unittest.TestCase):
 
   def test_forged_terminal_never_releases(self):
     self.host.forge=True
-    with self.assertRaisesRegex(FailureRecordError,"unverified"):
+    with self.assertRaisesRegex(FailureRecordError,"missing or mismatched"):
       self.invoke()
     self.assertEqual(self.host.lease["generation"],1)
 
