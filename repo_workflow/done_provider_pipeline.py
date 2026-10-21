@@ -10,13 +10,34 @@ from .done_executor import (
   CertifiedAttempt, DoneExecutionError, execute_certified_done,
 )
 from .done_host_coordinator import IntegrationHostCoordinator
+from .done_mit_defer_v2 import defer_mit_with_provider
+from .done_stage_certification import (
+  MitTimedOut, StageFailed, CertifiedStages, VerifiedStage,
+)
 from .done_int_workspace import publish_int_workspace
+from .done_failed_attempt import FailedIntegrationEvidence, record_failed_attempt
+from .done_policy_admission import current_destination_admission
 from .done_provider_acceptance import (
   DestinationAcceptanceFacts, bind_v2_destination_accept,
 )
 from .done_terminal_v2 import publish_integrated_terminal
 from .integration_coordination import claim_prelim, release_prelim
 from .prelim_queue import ReadyPrelim
+
+
+@dataclass(frozen=True)
+class FailedProviderAttempt:
+  ready: ReadyPrelim
+  failed_stage: str
+  evidence_ref: str
+  released_generation: int
+
+
+@dataclass(frozen=True)
+class DeferredProviderAttempt:
+  ready: ReadyPrelim
+  evidence_ref: str
+  released_generation: int
 
 
 @dataclass(frozen=True)
@@ -34,6 +55,8 @@ def accept_one_ready_submission(
     create_id, update_id, integration_id,
     terminal_evidence_ref, terminal_request_id,
     reconcile_unknown=None,
+    mit_event_request_id=None, mit_read_request_id=None,
+    stage_certify=None, immediate_parent_oracle=None,
 ):
   """Bind actual provider operations; no implicit PASS or remote retry."""
   if not isinstance(ready, ReadyPrelim):
@@ -48,14 +71,25 @@ def accept_one_ready_submission(
       or provider_facts.holder != holder
       or str(provider_facts.ticket) != original_plan.issue):
     raise DoneExecutionError("acceptance identity differs before lease claim")
+  if not callable(stage_certify):
+    raise DoneExecutionError("independent stage certification is mandatory")
+  if not callable(immediate_parent_oracle):
+    raise DoneExecutionError("current destination parent oracle required")
   provider = IntegrationHostCoordinator(host)
   if ready not in provider.read_ready_prelims():
     raise DoneExecutionError("READY physical SHA differs from submission")
+  preflight = current_destination_admission(
+    host, original_plan, immediate_parent_oracle)
+  if preflight.allowed is not True:
+    raise DoneExecutionError("current destination admission denied before claim")
+  before_claim = provider.read_destination_lease(ready.destination)
+  if provider_facts.lease_generation != before_claim.generation + 1:
+    raise DoneExecutionError("destination lease generation is stale")
   lease = claim_prelim(provider, ready, holder)
   if provider_facts.lease_generation != lease.generation:
     raise DoneExecutionError("acceptance facts mismatch authoritative lease")
-
   prepared = []
+  observed_failure = []
 
   def prepare(plan):
     attempt = prepare_and_certify(plan)
@@ -63,6 +97,28 @@ def accept_one_ready_submission(
         or attempt.source_prelim_ref != ready.ref
         or attempt.source_prelim_sha != ready.sha):
       raise DoneExecutionError("certified source differs from immutable READY")
+    try:
+      stages = stage_certify(attempt.tested_candidate_sha,
+                             plan.expected_parent_sha)
+    except StageFailed as failed:
+      observed_failure.append((attempt,plan,failed))
+      raise
+    if (not isinstance(stages, CertifiedStages)
+        or stages.source_sha != attempt.tested_candidate_sha
+        or stages.parent_sha != plan.expected_parent_sha
+        or stages.mit_policy.source_sha != attempt.tested_candidate_sha
+        or stages.mit_policy.parent_sha != plan.expected_parent_sha
+        or stages.mit_policy.independently_authenticated is not True
+        or any(not isinstance(receipt, VerifiedStage)
+               or receipt.status != "PASS"
+               or receipt.independently_authenticated is not True
+               or receipt.source_sha != attempt.tested_candidate_sha
+               or receipt.parent_sha != plan.expected_parent_sha
+               for receipt in stages.stages)
+        or {receipt.stage for receipt in stages.stages}
+           != ({'ART', 'AIT', 'release', 'MIT'}
+               if stages.mit_policy.required else {'ART', 'AIT', 'release'})):
+      raise DoneExecutionError('authenticated stage identity differs')
     workspace = publish_int_workspace(
       host=host, ready=ready,
       expected_parent_sha=plan.expected_parent_sha,
@@ -74,10 +130,54 @@ def accept_one_ready_submission(
     prepared.append(attempt)
     return attempt
 
-  accepted = execute_certified_done(
-    original_plan, refresh_plan, prepare, admission_check,
-    bind_v2_destination_accept(host, provider_facts),
-    verify_provider_result, reconcile_unknown=reconcile_unknown)
+  def current_admission(plan):
+    observation = current_destination_admission(
+      host, plan, immediate_parent_oracle)
+    if observation.allowed is not True:
+      return observation
+    return admission_check(plan)
+
+  try:
+    accepted = execute_certified_done(
+      original_plan, refresh_plan, prepare, current_admission,
+      bind_v2_destination_accept(host, provider_facts),
+      verify_provider_result, reconcile_unknown=reconcile_unknown)
+  except StageFailed as failure:
+    if len(observed_failure) != 1:
+      raise DoneExecutionError("failed-stage provenance UNKNOWN") from failure
+    attempt, failed_plan, observed = observed_failure[0]
+    receipt=observed.receipt
+    if (failure is not observed
+        or not isinstance(receipt, VerifiedStage)
+        or receipt.stage != failure.stage
+        or receipt.status != "FAIL"
+        or receipt.independently_authenticated is not True
+        or receipt.source_sha != attempt.tested_candidate_sha
+        or receipt.parent_sha != failed_plan.expected_parent_sha
+        or not receipt.evidence_ref):
+      raise DoneExecutionError("failed-stage provider evidence unverified")
+    verified_failure=FailedIntegrationEvidence(
+      ready.guid,attempt.tested_candidate_sha,
+      failed_plan.expected_parent_sha,failed_plan.expected_parent_sha,
+      integration_id,attempt.operation_id,receipt.evidence_ref,True)
+    _,released=record_failed_attempt(
+      host=host,ready=ready,lease=lease,holder=holder,
+      evidence=verified_failure,
+      terminal_request_id=terminal_request_id,
+      read_request_id=terminal_request_id+"-failed-read")
+    return FailedProviderAttempt(
+      ready,failure.stage,receipt.evidence_ref,released.generation)
+  except MitTimedOut as deferred:
+    if (type(mit_event_request_id) is not str
+        or type(mit_read_request_id) is not str):
+      raise DoneExecutionError("MIT defer event IDs required") from deferred
+    recorded = defer_mit_with_provider(
+      host=host, ready=ready, lease=lease, holder=holder,
+      reason="timeout", evidence_ref=deferred.evidence_ref,
+      event_request_id=mit_event_request_id,
+      read_request_id=mit_read_request_id)
+    return DeferredProviderAttempt(
+      ready, deferred.evidence_ref, recorded.released_generation)
   if len(prepared) != 1:
     raise DoneExecutionError("certified INT attempt is not unique")
   terminal = publish_integrated_terminal(

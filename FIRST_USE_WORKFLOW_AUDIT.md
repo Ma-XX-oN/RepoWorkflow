@@ -228,6 +228,18 @@ not complete and its first-use test is part of completion.
 | #327 | open | public first-use owner | lanes | real-provider certification GREEN; closes on certification merge |
 | #331 | closed | public first-use contributor | lanes | stale pre-migration graph reconciliation covered |
 
+## RWF #109 functional done first-use (PENDING)
+
+The newly exposed `rwf done patch|minor|major` public command family is
+mapped to `FU-DONE` in `FIRST_USE_WORKFLOWS.json` and remains **pending**
+under issue #109.  Its static grammar and injected test-only executor are not
+sufficient to classify a fresh-checkout, real-provider lifecycle as covered.
+Required coverage includes the authoritative READY/current-parent planner,
+ART/AIT/MIT and release evidence, destination CAS, both scoped retirements,
+canonical promotion, lifecycle and failed/deferred restart.  Security #85/#86
+is separately deferred, not silently certified.  Do not promote FU-DONE to
+covered until exact-source hosted and genuine provider first-use tests pass.
+
 ## Closure rule
 
 For any ticket classified as a public first-use owner, closure requires either:

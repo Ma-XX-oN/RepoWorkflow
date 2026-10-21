@@ -85,3 +85,18 @@ cross-submission negatives replace the older #109 pipeline snapshot here.
 The source is imported as exact blobs and focused tests are expanded.
 The latest source requires its own exact-SHA hosted results; do not treat
 previous integration PASS as certification of this changed code.
+
+## October 21 owner-source assembly — candidate not yet certified
+
+This #677-owned branch imports 45 exact #109-owned source, test and
+first-use contract Git blobs from PR #680 source
+`f530322f66400c270bbc5c1b6014418c707c18ec`.
+The catalog is unioned with 19 additional #109 suites and no
+conflicting name; 8 relevant test modules are added to the focused
+assembly job.  The new public `rwf done` routing, executor,
+lifecycle completion, failure/recovery, current-policy gates and
+landed provenance modules share an immutable assembly snapshot.
+Leaf-owner PR #680 and previous #103/#681/#683 contract branches
+are not modified.  Fresh exact-source regression/integration is
+REQUIRED.  Historical PASS at `06328be...` does not apply to
+this candidate.  #109 and #583 still own their separate gates.
