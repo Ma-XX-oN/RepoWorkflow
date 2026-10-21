@@ -125,6 +125,57 @@ class LifecycleHandoffTests(unittest.TestCase):
       self.invoke(reread_promotion=lambda operation:None)
     self.assertEqual(self.store.transition_calls,0)
 
+  def test_lost_ack_after_committed_completion_recovers_exact_revision(self):
+    original=self.store.transition
+    def commit_then_lose_ack(*args):
+      original(*args)
+      raise TimeoutError("lifecycle write committed but ACK lost")
+    self.store.transition=commit_then_lose_ack
+    result=self.invoke()
+    self.assertEqual(result.lifecycle.state,"completed")
+    self.assertEqual(result.revision,6)
+    self.assertEqual(self.store.transition_calls,1)
+
+  def test_repeated_exact_completion_is_idempotent(self):
+    first=self.invoke()
+    second=self.invoke()
+    self.assertEqual(first,second)
+    self.assertEqual(self.store.transition_calls,1)
+
+  def test_lost_ack_without_commit_fails_closed(self):
+    before=self.store.record
+    def lost_without_write(*args):
+      raise TimeoutError("lifecycle write did not commit")
+    self.store.transition=lost_without_write
+    with self.assertRaisesRegex(CompletionHandoffError,"outcome UNKNOWN"):
+      self.invoke()
+    self.assertEqual(self.store.record,before)
+
+  def test_foreign_completed_revision_is_never_replayed(self):
+    done=self.invoke()
+    self.store.record=replace(done,revision=7)
+    with self.assertRaisesRegex(CompletionHandoffError,"revision"):
+      self.invoke()
+    self.assertEqual(self.store.transition_calls,1)
+
+  def test_completed_candidate_forgery_is_not_idempotent(self):
+    done=self.invoke()
+    events=list(done.lifecycle.history)
+    events[-1]=replace(events[-1],candidate=A)
+    self.store.record=replace(
+      done,lifecycle=replace(done.lifecycle,history=tuple(events)))
+    with self.assertRaisesRegex(CompletionHandoffError,"candidate"):
+      self.invoke()
+    self.assertEqual(self.store.transition_calls,1)
+
+  def test_completed_retry_still_rechecks_provider(self):
+    self.invoke()
+    with self.assertRaisesRegex(CompletionHandoffError,"provider facts changed"):
+      self.invoke(reread_terminal=lambda guid:{"status":"failed"})
+    self.assertEqual(self.store.transition_calls,1)
+
+
+
 
 if __name__=="__main__":
   unittest.main()
