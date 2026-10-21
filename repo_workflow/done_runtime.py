@@ -20,6 +20,14 @@ from .done_source_identity import EffectiveSource
 
 
 @dataclass(frozen=True)
+class VerifiedNativeDone:
+  """Completed provider result with exact shared canonical authority proof."""
+  completion: VerifiedCompletion
+  shared: SharedLifecycleEvidence
+  authority: SharedAuthorityObservation
+
+
+@dataclass(frozen=True)
 class VerifiedDeferredDone:
   attempt: DeferredProviderAttempt
   provider_event: object
@@ -123,7 +131,7 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
         or len(shared.intent_digest)!=64):
       raise DoneRuntimeError(
         "shared authoritative lifecycle missing or foreign; no DONE")
-    return completed
+    return VerifiedNativeDone(completed,shared,authority_after)
   if isinstance(attempt,DeferredProviderAttempt):
     if attempt.ready!=ready:
       raise DoneRuntimeError("foreign MIT deferral")
