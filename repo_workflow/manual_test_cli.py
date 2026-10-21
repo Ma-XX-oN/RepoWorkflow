@@ -166,7 +166,7 @@ def select_requested(root: Path, *, name: str | None, remote: bool) -> int:
   assert api is not None
   api.select_manual_case(root, issue, sha, case)
   observed = _selected(api, root, issue, sha, cases)
-  if observed.name != case.name:
+  if _name(observed) != case.name:
     raise TestCommandError("selected manual test did not persist correctly")
   print("Manual integration test: " + case.name)
   print("Candidate SHA: " + sha)
