@@ -91,3 +91,38 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 6. Supply exact source/run/artifact/readback matrix to the separate #583 owner
    for T01–T08/L08/L09/L10/L17/L18/L20. Keep #677 downstream independent.
 7. Do not mark DONE, activate production, or merge without explicit authority.
+
+## 2026-10-20 22:40 EDT continuation
+
+- Existing #109 V3 claim and PR #680 preserved; no remote main merge.
+- Exact-source assembled revision b5d4a8878a8e8b44f3310372193f1eed5fa4073f
+  plus certified #103/#681/#683: hosted 39528803049 SUCCESS,
+  2,640 unittest cases OK, 14 skipped; evidence type: isolated assembly.
+- New canonical landed results reader (done_results_discovery.py and shared
+  test_results_reader.py entrypoint) retains original testSHA and represents
+  source-tested-accepted-at-destination separately, never fictitious PASS on
+  merge SHA. Cross-platform focused checks SUCCESS, standalone full regression
+  still requires exact HEAD revalidation.
+- New append-only GitHub provider promotion adapter
+  adapters/repo_host_github_done_promotion.py: unique operation-scoped Git tag,
+  exact provider readback, LOST-ACK reconciliation, current destination/tree
+  check, independent landing + stage verifiers. Real Disposable-000 run
+  39535233722 SUCCESS; tested source and landed SHA differ while tree matches,
+  replay idempotent, main unchanged and temporary refs independently absent.
+  Stage issuers there are explicit test fixtures, not authoritative release.
+- Native public grammar accepts rwf done patch/minor/major. done_cli.py binds
+  success only to VerifiedCompletion and emits distinct deferred/failed
+  outcomes. done_runtime.py composes current plan, exact READY, provider
+  attempt and independently verifiable terminal/deferred/handoff records.
+  Full live default CLI host adapter is NOT yet bound: current default
+  refuses to execute without a trusted executor, not complete.
+- done_source_identity.py rejects material content on .ci/run/.ci/rwf command
+  branches, accepts only contiguous one-parent, single-marker commits with
+  authenticated request proof and exact tested SHA; positive/negative focused
+  hosted jobs succeeded across three OS. Full regression pending.
+- Real provider integrated source-to-landed append and negative fixtures do
+  NOT independently certify #583 14 outstanding lifecycle cases or #677.
+- Outstanding: trusted default native runtime connection, current-source
+  authenticated ART/AIT/release/MIT, provider-backed complete lifecycle and
+  canonical results readback in an actual integration, full latest assembled
+  hosted platform matrix, independent #583 oracle crossing and #677 conformance.
