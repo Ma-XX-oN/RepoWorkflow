@@ -18,6 +18,14 @@ _SHA=re.compile(r"[0-9a-f]{40}\Z")
 _STAGE_NAMES={"release":"rwf-done-release","MIT":"rwf-done-manual-test"}
 
 
+def _repository_valid(value):
+  return (type(value) is str
+          and re.fullmatch(
+            r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",value) is not None
+          and all(part not in (".","..") for part in value.split("/")))
+
+
+
 class CheckIssuerError(StageCertificationError):
   """Independent issuer identity or provider evidence cannot be proved."""
 
@@ -80,9 +88,7 @@ def verify_check_stage(*, binding, trusted_app_id, read_check):
   if (not isinstance(binding,CheckIssuerBinding)
       or binding.stage not in _STAGE_NAMES
       or type(binding.issue) is not int or binding.issue<=0
-      or type(binding.repository) is not str
-      or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
-                          binding.repository)
+      or not _repository_valid(binding.repository)
       or any(type(x) is not str or _SHA.fullmatch(x) is None
              for x in (binding.source_sha,binding.parent_sha))
       or type(binding.check_run_id) is not int or binding.check_run_id<=0
@@ -128,9 +134,7 @@ def verify_check_stage(*, binding, trusted_app_id, read_check):
 def read_github_check(repository, check_run_id):
   """Use the actual GitHub Checks API, not an in-memory stage assertion."""
   from .github_evidence import github_json
-  if (type(repository) is not str
-      or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
-                      repository) is None
+  if (not _repository_valid(repository)
       or type(check_run_id) is not int or check_run_id<=0):
     raise CheckIssuerError("invalid authenticated provider check locator")
   return github_json(
