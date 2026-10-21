@@ -74,8 +74,8 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
     if (getattr(event,"guid",None)!=ready.guid
         or getattr(event,"prelim_sha",None)!=ready.sha
         or getattr(event,"evidence_ref",None)!=attempt.evidence_ref
-        or getattr(event,"lease_generation",None)+1
-           !=attempt.released_generation):
+        or type(getattr(event,"lease_generation",None)) is not int
+        or event.lease_generation+1!=attempt.released_generation):
       raise DoneRuntimeError("MIT deferral missing exact provider evidence")
     return attempt
   if isinstance(attempt,FailedProviderAttempt):
