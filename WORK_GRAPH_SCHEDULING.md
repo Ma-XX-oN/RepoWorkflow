@@ -2,6 +2,14 @@
 
 Continuation of [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
+Coordinators delegating to multiple agents MUST use the shared-PMD naming,
+per-worker conversation launch blocks, final `@PMD` attachment line, and
+literal substitution rules in
+[AGENT_PROMPT_PACKAGING.md](AGENT_PROMPT_PACKAGING.md).
+The PMD is shared across workers, not copied per worker.  Launch prompts belong
+in the conversation, never in the ticket.
+
+
 ## 13. Derive scheduling from the graph
 
 Do not maintain a separate manual work order when the dependency graph can
