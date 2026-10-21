@@ -22,7 +22,10 @@ class Backend:
   repository="Org/Repo"
   def __init__(self):
     self.refs={"refs/heads/main":B}
-    self.commits={B:{"tree":{"sha":TREE},"message":"landed"}}
+    self.commits={
+      B:{"tree":{"sha":TREE},"message":"landed","parents":[]},
+      A:{"tree":{"sha":TREE},"message":"tested","parents":[]},
+    }
     self.posts=[]
     self.lost_tag_ack=False
   def get(self,route):
@@ -39,7 +42,8 @@ class Backend:
     if route=="git/commits":
       digest=hashlib.sha1(record["message"].encode()).hexdigest()
       self.commits[digest]={
-        "tree":{"sha":record["tree"]},"message":record["message"]}
+        "tree":{"sha":record["tree"]},"message":record["message"],
+        "parents":[{"sha":p} for p in record["parents"]]}
       return {"sha":digest}
     if route=="git/refs":
       if record["ref"] in self.refs:
@@ -142,6 +146,43 @@ class ProviderPromotionTests(unittest.TestCase):
       record_done_promotion(self.b,"main",other,
         verify_landing=lambda *_:True,verify_stages=lambda *_:True)
     self.assertEqual(len(self.b.posts),2)
+
+  def test_tag_pointing_to_wrong_parent_is_not_canonical_promotion(self):
+    self.publish()
+    ref=_ref(self.b.repository,"main","operation-1")
+    sha=self.b.refs[ref]
+    self.b.commits[sha]["parents"]=[{"sha":A}]
+    with self.assertRaisesRegex(
+        DonePromotionProviderError,"ancestry"):
+      read_done_promotion(self.b,"main","operation-1")
+
+  def test_tag_tree_mismatch_fails_closed(self):
+    self.publish()
+    ref=_ref(self.b.repository,"main","operation-1")
+    self.b.commits[self.b.refs[ref]]["tree"]={"sha":A}
+    with self.assertRaisesRegex(
+        DonePromotionProviderError,"ancestry or tree"):
+      read_done_promotion(self.b,"main","operation-1")
+
+  def test_tested_candidate_tree_changed_prevents_append(self):
+    self.b.commits[A]["tree"]={"sha":A}
+    with self.assertRaisesRegex(
+        DonePromotionProviderError,"original tested"):
+      self.publish()
+    self.assertEqual(self.b.posts,[])
+
+  def test_lost_ack_with_advanced_destination_does_not_claim_promotion(self):
+    original=self.b.post
+    def racing(route,record):
+      if route=="git/refs":
+        self.b.lost_tag_ack=True
+        self.b.refs["refs/heads/main"]=C
+      return original(route,record)
+    self.b.post=racing
+    with self.assertRaisesRegex(
+        DonePromotionProviderError,"destination advanced"):
+      self.publish()
+    self.assertEqual(self.b.refs["refs/heads/main"],C)
 
   def test_corrupted_existing_provider_tag_cannot_count_as_success(self):
     self.publish()
