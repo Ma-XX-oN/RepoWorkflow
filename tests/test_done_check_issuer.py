@@ -4,6 +4,7 @@ import unittest
 
 from repo_workflow.done_check_issuer import (
   CheckIssuerBinding,CheckIssuerError,_external_id,verify_check_stage,
+  bind_github_check_oracle,read_github_check,
 )
 from repo_workflow.done_stage_certification import (
   MitTimedOut,StageFailed,
@@ -45,6 +46,27 @@ class CheckIssuerTests(unittest.TestCase):
     p={"binding":self.binding,
        "trusted_app_id":89123,"read_check":self.read}
     return verify_check_stage(**{**p,**changes})
+
+  def test_trusted_provider_reader_binds_exact_source_and_parent(self):
+    oracle=bind_github_check_oracle(
+      binding=self.binding,trusted_app_id=89123,read_check=self.read)
+    self.assertEqual(oracle(A,B).status,"PASS")
+    with self.assertRaisesRegex(CheckIssuerError,"source/parent"):
+      oracle(A,"f"*40)
+    self.assertEqual(len(self.reads),2)
+
+  def test_bound_stage_denies_changed_candidate_without_api_access(self):
+    oracle=bind_github_check_oracle(
+      binding=self.binding,trusted_app_id=89123,read_check=self.read)
+    with self.assertRaisesRegex(CheckIssuerError,"source/parent"):
+      oracle("f"*40,B)
+    self.assertEqual(self.reads,[])
+
+  def test_github_reader_denies_foreign_url_before_provider(self):
+    with self.assertRaisesRegex(CheckIssuerError,"locator"):
+      read_github_check("../foreign",123)
+    with self.assertRaisesRegex(CheckIssuerError,"locator"):
+      read_github_check("Org/Repo",True)
 
   def test_successful_release_has_independent_app_and_source_identity(self):
     stage=self.invoke()
