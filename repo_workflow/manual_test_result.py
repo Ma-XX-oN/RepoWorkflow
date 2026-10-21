@@ -16,8 +16,9 @@ import re
 from typing import Callable, Literal
 
 from .manual_test_state import (
-  ManualSelection, ManualSelectionError, _active, _atomic, _cases,
-  _guard, _issue, _paths, _read, _validate_current,
+  ManualSelection, ManualSelectionError, read_active_manual_selection,
+  select_manual_case, _active, _atomic, _cases, _guard, _issue,
+  _paths, _read, _validate_current,
 )
 
 
@@ -177,7 +178,7 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
 def record_manual_result(
   root: Path, issue: int, candidate_sha: str,
   result: Literal["succeeded", "failed"], *,
-  operator: str, evidence_ref: str, cases=None,
+  operator: str | None = None, evidence_ref: str | None = None, cases=None,
   on_failure: Callable[[Path, int, str], object] | None = None,
 ) -> ManualOutcome:
   """Write once, read back and consume exactly one active case.
@@ -187,9 +188,13 @@ def record_manual_result(
   """
   if result not in ("succeeded", "failed"):
     raise ManualResultError("invalid manual result (TIMEOUT must be deferred)")
-  if (not isinstance(operator, str) or not operator.strip()
-      or not isinstance(evidence_ref, str) or not evidence_ref.strip()):
-    raise ManualResultError("operator and evidence reference are required")
+  if operator is None:
+    operator = os.environ.get("RWF_WRITER_ID")
+  if not isinstance(operator, str) or not operator.strip():
+    raise ManualResultError("manual operator identity is required")
+  if evidence_ref is not None and (not isinstance(evidence_ref, str)
+                                   or not evidence_ref.strip()):
+    raise ManualResultError("invalid manual evidence reference")
   _validate_current(root, candidate_sha)
   selection, pending, lock = _paths(root, issue)
   log = _evidence_path(root, issue)
@@ -199,13 +204,17 @@ def record_manual_result(
       raise ManualResultError("exactly one active manual selection is required")
     if _failed_candidate(log, candidate_sha):
       raise ManualResultError("failed candidate cannot be revisited")
+    evidence_id = hashlib.sha256(os.urandom(32)).hexdigest()
+    if evidence_ref is None:
+      evidence_ref = (str(log.relative_to(Path(root).resolve()))
+                      + "#manualEvidenceId=" + evidence_id)
     event = {
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "testSHA": candidate_sha, "kind": "manual-integration",
       "result": result, "runner": "local", "manualCase": current.name,
       "definitionDigest": current.definition_digest,
       "operator": operator.strip(), "evidenceRef": evidence_ref.strip(),
-      "manualEvidenceId": hashlib.sha256(os.urandom(32)).hexdigest(),
+      "manualEvidenceId": evidence_id,
     }
     _atomic(pending, {"schema": 1, "phase": "append", "event": event})
     _append(log, event)
@@ -280,3 +289,33 @@ def require_manual_completion(root: Path, issue: int, candidate_sha: str, *,
   if not required.issubset(succeeded):
     raise ManualResultError("required manual integration cases are incomplete")
   return tuple(sorted(case.name for case in declared))
+
+
+def read_manual_case_results(root: Path, issue: int, candidate_sha: str, *,
+                             cases=None) -> dict[str, str]:
+  """Read only terminal results for exact current declared definitions.
+
+  This service never upgrades an operator assertion into provider PASS.
+  """
+  _validate_current(root, candidate_sha)
+  _, pending, _ = _paths(root, issue)
+  if _read(pending) is not None:
+    raise ManualResultError("manual outcome UNKNOWN; reconcile before use")
+  declared = {case.name: case.definition_digest
+              for case in _cases(root, issue, cases)}
+  observed = {}
+  for event in _events(_evidence_path(root, issue)):
+    if event.get("kind") != "manual-integration" or event.get("testSHA") != candidate_sha:
+      continue
+    name = event["manualCase"]
+    if name not in declared:
+      raise ManualResultError("manual result references undeclared test")
+    if event["result"] == "failed":
+      observed[name] = "failed"
+      continue
+    if event["definitionDigest"] != declared[name]:
+      continue  # stale PASS never satisfies a changed definition
+    if name in observed and observed[name] != event["result"]:
+      raise ManualResultError("conflicting manual case results")
+    observed[name] = event["result"]
+  return observed
