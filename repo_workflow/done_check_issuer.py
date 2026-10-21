@@ -78,7 +78,9 @@ def _check_exact(binding,check,trusted_app_id):
     and type(check.get("app")) is dict
     and type(check["app"].get("id")) is int
     and check["app"]["id"]==trusted_app_id==binding.app_id
-    and check["app"].get("slug") not in (None,"github-actions")
+    and type(check["app"].get("slug")) is str
+    and bool(check["app"]["slug"].strip())
+    and check["app"]["slug"]!="github-actions"
     and check.get("conclusion") in ("success","failure","timed_out")
   )
 
@@ -86,6 +88,7 @@ def _check_exact(binding,check,trusted_app_id):
 def verify_check_stage(*, binding, trusted_app_id, read_check):
   """Observe a distinct authenticated issuer twice; never mint an approval."""
   if (not isinstance(binding,CheckIssuerBinding)
+      or type(binding.stage) is not str
       or binding.stage not in _STAGE_NAMES
       or type(binding.issue) is not int or binding.issue<=0
       or not _repository_valid(binding.repository)
