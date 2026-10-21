@@ -2,6 +2,10 @@
 from dataclasses import replace
 import unittest
 
+from repo_workflow.done_queue_cycle import (
+  QueueCycleError, failure_outcome_from_handoff,
+)
+from repo_workflow.prelim_queue import parse_ready_prelim
 from repo_workflow.done_failure_handoff import (
   FailureHandoff, HandoffError, publish_failure_handoff,
 )
@@ -81,6 +85,23 @@ class HandoffTests(unittest.TestCase):
           self.invoke(handoff=replace(
             self.handoff,owner_issue_ids=values))
     self.assertEqual(self.posts,[])
+
+  def test_persisted_handoff_binds_failed_ready_outcome(self):
+    persisted=self.invoke()
+    ready=parse_ready_prelim(
+      "refs/heads/PRELIM-issue-109/main-"+GUID,A)
+    outcome=failure_outcome_from_handoff(
+      ready,"failed",persisted)
+    self.assertEqual(outcome.guid,GUID)
+    self.assertEqual(outcome.terminal_status,"failed")
+    self.assertTrue(outcome.independently_recorded)
+
+  def test_foreign_persisted_handoff_never_advances_queue(self):
+    persisted=self.invoke()
+    ready=parse_ready_prelim(
+      "refs/heads/PRELIM-issue-109/main-"+GUID,B)
+    with self.assertRaisesRegex(QueueCycleError,"differs"):
+      failure_outcome_from_handoff(ready,"failed",persisted)
 
   def test_unknown_readback_stops_advancement(self):
     def unavailable(issue,key):
