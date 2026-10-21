@@ -8,7 +8,7 @@ exclusive provider-backed writer boundary, acquired by the executor.
 from dataclasses import dataclass
 
 from .done_host_coordinator import IntegrationHostCoordinator
-from .integration_coordination import CoordinationError
+from .integration_coordination import MitResumeAuthorization
 from .prelim_queue import ReadyPrelim
 
 
@@ -47,7 +47,24 @@ def inventory_destination(host, destination):
     if result is not None:
       terminal.append(item)
     elif event is not None:
-      deferred.append(item)
+      try:
+        approval=provider.read_mit_resume_authorization(
+          item.guid,destination)
+      except Exception as error:
+        raise QueueAdmissionError("MIT approval readback UNKNOWN") from error
+      resumable=(
+        isinstance(approval,MitResumeAuthorization)
+        and approval.approved is True
+        and approval.guid == item.guid
+        and approval.destination == destination
+        and approval.prelim_sha == item.sha
+        and approval.deferred_evidence_ref == event.evidence_ref
+        and approval.expected_generation == lease.generation
+        and approval.expected_generation > event.lease_generation)
+      if resumable:
+        pending.append(item)
+      else:
+        deferred.append(item)
     else:
       pending.append(item)
   return DestinationSnapshot(
