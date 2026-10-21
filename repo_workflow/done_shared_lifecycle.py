@@ -37,6 +37,36 @@ class SharedLifecycleEvidence:
   independently_authenticated: bool
 
 
+
+@dataclass(frozen=True)
+class SharedAuthorityObservation:
+  repository: str
+  branch: str
+  commit_sha: str
+  independently_authenticated: bool
+
+
+def read_shared_authority(*, backend, state_branch):
+  """Independently observe the designated remote canonical state ref."""
+  if (type(state_branch) is not str
+      or _BRANCH.fullmatch(state_branch) is None
+      or state_branch.startswith("/") or ".." in state_branch
+      or type(getattr(backend,"repository",None)) is not str
+      or "/" not in backend.repository):
+    raise SharedLifecycleError("trusted canonical state branch required")
+  try:
+    remote=backend.get("git/ref/heads/"+state_branch)
+  except Exception as error:
+    raise SharedLifecycleError("canonical state Git ref UNKNOWN") from error
+  if (type(remote) is not dict
+      or remote.get("ref")!="refs/heads/"+state_branch
+      or type(remote.get("object")) is not dict
+      or not _sha(remote["object"].get("sha"))):
+    raise SharedLifecycleError("canonical Git authority ref malformed")
+  return SharedAuthorityObservation(
+    backend.repository,state_branch,remote["object"]["sha"],True)
+
+
 def _sha(value):
   return type(value) is str and _SHA.fullmatch(value) is not None
 
