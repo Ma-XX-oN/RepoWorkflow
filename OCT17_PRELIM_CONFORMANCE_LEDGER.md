@@ -177,3 +177,29 @@ for source `4f342cedf840bb03ae3048db7bf18debab7f033c`.
 
 This ledger is a status/evidence record, **not** authorization to merge,
 retire production refs, activate security or publish stable tags.
+
+## October 21 exact-source graph certification — PASS for graph scope
+
+Development source `0bb8b5ac69a1f6e88f2d84145ae8e51858ebd710`, version
+`0.1.122-issue.677.0.7` and corrected CSV blob
+`0d2cc6494d38d059f8bd513db0674f18e16c36ba`.
+The read-only command commit
+`ca5005e77a34294112b3bf2d32436104cec8c8dc` has precisely
+one parent, the tested source above, and changes only `.ci/run`.
+
+GitHub hosted integration [39512479565](https://github.com/
+Ma-XX-oN/RepoWorkflow/actions/runs/39512479565) is terminal SUCCESS.
+All 13 jobs passed, including the nine Windows/macOS/Ubuntu
+renderer, ticket merge, and argv probes, `validate`, `publish`,
+and `results`.  Immutable provider artifact 12306985660 has
+SHA256 `5b3dc111219ea997864b6b8724cf7d97606da559141bf15847c83049cbb441b6`.
+The JSONL record independently proves exact source, invocation,
+version, run ID, `result=succeeded`, `reusable=true`, no
+head change or dirty inputs.  Previous 39511141679 FAILURE
+remains recorded; no stale test SHA is recertified.
+
+The renderer manifest above has been rebound to this *same
+material input set* and the genuine terminal PASS.  The
+manifest metadata-only commit follows the independently tested
+source; it does not manufacture a run for the new commit or
+certify #109, #583, live provider acceptance, or #677 DONE.

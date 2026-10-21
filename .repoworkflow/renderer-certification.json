@@ -2,15 +2,18 @@
   "schema_version": 1,
   "purpose": "Bind current renderer certification to material graph and routing inputs.",
   "issue": 583,
-  "certified_renderer_candidate": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f",
+  "certified_renderer_candidate": "0bb8b5ac69a1f6e88f2d84145ae8e51858ebd710",
   "evidence": {
-    "workflow_run_id": 39147458767,
+    "workflow_run_id": 39512479565,
     "workflow_name": "RepoWorkflow On-Demand CI",
-    "result": "platform-jobs-success-full-validation-pending",
+    "result": "success",
     "tier": "integration",
-    "tested_head": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f",
-    "assembled_source_head": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f",
-    "note": "Three-platform graph renderer, ticket merge and argv probes completed SUCCESS on independent exact-material branch issue-677-oct18-graph-cert. Overall run has not been declared GREEN; full validation must be rerun after manifest rebind. Old certification preserved."
+    "tested_head": "0bb8b5ac69a1f6e88f2d84145ae8e51858ebd710",
+    "assembled_source_head": "0bb8b5ac69a1f6e88f2d84145ae8e51858ebd710",
+    "provider_invocation_sha": "ca5005e77a34294112b3bf2d32436104cec8c8dc",
+    "provider_artifact_id": 12306985660,
+    "provider_artifact_sha256": "5b3dc111219ea997864b6b8724cf7d97606da559141bf15847c83049cbb441b6",
+    "note": "Exact source graph closure 272-ticket model; integration run terminal SUCCESS, 9/9 Ubuntu/Windows/macOS platform probes, validate/publish/results SUCCESS. Provider testResults-677.jsonl binds exact source, invocation, run, clean reusable PASS. Historical 39511141679 candidate-identity FAIL remains in issue ledger. No #677 executor completion or live provider acceptance implied."
   },
   "material_inputs": {
     ".repoworkflow/tickets.csv": "0d2cc6494d38d059f8bd513db0674f18e16c36ba",
@@ -63,5 +66,10 @@
       "repo_workflow/graph_route_semantics.py": "6fb2536179ae4fe04a118776c9895bcdd5cce46c",
       "repo_workflow/graph_routing.py": "d9d1a211312738ee568af699af7f0aae8fcf8f00"
     }
+  },
+  "superseded_pending_evidence": {
+    "workflow_run_id": 39147458767,
+    "result": "platform-jobs-success-full-validation-pending",
+    "tested_head": "7b1e99db2b4d0b8bfba3350a6c95b8e596598f6f"
   }
 }
