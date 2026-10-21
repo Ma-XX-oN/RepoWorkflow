@@ -4,6 +4,7 @@ All writes remain provider v2 operations. Local state is not a lock, a
 queue or an authority for successful integration.
 """
 from hashlib import sha256
+from uuid import uuid4
 
 from .integration_coordination import (
   CoordinationError, DestinationLease, MitDeferredEvent,
@@ -25,8 +26,11 @@ class IntegrationHostCoordinator:
     self.host = host
 
   def _read(self, operation, params):
-    request_id = _request_id(operation.replace(".", "-"),
-                             self.host.repository, *params.values())
+    # Read-only requests must not reuse an idempotency-cache key. Any
+    # lifecycle or lease transition must be observable on the next read.
+    request_id = _request_id(
+      operation.replace(".", "-"), self.host.repository,
+      *params.values(), uuid4().hex)
     try:
       return self.host.request(operation, request_id, params)
     except Exception as error:
