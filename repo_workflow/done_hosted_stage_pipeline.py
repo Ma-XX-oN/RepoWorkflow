@@ -35,6 +35,24 @@ def certify_provider_stages(
       return read_mit_stage(tested_sha,base_sha)
     raise StageCertificationError("unknown stage issuer")
 
-  return certify_stages(
+  certified=certify_stages(
     source_sha=source_sha,parent_sha=parent_sha,
     read_stage=reader,read_mit_policy=read_mit_policy)
+  # Release and manual permission can be withdrawn while the hosted ART/AIT
+  # receipts are checked. Read their separate issuers again before returning.
+  try:
+    current_policy=read_mit_policy(source_sha,parent_sha)
+    current_release=read_release_stage(source_sha,parent_sha)
+    current_mit=(read_mit_stage(source_sha,parent_sha)
+                 if certified.mit_policy.required else None)
+  except Exception as error:
+    raise StageCertificationError(
+      "post-certification stage authority UNKNOWN") from error
+  authoritative={s.stage:s for s in certified.stages}
+  if (current_policy!=certified.mit_policy
+      or current_release!=authoritative["release"]
+      or (certified.mit_policy.required
+          and current_mit!=authoritative["MIT"])):
+    raise StageCertificationError(
+      "stage authority changed during certification")
+  return certified
