@@ -1,6 +1,6 @@
 # RWF #109 — exact-source executor acceptance ledger
 
-Updated: 2026-10-20 21:43 EDT. Owner: existing V3 claim 6273106943.
+Updated: 2026-10-20 22:57 EDT. Owner: existing V3 claim 6273106943.
 PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 
 ## Proof levels
@@ -27,9 +27,9 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 | P08 terminal history | Exact authenticated terminal, recovery after lost ACK | Disposable run 39517395210 | PASS (test provider) |
 | P09 ref retirement | Exact #103 PRELIM and INT physical retirement, readback | Disposable run 39517395210 | PASS (test provider) |
 | P10 release evidence | Separate authenticated release and integration stages | done_evidence_provider fixtures | INCOMPLETE (actual provider artifacts) |
-| P11 source-to-landed | Immutable attestation, verified landed tree and inputs | done_evidence_promotion / done_completion fixtures | INCOMPLETE (canonical publication) |
+| P11 source-to-landed | Immutable attestation, verified landed tree and inputs | Real Disposable provider 39535233722; canonical reader fixtures | PARTIAL (test-only verifiers; production authority not bound) |
 | P12 lifecycle | Complete legal transitions with durable source of truth | done_completion guarded interface | INCOMPLETE (live lifecycle) |
-| P13 CLI | Native rwf done patch/minor/major executable | No certified native command | INCOMPLETE |
+| P13 CLI | Native rwf done patch/minor/major executable | done_cli + public_cli guarded route + done_runtime | PARTIAL (native dispatch registered; authoritative runtime injection not installed) |
 | P14 queue | Competing umbrellas, per-destination serialization, recovery | live test 39528668265 PASS; bounded queue/handoff unit fixtures | PARTIAL (real contention PASS; full production queue/lifecycle not certified) |
 | P15 full assembled tests | Exact current #109 plus #103/#681/#683 | Most recent assembled probe requested | INCOMPLETE until terminal run |
 | P16 independent oracle | #583 74-case matrix and #677 downstream | #583 60 PASS/14 PARTIAL, #677 open | INCOMPLETE |
@@ -60,6 +60,18 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
   A-complete/B-failed-handoff/C-complete, same-destination cross-umbrella
   contention, strict no-retry UNKNOWN, and exact MIT generation authorization;
   full regression/assembly pending at this ledger revision.
+- Real Disposable provider promotion 39535233722 SUCCESS: tested source
+  b411d215bec5c62c8a3ca3062ec8f8743f2d7299 and landed empty-context
+  commit 19a1971e0ada93adf639355c489f7948a8c464c4 share tree, provider
+  promotion tag created/read/idempotently retried, default main unchanged.
+  Stage receipts were explicit TEST FIXTURES; GitHub API independently
+  confirmed the temporary destination and promotion tag removed.
+- Native CLI and runtime proof is LIMITED: public grammar and injected
+  trusted-executor callback exist and have focused hosted tests. The
+  default public command currently has no bound authoritative provider
+  executor and safely rejects execution rather than fabricating DONE.
+- Canonical landed results now have a distinct promotion relation emitted
+  alongside original immutable tested SHA logs, not a synthetic landed PASS.
 - Independent current source: consult PR #680 HEAD at time of verification,
   then require new exact-source hosted/full assembled and provider run receipts.
 - Earlier regression 39517273059 FAIL: forged prior terminal surfaced a
