@@ -385,3 +385,45 @@ Issue #27 owns shell initialization/registration.
 
 The complete public command model is defined in
 [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
+
+## 12. Manual integration CLI projection (RWF #702)
+
+Manual integration uses the same public `test` command grammar and the
+existing shell completion/help entrypoints. These are the public forms:
+
+```text
+rwf test integration
+rwf test integration --manual
+rwf test integration issue-X-manual--NAME
+rwf test succeeded
+rwf test failed
+rwf test results
+```
+
+The `integration` command runs automatic integration first; completion of
+automatic tests does not satisfy a required manual case. `--manual` selects
+the lexicographically first outstanding current-issue case. A case argument
+selects exactly that declared case, without treating its name as an executable
+command. The current case's instructions and expected result are printed.
+Neither operation records PASS. No declared manual cases is reported explicitly.
+
+The grammar always recognises the `succeeded` and `failed` tokens as
+syntactically valid. Legal-only completion exposes these tokens only if the
+durable selection service rereads exactly one active selection bound to
+the current issue, source SHA and current case-definition fingerprint.
+The dispatcher rejects absent, ambiguous, terminal and stale selection
+before recording a result. PASS does not select another case. FAIL is
+delegated to the durable lifecycle/version rejection service and blocks
+integration. Both results are read from the canonical testing JSONL.
+
+`--remote` remains available for existing automatic stages. It cannot
+select or report a manual case, and combining it with a manual form is an
+error. State/help/completion paths are read-only and may not create
+manual selections or results.
+
+The CLI's required B exports, in addition to the frozen #699 reader and
+recorder, are `select_manual_case(root, issue, candidate_sha, case)` and
+`read_manual_case_results(root, issue, candidate_sha)` (name-to-result map).
+RWF #699 must reconcile these bindings with the independent #701 API before
+assembled certification. CLI implementation does not maintain another
+selection or result store.
