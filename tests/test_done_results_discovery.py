@@ -95,7 +95,7 @@ class LandedTests(unittest.TestCase):
     self.p.source=json.dumps({
       "testSHA":B,"kind":"regression","result":"PASS",
       "runner":"hosted"})+"\n"
-    with self.assertRaisesRegex(LandedResultsError,"source SHA differs"):
+    with self.assertRaisesRegex(LandedResultsError,"test SHA differs"):
       self.p.read()
 
   def test_noncanonical_log_never_inferred_pass(self):
