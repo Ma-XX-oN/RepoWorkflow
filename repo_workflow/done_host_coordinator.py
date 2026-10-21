@@ -89,7 +89,7 @@ class IntegrationHostCoordinator:
     except Exception as error:
       raise CoordinationError("destination lease CAS readback UNKNOWN") from error
     if observed != after:
-      raise CoordinationError("destination lease CAS readback differs") from failed
+      raise CoordinationError("destination lease CAS outcome UNKNOWN; readback differs") from failed
     return True
 
   def read_attempt_result(self, guid):
