@@ -265,3 +265,46 @@ def test_uncommitted_source_change_rejects_candidate(setup):
   with pytest.raises(ManualSelectionError, match="changed source inputs"):
     _record(root, sha, cases)
   assert not _log(root).exists()
+
+
+def test_old_pass_cannot_authorize_new_source_sha(setup):
+  root, sha, cases = setup
+  _selected(root, sha, cases)
+  _record(root, sha, cases)
+  (root / "sample.txt").write_text("second candidate\n")
+  subprocess.run(["git", "-C", str(root), "commit", "-qam", "second"], check=True)
+  new_sha = subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+  with pytest.raises(ManualResultError, match="incomplete"):
+    require_manual_completion(root, 701, new_sha, cases=cases)
+
+
+def test_old_pass_cannot_authorize_new_definition_digest(setup):
+  root, sha, cases = setup
+  for index in range(2):
+    _selected(root, sha, cases, index)
+    _record(root, sha, cases)
+  changed = (Case(cases[0].name, "f" * 64), cases[1])
+  with pytest.raises(ManualResultError, match="incomplete"):
+    require_manual_completion(root, 701, sha, cases=changed)
+
+
+def test_mit_fail_after_int_preparation_does_not_advance_sha(setup):
+  root, sha, cases = setup
+  (root / ".ci").mkdir()
+  marker = root / ".ci/run"
+  marker.write_text("integration-testing " + sha + "\n")
+  subprocess.run(["git", "-C", str(root), "add", ".ci/run"], check=True)
+  subprocess.run(["git", "-C", str(root), "commit", "-qm", "prepared"], check=True)
+  prepared_sha = subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+  _selected(root, prepared_sha, cases)
+  def handoff(*args):
+    return FailureHandoff("active", False, "1.2.3-issue.701.2.1",
+                          "1.2.3-issue.701.3.0", "repair-owner")
+  _record(root, prepared_sha, cases, "failed", on_failure=handoff)
+  assert subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip() == prepared_sha
+  assert marker.read_text() == "integration-testing " + sha + "\n"
+  with pytest.raises(ManualResultError, match="MIT FAIL"):
+    require_manual_completion(root, 701, prepared_sha, cases=cases)
