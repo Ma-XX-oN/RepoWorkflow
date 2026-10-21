@@ -1,5 +1,4 @@
 """Exact provider completion against real authoritative Git-backed lifecycle."""
-from dataclasses import replace
 from pathlib import Path
 import subprocess
 import tempfile
@@ -126,7 +125,7 @@ class CanonicalLifecycleTests(unittest.TestCase):
 
   def test_unauthenticated_revised_retirement_refused(self):
     altered=list(self.retirements())
-    altered[1]=replace(altered[1],absent_after=False)
+    altered[1]=altered[1]._replace(absent_after=False)
     with self.assertRaisesRegex(CanonicalLifecycleError,"retirements"):
       self.bridge.persist_lifecycle(
         self.fixture.accepted,self.proof,tuple(altered))
