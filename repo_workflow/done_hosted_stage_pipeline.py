@@ -56,3 +56,50 @@ def certify_provider_stages(
     raise StageCertificationError(
       "stage authority changed during certification")
   return certified
+
+
+def certify_github_app_stages(
+    *, repository, source_sha, parent_sha,
+    read_hosted_record, read_hosted_binding, verify_hosted_artifact,
+    release_binding, release_app_id, mit_binding, mit_app_id,
+    read_mit_policy, read_check=None):
+  """Compose hosted ART/AIT with a separately trusted GitHub App issuer.
+
+  Absence of an actual release check or a required MIT check is a failure,
+  never an automatic waiver or inference from the hosted regression suite.
+  """
+  from .done_check_issuer import (
+    CheckIssuerBinding,bind_github_check_oracle,read_github_check,
+  )
+  if (not isinstance(release_binding,CheckIssuerBinding)
+      or release_binding.stage!="release"
+      or release_binding.repository!=repository
+      or release_binding.source_sha!=source_sha
+      or release_binding.parent_sha!=parent_sha):
+    raise StageCertificationError(
+      "current independent release issuer is unconfigured")
+  reader=read_github_check if read_check is None else read_check
+  release=bind_github_check_oracle(
+    binding=release_binding,trusted_app_id=release_app_id,
+    read_check=reader)
+  if mit_binding is None:
+    def mit(source,parent):
+      raise StageCertificationError(
+        "independent manual tester issuer is unconfigured")
+  else:
+    if (not isinstance(mit_binding,CheckIssuerBinding)
+        or mit_binding.stage!="MIT"
+        or mit_binding.repository!=repository
+        or mit_binding.source_sha!=source_sha
+        or mit_binding.parent_sha!=parent_sha):
+      raise StageCertificationError(
+        "current independent manual tester issuer invalid")
+    mit=bind_github_check_oracle(
+      binding=mit_binding,trusted_app_id=mit_app_id,read_check=reader)
+  return certify_provider_stages(
+    repository=repository,source_sha=source_sha,parent_sha=parent_sha,
+    read_hosted_record=read_hosted_record,
+    read_hosted_binding=read_hosted_binding,
+    verify_hosted_artifact=verify_hosted_artifact,
+    read_release_stage=release,read_mit_stage=mit,
+    read_mit_policy=read_mit_policy)
