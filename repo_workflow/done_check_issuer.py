@@ -123,3 +123,34 @@ def verify_check_stage(*, binding, trusted_app_id, read_check):
       raise MitTimedOut(binding.provider_evidence_ref)
     raise CheckIssuerError("release provider timed out; no PASS")
   return evidence
+
+
+def read_github_check(repository, check_run_id):
+  """Use the actual GitHub Checks API, not an in-memory stage assertion."""
+  from .github_evidence import github_json
+  if (type(repository) is not str
+      or re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",
+                      repository) is None
+      or type(check_run_id) is not int or check_run_id<=0):
+    raise CheckIssuerError("invalid authenticated provider check locator")
+  return github_json(
+    "https://api.github.com/repos/"+repository+
+    "/check-runs/"+str(check_run_id))
+
+
+def bind_github_check_oracle(*, binding, trusted_app_id,
+                             read_check=read_github_check):
+  """Create the release/MIT stage reader with an explicit trusted app ID."""
+  if not isinstance(binding,CheckIssuerBinding):
+    raise CheckIssuerError("exact independent provider binding required")
+
+  def stage_for(source_sha,parent_sha):
+    if (source_sha!=binding.source_sha
+        or parent_sha!=binding.parent_sha):
+      raise CheckIssuerError(
+        "current source/parent differs from independent issuer binding")
+    return verify_check_stage(
+      binding=binding,trusted_app_id=trusted_app_id,
+      read_check=read_check)
+
+  return stage_for
