@@ -14,6 +14,7 @@ from .command_grammar import (
   parse_tokens,
 )
 from .config import load_config
+from .done_cli import execute_done_command
 from .dependency_sync_cli import dependency_sync_command
 from .high_risk import associate_high_risk
 from .issue_info_cli import show_issue_info
@@ -115,10 +116,13 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
     return words[1] in {"create", "claim", "release", "resume", "close"}
   if command == "high-risk":
     return True
+  if command == "done":
+    return True
   return False
 
 
-def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
+def handle_public(root: Path, words: list[str], *, engine_root: Path,
+                  done_executor=None) -> int:
   # Accept the documented RED group before its optional hosted switch.
   # The grammar parser requires switches before dynamic values internally.
   if (
@@ -212,6 +216,10 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       engine_root=engine_root,
       group=next((value for value in words[2:] if value != "--remote"), None),
     )
+
+  if command == "done":
+    return execute_done_command(
+      words[1], trusted_executor=done_executor, emit=print)
 
   if command == "version":
     config = load_config(root)
