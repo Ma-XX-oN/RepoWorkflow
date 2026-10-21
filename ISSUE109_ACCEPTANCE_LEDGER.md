@@ -1,6 +1,6 @@
 # RWF #109 — exact-source executor acceptance ledger
 
-Updated: 2026-10-20 21:41 EDT. Owner: existing V3 claim 6273106943.
+Updated: 2026-10-20 21:43 EDT. Owner: existing V3 claim 6273106943.
 PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 
 ## Proof levels
@@ -30,7 +30,7 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 | P11 source-to-landed | Immutable attestation, verified landed tree and inputs | done_evidence_promotion / done_completion fixtures | INCOMPLETE (canonical publication) |
 | P12 lifecycle | Complete legal transitions with durable source of truth | done_completion guarded interface | INCOMPLETE (live lifecycle) |
 | P13 CLI | Native rwf done patch/minor/major executable | No certified native command | INCOMPLETE |
-| P14 queue | Competing umbrellas, per-destination serialization, recovery | done_queue_scheduler / done_queue_cycle; live probe 39528668265 pending | PARTIAL (await real contention and lifecycle evidence) |
+| P14 queue | Competing umbrellas, per-destination serialization, recovery | live test 39528668265 PASS; bounded queue/handoff unit fixtures | PARTIAL (real contention PASS; full production queue/lifecycle not certified) |
 | P15 full assembled tests | Exact current #109 plus #103/#681/#683 | Most recent assembled probe requested | INCOMPLETE until terminal run |
 | P16 independent oracle | #583 74-case matrix and #677 downstream | #583 60 PASS/14 PARTIAL, #677 open | INCOMPLETE |
 
@@ -49,6 +49,13 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
   authority, durable timeout generation 1, approved resume generation 3,
   unapproved attempt refusal, immutable PRELIM and verified cleanup; no
   production MIT issuer or proof of complete current-source executor.
+- Real two-umbrella same-destination run 39528668265 SUCCESS:
+  A claim generation 1, B denied while A holds it, A MIT deferred/released
+  generation 2, B takes generation 3, unchanged default main. Independent
+  GitHub ref lookup after cleanup returned 404 for both PRELIM refs, the
+  temporary destination branch, and A's MIT defer tag. This proves a
+  scoped, isolated test-only provider scenario, not automatic queue drain
+  across complete lifecycle outcomes.
 - Queue scheduler and handoff: new source modules and focused fixtures include
   A-complete/B-failed-handoff/C-complete, same-destination cross-umbrella
   contention, strict no-retry UNKNOWN, and exact MIT generation authorization;
