@@ -701,6 +701,31 @@
       "provider_contract_verification": [
         "tests/test_github_evidence.py::HostedIntegrationProviderTests.test_actual_completed_run_and_exact_marker_are_accepted"
       ]
+    },
+    {
+      "id": "FU-DONE",
+      "status": "pending",
+      "scope": [
+        "rwf done patch",
+        "rwf done minor",
+        "rwf done major"
+      ],
+      "minimum_state": "current issue checkout with certified exact PRELIM and trusted provider integration",
+      "prohibited_shortcuts": [
+        "returning DONE without independently verified provider completion",
+        "fabricating missing ART/AIT/MIT or release acceptance",
+        "mutating protected production main or stable tags"
+      ],
+      "gap_issue": 109,
+      "stateful": true,
+      "provider_boundary": true,
+      "acceptance": [
+        {
+          "id": "DONE-FIRST-USE-PENDING",
+          "requirement": "Complete the native authenticated first-use completion flow, including provider readback and durable lifecycle acceptance",
+          "deferred_issue": 109
+        }
+      ]
     }
   ],
   "audited_issue_count": 191,
@@ -716,7 +741,8 @@
     "what-next": "FU-LIFECYCLE",
     "issue": "FU-DEPS-LANES",
     "high-risk": "FU-HIGH-RISK",
-    "test": "FU-REMOTE-TEST"
+    "test": "FU-REMOTE-TEST",
+    "done": "FU-DONE"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."
