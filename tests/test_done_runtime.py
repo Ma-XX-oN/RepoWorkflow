@@ -10,6 +10,7 @@ from repo_workflow.done_planner import DonePlan
 from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
+from repo_workflow.done_shared_lifecycle import SharedLifecycleEvidence
 from repo_workflow.done_runtime import (
   DoneRuntimeError, VerifiedDeferredDone, VerifiedFailedDone,
   execute_ready_done,
@@ -41,6 +42,11 @@ class RuntimeTests(unittest.TestCase):
       publish_failure_handoff=lambda attempt:None,
       verify_source_lineage=lambda plan,ready:EffectiveSource(
         plan.candidate_sha,plan.candidate_sha,()),
+      verify_shared_lifecycle=lambda done,plan,ready:SharedLifecycleEvidence(
+        "Org/Repo","authorized-state","a"*40,int(plan.issue),
+        done.lifecycle["revision"],done.operation_id,
+        done.terminal.accepted_sha,done.landed_sha,
+        "b"*64,"c"*64,True),
     )
     return execute_ready_done(**{**args,**changes})
 
@@ -49,6 +55,40 @@ class RuntimeTests(unittest.TestCase):
     self.assertIsInstance(result,VerifiedCompletion)
     self.assertEqual(result.operation_id,"op-1")
     self.assertEqual(result.landed_sha,"d"*40)
+
+  def test_unbound_shared_lifecycle_provider_cannot_publish_done(self):
+    with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
+      self.invoke(verify_shared_lifecycle=None)
+
+  def test_false_shared_lifecycle_receipt_does_not_certify_done(self):
+    for forged in (None,True,{"revision":1}):
+      with self.subTest(forged=forged):
+        with self.assertRaisesRegex(DoneRuntimeError,"no DONE"):
+          self.invoke(verify_shared_lifecycle=lambda *args:forged)
+
+  def test_foreign_operation_or_revision_shared_receipts_are_refused(self):
+    import dataclasses
+    completed=self.fixture.invoke()
+    valid=SharedLifecycleEvidence(
+      "Org/Repo","authorized-state","a"*40,123,
+      completed.lifecycle["revision"],completed.operation_id,
+      completed.terminal.accepted_sha,completed.landed_sha,
+      "b"*64,"c"*64,True)
+    for key,value in (
+        ("issue",124),("operation_id","other-operation"),
+        ("revision",valid.revision+1),
+        ("accepted_sha","f"*40),("landed_sha","0"*40),
+        ("independently_authenticated",False)):
+      with self.subTest(key=key):
+        altered=dataclasses.replace(valid,**{key:value})
+        with self.assertRaisesRegex(DoneRuntimeError,"no DONE"):
+          self.invoke(verify_shared_lifecycle=lambda *args:altered)
+
+  def test_shared_remote_read_exception_is_unknown_not_success(self):
+    def lost(*args):
+      raise TimeoutError("remote canonical state unreadable")
+    with self.assertRaisesRegex(DoneRuntimeError,"UNKNOWN; no DONE"):
+      self.invoke(verify_shared_lifecycle=lost)
 
   def test_missing_provider_oracle_refuses_before_mutation(self):
     with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
