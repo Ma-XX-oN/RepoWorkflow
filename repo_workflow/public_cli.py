@@ -37,7 +37,6 @@ from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
 from .test_cli import run_test
 from .manual_test_cli import (
-  after_automatic_integration,
   record_selected,
   select_requested,
 )
@@ -233,8 +232,6 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       engine_root=engine_root,
       group=next((value for value in words[2:] if value != "--remote"), None),
     )
-    if words[1] == "integration" and not remote and result == 0:
-      return after_automatic_integration(root)
     return result
 
   if command == "version":
