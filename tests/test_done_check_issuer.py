@@ -111,6 +111,11 @@ class CheckIssuerTests(unittest.TestCase):
       self.invoke(read_check=lambda *x:self.check(
         app={"id":89123,"slug":"github-actions"}))
 
+  def test_blank_app_slug_is_not_independent_authority(self):
+    with self.assertRaisesRegex(CheckIssuerError,"foreign"):
+      self.invoke(read_check=lambda *x:self.check(
+        app={"id":89123,"slug":""}))
+
   def test_changed_app_or_untrusted_app_cannot_approve(self):
     with self.assertRaisesRegex(CheckIssuerError,"foreign"):
       self.invoke(read_check=lambda *x:self.check(
