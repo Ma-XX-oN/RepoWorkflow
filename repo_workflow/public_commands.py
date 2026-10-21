@@ -411,6 +411,11 @@ COMMANDS = {
       "_switches": {"--remote": "Retrieve recorded hosted test results"},
     },
   },
+  "done": {
+    "patch": "Complete an authorized patch integration",
+    "minor": "Complete an authorized minor integration",
+    "major": "Complete an authorized major integration",
+  },
   "version": {
     "": "Show the repository version",
     "_switches": {
