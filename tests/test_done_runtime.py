@@ -35,6 +35,7 @@ class RuntimeTests(unittest.TestCase):
       complete_accepted=lambda accepted:self.fixture.invoke(),
       read_deferred_mit=lambda ready:None,
       publish_failure_handoff=lambda attempt:None,
+      verify_source_lineage=lambda plan,ready:True,
     )
     return execute_ready_done(**{**args,**changes})
 
@@ -63,6 +64,18 @@ class RuntimeTests(unittest.TestCase):
       self.invoke(select_ready=lambda _:replace(self.ready,sha=C),
                   execute_provider_attempt=lambda *a:called.append(a))
     self.assertEqual(called,[])
+
+  def test_material_command_source_change_refuses_before_provider(self):
+    called=[]
+    with self.assertRaisesRegex(DoneRuntimeError,"tested SHA"):
+      self.invoke(
+        verify_source_lineage=lambda *args:False,
+        execute_provider_attempt=lambda *args:called.append(args))
+    self.assertEqual(called,[])
+
+  def test_missing_invocation_lineage_oracle_is_denied(self):
+    with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
+      self.invoke(verify_source_lineage=None)
 
   def test_provider_outcome_unknown_never_retried(self):
     count=[]
