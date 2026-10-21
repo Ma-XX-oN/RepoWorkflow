@@ -122,7 +122,7 @@ def read_manual_cases(root: Path, issue: int) -> tuple[ManualCase, ...]:
         raise ManualCatalogueError(
           f"manual case {name} references unknown test harness: {harness_name}"
         )
-      if int(manual_name.group(1)) != issue:
+      if manual_name.group(1) != str(issue):
         continue
       cases.append(ManualCase(
         name=name,
