@@ -1,0 +1,95 @@
+"""Trusted service composition for native rwf done exact READY execution.
+
+This module is only the flow boundary. A real host runtime must supply the
+authoritative planner, READY selector, verified provider executor, #103
+retirement, canonical promotion, lifecycle and failed-item handoff.
+"""
+from .done_completion import VerifiedCompletion
+from .done_planner import DonePlan
+from .done_provider_pipeline import (
+  AcceptedProviderAttempt,DeferredProviderAttempt,FailedProviderAttempt,
+)
+from .done_failure_handoff import PersistedFailureHandoff
+from .prelim_queue import ReadyPrelim
+
+
+class DoneRuntimeError(RuntimeError):
+  """A native done request did not produce a verified final disposition."""
+
+
+def execute_ready_done(*, release, read_current_plan, select_ready,
+                       execute_provider_attempt, complete_accepted,
+                       read_deferred_mit, publish_failure_handoff):
+  """Compose exact plan/READY/provider/outcome without fabricating PASS."""
+  if (type(release) is not str
+      or release not in {"patch","minor","major"}
+      or any(not callable(fn) for fn in (
+        read_current_plan,select_ready,execute_provider_attempt,
+        complete_accepted,read_deferred_mit,publish_failure_handoff))):
+    raise DoneRuntimeError("authenticated native done bindings required")
+  try:
+    plan=read_current_plan(release)
+  except Exception as error:
+    raise DoneRuntimeError("authoritative current plan UNKNOWN") from error
+  if (not isinstance(plan,DonePlan)
+      or plan.release!=release or plan.allowed is not True
+      or plan.disposition not in {"ALLOWED","QUEUE_ELIGIBLE"}
+      or plan.missing_gates):
+    raise DoneRuntimeError("current done plan is not executable")
+  try:
+    ready=select_ready(plan)
+  except Exception as error:
+    raise DoneRuntimeError("READY selection UNKNOWN") from error
+  if (not isinstance(ready,ReadyPrelim)
+      or ready.umbrella!="issue-"+plan.issue
+      or ready.destination!=plan.target
+      or ready.sha!=plan.candidate_sha):
+    raise DoneRuntimeError("selected READY identity differs from plan")
+  try:
+    attempt=execute_provider_attempt(ready,plan)
+  except Exception as error:
+    # A remote mutation may have committed. Never replay blindly.
+    raise DoneRuntimeError("provider attempt UNKNOWN; reconcile") from error
+  if isinstance(attempt,AcceptedProviderAttempt):
+    if attempt.ready!=ready:
+      raise DoneRuntimeError("accepted attempt READY identity differs")
+    try:
+      completed=complete_accepted(attempt)
+    except Exception as error:
+      raise DoneRuntimeError("post-CAS completion UNKNOWN; reconcile") from error
+    if (not isinstance(completed,VerifiedCompletion)
+        or completed.operation_id!=attempt.accepted.operation_id
+        or completed.landed_sha!=attempt.accepted.landed_sha
+        or completed.terminal.guid!=ready.guid
+        or completed.promotion.operation_id!=completed.operation_id):
+      raise DoneRuntimeError("accepted but unverified DONE lifecycle")
+    return completed
+  if isinstance(attempt,DeferredProviderAttempt):
+    if attempt.ready!=ready:
+      raise DoneRuntimeError("foreign MIT deferral")
+    try:
+      event=read_deferred_mit(ready)
+    except Exception as error:
+      raise DoneRuntimeError("MIT deferred provider read UNKNOWN") from error
+    if (getattr(event,"guid",None)!=ready.guid
+        or getattr(event,"prelim_sha",None)!=ready.sha
+        or getattr(event,"evidence_ref",None)!=attempt.evidence_ref
+        or getattr(event,"lease_generation",None)+1
+           !=attempt.released_generation):
+      raise DoneRuntimeError("MIT deferral missing exact provider evidence")
+    return attempt
+  if isinstance(attempt,FailedProviderAttempt):
+    if attempt.ready!=ready:
+      raise DoneRuntimeError("foreign ART/AIT/MIT failed attempt")
+    try:
+      persisted=publish_failure_handoff(attempt)
+    except Exception as error:
+      raise DoneRuntimeError("failed-owner handoff UNKNOWN") from error
+    if (not isinstance(persisted,PersistedFailureHandoff)
+        or persisted.handoff.guid!=ready.guid
+        or persisted.handoff.prelim_sha!=ready.sha
+        or persisted.handoff.failure_kind!=attempt.failed_stage+"_FAIL"
+        or len(persisted.per_issue_refs)==0):
+      raise DoneRuntimeError("failed attempt lacks durable owner handoff")
+    return attempt
+  raise DoneRuntimeError("provider attempt disposition unverified")
