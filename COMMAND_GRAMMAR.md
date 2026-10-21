@@ -421,9 +421,11 @@ select or report a manual case, and combining it with a manual form is an
 error. State/help/completion paths are read-only and may not create
 manual selections or results.
 
-The CLI's required B exports, in addition to the frozen #699 reader and
-recorder, are `select_manual_case(root, issue, candidate_sha, case)` and
-`read_manual_case_results(root, issue, candidate_sha)` (name-to-result map).
-RWF #699 must reconcile these bindings with the independent #701 API before
-assembled certification. CLI implementation does not maintain another
-selection or result store.
+The CLI calls `select_manual_case` and `read_active_manual_selection`
+from B `manual_test_state.py`, and `record_manual_result` from B
+`manual_test_result.py`. For the first-outstanding projection it reads the
+existing canonical per-issue testing JSONL, verifying current case names,
+definition digests and candidate SHA. This is a read-only projection, not
+another selection or evidence store. Result submission passes explicit
+clone-local writer provenance and a `local-operator-assertion:` evidence
+reference; it never claims an external provider check ran.
