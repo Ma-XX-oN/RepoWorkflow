@@ -135,5 +135,87 @@ class ProviderCoordinatorTests(unittest.TestCase):
     self.assertEqual(len(set(keys)), 2)
 
 
+  def test_memoized_provider_reads_do_not_hide_new_ready_ref(self):
+    physical=self.host.request
+    cache={}
+
+    def cache_read(op,key,params):
+      if op in {"refs.list","lease.read","attempt.read",
+                "mit.deferred.read","mit.resume.read"}:
+        if key not in cache:
+          cache[key]=physical(op,key,params)
+        return cache[key]
+      return physical(op,key,params)
+
+    self.host.request=cache_read
+    self.assertEqual(self.coord.read_ready_prelims(),(self.ready,))
+    other=self.ready.ref.replace(GUID,"22222222-2222-4222-8222-222222222222")
+    self.host.refs[other]="b"*40
+    fresh=self.coord.read_ready_prelims()
+    self.assertEqual(len(fresh),2)
+    self.assertNotEqual(fresh,(self.ready,))
+    self.assertEqual(len(cache),2)
+
+  def test_memoized_provider_read_observes_changed_destination_lease(self):
+    physical=self.host.request
+    cache={}
+
+    def cache_read(op,key,params):
+      if op=="lease.read":
+        if key not in cache:
+          cache[key]=physical(op,key,params)
+        return cache[key]
+      return physical(op,key,params)
+
+    self.host.request=cache_read
+    before=self.coord.read_destination_lease("main")
+    self.host.lease.update(generation=1,guid=GUID,holder="other-worker")
+    after=self.coord.read_destination_lease("main")
+    self.assertEqual(before.generation,0)
+    self.assertEqual(after.generation,1)
+    self.assertEqual(after.holder,"other-worker")
+    self.assertEqual(len(cache),2)
+
+  def test_memoized_provider_read_observes_new_terminal(self):
+    physical=self.host.request
+    cache={}
+
+    def cache_read(op,key,params):
+      if op=="attempt.read":
+        if key not in cache:
+          cache[key]=physical(op,key,params)
+        return cache[key]
+      return physical(op,key,params)
+
+    self.host.request=cache_read
+    self.assertIsNone(self.coord.read_attempt_result(GUID))
+    self.host.terminal={
+      "repository":"Org/Repo","guid":GUID,"status":"integrated"}
+    self.assertEqual(self.coord.read_attempt_result(GUID),"integrated")
+    self.assertEqual(len(cache),2)
+
+  def test_memoized_provider_read_observes_mit_approval(self):
+    physical=self.host.request
+    cache={}
+
+    def cache_read(op,key,params):
+      if op=="mit.resume.read":
+        if key not in cache:
+          cache[key]=physical(op,key,params)
+        return cache[key]
+      return physical(op,key,params)
+
+    self.host.request=cache_read
+    self.assertIsNone(self.coord.read_mit_resume_authorization(GUID,"main"))
+    self.host.resume={
+      "repository":"Org/Repo", "guid":GUID, "destination":"main",
+      "prelim_sha":A, "expected_generation":2,
+      "deferred_evidence_ref":"event-1",
+      "evidence_ref":"approval-1","approved":True}
+    approval=self.coord.read_mit_resume_authorization(GUID,"main")
+    self.assertTrue(approval.approved)
+    self.assertEqual(len(cache),2)
+
+
 if __name__ == "__main__":
   unittest.main()
