@@ -99,7 +99,7 @@ class IssuerTests(unittest.TestCase):
 
   def test_missing_mit_receipt_never_defaults_to_pass(self):
     self.required=True
-    with self.assertRaisesRegex(StageCertificationError,"MIT provider"):
+    with self.assertRaisesRegex(StageCertificationError,"MIT provenance"):
       self.invoke(read_mit_stage=lambda *args:None)
 
   def test_failed_release_is_not_a_valid_integration(self):
