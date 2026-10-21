@@ -272,6 +272,32 @@ class TestManualLauncher(unittest.TestCase):
 
 
 class TestAutomaticIntegrationPresentation(unittest.TestCase):
+  def test_terminal_publication_is_blocked_until_mit_finishes(self):
+    from repo_workflow.test_cli import run_test
+    with tempfile.TemporaryDirectory() as temp:
+      root = Path(temp) / "work"
+      root.mkdir()
+      engine = Path(temp) / "other-engine"
+      engine.mkdir()
+      with patch("repo_workflow.test_cli.current_branch",
+                 return_value="issue-702-fixture"):
+        with patch("repo_workflow.test_cli.run_local_integration",
+                   return_value=0):
+          with patch("repo_workflow.test_cli.after_automatic_integration",
+                     return_value=2):
+            with patch("repo_workflow.test_cli.publish_local_terminal") as pub:
+              self.assertEqual(run_test(
+                root, "integration", remote=False, engine_root=engine
+              ), 2)
+              pub.assert_not_called()
+          with patch("repo_workflow.test_cli.after_automatic_integration",
+                     return_value=0):
+            with patch("repo_workflow.test_cli.publish_local_terminal") as pub:
+              self.assertEqual(run_test(
+                root, "integration", remote=False, engine_root=engine
+              ), 0)
+              pub.assert_called_once_with(root, stage="integration")
+
   def test_legacy_nonmanual_catalogue_does_not_require_new_engine(self):
     with tempfile.TemporaryDirectory() as temp:
       root = Path(temp)
