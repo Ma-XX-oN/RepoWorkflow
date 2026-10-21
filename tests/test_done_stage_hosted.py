@@ -37,7 +37,7 @@ class HostedTests(unittest.TestCase):
     return (repo=="Org/Repo" and stage=="regression-testing"
             and record==self.proof)
 
-  def run(self,**changes):
+  def observe(self,**changes):
     params={
       "repository":"Org/Repo","stage":"ART",
       "tested_sha":A,"expected_parent_sha":B,
@@ -48,7 +48,7 @@ class HostedTests(unittest.TestCase):
     return verified_hosted_automatic_stage(**{**params,**changes})
 
   def test_exact_artifact_and_parent_provider_observations(self):
-    result=self.run()
+    result=self.observe()
     self.assertEqual(result.status,"PASS")
     self.assertEqual(result.source_sha,A)
     self.assertEqual(result.parent_sha,B)
@@ -59,41 +59,41 @@ class HostedTests(unittest.TestCase):
     for stage in ("MIT","release","GREEN"):
       with self.subTest(stage=stage):
         with self.assertRaisesRegex(HostedStageError,"exact hosted"):
-          self.run(stage=stage)
+          self.observe(stage=stage)
     self.assertEqual(self.events,[])
 
   def test_foreign_candidate_or_source_never_passes(self):
     self.proof["providerCandidateSHA"]=B
     with self.assertRaisesRegex(HostedStageError,"foreign"):
-      self.run()
+      self.observe()
     self.assertNotIn("artifact",self.events)
 
   def test_foreign_parent_binding_never_passes(self):
     self.bound=replace(self.bound,expected_parent_sha=A)
     with self.assertRaisesRegex(HostedStageError,"foreign"):
-      self.run()
+      self.observe()
     self.assertNotIn("artifact",self.events)
 
   def test_actual_artifact_fails_even_if_provider_run_claims_pass(self):
     with self.assertRaisesRegex(HostedStageError,"not independently PASS"):
-      self.run(verify_artifact=lambda *a,**k:False)
+      self.observe(verify_artifact=lambda *a,**k:False)
 
   def test_missing_or_unsigned_binding_refused(self):
     self.bound=replace(self.bound,independently_authenticated=False)
     with self.assertRaisesRegex(HostedStageError,"unverified"):
-      self.run()
+      self.observe()
 
   def test_changed_binding_during_remote_artifact_verification_refused(self):
     self.change_binding=True
     with self.assertRaisesRegex(HostedStageError,"changed"):
-      self.run()
+      self.observe()
 
   def test_provider_or_verifier_exception_is_unknown_not_pass(self):
     with self.assertRaisesRegex(HostedStageError,"UNKNOWN"):
-      self.run(read_record=lambda *x:(_ for _ in ()).throw(
+      self.observe(read_record=lambda *x:(_ for _ in ()).throw(
         ConnectionError("unavailable")))
     with self.assertRaisesRegex(HostedStageError,"UNKNOWN"):
-      self.run(verify_artifact=lambda *a,**k:(_ for _ in ()).throw(
+      self.observe(verify_artifact=lambda *a,**k:(_ for _ in ()).throw(
         TimeoutError("artifact unavailable")))
 
 
