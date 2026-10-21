@@ -11,6 +11,7 @@ from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
 from repo_workflow.done_runtime import DoneRuntimeError,execute_ready_done
+from repo_workflow.done_source_identity import EffectiveSource
 from repo_workflow.integration_coordination import MitDeferredEvent
 from tests.test_done_completion import CompletionTests
 from tests.test_done_provider_pipeline import A,B,C,G
@@ -35,7 +36,8 @@ class RuntimeTests(unittest.TestCase):
       complete_accepted=lambda accepted:self.fixture.invoke(),
       read_deferred_mit=lambda ready:None,
       publish_failure_handoff=lambda attempt:None,
-      verify_source_lineage=lambda plan,ready:True,
+      verify_source_lineage=lambda plan,ready:EffectiveSource(
+        plan.candidate_sha,plan.candidate_sha,()),
     )
     return execute_ready_done(**{**args,**changes})
 
@@ -72,6 +74,10 @@ class RuntimeTests(unittest.TestCase):
         verify_source_lineage=lambda *args:False,
         execute_provider_attempt=lambda *args:called.append(args))
     self.assertEqual(called,[])
+
+  def test_forged_boolean_source_authentication_is_not_enough(self):
+    with self.assertRaisesRegex(DoneRuntimeError,"tested SHA"):
+      self.invoke(verify_source_lineage=lambda *args:True)
 
   def test_missing_invocation_lineage_oracle_is_denied(self):
     with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
