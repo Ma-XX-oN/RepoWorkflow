@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from repo_workflow.done_cli import DoneCommandError,execute_done_command
+from repo_workflow.done_planner import DonePlan
+from repo_workflow.done_source_identity import EffectiveSource
 from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
@@ -32,7 +34,7 @@ class CommandTests(unittest.TestCase):
     self.messages=[]
     self.called=[]
 
-  def native(self,completion):
+  def native(self,completion,release="patch"):
     shared=SharedLifecycleEvidence(
       "Org/Repo","authoritative-state","a"*40,123,
       completion.lifecycle["revision"],completion.operation_id,
@@ -40,11 +42,17 @@ class CommandTests(unittest.TestCase):
       "b"*64,"c"*64,True)
     authority=SharedAuthorityObservation(
       "Org/Repo","authoritative-state","a"*40,True)
-    return VerifiedNativeDone(completion,shared,authority)
+    plan=DonePlan(
+      "123",release,"main",completion.terminal.accepted_sha,
+      "b"*40,"ALLOWED",True,False,None,(),())
+    source=EffectiveSource(
+      completion.terminal.accepted_sha,
+      completion.terminal.accepted_sha,())
+    return VerifiedNativeDone(completion,shared,authority,plan,source)
 
   def run_command(self,release="patch",outcome=None):
     if outcome is None:
-      outcome=self.native(self.fixture.invoke())
+      outcome=self.native(self.fixture.invoke(),release)
     def executor(version):
       self.called.append(version)
       return outcome
@@ -119,6 +127,25 @@ class CommandTests(unittest.TestCase):
     with self.assertRaisesRegex(
         DoneCommandError,"not certified"):
       self.run_command(outcome=self.native(changed))
+    self.assertEqual(self.messages,[])
+
+  def test_different_command_release_cannot_reuse_completed_plan(self):
+    from dataclasses import replace
+    valid=self.native(self.fixture.invoke(),release="patch")
+    with self.assertRaisesRegex(DoneCommandError,"shared canonical authority"):
+      self.run_command(release="minor",outcome=valid)
+    changed=replace(valid,plan=replace(valid.plan,issue="124"))
+    with self.assertRaisesRegex(DoneCommandError,"shared canonical authority"):
+      self.run_command(outcome=changed)
+    self.assertEqual(self.messages,[])
+
+  def test_forged_original_tested_source_denied_by_cli(self):
+    from dataclasses import replace
+    valid=self.native(self.fixture.invoke())
+    changed=replace(
+      valid,source=EffectiveSource("f"*40,"f"*40,()))
+    with self.assertRaisesRegex(DoneCommandError,"shared canonical authority"):
+      self.run_command(outcome=changed)
     self.assertEqual(self.messages,[])
 
   def test_bare_provider_completion_cannot_claim_native_done(self):
