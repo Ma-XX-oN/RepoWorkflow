@@ -36,6 +36,15 @@ The terminal styling adapter uses the declared capability-aware backend.
 it never silently degrades to uncoloured output.  `color auto` may remain
 unstyled when styling is unavailable or inappropriate for the output stream.
 
+## Coordinated agent dispatch
+
+A controller coordinating multiple workers uses **one shared PMD** named
+`<repo-short-name>-#<controller-ticket-id>-<description>.pmd` and publishes
+**one independent, complete fenced `AGENT-CMD SPINUP` prompt per worker in the
+conversation**, ending each fence with `@<same-pmd-filename>` on its own line.
+See [AGENT_PROMPT_PACKAGING.md](AGENT_PROMPT_PACKAGING.md) for the authoritative
+handoff contract.  Prompts do not belong in ticket bodies or comments.
+
 ## Responsibilities
 
 RepoWorkflow owns common lifecycle and invariant machinery:
