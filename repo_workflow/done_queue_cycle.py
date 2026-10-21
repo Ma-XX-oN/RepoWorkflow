@@ -69,8 +69,13 @@ def process_destination_cycle(*, host, destination, select_authorized,
           or outcome.promotion.landed_sha != outcome.landed_sha
           or outcome.promotion.accepted_candidate_sha
              != outcome.terminal.accepted_sha
+          or len(outcome.retired) != 2
+          or any(getattr(r,"absent_after",None) is not True
+                 for r in outcome.retired)
           or type(outcome.lifecycle) is not dict
-          or outcome.lifecycle.get("result") != "done"):
+          or outcome.lifecycle.get("result") != "done"
+          or outcome.lifecycle.get("guid") != selected.guid
+          or outcome.lifecycle.get("landed_sha") != outcome.landed_sha):
         raise QueueCycleError("completion identity differs from READY")
       expected="integrated"
       label="completed"
