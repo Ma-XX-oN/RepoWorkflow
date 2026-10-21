@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import re
 import sys
 
 from .git import GitError, current_branch, head_sha
-from .test_results_reader import TestCommandError
+from .test_results_reader import TestCommandError, parse_testing_log
+from .invocation_identity import ensure_public_runtime_identity
 
 
 def _issue(root: Path) -> int:
@@ -32,21 +34,25 @@ def _catalogue(root: Path, issue: int):
 
 def _result_api():
   try:
-    from . import manual_test_result
+    from . import manual_test_result, manual_test_state
   except ImportError as error:
     raise TestCommandError(
       "manual integration result/state service is not installed"
     ) from error
-  for name in (
-    "read_active_manual_selection", "select_manual_case",
-    "read_manual_case_results", "record_manual_result",
+  for module, names in (
+    (manual_test_state, ("read_active_manual_selection", "select_manual_case")),
+    (manual_test_result, ("record_manual_result",)),
   ):
-    if not callable(getattr(manual_test_result, name, None)):
-      raise TestCommandError(
-        "manual integration result/state service lacks " + name
-      )
-  return manual_test_result
-
+    for name in names:
+      if not callable(getattr(module, name, None)):
+        raise TestCommandError(
+          "manual integration result/state service lacks " + name
+        )
+  return SimpleNamespace(
+    read_active_manual_selection=manual_test_state.read_active_manual_selection,
+    select_manual_case=manual_test_state.select_manual_case,
+    record_manual_result=manual_test_result.record_manual_result,
+  )
 
 def _name(selection):
   if isinstance(selection, dict):
@@ -109,19 +115,29 @@ def manual_result_completions(context) -> list:
 
 
 def _results(api, root: Path, issue: int, sha: str, cases):
-  values = api.read_manual_case_results(root, issue, sha)
-  if not isinstance(values, dict):
-    raise TestCommandError("manual result readback must be a name/result map")
-  names = {case.name for case in cases}
-  if not set(values).issubset(names):
-    raise TestCommandError("manual result readback contains unknown test names")
-  for name, result in values.items():
-    if result not in {"succeeded", "failed", "timeout"}:
-      raise TestCommandError(
-        "manual result readback contains invalid result for " + name
-      )
+  # Read the existing canonical JSONL, not a second result database.
+  path = root / ".repoworkflow" / "validation" / (
+    "testResults-" + str(issue) + ".jsonl"
+  )
+  try:
+    raw = path.read_text(encoding="utf-8")
+  except FileNotFoundError:
+    return {}
+  records = parse_testing_log(raw)
+  by_name = {case.name: case for case in cases}
+  values = {}
+  for record in records:
+    if record.get("kind") != "manual-integration" or record["testSHA"] != sha:
+      continue
+    name = record.get("manualCase")
+    case = by_name.get(name)
+    if case is None or record.get("definitionDigest") != case.definition_digest:
+      raise TestCommandError("manual test evidence is stale or undeclared")
+    outcome = record.get("result")
+    if outcome not in {"succeeded", "failed"} or name in values:
+      raise TestCommandError("manual test evidence is invalid or duplicated")
+    values[name] = outcome
   return values
-
 
 def _outstanding(root: Path):
   issue = _issue(root)
@@ -164,7 +180,12 @@ def select_requested(root: Path, *, name: str | None, remote: bool) -> int:
         "manual test already has a terminal result: " + case.name
       )
   assert api is not None
-  api.select_manual_case(root, issue, sha, case)
+  active = api.read_active_manual_selection(root, issue, sha)
+  if active is not None:
+    if _name(active) != case.name or _digest(active) != case.definition_digest:
+      raise TestCommandError("another manual test is actively selected")
+  else:
+    api.select_manual_case(root, issue, sha, case)
   observed = _selected(api, root, issue, sha, cases)
   if _name(observed) != case.name:
     raise TestCommandError("selected manual test did not persist correctly")
@@ -189,7 +210,12 @@ def record_selected(root: Path, *, outcome: str) -> int:
     raise TestCommandError(
       "manual test already has a terminal result: " + case.name
     )
-  evidence = api.record_manual_result(root, issue, sha, outcome)
+  writer = ensure_public_runtime_identity(root)
+  evidence = api.record_manual_result(
+    root, issue, sha, outcome,
+    operator=writer.writer_id,
+    evidence_ref="local-operator-assertion:" + sha + ":" + case.name,
+  )
   if evidence is None:
     raise TestCommandError(
       "manual result service did not confirm durable readback"
