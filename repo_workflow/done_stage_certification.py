@@ -90,10 +90,10 @@ def certify_stages(*, source_sha, parent_sha, read_stage, read_mit_policy):
       or not policy.policy_evidence_ref.strip()
       or policy.independently_authenticated is not True):
     raise StageCertificationError("unverified current MIT requirement")
-  now=datetime.now(timezone.utc)
   required=("ART","AIT","release")+(
     ("MIT",) if policy.required else ())
   receipts=[]
+  expiries=[]
   for stage in required:
     try:
       receipt=read_stage(stage,source_sha,parent_sha)
@@ -114,7 +114,7 @@ def certify_stages(*, source_sha, parent_sha, read_stage, read_mit_policy):
       expires=datetime.fromisoformat(
         receipt.expires_at.replace("Z","+00:00"))
       if (not receipt.expires_at.endswith("Z")
-          or expires <= now):
+          or expires <= datetime.now(timezone.utc)):
         raise StageCertificationError(stage+" evidence expired")
     except (ValueError,TypeError,AttributeError) as error:
       raise StageCertificationError(stage+" expiry malformed") from error
@@ -125,6 +125,11 @@ def certify_stages(*, source_sha, parent_sha, read_stage, read_mit_policy):
     if receipt.status != "PASS":
       raise StageCertificationError(stage+" is not independently PASS")
     receipts.append(receipt)
+    expiries.append(expires)
+  # A certificate is unusable if any receipt expires while later provider
+  # stages are being fetched. Recheck the entire set before returning.
+  if any(expiry <= datetime.now(timezone.utc) for expiry in expiries):
+    raise StageCertificationError("authenticated stage evidence expired during verification")
   if (len({(r.catalogue_digest,r.config_digest,r.inputs_digest)
            for r in receipts}) != 1):
     raise StageCertificationError("material test inputs differ between stages")
