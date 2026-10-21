@@ -10,7 +10,10 @@ from repo_workflow.done_planner import DonePlan
 from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
-from repo_workflow.done_runtime import DoneRuntimeError,execute_ready_done
+from repo_workflow.done_runtime import (
+  DoneRuntimeError, VerifiedDeferredDone, VerifiedFailedDone,
+  execute_ready_done,
+)
 from repo_workflow.done_source_identity import EffectiveSource
 from repo_workflow.integration_coordination import MitDeferredEvent
 from tests.test_done_completion import CompletionTests
@@ -103,9 +106,12 @@ class RuntimeTests(unittest.TestCase):
     outcome=DeferredProviderAttempt(self.ready,"timeout-proof",2)
     evidence=MitDeferredEvent(
       G,"main",A,1,"timeout-proof","timeout")
-    self.assertEqual(self.invoke(
+    observed=self.invoke(
       execute_provider_attempt=lambda *args:outcome,
-      read_deferred_mit=lambda ready:evidence),outcome)
+      read_deferred_mit=lambda ready:evidence)
+    self.assertIsInstance(observed,VerifiedDeferredDone)
+    self.assertEqual(observed.attempt,outcome)
+    self.assertEqual(observed.provider_event,evidence)
     with self.assertRaisesRegex(DoneRuntimeError,"missing exact"):
       self.invoke(
         execute_provider_attempt=lambda *args:outcome,
@@ -122,9 +128,12 @@ class RuntimeTests(unittest.TestCase):
     handoff=replace(handoff,conflict_paths=())
     persisted=PersistedFailureHandoff(
       handoff,((123,"issue-comment-1"),))
-    self.assertEqual(self.invoke(
+    observed=self.invoke(
       execute_provider_attempt=lambda *args:failed,
-      publish_failure_handoff=lambda attempt:persisted),failed)
+      publish_failure_handoff=lambda attempt:persisted)
+    self.assertIsInstance(observed,VerifiedFailedDone)
+    self.assertEqual(observed.attempt,failed)
+    self.assertEqual(observed.persisted_handoff,persisted)
     with self.assertRaisesRegex(DoneRuntimeError,"durable owner handoff"):
       self.invoke(
         execute_provider_attempt=lambda *args:failed,
