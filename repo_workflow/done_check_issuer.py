@@ -5,6 +5,7 @@ manual-test authority. The trusted host supplies an out-of-band app ID and a
 provider API reader. This module can only verify; it cannot issue PASS.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
 import re
@@ -110,6 +111,20 @@ def verify_check_stage(*, binding, trusted_app_id, read_check):
                binding.config_digest,binding.inputs_digest,binding.expires_at))
       or not callable(read_check)):
     raise CheckIssuerError("independent release/MIT issuer binding required")
+  # A cryptographically bound expiration is still unusable once elapsed.
+  # Check locally before querying and again after the independent reread.
+  def valid_expiry():
+    if not binding.expires_at.endswith("Z"):
+      return False
+    try:
+      expiration=datetime.fromisoformat(
+        binding.expires_at.replace("Z","+00:00"))
+      return expiration.tzinfo is not None and (
+        expiration > datetime.now(timezone.utc))
+    except (TypeError,ValueError,OverflowError):
+      return False
+  if not valid_expiry():
+    raise CheckIssuerError("independent release/MIT check expired or invalid")
   try:
     before=read_check(binding.repository,binding.check_run_id)
     if not _check_exact(binding,before,trusted_app_id):
@@ -121,6 +136,8 @@ def verify_check_stage(*, binding, trusted_app_id, read_check):
     raise CheckIssuerError("GitHub App stage provider read UNKNOWN") from error
   if before!=after or not _check_exact(binding,after,trusted_app_id):
     raise CheckIssuerError("GitHub App issuer status changed during verification")
+  if not valid_expiry():
+    raise CheckIssuerError("independent release/MIT check expired during readback")
   evidence=VerifiedStage(
     binding.stage,binding.source_sha,binding.parent_sha,
     {"success":"PASS","failure":"FAIL","timed_out":"TIMEOUT"}[
