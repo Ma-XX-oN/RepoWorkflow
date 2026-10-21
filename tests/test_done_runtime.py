@@ -88,6 +88,8 @@ class RuntimeTests(unittest.TestCase):
     self.assertEqual(result.completion.landed_sha,"d"*40)
     self.assertEqual(result.shared.commit_sha,result.authority.commit_sha)
     self.assertTrue(result.shared.independently_authenticated)
+    self.assertEqual(result.plan,self.plan)
+    self.assertEqual(result.source.tested_source_sha,self.plan.candidate_sha)
 
   def test_unbound_shared_lifecycle_provider_cannot_publish_done(self):
     with self.assertRaisesRegex(DoneRuntimeError,"bindings required"):
