@@ -54,7 +54,8 @@ class CompletionTests(unittest.TestCase):
       raise TimeoutError("hosted stage unknown")
     return Promotion("op-1",C,C,B,D,A,A,"context",())
 
-  def persist_lifecycle(self,accepted,proof):
+  def persist_lifecycle(self,accepted,proof,retirements):
+    assert len(retirements)==2 and all(r.absent_after for r in retirements)
     self.events.append(("lifecycle.record",G))
     if self.fail=="lifecycle.record":
       raise TimeoutError("write lost")
@@ -63,7 +64,8 @@ class CompletionTests(unittest.TestCase):
       "result":"done","revision":3,
     }
 
-  def read_lifecycle(self,accepted):
+  def read_lifecycle(self,accepted,proof,retirements):
+    assert len(retirements)==2
     self.events.append(("lifecycle.read",G))
     return self.lifecycle
 
