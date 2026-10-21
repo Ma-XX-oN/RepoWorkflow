@@ -21,6 +21,7 @@ from .done_provider_acceptance import (
   DestinationAcceptanceFacts, bind_v2_destination_accept,
 )
 from .done_terminal_v2 import publish_integrated_terminal
+from .integration_admission import AdmissionDecision
 from .integration_coordination import claim_prelim, release_prelim
 from .prelim_queue import ReadyPrelim
 
@@ -89,6 +90,7 @@ def accept_one_ready_submission(
   if provider_facts.lease_generation != lease.generation:
     raise DoneExecutionError("acceptance facts mismatch authoritative lease")
   prepared = []
+  prepared_stages = []
   observed_failure = []
 
   def prepare(plan):
@@ -127,6 +129,7 @@ def accept_one_ready_submission(
     if (attempt.int_attempt_ref != workspace.int_ref
         or attempt.expected_destination_sha != workspace.expected_destination_sha):
       raise DoneExecutionError("published INT differs from certified attempt")
+    prepared_stages.append(stages)
     prepared.append(attempt)
     return attempt
 
@@ -135,7 +138,25 @@ def accept_one_ready_submission(
       host, plan, immediate_parent_oracle)
     if observation.allowed is not True:
       return observation
-    return admission_check(plan)
+    decision = admission_check(plan)
+    if (not isinstance(decision, AdmissionDecision)
+        or decision.allowed is not True):
+      return decision
+    if prepared:
+      if len(prepared) != 1 or len(prepared_stages) != 1:
+        raise DoneExecutionError("exact candidate stage history incomplete")
+      # Release or MIT permission may be revoked after INT preparation.
+      # Confirm identical authenticated evidence immediately before CAS.
+      try:
+        current = stage_certify(
+          prepared[0].tested_candidate_sha, plan.expected_parent_sha)
+      except StageFailed as failure:
+        observed_failure.append((prepared[0], plan, failure))
+        raise
+      if current != prepared_stages[0]:
+        raise DoneExecutionError(
+          "authenticated stages changed before integration CAS")
+    return decision
 
   try:
     accepted = execute_certified_done(
