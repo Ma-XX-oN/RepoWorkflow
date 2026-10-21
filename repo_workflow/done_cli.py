@@ -12,7 +12,7 @@ from .done_provider_pipeline import (
 )
 
 
-class DoneCommandError(RuntimeError):
+class DoneCommandError(ValueError):
   """No verified executor or legal integration result is available."""
 
 
