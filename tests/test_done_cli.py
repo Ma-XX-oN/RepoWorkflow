@@ -1,12 +1,16 @@
 """Native rwf done patch/minor/major accepts verified completion only."""
 import json
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from repo_workflow.done_cli import DoneCommandError,execute_done_command
 from repo_workflow.done_provider_pipeline import (
   DeferredProviderAttempt,FailedProviderAttempt,
 )
 from repo_workflow.public_commands import COMMANDS,PUBLIC_COMMANDS
+from repo_workflow.public_cli import handle_public
+from repo_workflow.command_grammar import Context
 from tests.test_done_completion import CompletionTests
 
 
@@ -26,6 +30,30 @@ class CommandTests(unittest.TestCase):
       return outcome
     return execute_done_command(
       release,trusted_executor=executor,emit=self.messages.append)
+
+  def test_native_public_dispatch_to_injected_verifier(self):
+    root=Path(".")
+    general=Context(root,legal_only=False)
+    with (patch("repo_workflow.public_cli._diagnose",
+                return_value=(general,general,None,None,None,None)),
+          patch("repo_workflow.public_cli.configure_ticket_merge_driver"),
+          patch("repo_workflow.public_cli.ensure_public_runtime_identity"),
+          patch("builtins.print") as printed):
+      exit_code=handle_public(
+        root,["done","patch"],engine_root=root,
+        done_executor=lambda release:self.fixture.invoke())
+    self.assertEqual(exit_code,0)
+    self.assertEqual(json.loads(printed.call_args.args[0])["status"],"DONE")
+
+  def test_native_public_dispatch_without_authority_refuses_success(self):
+    root=Path(".")
+    general=Context(root,legal_only=False)
+    with (patch("repo_workflow.public_cli._diagnose",
+                return_value=(general,general,None,None,None,None)),
+          patch("repo_workflow.public_cli.configure_ticket_merge_driver"),
+          patch("repo_workflow.public_cli.ensure_public_runtime_identity")):
+      with self.assertRaisesRegex(DoneCommandError,"authority"):
+        handle_public(root,["done","patch"],engine_root=root)
 
   def test_native_command_is_registered_for_three_semvers(self):
     self.assertIn("done",PUBLIC_COMMANDS)
