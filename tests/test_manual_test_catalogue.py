@@ -101,6 +101,13 @@ class ManualCatalogueTests(unittest.TestCase):
     with self.assertRaisesRegex(ManualCatalogueError, "not declared for issue 700"):
       find_manual_case(self.root, 700, "issue-701-manual--foreign")
 
+  def test_missing_explicit_name_and_large_foreign_issue_are_safe(self):
+    value = self.value_with(self.manual("issue-" + "9" * 5000 + "-manual--other"))
+    self.write(value)
+    self.assertEqual(read_manual_cases(self.root, 700), ())
+    with self.assertRaisesRegex(ManualCatalogueError, "not declared for issue 700"):
+      find_manual_case(self.root, 700, "issue-700-manual--missing")
+
   def test_substring_in_automatic_group_is_not_manual(self):
     value = self.value_with((
       "issue-700-automatic-manual--spoof",
@@ -235,6 +242,9 @@ class ManualCatalogueTests(unittest.TestCase):
       changed = self.value_with((name, {**metadata, field: metadata[field] + " new"}))
       self.write(changed)
       self.assertNotEqual(read_manual_cases(self.root, 700)[0].definition_digest, original)
+    renamed = self.value_with(("issue-700-manual--renamed", metadata))
+    self.write(renamed)
+    self.assertNotEqual(read_manual_cases(self.root, 700)[0].definition_digest, original)
     changed = self.value_with((name, metadata))
     changed["test-harnesses"]["unittest"]["command"] = "python3"
     self.write(changed)
