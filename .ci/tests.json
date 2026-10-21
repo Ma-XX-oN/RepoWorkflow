@@ -377,6 +377,26 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "issue-677-dependency-closure": {
+        "type": "regression",
+        "name": "tests.test_oct17_dependency_closure"
+      },
+      "issue-677-prelim-queue": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue"
+      },
+      "issue-677-ticket-admission": {
+        "type": "regression",
+        "name": "tests.test_ticket_admission"
+      },
+      "issue-677-integration-admission": {
+        "type": "regression",
+        "name": "tests.test_integration_admission"
+      },
+      "issue-677-git-prelim": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue_git"
       }
     },
     {
