@@ -28,6 +28,7 @@ from .local_terminal import publish_local_terminal, verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
 from .test_worktree import tracked_input_changes
+from .manual_test_cli import after_automatic_integration
 
 STAGES = {
   "RED": "RED-testing",
@@ -211,10 +212,8 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
     raise TestCommandError("test catalogue cannot be fingerprinted") from error
   return hashlib.sha256(catalogue_bytes).hexdigest()
 
-
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
   return tracked_input_changes(root, evidence_path)
-
 
 def _run_group_set(
   root: Path, stage: str, groups: tuple[str, ...], *,
@@ -334,7 +333,6 @@ def _run_group_set(
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   return 2 if launch_missing else 1 if failures else 0
 
-
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
   match = re.fullmatch(
     r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
@@ -348,7 +346,6 @@ def _assert_no_temporary_issue_sandbox(root: Path) -> None:
       + sandbox.relative_to(root).as_posix()
       + " (including sources, fixtures and build files)"
     )
-
 
 def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
@@ -422,6 +419,8 @@ def run_test(
         raise TestCommandError("integration requires issue branch")
       prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
     rc = run_local_integration(root, engine_root=engine_root)
+    if rc == 0 and after_automatic_integration(root) != 0:
+      return 2
     publish_local_terminal(root, stage="integration")
     return rc
   if stage == "regression":
