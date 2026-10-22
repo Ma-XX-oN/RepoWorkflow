@@ -12,6 +12,7 @@ from repo_workflow.version_adapter import (
   read_stable_version,
   read_version,
   run_transition,
+  _expected_transition,
 )
 from tests.support import RepoFixture
 
@@ -37,8 +38,54 @@ class VersionAdapterTests(unittest.TestCase):
       self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.0.1")
       run_transition(root, config, "task", "--increment", "CI-iteration")
       self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.0.2")
-      run_transition(root, config, "task", "--increment", "merge-integration-failed")
-      self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.1.1")
+      # This specific test installs an R=0 adapter without editing the
+      # independently owned shared tests/support.py version fixture.
+      script = root / "scripts" / "r0-version.py"
+      script.write_text(
+        "from pathlib import Path\\n"
+        "import sys\\n"
+        "path = Path('VERSION')\\n"
+        "args = sys.argv[1:]\\n"
+        "if not args:\\n"
+        "  print(path.read_text().strip())\\n"
+        "elif args == ['task', '--increment', 'merge-integration-failed']:\\n"
+        "  assert path.read_text() == '1.0.0-issue.1.0.2\\\\n'\\n"
+        "  path.write_text('1.0.0-issue.1.1.0\\\\n')\\n"
+        "else:\\n"
+        "  raise SystemExit(2)\\n",
+        encoding="utf-8",
+      )
+      config["versionCommand"] = [sys.executable, str(script)]
+      result = run_transition(root, config, "task", "--increment", "merge-integration-failed")
+      self.assertEqual(result.after, "1.0.0-issue.1.1.0")
+      self.assertEqual(read_development_version(root, config), "1.0.0-issue.1.1.0")
+
+  def test_failure_transition_gate_requires_q_plus_one_r_zero(self):
+    request = ("task", "--increment", "merge-integration-failed")
+    before = "0.1.122-issue.703.9.8"
+    self.assertTrue(_expected_transition(before, "0.1.122-issue.703.10.0", request))
+    for invalid in (
+      "0.1.122-issue.703.10.1",
+      "0.1.122-issue.703.10.00",
+      "0.1.122-issue.0703.10.0",
+      "0.1.122-issue.703.11.0",
+      "0.1.122-issue.703.10.0-extra",
+    ):
+      with self.subTest(invalid=invalid):
+        self.assertFalse(_expected_transition(before, invalid, request))
+    self.assertTrue(_expected_transition(
+      "0.1.122-issue.703.10.0", "0.1.122-issue.703.10.1",
+      ("task", "--increment", "CI-iteration"),
+    ))
+
+  def test_old_fixture_r_one_fails_closed(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      with self.assertRaisesRegex(VersionAdapterError, "invalid semantic transition"):
+        run_transition(root, load_config(root),
+                       "task", "--increment", "merge-integration-failed")
 
   def test_task_issue_transition_is_forwarded(self):
     with tempfile.TemporaryDirectory() as td:
