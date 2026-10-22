@@ -348,3 +348,59 @@ def test_terminal_pass_cannot_be_reselected_directly(setup):
   with pytest.raises(ManualSelectionError, match="recorded terminal"):
     _selected(root, sha, cases)
   assert len(_log(root).read_text().splitlines()) == 1
+
+
+def test_real_lifecycle_store_reject_after_manual_failure(setup):
+  from repo_workflow.lifecycle_store import LifecycleStore
+  from repo_workflow.state_store import WriterIdentity
+
+  root, sha, cases = setup
+  store = LifecycleStore(root)
+  writer = WriterIdentity("worker-701", "lifecycle-session")
+  started = store.transition(701, "start", None, None, writer, None)
+  review = store.transition(
+    701, "submit-review", sha, None, writer, started.revision,
+  )
+  accepted = store.transition(
+    701, "accept", sha, None, writer, review.revision,
+  )
+  assert accepted.lifecycle.state == "accepted"
+  assert not accepted.lifecycle.dependency_satisfied
+
+  _selected(root, sha, cases)
+
+  def canonical_reject(path, issue, candidate):
+    before = store.read(issue)
+    assert before.lifecycle.state == "accepted"
+    after = store.transition(
+      issue, "reject/reopen", candidate, None, writer, before.revision,
+    )
+    assert after.lifecycle.state == "active"
+    assert after.lifecycle.history[-1].transition == "reject/reopen"
+    return FailureHandoff(
+      "active", False, "1.2.3-issue.701.5.9",
+      "1.2.3-issue.701.6.0", "repair-team",
+    )
+
+  outcome = _record(root, sha, cases, "failed", on_failure=canonical_reject)
+  assert outcome.result == "failed"
+  persisted = LifecycleStore(root).read(701).lifecycle
+  assert persisted.state == "active"
+  assert not persisted.dependency_satisfied
+  assert persisted.history[-1].transition == "reject/reopen"
+  with pytest.raises(ManualResultError, match="MIT FAIL"):
+    require_manual_completion(root, 701, sha, cases=cases)
+  with pytest.raises(ManualSelectionError, match="failed candidate"):
+    _selected(root, sha, cases, 1)
+
+
+def test_legitimate_lifecycle_state_allowed_not_arbitrary_worktree(setup):
+  root, sha, cases = setup
+  state = root / ".repoworkflow/state"
+  state.mkdir(parents=True)
+  (state / "legitimate.json").write_text("{}\n")
+  _selected(root, sha, cases)
+  (root / ".repoworkflow/unrelated.txt").write_text("dirty\n")
+  with pytest.raises(ManualSelectionError, match="changed source inputs"):
+    _record(root, sha, cases)
+  assert not _log(root).exists()
