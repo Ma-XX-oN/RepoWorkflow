@@ -206,7 +206,7 @@ def record_manual_result(
       raise ManualResultError("failed candidate cannot be revisited")
     evidence_id = hashlib.sha256(os.urandom(32)).hexdigest()
     if evidence_ref is None:
-      evidence_ref = (str(log.relative_to(Path(root).resolve()))
+      evidence_ref = (log.relative_to(Path(root).resolve()).as_posix()
                       + "#manualEvidenceId=" + evidence_id)
     event = {
       "timestamp": datetime.now(timezone.utc).isoformat(),
