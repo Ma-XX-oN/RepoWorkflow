@@ -37,7 +37,12 @@ jobs:
             tests.test_version_adapter \
             tests.test_phase_terminal \
             tests.test_workflow_transitions \
-            tests.test_done_cli 2>&1 | tee combined-contract-results.txt
+            tests.test_engine_remote \
+            tests.test_done_cli \
+            tests.test_done_executor \
+            tests.test_done_runtime \
+            tests.test_done_completion \
+            tests.test_done_mit_defer_v2 2>&1 | tee combined-contract-results.txt
       - name: Save combined test observations
         if: always()
         uses: actions/upload-artifact@v4
