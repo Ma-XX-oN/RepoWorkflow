@@ -259,10 +259,15 @@ def after_automatic_integration(root: Path) -> int:
   catalogue = root / ".ci" / "tests.json"
   if not catalogue.is_file():
     return 0
-  # Keep existing AIT behaviour for catalogues without manual cases.
-  # Never silently succeed if manual entries exist and A/B are unavailable.
-  if "manual--" not in catalogue.read_text(encoding="utf-8"):
-    return 0
+  # With A installed, always parse canonical JSON: a manual name can contain
+  # escaped JSON characters and therefore evade a raw-text substring search.
+  # The fallback is only for a C-only test checkout without A.
+  try:
+    from . import manual_test_catalogue  # noqa: F401
+  except ImportError:
+    if "manual--" not in catalogue.read_text(encoding="utf-8"):
+      return 0
+    raise TestCommandError("manual integration catalogue is not installed")
   issue, sha, cases, results, _ = _outstanding(root)
   if not cases:
     print("No manual tests required for this issue.")
