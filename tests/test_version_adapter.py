@@ -42,17 +42,17 @@ class VersionAdapterTests(unittest.TestCase):
       # independently owned shared tests/support.py version fixture.
       script = root / "scripts" / "r0-version.py"
       script.write_text(
-        "from pathlib import Path\\n"
-        "import sys\\n"
-        "path = Path('VERSION')\\n"
-        "args = sys.argv[1:]\\n"
-        "if not args:\\n"
-        "  print(path.read_text().strip())\\n"
-        "elif args == ['task', '--increment', 'merge-integration-failed']:\\n"
-        "  assert path.read_text() == '1.0.0-issue.1.0.2\\\\n'\\n"
-        "  path.write_text('1.0.0-issue.1.1.0\\\\n')\\n"
-        "else:\\n"
-        "  raise SystemExit(2)\\n",
+        "from pathlib import Path\n"
+        "import sys\n"
+        "path = Path('VERSION')\n"
+        "args = sys.argv[1:]\n"
+        "if not args:\n"
+        "  print(path.read_text().strip())\n"
+        "elif args == ['task', '--increment', 'merge-integration-failed']:\n"
+        "  assert path.read_text() == '1.0.0-issue.1.0.2\\\n'\n"
+        "  path.write_text('1.0.0-issue.1.1.0\\\n')\n"
+        "else:\n"
+        "  raise SystemExit(2)\n",
         encoding="utf-8",
       )
       config["versionCommand"] = [sys.executable, str(script)]

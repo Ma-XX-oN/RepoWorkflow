@@ -74,7 +74,7 @@ class EngineVersionAdapterTests(unittest.TestCase):
 
   def test_zero_padded_r_rejected_without_mutation(self):
     self.state.parent.mkdir()
-    self.state.write_text("0.1.121-issue.572.2.00\\n")
+    self.state.write_text("0.1.121-issue.572.2.00\n")
     original = self.state.read_bytes()
     with self.assertRaises(EngineVersionError):
       self.transition("task --increment CI-iteration")
