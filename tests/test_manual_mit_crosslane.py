@@ -87,7 +87,9 @@ class ManualMitCrosslaneTests(unittest.TestCase):
     self.assertTrue(self.selection.exists())
     passed = self.cli("test", "succeeded")
     self.assertEqual(passed.returncode, 0, passed.stderr)
-    self.assertFalse(self.selection.exists())
+    self.assertEqual(
+      json.loads(self.selection.read_text()), {"schema": 1, "active": []}
+    )
     records = self.events()
     self.assertEqual(len(records), 1)
     self.assertEqual(records[0]["manualCase"], "issue-703-manual--ALPHA")
