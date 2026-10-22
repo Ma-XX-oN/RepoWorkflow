@@ -7,7 +7,6 @@ import re
 import sys
 
 from .lifecycle_store import LifecycleStore
-from .manual_test_catalogue import ManualCatalogueError, read_manual_cases
 from .test_catalogue import load_test_catalogue
 
 
@@ -88,6 +87,8 @@ def _groups_of_type(root: Path, kind: str) -> tuple[str, ...]:
 
 
 def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
+  # Lazy import preserves standalone CLI fixture tests without the MIT module.
+  from .manual_test_catalogue import ManualCatalogueError, read_manual_cases
   catalogue = load_test_catalogue(root)
   prefix = f"issue-{issue}-"
   try:
