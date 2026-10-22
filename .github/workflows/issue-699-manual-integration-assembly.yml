@@ -31,6 +31,7 @@ jobs:
             tests.test_manual_test_result \
             tests.test_manual_test_cli \
             tests.test_manual_mit_negative_acceptance \
+            tests.test_manual_self_ci_selection \
             tests.test_done_cli 2>&1 | tee combined-contract-results.txt
       - name: Save combined test observations
         if: always()
