@@ -25,11 +25,32 @@ class WorkflowTransitionTests(unittest.TestCase):
       ) as verify:
         outcome = validate_regression(root, engine_root=ROOT)
 
-      verify.assert_called_once_with(root, engine_root=ROOT, push=False)
+      verify.assert_called_once_with(root.resolve(), engine_root=ROOT, push=False)
       self.assertEqual(outcome, "FAIL")
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
         "1.0.0-issue.1.3.8",
+      )
+      self.assertNotEqual(fx.head(), failed_candidate)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+      self.assertEqual(discover_facts(root).regression, "missing")
+
+  def test_regression_failure_from_zero_iteration_starts_first_iteration(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root, version="1.0.0-issue.1.4.0")
+      failed_candidate = fx.head()
+      with patch(
+        "repo_workflow.workflow_transitions.verify_local",
+        return_value="FAIL",
+      ) as verify:
+        outcome = validate_regression(root, engine_root=ROOT)
+      verify.assert_called_once_with(root.resolve(), engine_root=ROOT, push=False)
+      self.assertEqual(outcome, "FAIL")
+      self.assertEqual(
+        (root / "VERSION").read_text().strip(),
+        "1.0.0-issue.1.4.1",
       )
       self.assertNotEqual(fx.head(), failed_candidate)
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
@@ -78,7 +99,7 @@ class WorkflowTransitionTests(unittest.TestCase):
 
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
-        "1.0.0-issue.1.4.1",
+        "1.0.0-issue.1.4.0",
       )
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
       facts = discover_facts(root)

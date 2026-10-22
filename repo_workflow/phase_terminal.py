@@ -11,7 +11,7 @@ import re
 
 _VERSION = re.compile(
   r"(?P<base>[0-9]+\.[0-9]+\.[0-9]+)-issue\."
-  r"(?P<issue>[1-9][0-9]*)\.(?P<q>[0-9]+)\.(?P<r>[1-9][0-9]*)"
+  r"(?P<issue>[1-9][0-9]*)\.(?P<q>[0-9]+)\.(?P<r>[0-9]+)"
 )
 _TERMINAL = {"PASS", "FAIL", "INCOMPLETE"}
 _PHASES = {"regression", "integration"}
@@ -77,5 +77,5 @@ def plan_phase(
         next_version = f"{base}-issue.{issue}.{q}.{r + 1}"
       else:
         request = ("task", "--increment", "merge-integration-failed")
-        next_version = f"{base}-issue.{issue}.{q + 1}.1"
+        next_version = f"{base}-issue.{issue}.{q + 1}.0"
   return PhasePlan(phase, outcome, version, tag, next_version, request)
