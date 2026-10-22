@@ -1,0 +1,51 @@
+name: RWF 710 Expanded MIT-Executor Contract Verification
+on:
+  push:
+    branches:
+      - issue-710-expanded-contract-20261022
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  expanded-contract:
+    name: Expanded exact-source contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Expanded RWF 699 source-bound 245-test contract
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v \
+            tests.test_manual_test_catalogue \
+            tests.test_manual_test_result \
+            tests.test_manual_test_cli \
+            tests.test_manual_mit_negative_acceptance \
+            tests.test_manual_self_ci_selection \
+            tests.test_manual_mit_version_contract \
+            tests.test_engine_version_adapter \
+            tests.test_version_adapter \
+            tests.test_phase_terminal \
+            tests.test_workflow_transitions \
+            tests.test_engine_remote \
+            tests.test_done_cli \
+            tests.test_done_executor \
+            tests.test_done_runtime \
+            tests.test_done_completion \
+            tests.test_done_mit_defer_v2 2>&1 | tee expanded-results.txt
+      - name: Retain exact test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf710-expanded-${{ matrix.os }}-${{ github.sha }}
+          path: expanded-results.txt
+          if-no-files-found: warn
+          retention-days: 14
