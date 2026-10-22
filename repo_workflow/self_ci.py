@@ -7,6 +7,7 @@ import re
 import sys
 
 from .lifecycle_store import LifecycleStore
+from .manual_test_catalogue import ManualCatalogueError, read_manual_cases
 from .test_catalogue import load_test_catalogue
 
 
@@ -89,7 +90,15 @@ def _groups_of_type(root: Path, kind: str) -> tuple[str, ...]:
 def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
   catalogue = load_test_catalogue(root)
   prefix = f"issue-{issue}-"
-  owned = tuple(sorted(group for group in catalogue.groups if group.startswith(prefix)))
+  try:
+    manual_names = {case.name for case in read_manual_cases(root, int(issue))}
+  except ManualCatalogueError as error:
+    raise SelfCiError("manual test catalogue invalid: " + str(error)) from error
+  # Manual cases share the catalogue, but are never runnable CI commands.
+  owned = tuple(sorted(
+    group for group in catalogue.groups
+    if group.startswith(prefix) and group not in manual_names
+  ))
   if not owned:
     raise SelfCiError(
       f"issue {issue} has no verification group in .ci/tests.json"
