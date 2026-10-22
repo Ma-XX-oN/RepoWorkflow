@@ -225,5 +225,41 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
     self.assertEqual(completion_calls, [])
 
 
+
+  def test_late_manual_verdict_after_timeout_requires_new_provider_approval(self):
+    from repo_workflow.integration_coordination import CoordinationError
+    from repo_workflow.done_provider_acceptance import DestinationAcceptanceFacts
+
+    def timeout(source, parent):
+      raise MitTimedOut("mit-deferred-immutable-703")
+    first = self.fixture.invoke(
+      stage_certify=timeout,
+      mit_event_request_id="issue-703-defer-event-late",
+      mit_read_request_id="issue-703-defer-read-late",
+    )
+    self.assertIsInstance(first, DeferredProviderAttempt)
+    self.assertEqual(self.host.deferred["reason"], "timeout")
+    self.assertEqual(self.host.lease["generation"], 2)
+    new_lease = DestinationAcceptanceFacts(
+      self.host.repository, 123, "main", self.fixture.ready.guid,
+      3, "worker-A", "d" * 40,
+    )
+    for stage in (self.pass_required, self.fail_mit):
+      with self.subTest(late_verdict=stage.__name__):
+        with self.assertRaisesRegex(CoordinationError, "not authoritatively approved"):
+          self.fixture.invoke(
+            stage_certify=stage, provider_facts=new_lease,
+          )
+        self.assertEqual(self.host.lease["generation"], 2)
+        self.assert_no_landing()
+
+  def test_no_mit_policy_does_not_invent_required_manual_case(self):
+    result = self.fixture.invoke()
+    self.assertEqual(result.terminal.accepted_sha, "c" * 40)
+    self.assertEqual(self.host.terminal["status"], "integrated")
+    self.assertEqual(self.host.main, "d" * 40)
+
+
+
 if __name__ == "__main__":
   unittest.main()
