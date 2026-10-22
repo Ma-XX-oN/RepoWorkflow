@@ -268,6 +268,28 @@ def after_automatic_integration(root: Path) -> int:
     if "manual--" not in catalogue.read_text(encoding="utf-8"):
       return 0
     raise TestCommandError("manual integration catalogue is not installed")
+  # The A catalogue becomes importable in a full assembly, including for
+  # legacy automated-only catalogues.  Inspect decoded JSON keys before
+  # requesting issue/HEAD identity, which is needed only for a possible MIT.
+  # A remains the authoritative validator when any manual marker is present.
+  try:
+    raw = json.loads(catalogue.read_text(encoding="utf-8"))
+    groups = raw["tests"]
+    if not isinstance(groups, list):
+      raise ValueError("tests must be an array")
+    manual_declared = any(
+      isinstance(declaration, dict) and any(
+        isinstance(name, str) and ("-manual--" in name or
+          isinstance(metadata, dict) and metadata.get("type") == "manual")
+        for name, metadata in declaration.items()
+        if name not in {"test-harness", "command"}
+      )
+      for declaration in groups
+    )
+  except (OSError, UnicodeError, ValueError, TypeError, KeyError) as error:
+    raise TestCommandError("manual integration catalogue unreadable") from error
+  if not manual_declared:
+    return 0
   issue, sha, cases, results, _ = _outstanding(root)
   if not cases:
     print("No manual tests required for this issue.")
