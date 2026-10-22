@@ -14,7 +14,7 @@ import tempfile
 _STABLE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 _TASK = re.compile(
   r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
-  r"-issue\.([1-9][0-9]*)\.(0|[1-9][0-9]*)\.([1-9][0-9]*)\Z"
+  r"-issue\.([1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z"
 )
 
 
@@ -65,7 +65,7 @@ def transition_engine_version(
   elif operation == "task --increment merge-integration-failed":
     if task is None or issue is not None:
       raise EngineVersionError("integration rejection requires a task development version")
-    after = f"{'.'.join(task.groups()[:3])}-issue.{task.group(4)}.{int(task.group(5)) + 1}.1"
+    after = f"{'.'.join(task.groups()[:3])}-issue.{task.group(4)}.{int(task.group(5)) + 1}.0"
   else:
     raise EngineVersionError("unsupported engine version transition")
   path = root / ".ci" / "engine-version"
