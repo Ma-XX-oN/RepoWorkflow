@@ -18,23 +18,25 @@ play button, check mark, smaller bullet, icon-library glyph, or hand-drawn SVG.
 
 | Status | Unicode | Name / code point | Colour | Meaning |
 |---|---|---|---|---|
-| Done | ⬤ | BLACK LARGE CIRCLE, U+2B24 | Green | Scope accepted |
+| Done | ♥ | BLACK HEART SUIT, U+2665 | Green | Scope accepted |
 | In progress | ◐ | U+25D0 | Blue | Actively worked |
 | Blocked | ✕ | MULTIPLICATION X, U+2715 | Red | Prerequisite missing |
 | Not started | ○ | WHITE CIRCLE, U+25CB | Grey | Ready, not begun |
 
 The `◐` character is CIRCLE WITH LEFT HALF BLACK (U+25D0).
-The three circle symbols deliberately form a readable progression:
+The outlined and half-filled circles show progression toward a completed
+heart; these represent status, not the six-state ticket lifecycle:
 
 ```text
-○ Not started  ->  ◐ In progress  ->  ⬤ Done
+○ Not started  ->  ◐ In progress  ->  ♥ Done
 ```
 
 `✕` means blocked and sits outside that progression.  Do not replace `◐`
 with `▶`: the latter may display as a coloured emoji play button and
-visually diverge from the other Unicode text symbols.  `⬤` is intentionally
-used instead of the visibly smaller `●` (U+25CF).  Exact pixel dimensions
-still depend on the installed font; use one consistent text font and size.
+visually diverge from the other Unicode text symbols.  The filled `♥`
+represents completed work without implying it is a third circular fill state.
+Exact glyph dimensions still depend on the installed font; use a consistent
+text font and size.
 Avoid custom SVG icon artwork.
 
 A blocked item is **red even if preparatory work has started**.  A not-started
@@ -66,7 +68,7 @@ Mermaid implementation example:
 
 ```mermaid
 flowchart TD
-    A["⬤ #101<br/>Catalogue"]
+    A["♥ #101<br/>Catalogue"]
     B["○ #102<br/>Adapter"]
     C["◐ #103<br/>Assembly"]
     D["✕ #104<br/>Certification"]
@@ -89,7 +91,7 @@ flowchart TD
 Use a text legend with precisely the same symbols:
 
 ```text
-⬤ Done    ◐ In progress    ✕ Blocked    ○ Not started
+♥ Done    ◐ In progress    ✕ Blocked    ○ Not started
 ```
 
 If one issue is shown at more than one **phase** (for example, controller
