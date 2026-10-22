@@ -28,8 +28,9 @@ On success it must:
 - leave the worktree, index, candidate history, symbolic `HEAD`, and local Git
   refs unchanged.
 
-All numeric components are non-negative decimal integers.  RWF treats the
-reported value as canonical repository version state.
+All numeric components are canonical decimal integers without leading zeros.
+`P` (task issue) is positive; `R` may be zero after an integration failure.
+RWF treats the reported value as canonical repository version state.
 
 ## 3. Semantic mutation requests
 
@@ -57,7 +58,9 @@ Successful transitions have these semantic effects:
 - `task --increment CI-iteration`: development `R` increments by one while
   `X.Y.Z`, `P`, and `Q` remain unchanged;
 - `task --increment merge-integration-failed`: development `Q` increments
-  by one, `R` resets to one, and `X.Y.Z` and `P` remain unchanged;
+  by one, `R` resets to **zero**, and `X.Y.Z` and `P` remain unchanged.
+  The next `CI-iteration` advances `R` from zero to one; integration failure
+  does not itself count as a completed regression iteration;
 - `integrate --increment patch`: stable patch increments by one;
 - `integrate --increment minor`: stable minor increments by one and patch
   resets to zero;
