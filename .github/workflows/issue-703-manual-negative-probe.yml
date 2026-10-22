@@ -35,3 +35,33 @@ jobs:
           path: test-output.txt
           if-no-files-found: warn
           retention-days: 14
+
+  version-contract-known-red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Exercise three explicit unfulfilled Q+1/R=0 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python -m unittest tests.test_manual_mit_version_contract -v > version-red.txt 2>&1
+          outcome=$?
+          set -e
+          cat version-red.txt
+          test "$outcome" -ne 0
+          grep -F 'test_development_version_parser_accepts_r_zero' version-red.txt
+          grep -F 'test_version_adapter_accepts_required_failure_transition' version-red.txt
+          grep -F 'test_real_engine_failure_transition_resets_iteration_to_zero' version-red.txt
+          grep -F 'FAILED (failures=3)' version-red.txt
+      - name: Archive explicit RED contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf-703-known-red-version-${{ github.sha }}
+          path: version-red.txt
+          if-no-files-found: warn
+          retention-days: 14
