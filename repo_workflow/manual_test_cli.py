@@ -84,16 +84,48 @@ def _selected(api, root: Path, issue: int, sha: str, cases):
   return case
 
 
-def manual_case_completions(context) -> list:
+def manual_case_completions(context) -> dict:
+  # Keep all declared names in the grammar (explicit stale commands must
+  # reach the state service), but advertise only currently legal cases.
+  from .command_grammar import CompletionResponse
+
   try:
     issue = _issue(context.root)
     cases = _catalogue(context.root, issue)
   except (TestCommandError, GitError, ValueError, OSError):
-    return []
-  return [
+    cases = ()
+  names = [
     {case.name: "Select manual integration test " + case.name}
     for case in cases
   ]
+
+  def legal_on_tab(request):
+    if not request.context.legal_only:
+      return request.default()
+    permitted = set()
+    try:
+      issue, sha, declared, results, api = _outstanding(context.root)
+      if "failed" not in results.values():
+        active = (
+          api.read_active_manual_selection(context.root, issue, sha)
+          if api is not None else None
+        )
+        if active is not None:
+          case = _selected(api, context.root, issue, sha, declared)
+          if case.name not in results:
+            permitted.add(case.name)
+        else:
+          permitted.update(
+            case.name for case in declared if case.name not in results
+          )
+    except (TestCommandError, GitError, ValueError, OSError):
+      pass
+    return CompletionResponse(tuple(
+      item for item in request.items
+      if not item.token.startswith("issue-") or item.token in permitted
+    ))
+
+  return {"completions": names, "on-tab": legal_on_tab}
 
 
 def manual_result_completions(context) -> list:
@@ -106,7 +138,11 @@ def manual_result_completions(context) -> list:
     root = context.root
     issue = _issue(root)
     cases = _catalogue(root, issue)
-    _selected(_result_api(), root, issue, head_sha(root), cases)
+    sha = head_sha(root)
+    api = _result_api()
+    case = _selected(api, root, issue, sha, cases)
+    if case.name in _results(api, root, issue, sha, cases):
+      return []
   except (TestCommandError, GitError, ValueError, OSError):
     return []
   return [

@@ -189,12 +189,23 @@ class TestManualLauncher(unittest.TestCase):
     active = self.cli("complete", "test", "")
     self.assertIn("succeeded", active.stdout)
     self.assertIn("failed", active.stdout)
+    active_names = self.cli("complete", "test", "integration", "")
+    self.assertIn("issue-702-manual--a-first", active_names.stdout)
+    self.assertNotIn("issue-702-manual--z-last", active_names.stdout)
     resumed = self.cli("test", "integration", "issue-702-manual--a-first")
     self.assertEqual(resumed.returncode, 0, resumed.stderr)
     self.assertIn("a-first", resumed.stdout)
     passed = self.cli("test", "succeeded")
     self.assertEqual(passed.returncode, 0, passed.stderr)
     self.assertIn("a-first", passed.stdout)
+    outstanding_names = self.cli("complete", "test", "integration", "")
+    self.assertIn("issue-702-manual--z-last", outstanding_names.stdout)
+    self.assertNotIn("issue-702-manual--a-first", outstanding_names.stdout)
+    explicit_terminal = self.cli(
+      "test", "integration", "issue-702-manual--a-first"
+    )
+    self.assertEqual(explicit_terminal.returncode, 2)
+    self.assertIn("terminal result", explicit_terminal.stderr)
     duplicate = self.cli("test", "succeeded")
     self.assertEqual(duplicate.returncode, 2)
     self.assertIn("exactly one active", duplicate.stderr)
@@ -225,6 +236,26 @@ class TestManualLauncher(unittest.TestCase):
     self.assertIn("UNKNOWN", response.stderr)
     self.assertFalse((self.root / ".manual-results.json").exists())
 
+  def test_terminal_evidence_hides_result_transition_even_if_selection_lingers(self):
+    selected = self.cli("test", "integration", "--manual")
+    self.assertEqual(selected.returncode, 0, selected.stderr)
+    before = self.cli("complete", "test", "")
+    self.assertIn("succeeded", before.stdout)
+    self.assertIn("failed", before.stdout)
+    case = "issue-702-manual--a-first"
+    path = self.root / ".manual-results.json"
+    saved = {self.sha: {case: "succeeded"}}
+    path.write_text(json.dumps(saved))
+    after = self.cli("complete", "test", "")
+    self.assertEqual(after.returncode, 0, after.stderr)
+    self.assertNotIn("succeeded", after.stdout)
+    self.assertNotIn("failed", after.stdout)
+    outcome = self.cli("test", "succeeded")
+    self.assertEqual(outcome.returncode, 2)
+    self.assertIn("terminal result", outcome.stderr)
+    self.assertEqual(json.loads(path.read_text()), saved)
+    self.assertTrue((self.root / ".manual-active.json").exists())
+
   def test_failed_case_blocks_same_candidate_and_retains_evidence(self):
     selected = self.cli("test", "integration", "issue-702-manual--z-last")
     self.assertEqual(selected.returncode, 0, selected.stderr)
@@ -234,6 +265,9 @@ class TestManualLauncher(unittest.TestCase):
     retry = self.cli("test", "integration", "--manual")
     self.assertEqual(retry.returncode, 2)
     self.assertIn("repair required", retry.stderr)
+    legal_names = self.cli("complete", "test", "integration", "")
+    self.assertNotIn("issue-702-manual--a-first", legal_names.stdout)
+    self.assertNotIn("issue-702-manual--z-last", legal_names.stdout)
     recorded = self.cli("test", "results")
     self.assertEqual(recorded.returncode, 0, recorded.stderr)
     evidence = json.loads(recorded.stdout)
