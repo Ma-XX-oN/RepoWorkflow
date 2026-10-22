@@ -68,3 +68,35 @@ jobs:
           path: full-regression-results.txt
           if-no-files-found: warn
           retention-days: 14
+
+  baseline-regression:
+    name: Exact #109 baseline regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout exact #109 baseline (not #699 source)
+        uses: actions/checkout@v4
+        with:
+          ref: 66c64e563eae3c93579104c27b476c5121e4b53f
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Capture exact baseline full regression
+        shell: bash
+        run: |
+          set -o pipefail
+          git rev-parse HEAD
+          python scripts/validate.py 2>&1 | tee baseline-full-regression-results.txt
+      - name: Retain #109 baseline observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf699-baseline-${{ matrix.os }}-${{ github.sha }}
+          path: baseline-full-regression-results.txt
+          if-no-files-found: warn
+          retention-days: 14
