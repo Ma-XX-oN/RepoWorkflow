@@ -13,14 +13,15 @@ role must not redefine its work-status colour.
 ## Four-state legend
 
 Use this **exact** project status mapping.  Copy the literal Unicode
-characters into the legend and Mermaid node text; do not substitute an emoji,
-play button, check mark, smaller bullet, icon-library glyph, or hand-drawn SVG.
+characters into the legend and Mermaid node text.  The Blocked symbol is the
+explicitly approved brick emoji.  Do not substitute other emoji, play buttons,
+check marks, smaller bullets, icon-library glyphs, or hand-drawn SVG.
 
 | Status | Unicode | Name / code point | Colour | Meaning |
 |---|---|---|---|---|
 | Done | ♥ | BLACK HEART SUIT, U+2665 | Green | Scope accepted |
 | In progress | ◐ | U+25D0 | Blue | Actively worked |
-| Blocked | ✕ | MULTIPLICATION X, U+2715 | Red | Prerequisite missing |
+| Blocked | 🧱 | BRICK, U+1F9F1 | Red | Prerequisite missing |
 | Not started | ○ | WHITE CIRCLE, U+25CB | Grey | Ready, not begun |
 
 The `◐` character is CIRCLE WITH LEFT HALF BLACK (U+25D0).
@@ -31,13 +32,12 @@ heart; these represent status, not the six-state ticket lifecycle:
 ○ Not started  ->  ◐ In progress  ->  ♥ Done
 ```
 
-`✕` means blocked and sits outside that progression.  Do not replace `◐`
-with `▶`: the latter may display as a coloured emoji play button and
-visually diverge from the other Unicode text symbols.  The filled `♥`
-represents completed work without implying it is a third circular fill state.
-Exact glyph dimensions still depend on the installed font; use a consistent
-text font and size.
-Avoid custom SVG icon artwork.
+`🧱` means blocked and sits outside that progression.  The brick may render
+as a multicolour emoji and can have different dimensions across fonts and
+platforms; never rely on its colour alone.  Do not replace `◐` with `▶`,
+which may render as an emoji play button.  The filled `♥` represents
+completed work without implying it is a third circular fill state.
+Use a consistent text font and size where possible.  Avoid custom SVG icons.
 
 A blocked item is **red even if preparatory work has started**.  A not-started
 item is **grey only if it is currently eligible to begin**; unmet
@@ -71,7 +71,7 @@ flowchart TD
     A["♥ #101<br/>Catalogue"]
     B["○ #102<br/>Adapter"]
     C["◐ #103<br/>Assembly"]
-    D["✕ #104<br/>Certification"]
+    D["🧱 #104<br/>Certification"]
 
     A --> C
     B --> D
@@ -91,7 +91,7 @@ flowchart TD
 Use a text legend with precisely the same symbols:
 
 ```text
-♥ Done    ◐ In progress    ✕ Blocked    ○ Not started
+♥ Done    ◐ In progress    🧱 Blocked    ○ Not started
 ```
 
 If one issue is shown at more than one **phase** (for example, controller
@@ -110,9 +110,10 @@ not independent issues or a cycle.
   the status words, so meaning does not depend on colour perception alone.
   Where reading without the legend is important, repeat the status word in
   the node label or adjacent accessible text.
-- Symbol shapes must match between legend and nodes.  Avoid SVG/emoji
-  substitutions and role-based colours.  For unsupported Unicode fonts,
-  prefer adding explicit status words rather than inventing alternate glyphs.
+- Symbol characters must match between legend and nodes.  Apart from the
+  explicitly approved brick emoji, avoid alternate emoji, custom SVG icons,
+  and role-based colours.  For unsupported fonts, include explicit status
+  words rather than inventing alternate glyphs.
 - Graph arrows describe the actual documented dependency relationships;
   the status rendering must never introduce or reverse a graph edge.
 
