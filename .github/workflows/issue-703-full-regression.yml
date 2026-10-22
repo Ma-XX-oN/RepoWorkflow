@@ -1,0 +1,38 @@
+name: RWF 703 Isolated Assembled Full Regression
+
+on:
+  push:
+    branches:
+      - 'issue-703-mit-negative-assembly-probe-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install exact source requirements
+        run: python -m pip install -r requirements.txt
+      - name: Full current source validation (expected RED until adapter fixed)
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/validate.py 2>&1 | tee full-regression.txt
+      - name: Archive unfiltered regression output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf-703-full-regression-${{ matrix.os }}-${{ github.sha }}
+          path: full-regression.txt
+          if-no-files-found: warn
+          retention-days: 14
