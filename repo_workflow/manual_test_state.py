@@ -129,9 +129,13 @@ def _validate_current(root: Path, candidate_sha: str) -> None:
   from .git import changed_files, head_sha
   if head_sha(root) != _sha(candidate_sha):
     raise ManualSelectionError("manual candidate is not current HEAD")
+  runtime_prefixes = (
+    ".repoworkflow/manual/",
+    ".repoworkflow/validation/",
+    ".repoworkflow/state/",
+  )
   dirty = [path for path in changed_files(root)
-           if not path.startswith(".repoworkflow/manual/")
-           and not path.startswith(".repoworkflow/validation/")]
+           if not path.startswith(runtime_prefixes)]
   if dirty:
     raise ManualSelectionError("manual candidate has changed source inputs")
 
