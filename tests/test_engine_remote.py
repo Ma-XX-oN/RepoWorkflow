@@ -97,7 +97,28 @@ class EngineRemotePreparationTests(unittest.TestCase):
   def test_integration_fail_advances_q_for_next_generation(self):
     self.prepare()
     self.publish("v0.1.121-PRELIM-572.0.1-CI-FAIL")
-    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.1")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
+
+  def test_zero_iteration_reuses_candidate_until_regression_failure(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.0.1-CI-FAIL")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
+    candidate = self.git("rev-parse", "HEAD")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.1.0")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.1.0")
+    self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
+    self.publish("v0.1.121-issue.572.1.0-CI-FAIL")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.1.1")
+
+  def test_zero_iteration_does_not_bypass_issue_ownership(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.0.1-CI-FAIL")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
+    candidate = self.git("rev-parse", "HEAD")
+    self.git("checkout", "-qb", "issue-573-other")
+    with self.assertRaises(EnginePreparationError):
+      prepare_engine_request(self.root, stage="regression", issue=573)
+    self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
 
   def test_integration_pass_never_increments_regression_r(self):
     self.prepare()
