@@ -106,7 +106,11 @@ def manual_result_completions(context) -> list:
     root = context.root
     issue = _issue(root)
     cases = _catalogue(root, issue)
-    _selected(_result_api(), root, issue, head_sha(root), cases)
+    sha = head_sha(root)
+    api = _result_api()
+    case = _selected(api, root, issue, sha, cases)
+    if case.name in _results(api, root, issue, sha, cases):
+      return []
   except (TestCommandError, GitError, ValueError, OSError):
     return []
   return [
