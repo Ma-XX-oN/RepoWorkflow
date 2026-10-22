@@ -52,7 +52,7 @@ def prepare_engine_request(
     transition_engine_version(root, operation="task --issue", issue=issue)
   else:
     match = re.fullmatch(
-      r"[0-9]+\.[0-9]+\.[0-9]+-issue\.([1-9][0-9]*)\.[0-9]+\.[1-9][0-9]*",
+      r"[0-9]+\.[0-9]+\.[0-9]+-issue\.([1-9][0-9]*)\.[0-9]+\.(0|[1-9][0-9]*)",
       before,
     )
     if match is None or int(match.group(1)) != issue:
