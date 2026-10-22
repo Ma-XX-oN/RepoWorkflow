@@ -152,5 +152,35 @@ class ManualMitCrosslaneTests(unittest.TestCase):
     self.assertEqual(len(self.events()), 2)
 
 
+  def test_real_lifecycle_accepted_fail_reopens_active_with_unknown_version(self):
+    from repo_workflow.lifecycle_store import LifecycleStore
+    from repo_workflow.state_store import WriterIdentity
+
+    store = LifecycleStore(self.consumer)
+    writer = WriterIdentity("certifier-703", "independent-local-probe")
+    started = store.transition(703, "start", None, None, writer, None)
+    review = store.transition(
+      703, "submit-review", self.sha, None, writer, started.revision
+    )
+    accepted = store.transition(
+      703, "accept", self.sha, None, writer, review.revision
+    )
+    self.assertEqual(accepted.lifecycle.state, "accepted")
+    self.assertFalse(accepted.lifecycle.dependency_satisfied)
+    selected = self.cli("test", "integration", "--manual")
+    self.assertEqual(selected.returncode, 0, selected.stderr)
+    failed = self.cli("test", "failed")
+    self.assertNotEqual(failed.returncode, 0)
+    current = LifecycleStore(self.consumer).read(703).lifecycle
+    self.assertEqual(current.state, "active")
+    self.assertFalse(current.dependency_satisfied)
+    self.assertEqual(current.history[-1].transition, "reject/reopen")
+    self.assertTrue(self.pending.exists())
+    self.assertEqual([x["result"] for x in self.events()], ["failed"])
+    with self.assertRaises(ManualResultError):
+      require_manual_completion(self.consumer, 703, self.sha)
+
+
+
 if __name__ == "__main__":
   unittest.main()
