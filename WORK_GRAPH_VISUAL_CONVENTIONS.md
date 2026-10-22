@@ -19,10 +19,11 @@ play button, check mark, smaller bullet, icon-library glyph, or hand-drawn SVG.
 | Status | Unicode | Name / code point | Colour | Meaning |
 |---|---|---|---|---|
 | Done | ⬤ | BLACK LARGE CIRCLE, U+2B24 | Green | Scope accepted |
-| In progress | ◐ | CIRCLE WITH LEFT HALF BLACK, U+25D0 | Blue | Actively worked |
+| In progress | ◐ | U+25D0 | Blue | Actively worked |
 | Blocked | ✕ | MULTIPLICATION X, U+2715 | Red | Prerequisite missing |
 | Not started | ○ | WHITE CIRCLE, U+25CB | Grey | Ready, not begun |
 
+The `◐` character is CIRCLE WITH LEFT HALF BLACK (U+25D0).
 The three circle symbols deliberately form a readable progression:
 
 ```text
