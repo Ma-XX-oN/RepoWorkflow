@@ -7,6 +7,7 @@ from .command_grammar import Context, validate_node
 from .test_catalogue import TestCatalogueError, load_test_catalogue
 from .workflow_state import derive_plan, discover_facts
 from .workspace_store import WorkspaceStore
+from .manual_test_cli import manual_case_completions, manual_result_completions
 
 
 def _red_group_values(context: Context) -> dict:
@@ -383,6 +384,7 @@ COMMANDS = {
   },
   "test": {
     "_description": "Run tests or inspect testing-log results",
+    "_values": manual_result_completions,
     "RED": {
       "_description": "Run an issue-N- RED test group",
       "_values": _red_group_values,
@@ -403,18 +405,19 @@ COMMANDS = {
       "_switches": {"--remote": "Request regression tests through hosted CI"},
     },
     "integration": {
-      "": "Run integration tests locally",
-      "_switches": {"--remote": "Request integration tests through hosted CI"},
+      "": "Run integration tests locally; manual tests remain pending",
+      "_values": manual_case_completions,
+      "_value_description": "Current-issue manual case",
+      "_quantifier": "?",
+      "_switches": {
+        "--remote": "Request automated integration tests through hosted CI",
+        "--manual": "Select the first outstanding manual integration test",
+      },
     },
     "results": {
       "": "Show recorded testing-log results",
       "_switches": {"--remote": "Retrieve recorded hosted test results"},
     },
-  },
-  "done": {
-    "patch": "Complete an authorized patch integration",
-    "minor": "Complete an authorized minor integration",
-    "major": "Complete an authorized major integration",
   },
   "version": {
     "": "Show the repository version",

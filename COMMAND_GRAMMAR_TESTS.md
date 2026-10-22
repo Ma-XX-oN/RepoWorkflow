@@ -311,3 +311,34 @@ These tests source the shipped Bash script and directly set `COMP_WORDS`,
 64. The issue branch passes the repository's authoritative local/hosted
     validation on the exact final candidate.
 
+## RWF #702 manual integration public CLI acceptance additions (V3)
+
+The following tests supplement historical workflow grammar tests above.
+The historical `rwf validate` wording is not a live public alias; the
+current public surface is exclusively `rwf test`.
+
+- Invoke the shipped `./rwf` launcher in a disposable Git checkout. Probe
+  help and completion for existing six unified stages, `--remote`, the
+  new `--manual` flag, and current-issue case-name descriptions.
+- With no selected case, `test succeeded` and `test failed` reject;
+  neither is advertised by completion. The parser must still recognise
+  the tokens as syntactically valid.
+- Discover 0, 1 and multiple cases; sort full names lexicographically.
+  `--manual` presents the first outstanding case only. Explicit case
+  lookup must reject undeclared and foreign names. Selection never PASSes.
+- Test repeated selection/resume, case-specific PASS and only-then next-case
+  discovery. A duplicate terminal result must be rejected without mutation.
+- Reject a multiple-active selection, stale source SHA, stale definition
+  fingerprint, absent selection and invalid result state. Completion must
+  be read-only, including detailed/double-Tab descriptions.
+- Test a genuine CLI FAIL outcome and verify nonzero exit, canonical result
+  readback, same-candidate reselection refusal and no fabricated remote
+  provider record. Exact lifecycle/version/provider effects remain separately
+  owned by #701 and independently certified by #703.
+- Run original automatic RED/temporary/GREEN/regression/integration/results
+  tests and hosted `--remote` tests without functional regressions.
+- Test that the local automatic integration path does not publish a terminal
+  PASS while manual cases remain outstanding. No-manual test suites preserve
+  legacy automatic test completion.
+- The #702 subprocess fixture uses injected A/B API stubs, NOT actual
+  GitHub provider certification or a full A+B+C assembled candidate.

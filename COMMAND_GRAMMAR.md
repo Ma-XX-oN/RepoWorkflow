@@ -385,3 +385,48 @@ Issue #27 owns shell initialization/registration.
 
 The complete public command model is defined in
 [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
+
+## 12. Manual integration CLI projection (RWF #702)
+
+Manual integration uses the same public `test` command grammar and the
+existing shell completion/help entrypoints. These are the public forms:
+
+```text
+rwf test integration
+rwf test integration --manual
+rwf test integration issue-X-manual--NAME
+rwf test succeeded
+rwf test failed
+rwf test results
+```
+
+The `integration` command runs automatic integration first; completion of
+automatic tests does not satisfy a required manual case. `--manual` selects
+the lexicographically first outstanding current-issue case. A case argument
+selects exactly that declared case, without treating its name as an executable
+command. The current case's instructions and expected result are printed.
+Neither operation records PASS. No declared manual cases is reported explicitly.
+
+The grammar always recognises the `succeeded` and `failed` tokens as
+syntactically valid. Legal-only completion exposes these tokens only if the
+durable selection service rereads exactly one active selection bound to
+the current issue, source SHA and current case-definition fingerprint.
+The dispatcher rejects absent, ambiguous, terminal and stale selection
+before recording a result. PASS does not select another case. FAIL is
+delegated to the durable lifecycle/version rejection service and blocks
+integration. Both results are read from the canonical testing JSONL.
+
+`--remote` remains available for existing automatic stages. It cannot
+select or report a manual case, and combining it with a manual form is an
+error. State/help/completion paths are read-only and may not create
+manual selections or results.
+
+The CLI calls `select_manual_case` and `read_active_manual_selection`
+from B `manual_test_state.py`, and `record_manual_result` from B
+`manual_test_result.py`. For the first-outstanding projection it calls B's
+`read_manual_case_results(root, issue, candidate_sha, cases=...)`. B
+validates the current case definitions and canonical per-issue testing
+JSONL and rejects a pending journal as UNKNOWN before any result is reused.
+No other selection or evidence store is introduced. Result submission passes explicit
+clone-local writer provenance and a `local-operator-assertion:` evidence
+reference; it never claims an external provider check ran.

@@ -65,3 +65,30 @@ jobs:
           path: version-red.txt
           if-no-files-found: warn
           retention-days: 14
+
+  assembled-contract-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install declared dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run isolated cross-lane A B C real test modules
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest tests.test_manual_test_catalogue tests.test_manual_test_result tests.test_manual_test_cli -v 2>&1 | tee assembled-tests.txt
+      - name: Preserve provisional assembly results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf-703-assembled-probe-${{ matrix.os }}-${{ github.sha }}
+          path: assembled-tests.txt
+          if-no-files-found: warn
+          retention-days: 14

@@ -14,7 +14,6 @@ from .command_grammar import (
   parse_tokens,
 )
 from .config import load_config
-from .done_cli import execute_done_command
 from .dependency_sync_cli import dependency_sync_command
 from .high_risk import associate_high_risk
 from .issue_info_cli import show_issue_info
@@ -37,6 +36,10 @@ from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
 from .test_cli import run_test
+from .manual_test_cli import (
+  record_selected,
+  select_requested,
+)
 from .workspace_cli import handle_workspace
 
 
@@ -64,6 +67,8 @@ def _diagnose(
   completion: bool,
 ):
   general, legal, facts, plan, state = _contexts(root)
+  if words and words[0] == "test" and not legal.legal_only:
+    legal = Context(root, legal_only=True)
   failure = analyse_failure(
     COMMANDS,
     words,
@@ -116,13 +121,10 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
     return words[1] in {"create", "claim", "release", "resume", "close"}
   if command == "high-risk":
     return True
-  if command == "done":
-    return True
   return False
 
 
-def handle_public(root: Path, words: list[str], *, engine_root: Path,
-                  done_executor=None) -> int:
+def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   # Accept the documented RED group before its optional hosted switch.
   # The grammar parser requires switches before dynamic values internally.
   if (
@@ -130,6 +132,12 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path,
     and words[3] == "--remote" and not words[2].startswith("--")
   ):
     words = [words[0], words[1], "--remote", words[2]]
+  if words in (["test", "succeeded"], ["test", "failed"]):
+    return record_selected(root, outcome=words[1])
+  if words[:2] == ["test", "integration"] and "--remote" in words and (
+    "--manual" in words or any("-manual--" in token for token in words[2:])
+  ):
+    raise CommandGrammarError("manual integration cannot use --remote")
   general, legal, facts, plan, state, failure = _diagnose(
     root,
     words,
@@ -211,15 +219,26 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path,
     return 0
 
   if command == "test":
-    return run_test(
-      root, words[1], remote="--remote" in words,
+    remote = "--remote" in words
+    if words[1] == "integration" and (
+      "--manual" in words or any(
+        token not in {"--remote", "--manual"} for token in words[2:]
+      )
+    ):
+      names = [token for token in words[2:] if not token.startswith("--")]
+      if "--manual" in words and names:
+        raise CommandGrammarError(
+          "--manual cannot be combined with an explicit test name"
+        )
+      return select_requested(
+        root, name=names[0] if names else None, remote=remote,
+      )
+    result = run_test(
+      root, words[1], remote=remote,
       engine_root=engine_root,
       group=next((value for value in words[2:] if value != "--remote"), None),
     )
-
-  if command == "done":
-    return execute_done_command(
-      words[1], trusted_executor=done_executor, emit=print)
+    return result
 
   if command == "version":
     config = load_config(root)
