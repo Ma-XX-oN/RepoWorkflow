@@ -83,9 +83,24 @@ class VersionAdapterTests(unittest.TestCase):
       root = Path(td) / "repo"
       root.mkdir()
       RepoFixture(root)
+      # The shared RepoFixture correctly emits R=0. Override only this
+      # temporary adapter to reproduce the obsolete Q+1/R=1 behaviour.
+      script = root / "scripts" / "version.py"
+      original = script.read_text(encoding="utf-8")
+      valid_r_zero = "int(task.group(3)) + 1}.0"
+      obsolete_r_one = "int(task.group(3)) + 1}.1"
+      self.assertEqual(original.count(valid_r_zero), 1)
+      script.write_text(
+        original.replace(valid_r_zero, obsolete_r_one, 1),
+        encoding="utf-8",
+      )
       with self.assertRaisesRegex(VersionAdapterError, "invalid semantic transition"):
         run_transition(root, load_config(root),
                        "task", "--increment", "merge-integration-failed")
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8").strip(),
+        "1.0.0-issue.1.1.1",
+      )
 
   def test_task_issue_transition_is_forwarded(self):
     with tempfile.TemporaryDirectory() as td:
