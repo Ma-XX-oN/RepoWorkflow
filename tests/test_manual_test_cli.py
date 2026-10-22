@@ -372,6 +372,26 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
       (root / ".ci" / "tests.json").write_text('{"tests": []}')
       self.assertEqual(after_automatic_integration(root), 0)
 
+  def test_escaped_manual_name_reaches_authoritative_a_gate(self):
+    from types import ModuleType, SimpleNamespace
+    with tempfile.TemporaryDirectory() as temp:
+      root = Path(temp)
+      (root / ".ci").mkdir()
+      (root / ".ci" / "tests.json").write_text(
+        '{"tests": [{"issue-702-manual\\u002d\\u002dfirst": '
+        '{"type": "manual"}}]}'
+      )
+      module = ModuleType("repo_workflow.manual_test_catalogue")
+      module.read_manual_cases = lambda root, issue: ()
+      case = SimpleNamespace(name="issue-702-manual--first")
+      with patch.dict(sys.modules, {
+        "repo_workflow.manual_test_catalogue": module
+      }):
+        with patch("repo_workflow.manual_test_cli._outstanding",
+                   return_value=(702, "a" * 40, (case,), {}, object())) as gate:
+          self.assertEqual(after_automatic_integration(root), 2)
+          gate.assert_called_once_with(root)
+
   def test_manual_marker_never_silently_passes_without_adapter(self):
     with tempfile.TemporaryDirectory() as temp:
       root = Path(temp)
