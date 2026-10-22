@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m unittest tests.test_manual_test_catalogue tests.test_manual_test_result tests.test_manual_test_cli -v 2>&1 | tee assembled-tests.txt
+          python -m unittest tests.test_manual_test_catalogue tests.test_manual_test_result tests.test_manual_test_cli tests.test_manual_mit_crosslane -v 2>&1 | tee assembled-tests.txt
       - name: Preserve provisional assembly results
         if: always()
         uses: actions/upload-artifact@v4
