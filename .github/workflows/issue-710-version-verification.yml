@@ -1,0 +1,79 @@
+name: RWF 710 Independent Version Contract Verification
+on:
+  push:
+    branches:
+      - 'issue-710-verify-*'
+permissions:
+  contents: read
+jobs:
+  core-version-contract:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Exact #703 formerly RED tests and #710 owned version tests
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_manual_mit_version_contract tests.test_engine_version_adapter tests.test_version_adapter tests.test_phase_terminal 2>&1 | tee core-version.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf710-core-${{ matrix.os }}-${{ github.sha }}
+          path: core-version.txt
+          retention-days: 14
+
+  downstream-replay:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Callers and independent fixture negative oracle
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_engine_remote tests.test_workflow_transitions tests.test_manual_mit_negative_acceptance 2>&1 | tee consumer-results.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf710-consumers-${{ matrix.os }}-${{ github.sha }}
+          path: consumer-results.txt
+          retention-days: 14
+
+  full-repository-regression:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Full local RWF regression
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/validate.py 2>&1 | tee full-regression.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf710-regression-${{ matrix.os }}-${{ github.sha }}
+          path: full-regression.txt
+          retention-days: 14
