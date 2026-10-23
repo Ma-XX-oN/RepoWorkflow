@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import re
+import stat
 import subprocess
 
 from .phase_terminal import PhaseTransitionError, plan_phase
@@ -90,7 +91,17 @@ def verify_phase_evidence(
   validation_dir = validation_root / "validation"
 
   def substituted(path: Path) -> bool:
-    return path.is_symlink() or getattr(path, "is_junction", lambda: False)()
+    if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
+      return True
+    # Path.is_junction was added in Python 3.12. On 3.10/3.11, still
+    # refuse Windows directory junctions and other reparse-point redirects.
+    try:
+      return bool(
+        getattr(path.lstat(), "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+      )
+    except FileNotFoundError:
+      return False
 
   if (
     ".." in canonical_log.parts
