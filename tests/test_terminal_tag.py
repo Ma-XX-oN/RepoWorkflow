@@ -5,6 +5,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+import sys
 from unittest.mock import patch
 
 from repo_workflow import terminal_tag
@@ -453,6 +454,28 @@ class TerminalTagTests(unittest.TestCase):
     nested.write_bytes(self.log.read_bytes())
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", canonical_log=nested, push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+
+
+
+  def test_windows_validation_junction_is_rejected_without_is_junction(self):
+    if sys.platform != "win32":
+      self.skipTest("Windows directory junction test")
+    self.seed_success_log()
+    outside = self.root.parent / "outside-junction"
+    outside.mkdir()
+    self.log.rename(outside / self.log.name)
+    self.log.parent.rmdir()
+    result = subprocess.run(
+      ["cmd", "/c", "mklink", "/J", str(self.log.parent), str(outside)],
+      capture_output=True, text=True, check=False,
+    )
+    if result.returncode:
+      self.skipTest("Windows junction unavailable: " + result.stderr)
+    # Simulate Python 3.10/3.11, before Path.is_junction existed.
+    with patch.object(Path, "is_junction", lambda self: False, create=True):
+      with self.assertRaisesRegex(TerminalTagError, "validation path"):
+        self.issue_tag("PASS", push=False)
     self.assertEqual(self.git("tag", "--list"), "")
 
 
