@@ -10,6 +10,39 @@ governed by [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md) and
 [GRAPH_RENDERER.md](GRAPH_RENDERER.md).  A ticket's lane letter or controller
 role must not redefine its work-status colour.
 
+## Named graph views
+
+**Progress Graph (PG)** is the human-facing, four-status **Mermaid**
+dependency diagram specified by this document.  Its nodes use
+`○ Not started`, `◐ In progress`, `🧱 Blocked`, and `♥ Done` with the
+exact colours below.  It describes understandable project progress rather
+than formal RWF lifecycle transitions.
+
+**Lifecycle Graph (LG)** is the RWF six-state, lifecycle-annotated dependency
+view specified in [SIX_STATE_LIFECYCLE.md](SIX_STATE_LIFECYCLE.md) and
+[LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  Its six glyphs are
+`○ not_started`, `● active`, `◎ in_review`, `✓ accepted`, `♥ completed`,
+and `✕ aborted`.  The `rwf lanes view` terminal graph uses lane-based
+colours; `--current` refreshes authoritative lifecycle projections.  The
+separate six-state transition diagram in the lifecycle specification shows
+legal state transitions; it is not a replacement for the dependency graph.
+
+These are **two presentations of the same dependency relationships**, not
+separate dependency graphs or stores.  Their symbols and colouring are not
+interchangeable: Progress status is an evidence-based summary; Lifecycle
+status follows authoritative RWF state.  Neither view changes state.
+
+Requests may use either full name or the shorthand `PG` and `LG`:
+
+- "Show the Progress Graph for DC #175."
+- "Show the Lifecycle Graph for RWF #109."
+
+For an unqualified dependency-graph request in a conversation or planning
+document, prefer **Progress Graph**.  Use **Lifecycle Graph** when the
+request names it or specifically asks for RWF's formal ticket state or
+`rwf lanes view`.  This naming rule does not modify the RWF terminal
+command or its output format.
+
 ## Four-state legend
 
 Use this **exact** project status mapping.  Copy the literal Unicode
