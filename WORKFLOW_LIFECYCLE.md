@@ -287,6 +287,11 @@ interface.
 RWF must not manufacture ordering from title prefixes, issue prose, branch
 ancestry, or local navigation history.
 
+When an executable ticket is explicitly designated to converge other work,
+its owner receives each contributor's final acceptance/closure handoff under
+[WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) section 13.4.
+This does not alter dependencies or the separate merge-authorization gate.
+
 Branch-parent identity is a separate Git fact recorded and recovered under
 [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md). It is never stored in
 the ticket dependency graph.
