@@ -14,6 +14,7 @@ from tests.support import RepoFixture
 
 ROOT = Path(__file__).resolve().parents[1]
 RWF = ROOT / "rwf"
+PYTHON_ENTRY = ROOT / "repo_workflow.py"
 CANONICAL_TICKETS = ROOT / ".repoworkflow" / "tickets.csv"
 TYPE_PREFIXES = ("Initiative:", "Epic:", "Feature:")
 
@@ -99,8 +100,15 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
     )
 
   def run_rwf(self, root: Path, *args: str):
+    # A POSIX shell launcher is not directly executable by Win32.
+    # The existing Python CLI is the same application on every platform.
+    executable = (
+      [sys.executable, str(PYTHON_ENTRY)]
+      if sys.platform == "win32"
+      else [str(RWF)]
+    )
     return subprocess.run(
-      [str(RWF), "--root", str(root), *args],
+      [*executable, "--root", str(root), *args],
       cwd=root,
       capture_output=True,
       text=True,
