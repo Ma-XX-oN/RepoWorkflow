@@ -36,6 +36,10 @@ from .public_commands import COMMANDS, PUBLIC_COMMANDS
 from .version_adapter import read_version, run_transition
 from .workflow_state import derive_plan, discover_facts, render_human, state_name
 from .test_cli import run_test
+from .manual_test_cli import (
+  record_selected,
+  select_requested,
+)
 from .workspace_cli import handle_workspace
 
 
@@ -63,6 +67,8 @@ def _diagnose(
   completion: bool,
 ):
   general, legal, facts, plan, state = _contexts(root)
+  if words and words[0] == "test" and not legal.legal_only:
+    legal = Context(root, legal_only=True)
   failure = analyse_failure(
     COMMANDS,
     words,
@@ -126,6 +132,12 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     and words[3] == "--remote" and not words[2].startswith("--")
   ):
     words = [words[0], words[1], "--remote", words[2]]
+  if words in (["test", "succeeded"], ["test", "failed"]):
+    return record_selected(root, outcome=words[1])
+  if words[:2] == ["test", "integration"] and "--remote" in words and (
+    "--manual" in words or any("-manual--" in token for token in words[2:])
+  ):
+    raise CommandGrammarError("manual integration cannot use --remote")
   general, legal, facts, plan, state, failure = _diagnose(
     root,
     words,
@@ -207,11 +219,26 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     return 0
 
   if command == "test":
-    return run_test(
-      root, words[1], remote="--remote" in words,
+    remote = "--remote" in words
+    if words[1] == "integration" and (
+      "--manual" in words or any(
+        token not in {"--remote", "--manual"} for token in words[2:]
+      )
+    ):
+      names = [token for token in words[2:] if not token.startswith("--")]
+      if "--manual" in words and names:
+        raise CommandGrammarError(
+          "--manual cannot be combined with an explicit test name"
+        )
+      return select_requested(
+        root, name=names[0] if names else None, remote=remote,
+      )
+    result = run_test(
+      root, words[1], remote=remote,
       engine_root=engine_root,
       group=next((value for value in words[2:] if value != "--remote"), None),
     )
+    return result
 
   if command == "version":
     config = load_config(root)
@@ -377,7 +404,12 @@ def handle_completion(
 
   items = list(response.items)
   if items:
-    _print_completion_items(items, describe=describe)
+    if describe and words[:2] == ["test", "RED"]:
+      for item in items:
+        print(item.token if item.description is None
+              else item.token + " - " + item.description)
+    else:
+      _print_completion_items(items, describe=describe)
     return 0
 
   if _completed_command_is_terminal(legal, words):
@@ -389,17 +421,7 @@ def handle_completion(
 
 
 def handle_help(root: Path, words: list[str]) -> int:
-  if words == ["test", "RED"]:
-    # RED help is unconditional; only interactive completion needs registered groups.
-    node = COMMANDS["test"]["RED"]
-    print(node["_description"])
-    print(node["_value_description"])
-    print("Register current issue-N- test groups in .ci/tests.json.")
-    for option, description in node["_switches"].items():
-      print(option + "  " + description)
-    return 0
-  help_words = [*words, ""]
-  return handle_completion(root, help_words, describe=True)
+  return handle_completion(root, [*words, ""], describe=True)
 
 
 def is_public_command(word: str) -> bool:
