@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: '3.13'
       - name: Exercise native B postwrite fail and physical Q/R transition
-        run: python -m unittest -v tests.test_702_native_b_cli_probe
+        run: python -m unittest -v tests.test_702_native_b_cli_probe tests.test_manual_mit_timeout_recovery.ClaimedTimeoutRecoveryTests.test_two_manual_cases_pass_then_fail_does_not_reuse_old_pass
