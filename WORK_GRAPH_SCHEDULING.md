@@ -35,6 +35,11 @@ separate container readiness, ownership, or child-blocking semantics.
 Published lane naming, issue qualification, stability, and completion-display
 rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
+For human-facing **Mermaid** dependency diagrams in conversations and planning
+documents, use the four-status colour and exact Unicode symbol convention in
+[WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
+That presentation convention does not change terminal lane renderer semantics.
+
 ## 13.2 Finish dependency-complete work before switching tasks
 
 The dependency graph and group structure exist so workers finish one meaningful

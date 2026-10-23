@@ -226,6 +226,8 @@ methodology.
   invariants before extending them.
 - [GRAPH_RENDERER.md](GRAPH_RENDERER.md) defines the constrained,
   project-neutral sibling-group DAG renderer used by lane graph display.
+- [WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md) defines
+  Mermaid graph status colours, Unicode symbols, and accessibility guidance.
 - [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) defines how size
   limits trigger concise rewrites or responsibility-based splits without
   losing authoritative semantics.
