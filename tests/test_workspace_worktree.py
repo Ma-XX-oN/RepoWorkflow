@@ -14,6 +14,7 @@ def run_git(root: Path, *args: str) -> str:
     ["git", *args],
     cwd=root,
     text=True,
+    encoding="utf-8",
     capture_output=True,
     check=True,
   )
