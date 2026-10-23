@@ -342,3 +342,17 @@ current public surface is exclusively `rwf test`.
   legacy automatic test completion.
 - The #702 subprocess fixture uses injected A/B API stubs, NOT actual
   GitHub provider certification or a full A+B+C assembled candidate.
+
+### RWF #702 RED completion repair oracles (2026-10-23)
+
+- Check zero, one, many and other-issue-only registered RED groups.
+- Assert missing/invalid current started issue and catalogue errors on
+  single Tab, double Tab and `--help` with identical substantive diagnostics.
+- Verify stable name ordering, prefix filtering, string-only and separately
+  described entries, without invented descriptions or a dangling separator.
+- Verify double-Tab listing is byte-identical to `--help` for the same state.
+- Exercise actual Bash completion only on Bash-equipped runners, and classify
+  Bash-less runner results separately as not run; direct Python `--help`
+  validates the shared grammar proxy on Linux/macOS/Windows.
+- Exercise durable MIT FAIL Q+1/R=0 through shipped Python CLI, including
+  exactly-once evidence, valid post-write receipt and fail-closed UNKNOWN.
