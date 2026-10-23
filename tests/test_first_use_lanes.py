@@ -9,11 +9,40 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RWF = ROOT / "rwf"
+CLI = ROOT / "repo_workflow.py"
 
+
+
+def install_fake_gh(base: Path, env: dict[str, str], script: Path) -> Path:
+  """Route Python subprocess gh calls to the local fixture on every OS."""
+  hook_dir = base / "python-gh-hook"
+  hook_dir.mkdir()
+  (hook_dir / "sitecustomize.py").write_text(
+    "import json, os, subprocess, sys\n"
+    "_run = subprocess.run\n"
+    "def _fake_gh(arguments, *args, **kwargs):\n"
+    "  if isinstance(arguments, (list, tuple)) and arguments and arguments[0] == 'gh':\n"
+    "    with open(os.environ['RWF_FAKE_GH_ROUTES'], 'a', encoding='utf-8') as log:\n"
+    "      log.write(json.dumps(list(arguments[1:])) + '\\n')\n"
+    "    return _run([sys.executable, os.environ['RWF_FAKE_GH_SCRIPT'], *arguments[1:]], *args, **kwargs)\n"
+    "  return _run(arguments, *args, **kwargs)\n"
+    "subprocess.run = _fake_gh\n",
+    encoding="utf-8",
+  )
+  routes = base / "gh-routes.jsonl"
+  routes.write_text("", encoding="utf-8")
+  env["RWF_FAKE_GH_SCRIPT"] = str(script)
+  env["RWF_FAKE_GH_ROUTES"] = str(routes)
+  env["PYTHONPATH"] = os.pathsep.join(
+    (str(hook_dir), env.get("PYTHONPATH", "")),
+  )
+  env.pop("GH_TOKEN", None)
+  env.pop("GITHUB_TOKEN", None)
+  return routes
 
 class FirstUseLanesTests(unittest.TestCase):
   def make_repo(self, root: Path) -> None:
@@ -109,7 +138,7 @@ class FirstUseLanesTests(unittest.TestCase):
       "#!/usr/bin/env python3\n"
       "import json, os, sys\n"
       "args = sys.argv[1:]\n"
-      "if args[:2] == ['issue', 'view'] and any('blockedBy' in arg for arg in args):\n"
+      "if len(args) == 5 and args[:2] == ['issue', 'view'] and args[3:] == ['--json', 'blockedBy,blocking']:\n"
       "  number = int(args[2])\n"
       "  with open(os.environ['RWF_TEST_CALLS'], 'a', encoding='utf-8') as log:\n"
       "    log.write(json.dumps({'kind': 'dependency', 'issue': number}) + '\\n')\n"
@@ -125,7 +154,7 @@ class FirstUseLanesTests(unittest.TestCase):
       "    'blockedBy': connection(deps),\n"
       "    'blocking': connection(dependants),\n"
       "  }))\n"
-      "elif args[:2] == ['issue', 'view']:\n"
+      "elif len(args) == 7 and args[:2] == ['issue', 'view'] and args[3:] == ['--json', 'number,title,state,url', '--repo', 'Ma-XX-oN/RepoWorkflow']:\n"
       "  number = int(args[2])\n"
       "  state = json.load(open(os.environ['RWF_TEST_META'], encoding='utf-8'))\n"
       "  item = state[str(number)]\n"
@@ -145,6 +174,7 @@ class FirstUseLanesTests(unittest.TestCase):
     env["RWF_TEST_DEPS"] = str(dependency_state)
     env["RWF_TEST_META"] = str(metadata_state)
     env["RWF_TEST_CALLS"] = str(call_log)
+    install_fake_gh(base, env, gh)
     return env
 
   def ticket_rows(self, root: Path) -> dict[str, dict[str, str]]:
@@ -193,12 +223,59 @@ class FirstUseLanesTests(unittest.TestCase):
 
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
     return subprocess.run(
-      [str(RWF), "--root", str(root), *words],
+      [sys.executable, str(CLI), "--root", str(root), *words],
       cwd=root,
       env=env,
       capture_output=True,
       text=True,
     )
+
+
+  def test_github_fixture_never_executes_real_provider(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = self.fake_github(base)
+      self.assertNotIn("GH_TOKEN", env)
+      self.assertNotIn("GITHUB_TOKEN", env)
+
+      selected = self.run_rwf(root, env, "lanes", "select", "203", "--json")
+      self.assertEqual(selected.returncode, 0, selected.stderr)
+      routes = [
+        json.loads(line)
+        for line in Path(env["RWF_FAKE_GH_ROUTES"]).read_text(
+          encoding="utf-8",
+        ).splitlines()
+      ]
+      self.assertGreaterEqual(len(routes), 4)
+      self.assertIn(
+        ["issue", "view", "203", "--json", "blockedBy,blocking"],
+        routes,
+      )
+      self.assertIn(
+        ["issue", "view", "201", "--json", "blockedBy,blocking"],
+        routes,
+      )
+      for args in routes:
+        self.assertEqual(args[:2], ["issue", "view"])
+        self.assertIn(
+          args[3:],
+          (
+            ["--json", "blockedBy,blocking"],
+            ["--json", "number,title,state,url", "--repo",
+             "Ma-XX-oN/RepoWorkflow"],
+          ),
+        )
+
+      gh = Path(env["RWF_FAKE_GH_SCRIPT"])
+      unexpected = subprocess.run(
+        [sys.executable, str(gh), "issue", "delete", "203"],
+        env=env, capture_output=True, text=True,
+      )
+      self.assertEqual(unexpected.returncode, 2)
+      self.assertIn("unexpected gh arguments", unexpected.stderr)
 
   def test_fresh_checkout_selects_and_renders_ticket_dependency_closure(self):
     with tempfile.TemporaryDirectory() as td:
