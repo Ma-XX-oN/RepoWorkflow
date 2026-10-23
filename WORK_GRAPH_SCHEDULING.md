@@ -2,6 +2,12 @@
 
 Continuation of [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
+Coordinators dispatching multiple agents MUST follow the shared-PMD
+naming and conversation-only worker launch conventions in
+[AGENT_PROMPT_PACKAGING.md](AGENT_PROMPT_PACKAGING.md).
+Shared prompt revisions follow [PMD_AUTHORING.md](PMD_AUTHORING.md);
+launching a new worker never transfers an existing owner claim.
+
 ## 13. Derive scheduling from the graph
 
 Do not maintain a separate manual work order when the dependency graph can

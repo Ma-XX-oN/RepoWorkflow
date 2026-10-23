@@ -36,6 +36,16 @@ The terminal styling adapter uses the declared capability-aware backend.
 it never silently degrades to uncoloured output.  `color auto` may remain
 unstyled when styling is unavailable or inappropriate for the output stream.
 
+## Agent prompts and coordinated dispatch
+
+The [AGENT-CMD protocol](AGENT-CMD-PROTOCOL.md) specifies how named Prompt
+Markdown (`.pmd`) files are loaded and expanded from ChatGPT Library.
+The [PMD authoring guide](PMD_AUTHORING.md) specifies version checking,
+claim-safe updates, ticket workers and reusable examples.
+The [coordinated prompt packaging guide](AGENT_PROMPT_PACKAGING.md)
+specifies one controller-ticket-named shared PMD and separate complete
+conversation SPINUP blocks per worker, not issue-comment launch queues.
+
 ## Responsibilities
 
 RepoWorkflow owns common lifecycle and invariant machinery:
