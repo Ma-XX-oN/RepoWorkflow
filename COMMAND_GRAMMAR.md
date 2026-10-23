@@ -430,3 +430,16 @@ JSONL and rejects a pending journal as UNKNOWN before any result is reused.
 No other selection or evidence store is introduced. Result submission passes explicit
 clone-local writer provenance and a `local-operator-assertion:` evidence
 reference; it never claims an external provider check ran.
+
+### RED test-group completion and help (RWF #702)
+
+The dynamic `rwf test RED` resolver reads the registered `issue-X-...`
+RED test groups for the current started issue X.  Single Bash Tab inserts
+matching candidates; double Tab and `rwf test RED --help` emit the **same**
+ordered descriptive listing.  A group with a separate description prints
+`<completion> - <description>`; a string-only group prints its name alone.
+No description is fabricated.  If the current issue is invalid or has no
+registered RED groups, all three forms report the same substantive error.
+The `--help` variant returns a nonzero status.  Direct Python `--help`
+execution on a Bash-less VM is a grammar proxy, **not** Bash Tab testing.
+Only Bash tab completion is supported; no launcher or other shell is added.
