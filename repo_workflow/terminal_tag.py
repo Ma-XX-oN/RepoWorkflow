@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import re
+import stat
 import subprocess
 
 from .phase_terminal import PhaseTransitionError, plan_phase
@@ -81,11 +82,42 @@ def verify_phase_evidence(
   expected_issue = version.split("-issue.", 1)[1].split(".", 1)[0]
   if issue.group(1) != expected_issue:
     raise TerminalTagError("test log issue differs from development version")
-  expected_path = (
-    root.resolve() / ".repoworkflow" / "validation" / canonical_log.name
-  )
-  if canonical_log.absolute() != expected_path or canonical_log.is_symlink():
+  # Keep the caller's repository spelling for an aliased root (for example,
+  # macOS /var -> /private/var), but verify the actual canonical destination.
+  repository = root.resolve()
+  expected_path = repository / ".repoworkflow" / "validation" / canonical_log.name
+  alias_path = root.absolute() / ".repoworkflow" / "validation" / canonical_log.name
+  validation_root = repository / ".repoworkflow"
+  validation_dir = validation_root / "validation"
+
+  def substituted(path: Path) -> bool:
+    if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
+      return True
+    # Path.is_junction was added in Python 3.12. On 3.10/3.11, still
+    # refuse Windows directory junctions and other reparse-point redirects.
+    try:
+      return bool(
+        getattr(path.lstat(), "st_file_attributes", 0)
+        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+      )
+    except FileNotFoundError:
+      return False
+
+  if (
+    ".." in canonical_log.parts
+    or canonical_log.absolute() not in {expected_path, alias_path}
+    or substituted(validation_root)
+    or substituted(validation_dir)
+    or substituted(canonical_log)
+  ):
     raise TerminalTagError("canonical test log must use repository validation path")
+  try:
+    if canonical_log.resolve() != expected_path:
+      raise TerminalTagError("canonical test log must use repository validation path")
+  except (OSError, RuntimeError) as error:
+    raise TerminalTagError(
+      "canonical test log must use repository validation path"
+    ) from error
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except OSError as error:

@@ -5,6 +5,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+import sys
 from unittest.mock import patch
 
 from repo_workflow import terminal_tag
@@ -377,6 +378,106 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaises(TerminalTagError):
       self.issue_tag("PASS", remote="not-a-remote")
     self.assertEqual(self.git("tag", "--list"), "")
+
+
+  def seed_success_log(self):
+    self.log.write_text(json.dumps({
+      "kind": "regression", "testVersion": VERSION,
+      "branch": "issue-545-test", "testSHA": self.candidate,
+      "result": "succeeded", "reusable": True,
+      "headChangedDuringTest": False, "uncommittedChanges": [],
+    }) + "\n", encoding="utf-8")
+
+  def test_aliased_repository_root_and_real_log_are_accepted(self):
+    alias = self.root.parent / "aliased-work"
+    try:
+      alias.symlink_to(self.root, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+      self.skipTest("directory symlink unavailable: " + str(error))
+    self.seed_success_log()
+    common = {
+      "stage": "regression", "remote": "origin",
+      "version": VERSION, "candidate": self.candidate,
+      "outcome": "PASS", "push": False,
+    }
+    aliased_log = alias / ".repoworkflow/validation" / self.log.name
+    tag = publish_terminal_tag(alias, canonical_log=aliased_log, **common)
+    self.assertEqual(tag, "v" + VERSION)
+    self.assertEqual(self.git("cat-file", "-t", "refs/tags/" + tag), "tag")
+    self.assertEqual(
+      publish_terminal_tag(alias, canonical_log=self.log, **common), tag,
+    )
+    self.assertEqual(
+      self.git("rev-parse", "refs/tags/" + tag + "^{commit}"),
+      self.candidate,
+    )
+
+  def test_symlinked_validation_directory_outside_repository_is_rejected(self):
+    self.seed_success_log()
+    outside = self.root.parent / "outside"
+    outside.mkdir()
+    self.log.rename(outside / self.log.name)
+    self.log.parent.rmdir()
+    try:
+      self.log.parent.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+      self.skipTest("directory symlink unavailable: " + str(error))
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      self.issue_tag("PASS", push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_symlinked_canonical_log_file_is_rejected(self):
+    self.seed_success_log()
+    other = self.log.with_name("replacement.jsonl")
+    self.log.rename(other)
+    try:
+      self.log.symlink_to(other)
+    except (OSError, NotImplementedError) as error:
+      self.skipTest("file symlink unavailable: " + str(error))
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      self.issue_tag("PASS", push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_traversal_back_into_validation_directory_is_rejected(self):
+    self.seed_success_log()
+    traversal = (
+      self.log.parent / ".." / "validation" / self.log.name
+    )
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      self.issue_tag("PASS", canonical_log=traversal, push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+
+  def test_wrong_subdirectory_with_matching_log_is_rejected(self):
+    self.seed_success_log()
+    nested = self.log.parent / "other" / self.log.name
+    nested.parent.mkdir()
+    nested.write_bytes(self.log.read_bytes())
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      self.issue_tag("PASS", canonical_log=nested, push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+
+
+
+  def test_windows_validation_junction_is_rejected_without_is_junction(self):
+    if sys.platform != "win32":
+      self.skipTest("Windows directory junction test")
+    self.seed_success_log()
+    outside = self.root.parent / "outside-junction"
+    outside.mkdir()
+    self.log.rename(outside / self.log.name)
+    self.log.parent.rmdir()
+    result = subprocess.run(
+      ["cmd", "/c", "mklink", "/J", str(self.log.parent), str(outside)],
+      capture_output=True, text=True, check=False,
+    )
+    if result.returncode:
+      self.skipTest("Windows junction unavailable: " + result.stderr)
+    # Simulate Python 3.10/3.11, before Path.is_junction existed.
+    with patch.object(Path, "is_junction", lambda self: False, create=True):
+      with self.assertRaisesRegex(TerminalTagError, "validation path"):
+        self.issue_tag("PASS", push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+
 
 
 
