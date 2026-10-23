@@ -117,16 +117,16 @@ class RedCompletionCliTests(unittest.TestCase):
     wrapper = self.fx.engine / "red-rwf"
     entry = self.fx.engine / "repo_workflow.py"
     wrapper.write_text(
-      "#!/usr/bin/env bash\\nexec " + shlex.quote(shell_path(sys.executable))
-      + " " + shlex.quote(shell_path(entry)) + ' "$@"\\n',
+      "#!/usr/bin/env bash\nexec " + shlex.quote(shell_path(sys.executable))
+      + " " + shlex.quote(shell_path(entry)) + ' "$@"\n',
       encoding="utf-8"
     )
     wrapper.chmod(0o755)
     source = fixture.SOURCE / "completions/repo-workflow.bash"
     script = (
-      "source " + shlex.quote(shell_path(source)) + "\\n"
-      + 'COMP_WORDS=(rwf test RED "")\\nCOMP_CWORD=3\\n'
-      + 'COMP_LINE="rwf test RED "\\nCOMP_POINT=13\\n'
+      "source " + shlex.quote(shell_path(source)) + "\n"
+      + 'COMP_WORDS=(rwf test RED "")\nCOMP_CWORD=3\n'
+      + 'COMP_LINE="rwf test RED "\nCOMP_POINT=13\n'
       + body
     )
     import os
@@ -142,24 +142,24 @@ class RedCompletionCliTests(unittest.TestCase):
     self.groups([("issue-702-red-z", None),
                  ("issue-702-red-a", "A separate description")])
     observed = self._run_bash(
-      '_repo_workflow_complete\\n'
-      + 'printf "ONE:%s\\\\n" "${COMPREPLY[@]}"\\n'
-      + '_repo_workflow_complete\\n'
+      '_repo_workflow_complete\n'
+      + 'printf "ONE:%s\\n" "${COMPREPLY[@]}"\n'
+      + '_repo_workflow_complete\n'
     )
     self.assertEqual(observed.returncode, 0,
                      repr(observed.stdout) + repr(observed.stderr))
     names = [line[4:] for line in observed.stdout.splitlines()
              if line.startswith("ONE:")]
     self.assertEqual(names, ["--remote", "issue-702-red-a", "issue-702-red-z"])
-    rendered = "\\n".join(line for line in observed.stdout.splitlines()
-                         if not line.startswith("ONE:")) + "\\n"
+    rendered = "\n".join(line for line in observed.stdout.splitlines()
+                         if not line.startswith("ONE:")) + "\n"
     self.assertEqual(rendered, self.fx.cli("test", "RED", "--help").stdout)
 
   def test_real_bash_error_is_not_suppressed(self):
     self.groups([])
     observed = self._run_bash(
-      '_repo_workflow_complete\\n_repo_workflow_complete\\n'
-      + 'printf "COUNT:%s\\\\n" "${#COMPREPLY[@]}"\\n'
+      '_repo_workflow_complete\n_repo_workflow_complete\n'
+      + 'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n'
     )
     self.assertEqual(observed.returncode, 0,
                      repr(observed.stdout) + repr(observed.stderr))
