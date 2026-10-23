@@ -59,6 +59,8 @@ class RedCompletionCliTests(unittest.TestCase):
     self.fx.git("switch", "-c", "not-an-issue")
     self.check_error_parity("RED tests require a current started issue")
     self.fx.git("switch", "issue-702-test")
+    (self.fx.root / ".ci/tests.json").unlink()
+    self.check_error_parity("RED/GREEN tests do not exist")
     (self.fx.root / ".ci/tests.json").write_text("{")
     self.check_error_parity("RED test catalogue is unavailable")
     original = self.fx.root
