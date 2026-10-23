@@ -2,6 +2,20 @@
 
 Status: implementation contract for #577, specified in #579.
 
+## Graph naming
+
+**Lifecycle Graph (LG)** names the six-state RWF dependency view described
+here and in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  Lifecycle Graph
+status comes from the authoritative lifecycle store, with explicit cached
+or current-state projection semantics.
+
+**Progress Graph (PG)** instead names the four-status, human-facing
+**Mermaid** dependency view in
+[WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
+The views share dependency relationships but not state labels or colours.
+The state-transition diagram in section 3 documents legal transitions;
+it is distinct from the Lifecycle Graph of issue dependencies.
+
 ## 1. Source of truth
 
 The canonical lifecycle store and its append-only transition history are the
