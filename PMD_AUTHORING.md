@@ -189,9 +189,7 @@ Suppose the authoritative ticket graph for fictional `example/Recorder` is:
 
 ```text
 example/Recorder #101 (capture contract)  ---+
-                                             |
-                                             +----> #103 (integration)
-                                             |
+                                             +--> #103 (integration)
 example/Recorder #102 (writer contract)   ---+
 ```
 
