@@ -1,0 +1,21 @@
+name: RWF 702 Native B Isolated Probe
+on:
+  push:
+    branches:
+      - issue-702-native-b-isolated-20261023t0247
+permissions:
+  contents: read
+jobs:
+  native-b-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Exercise native B postwrite fail and physical Q/R transition
+        run: python -m unittest -v tests.test_702_native_b_cli_probe
