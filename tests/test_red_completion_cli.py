@@ -62,7 +62,7 @@ class RedCompletionCliTests(unittest.TestCase):
     (self.fx.root / ".ci/tests.json").write_text("{")
     self.check_error_parity("RED test catalogue is unavailable")
     original = self.fx.root
-    self.fx.root = original / "not-a-git-checkout"
+    self.fx.root = original.parent / "not-a-git-checkout"
     self.fx.root.mkdir()
     try:
       self.check_error_parity("RED tests require a current started issue")
