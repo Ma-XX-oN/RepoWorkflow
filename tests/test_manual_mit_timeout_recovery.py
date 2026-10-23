@@ -186,8 +186,12 @@ class NativeVersionAndLifecycleFailureTests(unittest.TestCase):
         )
       self.assertTrue(outcome.completed)
       self.assertEqual(outcome.result, "failed")
-      terminal = read_manual_case_results(root, 703, candidate, cases=(case,))
-      self.assertEqual(terminal[case.name], "failed")
+      # The canonical version transition changes VERSION in the worktree.
+      # A read-model for the *old* candidate must now fail closed.  Preserve
+      # the immutable old-candidate JSONL audit as independent evidence.
+      from repo_workflow.manual_test_state import ManualSelectionError
+      with self.assertRaisesRegex(ManualSelectionError, "changed source inputs"):
+        read_manual_case_results(root, 703, candidate, cases=(case,))
       final = LifecycleStore(root).read(703).lifecycle
       self.assertEqual(final.state, "active")
       self.assertFalse(final.dependency_satisfied)
