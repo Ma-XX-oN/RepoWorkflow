@@ -130,5 +130,88 @@ class ClaimedTimeoutRecoveryTests(unittest.TestCase):
     self.assertEqual(self.host.main, B)
 
 
+class NativeVersionAndLifecycleFailureTests(unittest.TestCase):
+  """Real local Git/lifecycle/version adapters, not remote provider proof."""
+
+  def test_manual_fail_real_git_reopens_and_increments_q_resets_r(self):
+    import json
+    from pathlib import Path
+    import subprocess
+    import tempfile
+    from types import SimpleNamespace
+
+    from repo_workflow.lifecycle_store import LifecycleStore
+    from repo_workflow.manual_test_result import (
+      record_manual_result, read_manual_case_results,
+    )
+    from repo_workflow.manual_test_state import select_manual_case
+    from repo_workflow.state_store import WriterIdentity
+    from tests.support import RepoFixture
+    from unittest.mock import patch
+
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory) / "repo"
+      root.mkdir()
+      fixture = RepoFixture(root, version="1.0.0-issue.703.5.7")
+      candidate = fixture.head()
+      destination_before = subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "refs/heads/main"],
+        text=True,
+      ).strip()
+      writer = WriterIdentity("certifier-703", "independent-native-failure")
+      store = LifecycleStore(root)
+      started = store.transition(703, "start", None, None, writer, None)
+      review = store.transition(
+        703, "submit-review", candidate, None, writer, started.revision,
+      )
+      accepted = store.transition(
+        703, "accept", candidate, None, writer, review.revision,
+      )
+      self.assertEqual(accepted.lifecycle.state, "accepted")
+      self.assertFalse(accepted.lifecycle.dependency_satisfied)
+      case = SimpleNamespace(
+        name="issue-703-manual--NEGATIVE",
+        definition_digest="a" * 64,
+      )
+      selected = select_manual_case(root, 703, candidate, case, cases=(case,))
+      self.assertEqual(selected.name, case.name)
+      with patch.dict("os.environ", {
+        "RWF_WRITER_ID": writer.writer_id,
+        "RWF_SESSION_ID": writer.session_id,
+      }):
+        outcome = record_manual_result(
+          root, 703, candidate, "failed",
+          operator="certifier-703", evidence_ref="native-fail-proof",
+          cases=(case,),
+        )
+      self.assertTrue(outcome.completed)
+      self.assertEqual(outcome.result, "failed")
+      terminal = read_manual_case_results(root, 703, candidate, cases=(case,))
+      self.assertEqual(terminal[case.name], "failed")
+      final = LifecycleStore(root).read(703).lifecycle
+      self.assertEqual(final.state, "active")
+      self.assertFalse(final.dependency_satisfied)
+      self.assertEqual(final.history[-1].transition, "reject/reopen")
+      self.assertEqual(
+        (root / "VERSION").read_text(encoding="utf-8"),
+        "1.0.0-issue.703.6.0\n",
+      )
+      self.assertEqual(fixture.head(), candidate)
+      destination_after = subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "refs/heads/main"],
+        text=True,
+      ).strip()
+      self.assertEqual(destination_after, destination_before)
+      log = root / ".repoworkflow/validation/testResults-703.jsonl"
+      events = [json.loads(row) for row in log.read_text().splitlines()]
+      self.assertEqual(len(events), 1)
+      self.assertEqual(events[0]["manualCase"], case.name)
+      self.assertEqual(events[0]["testSHA"], candidate)
+      self.assertEqual(events[0]["result"], "failed")
+      self.assertEqual(events[0]["operator"], "certifier-703")
+      self.assertEqual(events[0]["evidenceRef"], "native-fail-proof")
+      self.assertFalse((root / ".repoworkflow/manual/pending-703.json").exists())
+
+
 if __name__ == "__main__":
   unittest.main()
