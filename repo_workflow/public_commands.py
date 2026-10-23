@@ -25,7 +25,14 @@ def _red_group_values(context: Context) -> dict:
     try:
       catalogue = load_test_catalogue(context.root)
     except TestCatalogueError as error:
-      diagnostic = "RED test catalogue is unavailable: " + str(error)
+      if str(error).startswith("missing test catalogue:"):
+        diagnostic = (
+          "RED/GREEN tests do not exist for the current issue. "
+          "Build the tests and register them in .ci/tests.json "
+          "with a test name prefix of issue-N-."
+        )
+      else:
+        diagnostic = "RED test catalogue is unavailable: " + str(error)
     else:
       names = tuple(sorted(
         name for name in catalogue.groups
