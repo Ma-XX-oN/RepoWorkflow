@@ -240,14 +240,33 @@ def record_selected(root: Path, *, outcome: str) -> int:
     operator=writer.writer_id,
     evidence_ref="local-operator-assertion:" + sha + ":" + case.name,
   )
-  if evidence is None:
-    raise TestCommandError(
-      "manual result service did not confirm durable readback"
+  # B's record_manual_result returns only after durable evidence readback,
+  # lifecycle/version handoff, selection consumption and journal cleanup.
+  # A FAIL legally changes VERSION (Q+1/R=0). Calling B's current-source
+  # results reader again with the pre-write SHA would reject that valid
+  # transition, even though the failure was committed exactly once.
+  if isinstance(evidence, dict):
+    confirmed = (
+      evidence.get("kind") == "manual-integration"
+      and evidence.get("manualCase") == case.name
+      and evidence.get("testSHA") == sha
+      and evidence.get("result") == outcome
+      and evidence.get("definitionDigest") == case.definition_digest
     )
-  verified = _results(api, root, issue, sha, cases)
-  if verified.get(case.name) != outcome:
+  else:
+    confirmed = (
+      getattr(evidence, "completed", None) is True
+      and getattr(evidence, "case", None) == case.name
+      and getattr(evidence, "candidate_sha", None) == sha
+      and getattr(evidence, "result", None) == outcome
+      and isinstance(getattr(evidence, "evidence_id", None), str)
+      and bool(evidence.evidence_id)
+      and isinstance(getattr(evidence, "evidence_path", None), str)
+      and bool(evidence.evidence_path)
+    )
+  if not confirmed:
     raise TestCommandError(
-      "manual result readback mismatch; outcome is not accepted"
+      "manual result readback UNKNOWN; outcome is not accepted"
     )
   print("Manual integration " + outcome.upper() + ": " + case.name)
   if isinstance(evidence, dict):
