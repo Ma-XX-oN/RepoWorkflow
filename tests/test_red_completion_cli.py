@@ -93,74 +93,76 @@ class RedCompletionCliTests(unittest.TestCase):
           if name.startswith("issue-702-")
         ])
         self.assertTrue(all(not x.endswith(" - ") for x in listing))
-        narrowed = self.fx.cli("complete", "test", "RED", "issue-702-red-a")
+        narrowed = self.fx.cli("complete", "test", "RED", expected[0])
         self.assertEqual(narrowed.returncode, 0, narrowed.stderr)
-        self.assertEqual(
-          narrowed.stdout.splitlines(),
-          [x for x in expected if x.startswith("issue-702-red-a")]
-        )
+        self.assertEqual(narrowed.stdout.splitlines(), [expected[0]])
 
-  @unittest.skipUnless(shutil.which("bash"), "Bash unavailable")
-  def test_real_bash_single_and_double_tab_equals_help(self):
-    self.groups([("issue-702-red-z", None),
-                 ("issue-702-red-a", "A separate description")])
+  def _run_bash(self, body):
+    if not shutil.which("bash"):
+      self.skipTest("Bash not installed on this runner")
+
+    def shell_path(path):
+      if sys.platform != "win32":
+        return str(path)
+      import os
+      converted = subprocess.run(
+        ["bash", "-c", 'cygpath -u "$RWF_OS_PATH"'],
+        env={**os.environ, "RWF_OS_PATH": str(path)},
+        capture_output=True, text=True, check=False,
+      )
+      if converted.returncode:
+        self.skipTest("Bash path translation unavailable")
+      return converted.stdout.strip()
+
     wrapper = self.fx.engine / "red-rwf"
     entry = self.fx.engine / "repo_workflow.py"
     wrapper.write_text(
-      "#!/usr/bin/env bash\nexec " + shlex.quote(sys.executable) + " "
-      + shlex.quote(str(entry)) + ' "$@"\n', encoding="utf-8"
+      "#!/usr/bin/env bash\nexec " + shlex.quote(shell_path(sys.executable))
+      + " " + shlex.quote(shell_path(entry)) + ' "$@"\n',
+      encoding="utf-8"
     )
     wrapper.chmod(0o755)
     source = fixture.SOURCE / "completions/repo-workflow.bash"
-    shell = (
-      "source " + shlex.quote(str(source)) + "\n"
+    script = (
+      "source " + shlex.quote(shell_path(source)) + "\n"
       + 'COMP_WORDS=(rwf test RED "")\nCOMP_CWORD=3\n'
       + 'COMP_LINE="rwf test RED "\nCOMP_POINT=13\n'
-      + '_repo_workflow_complete\n'
+      + body
+    )
+    import os
+    return subprocess.run(
+      ["bash", "-c", script], capture_output=True, text=True,
+      env={**os.environ,
+           "REPO_WORKFLOW_COMMAND": shell_path(wrapper),
+           "REPO_WORKFLOW_ROOT": str(self.fx.root)},
+      check=False,
+    )
+
+  def test_real_bash_single_and_double_tab_equals_help(self):
+    self.groups([("issue-702-red-z", None),
+                 ("issue-702-red-a", "A separate description")])
+    observed = self._run_bash(
+      '_repo_workflow_complete\n'
       + 'printf "ONE:%s\\n" "${COMPREPLY[@]}"\n'
       + '_repo_workflow_complete\n'
     )
-    observed = subprocess.run(
-      ["bash", "-c", shell], capture_output=True, text=True,
-      env={**__import__("os").environ,
-           "REPO_WORKFLOW_COMMAND": str(wrapper),
-           "REPO_WORKFLOW_ROOT": str(self.fx.root)},
-      check=False,
-    )
-    self.assertEqual(observed.returncode, 0, observed.stderr)
+    self.assertEqual(observed.returncode, 0,
+                     repr(observed.stdout) + repr(observed.stderr))
     names = [line[4:] for line in observed.stdout.splitlines()
              if line.startswith("ONE:")]
-    self.assertEqual(names, ["issue-702-red-a", "issue-702-red-z"])
+    self.assertEqual(names, ["--remote", "issue-702-red-a", "issue-702-red-z"])
     rendered = "\n".join(line for line in observed.stdout.splitlines()
                          if not line.startswith("ONE:")) + "\n"
-    self.assertEqual(
-      rendered, self.fx.cli("test", "RED", "--help").stdout
-    )
+    self.assertEqual(rendered, self.fx.cli("test", "RED", "--help").stdout)
 
-  @unittest.skipUnless(shutil.which("bash"), "Bash unavailable")
   def test_real_bash_error_is_not_suppressed(self):
     self.groups([])
-    wrapper = self.fx.engine / "red-rwf"
-    wrapper.write_text(
-      "#!/usr/bin/env bash\nexec " + shlex.quote(sys.executable)
-      + " " + shlex.quote(str(self.fx.engine / "repo_workflow.py"))
-      + ' "$@"\n', encoding="utf-8"
+    observed = self._run_bash(
+      '_repo_workflow_complete\n_repo_workflow_complete\n'
+      + 'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n'
     )
-    wrapper.chmod(0o755)
-    source = fixture.SOURCE / "completions/repo-workflow.bash"
-    shell = ("source " + shlex.quote(str(source)) + "\n"
-             + 'COMP_WORDS=(rwf test RED "")\nCOMP_CWORD=3\n'
-             + 'COMP_LINE="rwf test RED "\nCOMP_POINT=13\n'
-             + '_repo_workflow_complete\n_repo_workflow_complete\n'
-             + 'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n')
-    observed = subprocess.run(
-      ["bash", "-c", shell], capture_output=True, text=True,
-      env={**__import__("os").environ,
-           "REPO_WORKFLOW_COMMAND": str(wrapper),
-           "REPO_WORKFLOW_ROOT": str(self.fx.root)},
-      check=False,
-    )
-    self.assertEqual(observed.returncode, 0)
+    self.assertEqual(observed.returncode, 0,
+                     repr(observed.stdout) + repr(observed.stderr))
     self.assertIn("COUNT:0", observed.stdout)
     self.assertGreaterEqual(
       observed.stderr.count("RED/GREEN tests do not exist"), 2
