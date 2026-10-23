@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -21,6 +22,51 @@ def static_prefixes(node: dict, prefix: tuple[str, ...] = ()):
     if isinstance(value, dict):
       yield from static_prefixes(value, current)
 
+
+
+def install_fake_gh(base: Path, env: dict[str, str], script: Path) -> Path:
+  """Route Python subprocess gh calls to the local fixture on every OS."""
+  hook_dir = base / "python-gh-hook"
+  hook_dir.mkdir()
+  (hook_dir / "sitecustomize.py").write_text(
+    "import json, os, subprocess, sys\n"
+    "_run = subprocess.run\n"
+    "def _fake_gh(arguments, *args, **kwargs):\n"
+    "  if isinstance(arguments, (list, tuple)) and arguments and arguments[0] == 'gh':\n"
+    "    with open(os.environ['RWF_FAKE_GH_ROUTES'], 'a', encoding='utf-8') as log:\n"
+    "      log.write(json.dumps(list(arguments[1:])) + '\\n')\n"
+    "    return _run([sys.executable, os.environ['RWF_FAKE_GH_SCRIPT'], *arguments[1:]], *args, **kwargs)\n"
+    "  return _run(arguments, *args, **kwargs)\n"
+    "subprocess.run = _fake_gh\n",
+    encoding="utf-8",
+  )
+  (hook_dir / "usercustomize.py").write_text(
+    (hook_dir / "sitecustomize.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
+  )
+  routes = base / "gh-routes.jsonl"
+  routes.write_text("", encoding="utf-8")
+  env["RWF_FAKE_GH_SCRIPT"] = str(script)
+  env["RWF_FAKE_GH_ROUTES"] = str(routes)
+  env["PYTHONPATH"] = os.pathsep.join(
+    (str(hook_dir), env.get("PYTHONPATH", "")),
+  )
+  env.pop("GH_TOKEN", None)
+  env.pop("GITHUB_TOKEN", None)
+  # Never reach a real GitHub executable if the test hook is unavailable.
+  probe = subprocess.run(
+    [
+      sys.executable, "-c",
+      "import subprocess; assert subprocess.run.__name__ == '_fake_gh'",
+    ],
+    env=env, capture_output=True, text=True,
+  )
+  if probe.returncode:
+    raise AssertionError(
+      "hermetic gh interception unavailable; provider execution prohibited: "
+      + probe.stderr
+    )
+  return routes
 
 class BootstrapCliTests(unittest.TestCase):
   def make_repo(self, root: Path) -> None:
@@ -66,11 +112,67 @@ class BootstrapCliTests(unittest.TestCase):
       prefixes = [(), *static_prefixes(COMMANDS)]
       prefixes.append(("test", "integration"))
       for prefix in prefixes:
+        if prefix == ("test", "RED"):
+          continue  # RED help requires a current issue and registered groups.
         with self.subTest(prefix=prefix):
           completed = self.run_cli(root, *prefix, "--help")
           self.assertEqual(completed.returncode, 0, completed.stderr)
           self.assertNotIn("repoworkflow.json", completed.stderr)
           self.assertNotIn("missing RepoWorkflow configuration", completed.stderr)
+
+
+  def test_red_help_uses_current_issue_catalogue_and_errors(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      # Absent started issue and catalogue: help must match shared completion.
+      missing = self.run_cli(root, "test", "RED", "--help")
+      missing_completion = self.run_cli(root, "complete", "test", "RED", "")
+      self.assertNotEqual(missing.returncode, 0)
+      self.assertEqual(missing.returncode, missing_completion.returncode)
+      self.assertEqual(missing.stderr, missing_completion.stderr)
+
+      subprocess.run(
+        ["git", "checkout", "-b", "issue-297-help-fixture"],
+        cwd=root, check=True, capture_output=True, text=True,
+      )
+      catalogue = root / ".ci" / "tests.json"
+      catalogue.parent.mkdir()
+      value = {
+        "test-harnesses": {
+          "unittest": {"command": "python", "layout": ["-m", "unittest", "$test"]},
+        },
+        "tests": [{
+          "test-harness": "unittest",
+          "issue-297-current": {
+            "type": "regression", "name": "tests.test_bootstrap_cli",
+          },
+          "issue-296-other": {
+            "type": "regression", "name": "tests.test_bootstrap_cli",
+          },
+        }],
+      }
+      catalogue.write_text(json.dumps(value), encoding="utf-8")
+      current = self.run_cli(root, "test", "RED", "--help")
+      single = self.run_cli(root, "complete", "test", "RED", "")
+      self.assertEqual(current.returncode, 0, current.stderr)
+      self.assertEqual(single.returncode, 0, single.stderr)
+      self.assertIn("issue-297-current", current.stdout)
+      self.assertNotIn("issue-296-other", current.stdout)
+      self.assertEqual(
+        [line.split(" - ", 1)[0] for line in current.stdout.splitlines()],
+        single.stdout.splitlines(),
+      )
+
+      value["tests"][0].pop("issue-297-current")
+      catalogue.write_text(json.dumps(value), encoding="utf-8")
+      absent = self.run_cli(root, "test", "RED", "--help")
+      absent_completion = self.run_cli(root, "complete", "test", "RED", "")
+      self.assertNotEqual(absent.returncode, 0)
+      self.assertEqual(absent.returncode, absent_completion.returncode)
+      self.assertEqual(absent.stderr, absent_completion.stderr)
+      self.assertIn("RED/GREEN tests do not exist", absent.stderr)
 
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
@@ -146,9 +248,9 @@ class BootstrapCliTests(unittest.TestCase):
         "#!/usr/bin/env python3\n"
         "import json, sys\n"
         "args = sys.argv[1:]\n"
-        "if args[:2] == ['issue', 'list']:\n"
+        "if args == ['issue', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,title', '--repo', 'Ma-XX-oN/RepoWorkflow']:\n"
         "  print(json.dumps([{'number': 297, 'title': 'Bootstrap help'}]))\n"
-        "elif args[:2] == ['issue', 'view']:\n"
+        "elif len(args) == 7 and args[:2] == ['issue', 'view'] and args[3:] == ['--json', 'number,title,state,url', '--repo', 'Ma-XX-oN/RepoWorkflow']:\n"
         "  number = int(args[2])\n"
         "  if number == 207:\n"
         "    print(json.dumps({'number': number, 'title': 'Merged PR', "
@@ -166,6 +268,7 @@ class BootstrapCliTests(unittest.TestCase):
       gh.chmod(0o755)
       env = dict(os.environ)
       env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+      routes = install_fake_gh(base, env, gh)
 
       listed = self.run_cli(root, "issue", "list", env=env)
       self.assertEqual(listed.returncode, 0, listed.stderr)
@@ -186,6 +289,34 @@ class BootstrapCliTests(unittest.TestCase):
         pull_request.stderr,
       )
       self.assertNotIn("invalid issue state", pull_request.stderr)
+      self.assertNotIn("GH_TOKEN", env)
+      self.assertNotIn("GITHUB_TOKEN", env)
+      self.assertEqual(
+        [json.loads(line) for line in routes.read_text(encoding="utf-8").splitlines()],
+        [
+          ["issue", "list", "--state", "open", "--limit", "1000",
+           "--json", "number,title", "--repo", "Ma-XX-oN/RepoWorkflow"],
+          ["issue", "view", "297", "--json", "number,title,state,url",
+           "--repo", "Ma-XX-oN/RepoWorkflow"],
+          ["issue", "view", "207", "--json", "number,title,state,url",
+           "--repo", "Ma-XX-oN/RepoWorkflow"],
+        ],
+      )
+      bad = subprocess.run(
+        [
+          sys.executable, "-c",
+          "import subprocess,sys; p=subprocess.run(['gh','pr','list'], "
+          "capture_output=True,text=True); sys.stderr.write(p.stderr); "
+          "sys.exit(p.returncode)",
+        ],
+        capture_output=True, text=True, env=env,
+      )
+      self.assertEqual(bad.returncode, 2)
+      self.assertIn("unexpected gh arguments", bad.stderr)
+      self.assertEqual(
+        json.loads(routes.read_text(encoding="utf-8").splitlines()[-1]),
+        ["pr", "list"],
+      )
 
   def test_expected_public_precondition_failures_never_traceback(self):
     with tempfile.TemporaryDirectory() as td:
