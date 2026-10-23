@@ -288,11 +288,24 @@ class FirstUseLanesTests(unittest.TestCase):
 
       gh = Path(env["RWF_FAKE_GH_SCRIPT"])
       unexpected = subprocess.run(
-        [sys.executable, str(gh), "issue", "delete", "203"],
+        [
+          sys.executable, "-c",
+          "import subprocess,sys; p=subprocess.run("
+          "['gh','issue','delete','203'],capture_output=True,text=True); "
+          "sys.stderr.write(p.stderr); sys.exit(p.returncode)",
+        ],
         env=env, capture_output=True, text=True,
       )
       self.assertEqual(unexpected.returncode, 2)
       self.assertIn("unexpected gh arguments", unexpected.stderr)
+      self.assertEqual(
+        json.loads(
+          Path(env["RWF_FAKE_GH_ROUTES"]).read_text(
+            encoding="utf-8",
+          ).splitlines()[-1],
+        ),
+        ["issue", "delete", "203"],
+      )
 
   def test_fresh_checkout_selects_and_renders_ticket_dependency_closure(self):
     with tempfile.TemporaryDirectory() as td:
