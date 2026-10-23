@@ -290,5 +290,83 @@ class NativeVersionAndLifecycleFailureTests(unittest.TestCase):
                     negative.stderr)
 
 
+  def test_two_manual_cases_pass_then_fail_does_not_reuse_old_pass(self):
+    """One prior PASS cannot satisfy a failed exact local Git candidate."""
+    import json
+    from pathlib import Path
+    import tempfile
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from repo_workflow.lifecycle_store import LifecycleStore
+    from repo_workflow.manual_test_result import record_manual_result
+    from repo_workflow.manual_test_state import (
+      ManualSelectionError, select_manual_case,
+    )
+    from repo_workflow.state_store import WriterIdentity
+    from tests.support import RepoFixture
+
+    with tempfile.TemporaryDirectory() as directory:
+      root = Path(directory) / "repo"
+      root.mkdir()
+      fixture = RepoFixture(root, version="1.0.0-issue.703.9.4")
+      candidate = fixture.head()
+      first = SimpleNamespace(
+        name="issue-703-manual--ALPHA", definition_digest="a" * 64,
+      )
+      second = SimpleNamespace(
+        name="issue-703-manual--BRAVO", definition_digest="b" * 64,
+      )
+      cases = (first, second)
+      writer = WriterIdentity("certifier-703", "two-case-native-acceptance")
+      store = LifecycleStore(root)
+      started = store.transition(703, "start", None, None, writer, None)
+      review = store.transition(
+        703, "submit-review", candidate, None, writer, started.revision,
+      )
+      store.transition(703, "accept", candidate, None, writer, review.revision)
+      with patch.dict("os.environ", {
+        "RWF_WRITER_ID": writer.writer_id,
+        "RWF_SESSION_ID": writer.session_id,
+      }):
+        select_manual_case(root, 703, candidate, first, cases=cases)
+        pass_result = record_manual_result(
+          root, 703, candidate, "succeeded", cases=cases,
+          operator="certifier-703", evidence_ref="local-first-pass",
+        )
+        self.assertTrue(pass_result.completed)
+        self.assertEqual(pass_result.result, "succeeded")
+        self.assertEqual(
+          (root / "VERSION").read_text(), "1.0.0-issue.703.9.4\n",
+        )
+        select_manual_case(root, 703, candidate, second, cases=cases)
+        failed_result = record_manual_result(
+          root, 703, candidate, "failed", cases=cases,
+          operator="certifier-703", evidence_ref="local-second-fail",
+        )
+      self.assertTrue(failed_result.completed)
+      log = root / ".repoworkflow/validation/testResults-703.jsonl"
+      events = [json.loads(row) for row in log.read_text().splitlines()]
+      self.assertEqual([x["result"] for x in events], [
+        "succeeded", "failed",
+      ])
+      self.assertEqual([x["manualCase"] for x in events], [
+        first.name, second.name,
+      ])
+      self.assertTrue(all(x["testSHA"] == candidate for x in events))
+      self.assertEqual(fixture.head(), candidate)
+      self.assertEqual(
+        (root / "VERSION").read_text(), "1.0.0-issue.703.10.0\n",
+      )
+      final = LifecycleStore(root).read(703).lifecycle
+      self.assertEqual(final.state, "active")
+      self.assertFalse(final.dependency_satisfied)
+      with self.assertRaisesRegex(
+          ManualSelectionError, "changed source inputs",
+      ):
+        select_manual_case(root, 703, candidate, first, cases=cases)
+      self.assertEqual(len(log.read_text().splitlines()), 2)
+
+
 if __name__ == "__main__":
   unittest.main()
