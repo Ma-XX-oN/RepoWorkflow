@@ -188,9 +188,9 @@ authoring guide does not redefine them.
 Suppose the authoritative ticket graph for fictional `example/Recorder` is:
 
 ```text
-example/Recorder #101 (capture contract)  ---+
-                                             +--> #103 (integration)
-example/Recorder #102 (writer contract)   ---+
+example/Recorder #101 (capture contract)  ───┐
+                                             ├──→ #103 (integration)
+example/Recorder #102 (writer contract)   ───┘
 ```
 
 A dedicated PMD for that family of work could contain this **excerpt**:
