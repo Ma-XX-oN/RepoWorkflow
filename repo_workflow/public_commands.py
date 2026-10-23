@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from .git import current_branch
+from .git import GitError, current_branch
 
 from .command_grammar import Context, validate_node
 from .test_catalogue import TestCatalogueError, load_test_catalogue
@@ -15,7 +15,7 @@ def _red_group_values(context: Context) -> dict:
   # Never invent a description when the catalogue supplies only a name.
   try:
     branch = current_branch(context.root)
-  except (ValueError, OSError) as error:
+  except (GitError, ValueError, OSError):
     branch = ""
   match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
   if match is None:
