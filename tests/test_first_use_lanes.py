@@ -33,6 +33,10 @@ def install_fake_gh(base: Path, env: dict[str, str], script: Path) -> Path:
     "subprocess.run = _fake_gh\n",
     encoding="utf-8",
   )
+  (hook_dir / "usercustomize.py").write_text(
+    (hook_dir / "sitecustomize.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
+  )
   routes = base / "gh-routes.jsonl"
   routes.write_text("", encoding="utf-8")
   env["RWF_FAKE_GH_SCRIPT"] = str(script)
@@ -42,6 +46,19 @@ def install_fake_gh(base: Path, env: dict[str, str], script: Path) -> Path:
   )
   env.pop("GH_TOKEN", None)
   env.pop("GITHUB_TOKEN", None)
+  # Never reach a real GitHub executable if the test hook is unavailable.
+  probe = subprocess.run(
+    [
+      sys.executable, "-c",
+      "import subprocess; assert subprocess.run.__name__ == '_fake_gh'",
+    ],
+    env=env, capture_output=True, text=True,
+  )
+  if probe.returncode:
+    raise AssertionError(
+      "hermetic gh interception unavailable; provider execution prohibited: "
+      + probe.stderr
+    )
   return routes
 
 class FirstUseLanesTests(unittest.TestCase):
