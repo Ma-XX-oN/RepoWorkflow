@@ -113,6 +113,8 @@ def record_manual_result(root, issue, candidate_sha, result, *, operator, eviden
     pending.parent.mkdir(parents=True, exist_ok=True)
     pending.write_text('{"phase": "handoff"}')
     return None
+  if (root / '.simulate-mismatch').exists():
+    return {**evidence, "manualCase": "issue-702-manual--foreign"}
   return evidence
 '''
 
@@ -321,6 +323,18 @@ class TestManualLauncher(unittest.TestCase):
     log = self.root / ".repoworkflow/validation/testResults-702.jsonl"
     self.assertEqual(len(log.read_text().splitlines()), 1)
     self.assertNotEqual(self.cli("test", "failed").returncode, 0)
+    self.assertEqual(len(log.read_text().splitlines()), 1)
+
+  def test_postwrite_foreign_ack_fails_closed_without_replay(self):
+    (self.root / ".simulate-mismatch").write_text("1")
+    self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
+    receipt = self.cli("test", "succeeded")
+    self.assertEqual(receipt.returncode, 2)
+    self.assertIn("UNKNOWN", receipt.stderr)
+    self.assertNotIn("Manual integration SUCCEEDED", receipt.stdout)
+    log = self.root / ".repoworkflow/validation/testResults-702.jsonl"
+    self.assertEqual(len(log.read_text().splitlines()), 1)
+    self.assertNotEqual(self.cli("test", "succeeded").returncode, 0)
     self.assertEqual(len(log.read_text().splitlines()), 1)
 
   def test_empty_invalid_remote_and_result_without_selection(self):
