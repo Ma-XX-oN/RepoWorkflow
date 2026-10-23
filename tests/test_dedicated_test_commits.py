@@ -1,5 +1,6 @@
 """Dedicated Git commits must exclude separately staged test evidence."""
 import json
+import subprocess
 import unittest
 
 from tests import test_test_cli as fixture
@@ -12,6 +13,23 @@ class DedicatedCommitTests(unittest.TestCase):
   cli = fixture.TestCliContract.cli
   remote = fixture.TestCliContract.remote
   _catalogue = fixture.TestCliContract._catalogue
+
+  def _git_wire_path(self, path):
+    # Resolve first: a lexical relative path may still escape via '..' or a link.
+    return path.resolve().relative_to(self.root.resolve()).as_posix()
+
+  def _staged_git_paths(self):
+    # Git -z paths are UTF-8, slash-delimited and never C-quoted.
+    result = subprocess.run(
+      ["git", "-C", str(self.root), "diff", "--cached", "--name-only", "-z"],
+      capture_output=True,
+      check=True,
+    )
+    return [
+      item.decode("utf-8")
+      for item in result.stdout.split(b"\0")
+      if item
+    ]
 
   def _stage_log(self):
     path = self.root / ".repoworkflow/validation/testResults-545.jsonl"
@@ -33,9 +51,11 @@ class DedicatedCommitTests(unittest.TestCase):
       self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
       ".ci/red-green.txt",
     )
-    self.assertIn(
-      str(path.relative_to(self.root)),
-      self.git("diff", "--cached", "--name-only"),
+    self.assertIn(self._git_wire_path(path), self._staged_git_paths())
+    self.assertNotIn(
+      self._git_wire_path(path),
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r",
+               "HEAD").splitlines(),
     )
 
   def test_staged_audit_is_not_in_hosted_request_commit(self):
@@ -49,9 +69,11 @@ class DedicatedCommitTests(unittest.TestCase):
       ".ci/run",
     )
     self.assertEqual(self.git("rev-parse", "HEAD^"), before)
-    self.assertIn(
-      str(path.relative_to(self.root)),
-      self.git("diff", "--cached", "--name-only"),
+    self.assertIn(self._git_wire_path(path), self._staged_git_paths())
+    self.assertNotIn(
+      self._git_wire_path(path),
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r",
+               "HEAD").splitlines(),
     )
     self.assertEqual(
       self.git("rev-parse", "HEAD"),
@@ -61,6 +83,28 @@ class DedicatedCommitTests(unittest.TestCase):
         text=True,
       ).strip(),
     )
+
+  def test_staged_git_wire_paths_preserve_spaces_unicode_and_containment(self):
+    path = self.root / "spaced directory" / "réglage 雪 .txt"
+    path.parent.mkdir(parents=True)
+    path.write_text("staged only\n", encoding="utf-8")
+    self.git("add", "--", str(path.relative_to(self.root)))
+
+    wire_path = self._git_wire_path(path)
+    self.assertEqual(wire_path, "spaced directory/réglage 雪 .txt")
+    self.assertEqual(self._staged_git_paths(), [wire_path])
+    self.assertNotIn(wire_path.replace("/", "\\"), self._staged_git_paths())
+    self.assertNotIn(
+      "spaced directory/réglage 雪 .txt.backup",
+      self._staged_git_paths(),
+    )
+    for escaped in (
+      self.root.parent / "outside.txt",
+      self.root / ".." / "outside.txt",
+    ):
+      with self.subTest(escaped=escaped):
+        with self.assertRaises(ValueError):
+          self._git_wire_path(escaped)
 
 
 if __name__ == "__main__":

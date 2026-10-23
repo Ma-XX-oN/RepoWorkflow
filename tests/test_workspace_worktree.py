@@ -20,6 +20,16 @@ def run_git(root: Path, *args: str) -> str:
   return result.stdout.strip()
 
 
+def registered_worktrees(root: Path) -> set[Path]:
+  # Git prints POSIX slash paths even on Windows; parse whole records and
+  # normalise through the host's Path implementation before comparing.
+  return {
+    Path(line.partition(" ")[2]).resolve()
+    for line in run_git(root, "worktree", "list", "--porcelain").splitlines()
+    if line.startswith("worktree ")
+  }
+
+
 class WorktreeBackendTests(unittest.TestCase):
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
@@ -167,8 +177,8 @@ class WorktreeBackendTests(unittest.TestCase):
       )
 
     self.assertFalse(path.exists())
-    registered = run_git(self.root, "worktree", "list", "--porcelain")
-    self.assertNotIn(str(path.resolve()), registered)
+    registered = registered_worktrees(self.root)
+    self.assertNotIn(path.resolve(), registered)
     branch_result = subprocess.run(
       [
         "git",
@@ -217,12 +227,32 @@ class WorktreeBackendTests(unittest.TestCase):
       (path / "user-work.txt").read_text(encoding="utf-8"),
       "preserve me\n",
     )
-    registered = run_git(self.root, "worktree", "list", "--porcelain")
-    self.assertIn(str(path.resolve()), registered)
+    registered = registered_worktrees(self.root)
+    self.assertIn(path.resolve(), registered)
     self.assertEqual(
       run_git(self.root, "rev-parse", f"refs/heads/{branch}"),
       self.base_sha,
     )
+
+  def test_real_worktree_porcelain_matches_unicode_spaces_not_prefixes(self):
+    path = self.base / "worktree ü 雪"
+    adjacent = self.base / "worktree ü 雪-adjacent"
+    outside = self.base.parent / "unrelated worktree"
+
+    run_git(self.root, "worktree", "add", "--detach",
+            str(path), self.base_sha)
+    registered = registered_worktrees(self.root)
+    self.assertIn(self.root.resolve(), registered)
+    self.assertIn(path.resolve(), registered)
+    self.assertNotIn(adjacent.resolve(), registered)
+    self.assertNotIn(outside.resolve(), registered)
+    self.assertEqual(run_git(path, "rev-parse", "HEAD"), self.base_sha)
+    self.assertEqual(run_git(path, "rev-parse", "--abbrev-ref",
+                             "HEAD"), "HEAD")
+
+    run_git(self.root, "worktree", "remove", str(path))
+    self.assertFalse(path.exists())
+    self.assertNotIn(path.resolve(), registered_worktrees(self.root))
 
   def test_retire_refuses_uncommitted_work(self):
     path = self.base / "RWF-89"
