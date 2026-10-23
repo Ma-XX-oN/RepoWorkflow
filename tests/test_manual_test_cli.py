@@ -47,6 +47,8 @@ def read_manual_case_results(root, issue, candidate_sha, *, cases=None):
   pending = root / '.repoworkflow' / 'manual' / ('pending-' + str(issue) + '.json')
   if pending.exists():
     raise ValueError('manual outcome UNKNOWN; reconcile before use')
+  if (root / '.version-bumped-by-fail').exists():
+    raise ValueError('manual candidate has changed source inputs')
   path = _results(root)
   if not path.exists():
     return {}
@@ -96,6 +98,21 @@ def record_manual_result(root, issue, candidate_sha, result, *, operator, eviden
     handle.write(json.dumps(evidence) + "\\n")
   path = _selection(root)
   path.unlink()
+  if result == 'failed' and (root / '.simulate-fail-version').exists():
+    (root / 'VERSION').write_text('1.2.3-issue.702.0' + chr(10))
+    (root / '.version-bumped-by-fail').write_text('1')
+    from types import SimpleNamespace
+    return SimpleNamespace(
+      case=selected['name'], candidate_sha=candidate_sha, result=result,
+      evidence_id='fixture-durable-id', evidence_path=str(log), completed=True,
+    )
+  if result == 'failed' and (root / '.simulate-unknown').exists():
+    pending = root / '.repoworkflow' / 'manual' / (
+      'pending-' + str(issue) + '.json'
+    )
+    pending.parent.mkdir(parents=True, exist_ok=True)
+    pending.write_text('{"phase": "handoff"}')
+    return None
   return evidence
 '''
 
@@ -157,7 +174,8 @@ class TestManualLauncher(unittest.TestCase):
 
   def cli(self, *args):
     return subprocess.run(
-      ["sh", str(self.engine / "rwf"), "--root", str(self.root), *args],
+      [sys.executable, str(self.engine / "repo_workflow.py"),
+       "--root", str(self.root), *args],
       check=False, text=True, capture_output=True,
     )
 
@@ -274,6 +292,37 @@ class TestManualLauncher(unittest.TestCase):
     self.assertEqual(evidence["result"], "failed")
     self.assertEqual(evidence["testSHA"], self.sha)
 
+  def test_shipped_fail_confirmed_after_durable_q_increment_r_zero(self):
+    (self.root / ".simulate-fail-version").write_text("1")
+    (self.root / "VERSION").write_text("1.2.2-issue.702.3" + chr(10))
+    self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
+    observed = self.cli("test", "failed")
+    self.assertEqual(observed.returncode, 1, observed.stderr)
+    self.assertIn("Manual integration FAILED:", observed.stdout)
+    self.assertEqual((self.root / "VERSION").read_text().strip(),
+                     "1.2.3-issue.702.0")
+    self.assertTrue((self.root / ".version-bumped-by-fail").exists())
+    log = self.root / ".repoworkflow/validation/testResults-702.jsonl"
+    records = [json.loads(line) for line in log.read_text().splitlines()]
+    self.assertEqual(len(records), 1)
+    self.assertEqual(records[0]["result"], "failed")
+    self.assertEqual(records[0]["testSHA"], self.sha)
+    retry = self.cli("test", "failed")
+    self.assertNotEqual(retry.returncode, 0)
+    self.assertEqual(len(log.read_text().splitlines()), 1)
+
+  def test_shipped_fail_unknown_receipt_never_claims_success(self):
+    (self.root / ".simulate-unknown").write_text("1")
+    self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
+    observed = self.cli("test", "failed")
+    self.assertEqual(observed.returncode, 2)
+    self.assertIn("UNKNOWN", observed.stderr)
+    self.assertNotIn("Manual integration FAILED:", observed.stdout)
+    log = self.root / ".repoworkflow/validation/testResults-702.jsonl"
+    self.assertEqual(len(log.read_text().splitlines()), 1)
+    self.assertNotEqual(self.cli("test", "failed").returncode, 0)
+    self.assertEqual(len(log.read_text().splitlines()), 1)
+
   def test_empty_invalid_remote_and_result_without_selection(self):
     for cmd in (("test", "succeeded"), ("test", "failed")):
       with self.subTest(cmd=cmd):
@@ -331,7 +380,8 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
   def test_shipped_help_outside_git_checkout(self):
     with tempfile.TemporaryDirectory() as temp:
       proc = subprocess.run(
-        ["sh", str(SOURCE / "rwf"), "--root", temp, "test", "--help"],
+        [sys.executable, str(SOURCE / "repo_workflow.py"),
+         "--root", temp, "test", "--help"],
         capture_output=True, text=True, check=False,
       )
       self.assertEqual(proc.returncode, 0, proc.stderr)
