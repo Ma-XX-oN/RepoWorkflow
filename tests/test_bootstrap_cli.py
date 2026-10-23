@@ -303,11 +303,20 @@ class BootstrapCliTests(unittest.TestCase):
         ],
       )
       bad = subprocess.run(
-        [sys.executable, str(gh), "pr", "list"],
+        [
+          sys.executable, "-c",
+          "import subprocess,sys; p=subprocess.run(['gh','pr','list'], "
+          "capture_output=True,text=True); sys.stderr.write(p.stderr); "
+          "sys.exit(p.returncode)",
+        ],
         capture_output=True, text=True, env=env,
       )
       self.assertEqual(bad.returncode, 2)
       self.assertIn("unexpected gh arguments", bad.stderr)
+      self.assertEqual(
+        json.loads(routes.read_text(encoding="utf-8").splitlines()[-1]),
+        ["pr", "list"],
+      )
 
   def test_expected_public_precondition_failures_never_traceback(self):
     with tempfile.TemporaryDirectory() as td:
