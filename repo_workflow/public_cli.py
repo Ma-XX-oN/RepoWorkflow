@@ -404,7 +404,12 @@ def handle_completion(
 
   items = list(response.items)
   if items:
-    _print_completion_items(items, describe=describe)
+    if describe and words[:2] == ["test", "RED"]:
+      for item in items:
+        print(item.token if item.description is None
+              else item.token + " - " + item.description)
+    else:
+      _print_completion_items(items, describe=describe)
     return 0
 
   if _completed_command_is_terminal(legal, words):
@@ -416,17 +421,7 @@ def handle_completion(
 
 
 def handle_help(root: Path, words: list[str]) -> int:
-  if words == ["test", "RED"]:
-    # RED help is unconditional; only interactive completion needs registered groups.
-    node = COMMANDS["test"]["RED"]
-    print(node["_description"])
-    print(node["_value_description"])
-    print("Register current issue-N- test groups in .ci/tests.json.")
-    for option, description in node["_switches"].items():
-      print(option + "  " + description)
-    return 0
-  help_words = [*words, ""]
-  return handle_completion(root, help_words, describe=True)
+  return handle_completion(root, [*words, ""], describe=True)
 
 
 def is_public_command(word: str) -> bool:
