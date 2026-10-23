@@ -61,6 +61,13 @@ class RedCompletionCliTests(unittest.TestCase):
     self.fx.git("switch", "issue-702-test")
     (self.fx.root / ".ci/tests.json").write_text("{")
     self.check_error_parity("RED test catalogue is unavailable")
+    original = self.fx.root
+    self.fx.root = original / "not-a-git-checkout"
+    self.fx.root.mkdir()
+    try:
+      self.check_error_parity("RED tests require a current started issue")
+    finally:
+      self.fx.root = original
 
   def test_one_many_mixed_descriptions_prefix_and_ordering(self):
     for entries in (
