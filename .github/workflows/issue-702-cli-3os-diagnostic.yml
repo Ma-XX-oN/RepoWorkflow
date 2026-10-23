@@ -1,0 +1,22 @@
+name: RWF 702 CLI Three OS Diagnostic
+on:
+  push:
+    branches:
+      - issue-702-cli-3os-diagnostic-20261023t0222
+permissions:
+  contents: read
+jobs:
+  focused-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Execute exact CLI and RED grammar oracles
+        shell: bash
+        run: python -m unittest -v tests.test_manual_test_cli tests.test_red_completion_cli
