@@ -1,0 +1,21 @@
+name: RWF 702 Exact Owner CLI Cross OS
+on:
+  push:
+    branches:
+      - issue-702-exact-owner-probe-20261023t0253
+permissions:
+  contents: read
+jobs:
+  cli-red:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify owner exact-blob CLI and RED help
+        run: python -m unittest -v tests.test_manual_test_cli tests.test_red_completion_cli
