@@ -271,10 +271,6 @@ class NativeVersionAndLifecycleFailureTests(unittest.TestCase):
       self.assertIn("issue-703-manual--NEGATIVE", selected.stdout)
       negative = cli("test", "failed")
       self.assertNotEqual(negative.returncode, 0)
-      # Failure is expected to be terminal, *not* an exception while
-      # re-reading the now-obsolete SHA after Q/R changed.
-      self.assertIn("Manual integration FAILED", negative.stdout,
-                    negative.stderr)
       events = (
         root / ".repoworkflow/validation/testResults-703.jsonl"
       ).read_text().splitlines()
@@ -287,6 +283,11 @@ class NativeVersionAndLifecycleFailureTests(unittest.TestCase):
       lifecycle = LifecycleStore(root).read(703).lifecycle
       self.assertEqual(lifecycle.state, "active")
       self.assertFalse(lifecycle.dependency_satisfied)
+      # RED presentation oracle: the native handler must report the real
+      # durable MIT failure rather than a generic post-version stale-SHA
+      # readback error.  All above product effects have been checked first.
+      self.assertIn("Manual integration FAILED", negative.stdout,
+                    negative.stderr)
 
 
 if __name__ == "__main__":
