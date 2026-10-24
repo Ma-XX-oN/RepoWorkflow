@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 import io
 import json
 from pathlib import Path
@@ -94,7 +95,11 @@ def _configure_utf8_output() -> bool:
       continue
     try:
       stream.reconfigure(encoding="utf-8", errors="strict")
-    except (AttributeError, OSError, TypeError, ValueError):
+      if codecs.lookup(stream.encoding).name != "utf-8":
+        raise ValueError("stdout/stderr codec did not change to UTF-8")
+      if stream.errors != "strict":
+        raise ValueError("stdout/stderr codec is not strict")
+    except (AttributeError, LookupError, OSError, TypeError, ValueError):
       print(
         f"RepoWorkflow error: cannot configure UTF-8 {name} output",
         file=sys.__stderr__,
