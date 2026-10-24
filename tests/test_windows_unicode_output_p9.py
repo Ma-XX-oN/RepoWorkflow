@@ -76,13 +76,14 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
-      RepoFixture(root)
+      RepoFixture(root, capabilities=["unicode → ✓ 日本語"])
       plain = self.invoke("--root", str(root), "matrix")
       legacy = self.invoke("--root", str(root), "matrix", legacy=True)
       self.assertEqual(plain.returncode, 0, plain.stderr)
       self.assertEqual(legacy.returncode, 0, legacy.stderr)
       value = json.loads(legacy.stdout.decode("utf-8", errors="strict"))
       self.assertIn("include", value)
+      self.assertEqual(value["include"][0]["capabilities"], ["unicode → ✓ 日本語"])
       self.assertEqual(plain.stdout, legacy.stdout)
       self.assertEqual(plain.stderr, legacy.stderr)
 
@@ -90,14 +91,14 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
       result = self.invoke(
-        "--root", str(root), "preflight", "--unexpected-option",
-        legacy=True, markers=True,
+        "--root", str(root), "matrix", "--invalid=→",
+        legacy=True,
       )
       self.assertEqual(result.returncode, 2, result.stderr)
       stderr = result.stderr.decode("utf-8", errors="strict")
       self.assertIn("error:", stderr.lower())
-      self.assertIn("diagnostic → ─│└ ✓", stderr)
-      self.assertIn(MARKERS, result.stdout.decode("utf-8", errors="strict"))
+      self.assertIn("--invalid=→", stderr)
+      self.assertEqual(result.stdout, b"")
 
   def test_real_public_lane_rendering_under_legacy_cp1252(self):
     # Reuse the repository's existing authentic canonical-graph fixture.
