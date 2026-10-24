@@ -67,6 +67,22 @@ def _replace_bytes(path: Path, content: bytes) -> None:
       temporary.unlink(missing_ok=True)
 
 
+def _recover_parents(root: Path) -> bool:
+  """Move substituted parent entries aside without following foreign links."""
+  changed = False
+  for parent in (root / ".repoworkflow", root / ".repoworkflow/validation"):
+    if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+      conflict = Path(tempfile.mkdtemp(
+        prefix=parent.name + ".retry-conflict-", dir=parent.parent,
+      ))
+      os.replace(parent, conflict / parent.name)
+      changed = True
+    if not parent.exists():
+      parent.mkdir()
+      changed = True
+  return changed
+
+
 def _committed_checkout_bytes(root: Path, relative: str) -> bytes | None:
   """Read the raw HEAD blob and apply Git's actual checkout filters."""
   committed = _git_bytes(root, "show", "HEAD:" + relative)
@@ -108,6 +124,10 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     raise RetryEvidenceError("issue must be positive")
   relative = f".repoworkflow/validation/testResults-{issue}.jsonl"
   log = root / relative
+  if any(parent.is_symlink() for parent in (
+    root / ".repoworkflow", log.parent,
+  )):
+    raise RetryEvidenceError("canonical log parent must not be a symlink")
   if log.is_symlink():
     raise RetryEvidenceError("canonical log must not be a symlink")
   if not log.exists():
@@ -143,6 +163,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     yield log
   finally:
     if active:
+      parent_changed = _recover_parents(root)
       substituted_symlink = log.is_symlink()
       if substituted_symlink:
         log.unlink()
@@ -161,6 +182,8 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
         ) as conflict:
           conflict.write(current)
       _replace_bytes(log, original)
+      if parent_changed:
+        raise RetryEvidenceError("operation changed canonical log parent")
       if substituted_symlink:
         raise RetryEvidenceError("operation replaced canonical log with symlink")
       if unexpected:

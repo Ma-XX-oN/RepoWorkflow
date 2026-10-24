@@ -321,5 +321,38 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertEqual(self.log.read_bytes(), original)
 
 
+  def test_symlinked_parent_directory_is_rejected(self):
+    outside = self.root.parent / "external-parent"
+    outside.mkdir()
+    self.log.parent.rmdir()
+    try:
+      self.log.parent.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+      self.skipTest(f"directory symlinks unavailable: {error}")
+    (outside / self.log.name).write_bytes(self.record_bytes())
+    with self.assertRaisesRegex(RetryEvidenceError, "parent"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("symlinked canonical parent must never be followed")
+    self.assertEqual((outside / self.log.name).read_bytes(), self.record_bytes())
+
+  def test_parent_symlink_substitution_preserves_external_target(self):
+    self.write_record()
+    original = self.log.read_bytes()
+    outside = self.root.parent / "external-parent"
+    outside.mkdir()
+    with self.assertRaisesRegex(RetryEvidenceError, "parent"):
+      with isolate_retry_evidence(self.root, 569):
+        self.log.parent.rmdir()
+        try:
+          self.log.parent.symlink_to(outside, target_is_directory=True)
+        except OSError as error:
+          self.skipTest(f"directory symlinks unavailable: {error}")
+    self.assertEqual(self.log.read_bytes(), original)
+    self.assertEqual(list(outside.iterdir()), [])
+    conflicts = list(self.log.parent.parent.glob("validation.retry-conflict-*"))
+    self.assertEqual(len(conflicts), 1)
+    self.assertTrue((conflicts[0] / "validation").is_symlink())
+
+
 if __name__ == "__main__":
   unittest.main()
