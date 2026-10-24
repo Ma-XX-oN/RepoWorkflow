@@ -20,7 +20,10 @@ MARKERS = "→ ─│└ ✓ ○ ● ◎ ♥ ✕"
 
 
 class WindowsUnicodeOutputTests(unittest.TestCase):
-  def invoke(self, *args: str, legacy: bool = False, markers: bool = False):
+  def invoke(
+    self, *args: str, legacy: bool = False, markers: bool = False,
+    stdout=None, stderr=None,
+  ):
     env = os.environ.copy()
     # Do not hide an encoding defect behind Python's encoding override.
     env.pop("PYTHONIOENCODING", None)
@@ -49,8 +52,13 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
         sys.executable, "-c", setup, str(ENTRYPOINT),
         "1" if markers else "0", *args,
       ]
+    streams = (
+      {"capture_output": True}
+      if stdout is None and stderr is None
+      else {"stdout": stdout, "stderr": stderr}
+    )
     return subprocess.run(
-      argv, cwd=ROOT, env=env, capture_output=True, check=False,
+      argv, cwd=ROOT, env=env, check=False, **streams,
     )
 
   def test_legacy_cp1252_subprocess_round_trips_all_glyphs(self):
@@ -135,10 +143,11 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as td:
       stdout_path = Path(td) / "stdout"
       stderr_path = Path(td) / "stderr"
-      result = self.invoke("--help", legacy=True, markers=True)
-      self.assertEqual(result.returncode, 0, result.stderr)
-      stdout_path.write_bytes(result.stdout)
-      stderr_path.write_bytes(result.stderr)
+      with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
+        result = self.invoke(
+          "--help", legacy=True, markers=True, stdout=out, stderr=err,
+        )
+      self.assertEqual(result.returncode, 0)
       self.assertIn(MARKERS, stdout_path.read_text(encoding="utf-8"))
       self.assertIn("diagnostic →", stderr_path.read_text(encoding="utf-8"))
 
