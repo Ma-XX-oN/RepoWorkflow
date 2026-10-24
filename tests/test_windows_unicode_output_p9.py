@@ -164,21 +164,34 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
   def test_unconfigurable_stream_fails_explicitly(self):
     bootstrap = (
       "import io, runpy, sys\n"
-      "entry = sys.argv[1]\n"
+      "class NoopReconfigure(io.TextIOBase):\n"
+      "  @property\n"
+      "  def encoding(self): return 'cp1252'\n"
+      "  @property\n"
+      "  def errors(self): return 'replace'\n"
+      "  def reconfigure(self, **kwargs): pass\n"
+      "entry, mode = sys.argv[1:]\n"
       "sys.argv = [entry, '--help']\n"
-      "sys.stdout = io.TextIOBase()\n"
+      "if mode == 'noop':\n"
+      "  sys.stdout = NoopReconfigure()\n"
+      "else:\n"
+      "  setattr(sys, mode, io.TextIOBase())\n"
       "runpy.run_path(entry, run_name='__main__')\n"
     )
-    result = subprocess.run(
-      [sys.executable, "-c", bootstrap, str(ENTRYPOINT)],
-      cwd=ROOT, capture_output=True, check=False,
-    )
-    self.assertEqual(result.returncode, 2, result.stderr)
-    self.assertIn(
-      b"RepoWorkflow error: cannot configure UTF-8 stdout output",
-      result.stderr,
-    )
-    self.assertNotIn(b"Traceback", result.stderr)
+    for mode, target in (
+      ("stdout", "stdout"), ("stderr", "stderr"), ("noop", "stdout"),
+    ):
+      with self.subTest(mode=mode):
+        result = subprocess.run(
+          [sys.executable, "-c", bootstrap, str(ENTRYPOINT), mode],
+          cwd=ROOT, capture_output=True, check=False,
+        )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn(
+          f"RepoWorkflow error: cannot configure UTF-8 {target} output".encode(),
+          result.stderr,
+        )
+        self.assertNotIn(b"Traceback", result.stderr)
 
 
 if __name__ == "__main__":
