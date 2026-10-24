@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 from pathlib import Path
 import sys
@@ -82,6 +83,24 @@ from repo_workflow.workspace_worktree import WorktreeError
 
 
 ENGINE_ROOT = Path(__file__).resolve().parent
+
+
+def _configure_utf8_output() -> bool:
+  """Establish the same lossless text-output contract on every host."""
+  for name in ("stdout", "stderr"):
+    stream = getattr(sys, name)
+    # In-process Unicode text capture has no byte encoding to configure.
+    if isinstance(stream, io.StringIO):
+      continue
+    try:
+      stream.reconfigure(encoding="utf-8", errors="strict")
+    except (AttributeError, OSError, TypeError, ValueError):
+      print(
+        f"RepoWorkflow error: cannot configure UTF-8 {name} output",
+        file=sys.__stderr__,
+      )
+      return False
+  return True
 
 
 def _root(value: str) -> Path:
@@ -436,4 +455,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+  if not _configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main())
