@@ -28,7 +28,7 @@ def _git(root: Path, *args: str) -> str:
   try:
     result = subprocess.run(
       ["git", "-C", str(root), *args], capture_output=True,
-      text=True, check=False,
+      text=True, encoding="utf-8", errors="strict", check=False,
     )
   except (OSError, UnicodeError) as error:
     raise HostedVersionError("cannot decode hosted Git request") from error
