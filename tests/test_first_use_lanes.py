@@ -28,6 +28,9 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
     for empty in (b"\n", b"\r\n"):
       with self.assertRaisesRegex(ValueError, "lacks pathname"):
         decode_git_common_dir(empty)
+    for invalid in (b"\x00\n", b"directory\x00name\n"):
+      with self.assertRaisesRegex(ValueError, "contains NUL"):
+        decode_git_common_dir(invalid)
     if os.name != "nt":
       with tempfile.TemporaryDirectory() as td:
         git_dir = Path(td) / "bare-trailing-CR\r"
