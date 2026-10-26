@@ -15,17 +15,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P6-726
-            sha: 835c84ebedef5d7af200cb16c5b1c20f3a5ace8d
-            modules: tests.test_state_store
-          - id: P7-727
-            sha: 564b098b5741e9c6db96be2c19c92fd2a8cdac61
-            modules: tests.test_hosted_version_identity
-          - id: P8-728
-            sha: 97579e4c59413613ea2959a762c37d0cd6b6fbe5
-            modules: tests.test_retry_evidence
           - id: P9-730
-            sha: 4084835e6d4e75184f3ee7359c7501421dd23062
+            sha: 815889de4b7fb26fc80a5be0acf319c526343f9b
             modules: tests.test_windows_unicode_output_p9 tests.test_canonical_lane_smoke
     steps:
       - uses: actions/checkout@v4
