@@ -15,6 +15,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
+          - id: P7-727
+            sha: aba6dafe04f31e8d48e5e074c60a6b6dd17a7e4f
+            modules: tests.test_hosted_version_identity
+          - id: P8-728
+            sha: 695cd494ebcf1b0ebacb2c84521e30036bc232cb
+            modules: tests.test_retry_evidence
           - id: P9-730
             sha: 815889de4b7fb26fc80a5be0acf319c526343f9b
             modules: tests.test_windows_unicode_output_p9 tests.test_canonical_lane_smoke
