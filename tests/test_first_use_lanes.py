@@ -25,24 +25,29 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
     )
     with self.assertRaisesRegex(ValueError, "line terminator"):
       decode_git_common_dir(raw)
-    for empty in (b"\n", b"\r\n"):
+    with self.assertRaisesRegex(ValueError, "lacks pathname"):
+      decode_git_common_dir(b"\n")
+    if os.name == "nt":
       with self.assertRaisesRegex(ValueError, "lacks pathname"):
-        decode_git_common_dir(empty)
+        decode_git_common_dir(b"\r\n")
+    else:
+      self.assertEqual(decode_git_common_dir(b"\r\n"), "\r")
     for invalid in (b"\x00\n", b"directory\x00name\n"):
       with self.assertRaisesRegex(ValueError, "contains NUL"):
         decode_git_common_dir(invalid)
     if os.name != "nt":
       with tempfile.TemporaryDirectory() as td:
-        git_dir = Path(td) / "bare-trailing-CR\r"
-        subprocess.run(
-          ["git", "init", "--bare", str(git_dir)],
-          check=True, capture_output=True,
-        )
-        common = subprocess.run(
-          ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-          cwd=git_dir, check=True, capture_output=True,
-        ).stdout
-        self.assertEqual(Path(decode_git_common_dir(common)), git_dir)
+        for name in ("\r", "bare-trailing-CR\r"):
+          git_dir = Path(td) / name
+          subprocess.run(
+            ["git", "init", "--bare", str(git_dir)],
+            check=True, capture_output=True,
+          )
+          common = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=git_dir, check=True, capture_output=True,
+          ).stdout
+          self.assertEqual(Path(decode_git_common_dir(common)), git_dir)
 
   def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
     """Git's filesystem path bytes must not use host-default text decoding."""
