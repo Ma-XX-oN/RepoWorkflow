@@ -8,12 +8,22 @@ import tempfile
 import unittest
 
 from tests.p4_provider_fixture import (
-  CLI, FIXTURE, ROOT, FirstUseFixture, provider_calls,
+  CLI, FIXTURE, ROOT, FirstUseFixture, provider_calls, decode_git_common_dir,
   set_metadata_titles, set_provider_failure, verify_provider,
 )
 
 
 class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
+  def test_git_common_dir_decoder_preserves_path_whitespace(self):
+    """Remove only Git's line delimiter, never valid filename spaces."""
+    raw = os.fsencode("  directory ending with space ")
+    self.assertEqual(decode_git_common_dir(raw + b"\n"),
+                     "  directory ending with space ")
+    self.assertEqual(decode_git_common_dir(raw + b"\r\n"),
+                     "  directory ending with space ")
+    with self.assertRaisesRegex(ValueError, "line terminator"):
+      decode_git_common_dir(raw)
+
   def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
     """Git's filesystem path bytes must not use host-default text decoding."""
     with tempfile.TemporaryDirectory() as td:
@@ -31,14 +41,14 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
       code = "\n".join((
         "import os,subprocess,sys",
         "from pathlib import Path",
-        "from tests.p4_provider_fixture import FirstUseFixture",
+        "from tests.p4_provider_fixture import FirstUseFixture, decode_git_common_dir",
         "if sys.flags.utf8_mode != 0: raise RuntimeError('UTF8 mode active')",
         "r=Path(os.environ['RWF_P4_UNICODE_ROOT'])",
         "FirstUseFixture().make_repo(r)",
         "def common(path):",
         "  raw=subprocess.run(['git','rev-parse','--git-common-dir'],"
         "cwd=path,check=True,capture_output=True).stdout",
-        "  return (path/os.fsdecode(raw).strip()).resolve()",
+        "  return (path/decode_git_common_dir(raw)).resolve()",
         "if common(r)!=(r/'.git').resolve(): "
         "raise RuntimeError('root common-dir mismatch')",
         "linked=r.parent/os.environ['RWF_P4_LINKED_NAME']",
@@ -123,7 +133,7 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
         check=True,
         capture_output=True,
       ).stdout
-      common = os.fsdecode(common).strip()
+      common = decode_git_common_dir(common)
       writer = (root / common / "repoworkflow" / "runtime-writer-id").resolve()
       self.assertTrue(writer.is_file())
       self.assertTrue(writer.read_text(encoding="utf-8").startswith("local-"))
