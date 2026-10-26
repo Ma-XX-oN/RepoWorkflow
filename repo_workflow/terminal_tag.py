@@ -292,9 +292,9 @@ def publish_terminal_tag(
     # Concurrent identical publication is harmless; a different target is not.
     if _remote_target(root, remote, tag) != candidate:
       raise TerminalTagError("terminal tag publication failed")
-    ref = "refs/tags/" + tag
-    remote_raw = _git(root, "ls-remote", "--tags", remote, ref).stdout.strip().split()
-    local_raw = _git(root, "rev-parse", ref).stdout.strip()
-    if len(remote_raw) != 2 or remote_raw[1] != ref or remote_raw[0] != local_raw:
-      raise TerminalTagError("remote terminal tag object differs from local")
+  ref = "refs/tags/" + tag
+  remote_raw = _git(root, "ls-remote", "--tags", remote, ref).stdout.strip().split()
+  local_raw = _git(root, "rev-parse", ref).stdout.strip()
+  if len(remote_raw) != 2 or remote_raw[1] != ref or remote_raw[0] != local_raw:
+    raise TerminalTagError("remote terminal tag object differs from local")
   return tag
