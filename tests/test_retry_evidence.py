@@ -321,6 +321,36 @@ class RetryEvidenceTests(unittest.TestCase):
         self.log.unlink()
     self.assertEqual(self.log.read_bytes(), original)
 
+  def test_directory_replacement_preserves_original_and_conflict(self):
+    self.write_record()
+    original = self.log.read_bytes()
+    with self.assertRaisesRegex(RetryEvidenceError, "non-file"):
+      with isolate_retry_evidence(self.root, 569):
+        self.log.mkdir()
+        (self.log / "foreign.txt").write_text("preserve me", encoding="utf-8")
+    self.assertEqual(self.log.read_bytes(), original)
+    conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
+    self.assertEqual(len(conflicts), 1)
+    self.assertEqual(
+      (conflicts[0] / self.log.name / "foreign.txt").read_text(encoding="utf-8"),
+      "preserve me",
+    )
+
+  def test_invalid_utf8_untracked_filename_is_fail_closed(self):
+    import os
+    if os.name == "nt":
+      self.skipTest("Windows rejects undecodable bytes in filesystem paths")
+    self.write_record()
+    original = self.log.read_bytes()
+    path = os.fsencode(self.root) + b"/bad-\xff.txt"
+    with open(path, "wb") as output:
+      output.write(b"foreign")
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("invalid raw Git path bytes must never be concealed")
+    self.assertEqual(self.log.read_bytes(), original)
+    self.assertTrue(os.path.exists(path))
+
   def test_invalid_utf8_jsonl_rejected(self):
     self.log.write_bytes(b'{"testSHA":"x","kind":"test","result":"incomplete",'
                          b'"runner":"\xff"}\n')

@@ -19,14 +19,6 @@ class RetryEvidenceError(ValueError):
   pass
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-  return subprocess.run(
-    ["git", "-C", str(root), *args],
-    text=True, encoding="utf-8", errors="strict",
-    capture_output=True, check=False,
-  )
-
-
 def _git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
   return subprocess.run(
     ["git", "-C", str(root), *args],
@@ -92,7 +84,7 @@ def _committed_checkout_bytes(root: Path, relative: str) -> tuple[bytes, ...] | 
   """
   committed = _git_bytes(root, "show", "HEAD:" + relative)
   if committed.returncode:
-    tracked = _git(root, "ls-files", "--error-unmatch", "--", relative)
+    tracked = _git_bytes(root, "ls-files", "--error-unmatch", "--", relative)
     if tracked.returncode != 1:
       raise RetryEvidenceError("cannot establish canonical Git blob absence")
     return None
@@ -109,14 +101,12 @@ def _committed_checkout_bytes(root: Path, relative: str) -> tuple[bytes, ...] | 
   return tuple(dict.fromkeys(candidates))
 
 
-def _status(root: Path) -> list[str]:
-  try:
-    status = _git(root, "status", "--porcelain", "--untracked-files=all", "-z")
-  except UnicodeError as error:
-    raise RetryEvidenceError("cannot decode candidate worktree status") from error
+def _status(root: Path) -> list[bytes]:
+  """Use raw NUL-delimited Git records; never lose bytes to host locales."""
+  status = _git_bytes(root, "status", "--porcelain", "--untracked-files=all", "-z")
   if status.returncode:
     raise RetryEvidenceError("cannot inspect candidate worktree")
-  return [item for item in status.stdout.split("\0") if item]
+  return [item for item in status.stdout.split(b"\0") if item]
 
 
 @contextmanager
@@ -151,8 +141,8 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     raise RetryEvidenceError("cannot read canonical retry evidence") from error
 
   entries = _status(root)
-  if any(item[:3] not in {"?? ", " M "} or
-         item[3:] != relative for item in entries):
+  if any(item[:3] not in {b"?? ", b" M "} or
+         item[3:] != relative.encode("ascii") for item in entries):
     raise RetryEvidenceError("source or unrelated files are dirty")
   candidates = _committed_checkout_bytes(root, relative)
   if log.is_symlink() or not log.is_file() or log.read_bytes() != original:
@@ -181,8 +171,14 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     if active:
       parent_changed = _recover_parents(root)
       substituted_symlink = log.is_symlink()
-      if substituted_symlink:
-        log.unlink()
+      substituted_nonfile = log.exists() and not log.is_file()
+      if substituted_symlink or substituted_nonfile:
+        # Preserve substituted directories, links and their contents without
+        # following them or blocking restoration of the original evidence.
+        quarantine = Path(tempfile.mkdtemp(
+          prefix=log.name + ".retry-conflict-", dir=log.parent,
+        ))
+        os.replace(log, quarantine / log.name)
       current = log.read_bytes() if log.exists() and log.is_file() else None
       unexpected = (current != expected)
       status_error = None
@@ -202,6 +198,8 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
         raise RetryEvidenceError("operation changed canonical log parent")
       if substituted_symlink:
         raise RetryEvidenceError("operation replaced canonical log with symlink")
+      if substituted_nonfile:
+        raise RetryEvidenceError("operation replaced canonical log with non-file")
       if unexpected:
         raise RetryEvidenceError("operation changed isolated canonical evidence")
       if status_error is not None:
