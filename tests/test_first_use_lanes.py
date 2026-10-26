@@ -19,13 +19,27 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
     raw = os.fsencode("  directory ending with space ")
     self.assertEqual(decode_git_common_dir(raw + b"\n"),
                      "  directory ending with space ")
-    self.assertEqual(decode_git_common_dir(raw + b"\r\n"),
-                     "  directory ending with space ")
+    self.assertEqual(
+      decode_git_common_dir(raw + b"\r\n"),
+      "  directory ending with space " + ("" if os.name == "nt" else "\r"),
+    )
     with self.assertRaisesRegex(ValueError, "line terminator"):
       decode_git_common_dir(raw)
     for empty in (b"\n", b"\r\n"):
       with self.assertRaisesRegex(ValueError, "lacks pathname"):
         decode_git_common_dir(empty)
+    if os.name != "nt":
+      with tempfile.TemporaryDirectory() as td:
+        git_dir = Path(td) / "bare-trailing-CR\r"
+        subprocess.run(
+          ["git", "init", "--bare", str(git_dir)],
+          check=True, capture_output=True,
+        )
+        common = subprocess.run(
+          ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+          cwd=git_dir, check=True, capture_output=True,
+        ).stdout
+        self.assertEqual(Path(decode_git_common_dir(common)), git_dir)
 
   def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
     """Git's filesystem path bytes must not use host-default text decoding."""
