@@ -12,9 +12,7 @@ from unittest.mock import patch
 from repo_workflow import terminal_tag
 
 from repo_workflow.terminal_tag import TerminalTagError, publish_terminal_tag
-
 VERSION = "0.1.121-issue.545.0.1"
-
 class TerminalTagTests(unittest.TestCase):
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
@@ -34,7 +32,6 @@ class TerminalTagTests(unittest.TestCase):
     self.git("push", "origin", "HEAD:refs/heads/issue-545-test")
     self.log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     self.log.parent.mkdir(parents=True, exist_ok=True)
-
   def git_in(self, cwd, *args):
     result = subprocess.run(
       ["git", *args], cwd=cwd, text=True, capture_output=True, check=False,
@@ -42,7 +39,6 @@ class TerminalTagTests(unittest.TestCase):
     if result.returncode:
       raise AssertionError(result.stderr)
     return result.stdout.strip()
-
   def git(self, *args):
     return self.git_in(self.root, *args)
   def issue_marker(self):
@@ -298,6 +294,10 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), object_sha)
     self.assertEqual(self.git("cat-file", "-t", "refs/tags/" + tag), "tag")
     self.assertEqual(self.git("rev-parse", tag + "^{commit}"), self.candidate)
+    self.git("tag", "-d", tag)
+    self.git("tag", "-a", tag, self.candidate, "-m", tag)
+    with self.assertRaisesRegex(TerminalTagError, "tag object differs"):
+      self.issue_tag("PASS")
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_successive_phase_versions_preserve_both_exact_targets(self):
