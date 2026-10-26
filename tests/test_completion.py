@@ -169,9 +169,9 @@ class BashCompletionTests(unittest.TestCase):
         'COMP_LINE="rwf test RED "\n'
         "COMP_POINT=13\n"
         "_repo_workflow_complete\n"
-        'printf "ONE:%s\\\n" "${COMPREPLY[@]}"\n'
+        'printf "ONE:%s\\n" "${COMPREPLY[@]}"\n'
         "_repo_workflow_complete\n"
-        'printf "COUNT:%s\\\n" "${#COMPREPLY[@]}"\n',
+        'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
       names = [x[4:] for x in completed.stdout.splitlines()
@@ -201,7 +201,7 @@ class BashCompletionTests(unittest.TestCase):
         "COMP_CWORD=3\n"
         "_repo_workflow_complete\n"
         "_repo_workflow_complete\n"
-        'printf "COUNT:%s\\\n" "${#COMPREPLY[@]}"\n',
+        'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertIn("COUNT:0", completed.stdout)
