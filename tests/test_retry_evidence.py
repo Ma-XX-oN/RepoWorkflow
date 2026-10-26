@@ -62,15 +62,13 @@ class RetryEvidenceTests(unittest.TestCase):
     self.write_record()
     original = self.log.read_bytes()
     (self.root / "source.txt").write_text("dirty\n")
-    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"), isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
     self.assertEqual(self.log.read_bytes(), original)
   def test_staged_log_change_is_rejected(self):
     self.write_record()
     self.git("add", ".repoworkflow/validation/testResults-569.jsonl")
-    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"), isolate_retry_evidence(self.root, 569):
         self.fail("staged index must never be hidden")
     self.assertTrue(self.log.exists())
   def test_symlink_replacement_inside_context_restores_original_evidence(self):
@@ -78,21 +76,18 @@ class RetryEvidenceTests(unittest.TestCase):
     original = self.log.read_bytes()
     target = self.root.parent / "outside.txt"
     target.write_text("foreign\n")
-    with self.assertRaisesRegex(RetryEvidenceError, "symlink"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "symlink"), isolate_retry_evidence(self.root, 569):
         self.log.symlink_to(target)
     self.assertFalse(self.log.is_symlink())
     self.assertEqual(self.log.read_bytes(), original)
     self.assertEqual(target.read_text(), "foreign\n")
   def test_valid_json_with_missing_fields_is_rejected(self):
     self.log.write_text(json.dumps({"result": "incomplete"}) + "\n")
-    with self.assertRaisesRegex(RetryEvidenceError, "incomplete"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "incomplete"), isolate_retry_evidence(self.root, 569):
         self.fail("missing required provenance must fail")
   def test_empty_evidence_is_rejected(self):
     self.log.write_text("")
-    with self.assertRaisesRegex(RetryEvidenceError, "empty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "empty"), isolate_retry_evidence(self.root, 569):
         self.fail("empty evidence must fail")
   def test_malformed_log_is_not_hidden(self):
     nested = (b'{"testSHA":"x","kind":"test","result":"incomplete",'
@@ -107,8 +102,7 @@ class RetryEvidenceTests(unittest.TestCase):
     target = self.root / "target"
     target.write_text("{}\n")
     self.log.symlink_to(target)
-    with self.assertRaisesRegex(RetryEvidenceError, "symlink"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "symlink"), isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
   def test_concurrent_isolation_and_crash_restore_original(self):
     import os
@@ -137,23 +131,20 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertEqual(self.log.read_bytes(), original)
     journal = Path(self.git("rev-parse", "--absolute-git-dir")) / "rwf-retry-evidence-569.backup"
     journal.write_bytes(b"[" * 10000 + b"0" + b"]" * 10000)
-    with self.assertRaisesRegex(RetryEvidenceError, "invalid retry recovery journal"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "invalid retry recovery journal"), isolate_retry_evidence(self.root, 569):
         self.fail("deep corrupted recovery journal must not enter")
     self.assertEqual(self.log.read_bytes(), original)
   def test_exception_restores_original_log(self):
     self.write_record()
     original = self.log.read_bytes()
-    with self.assertRaisesRegex(RuntimeError, "failure"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RuntimeError, "failure"), isolate_retry_evidence(self.root, 569):
         raise RuntimeError("failure")
     self.assertEqual(self.log.read_bytes(), original)
   def test_operation_writing_new_evidence_fails_closed_without_data_loss(self):
     self.write_record()
     original = self.log.read_bytes()
     changed = json.dumps({"result": "unexpected"}) + "\n"
-    with self.assertRaisesRegex(RetryEvidenceError, "changed"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "changed"), isolate_retry_evidence(self.root, 569):
         self.log.write_text(changed)
     self.assertEqual(self.log.read_bytes(), original)
     conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
@@ -217,8 +208,7 @@ class RetryEvidenceTests(unittest.TestCase):
       self.root, ".repoworkflow/validation/testResults-569.jsonl",
     )
     self.assertEqual(expected, baseline.replace(b"\n", b"\r\n"))
-    with self.assertRaisesRegex(RetryEvidenceError, "remained dirty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "remained dirty"), isolate_retry_evidence(self.root, 569):
         self.fail("do not select noncheckout LF just because status is clean")
     self.assertEqual(self.log.read_bytes(), original)
   def test_implicit_autocrlf_with_filter_fails_closed_if_dirty(self):
@@ -266,14 +256,12 @@ class RetryEvidenceTests(unittest.TestCase):
     self.git("commit", "-qm", "tracked log")
     self.log.write_bytes(self.log.read_bytes() + self.record_bytes(attempt=2))
     self.git("add", ".repoworkflow/validation/testResults-569.jsonl")
-    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"), isolate_retry_evidence(self.root, 569):
         self.fail("must reject staged tracked evidence")
   def test_unrelated_untracked_file_is_not_hidden(self):
     self.write_record()
     (self.root / "unrelated.txt").write_text("untrusted\n")
-    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"), isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
   def test_wrong_issue_keeps_actual_dirty_log_visible(self):
     self.write_record()
@@ -289,8 +277,7 @@ class RetryEvidenceTests(unittest.TestCase):
   def test_unrelated_mutation_inside_context_is_reported(self):
     self.write_record()
     original = self.log.read_bytes()
-    with self.assertRaisesRegex(RetryEvidenceError, "dirtied"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "dirtied"), isolate_retry_evidence(self.root, 569):
         (self.root / "source.txt").write_text("dirty inside\n")
     self.assertEqual(self.log.read_bytes(), original)
     self.assertEqual((self.root / "source.txt").read_text(), "dirty inside\n")
@@ -302,8 +289,7 @@ class RetryEvidenceTests(unittest.TestCase):
     self.log.write_bytes(baseline + self.record_bytes(attempt=2))
     original = self.log.read_bytes()
     conflict_bytes = b"untrusted\r\n"
-    with self.assertRaisesRegex(RetryEvidenceError, "changed"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "changed"), isolate_retry_evidence(self.root, 569):
         self.log.write_bytes(conflict_bytes)
     self.assertEqual(self.log.read_bytes(), original)
     conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
@@ -315,15 +301,13 @@ class RetryEvidenceTests(unittest.TestCase):
     self.git("commit", "-qm", "tracked evidence")
     self.log.write_bytes(self.log.read_bytes() + self.record_bytes(attempt=2))
     original = self.log.read_bytes()
-    with self.assertRaisesRegex(RetryEvidenceError, "changed"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "changed"), isolate_retry_evidence(self.root, 569):
         self.log.unlink()
     self.assertEqual(self.log.read_bytes(), original)
   def test_directory_replacement_preserves_original_and_conflict(self):
     self.write_record()
     original = self.log.read_bytes()
-    with self.assertRaisesRegex(RetryEvidenceError, "non-file"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "non-file"), isolate_retry_evidence(self.root, 569):
         self.log.mkdir()
         (self.log / "foreign.txt").write_text("preserve me", encoding="utf-8")
     self.assertEqual(self.log.read_bytes(), original)
@@ -348,8 +332,7 @@ class RetryEvidenceTests(unittest.TestCase):
       if error.errno == errno.EILSEQ:
         self.skipTest("filesystem forbids invalid byte-sequence filenames")
       raise
-    with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "dirty"), isolate_retry_evidence(self.root, 569):
         self.fail("invalid raw Git path bytes must never be concealed")
     self.assertEqual(self.log.read_bytes(), original)
     self.assertTrue(os.path.exists(path))
@@ -373,8 +356,7 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertEqual(self.log.read_bytes(), original)
   def test_invalid_utf8_jsonl_rejected(self):
     self.log.write_bytes(b'{"testSHA":"x","kind":"test","result":"incomplete","runner":"\xff"}\n')
-    with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "invalid"), isolate_retry_evidence(self.root, 569):
         self.fail("invalid bytes must not be hidden")
     for codec in ("utf-16-le", "utf-16", "utf-32-le", "utf-8-sig"):
       self.log.write_bytes(self.record_bytes().decode("utf-8").encode(codec))
@@ -465,6 +447,8 @@ class RetryEvidenceTests(unittest.TestCase):
           pass
     self.assertEqual(self.log.read_bytes(), original)
   def test_symlinked_parent_directory_is_rejected(self):
+    from unittest.mock import patch
+    from repo_workflow.retry_evidence import _write_journal
     outside = self.root.parent / "external-parent"
     outside.mkdir()
     self.log.parent.rmdir()
@@ -472,18 +456,35 @@ class RetryEvidenceTests(unittest.TestCase):
       self.log.parent.symlink_to(outside, target_is_directory=True)
     except OSError as error:
       self.skipTest(f"directory symlinks unavailable: {error}")
-    (outside / self.log.name).write_bytes(self.record_bytes())
+    target = outside / self.log.name
+    target.write_bytes(b"foreign\n")
     with self.assertRaisesRegex(RetryEvidenceError, "parent"):
-      with isolate_retry_evidence(self.root, 569):
-        self.fail("symlinked canonical parent must never be followed")
-    self.assertEqual((outside / self.log.name).read_bytes(), self.record_bytes())
+      with isolate_retry_evidence(self.root, 569): self.fail("symlinked parent")
+    self.assertEqual(target.read_bytes(), b"foreign\n")
+    self.log.parent.unlink()
+    self.log.parent.mkdir()
+    self.write_record()
+    self.git("add", ".")
+    self.git("commit", "-qm", "tracked original")
+    self.log.write_bytes(self.log.read_bytes() + self.record_bytes(attempt=2))
+    original = self.log.read_bytes()
+    moved = self.log.parent.with_name("validation-moved")
+    def swap(*args, **kwargs):
+      journal = _write_journal(*args, **kwargs)
+      self.log.parent.rename(moved)
+      self.log.parent.symlink_to(outside, target_is_directory=True)
+      return journal
+    with patch("repo_workflow.retry_evidence._write_journal", side_effect=swap):
+      with self.assertRaisesRegex(RetryEvidenceError, "parent"):
+        with isolate_retry_evidence(self.root, 569): self.fail("parent swapped")
+    self.assertEqual(target.read_bytes(), b"foreign\n")
+    self.assertEqual((moved / self.log.name).read_bytes(), original)
   def test_parent_symlink_substitution_preserves_external_target(self):
     self.write_record()
     original = self.log.read_bytes()
     outside = self.root.parent / "external-parent"
     outside.mkdir()
-    with self.assertRaisesRegex(RetryEvidenceError, "parent"):
-      with isolate_retry_evidence(self.root, 569):
+    with self.assertRaisesRegex(RetryEvidenceError, "parent"), isolate_retry_evidence(self.root, 569):
         self.log.parent.rmdir()
         try:
           self.log.parent.symlink_to(outside, target_is_directory=True)

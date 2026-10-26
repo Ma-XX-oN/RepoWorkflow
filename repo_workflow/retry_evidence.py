@@ -193,6 +193,17 @@ def _read_journal(journal: Path) -> tuple[bytes, int, bytes | None]:
     raise RetryEvidenceError("invalid retry recovery journal") from error
 
 
+def _parent_fingerprint(log: Path) -> tuple[tuple[int, int], ...]:
+  """Require original real parent objects, not substituted paths or links."""
+  result = []
+  for parent in (log.parent.parent, log.parent):
+    if parent.is_symlink() or not parent.is_dir():
+      raise RetryEvidenceError("canonical log parent changed before isolation")
+    details = parent.stat(follow_symlinks=False)
+    result.append((details.st_dev, details.st_ino))
+  return tuple(result)
+
+
 def _same_evidence(log: Path, original: bytes, mode: int) -> bool:
   return (not log.is_symlink() and log.is_file() and
           log.read_bytes() == original and
@@ -322,10 +333,13 @@ def _isolate_retry_evidence_locked(root: Path, issue: int, gitdir: Path) -> Iter
   if not _same_evidence(log, original, original_mode):
     raise RetryEvidenceError("canonical retry evidence changed before isolation")
 
+  original_parents = _parent_fingerprint(log)
   journal = _write_journal(gitdir, issue, original, original_mode, expected)
   active = False
   preflight_dirty = False
   try:
+    if _parent_fingerprint(log) != original_parents:
+      raise RetryEvidenceError("canonical log parent replaced before isolation")
     active = True  # Restoration must run even if replacement raises after a write.
     if expected is None:
       log.unlink()
