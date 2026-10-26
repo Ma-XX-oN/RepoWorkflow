@@ -358,6 +358,27 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("invalid bytes must not be hidden")
 
+  def test_git_os_error_during_cleanup_still_restores(self):
+    from unittest.mock import patch
+    self.write_record()
+    original = self.log.read_bytes()
+    real_run = subprocess.run
+    failures = [0]
+
+    def faulty_run(argv, **kwargs):
+      if argv[3:5] == ["status", "--porcelain"]:
+        failures[0] += 1
+        if failures[0] == 3:
+          raise OSError("git executable unavailable during cleanup")
+      return real_run(argv, **kwargs)
+
+    with patch("repo_workflow.retry_evidence.subprocess.run", side_effect=faulty_run):
+      with self.assertRaisesRegex(RetryEvidenceError, "cannot execute Git"):
+        with isolate_retry_evidence(self.root, 569):
+          self.assertFalse(self.log.exists())
+    self.assertEqual(failures[0], 3)
+    self.assertEqual(self.log.read_bytes(), original)
+
   def test_status_inspection_failure_still_restores(self):
     from unittest.mock import patch
     self.write_record()

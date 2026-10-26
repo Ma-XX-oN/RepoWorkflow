@@ -20,10 +20,13 @@ class RetryEvidenceError(ValueError):
 
 
 def _git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
-  return subprocess.run(
-    ["git", "-C", str(root), *args],
-    capture_output=True, check=False,
-  )
+  try:
+    return subprocess.run(
+      ["git", "-C", str(root), *args],
+      capture_output=True, check=False,
+    )
+  except OSError as error:
+    raise RetryEvidenceError("cannot execute Git for retry evidence") from error
 
 
 def _validate_log(content: bytes) -> None:
