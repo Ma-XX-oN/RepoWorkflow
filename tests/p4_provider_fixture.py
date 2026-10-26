@@ -184,7 +184,6 @@ class FirstUseFixture:
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
     subprocess.run(
@@ -197,7 +196,6 @@ class FirstUseFixture:
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(
       [
