@@ -358,6 +358,19 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("invalid bytes must not be hidden")
 
+  def test_restore_mode_is_applied_via_open_file_descriptor(self):
+    from unittest.mock import patch
+    import os
+    if not hasattr(os, "fchmod"):
+      self.skipTest("open file-descriptor chmod requires POSIX")
+    self.write_record()
+    original = self.log.read_bytes()
+    with patch("repo_workflow.retry_evidence.os.chmod",
+               side_effect=AssertionError("path-based chmod is unsafe")):
+      with isolate_retry_evidence(self.root, 569):
+        self.assertFalse(self.log.exists())
+    self.assertEqual(self.log.read_bytes(), original)
+
   def test_original_mode_restored_for_untracked_and_tracked_log(self):
     import os
     import stat

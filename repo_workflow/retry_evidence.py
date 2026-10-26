@@ -56,7 +56,10 @@ def _replace_bytes(path: Path, content: bytes, mode: int) -> None:
     ) as output:
       temporary = Path(output.name)
       output.write(content)
-    os.chmod(temporary, mode)
+      if hasattr(os, "fchmod"):
+        os.fchmod(output.fileno(), mode)
+      else:
+        os.chmod(temporary, mode, follow_symlinks=False)
     os.replace(temporary, path)
     temporary = None
   finally:
