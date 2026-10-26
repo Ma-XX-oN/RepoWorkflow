@@ -259,7 +259,12 @@ def publish_terminal_tag(
     raise TerminalTagError("local terminal tag targets a different commit")
   if published is not None and published != candidate:
     raise TerminalTagError("remote terminal tag targets a different commit")
-  if local is None:
+  if local is None and published is not None:
+    fetched = _git(root, "fetch", "--no-tags", remote,
+                   "refs/tags/" + tag + ":refs/tags/" + tag, check=False)
+    if fetched.returncode or _local_target(root, tag) != candidate:
+      raise TerminalTagError("cannot restore authoritative remote tag object")
+  elif local is None:
     created = _git(root, "tag", "-a", tag, candidate, "-m", tag, check=False)
     if created.returncode and _local_target(root, tag) != candidate:
       raise TerminalTagError("terminal tag creation failed")
