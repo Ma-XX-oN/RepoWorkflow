@@ -20,6 +20,7 @@ class RetryEvidenceTests(unittest.TestCase):
     self.git("init", "-b", "issue-569-check")
     self.git("config", "user.name", "Tester")
     self.git("config", "user.email", "test@example.invalid")
+    self.git("config", "core.autocrlf", "false")
     (self.root / "source.txt").write_text("source\n")
     self.git("add", ".")
     self.git("commit", "-qm", "source")
@@ -198,24 +199,29 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
 
-  def test_implicit_autocrlf_does_not_leave_tracked_log_dirty(self):
-    # Simulate Git for Windows' default without changing .gitattributes.
+  def test_implicit_autocrlf_uses_real_git_checkout_not_clean_guess(self):
+    from repo_workflow.git import git_checkout_bytes
     self.git("config", "core.autocrlf", "true")
     baseline = self.record_bytes(runner="東京-é-🧪")
     self.log.write_bytes(baseline)
     self.git("add", ".")
     self.git("commit", "-qm", "original LF worktree evidence")
-    self.log.write_bytes(baseline + self.record_bytes(attempt=2))
-    original = self.log.read_bytes()
-    with isolate_retry_evidence(self.root, 569):
-      self.assertEqual(self.log.read_bytes(), baseline)
-      self.assertEqual(self.git("status", "--porcelain"), "")
+    original = baseline + self.record_bytes(attempt=2)
+    self.log.write_bytes(original)
+    expected = git_checkout_bytes(
+      self.root, ".repoworkflow/validation/testResults-569.jsonl",
+    )
+    self.assertEqual(expected, baseline.replace(b"\n", b"\r\n"))
+    with self.assertRaisesRegex(RetryEvidenceError, "remained dirty"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("do not select noncheckout LF just because status is clean")
     self.assertEqual(self.log.read_bytes(), original)
-    self.assertNotEqual(self.git("status", "--porcelain"), "")
 
-  def test_implicit_autocrlf_with_clean_smudge_stays_clean(self):
+  def test_implicit_autocrlf_with_filter_fails_closed_if_dirty(self):
     self.git("config", "core.autocrlf", "true")
-    self.test_clean_smudge_roundtrip_filter()
+    with self.assertRaisesRegex(RetryEvidenceError, "remained dirty"):
+      self.test_clean_smudge_roundtrip_filter()
+    self.assertEqual(len(self.log.read_bytes().splitlines()), 2)
 
   def test_clean_smudge_roundtrip_filter(self):
     import sys

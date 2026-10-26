@@ -15,6 +15,8 @@ import subprocess
 import tempfile
 from typing import Iterator
 
+from . import git as git_boundary
+
 
 class RetryEvidenceError(ValueError):
   pass
@@ -83,12 +85,11 @@ def _recover_parents(root: Path) -> bool:
   return changed
 
 
-def _committed_checkout_bytes(root: Path, relative: str) -> tuple[bytes, ...] | None:
-  """Read HEAD raw bytes and derive only verified Git checkout representations.
+def _committed_checkout_bytes(root: Path, relative: str) -> bytes | None:
+  """Use one Git-authoritative checkout result, never guessed alternatives.
 
-  Git's automatic EOL conversion can emit CRLF on Windows even when the
-  repository's existing clean worktree is LF. Validate each candidate with
-  actual git status instead of assuming the filtered stream is clean.
+  Validate raw HEAD bytes independently of the committed tree's materialized
+  checkout representation.
   """
   committed = _git_bytes(root, "show", "HEAD:" + relative)
   if committed.returncode:
@@ -97,16 +98,16 @@ def _committed_checkout_bytes(root: Path, relative: str) -> tuple[bytes, ...] | 
       raise RetryEvidenceError("cannot establish canonical Git blob absence")
     return None
   _validate_log(committed.stdout)
-  converted = _git_bytes(
-    root, "cat-file", "--filters", "--path=" + relative,
-    "HEAD:" + relative,
-  )
-  if converted.returncode:
-    raise RetryEvidenceError("cannot apply canonical Git checkout filters")
-  _validate_log(converted.stdout)
-  candidates = (converted.stdout, converted.stdout.replace(b"\r\n", b"\n"),
-                committed.stdout)
-  return tuple(dict.fromkeys(candidates))
+  try:
+    expected = git_boundary.git_checkout_bytes(root, relative, treeish="HEAD")
+  except AttributeError as error:
+    raise RetryEvidenceError("RWF #736 Git checkout API is required") from error
+  except (git_boundary.GitError, OSError) as error:
+    raise RetryEvidenceError("cannot materialize canonical Git checkout") from error
+  if expected is None:
+    raise RetryEvidenceError("tracked canonical Git checkout is absent")
+  _validate_log(expected)
+  return expected
 
 
 def _status(root: Path) -> list[bytes]:
@@ -153,28 +154,21 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
   if any(item[:3] not in {b"?? ", b" M "} or
          item[3:] != relative.encode("ascii") for item in entries):
     raise RetryEvidenceError("source or unrelated files are dirty")
-  candidates = _committed_checkout_bytes(root, relative)
+  expected = _committed_checkout_bytes(root, relative)
   if log.is_symlink() or not log.is_file() or log.read_bytes() != original:
     raise RetryEvidenceError("canonical retry evidence changed before isolation")
 
   active = False
-  expected = None
+  preflight_dirty = False
   try:
-    if candidates is None:
+    if expected is None:
       log.unlink()
-      active = True
-      if _status(root):
-        raise RetryEvidenceError("candidate remained dirty after evidence isolation")
     else:
-      for candidate in candidates:
-        _validate_log(candidate)
-        _replace_bytes(log, candidate, original_mode)
-        active = True
-        expected = candidate
-        if not _status(root):
-          break
-      else:
-        raise RetryEvidenceError("candidate remained dirty after evidence isolation")
+      _replace_bytes(log, expected, original_mode)
+    active = True
+    if _status(root):
+      preflight_dirty = True
+      raise RetryEvidenceError("candidate remained dirty after evidence isolation")
     yield log
   finally:
     if active:
@@ -213,5 +207,5 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
         raise RetryEvidenceError("operation changed isolated canonical evidence")
       if status_error is not None:
         raise status_error
-      if dirty:
+      if dirty and not preflight_dirty:
         raise RetryEvidenceError("operation dirtied candidate worktree")
