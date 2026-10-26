@@ -253,17 +253,13 @@ def publish_terminal_tag(
   published = _remote_target(root, remote, tag) if push else None
   if local is not None and local != candidate:
     raise TerminalTagError("local terminal tag targets a different commit")
-  if published is not None:
-    if published != candidate:
-      raise TerminalTagError("remote terminal tag targets a different commit")
-    if local is None and not push:
-      _git(root, "tag", "-a", tag, candidate, "-m", tag)
-    return tag
+  if published is not None and published != candidate:
+    raise TerminalTagError("remote terminal tag targets a different commit")
   if local is None:
     created = _git(root, "tag", "-a", tag, candidate, "-m", tag, check=False)
     if created.returncode and _local_target(root, tag) != candidate:
       raise TerminalTagError("terminal tag creation failed")
-  if not push:
+  if published is not None or not push:
     return tag
   pushed = _git(
     root, "push", remote, "refs/tags/" + tag, check=False,
