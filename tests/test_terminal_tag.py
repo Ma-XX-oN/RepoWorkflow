@@ -287,8 +287,11 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("PASS")
   def test_local_replay_after_remote_publication(self):
     tag = self.issue_tag("PASS")
+    object_sha = self.git("rev-parse", "refs/tags/" + tag)
     self.git("tag", "-d", tag)
+    self.git("config", "user.name", "Changed Tagger")
     self.assertEqual(self.issue_tag("PASS"), tag)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), object_sha)
     self.assertEqual(self.git("cat-file", "-t", "refs/tags/" + tag), "tag")
     self.assertEqual(self.git("rev-parse", tag + "^{commit}"), self.candidate)
     self.assertEqual(
@@ -356,7 +359,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaises(TerminalTagError):
       self.issue_tag("PASS", remote="not-a-remote")
     self.assertEqual(self.git("tag", "--list"), "")
-
   def seed_success_log(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "testVersion": VERSION,
@@ -473,7 +475,6 @@ class TerminalTagTests(unittest.TestCase):
         terminal_tag.verify_phase_evidence(
           alias, self.log, stage="regression", version=VERSION,
           candidate=self.candidate, outcome="PASS")
-
     other = self.root.parent / "other-repo"
     self.git_in(self.root.parent, "clone", str(self.root), str(other))
     self.git_in(other, "config", "user.name", "Test")
@@ -494,6 +495,5 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(tag, "v" + VERSION)
     self.assertEqual(self.git("tag", "--list"), tag)
     self.assertEqual(self.git_in(other, "tag", "--list"), "")
-
 if __name__ == "__main__":
   unittest.main()
