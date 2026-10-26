@@ -132,6 +132,8 @@ def _route(kind, base, args):
     if len(args) == 3 and args[:2] == ["issue", "get"]:
       number = _number(args[2])
       item = metadata[str(number)]
+      if "/pull/" in item.get("url", ""):
+        raise ValueError(f"#{number} is a pull request, not an issue")
       return {
         "schema_version": 1, "number": number,
         "title": item["title"], "state": item["state"].lower(),
