@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 import os
+import stat
 from pathlib import Path
 import subprocess
 import tempfile
@@ -45,7 +46,7 @@ def _validate_log(content: bytes) -> None:
     raise RetryEvidenceError("canonical retry evidence is invalid") from error
 
 
-def _replace_bytes(path: Path, content: bytes) -> None:
+def _replace_bytes(path: Path, content: bytes, mode: int) -> None:
   """Atomically replace a path without following a substituted symlink."""
   temporary = None
   try:
@@ -55,6 +56,7 @@ def _replace_bytes(path: Path, content: bytes) -> None:
     ) as output:
       temporary = Path(output.name)
       output.write(content)
+    os.chmod(temporary, mode)
     os.replace(temporary, path)
     temporary = None
   finally:
@@ -137,6 +139,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     raise RetryEvidenceError("canonical log must be a regular file")
   try:
     original = log.read_bytes()
+    original_mode = stat.S_IMODE(log.stat(follow_symlinks=False).st_mode)
     _validate_log(original)
   except RetryEvidenceError:
     raise
@@ -162,7 +165,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
     else:
       for candidate in candidates:
         _validate_log(candidate)
-        _replace_bytes(log, candidate)
+        _replace_bytes(log, candidate, original_mode)
         active = True
         expected = candidate
         if not _status(root):
@@ -196,7 +199,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
           dir=log.parent, delete=False,
         ) as conflict:
           conflict.write(current)
-      _replace_bytes(log, original)
+      _replace_bytes(log, original, original_mode)
       if parent_changed:
         raise RetryEvidenceError("operation changed canonical log parent")
       if substituted_symlink:

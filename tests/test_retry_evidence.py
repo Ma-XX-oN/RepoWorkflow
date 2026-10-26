@@ -358,6 +358,28 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("invalid bytes must not be hidden")
 
+  def test_original_mode_restored_for_untracked_and_tracked_log(self):
+    import os
+    import stat
+    if os.name == "nt":
+      self.skipTest("POSIX executable-mode semantics unavailable on Windows")
+    for tracked in (False, True):
+      with self.subTest(tracked=tracked):
+        self.write_record()
+        self.log.chmod(0o744)
+        if tracked:
+          self.git("add", ".")
+          self.git("commit", "-qm", "mode baseline")
+          self.log.write_bytes(self.log.read_bytes() + self.record_bytes(attempt=2))
+        original = self.log.read_bytes()
+        with isolate_retry_evidence(self.root, 569):
+          self.assertEqual(self.git("status", "--porcelain"), "")
+        self.assertEqual(self.log.read_bytes(), original)
+        self.assertEqual(stat.S_IMODE(self.log.stat().st_mode), 0o744)
+        if tracked:
+          self.assertNotEqual(self.git("status", "--porcelain"), "")
+        self.log.unlink()
+
   def test_git_os_error_during_cleanup_still_restores(self):
     from unittest.mock import patch
     self.write_record()
