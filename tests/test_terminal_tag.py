@@ -210,14 +210,14 @@ class TerminalTagTests(unittest.TestCase):
   def test_incomplete_retry_before_pass_does_not_consume_version(self):
     entries = [
       {"kind": "regression", "testVersion": VERSION,
-       "branch": "issue-545-test",
+       "branch": "issue-545-\u2028-\u0085-\u2029",
        "testSHA": self.candidate, "result": result,
        "reusable": result == "succeeded",
        "headChangedDuringTest": False, "uncommittedChanges": []}
       for result in ("incomplete", "succeeded")
     ]
     self.log.write_text(
-      "\n".join(json.dumps(item) for item in entries) + "\n",
+      "\n".join(json.dumps(item, ensure_ascii=False) for item in entries) + "\n",
     )
     tag = self.issue_tag("PASS")
     self.assertEqual(
