@@ -26,6 +26,10 @@ class TerminalTagError(ValueError):
   pass
 
 
+def _reject_json_constant(value: str) -> None:
+  raise ValueError("non-standard JSON constant: " + value)
+
+
 def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
@@ -154,8 +158,8 @@ def verify_phase_evidence(
   wrong_phase = False
   for line in lines:
     try:
-      record = json.loads(line)
-    except json.JSONDecodeError as error:
+      record = json.loads(line, parse_constant=_reject_json_constant)
+    except (json.JSONDecodeError, ValueError) as error:
       raise TerminalTagError("canonical testing log is malformed") from error
     if not isinstance(record, dict):
       raise TerminalTagError("canonical testing log contains a non-object")
