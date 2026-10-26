@@ -15,20 +15,54 @@ from tests.support import RepoFixture
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def working_bash():
+  """Find a Bash that actually runs; ignore Windows WSL command shims."""
+  choices = []
+  direct = shutil.which("bash")
+  if direct:
+    choices.append(Path(direct))
+  git = shutil.which("git")
+  if git:
+    for parent in list(Path(git).resolve().parents)[:5]:
+      choices.extend((parent / "bin" / "bash.exe",
+                      parent / "usr" / "bin" / "bash.exe"))
+  seen = set()
+  for path in choices:
+    candidate = str(path)
+    if candidate in seen or not path.is_file():
+      continue
+    seen.add(candidate)
+    try:
+      probe = subprocess.run(
+        [candidate, "-c", "printf rwf-bash-ready"],
+        capture_output=True, encoding="utf-8", errors="strict",
+        timeout=8, check=False,
+      )
+    except (OSError, subprocess.TimeoutExpired):
+      continue
+    if probe.returncode == 0 and probe.stdout == "rwf-bash-ready":
+      return candidate
+  return None
+
+
+def bash_path(executable, path: Path) -> str:
+  """Bash resolves native cwd through its own OS boundary."""
+  location = Path(path)
+  result = subprocess.run(
+    [executable, "-c", "pwd -P"], cwd=location.parent,
+    capture_output=True, encoding="utf-8", errors="strict", check=True,
+  )
+  return result.stdout.strip() + "/" + location.name
+
+
 class BashCompletionTests(unittest.TestCase):
   def bash_path(self, path: Path) -> str:
-    """Obtain Bash-native paths from its cwd; never guess path spellings."""
-    location = Path(path)
-    result = subprocess.run(
-      ["bash", "-c", "pwd -P"], cwd=location.parent,
-      capture_output=True, encoding="utf-8", errors="strict", check=False,
-    )
-    self.assertEqual(result.returncode, 0, result.stderr)
-    return result.stdout.strip() + "/" + location.name
+    return bash_path(self.bash, path)
 
   def make(self, *, regression="PASS"):
-    if not shutil.which("bash"):
-      self.skipTest("Bash unavailable on this runner")
+    self.bash = working_bash()
+    if self.bash is None:
+      self.skipTest("No executable Bash passed the capability probe")
     td = tempfile.TemporaryDirectory(prefix="rwf Bash path with spaces ")
 
     base = Path(td.name)
@@ -61,7 +95,7 @@ class BashCompletionTests(unittest.TestCase):
       + body
     )
     return subprocess.run(
-      ["bash", "-c", script],
+      [self.bash, "-c", script],
       capture_output=True, encoding="utf-8", errors="strict", check=False,
     )
 
