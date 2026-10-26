@@ -155,7 +155,6 @@ class TerminalTagTests(unittest.TestCase):
         version=VERSION, candidate=self.candidate, outcome="PASS",
         canonical_log=external,
       )
-
   def test_wrong_issue_branch_in_record_is_rejected(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "branch": "issue-546-other",
@@ -166,7 +165,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "branch differs"):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_cross_phase_version_reuse_is_rejected(self):
     self.issue_tag("PASS")
     record = json.loads(self.log.read_text(encoding="utf-8"))
@@ -303,6 +301,8 @@ class TerminalTagTests(unittest.TestCase):
     tag = self.issue_tag("PASS")
     self.git("tag", "-d", tag)
     self.assertEqual(self.issue_tag("PASS"), tag)
+    self.assertEqual(self.git("cat-file", "-t", "refs/tags/" + tag), "tag")
+    self.assertEqual(self.git("rev-parse", tag + "^{commit}"), self.candidate)
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
 
