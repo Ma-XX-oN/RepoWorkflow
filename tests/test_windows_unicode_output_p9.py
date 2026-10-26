@@ -259,5 +259,22 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
         )
 
 
+  def test_missing_output_attribute_fails_closed(self):
+    scope = runpy.run_path(str(ENTRYPOINT), run_name="test_p9_source")
+    for name in ("stdout", "stderr"):
+      with self.subTest(stream=name):
+        diagnostic = io.StringIO()
+        with (
+          patch.object(sys, name),
+          patch.object(sys, "__stderr__", diagnostic),
+        ):
+          delattr(sys, name)
+          self.assertFalse(scope["_configure_utf8_output"]())
+        self.assertEqual(
+          diagnostic.getvalue(),
+          f"RepoWorkflow error: cannot configure UTF-8 {name} output\n",
+        )
+
+
 if __name__ == "__main__":
   unittest.main()
