@@ -180,9 +180,9 @@ def verify_phase_evidence(
         observed.append(record)
       else:
         wrong_phase = True
+  if wrong_phase:
+    raise TerminalTagError("development version belongs to another phase")
   if not observed:
-    if wrong_phase:
-      raise TerminalTagError("development version belongs to another phase")
     raise TerminalTagError("no canonical evidence for development version")
   for record in observed:
     branch = record.get("branch")
