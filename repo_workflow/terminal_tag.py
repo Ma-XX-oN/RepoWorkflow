@@ -184,7 +184,13 @@ def verify_phase_evidence(
     raise TerminalTagError("development version belongs to another phase")
   if not observed:
     raise TerminalTagError("no canonical evidence for development version")
+  terminal_seen = False
   for record in observed:
+    result = record.get("result")
+    if result == "incomplete" and terminal_seen:
+      raise TerminalTagError("incomplete evidence after terminal outcome")
+    if result in ("succeeded", "failed"):
+      terminal_seen = True
     branch = record.get("branch")
     if (not isinstance(branch, str)
         or re.fullmatch(
