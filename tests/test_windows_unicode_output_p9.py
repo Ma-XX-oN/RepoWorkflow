@@ -241,5 +241,23 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
 
 
 
+  def test_closed_inprocess_unicode_capture_fails_explicitly(self):
+    scope = runpy.run_path(str(ENTRYPOINT), run_name="test_p9_source")
+    for name in ("stdout", "stderr"):
+      with self.subTest(stream=name):
+        out, err, diagnostic = io.StringIO(), io.StringIO(), io.StringIO()
+        {"stdout": out, "stderr": err}[name].close()
+        with (
+          patch.object(sys, "stdout", out),
+          patch.object(sys, "stderr", err),
+          patch.object(sys, "__stderr__", diagnostic),
+        ):
+          self.assertFalse(scope["_configure_utf8_output"]())
+        self.assertEqual(
+          diagnostic.getvalue(),
+          f"RepoWorkflow error: cannot configure UTF-8 {name} output\n",
+        )
+
+
 if __name__ == "__main__":
   unittest.main()
