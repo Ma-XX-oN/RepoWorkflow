@@ -98,14 +98,17 @@ def _committed_checkout_bytes(root: Path, relative: str) -> bytes | None:
       raise RetryEvidenceError("cannot establish canonical Git blob absence")
     return None
   _validate_log(committed.stdout)
+  checkout = getattr(git_boundary, "git_checkout_bytes", None)
+  if not callable(checkout):
+    raise RetryEvidenceError("RWF #736 Git checkout API is required")
   try:
-    expected = git_boundary.git_checkout_bytes(root, relative, treeish="HEAD")
-  except AttributeError as error:
-    raise RetryEvidenceError("RWF #736 Git checkout API is required") from error
+    expected = checkout(root, relative, treeish="HEAD")
   except (git_boundary.GitError, OSError) as error:
     raise RetryEvidenceError("cannot materialize canonical Git checkout") from error
   if expected is None:
     raise RetryEvidenceError("tracked canonical Git checkout is absent")
+  if not isinstance(expected, bytes):
+    raise RetryEvidenceError("Git checkout API returned non-byte evidence")
   _validate_log(expected)
   return expected
 
