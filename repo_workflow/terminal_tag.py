@@ -217,7 +217,6 @@ def publish_terminal_tag(
   push: bool = True,
 ) -> str | None:
   """Publish exactly one immutable result, or reuse the identical result."""
-  root = root.resolve(strict=True)
   if stage not in {"regression", "integration"}:
     raise TerminalTagError("terminal tags require regression or integration")
   if outcome == "INCOMPLETE":
@@ -228,6 +227,7 @@ def publish_terminal_tag(
     raise TerminalTagError("terminal testing requires a development version")
   if _SHA_RE.fullmatch(candidate) is None:
     raise TerminalTagError("terminal tag requires a full original candidate SHA")
+  root = root.resolve(strict=True)
   resolved = _git(
     root, "rev-parse", "--verify", candidate + "^{commit}",
   ).stdout.strip()
