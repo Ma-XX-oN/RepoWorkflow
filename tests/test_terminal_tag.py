@@ -243,6 +243,8 @@ class TerminalTagTests(unittest.TestCase):
   def test_incomplete_never_creates_a_tag(self):
     with patch.object(self, "root", self.root / "missing"):
       self.assertIsNone(self.issue_tag("INCOMPLETE"))
+      with self.assertRaisesRegex(TerminalTagError, "repository root"):
+        self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
   def test_opposite_outcome_cannot_be_published(self):
     self.issue_tag("FAIL")
@@ -421,7 +423,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", canonical_log=nested, push=False)
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_windows_validation_junction_is_rejected_without_is_junction(self):
     if sys.platform != "win32":
       self.skipTest("Windows directory junction test")
@@ -447,7 +448,6 @@ class TerminalTagTests(unittest.TestCase):
     os.link(self.log, foreign)
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", canonical_log=foreign, push=False)
-
   def test_swapped_repository_alias_cannot_certify_original_log(self):
     self.seed_success_log()
     alias = self.root.parent / "swapped-root"
