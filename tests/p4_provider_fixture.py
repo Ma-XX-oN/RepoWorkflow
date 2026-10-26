@@ -86,6 +86,17 @@ def verify_provider(root, env):
     raise RuntimeError("PATH-based provider shadowing is forbidden")
 
 
+
+def decode_git_common_dir(raw: bytes) -> str:
+  """Decode one Git common-directory line without trimming pathname bytes."""
+  if raw.endswith(b"\r\n"):
+    raw = raw[:-2]
+  elif raw.endswith(b"\n"):
+    raw = raw[:-1]
+  else:
+    raise ValueError("Git common-directory output lacks line terminator")
+  return os.fsdecode(raw)
+
 def provider_calls(env):
   return [
     json.loads(row) for row in
