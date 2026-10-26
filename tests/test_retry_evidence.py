@@ -1,5 +1,5 @@
 """Git-backed local retry evidence isolation contract tests."""
-import json
+import json, os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -105,7 +105,6 @@ class RetryEvidenceTests(unittest.TestCase):
     with self.assertRaisesRegex(RetryEvidenceError, "symlink"), isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
   def test_concurrent_isolation_and_crash_restore_original(self):
-    import os
     import sys
     self.write_record()
     self.git("add", ".")
@@ -370,7 +369,6 @@ class RetryEvidenceTests(unittest.TestCase):
           self.fail("non-JSON numeric constants must be rejected")
   def test_restore_mode_is_applied_via_open_file_descriptor(self):
     from unittest.mock import patch
-    import os
     if not hasattr(os, "fchmod"):
       self.skipTest("open file-descriptor chmod requires POSIX")
     self.write_record()
@@ -381,7 +379,6 @@ class RetryEvidenceTests(unittest.TestCase):
         self.assertFalse(self.log.exists())
     self.assertEqual(self.log.read_bytes(), original)
   def test_original_mode_restored_for_untracked_and_tracked_log(self):
-    import os
     import stat
     if os.name == "nt":
       self.skipTest("POSIX executable-mode semantics unavailable on Windows")
@@ -446,22 +443,25 @@ class RetryEvidenceTests(unittest.TestCase):
         with isolate_retry_evidence(self.root, 569):
           pass
     self.assertEqual(self.log.read_bytes(), original)
-  def test_symlinked_parent_directory_is_rejected(self):
+  def test_linked_parent_directory_is_rejected(self):
     from unittest.mock import patch
     from repo_workflow.retry_evidence import _replace_bytes
     outside = self.root.parent / "external-parent"
     outside.mkdir()
+    def link_parent():
+      if os.name == "nt":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(self.log.parent), str(outside)],
+                       check=True, capture_output=True)
+      else:
+        self.log.parent.symlink_to(outside, target_is_directory=True)
     self.log.parent.rmdir()
-    try:
-      self.log.parent.symlink_to(outside, target_is_directory=True)
-    except OSError as error:
-      self.skipTest(f"directory symlinks unavailable: {error}")
+    link_parent()
     target = outside / self.log.name
     target.write_bytes(b"foreign\n")
     with self.assertRaisesRegex(RetryEvidenceError, "parent"):
       with isolate_retry_evidence(self.root, 569): self.fail("symlinked parent")
     self.assertEqual(target.read_bytes(), b"foreign\n")
-    self.log.parent.unlink()
+    self.log.parent.rmdir() if os.name == "nt" else self.log.parent.unlink()
     self.log.parent.mkdir()
     self.write_record()
     self.git("add", ".")
@@ -473,7 +473,7 @@ class RetryEvidenceTests(unittest.TestCase):
       if not getattr(swap, "called", False):
         swap.called = True
         self.log.parent.rename(moved)
-        self.log.parent.symlink_to(outside, target_is_directory=True)
+        link_parent()
       return _replace_bytes(*args, **kwargs)
     with patch("repo_workflow.retry_evidence._replace_bytes", side_effect=swap):
       with self.assertRaisesRegex(RetryEvidenceError, "parent"):

@@ -26,6 +26,17 @@ class RetryEvidenceError(ValueError):
   pass
 
 
+def _is_link_entry(path: Path) -> bool:
+  """Reject symlinks and Windows mount-point reparse entries (junctions)."""
+  if path.is_symlink():
+    return True
+  if os.name != "nt":
+    return False
+  return getattr(
+    path.stat(follow_symlinks=False), "st_reparse_tag", None,
+  ) == stat.IO_REPARSE_TAG_MOUNT_POINT
+
+
 def _git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
   try:
     return subprocess.run(
@@ -92,7 +103,7 @@ def _recover_parents(root: Path) -> bool:
   """Move substituted parent entries aside without following foreign links."""
   changed = False
   for parent in (root / ".repoworkflow", root / ".repoworkflow/validation"):
-    if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+    if _is_link_entry(parent) or (parent.exists() and not parent.is_dir()):
       conflict = Path(tempfile.mkdtemp(
         prefix=parent.name + ".retry-conflict-", dir=parent.parent,
       ))
@@ -203,7 +214,7 @@ def _parent_fingerprint(log: Path) -> tuple[tuple[int, int], ...]:
   """Require original real parent objects, not substituted paths or links."""
   result = []
   for parent in (log.parent.parent, log.parent):
-    if parent.is_symlink() or not parent.is_dir():
+    if _is_link_entry(parent) or not parent.is_dir():
       raise RetryEvidenceError("canonical log parent changed before isolation")
     details = parent.stat(follow_symlinks=False)
     result.append((details.st_dev, details.st_ino))
@@ -224,8 +235,8 @@ def _recover_journal(root: Path, issue: int, gitdir: Path) -> None:
     return
   original, mode, expected = _read_journal(journal)
   log = root / f".repoworkflow/validation/testResults-{issue}.jsonl"
-  if any(parent.is_symlink() for parent in (log.parent.parent, log.parent)):
-    raise RetryEvidenceError("retry recovery cannot follow symlinked parent")
+  if any(_is_link_entry(parent) for parent in (log.parent.parent, log.parent)):
+    raise RetryEvidenceError("retry recovery cannot follow linked parent")
   if _same_evidence(log, original, mode):
     journal.unlink()
     return
@@ -311,10 +322,10 @@ def _isolate_retry_evidence_locked(root: Path, issue: int, gitdir: Path) -> Iter
     raise RetryEvidenceError("issue must be positive")
   relative = f".repoworkflow/validation/testResults-{issue}.jsonl"
   log = root / relative
-  if any(parent.is_symlink() for parent in (
+  if any(_is_link_entry(parent) for parent in (
     root / ".repoworkflow", log.parent,
   )):
-    raise RetryEvidenceError("canonical log parent must not be a symlink")
+    raise RetryEvidenceError("canonical log parent must not be linked")
   if log.is_symlink():
     raise RetryEvidenceError("canonical log must not be a symlink")
   if not log.exists():
