@@ -319,7 +319,7 @@ def _isolate_retry_evidence_locked(root: Path, issue: int, gitdir: Path) -> Iter
          item[3:] != relative.encode("ascii") for item in entries):
     raise RetryEvidenceError("source or unrelated files are dirty")
   expected = _committed_checkout_bytes(root, relative)
-  if log.is_symlink() or not log.is_file() or log.read_bytes() != original:
+  if not _same_evidence(log, original, original_mode):
     raise RetryEvidenceError("canonical retry evidence changed before isolation")
 
   journal = _write_journal(gitdir, issue, original, original_mode, expected)

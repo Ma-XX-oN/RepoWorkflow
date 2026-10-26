@@ -168,22 +168,16 @@ class RetryEvidenceTests(unittest.TestCase):
       record["attempt"] = attempt
     return json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n"
   def git_blob(self, *args):
-    return subprocess.run(
-      ["git", "-C", str(self.root), *args],
-      capture_output=True, check=True,
-    ).stdout
+    return subprocess.run(["git", "-C", str(self.root), *args],
+                          capture_output=True, check=True).stdout
   def test_raw_committed_crlf_preserved_without_text_roundtrip(self):
     self.git("config", "core.autocrlf", "false")
-    (self.root / ".gitattributes").write_text(
-      ".repoworkflow/validation/*.jsonl -text\n"
-    )
+    (self.root / ".gitattributes").write_text(".repoworkflow/validation/*.jsonl -text\n")
     baseline = self.record_bytes().replace(b"\n", b"\r\n")
     self.log.write_bytes(baseline)
     self.git("add", ".")
     self.git("commit", "-qm", "raw CRLF evidence")
-    self.assertEqual(self.git_blob(
-      "show", "HEAD:.repoworkflow/validation/testResults-569.jsonl"
-    ), baseline)
+    self.assertEqual(self.git_blob("show", "HEAD:.repoworkflow/validation/testResults-569.jsonl"), baseline)
     original = baseline + self.record_bytes(attempt=2).replace(b"\n", b"\r\n")
     self.log.write_bytes(original)
     with isolate_retry_evidence(self.root, 569):
@@ -192,16 +186,12 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertEqual(self.log.read_bytes(), original)
   def test_lf_blob_crlf_checkout_filter(self):
     self.git("config", "core.autocrlf", "true")
-    (self.root / ".gitattributes").write_text(
-      ".repoworkflow/validation/*.jsonl text eol=crlf\n"
-    )
+    (self.root / ".gitattributes").write_text(".repoworkflow/validation/*.jsonl text eol=crlf\n")
     baseline = self.record_bytes()
     self.log.write_bytes(baseline)
     self.git("add", ".")
     self.git("commit", "-qm", "LF evidence")
-    self.assertEqual(self.git_blob(
-      "show", "HEAD:.repoworkflow/validation/testResults-569.jsonl"
-    ), baseline)
+    self.assertEqual(self.git_blob("show", "HEAD:.repoworkflow/validation/testResults-569.jsonl"), baseline)
     self.log.unlink()
     self.git("checkout-index", "--", ".repoworkflow/validation/testResults-569.jsonl")
     expected = baseline.replace(b"\n", b"\r\n")
@@ -245,9 +235,7 @@ class RetryEvidenceTests(unittest.TestCase):
     self.git("config", "filter.evidence.smudge",
       executable + ' -c "import sys;sys.stdout.buffer.write('
       'sys.stdin.buffer.read().replace(b\'committed\',b\'worktree\'))"')
-    (self.root / ".gitattributes").write_text(
-      ".repoworkflow/validation/*.jsonl filter=evidence\n"
-    )
+    (self.root / ".gitattributes").write_text(".repoworkflow/validation/*.jsonl filter=evidence\n")
     baseline = self.record_bytes(runner="worktree")
     self.log.write_bytes(baseline)
     self.git("add", ".")
@@ -431,6 +419,18 @@ class RetryEvidenceTests(unittest.TestCase):
         if tracked:
           self.assertNotEqual(self.git("status", "--porcelain"), "")
           self.git("config", "core.filemode", "false")
+          from unittest.mock import patch
+          from repo_workflow.retry_evidence import _committed_checkout_bytes
+          def tamper_preflight(*args):
+            expected = _committed_checkout_bytes(*args)
+            self.log.chmod(0o644)
+            return expected
+          with patch("repo_workflow.retry_evidence._committed_checkout_bytes", side_effect=tamper_preflight):
+            with self.assertRaisesRegex(RetryEvidenceError, "changed before isolation"):
+              with isolate_retry_evidence(self.root, 569):
+                self.fail("preflight mode alteration must not be hidden")
+          self.assertEqual(self.log.read_bytes(), original)
+          self.log.chmod(0o744)
           with self.assertRaisesRegex(RetryEvidenceError, "mode"):
             with isolate_retry_evidence(self.root, 569):
               self.log.chmod(0o644)
