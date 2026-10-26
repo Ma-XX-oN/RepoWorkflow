@@ -45,14 +45,12 @@ class TerminalTagTests(unittest.TestCase):
 
   def git(self, *args):
     return self.git_in(self.root, *args)
-
   def issue_marker(self):
     path = self.root / ".ci/run"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("regression-testing " + self.git("rev-parse", "HEAD") + "\n")
     self.git("add", ".ci/run")
     self.git("commit", "-m", "dedicated CI request")
-
   def published(self, tag):
     result = self.git(
       "ls-remote", "--tags", "origin",
@@ -62,7 +60,6 @@ class TerminalTagTests(unittest.TestCase):
       (line.split("\t", 1)[1], line.split("\t", 1)[0])
       for line in result.splitlines() if "\t" in line
     )
-
   def issue_tag(self, outcome, **overrides):
     args = {
       "stage": "regression", "remote": "origin", "version": VERSION,
@@ -213,6 +210,13 @@ class TerminalTagTests(unittest.TestCase):
       "\n".join(json.dumps(item, ensure_ascii=False) for item in entries) + "\n",
       encoding="utf-8",
     )
+    original = self.log.read_text(encoding="utf-8")
+    lines = original.split("\n")
+    self.log.write_text(lines[1] + "\n" + lines[0] + "\n", encoding="utf-8")
+    with self.assertRaisesRegex(TerminalTagError, "incomplete evidence after terminal"):
+      self.issue_tag("PASS", push=False)
+    self.assertEqual(self.git("tag", "--list"), "")
+    self.log.write_text(original, encoding="utf-8")
     tag = self.issue_tag("PASS")
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
@@ -317,7 +321,6 @@ class TerminalTagTests(unittest.TestCase):
     )
   def test_concurrent_identical_publication_is_idempotent(self):
     actual_git = terminal_tag._git
-
     def concurrent_push(root, *args, **kw):
       if args and args[0] == "tag":
         actual_git(root, *args, check=True)
@@ -327,19 +330,16 @@ class TerminalTagTests(unittest.TestCase):
         actual_git(root, *args, check=True)
         return subprocess.CompletedProcess(args, 1, "", "already published")
       return actual_git(root, *args, **kw)
-
     with patch("repo_workflow.terminal_tag._git", side_effect=concurrent_push):
       tag = self.issue_tag("PASS")
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_failed_push_can_retry_without_moving_local_tag(self):
     actual_git = terminal_tag._git
-
     def failed_push(root, *args, **kw):
       if args and args[0] == "push":
         return subprocess.CompletedProcess(args, 1, "", "network interruption")
       return actual_git(root, *args, **kw)
-
     with patch("repo_workflow.terminal_tag._git", side_effect=failed_push):
       with self.assertRaisesRegex(TerminalTagError, "publication failed"):
         self.issue_tag("PASS")
