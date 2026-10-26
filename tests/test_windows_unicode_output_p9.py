@@ -276,5 +276,30 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
         )
 
 
+  def test_reconfigure_runtime_error_fails_closed(self):
+    class RaisingReconfigure(io.TextIOBase):
+      def reconfigure(self, **kwargs):
+        raise RuntimeError("stream reconfigure refused")
+
+    scope = runpy.run_path(str(ENTRYPOINT), run_name="test_p9_source")
+    for name in ("stdout", "stderr"):
+      with self.subTest(stream=name):
+        out, err, diagnostic = io.StringIO(), io.StringIO(), io.StringIO()
+        if name == "stdout":
+          out = RaisingReconfigure()
+        else:
+          err = RaisingReconfigure()
+        with (
+          patch.object(sys, "stdout", out),
+          patch.object(sys, "stderr", err),
+          patch.object(sys, "__stderr__", diagnostic),
+        ):
+          self.assertFalse(scope["_configure_utf8_output"]())
+        self.assertEqual(
+          diagnostic.getvalue(),
+          f"RepoWorkflow error: cannot configure UTF-8 {name} output\n",
+        )
+
+
 if __name__ == "__main__":
   unittest.main()
