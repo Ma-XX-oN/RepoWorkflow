@@ -123,16 +123,22 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
       )
       self.assertEqual(
         selected_result.returncode, 0,
-        selected_result.stderr.decode("utf-8", errors="replace"),
+        selected_result.stderr.decode("utf-8", errors="strict"),
       )
       selected_text = selected_result.stdout.decode("utf-8", errors="strict")
-      self.assertIn("→", selected_text)
+      # The real graph contract draws edges, not a U+2192 right arrow.
+      self.assertIn("─", selected_text)
+      self.assertTrue(
+        any(ch in selected_text for ch in "│┌┐└┘├┤┬┴┼↑↓"),
+        selected_text,
+      )
+      self.assertNotIn("\ufffd", selected_text)
       view = self.invoke(
         "--root", str(root), "lanes", "view", "--legend",
         legacy=True,
       )
       self.assertEqual(
-        view.returncode, 0, view.stderr.decode("utf-8", errors="replace"),
+        view.returncode, 0, view.stderr.decode("utf-8", errors="strict"),
       )
       rendered = view.stdout.decode("utf-8", errors="strict")
       self.assertIn("Legend:", rendered)
