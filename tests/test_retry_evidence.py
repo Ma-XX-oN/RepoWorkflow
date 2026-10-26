@@ -198,6 +198,25 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
 
+  def test_implicit_autocrlf_does_not_leave_tracked_log_dirty(self):
+    # Simulate Git for Windows' default without changing .gitattributes.
+    self.git("config", "core.autocrlf", "true")
+    baseline = self.record_bytes(runner="東京-é-🧪")
+    self.log.write_bytes(baseline)
+    self.git("add", ".")
+    self.git("commit", "-qm", "original LF worktree evidence")
+    self.log.write_bytes(baseline + self.record_bytes(attempt=2))
+    original = self.log.read_bytes()
+    with isolate_retry_evidence(self.root, 569):
+      self.assertEqual(self.log.read_bytes(), baseline)
+      self.assertEqual(self.git("status", "--porcelain"), "")
+    self.assertEqual(self.log.read_bytes(), original)
+    self.assertNotEqual(self.git("status", "--porcelain"), "")
+
+  def test_implicit_autocrlf_with_clean_smudge_stays_clean(self):
+    self.git("config", "core.autocrlf", "true")
+    self.test_clean_smudge_roundtrip_filter()
+
   def test_clean_smudge_roundtrip_filter(self):
     import sys
     executable = '"' + sys.executable + '"'

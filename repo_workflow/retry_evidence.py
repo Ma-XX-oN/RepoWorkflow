@@ -83,8 +83,13 @@ def _recover_parents(root: Path) -> bool:
   return changed
 
 
-def _committed_checkout_bytes(root: Path, relative: str) -> bytes | None:
-  """Read the raw HEAD blob and apply Git's actual checkout filters."""
+def _committed_checkout_bytes(root: Path, relative: str) -> tuple[bytes, ...] | None:
+  """Read HEAD raw bytes and derive only verified Git checkout representations.
+
+  Git's automatic EOL conversion can emit CRLF on Windows even when the
+  repository's existing clean worktree is LF. Validate each candidate with
+  actual git status instead of assuming the filtered stream is clean.
+  """
   committed = _git_bytes(root, "show", "HEAD:" + relative)
   if committed.returncode:
     tracked = _git(root, "ls-files", "--error-unmatch", "--", relative)
@@ -99,7 +104,9 @@ def _committed_checkout_bytes(root: Path, relative: str) -> bytes | None:
   if converted.returncode:
     raise RetryEvidenceError("cannot apply canonical Git checkout filters")
   _validate_log(converted.stdout)
-  return converted.stdout
+  candidates = (converted.stdout, converted.stdout.replace(b"\r\n", b"\n"),
+                committed.stdout)
+  return tuple(dict.fromkeys(candidates))
 
 
 def _status(root: Path) -> list[str]:
@@ -147,19 +154,28 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
   if any(item[:3] not in {"?? ", " M "} or
          item[3:] != relative for item in entries):
     raise RetryEvidenceError("source or unrelated files are dirty")
-  expected = _committed_checkout_bytes(root, relative)
+  candidates = _committed_checkout_bytes(root, relative)
   if log.is_symlink() or not log.is_file() or log.read_bytes() != original:
     raise RetryEvidenceError("canonical retry evidence changed before isolation")
 
   active = False
+  expected = None
   try:
-    if expected is None:
+    if candidates is None:
       log.unlink()
+      active = True
+      if _status(root):
+        raise RetryEvidenceError("candidate remained dirty after evidence isolation")
     else:
-      _replace_bytes(log, expected)
-    active = True
-    if _status(root):
-      raise RetryEvidenceError("candidate remained dirty after evidence isolation")
+      for candidate in candidates:
+        _validate_log(candidate)
+        _replace_bytes(log, candidate)
+        active = True
+        expected = candidate
+        if not _status(root):
+          break
+      else:
+        raise RetryEvidenceError("candidate remained dirty after evidence isolation")
     yield log
   finally:
     if active:
