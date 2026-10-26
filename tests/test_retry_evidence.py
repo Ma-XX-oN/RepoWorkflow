@@ -381,21 +381,21 @@ class RetryEvidenceTests(unittest.TestCase):
         with isolate_retry_evidence(self.root, 569):
           self.fail("invalid raw Git path bytes must not be concealed")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_invalid_utf8_jsonl_rejected(self):
-    self.log.write_bytes(b'{"testSHA":"x","kind":"test","result":"incomplete",'
-                         b'"runner":"\xff"}\n')
+    self.log.write_bytes(b'{"testSHA":"x","kind":"test","result":"incomplete","runner":"\xff"}\n')
     with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("invalid bytes must not be hidden")
     for codec in ("utf-16-le", "utf-16", "utf-32-le", "utf-8-sig"):
       self.log.write_bytes(self.record_bytes().decode("utf-8").encode(codec))
-      with self.subTest(codec=codec), self.assertRaisesRegex(
-        RetryEvidenceError, "invalid",
-      ):
+      with self.subTest(codec=codec), self.assertRaisesRegex(RetryEvidenceError, "invalid"):
         with isolate_retry_evidence(self.root, 569):
           self.fail("non-UTF-8 JSONL must not be hidden")
-
+    for token in (b"NaN", b"Infinity", b"-Infinity"):
+      self.log.write_bytes(self.record_bytes().replace(b'"local"', token))
+      with self.subTest(token=token), self.assertRaisesRegex(RetryEvidenceError, "invalid"):
+        with isolate_retry_evidence(self.root, 569):
+          self.fail("non-JSON numeric constants must be rejected")
   def test_restore_mode_is_applied_via_open_file_descriptor(self):
     from unittest.mock import patch
     import os

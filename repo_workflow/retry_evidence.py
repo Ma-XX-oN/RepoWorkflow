@@ -32,12 +32,18 @@ def _git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
     raise RetryEvidenceError("cannot execute Git for retry evidence") from error
 
 
+def _reject_non_json_constant(value: str) -> None:
+  raise ValueError("non-JSON constant in retry evidence: " + value)
+
+
 def _validate_log(content: bytes) -> None:
   if not content.strip():
     raise RetryEvidenceError("canonical retry evidence is empty")
   try:
     for line in content.splitlines():
-      record = json.loads(line.decode("utf-8"))
+      record = json.loads(
+        line.decode("utf-8"), parse_constant=_reject_non_json_constant,
+      )
       if not isinstance(record, dict) or not all(
         field in record for field in ("testSHA", "kind", "result", "runner")
       ):
