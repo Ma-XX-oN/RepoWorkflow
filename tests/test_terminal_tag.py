@@ -1,5 +1,4 @@
 """Real-Git contract tests for immutable regression/integration result tags."""
-
 from pathlib import Path
 import json
 import os
@@ -86,11 +85,9 @@ class TerminalTagTests(unittest.TestCase):
     latest = self.git("rev-parse", "HEAD")
     tag = self.issue_tag("PASS")
     self.assertEqual(tag, "v" + VERSION)
-    self.assertEqual(
-      self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
     self.assertNotEqual(latest, self.candidate)
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_local_only_tag_then_remote_publication_reuses_same_object(self):
     tag = self.issue_tag("PASS", push=False)
     local_ref = self.git("rev-parse", "refs/tags/" + tag)
@@ -99,8 +96,7 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), local_ref)
     self.assertEqual(self.issue_tag("PASS", push=True), tag)
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), local_ref)
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_repeating_same_outcome_is_idempotent(self):
     tag = self.issue_tag("PASS")
     first = self.git("rev-parse", "refs/tags/" + tag)
@@ -109,8 +105,7 @@ class TerminalTagTests(unittest.TestCase):
   def test_complete_failure_tag_points_to_candidate(self):
     tag = self.issue_tag("FAIL")
     self.assertEqual(tag, "v" + VERSION + "-CI-FAIL")
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_missing_canonical_evidence_blocks_publication(self):
     with self.assertRaisesRegex(TerminalTagError, "unavailable"):
       publish_terminal_tag(
@@ -214,8 +209,7 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("tag", "--list"), "")
     self.log.write_text(original, encoding="utf-8")
     tag = self.issue_tag("PASS")
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_conflicting_results_for_same_version_are_rejected(self):
     self.issue_tag("INCOMPLETE")
     self.log.write_text("\n".join(json.dumps({
@@ -298,8 +292,7 @@ class TerminalTagTests(unittest.TestCase):
     self.git("tag", "-a", tag, self.candidate, "-m", tag)
     with self.assertRaisesRegex(TerminalTagError, "tag object differs"):
       self.issue_tag("PASS")
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_successive_phase_versions_preserve_both_exact_targets(self):
     first_tag = self.issue_tag("PASS")
     first_sha = self.candidate
@@ -312,9 +305,7 @@ class TerminalTagTests(unittest.TestCase):
       "PASS", stage="integration", version="0.1.121-issue.545.0.2",
     )
     self.assertNotEqual(first_tag, second_tag)
-    self.assertEqual(
-      self.published(first_tag)["refs/tags/" + first_tag + "^{}"], first_sha,
-    )
+    self.assertEqual(self.published(first_tag)["refs/tags/" + first_tag + "^{}"], first_sha)
     self.assertEqual(
       self.published(second_tag)["refs/tags/" + second_tag + "^{}"],
       second_sha,
@@ -332,8 +323,22 @@ class TerminalTagTests(unittest.TestCase):
       return actual_git(root, *args, **kw)
     with patch("repo_workflow.terminal_tag._git", side_effect=concurrent_push):
       tag = self.issue_tag("PASS")
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+  def test_competing_remote_annotation_with_same_commit_is_not_idempotent(self):
+    git = terminal_tag._git
+    def competitor(root, *args, **kw):
+      if args and args[0] == "push":
+        ref = "refs/tags/v" + VERSION
+        ours = self.git("rev-parse", ref)
+        self.git("-c", "user.name=Competitor", "tag", "-fa",
+                 "v" + VERSION, self.candidate, "-m", "other object")
+        self.git("push", "origin", ref)
+        self.git("update-ref", ref, ours)
+        return subprocess.CompletedProcess(args, 1, "", "already published")
+      return git(root, *args, **kw)
+    with patch.object(terminal_tag, "_git", side_effect=competitor):
+      with self.assertRaisesRegex(TerminalTagError, "object differs"):
+        self.issue_tag("PASS")
   def test_failed_push_can_retry_without_moving_local_tag(self):
     actual_git = terminal_tag._git
     def failed_push(root, *args, **kw):
@@ -347,13 +352,11 @@ class TerminalTagTests(unittest.TestCase):
     first = self.git("rev-parse", "refs/tags/" + tag)
     self.assertEqual(self.issue_tag("PASS"), tag)
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), first)
-    self.assertEqual(
-      self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
+    self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
   def test_local_only_publish_requires_no_network_or_remote(self):
     tag = self.issue_tag("PASS", remote="not-a-remote", push=False)
     self.assertEqual(tag, "v" + VERSION)
-    self.assertEqual(
-      self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
     self.assertEqual(self.published(tag), {})
   def test_unreachable_remote_does_not_create_local_tag(self):
     with self.assertRaises(TerminalTagError):
@@ -382,11 +385,8 @@ class TerminalTagTests(unittest.TestCase):
     tag = publish_terminal_tag(alias, canonical_log=aliased_log, **common)
     self.assertEqual(tag, "v" + VERSION)
     self.assertEqual(self.git("cat-file", "-t", "refs/tags/" + tag), "tag")
-    self.assertEqual(
-      publish_terminal_tag(alias, canonical_log=self.log, **common), tag,
-    )
-    self.assertEqual(
-      self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
+    self.assertEqual(publish_terminal_tag(alias, canonical_log=self.log, **common), tag)
+    self.assertEqual(self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
   def test_symlinked_validation_directory_outside_repository_is_rejected(self):
     self.seed_success_log()
     outside = self.root.parent / "outside"
