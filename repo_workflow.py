@@ -102,13 +102,13 @@ def _configure_utf8_output() -> bool:
         raise ValueError("stdout/stderr codec did not change to UTF-8")
       if stream.errors != "strict":
         raise ValueError("stdout/stderr codec is not strict")
-    except (AttributeError, LookupError, OSError, TypeError, ValueError):
+    except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError):
       diagnostic = f"RepoWorkflow error: cannot configure UTF-8 {name} output\n"
       try:
         if sys.__stderr__ is None:
           raise OSError("original stderr is unavailable")
         sys.__stderr__.write(diagnostic)
-      except (AttributeError, OSError, TypeError, ValueError):
+      except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
         try:
           os.write(2, diagnostic.encode("ascii"))
         except (OSError, ValueError):
