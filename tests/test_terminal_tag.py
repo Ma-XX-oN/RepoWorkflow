@@ -87,7 +87,6 @@ class TerminalTagTests(unittest.TestCase):
         with self.log.open("a") as handle:
           handle.write(json.dumps(evidence) + "\n")
     return publish_terminal_tag(self.root, **args)
-
   def test_pass_tag_targets_original_commit_before_multiple_requests(self):
     self.issue_marker()
     self.issue_marker()
@@ -99,7 +98,6 @@ class TerminalTagTests(unittest.TestCase):
     self.assertNotEqual(latest, self.candidate)
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_local_only_tag_then_remote_publication_reuses_same_object(self):
     tag = self.issue_tag("PASS", push=False)
     local_ref = self.git("rev-parse", "refs/tags/" + tag)
@@ -110,19 +108,16 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), local_ref)
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_repeating_same_outcome_is_idempotent(self):
     tag = self.issue_tag("PASS")
     first = self.git("rev-parse", "refs/tags/" + tag)
     self.assertEqual(self.issue_tag("PASS"), tag)
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), first)
-
   def test_complete_failure_tag_points_to_candidate(self):
     tag = self.issue_tag("FAIL")
     self.assertEqual(tag, "v" + VERSION + "-CI-FAIL")
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_missing_canonical_evidence_blocks_publication(self):
     with self.assertRaisesRegex(TerminalTagError, "unavailable"):
       publish_terminal_tag(
@@ -131,7 +126,6 @@ class TerminalTagTests(unittest.TestCase):
         canonical_log=self.log,
       )
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_wrong_issue_results_file_cannot_certify_version(self):
     other = self.log.with_name("testResults-546.jsonl")
     other.write_text(json.dumps({
@@ -176,8 +170,14 @@ class TerminalTagTests(unittest.TestCase):
 
   def test_cross_phase_version_reuse_is_rejected(self):
     self.issue_tag("PASS")
+    record = json.loads(self.log.read_text(encoding="utf-8"))
+    record["kind"] = "integration"
+    with self.log.open("a", encoding="utf-8") as file:
+      file.write(json.dumps(record) + "\n")
     with self.assertRaisesRegex(TerminalTagError, "another phase"):
       self.issue_tag("PASS", stage="integration")
+    with self.assertRaisesRegex(TerminalTagError, "another phase"):
+      self.issue_tag("PASS", push=False)
     self.assertEqual(len(self.git("tag", "--list").splitlines()), 1)
 
   def test_false_pass_without_success_evidence_is_rejected(self):
