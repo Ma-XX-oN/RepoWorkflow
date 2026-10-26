@@ -23,16 +23,11 @@ class RetryEvidenceTests(unittest.TestCase):
     self.log = self.root / ".repoworkflow/validation/testResults-569.jsonl"
     self.log.parent.mkdir(parents=True)
   def git(self, *args):
-    result = subprocess.run(
-      ["git", "-C", str(self.root), *args], text=True,
-      capture_output=True, check=True,
-    )
+    result = subprocess.run(["git", "-C", str(self.root), *args],
+                            text=True, capture_output=True, check=True)
     return result.stdout.strip()
   def write_record(self):
-    self.log.write_text(json.dumps({
-      "testSHA": self.git("rev-parse", "HEAD"),
-      "kind": "regression", "result": "incomplete", "runner": "local",
-    }) + "\n")
+    self.log.write_bytes(self.record_bytes())
   def test_untracked_log_temporarily_hidden_then_restored(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -44,15 +39,24 @@ class RetryEvidenceTests(unittest.TestCase):
     self.write_record()
     self.git("add", ".")
     self.git("commit", "-qm", "baseline log")
-    self.log.write_text(self.log.read_text() + json.dumps(
-      {"testSHA": self.git("rev-parse", "HEAD"),
-       "kind": "regression", "result": "incomplete", "runner": "local",
-       "attempt": 2}
-    ) + "\n")
+    self.log.write_bytes(self.log.read_bytes() + self.record_bytes(attempt=2))
     original = self.log.read_bytes()
     with isolate_retry_evidence(self.root, 569):
       self.assertEqual(len(self.log.read_text().splitlines()), 1)
       self.assertEqual(self.git("status", "--porcelain"), "")
+    self.assertEqual(self.log.read_bytes(), original)
+    from unittest.mock import patch
+    from repo_workflow.retry_evidence import _replace_bytes
+    called = [False]
+    def post_write_failure(*args):
+      _replace_bytes(*args)
+      if not called[0]:
+        called[0] = True
+        raise OSError("post-write failure")
+    with patch("repo_workflow.retry_evidence._replace_bytes", side_effect=post_write_failure):
+      with self.assertRaisesRegex(OSError, "post-write failure"):
+        with isolate_retry_evidence(self.root, 569):
+          self.fail("partial replacement failure must not enter")
     self.assertEqual(self.log.read_bytes(), original)
   def test_dirty_source_rejected_without_changing_log(self):
     self.write_record()
@@ -124,12 +128,9 @@ class RetryEvidenceTests(unittest.TestCase):
               "with isolate_retry_evidence(Path(sys.argv[1]), 569):\n"
               "  os._exit(21)\n")
     env = os.environ.copy()
-    env["PYTHONPATH"] = (str(Path(__file__).resolve().parents[1]) +
-                         os.pathsep + env.get("PYTHONPATH", ""))
-    process = subprocess.run(
-      [sys.executable, "-c", worker, str(self.root)],
-      capture_output=True, env=env, timeout=20,
-    )
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
+    process = subprocess.run([sys.executable, "-c", worker, str(self.root)],
+                             capture_output=True, env=env, timeout=20)
     self.assertEqual(process.returncode, 21, process.stderr)
     with isolate_retry_evidence(self.root, 569):
       self.assertEqual(self.git("status", "--porcelain"), "")

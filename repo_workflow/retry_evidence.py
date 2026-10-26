@@ -326,11 +326,11 @@ def _isolate_retry_evidence_locked(root: Path, issue: int, gitdir: Path) -> Iter
   active = False
   preflight_dirty = False
   try:
+    active = True  # Restoration must run even if replacement raises after a write.
     if expected is None:
       log.unlink()
     else:
       _replace_bytes(log, expected, original_mode)
-    active = True
     if _status(root):
       preflight_dirty = True
       raise RetryEvidenceError("candidate remained dirty after evidence isolation")
