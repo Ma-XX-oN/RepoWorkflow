@@ -156,15 +156,6 @@ def _route(kind, base, args):
       }
     if args[:2] == ["dependency", "get"] and len(args) == 3:
       return {"schema_version": 1, "issue": number, "dependencies": current}
-    if args[:2] == ["dependency", "replace"]:
-      requested = sorted({_number(n) for n in args[3:]})
-      if number in requested:
-        raise ValueError("self dependency")
-      state[str(number)] = requested
-      _write(base / "dependencies.json", state)
-      return {
-        "schema_version": 1, "issue": number, "dependencies": requested,
-      }
   raise ValueError(f"unexpected provider arguments: {kind} {args!r}")
 
 
