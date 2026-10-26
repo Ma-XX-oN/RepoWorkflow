@@ -143,7 +143,9 @@ def verify_phase_evidence(
       _canonical_evidence_log(root, canonical_log)
       if not os.path.samestat(opened, canonical_file.stat()):
         raise TerminalTagError(invalid)
-    lines = raw.decode("utf-8", errors="strict").splitlines()
+    lines = raw.decode("utf-8", errors="strict").split("\n")
+    if lines[-1] == "":
+      lines.pop()
   except UnicodeError as error:
     raise TerminalTagError("canonical testing log is malformed") from error
   except OSError as error:
