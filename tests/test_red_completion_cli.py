@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shlex
-import shutil
 import subprocess
 import sys
 import unittest
 
 from tests import test_manual_test_cli as fixture
+from tests.test_completion import working_bash, bash_path
 
 
 class RedCompletionCliTests(unittest.TestCase):
@@ -107,21 +108,12 @@ class RedCompletionCliTests(unittest.TestCase):
         self.assertEqual(narrowed.stdout.splitlines(), [expected[0]])
 
   def _run_bash(self, body):
-    if not shutil.which("bash"):
-      self.skipTest("Bash not installed on this runner")
+    executable = working_bash()
+    if executable is None:
+      self.skipTest("No executable Bash passed the capability probe")
 
     def shell_path(path):
-      if sys.platform != "win32":
-        return str(path)
-      import os
-      converted = subprocess.run(
-        ["bash", "-c", 'cygpath -u "$RWF_OS_PATH"'],
-        env={**os.environ, "RWF_OS_PATH": str(path)},
-        capture_output=True, text=True, check=False,
-      )
-      if converted.returncode:
-        self.skipTest("Bash path translation unavailable")
-      return converted.stdout.strip()
+      return bash_path(executable, Path(path))
 
     wrapper = self.fx.engine / "red-rwf"
     entry = self.fx.engine / "repo_workflow.py"
@@ -138,9 +130,9 @@ class RedCompletionCliTests(unittest.TestCase):
       + 'COMP_LINE="rwf test RED "\nCOMP_POINT=13\n'
       + body
     )
-    import os
     return subprocess.run(
-      ["bash", "-c", script], capture_output=True, text=True,
+      [executable, "-c", script], capture_output=True,
+      encoding="utf-8", errors="strict",
       env={**os.environ,
            "REPO_WORKFLOW_COMMAND": shell_path(wrapper),
            "REPO_WORKFLOW_ROOT": str(self.fx.root)},
