@@ -30,6 +30,15 @@ def _reject_json_constant(value: str) -> None:
   raise ValueError("non-standard JSON constant: " + value)
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict:
+  values = {}
+  for key, value in pairs:
+    if key in values:
+      raise ValueError("duplicate JSON key: " + key)
+    values[key] = value
+  return values
+
+
 def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
@@ -158,7 +167,10 @@ def verify_phase_evidence(
   wrong_phase = False
   for line in lines:
     try:
-      record = json.loads(line, parse_constant=_reject_json_constant)
+      record = json.loads(
+        line, parse_constant=_reject_json_constant,
+        object_pairs_hook=_reject_duplicate_json_keys,
+      )
     except (json.JSONDecodeError, ValueError) as error:
       raise TerminalTagError("canonical testing log is malformed") from error
     if not isinstance(record, dict):
