@@ -1,5 +1,6 @@
 """RWF #721 hermetic first-use contracts: FirstUseGraphTests."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -81,8 +82,8 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
         cwd=root,
         check=True,
         capture_output=True,
-        text=True,
-      ).stdout.strip()
+      ).stdout
+      common = os.fsdecode(common).strip()
       writer = (root / common / "repoworkflow" / "runtime-writer-id").resolve()
       self.assertTrue(writer.is_file())
       self.assertTrue(writer.read_text(encoding="utf-8").startswith("local-"))
