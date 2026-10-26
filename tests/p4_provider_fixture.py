@@ -95,6 +95,8 @@ def decode_git_common_dir(raw: bytes) -> str:
     raw = raw[:-1]
   else:
     raise ValueError("Git common-directory output lacks line terminator")
+  if not raw:
+    raise ValueError("Git common-directory output lacks pathname")
   return os.fsdecode(raw)
 
 def provider_calls(env):
