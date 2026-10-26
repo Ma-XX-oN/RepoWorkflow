@@ -23,6 +23,9 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
                      "  directory ending with space ")
     with self.assertRaisesRegex(ValueError, "line terminator"):
       decode_git_common_dir(raw)
+    for empty in (b"\n", b"\r\n"):
+      with self.assertRaisesRegex(ValueError, "lacks pathname"):
+        decode_git_common_dir(empty)
 
   def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
     """Git's filesystem path bytes must not use host-default text decoding."""
