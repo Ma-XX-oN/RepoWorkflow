@@ -231,7 +231,7 @@ class TerminalTagTests(unittest.TestCase):
       "testSHA": self.candidate, "result": result,
       "reusable": True, "headChangedDuringTest": False,
       "uncommittedChanges": [],
-    }) for result in ("succeeded", "failed")) + "\n")
+    }) for result in ("succeeded", "failed", [])) + "\n")
     with self.assertRaisesRegex(TerminalTagError, "conflicting"):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
