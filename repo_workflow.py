@@ -92,9 +92,11 @@ def _configure_utf8_output() -> bool:
   for name in ("stdout", "stderr"):
     stream = getattr(sys, name)
     # In-process Unicode text capture has no byte encoding to configure.
-    if isinstance(stream, io.StringIO):
-      continue
     try:
+      if isinstance(stream, io.StringIO):
+        if stream.closed:
+          raise ValueError("closed Unicode text capture")
+        continue
       stream.reconfigure(encoding="utf-8", errors="strict")
       if codecs.lookup(stream.encoding).name != "utf-8":
         raise ValueError("stdout/stderr codec did not change to UTF-8")
