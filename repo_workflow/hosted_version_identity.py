@@ -28,13 +28,14 @@ def _git(root: Path, *args: str) -> str:
   try:
     result = subprocess.run(
       ["git", "-C", str(root), *args], capture_output=True,
-      text=True, encoding="utf-8", errors="strict", check=False,
+      check=False,
     )
+    decoded = result.stdout.decode("utf-8", errors="strict")
   except (OSError, UnicodeError) as error:
     raise HostedVersionError("cannot decode hosted Git request") from error
   if result.returncode:
     raise HostedVersionError("cannot verify hosted Git request")
-  return result.stdout
+  return decoded
 
 
 def _single_parent(root: Path, sha: str) -> str:
