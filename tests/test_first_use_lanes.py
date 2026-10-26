@@ -37,7 +37,7 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
         decode_git_common_dir(invalid)
     if os.name != "nt":
       with tempfile.TemporaryDirectory() as td:
-        for name in ("\r", "bare-trailing-CR\r"):
+        for name in ("\r", "\n", "\r\n", "\n\r", "bare-trailing-CR\r"):
           git_dir = Path(td) / name
           subprocess.run(
             ["git", "init", "--bare", str(git_dir)],
