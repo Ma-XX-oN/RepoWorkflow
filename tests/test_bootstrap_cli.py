@@ -59,6 +59,8 @@ class BootstrapCliTests(unittest.TestCase):
     )
 
   def run_cli(self, root: Path, *args: str, env=None):
+    if env is not None and "RWF_TEST_FIXTURE_BASE" in env:
+      verify_provider(root, env)
     return subprocess.run(
       [sys.executable, str(CLI), "--root", str(root), *args],
       capture_output=True,
@@ -236,6 +238,36 @@ class BootstrapCliTests(unittest.TestCase):
       self.assertEqual(provider_calls(env)[-1], {
         "kind": "info", "args": ["pr", "list"],
       })
+
+  def test_provider_guard_rejects_actual_gh_even_with_python_optimization(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = configure_provider(base, {201: []})
+      config_path = root / ".ci" / "repoworkflow.json"
+      data = json.loads(config_path.read_text(encoding="utf-8"))
+      data["infoCommand"] = ["gh", "issue", "view", "201"]
+      config_path.write_text(json.dumps(data), encoding="utf-8")
+      for optimized in (False, True):
+        with self.subTest(optimized=optimized):
+          invocation = [
+            sys.executable, *(["-O"] if optimized else []), "-c",
+            "import os; from pathlib import Path; "
+            "from tests.p4_provider_fixture import verify_provider; "
+            "verify_provider(Path(os.environ['RWF_TEST_FIXTURE_BASE']) / "
+            "'repo', os.environ)",
+          ]
+          rejected = subprocess.run(
+            invocation, env=env, capture_output=True, text=True,
+            encoding="utf-8",
+          )
+          self.assertNotEqual(rejected.returncode, 0)
+          self.assertIn("nonhermetic infoCommand", rejected.stderr)
+      with self.assertRaisesRegex(RuntimeError, "nonhermetic infoCommand"):
+        self.run_cli(root, "issue", "info", "201", env=env)
+      self.assertEqual(provider_calls(env), [])
 
   def test_default_github_provider_discovery_without_execution(self):
     with tempfile.TemporaryDirectory() as td:
