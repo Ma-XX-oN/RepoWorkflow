@@ -210,15 +210,21 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
       "    raise OSError('unavailable')\n"
       "entry, mode = sys.argv[1:]\n"
       "sys.argv = [entry, '--help']\n"
-      "sys.stdout = Broken()\n"
-      "if mode == 'missing':\n"
+      "if mode.startswith('stdout_'):\n"
+      "  sys.stdout = Broken()\n"
+      "else:\n"
+      "  sys.stderr = Broken()\n"
+      "if mode.endswith('missing'):\n"
       "  sys.__stderr__ = None\n"
       "else:\n"
       "  sys.__stderr__ = io.StringIO()\n"
       "  sys.__stderr__.close()\n"
       "runpy.run_path(entry, run_name='__main__')\n"
     )
-    for mode in ("missing", "closed"):
+    for mode in (
+      "stdout_missing", "stdout_closed",
+      "stderr_missing", "stderr_closed",
+    ):
       with self.subTest(mode=mode):
         result = subprocess.run(
           [sys.executable, "-c", bootstrap, str(ENTRYPOINT), mode],
@@ -227,7 +233,8 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(result.stdout, b"")
         self.assertIn(
-          b"RepoWorkflow error: cannot configure UTF-8 stdout output",
+          ("RepoWorkflow error: cannot configure UTF-8 "
+           + mode.split("_")[0] + " output").encode("ascii"),
           result.stderr,
         )
         self.assertNotIn(b"Traceback", result.stderr)
