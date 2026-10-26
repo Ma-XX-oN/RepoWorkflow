@@ -90,6 +90,10 @@ def _canonical_evidence_log(root: Path, supplied: Path) -> Path:
       (supplied, expected, False, True),
     )
     for observed, trusted, is_directory, protected in parts:
+      # Once the parent identities are proven, a missing canonical log is
+      # unavailable evidence, not a foreign path.
+      if not is_directory and not expected.exists() and not expected.is_symlink():
+        raise TerminalTagError("canonical testing log is unavailable")
       if not observed.samefile(trusted):
         raise TerminalTagError(invalid)
       if protected:
