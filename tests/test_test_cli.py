@@ -326,11 +326,46 @@ class TestCliContract(unittest.TestCase):
     self.assertEqual(evidence["warning"], result.stderr.strip())
     self.assertEqual(evidence["testSHA"], self.source)
 
-  def test_red_help_does_not_require_registered_issue_tests(self):
-    result = self.cli("test", "RED", "--help")
-    self.assertEqual(result.returncode, 0, result.stderr)
-    self.assertIn("Run an issue-N- RED test group", result.stdout)
-    self.assertIn("--remote", result.stdout)
+  def test_red_help_uses_registered_current_issue_and_error_parity(self):
+    def parity(expected_error):
+      outputs = (
+        self.cli("test", "RED", "--help"),
+        self.cli("complete", "--describe", "test", "RED", ""),
+        self.cli("complete", "test", "RED", ""),
+      )
+      self.assertTrue(all(x.returncode == 2 for x in outputs), outputs)
+      self.assertTrue(all(x.stdout == "" for x in outputs), outputs)
+      self.assertEqual(len({x.stderr for x in outputs}), 1)
+      self.assertIn(expected_error, outputs[0].stderr)
+
+    parity("RED/GREEN tests do not exist")
+    path = self.root / ".ci/tests.json"
+    self._catalogue(path, issue_group="issue-544-foreign")
+    parity("RED/GREEN tests do not exist")
+    content = json.loads(path.read_text(encoding="utf-8"))
+    content["tests"][0].update({
+      "issue-545-z": {"type": "regression", "name": "smoke_case"},
+      "issue-545-a": {"type": "regression", "name": "smoke_case",
+                      "description": "Alpha case"},
+    })
+    path.write_text(json.dumps(content), encoding="utf-8")
+    single = self.cli("complete", "test", "RED", "")
+    descriptive = self.cli("complete", "--describe", "test", "RED", "")
+    helped = self.cli("test", "RED", "--help")
+    for output in (single, descriptive, helped):
+      self.assertEqual(output.returncode, 0, output.stderr)
+    self.assertEqual(descriptive.stdout, helped.stdout)
+    self.assertEqual(
+      [x for x in helped.stdout.splitlines() if x.startswith("issue-")],
+      ["issue-545-a - Alpha case", "issue-545-z"],
+    )
+    self.assertEqual(
+      [x for x in single.stdout.splitlines() if x.startswith("issue-")],
+      ["issue-545-a", "issue-545-z"],
+    )
+    self.assertNotIn("issue-544-foreign", helped.stdout)
+    self.git("switch", "-c", "not-an-issue")
+    parity("RED tests require a current started issue")
 
   def test_missing_and_malformed_selection_fail_closed(self):
     self._catalogue(
