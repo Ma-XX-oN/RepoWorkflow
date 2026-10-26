@@ -189,7 +189,7 @@ def _read_journal(journal: Path) -> tuple[bytes, int, bytes | None]:
     if expected is not None:
       _validate_log(expected)
     return original, value["mode"], expected
-  except (OSError, ValueError, KeyError, TypeError, binascii.Error) as error:
+  except (OSError, ValueError, KeyError, TypeError, RecursionError, binascii.Error) as error:
     raise RetryEvidenceError("invalid retry recovery journal") from error
 
 

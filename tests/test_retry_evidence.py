@@ -134,6 +134,12 @@ class RetryEvidenceTests(unittest.TestCase):
     with isolate_retry_evidence(self.root, 569):
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
+    journal = Path(self.git("rev-parse", "--absolute-git-dir")) / "rwf-retry-evidence-569.backup"
+    journal.write_bytes(b"[" * 10000 + b"0" + b"]" * 10000)
+    with self.assertRaisesRegex(RetryEvidenceError, "invalid retry recovery journal"):
+      with isolate_retry_evidence(self.root, 569):
+        self.fail("deep corrupted recovery journal must not enter")
+    self.assertEqual(self.log.read_bytes(), original)
   def test_exception_restores_original_log(self):
     self.write_record()
     original = self.log.read_bytes()
