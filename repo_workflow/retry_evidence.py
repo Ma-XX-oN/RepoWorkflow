@@ -7,8 +7,12 @@ Other dirty inputs remain visible to normal candidate validation.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import base64
+import binascii
+import hashlib
 import json
 import os
+import sqlite3
 import stat
 from pathlib import Path
 import subprocess
@@ -130,8 +134,156 @@ def _status(root: Path) -> list[bytes]:
   return [item for item in status.stdout.split(b"\0") if item]
 
 
+
+def _journal_path(gitdir: Path, issue: int) -> Path:
+  return gitdir / f"rwf-retry-evidence-{issue}.backup"
+
+
+def _write_journal(gitdir: Path, issue: int, original: bytes,
+                   mode: int, expected: bytes | None) -> Path:
+  """Persist recovery data atomically before changing canonical evidence."""
+  journal = _journal_path(gitdir, issue)
+  if journal.is_symlink() or journal.exists():
+    raise RetryEvidenceError("unresolved or unsafe retry recovery journal")
+  payload = json.dumps({
+    "version": 1, "mode": mode,
+    "original": base64.b64encode(original).decode("ascii"),
+    "expected": (None if expected is None else
+                 base64.b64encode(expected).decode("ascii")),
+    "digest": hashlib.sha256(original).hexdigest(),
+  }).encode("ascii")
+  temporary = None
+  try:
+    with tempfile.NamedTemporaryFile(
+      dir=gitdir, prefix=journal.name + ".tmp-", delete=False,
+    ) as output:
+      temporary = Path(output.name)
+      output.write(payload)
+      output.flush()
+      os.fsync(output.fileno())
+    os.replace(temporary, journal)
+    temporary = None
+    return journal
+  except OSError as error:
+    raise RetryEvidenceError("cannot persist retry recovery journal") from error
+  finally:
+    if temporary is not None:
+      temporary.unlink(missing_ok=True)
+
+
+def _read_journal(journal: Path) -> tuple[bytes, int, bytes | None]:
+  if journal.is_symlink() or not journal.is_file():
+    raise RetryEvidenceError("unsafe retry recovery journal")
+  try:
+    value = json.loads(journal.read_bytes().decode("ascii"))
+    if (value["version"] != 1 or type(value["mode"]) is not int or
+        not 0 <= value["mode"] <= 0o7777):
+      raise ValueError("invalid journal schema")
+    original = base64.b64decode(value["original"], validate=True)
+    encoded = value["expected"]
+    expected = (None if encoded is None else
+                base64.b64decode(encoded, validate=True))
+    if hashlib.sha256(original).hexdigest() != value["digest"]:
+      raise ValueError("journal digest mismatch")
+    _validate_log(original)
+    if expected is not None:
+      _validate_log(expected)
+    return original, value["mode"], expected
+  except (OSError, ValueError, KeyError, TypeError, binascii.Error) as error:
+    raise RetryEvidenceError("invalid retry recovery journal") from error
+
+
+def _same_evidence(log: Path, original: bytes, mode: int) -> bool:
+  return (not log.is_symlink() and log.is_file() and
+          log.read_bytes() == original and
+          stat.S_IMODE(log.stat(follow_symlinks=False).st_mode) == mode)
+
+
+def _recover_journal(root: Path, issue: int, gitdir: Path) -> None:
+  journal = _journal_path(gitdir, issue)
+  if journal.is_symlink():
+    raise RetryEvidenceError("unsafe retry recovery journal symlink")
+  if not journal.exists():
+    return
+  original, mode, expected = _read_journal(journal)
+  log = root / f".repoworkflow/validation/testResults-{issue}.jsonl"
+  if any(parent.is_symlink() for parent in (log.parent.parent, log.parent)):
+    raise RetryEvidenceError("retry recovery cannot follow symlinked parent")
+  if _same_evidence(log, original, mode):
+    journal.unlink()
+    return
+  if (expected is None and not log.exists() and not log.is_symlink() or
+      expected is not None and not log.is_symlink() and
+      log.is_file() and log.read_bytes() == expected and
+      stat.S_IMODE(log.stat(follow_symlinks=False).st_mode) == mode):
+    _replace_bytes(log, original, mode)
+    journal.unlink()
+    return
+  raise RetryEvidenceError("retry recovery conflict; original retained in Git metadata")
+
+
+def _remove_recovered_journal_if_restored(root: Path, issue: int,
+                                          gitdir: Path) -> None:
+  journal = _journal_path(gitdir, issue)
+  if journal.is_symlink():
+    raise RetryEvidenceError("unsafe retry recovery journal")
+  if journal.exists():
+    original, mode, _ = _read_journal(journal)
+    log = root / f".repoworkflow/validation/testResults-{issue}.jsonl"
+    if _same_evidence(log, original, mode):
+      journal.unlink()
+
+@contextmanager
+def _isolation_lock(root: Path, issue: int) -> Iterator[Path]:
+  """Exclude overlapping contexts using SQLite's cross-process Gitdir lock.
+
+  This persistent file lives in the repository's own Git metadata, so it
+  never dirties the working tree and is independent of process TMPDIR.
+  Closing the SQLite connection releases the lock, including on process exit.
+  """
+  result = _git_bytes(root, "rev-parse", "--absolute-git-dir")
+  if result.returncode:
+    raise RetryEvidenceError("cannot locate Git directory for retry lock")
+  try:
+    gitdir = Path(result.stdout.removesuffix(b"\n").decode("utf-8"))
+  except UnicodeError as error:
+    raise RetryEvidenceError("cannot decode Git directory for retry lock") from error
+  if not gitdir.is_absolute() or not gitdir.is_dir():
+    raise RetryEvidenceError("invalid Git directory for retry lock")
+  lock = gitdir / f"rwf-retry-evidence-{issue}.sqlite3"
+  if lock.is_symlink():
+    raise RetryEvidenceError("retry lock may not be a symlink")
+  try:
+    connection = sqlite3.connect(lock, timeout=0.0, isolation_level=None)
+  except (OSError, sqlite3.Error) as error:
+    raise RetryEvidenceError("cannot open retry isolation lock") from error
+  try:
+    try:
+      connection.execute("BEGIN IMMEDIATE")
+    except sqlite3.Error as error:
+      raise RetryEvidenceError("retry evidence isolation already active or lock unavailable") from error
+    yield gitdir
+  finally:
+    connection.close()
+
+
 @contextmanager
 def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
+  """Protect retry isolation with an OS-neutral cross-process Gitdir lock."""
+  root = root.resolve()
+  if issue < 1:
+    raise RetryEvidenceError("issue must be positive")
+  with _isolation_lock(root, issue) as gitdir:
+    _recover_journal(root, issue, gitdir)
+    try:
+      with _isolate_retry_evidence_locked(root, issue, gitdir) as log:
+        yield log
+    finally:
+      _remove_recovered_journal_if_restored(root, issue, gitdir)
+
+
+@contextmanager
+def _isolate_retry_evidence_locked(root: Path, issue: int, gitdir: Path) -> Iterator[Path]:
   """Temporarily expose HEAD's checkout representation, then restore evidence.
 
   The canonical committed blob stays byte-for-byte intact in Git. Checkout
@@ -170,6 +322,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
   if log.is_symlink() or not log.is_file() or log.read_bytes() != original:
     raise RetryEvidenceError("canonical retry evidence changed before isolation")
 
+  journal = _write_journal(gitdir, issue, original, original_mode, expected)
   active = False
   preflight_dirty = False
   try:

@@ -1,15 +1,12 @@
 """Git-backed local retry evidence isolation contract tests."""
-
 import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-
 from repo_workflow.retry_evidence import (
   RetryEvidenceError, isolate_retry_evidence,
 )
-
 class RetryEvidenceTests(unittest.TestCase):
   def setUp(self):
     tmp = tempfile.TemporaryDirectory()
@@ -25,14 +22,12 @@ class RetryEvidenceTests(unittest.TestCase):
     self.git("commit", "-qm", "source")
     self.log = self.root / ".repoworkflow/validation/testResults-569.jsonl"
     self.log.parent.mkdir(parents=True)
-
   def git(self, *args):
     result = subprocess.run(
       ["git", "-C", str(self.root), *args], text=True,
       capture_output=True, check=True,
     )
     return result.stdout.strip()
-
   def write_record(self):
     self.log.write_text(json.dumps({
       "testSHA": self.git("rev-parse", "HEAD"),
@@ -111,7 +106,34 @@ class RetryEvidenceTests(unittest.TestCase):
     with self.assertRaisesRegex(RetryEvidenceError, "symlink"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
-
+  def test_concurrent_isolation_and_crash_restore_original(self):
+    import os
+    import sys
+    self.write_record()
+    self.git("add", ".")
+    self.git("commit", "-qm", "canonical baseline")
+    self.log.write_bytes(self.log.read_bytes() + self.record_bytes(attempt=2))
+    original = self.log.read_bytes()
+    with isolate_retry_evidence(self.root, 569):
+      with self.assertRaisesRegex(RetryEvidenceError, "already active"):
+        with isolate_retry_evidence(self.root, 569):
+          self.fail("overlapping context must never enter")
+    self.assertEqual(self.log.read_bytes(), original)
+    worker = ("import os,sys\nfrom pathlib import Path\n"
+              "from repo_workflow.retry_evidence import isolate_retry_evidence\n"
+              "with isolate_retry_evidence(Path(sys.argv[1]), 569):\n"
+              "  os._exit(21)\n")
+    env = os.environ.copy()
+    env["PYTHONPATH"] = (str(Path(__file__).resolve().parents[1]) +
+                         os.pathsep + env.get("PYTHONPATH", ""))
+    process = subprocess.run(
+      [sys.executable, "-c", worker, str(self.root)],
+      capture_output=True, env=env, timeout=20,
+    )
+    self.assertEqual(process.returncode, 21, process.stderr)
+    with isolate_retry_evidence(self.root, 569):
+      self.assertEqual(self.git("status", "--porcelain"), "")
+    self.assertEqual(self.log.read_bytes(), original)
   def test_exception_restores_original_log(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -119,7 +141,6 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         raise RuntimeError("failure")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_operation_writing_new_evidence_fails_closed_without_data_loss(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -131,7 +152,6 @@ class RetryEvidenceTests(unittest.TestCase):
     conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
     self.assertEqual(len(conflicts), 1)
     self.assertEqual(conflicts[0].read_text(), changed)
-
   def record_bytes(self, runner="local", attempt=None):
     record = {
       "testSHA": self.git("rev-parse", "HEAD"),
@@ -140,13 +160,11 @@ class RetryEvidenceTests(unittest.TestCase):
     if attempt is not None:
       record["attempt"] = attempt
     return json.dumps(record, ensure_ascii=False).encode("utf-8") + b"\n"
-
   def git_blob(self, *args):
     return subprocess.run(
       ["git", "-C", str(self.root), *args],
       capture_output=True, check=True,
     ).stdout
-
   def test_raw_committed_crlf_preserved_without_text_roundtrip(self):
     self.git("config", "core.autocrlf", "false")
     (self.root / ".gitattributes").write_text(
@@ -165,7 +183,6 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(self.log.read_bytes(), baseline)
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_lf_blob_crlf_checkout_filter(self):
     self.git("config", "core.autocrlf", "true")
     (self.root / ".gitattributes").write_text(
@@ -190,7 +207,6 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(self.log.read_bytes(), expected)
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_implicit_autocrlf_uses_real_git_checkout_not_clean_guess(self):
     from repo_workflow.git import git_checkout_bytes
     self.git("config", "core.autocrlf", "true")
@@ -208,13 +224,11 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("do not select noncheckout LF just because status is clean")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_implicit_autocrlf_with_filter_fails_closed_if_dirty(self):
     self.git("config", "core.autocrlf", "true")
     with self.assertRaisesRegex(RetryEvidenceError, "remained dirty"):
       self.test_clean_smudge_roundtrip_filter()
     self.assertEqual(len(self.log.read_bytes().splitlines()), 2)
-
   def test_clean_smudge_roundtrip_filter(self):
     import sys
     executable = '"' + sys.executable + '"'
@@ -240,7 +254,6 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(self.log.read_bytes(), baseline)
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_unicode_raw_bytes_preserved(self):
     baseline = self.record_bytes(runner="東京-é-🧪")
     self.log.write_bytes(baseline)
@@ -252,7 +265,6 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(self.log.read_bytes(), baseline)
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_tracked_staged_log_is_rejected(self):
     self.write_record()
     self.git("add", ".")
@@ -262,27 +274,23 @@ class RetryEvidenceTests(unittest.TestCase):
     with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("must reject staged tracked evidence")
-
   def test_unrelated_untracked_file_is_not_hidden(self):
     self.write_record()
     (self.root / "unrelated.txt").write_text("untrusted\n")
     with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
-
   def test_wrong_issue_keeps_actual_dirty_log_visible(self):
     self.write_record()
     with isolate_retry_evidence(self.root, 570):
       self.assertTrue(self.log.exists())
       self.assertNotEqual(self.git("status", "--porcelain"), "")
-
   def test_multiple_jsonl_records_restore_exactly(self):
     original = self.record_bytes() + self.record_bytes(attempt=2)
     self.log.write_bytes(original)
     with isolate_retry_evidence(self.root, 569):
       self.assertFalse(self.log.exists())
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_unrelated_mutation_inside_context_is_reported(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -291,7 +299,6 @@ class RetryEvidenceTests(unittest.TestCase):
         (self.root / "source.txt").write_text("dirty inside\n")
     self.assertEqual(self.log.read_bytes(), original)
     self.assertEqual((self.root / "source.txt").read_text(), "dirty inside\n")
-
   def test_tracked_context_conflict_preserves_exact_bytes(self):
     baseline = self.record_bytes()
     self.log.write_bytes(baseline)
@@ -307,7 +314,6 @@ class RetryEvidenceTests(unittest.TestCase):
     conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
     self.assertEqual(len(conflicts), 1)
     self.assertEqual(conflicts[0].read_bytes(), conflict_bytes)
-
   def test_deleting_tracked_log_inside_context_is_reported(self):
     self.write_record()
     self.git("add", ".")
@@ -318,7 +324,6 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.log.unlink()
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_directory_replacement_preserves_original_and_conflict(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -333,7 +338,6 @@ class RetryEvidenceTests(unittest.TestCase):
       (conflicts[0] / self.log.name / "foreign.txt").read_text(encoding="utf-8"),
       "preserve me",
     )
-
   def test_invalid_utf8_untracked_filename_is_fail_closed(self):
     import os
     if os.name == "nt":
@@ -354,14 +358,12 @@ class RetryEvidenceTests(unittest.TestCase):
         self.fail("invalid raw Git path bytes must never be concealed")
     self.assertEqual(self.log.read_bytes(), original)
     self.assertTrue(os.path.exists(path))
-
   def test_raw_git_status_rejects_invalid_path_bytes_on_every_os(self):
     from unittest.mock import patch
     from repo_workflow import retry_evidence
     self.write_record()
     original = self.log.read_bytes()
     actual = retry_evidence._git_bytes
-
     def invalid_status(root, *args):
       output = actual(root, *args)
       if args[0] == "status" and output.returncode == 0:
@@ -369,7 +371,6 @@ class RetryEvidenceTests(unittest.TestCase):
           output.args, 0, output.stdout + b"?? invalid-\xff\0", output.stderr,
         )
       return output
-
     with patch("repo_workflow.retry_evidence._git_bytes", side_effect=invalid_status):
       with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
         with isolate_retry_evidence(self.root, 569):
@@ -402,7 +403,6 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.assertFalse(self.log.exists())
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_original_mode_restored_for_untracked_and_tracked_log(self):
     import os
     import stat
@@ -429,28 +429,24 @@ class RetryEvidenceTests(unittest.TestCase):
               self.log.chmod(0o644)
           self.assertEqual(stat.S_IMODE(self.log.stat().st_mode), 0o744)
         self.log.unlink()
-
   def test_git_os_error_during_cleanup_still_restores(self):
     from unittest.mock import patch
     self.write_record()
     original = self.log.read_bytes()
     real_run = subprocess.run
     failures = [0]
-
     def faulty_run(argv, **kwargs):
       if argv[3:5] == ["status", "--porcelain"]:
         failures[0] += 1
         if failures[0] == 3:
           raise OSError("git executable unavailable during cleanup")
       return real_run(argv, **kwargs)
-
     with patch("repo_workflow.retry_evidence.subprocess.run", side_effect=faulty_run):
       with self.assertRaisesRegex(RetryEvidenceError, "cannot execute Git"):
         with isolate_retry_evidence(self.root, 569):
           self.assertFalse(self.log.exists())
     self.assertEqual(failures[0], 3)
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_status_inspection_failure_still_restores(self):
     from unittest.mock import patch
     self.write_record()
@@ -461,7 +457,6 @@ class RetryEvidenceTests(unittest.TestCase):
         with isolate_retry_evidence(self.root, 569):
           pass
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_symlinked_parent_directory_is_rejected(self):
     outside = self.root.parent / "external-parent"
     outside.mkdir()
@@ -492,6 +487,5 @@ class RetryEvidenceTests(unittest.TestCase):
     conflicts = list(self.log.parent.parent.glob("validation.retry-conflict-*"))
     self.assertEqual(len(conflicts), 1)
     self.assertTrue((conflicts[0] / "validation").is_symlink())
-
 if __name__ == "__main__":
   unittest.main()
