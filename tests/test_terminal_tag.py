@@ -141,7 +141,6 @@ class TerminalTagTests(unittest.TestCase):
         canonical_log=other,
       )
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_external_lookalike_log_is_rejected(self):
     external = self.root.parent / "testResults-545.jsonl"
     external.write_text(json.dumps({
@@ -239,7 +238,8 @@ class TerminalTagTests(unittest.TestCase):
 
   def test_invalid_canonical_record_blocks_publication(self):
     for payload in (b"{bad json\n", b"\xff", b"{}\r{}\n",
-                    b'{"irrelevant":NaN}\n', b'{"result":"failed","result":"succeeded"}\n'):
+                    b'{"irrelevant":NaN}\n', b'{"result":"failed","result":"succeeded"}\n',
+                    b"[" * 10000 + b"]" * 10000 + b"\n"):
       with self.subTest(payload=payload):
         self.log.write_bytes(payload)
         with self.assertRaisesRegex(TerminalTagError, "malformed"):
