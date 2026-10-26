@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
 import re
 import stat
 import subprocess
@@ -130,7 +131,19 @@ def verify_phase_evidence(
     raise TerminalTagError("test log issue differs from development version")
   canonical_file = _canonical_evidence_log(root, canonical_log)
   try:
-    lines = canonical_file.read_text(encoding="utf-8").splitlines()
+    with canonical_file.open("rb") as evidence:
+      # The pathname can change between validation and open. Bind the
+      # evidence to its opened filesystem object, and revalidate after read.
+      opened = os.fstat(evidence.fileno())
+      invalid = "canonical test log must use repository validation path"
+      if not os.path.samestat(opened, canonical_file.stat()):
+        raise TerminalTagError(invalid)
+      _canonical_evidence_log(root, canonical_log)
+      raw = evidence.read()
+      _canonical_evidence_log(root, canonical_log)
+      if not os.path.samestat(opened, canonical_file.stat()):
+        raise TerminalTagError(invalid)
+    lines = raw.decode("utf-8", errors="strict").splitlines()
   except UnicodeError as error:
     raise TerminalTagError("canonical testing log is malformed") from error
   except OSError as error:
