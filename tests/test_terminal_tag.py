@@ -176,12 +176,10 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "another phase"):
       self.issue_tag("PASS", push=False)
     self.assertEqual(len(self.git("tag", "--list").splitlines()), 1)
-
   def test_false_pass_without_success_evidence_is_rejected(self):
     self.issue_tag("FAIL")
     with self.assertRaisesRegex(TerminalTagError, "outcome"):
       self.issue_tag("PASS")
-
   def test_genuine_failure_not_reusable_still_receives_failure_tag(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "testVersion": VERSION,
@@ -191,7 +189,6 @@ class TerminalTagTests(unittest.TestCase):
       "uncommittedChanges": [],
     }) + "\n")
     self.assertEqual(self.issue_tag("FAIL"), "v" + VERSION + "-CI-FAIL")
-
   def test_nonreusable_pass_cannot_receive_tag(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "testVersion": VERSION,
@@ -203,7 +200,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "does not establish"):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_incomplete_retry_before_pass_does_not_consume_version(self):
     entries = [
       {"kind": "regression", "testVersion": VERSION,
@@ -220,7 +216,6 @@ class TerminalTagTests(unittest.TestCase):
     tag = self.issue_tag("PASS")
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_conflicting_results_for_same_version_are_rejected(self):
     self.issue_tag("INCOMPLETE")
     self.log.write_text("\n".join(json.dumps({
@@ -233,7 +228,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "conflicting"):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_invalid_canonical_record_blocks_publication(self):
     for payload in (b"{bad json\n", b"\xff", b"{}\r{}\n",
                     b'{"irrelevant":NaN}\n', b'{"result":"failed","result":"succeeded"}\n',
@@ -246,23 +240,19 @@ class TerminalTagTests(unittest.TestCase):
             version=VERSION, candidate=self.candidate,
             outcome="PASS", canonical_log=self.log,
           )
-
   def test_incomplete_never_creates_a_tag(self):
     self.assertIsNone(self.issue_tag("INCOMPLETE"))
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_opposite_outcome_cannot_be_published(self):
     self.issue_tag("FAIL")
     with self.assertRaisesRegex(TerminalTagError, "outcome|opposite"):
       self.issue_tag("PASS")
-
   def test_non_terminal_test_stages_never_publish_tags(self):
     for stage in ("RED", "temporary", "GREEN", "results"):
       with self.subTest(stage=stage):
         with self.assertRaisesRegex(TerminalTagError, "regression or integration"):
           self.issue_tag("PASS", stage=stage)
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_malformed_version_or_candidate_fails_without_tag(self):
     with self.assertRaisesRegex(TerminalTagError, "development version"):
       self.issue_tag("PASS", version="0.1.121")
@@ -271,12 +261,10 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "unknown terminal"):
       self.issue_tag("SKIPPED")
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_well_formed_but_nonexistent_candidate_cannot_be_tagged(self):
     with self.assertRaises(TerminalTagError):
       self.issue_tag("PASS", candidate="f" * 40)
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_remote_lightweight_tag_is_not_accepted_as_terminal_evidence(self):
     tag = "v" + VERSION
     self.git("tag", tag, self.candidate)
@@ -284,19 +272,16 @@ class TerminalTagTests(unittest.TestCase):
     self.git("tag", "-d", tag)
     with self.assertRaisesRegex(TerminalTagError, "not annotated"):
       self.issue_tag("PASS")
-
   def test_existing_remote_different_target_is_rejected(self):
     self.issue_marker()
     self.git("tag", "-a", "v" + VERSION, "HEAD", "-m", "conflict")
     self.git("push", "origin", "refs/tags/v" + VERSION)
     with self.assertRaisesRegex(TerminalTagError, "different commit"):
       self.issue_tag("PASS")
-
   def test_unannotated_terminal_tag_is_rejected(self):
     self.git("tag", "v" + VERSION, self.candidate)
     with self.assertRaisesRegex(TerminalTagError, "annotated"):
       self.issue_tag("PASS")
-
   def test_local_replay_after_remote_publication(self):
     tag = self.issue_tag("PASS")
     self.git("tag", "-d", tag)
@@ -305,7 +290,6 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("rev-parse", tag + "^{commit}"), self.candidate)
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_successive_phase_versions_preserve_both_exact_targets(self):
     first_tag = self.issue_tag("PASS")
     first_sha = self.candidate
@@ -325,7 +309,6 @@ class TerminalTagTests(unittest.TestCase):
       self.published(second_tag)["refs/tags/" + second_tag + "^{}"],
       second_sha,
     )
-
   def test_concurrent_identical_publication_is_idempotent(self):
     actual_git = terminal_tag._git
 
@@ -378,7 +361,6 @@ class TerminalTagTests(unittest.TestCase):
       "result": "succeeded", "reusable": True,
       "headChangedDuringTest": False, "uncommittedChanges": [],
     }) + "\n", encoding="utf-8")
-
   def test_aliased_repository_root_and_real_log_are_accepted(self):
     alias = self.root.parent / "aliased-work"
     try:
@@ -400,7 +382,6 @@ class TerminalTagTests(unittest.TestCase):
     )
     self.assertEqual(
       self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
-
   def test_symlinked_validation_directory_outside_repository_is_rejected(self):
     self.seed_success_log()
     outside = self.root.parent / "outside"
@@ -414,7 +395,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", push=False)
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_symlinked_canonical_log_file_is_rejected(self):
     self.seed_success_log()
     other = self.log.with_name("replacement.jsonl")
@@ -426,7 +406,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", push=False)
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_traversal_back_into_validation_directory_is_rejected(self):
     self.seed_success_log()
     traversal = self.log.parent / ".." / "validation" / self.log.name
@@ -494,6 +473,27 @@ class TerminalTagTests(unittest.TestCase):
         terminal_tag.verify_phase_evidence(
           alias, self.log, stage="regression", version=VERSION,
           candidate=self.candidate, outcome="PASS")
+
+    other = self.root.parent / "other-repo"
+    self.git_in(self.root.parent, "clone", str(self.root), str(other))
+    self.git_in(other, "config", "user.name", "Test")
+    self.git_in(other, "config", "user.email", "test@example.invalid")
+    alias.unlink()
+    alias.symlink_to(self.root, target_is_directory=True)
+    local_target = terminal_tag._local_target
+    def redirect(root, tag):
+      alias.unlink()
+      alias.symlink_to(other, target_is_directory=True)
+      return local_target(root, tag)
+    with patch.object(terminal_tag, "_local_target", side_effect=redirect):
+      tag = publish_terminal_tag(
+        alias, stage="regression", remote="origin", version=VERSION,
+        candidate=self.candidate, outcome="PASS", push=False,
+        canonical_log=alias / ".repoworkflow/validation" / self.log.name,
+      )
+    self.assertEqual(tag, "v" + VERSION)
+    self.assertEqual(self.git("tag", "--list"), tag)
+    self.assertEqual(self.git_in(other, "tag", "--list"), "")
 
 if __name__ == "__main__":
   unittest.main()
