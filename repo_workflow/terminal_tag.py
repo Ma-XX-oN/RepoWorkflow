@@ -127,6 +127,8 @@ def verify_phase_evidence(
   canonical_file = _canonical_evidence_log(root, canonical_log)
   try:
     lines = canonical_file.read_text(encoding="utf-8").splitlines()
+  except UnicodeError as error:
+    raise TerminalTagError("canonical testing log is malformed") from error
   except OSError as error:
     raise TerminalTagError("canonical testing log is unavailable") from error
   observed = []
