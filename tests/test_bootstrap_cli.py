@@ -7,6 +7,8 @@ import tempfile
 import unittest
 
 from repo_workflow.public_commands import COMMANDS
+from repo_workflow.repo_info_adapter import resolve_info_config
+from repo_workflow.ticket_dependency_adapter import resolve_dependency_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -234,6 +236,31 @@ class BootstrapCliTests(unittest.TestCase):
       self.assertEqual(provider_calls(env)[-1], {
         "kind": "info", "args": ["pr", "list"],
       })
+
+  def test_default_github_provider_discovery_without_execution(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      subprocess.run(
+        ["git", "remote", "add", "origin",
+         "https://github.com/Ma-XX-oN/RepoWorkflow.git"],
+        cwd=root, check=True,
+      )
+      info = resolve_info_config(root)
+      dependency = resolve_dependency_config(root)
+      self.assertEqual(info["infoCommand"][0], sys.executable)
+      self.assertEqual(dependency["dependencyCommand"][0], sys.executable)
+      self.assertEqual(
+        Path(info["infoCommand"][1]).name, "repo-info-github.py",
+      )
+      self.assertEqual(
+        Path(dependency["dependencyCommand"][1]).name,
+        "github-ticket-dependencies.py",
+      )
+      self.assertTrue(Path(info["infoCommand"][1]).is_file())
+      self.assertTrue(Path(dependency["dependencyCommand"][1]).is_file())
+      # Deliberately resolve only: default executables are NOT run here.
 
   def test_expected_public_precondition_failures_never_traceback(self):
     with tempfile.TemporaryDirectory() as td:
