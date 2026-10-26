@@ -96,9 +96,11 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("empty evidence must fail")
   def test_malformed_log_is_not_hidden(self):
-    for invalid in (b"{broken\n", self.record_bytes() + b"\r" + self.record_bytes()):
+    nested = (b'{"testSHA":"x","kind":"test","result":"incomplete",'
+              b'"runner":' + b'[' * 10000 + b'0' + b']' * 10000 + b'}\n')
+    for invalid in (b"{broken\n", self.record_bytes() + b"\r" + self.record_bytes(), nested):
       self.log.write_bytes(invalid)
-      with self.subTest(invalid=invalid), self.assertRaisesRegex(RetryEvidenceError, "invalid"):
+      with self.subTest(invalid=invalid[:30]), self.assertRaisesRegex(RetryEvidenceError, "invalid"):
         with isolate_retry_evidence(self.root, 569):
           self.fail("must not enter")
       self.assertEqual(self.log.read_bytes(), invalid)

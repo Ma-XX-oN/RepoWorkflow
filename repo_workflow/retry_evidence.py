@@ -53,7 +53,7 @@ def _validate_log(content: bytes) -> None:
         raise RetryEvidenceError("canonical log record is incomplete")
   except RetryEvidenceError:
     raise
-  except (UnicodeError, ValueError) as error:
+  except (UnicodeError, ValueError, RecursionError) as error:
     raise RetryEvidenceError("canonical retry evidence is invalid") from error
 
 
