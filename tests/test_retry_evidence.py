@@ -10,7 +10,6 @@ from repo_workflow.retry_evidence import (
   RetryEvidenceError, isolate_retry_evidence,
 )
 
-
 class RetryEvidenceTests(unittest.TestCase):
   def setUp(self):
     tmp = tempfile.TemporaryDirectory()
@@ -138,7 +137,6 @@ class RetryEvidenceTests(unittest.TestCase):
     conflicts = list(self.log.parent.glob(self.log.name + ".retry-conflict-*"))
     self.assertEqual(len(conflicts), 1)
     self.assertEqual(conflicts[0].read_text(), changed)
-
 
   def record_bytes(self, runner="local", attempt=None):
     record = {
@@ -390,6 +388,13 @@ class RetryEvidenceTests(unittest.TestCase):
     with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("invalid bytes must not be hidden")
+    for codec in ("utf-16-le", "utf-16", "utf-32-le", "utf-8-sig"):
+      self.log.write_bytes(self.record_bytes().decode("utf-8").encode(codec))
+      with self.subTest(codec=codec), self.assertRaisesRegex(
+        RetryEvidenceError, "invalid",
+      ):
+        with isolate_retry_evidence(self.root, 569):
+          self.fail("non-UTF-8 JSONL must not be hidden")
 
   def test_restore_mode_is_applied_via_open_file_descriptor(self):
     from unittest.mock import patch
@@ -458,7 +463,6 @@ class RetryEvidenceTests(unittest.TestCase):
           pass
     self.assertEqual(self.log.read_bytes(), original)
 
-
   def test_symlinked_parent_directory_is_rejected(self):
     outside = self.root.parent / "external-parent"
     outside.mkdir()
@@ -472,7 +476,6 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("symlinked canonical parent must never be followed")
     self.assertEqual((outside / self.log.name).read_bytes(), self.record_bytes())
-
   def test_parent_symlink_substitution_preserves_external_target(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -490,7 +493,6 @@ class RetryEvidenceTests(unittest.TestCase):
     conflicts = list(self.log.parent.parent.glob("validation.retry-conflict-*"))
     self.assertEqual(len(conflicts), 1)
     self.assertTrue((conflicts[0] / "validation").is_symlink())
-
 
 if __name__ == "__main__":
   unittest.main()

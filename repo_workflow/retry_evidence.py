@@ -37,7 +37,7 @@ def _validate_log(content: bytes) -> None:
     raise RetryEvidenceError("canonical retry evidence is empty")
   try:
     for line in content.splitlines():
-      record = json.loads(line)
+      record = json.loads(line.decode("utf-8"))
       if not isinstance(record, dict) or not all(
         field in record for field in ("testSHA", "kind", "result", "runner")
       ):
