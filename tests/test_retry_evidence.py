@@ -343,13 +343,40 @@ class RetryEvidenceTests(unittest.TestCase):
     self.write_record()
     original = self.log.read_bytes()
     path = os.fsencode(self.root) + b"/bad-\xff.txt"
-    with open(path, "wb") as output:
-      output.write(b"foreign")
+    try:
+      with open(path, "wb") as output:
+        output.write(b"foreign")
+    except OSError as error:
+      import errno
+      if error.errno == errno.EILSEQ:
+        self.skipTest("filesystem forbids invalid byte-sequence filenames")
+      raise
     with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("invalid raw Git path bytes must never be concealed")
     self.assertEqual(self.log.read_bytes(), original)
     self.assertTrue(os.path.exists(path))
+
+  def test_raw_git_status_rejects_invalid_path_bytes_on_every_os(self):
+    from unittest.mock import patch
+    from repo_workflow import retry_evidence
+    self.write_record()
+    original = self.log.read_bytes()
+    actual = retry_evidence._git_bytes
+
+    def invalid_status(root, *args):
+      output = actual(root, *args)
+      if args[0] == "status" and output.returncode == 0:
+        return subprocess.CompletedProcess(
+          output.args, 0, output.stdout + b"?? invalid-\xff\0", output.stderr,
+        )
+      return output
+
+    with patch("repo_workflow.retry_evidence._git_bytes", side_effect=invalid_status):
+      with self.assertRaisesRegex(RetryEvidenceError, "dirty"):
+        with isolate_retry_evidence(self.root, 569):
+          self.fail("invalid raw Git path bytes must not be concealed")
+    self.assertEqual(self.log.read_bytes(), original)
 
   def test_invalid_utf8_jsonl_rejected(self):
     self.log.write_bytes(b'{"testSHA":"x","kind":"test","result":"incomplete",'
