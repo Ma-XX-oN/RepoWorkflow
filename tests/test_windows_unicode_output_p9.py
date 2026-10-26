@@ -201,5 +201,38 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
         self.assertNotIn(b"Traceback", result.stderr)
 
 
+  def test_missing_or_closed_original_stderr_fails_closed(self):
+    # A broken original stderr must not turn the setup error into a traceback.
+    bootstrap = (
+      "import io, runpy, sys\n"
+      "class Broken(io.TextIOBase):\n"
+      "  def reconfigure(self, **kwargs):\n"
+      "    raise OSError('unavailable')\n"
+      "entry, mode = sys.argv[1:]\n"
+      "sys.argv = [entry, '--help']\n"
+      "sys.stdout = Broken()\n"
+      "if mode == 'missing':\n"
+      "  sys.__stderr__ = None\n"
+      "else:\n"
+      "  sys.__stderr__ = io.StringIO()\n"
+      "  sys.__stderr__.close()\n"
+      "runpy.run_path(entry, run_name='__main__')\n"
+    )
+    for mode in ("missing", "closed"):
+      with self.subTest(mode=mode):
+        result = subprocess.run(
+          [sys.executable, "-c", bootstrap, str(ENTRYPOINT), mode],
+          cwd=ROOT, capture_output=True, check=False,
+        )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, b"")
+        self.assertIn(
+          b"RepoWorkflow error: cannot configure UTF-8 stdout output",
+          result.stderr,
+        )
+        self.assertNotIn(b"Traceback", result.stderr)
+
+
+
 if __name__ == "__main__":
   unittest.main()
