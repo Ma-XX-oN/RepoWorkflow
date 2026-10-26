@@ -72,13 +72,18 @@ def configure_provider(base: Path, dependencies, titles=None):
 
 
 def verify_provider(root, env):
+  """Refuse every provider execution unless both test commands are exact."""
   base = env["RWF_TEST_FIXTURE_BASE"]
   config = _read(root / ".ci" / "repoworkflow.json")
   for field, mode in (("infoCommand", "info"),
                       ("dependencyCommand", "dependency")):
-    assert config[field] == [sys.executable, str(FIXTURE), mode, base], field
-  assert "GH_TOKEN" not in env and "GITHUB_TOKEN" not in env
-  assert not (Path(base) / "bin").exists()
+    expected = [sys.executable, str(FIXTURE), mode, base]
+    if config.get(field) != expected:
+      raise RuntimeError(f"nonhermetic {field}: refusing provider execution")
+  if "GH_TOKEN" in env or "GITHUB_TOKEN" in env:
+    raise RuntimeError("provider credentials are forbidden in the test fixture")
+  if (Path(base) / "bin").exists():
+    raise RuntimeError("PATH-based provider shadowing is forbidden")
 
 
 def provider_calls(env):
