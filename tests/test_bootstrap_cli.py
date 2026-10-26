@@ -38,7 +38,6 @@ class BootstrapCliTests(unittest.TestCase):
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(
       ["git", "config", "user.name", "Test"],
@@ -55,7 +54,6 @@ class BootstrapCliTests(unittest.TestCase):
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
 
   def run_cli(self, root: Path, *args: str, env=None):
@@ -100,7 +98,7 @@ class BootstrapCliTests(unittest.TestCase):
 
       subprocess.run(
         ["git", "checkout", "-b", "issue-297-help-fixture"],
-        cwd=root, check=True, capture_output=True, text=True,
+        cwd=root, check=True, capture_output=True,
       )
       catalogue = root / ".ci" / "tests.json"
       catalogue.parent.mkdir()
