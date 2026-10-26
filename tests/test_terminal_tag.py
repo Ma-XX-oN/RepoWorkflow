@@ -82,7 +82,7 @@ class TerminalTagTests(unittest.TestCase):
     if not self.log.exists():
       self.log.write_text(json.dumps(evidence) + "\n")
     else:
-      records = [json.loads(line) for line in self.log.read_text().splitlines()]
+      records = [json.loads(line) for line in self.log.read_text(encoding="utf-8").split("\n") if line]
       if not any(row.get("testVersion") == args["version"] for row in records):
         with self.log.open("a") as handle:
           handle.write(json.dumps(evidence) + "\n")
@@ -218,6 +218,7 @@ class TerminalTagTests(unittest.TestCase):
     ]
     self.log.write_text(
       "\n".join(json.dumps(item, ensure_ascii=False) for item in entries) + "\n",
+      encoding="utf-8",
     )
     tag = self.issue_tag("PASS")
     self.assertEqual(
