@@ -171,7 +171,7 @@ def verify_phase_evidence(
         line, parse_constant=_reject_json_constant,
         object_pairs_hook=_reject_duplicate_json_keys,
       )
-    except (json.JSONDecodeError, ValueError) as error:
+    except (json.JSONDecodeError, ValueError, RecursionError) as error:
       raise TerminalTagError("canonical testing log is malformed") from error
     if not isinstance(record, dict):
       raise TerminalTagError("canonical testing log contains a non-object")
