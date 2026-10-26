@@ -46,6 +46,16 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
         "kind": "dependency", "args": ["issue", "delete", "203"],
       })
 
+      before = Path(env["RWF_TEST_DEPS"]).read_bytes()
+      mutation = subprocess.run(
+        [sys.executable, str(FIXTURE), "dependency", str(base),
+         "dependency", "replace", "203", "201"],
+        capture_output=True, text=True, encoding="utf-8",
+      )
+      self.assertEqual(mutation.returncode, 2)
+      self.assertIn("unexpected provider arguments", mutation.stderr)
+      self.assertEqual(Path(env["RWF_TEST_DEPS"]).read_bytes(), before)
+
   def test_fresh_checkout_selects_and_renders_ticket_dependency_closure(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
