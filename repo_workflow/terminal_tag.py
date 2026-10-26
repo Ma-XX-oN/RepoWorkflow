@@ -265,6 +265,15 @@ def publish_terminal_tag(
     raise TerminalTagError("local terminal tag targets a different commit")
   if published is not None and published != candidate:
     raise TerminalTagError("remote terminal tag targets a different commit")
+  if local is not None and published is not None:
+    ref = "refs/tags/" + tag
+    response = _git(root, "ls-remote", "--tags", remote, ref).stdout.strip()
+    remote_parts = response.split()
+    if len(remote_parts) != 2 or remote_parts[1] != ref:
+      raise TerminalTagError("cannot verify authoritative remote tag object")
+    local_object = _git(root, "rev-parse", ref).stdout.strip()
+    if local_object != remote_parts[0]:
+      raise TerminalTagError("local annotated tag object differs from authoritative remote")
   if local is None and published is not None:
     fetched = _git(root, "fetch", "--no-tags", remote,
                    "refs/tags/" + tag + ":refs/tags/" + tag, check=False)
