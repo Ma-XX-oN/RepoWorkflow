@@ -269,6 +269,52 @@ class BootstrapCliTests(unittest.TestCase):
         self.run_cli(root, "issue", "info", "201", env=env)
       self.assertEqual(provider_calls(env), [])
 
+  def test_provider_guard_rejects_dependency_fallback_with_optimization(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = configure_provider(base, {201: []})
+      config_path = root / ".ci" / "repoworkflow.json"
+      data = json.loads(config_path.read_text(encoding="utf-8"))
+      data["dependencyCommand"] = ["gh", "issue", "view", "201"]
+      config_path.write_text(json.dumps(data), encoding="utf-8")
+      for optimized in (False, True):
+        with self.subTest(optimized=optimized):
+          command = [
+            sys.executable, *(["-O"] if optimized else []), "-c",
+            "import os; from pathlib import Path; "
+            "from tests.p4_provider_fixture import verify_provider; "
+            "verify_provider(Path(os.environ['RWF_TEST_FIXTURE_BASE']) / "
+            "'repo', os.environ)",
+          ]
+          result = subprocess.run(
+            command, env=env, capture_output=True, text=True,
+            encoding="utf-8",
+          )
+          self.assertNotEqual(result.returncode, 0)
+          self.assertIn("nonhermetic dependencyCommand", result.stderr)
+      with self.assertRaisesRegex(RuntimeError, "dependencyCommand"):
+        self.run_cli(root, "lanes", "view", env=env)
+      self.assertEqual(provider_calls(env), [])
+
+  def test_provider_guard_refuses_secret_and_path_shadow(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      env = configure_provider(base, {201: []})
+      env["GH_TOKEN"] = "forbidden-fixture-secret"
+      with self.assertRaisesRegex(RuntimeError, "credentials are forbidden"):
+        self.run_cli(root, "issue", "list", env=env)
+      env.pop("GH_TOKEN")
+      (base / "bin").mkdir()
+      with self.assertRaisesRegex(RuntimeError, "shadowing is forbidden"):
+        self.run_cli(root, "issue", "list", env=env)
+      self.assertEqual(provider_calls(env), [])
+
   def test_default_github_provider_discovery_without_execution(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
