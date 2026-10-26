@@ -35,3 +35,25 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Full source-bound repository validation
         run: python scripts/validate.py
+  windows-regression-shards:
+    strategy:
+      fail-fast: false
+      matrix:
+        pattern:
+          - 'test_[5a-d]*.py'
+          - 'test_[e-h]*.py'
+          - 'test_[i-l]*.py'
+          - 'test_[m-p]*.py'
+          - 'test_[q-s]*.py'
+          - 'test_[t-z]*.py'
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install locked test dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Execute exhaustive nonoverlapping Windows modules
+        run: python -m unittest discover -s tests -v -p "${{ matrix.pattern }}"
