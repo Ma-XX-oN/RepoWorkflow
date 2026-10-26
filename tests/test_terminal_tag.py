@@ -238,7 +238,7 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("tag", "--list"), "")
 
   def test_invalid_canonical_record_blocks_publication(self):
-    for payload in (b"{bad json\n", b"\xff", b"{}\r{}\n", b'{"irrelevant":NaN}\n'):
+    for payload in (b"{bad json\n", b"\xff", b"{}\r{}\n", b'{"irrelevant":NaN}\n', b'{"result":"failed","result":"succeeded"}\n'):
       with self.subTest(payload=payload):
         self.log.write_bytes(payload)
         with self.assertRaisesRegex(TerminalTagError, "malformed"):
