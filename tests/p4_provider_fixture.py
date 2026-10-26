@@ -143,9 +143,12 @@ def _route(kind, base, args):
     state = _read(base / "dependencies.json")
     number = _number(args[2])
     current = state[str(number)]
-    if args[:2] == ["dependency", "related"] and len(args) == 3:
+    if len(args) == 3 and args[:2] in (
+      ["dependency", "related"], ["dependency", "get"],
+    ):
       with (base / "dependency-calls.jsonl").open("a", encoding="utf-8") as log:
         log.write(json.dumps({"kind": "dependency", "issue": number}) + "\n")
+    if args[:2] == ["dependency", "related"] and len(args) == 3:
       blocking = sorted(int(n) for n, deps in state.items() if number in deps)
       return {
         "schema_version": 1, "issue": number,
