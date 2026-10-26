@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -12,9 +13,7 @@ from repo_workflow import terminal_tag
 
 from repo_workflow.terminal_tag import TerminalTagError, publish_terminal_tag
 
-
 VERSION = "0.1.121-issue.545.0.1"
-
 
 class TerminalTagTests(unittest.TestCase):
   def setUp(self):
@@ -379,7 +378,6 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("PASS", remote="not-a-remote")
     self.assertEqual(self.git("tag", "--list"), "")
 
-
   def seed_success_log(self):
     self.log.write_text(json.dumps({
       "kind": "regression", "testVersion": VERSION,
@@ -456,8 +454,6 @@ class TerminalTagTests(unittest.TestCase):
       self.issue_tag("PASS", canonical_log=nested, push=False)
     self.assertEqual(self.git("tag", "--list"), "")
 
-
-
   def test_windows_validation_junction_is_rejected_without_is_junction(self):
     if sys.platform != "win32":
       self.skipTest("Windows directory junction test")
@@ -477,9 +473,26 @@ class TerminalTagTests(unittest.TestCase):
       with self.assertRaisesRegex(TerminalTagError, "validation path"):
         self.issue_tag("PASS", push=False)
     self.assertEqual(self.git("tag", "--list"), "")
+  def test_hardlinked_foreign_path_cannot_certify_log(self):
+    self.seed_success_log()
+    foreign = self.root.parent / self.log.name
+    os.link(self.log, foreign)
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      self.issue_tag("PASS", canonical_log=foreign, push=False)
 
-
-
+  def test_swapped_repository_alias_cannot_certify_original_log(self):
+    self.seed_success_log()
+    alias = self.root.parent / "swapped-root"
+    foreign = self.root.parent / "foreign"
+    foreign.mkdir()
+    alias.symlink_to(self.root, target_is_directory=True)
+    alias.unlink()
+    alias.symlink_to(foreign, target_is_directory=True)
+    with self.assertRaisesRegex(TerminalTagError, "validation path"):
+      terminal_tag.verify_phase_evidence(
+        alias, self.log, stage="regression", version=VERSION,
+        candidate=self.candidate, outcome="PASS",
+      )
 
 if __name__ == "__main__":
   unittest.main()
