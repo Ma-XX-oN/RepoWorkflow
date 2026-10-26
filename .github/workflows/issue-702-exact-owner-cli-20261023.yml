@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: '3.13'
       - name: Verify owner exact-blob CLI and RED help
-        run: python -m unittest -v tests.test_manual_test_cli tests.test_red_completion_cli tests.test_test_cli.TestCliContract.test_red_completion_reports_missing_test_registration
+        run: python -m unittest -v tests.test_manual_test_cli tests.test_red_completion_cli tests.test_test_cli tests.test_test_cli_green_cache tests.test_test_launcher tests.test_completion
