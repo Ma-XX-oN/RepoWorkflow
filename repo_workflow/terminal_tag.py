@@ -178,7 +178,7 @@ def verify_phase_evidence(
   expected = "succeeded" if outcome == "PASS" else "failed"
   terminal = {
     record.get("result") for record in observed
-    if record.get("result") in {"succeeded", "failed"}
+    if record.get("result") in ("succeeded", "failed")
   }
   if terminal != {expected}:
     raise TerminalTagError("canonical evidence has conflicting terminal outcome")
