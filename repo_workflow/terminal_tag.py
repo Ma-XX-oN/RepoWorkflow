@@ -260,7 +260,9 @@ def publish_terminal_tag(
       _git(root, "tag", "-a", tag, candidate, "-m", tag)
     return tag
   if local is None:
-    _git(root, "tag", "-a", tag, candidate, "-m", tag)
+    created = _git(root, "tag", "-a", tag, candidate, "-m", tag, check=False)
+    if created.returncode and _local_target(root, tag) != candidate:
+      raise TerminalTagError("terminal tag creation failed")
   if not push:
     return tag
   pushed = _git(
