@@ -40,7 +40,10 @@ def _validate_log(content: bytes) -> None:
   if not content.strip():
     raise RetryEvidenceError("canonical retry evidence is empty")
   try:
-    for line in content.splitlines():
+    lines = content.split(b"\n")
+    if lines[-1] == b"":
+      lines.pop()
+    for line in lines:
       record = json.loads(
         line.decode("utf-8"), parse_constant=_reject_non_json_constant,
       )

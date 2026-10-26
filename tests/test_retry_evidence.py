@@ -96,7 +96,6 @@ class RetryEvidenceTests(unittest.TestCase):
     with self.assertRaisesRegex(RetryEvidenceError, "incomplete"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("missing required provenance must fail")
-
   def test_empty_evidence_is_rejected(self):
     self.log.write_text("")
     with self.assertRaisesRegex(RetryEvidenceError, "empty"):
@@ -104,11 +103,12 @@ class RetryEvidenceTests(unittest.TestCase):
         self.fail("empty evidence must fail")
 
   def test_malformed_log_is_not_hidden(self):
-    self.log.write_text("{broken\n")
-    with self.assertRaisesRegex(RetryEvidenceError, "invalid"):
-      with isolate_retry_evidence(self.root, 569):
-        self.fail("must not enter")
-    self.assertTrue(self.log.exists())
+    for invalid in (b"{broken\n", self.record_bytes() + b"\r" + self.record_bytes()):
+      self.log.write_bytes(invalid)
+      with self.subTest(invalid=invalid), self.assertRaisesRegex(RetryEvidenceError, "invalid"):
+        with isolate_retry_evidence(self.root, 569):
+          self.fail("must not enter")
+      self.assertEqual(self.log.read_bytes(), invalid)
 
   def test_symlink_log_rejected(self):
     target = self.root / "target"
