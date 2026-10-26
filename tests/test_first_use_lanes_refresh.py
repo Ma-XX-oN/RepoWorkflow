@@ -31,7 +31,7 @@ class FirstUseRefreshTests(FirstUseFixture, unittest.TestCase):
       )
       self.assertEqual(selected.returncode, 0, selected.stderr)
 
-      set_provider_failure(env, info=None, dependency="provider unavailable")
+      set_provider_failure(env, info="provider unavailable", dependency="provider unavailable")
 
       failed = self.run_rwf(
         root,
@@ -293,7 +293,7 @@ class FirstUseRefreshTests(FirstUseFixture, unittest.TestCase):
       )
       self.assertEqual(first.returncode, 0, first.stderr)
 
-      set_provider_failure(env, info=None, dependency="provider unavailable")
+      set_provider_failure(env, info="provider unavailable", dependency="provider unavailable")
 
       cached = self.run_rwf(
         root,
@@ -334,7 +334,7 @@ class FirstUseRefreshTests(FirstUseFixture, unittest.TestCase):
       graph_before = graph_path.read_text(encoding="utf-8")
       selection_before = selection_path.read_text(encoding="utf-8")
 
-      set_provider_failure(env, info=None, dependency="provider unavailable")
+      set_provider_failure(env, info="provider unavailable", dependency="provider unavailable")
 
       refreshed = self.run_rwf(
         root,
