@@ -243,13 +243,15 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("tag", "--list"), "")
 
   def test_invalid_canonical_record_blocks_publication(self):
-    self.log.write_text("{bad json\n")
-    with self.assertRaisesRegex(TerminalTagError, "malformed"):
-      publish_terminal_tag(
-        self.root, stage="integration", remote="origin",
-        version=VERSION, candidate=self.candidate, outcome="PASS",
-        canonical_log=self.log,
-      )
+    for payload in (b"{bad json\n", b"\xff"):
+      with self.subTest(payload=payload):
+        self.log.write_bytes(payload)
+        with self.assertRaisesRegex(TerminalTagError, "malformed"):
+          publish_terminal_tag(
+            self.root, stage="integration", remote="origin",
+            version=VERSION, candidate=self.candidate,
+            outcome="PASS", canonical_log=self.log,
+          )
 
   def test_incomplete_never_creates_a_tag(self):
     self.assertIsNone(self.issue_tag("INCOMPLETE"))
@@ -438,9 +440,7 @@ class TerminalTagTests(unittest.TestCase):
 
   def test_traversal_back_into_validation_directory_is_rejected(self):
     self.seed_success_log()
-    traversal = (
-      self.log.parent / ".." / "validation" / self.log.name
-    )
+    traversal = self.log.parent / ".." / "validation" / self.log.name
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", canonical_log=traversal, push=False)
     self.assertEqual(self.git("tag", "--list"), "")
