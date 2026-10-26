@@ -68,6 +68,48 @@ def _remote_target(root: Path, remote: str, tag: str) -> str | None:
   return target
 
 
+def _canonical_evidence_log(root: Path, supplied: Path) -> Path:
+  """Return the sole canonical evidence file after checking filesystem identity.
+
+  The repository root may be reached through any legitimate filesystem alias.
+  Directory and file identities are compared with Path.samefile, not textual
+  spellings. Components below that root cannot be links or reparse redirects.
+  """
+  invalid = "canonical test log must use repository validation path"
+  if ".." in supplied.parts:
+    raise TerminalTagError(invalid)
+  try:
+    repository = root.resolve(strict=True)
+    validation_root = repository / ".repoworkflow"
+    validation_dir = validation_root / "validation"
+    expected = validation_dir / supplied.name
+    parts = (
+      (supplied.parent.parent.parent, repository, True, False),
+      (supplied.parent.parent, validation_root, True, True),
+      (supplied.parent, validation_dir, True, True),
+      (supplied, expected, False, True),
+    )
+    for observed, trusted, is_directory, protected in parts:
+      if not observed.samefile(trusted):
+        raise TerminalTagError(invalid)
+      if protected:
+        for path in (observed, trusted):
+          mode = path.lstat()
+          if (
+            stat.S_ISLNK(mode.st_mode)
+            or getattr(mode, "st_file_attributes", 0)
+            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+            or not (
+              stat.S_ISDIR(mode.st_mode)
+              if is_directory else stat.S_ISREG(mode.st_mode)
+            )
+          ):
+            raise TerminalTagError(invalid)
+    return expected
+  except (OSError, RuntimeError) as error:
+    raise TerminalTagError(invalid) from error
+
+
 def verify_phase_evidence(
   root: Path, canonical_log: Path, *, stage: str, version: str,
   candidate: str, outcome: str,
@@ -82,44 +124,9 @@ def verify_phase_evidence(
   expected_issue = version.split("-issue.", 1)[1].split(".", 1)[0]
   if issue.group(1) != expected_issue:
     raise TerminalTagError("test log issue differs from development version")
-  # Keep the caller's repository spelling for an aliased root (for example,
-  # macOS /var -> /private/var), but verify the actual canonical destination.
-  repository = root.resolve()
-  expected_path = repository / ".repoworkflow" / "validation" / canonical_log.name
-  alias_path = root.absolute() / ".repoworkflow" / "validation" / canonical_log.name
-  validation_root = repository / ".repoworkflow"
-  validation_dir = validation_root / "validation"
-
-  def substituted(path: Path) -> bool:
-    if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
-      return True
-    # Path.is_junction was added in Python 3.12. On 3.10/3.11, still
-    # refuse Windows directory junctions and other reparse-point redirects.
-    try:
-      return bool(
-        getattr(path.lstat(), "st_file_attributes", 0)
-        & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
-      )
-    except FileNotFoundError:
-      return False
-
-  if (
-    ".." in canonical_log.parts
-    or canonical_log.absolute() not in {expected_path, alias_path}
-    or substituted(validation_root)
-    or substituted(validation_dir)
-    or substituted(canonical_log)
-  ):
-    raise TerminalTagError("canonical test log must use repository validation path")
+  canonical_file = _canonical_evidence_log(root, canonical_log)
   try:
-    if canonical_log.resolve() != expected_path:
-      raise TerminalTagError("canonical test log must use repository validation path")
-  except (OSError, RuntimeError) as error:
-    raise TerminalTagError(
-      "canonical test log must use repository validation path"
-    ) from error
-  try:
-    lines = canonical_log.read_text(encoding="utf-8").splitlines()
+    lines = canonical_file.read_text(encoding="utf-8").splitlines()
   except OSError as error:
     raise TerminalTagError("canonical testing log is unavailable") from error
   observed = []
