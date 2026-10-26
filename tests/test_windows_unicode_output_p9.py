@@ -301,5 +301,29 @@ class WindowsUnicodeOutputTests(unittest.TestCase):
         )
 
 
+  def test_runtime_error_in_original_stderr_uses_fd2(self):
+    class RaisingReconfigure(io.TextIOBase):
+      def reconfigure(self, **kwargs):
+        raise RuntimeError("stream reconfigure refused")
+
+    class RaisingDiagnostic(io.TextIOBase):
+      def write(self, value):
+        raise RuntimeError("original stderr unavailable")
+
+    scope = runpy.run_path(str(ENTRYPOINT), run_name="test_p9_source")
+    writes = []
+    with (
+      patch.object(sys, "stdout", RaisingReconfigure()),
+      patch.object(sys, "stderr", io.StringIO()),
+      patch.object(sys, "__stderr__", RaisingDiagnostic()),
+      patch.object(os, "write", side_effect=lambda fd, data: writes.append((fd, data))),
+    ):
+      self.assertFalse(scope["_configure_utf8_output"]())
+    self.assertEqual(
+      writes,
+      [(2, b"RepoWorkflow error: cannot configure UTF-8 stdout output\n")],
+    )
+
+
 if __name__ == "__main__":
   unittest.main()
