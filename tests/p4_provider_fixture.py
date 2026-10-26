@@ -89,8 +89,6 @@ def verify_provider(root, env):
 
 def decode_git_common_dir(raw: bytes) -> str:
   """Decode one Git common-directory line without trimming pathname bytes."""
-  if raw == b"\r\n":
-    raise ValueError("Git common-directory output lacks pathname")
   if os.name == "nt" and raw.endswith(b"\r\n"):
     raw = raw[:-2]
   elif raw.endswith(b"\n"):
