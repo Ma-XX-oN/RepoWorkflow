@@ -241,7 +241,8 @@ class TerminalTagTests(unittest.TestCase):
             outcome="PASS", canonical_log=self.log,
           )
   def test_incomplete_never_creates_a_tag(self):
-    self.assertIsNone(self.issue_tag("INCOMPLETE"))
+    with patch.object(self, "root", self.root / "missing"):
+      self.assertIsNone(self.issue_tag("INCOMPLETE"))
     self.assertEqual(self.git("tag", "--list"), "")
   def test_opposite_outcome_cannot_be_published(self):
     self.issue_tag("FAIL")
@@ -412,7 +413,6 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "validation path"):
       self.issue_tag("PASS", canonical_log=traversal, push=False)
     self.assertEqual(self.git("tag", "--list"), "")
-
   def test_wrong_subdirectory_with_matching_log_is_rejected(self):
     self.seed_success_log()
     nested = self.log.parent / "other" / self.log.name
