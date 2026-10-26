@@ -61,8 +61,12 @@ def _validate_log(content: bytes) -> None:
     raise RetryEvidenceError("canonical retry evidence is invalid") from error
 
 
-def _replace_bytes(path: Path, content: bytes, mode: int) -> None:
-  """Atomically replace a path without following a substituted symlink."""
+def _replace_bytes(path: Path, content: bytes, mode: int,
+                   parents: tuple[tuple[int, int], ...] | None = None) -> None:
+  """Replace only beneath the same real parent directories."""
+  initial_parents = _parent_fingerprint(path)
+  if parents is not None and initial_parents != parents:
+    raise RetryEvidenceError("canonical log parent replaced before mutation")
   temporary = None
   try:
     with tempfile.NamedTemporaryFile(
@@ -75,6 +79,8 @@ def _replace_bytes(path: Path, content: bytes, mode: int) -> None:
         os.fchmod(output.fileno(), mode)
       else:
         os.chmod(temporary, mode, follow_symlinks=False)
+    if _parent_fingerprint(path) != initial_parents:
+      raise RetryEvidenceError("canonical log parent changed during replacement")
     os.replace(temporary, path)
     temporary = None
   finally:
@@ -344,7 +350,7 @@ def _isolate_retry_evidence_locked(root: Path, issue: int, gitdir: Path) -> Iter
     if expected is None:
       log.unlink()
     else:
-      _replace_bytes(log, expected, original_mode)
+      _replace_bytes(log, expected, original_mode, original_parents)
     if _status(root):
       preflight_dirty = True
       raise RetryEvidenceError("candidate remained dirty after evidence isolation")

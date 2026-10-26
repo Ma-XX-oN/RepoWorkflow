@@ -448,7 +448,7 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertEqual(self.log.read_bytes(), original)
   def test_symlinked_parent_directory_is_rejected(self):
     from unittest.mock import patch
-    from repo_workflow.retry_evidence import _write_journal
+    from repo_workflow.retry_evidence import _replace_bytes
     outside = self.root.parent / "external-parent"
     outside.mkdir()
     self.log.parent.rmdir()
@@ -470,15 +470,15 @@ class RetryEvidenceTests(unittest.TestCase):
     original = self.log.read_bytes()
     moved = self.log.parent.with_name("validation-moved")
     def swap(*args, **kwargs):
-      journal = _write_journal(*args, **kwargs)
-      self.log.parent.rename(moved)
-      self.log.parent.symlink_to(outside, target_is_directory=True)
-      return journal
-    with patch("repo_workflow.retry_evidence._write_journal", side_effect=swap):
+      if not getattr(swap, "called", False):
+        swap.called = True
+        self.log.parent.rename(moved)
+        self.log.parent.symlink_to(outside, target_is_directory=True)
+      return _replace_bytes(*args, **kwargs)
+    with patch("repo_workflow.retry_evidence._replace_bytes", side_effect=swap):
       with self.assertRaisesRegex(RetryEvidenceError, "parent"):
         with isolate_retry_evidence(self.root, 569): self.fail("parent swapped")
-    self.assertEqual(target.read_bytes(), b"foreign\n")
-    self.assertEqual((moved / self.log.name).read_bytes(), original)
+    self.assertEqual((target.read_bytes(), (moved / self.log.name).read_bytes()), (b"foreign\n", original))
   def test_parent_symlink_substitution_preserves_external_target(self):
     self.write_record()
     original = self.log.read_bytes()
