@@ -330,6 +330,9 @@ class TerminalTagTests(unittest.TestCase):
     actual_git = terminal_tag._git
 
     def concurrent_push(root, *args, **kw):
+      if args and args[0] == "tag":
+        actual_git(root, *args, check=True)
+        return subprocess.CompletedProcess(args, 1, "", "already tagged")
       if args and args[0] == "push":
         # Model a second publisher winning the remote push just before ours.
         actual_git(root, *args, check=True)
@@ -340,7 +343,6 @@ class TerminalTagTests(unittest.TestCase):
       tag = self.issue_tag("PASS")
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_failed_push_can_retry_without_moving_local_tag(self):
     actual_git = terminal_tag._git
 
@@ -358,14 +360,12 @@ class TerminalTagTests(unittest.TestCase):
     self.assertEqual(self.git("rev-parse", "refs/tags/" + tag), first)
     self.assertEqual(
       self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)
-
   def test_local_only_publish_requires_no_network_or_remote(self):
     tag = self.issue_tag("PASS", remote="not-a-remote", push=False)
     self.assertEqual(tag, "v" + VERSION)
     self.assertEqual(
       self.git("rev-parse", "refs/tags/" + tag + "^{commit}"), self.candidate)
     self.assertEqual(self.published(tag), {})
-
   def test_unreachable_remote_does_not_create_local_tag(self):
     with self.assertRaises(TerminalTagError):
       self.issue_tag("PASS", remote="not-a-remote")
