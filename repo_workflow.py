@@ -90,9 +90,9 @@ ENGINE_ROOT = Path(__file__).resolve().parent
 def _configure_utf8_output() -> bool:
   """Establish the same lossless text-output contract on every host."""
   for name in ("stdout", "stderr"):
-    stream = getattr(sys, name)
     # In-process Unicode text capture has no byte encoding to configure.
     try:
+      stream = getattr(sys, name)
       if isinstance(stream, io.StringIO):
         if stream.closed:
           raise ValueError("closed Unicode text capture")
