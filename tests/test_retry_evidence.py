@@ -38,7 +38,6 @@ class RetryEvidenceTests(unittest.TestCase):
       "testSHA": self.git("rev-parse", "HEAD"),
       "kind": "regression", "result": "incomplete", "runner": "local",
     }) + "\n")
-
   def test_untracked_log_temporarily_hidden_then_restored(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -46,7 +45,6 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertFalse(self.log.exists())
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_tracked_log_restored_to_committed_contents_then_recovered(self):
     self.write_record()
     self.git("add", ".")
@@ -61,7 +59,6 @@ class RetryEvidenceTests(unittest.TestCase):
       self.assertEqual(len(self.log.read_text().splitlines()), 1)
       self.assertEqual(self.git("status", "--porcelain"), "")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_dirty_source_rejected_without_changing_log(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -70,7 +67,6 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("must not enter")
     self.assertEqual(self.log.read_bytes(), original)
-
   def test_staged_log_change_is_rejected(self):
     self.write_record()
     self.git("add", ".repoworkflow/validation/testResults-569.jsonl")
@@ -78,7 +74,6 @@ class RetryEvidenceTests(unittest.TestCase):
       with isolate_retry_evidence(self.root, 569):
         self.fail("staged index must never be hidden")
     self.assertTrue(self.log.exists())
-
   def test_symlink_replacement_inside_context_restores_original_evidence(self):
     self.write_record()
     original = self.log.read_bytes()
@@ -90,7 +85,6 @@ class RetryEvidenceTests(unittest.TestCase):
     self.assertFalse(self.log.is_symlink())
     self.assertEqual(self.log.read_bytes(), original)
     self.assertEqual(target.read_text(), "foreign\n")
-
   def test_valid_json_with_missing_fields_is_rejected(self):
     self.log.write_text(json.dumps({"result": "incomplete"}) + "\n")
     with self.assertRaisesRegex(RetryEvidenceError, "incomplete"):
@@ -101,7 +95,6 @@ class RetryEvidenceTests(unittest.TestCase):
     with self.assertRaisesRegex(RetryEvidenceError, "empty"):
       with isolate_retry_evidence(self.root, 569):
         self.fail("empty evidence must fail")
-
   def test_malformed_log_is_not_hidden(self):
     for invalid in (b"{broken\n", self.record_bytes() + b"\r" + self.record_bytes()):
       self.log.write_bytes(invalid)
@@ -109,7 +102,6 @@ class RetryEvidenceTests(unittest.TestCase):
         with isolate_retry_evidence(self.root, 569):
           self.fail("must not enter")
       self.assertEqual(self.log.read_bytes(), invalid)
-
   def test_symlink_log_rejected(self):
     target = self.root / "target"
     target.write_text("{}\n")
@@ -429,6 +421,11 @@ class RetryEvidenceTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(self.log.stat().st_mode), 0o744)
         if tracked:
           self.assertNotEqual(self.git("status", "--porcelain"), "")
+          self.git("config", "core.filemode", "false")
+          with self.assertRaisesRegex(RetryEvidenceError, "mode"):
+            with isolate_retry_evidence(self.root, 569):
+              self.log.chmod(0o644)
+          self.assertEqual(stat.S_IMODE(self.log.stat().st_mode), 0o744)
         self.log.unlink()
 
   def test_git_os_error_during_cleanup_still_restores(self):

@@ -195,7 +195,10 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
         ))
         os.replace(log, quarantine / log.name)
       current = log.read_bytes() if log.exists() and log.is_file() else None
-      unexpected = (current != expected)
+      current_mode = (stat.S_IMODE(log.stat(follow_symlinks=False).st_mode)
+                      if current is not None else None)
+      unexpected = (current != expected or
+                    (current is not None and current_mode != original_mode))
       status_error = None
       try:
         dirty = bool(_status(root))
@@ -216,7 +219,7 @@ def isolate_retry_evidence(root: Path, issue: int) -> Iterator[Path]:
       if substituted_nonfile:
         raise RetryEvidenceError("operation replaced canonical log with non-file")
       if unexpected:
-        raise RetryEvidenceError("operation changed isolated canonical evidence")
+        raise RetryEvidenceError("operation changed isolated canonical evidence bytes or mode")
       if status_error is not None:
         raise status_error
       if dirty and not preflight_dirty:
