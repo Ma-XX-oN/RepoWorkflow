@@ -227,7 +227,10 @@ def publish_terminal_tag(
     raise TerminalTagError("terminal testing requires a development version")
   if _SHA_RE.fullmatch(candidate) is None:
     raise TerminalTagError("terminal tag requires a full original candidate SHA")
-  root = root.resolve(strict=True)
+  try:
+    root = root.resolve(strict=True)
+  except (OSError, RuntimeError) as error:
+    raise TerminalTagError("canonical repository root unavailable") from error
   resolved = _git(
     root, "rev-parse", "--verify", candidate + "^{commit}",
   ).stdout.strip()
