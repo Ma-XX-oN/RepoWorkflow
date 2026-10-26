@@ -217,6 +217,7 @@ def publish_terminal_tag(
   push: bool = True,
 ) -> str | None:
   """Publish exactly one immutable result, or reuse the identical result."""
+  root = root.resolve(strict=True)
   if stage not in {"regression", "integration"}:
     raise TerminalTagError("terminal tags require regression or integration")
   if outcome == "INCOMPLETE":
