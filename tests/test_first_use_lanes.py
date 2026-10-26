@@ -14,6 +14,44 @@ from tests.p4_provider_fixture import (
 
 
 class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
+  def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
+    """Git's filesystem path bytes must not use host-default text decoding."""
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "É 空🚀 workspace" / "repo"
+      root.mkdir(parents=True)
+      env = dict(os.environ)
+      env.update({
+        "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0",
+        "PYTHONCOERCECLOCALE": "0",
+        "RWF_P4_UNICODE_ROOT": str(root),
+        "RWF_P4_LINKED_NAME": "linked Ç 中文🚀 worktree",
+      })
+      code = "\n".join((
+        "import os,subprocess,sys",
+        "from pathlib import Path",
+        "from tests.p4_provider_fixture import FirstUseFixture",
+        "if sys.flags.utf8_mode != 0: raise RuntimeError('UTF8 mode active')",
+        "r=Path(os.environ['RWF_P4_UNICODE_ROOT'])",
+        "FirstUseFixture().make_repo(r)",
+        "def common(path):",
+        "  raw=subprocess.run(['git','rev-parse','--git-common-dir'],"
+        "cwd=path,check=True,capture_output=True).stdout",
+        "  return (path/os.fsdecode(raw).strip()).resolve()",
+        "if common(r)!=(r/'.git').resolve(): "
+        "raise RuntimeError('root common-dir mismatch')",
+        "linked=r.parent/os.environ['RWF_P4_LINKED_NAME']",
+        "subprocess.run(['git','worktree','add','-b','p4-proof',"
+        "str(linked)],cwd=r,check=True,capture_output=True)",
+        "if common(linked)!=(r/'.git').resolve(): "
+        "raise RuntimeError('worktree common-dir mismatch')",
+      ))
+      result = subprocess.run(
+        [sys.executable, "-c", code], cwd=ROOT,
+        env=env, capture_output=True,
+      )
+      self.assertEqual(result.returncode, 0, (result.stdout, result.stderr))
+      self.assertTrue((root / ".git").is_dir())
+
   def test_github_fixture_never_executes_real_provider(self):
     with tempfile.TemporaryDirectory() as td:
       base = Path(td)
