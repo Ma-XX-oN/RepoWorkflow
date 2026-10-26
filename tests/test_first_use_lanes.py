@@ -17,14 +17,16 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
   def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
     """Git's filesystem path bytes must not use host-default text decoding."""
     with tempfile.TemporaryDirectory() as td:
-      root = Path(td) / "É 空🚀 workspace" / "repo"
+      root = (Path(td) / os.fsdecode("É 空🚀 workspace".encode("utf-8"))
+              / "repo")
       root.mkdir(parents=True)
       env = dict(os.environ)
       env.update({
         "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0",
         "PYTHONCOERCECLOCALE": "0",
         "RWF_P4_UNICODE_ROOT": str(root),
-        "RWF_P4_LINKED_NAME": "linked Ç 中文🚀 worktree",
+        "RWF_P4_LINKED_NAME": os.fsdecode(
+          "linked Ç 中文🚀 worktree".encode("utf-8")),
       })
       code = "\n".join((
         "import os,subprocess,sys",
