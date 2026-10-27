@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import subprocess
 import time
 from typing import Mapping, Sequence
+
+
+def native_argument(value: str) -> str:
+  """Pass explicit UTF-8 protocol text through a host's native argv boundary."""
+  return os.fsdecode(value.encode("utf-8", "surrogateescape"))
 
 
 @dataclass(frozen=True)
@@ -36,9 +42,9 @@ def run_command_bytes(
   started = time.monotonic()
   try:
     completed = subprocess.run(
-      rendered,
-      cwd=root,
-      env=dict(env) if env is not None else None,
+      [native_argument(arg) for arg in rendered],
+      cwd=native_argument(str(root)),
+      env={native_argument(k): native_argument(v) for k, v in env.items()} if env is not None else None,
       input=input_data,
       capture_output=True,
       check=False,
