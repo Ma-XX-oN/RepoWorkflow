@@ -126,6 +126,7 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
     output.mkdir()
     env = dict(os.environ)
     env["GIT_INDEX_FILE"] = str(index)
+    env["GIT_WORK_TREE"] = str(output)
     def isolated(*args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
       try:
         completed = subprocess.run(
