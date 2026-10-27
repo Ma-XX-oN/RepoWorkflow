@@ -150,6 +150,44 @@ A PMD can include placeholders such as `$issue`, `$version`, or
 literal and nonrecursive.  Do not invent absent values, re-expand substituted
 text or change AGENT-CMD quoting/escaping semantics.
 
+## 3A. Mandatory RWF discovery gate for authored workers
+
+Every PMD that assigns work in RepoWorkflow or a repository using RepoWorkflow
+**MUST contain an explicit startup discovery instruction**, placed after its
+filename/version check and **before choosing implementation, testing,
+coordination or escalation tools**. Do not assume the receiving worker will
+voluntarily browse the README or remember earlier conversations.
+
+Required worker-facing instruction (adapt only paths for a consumer repository):
+
+> **MANDATORY RWF DISCOVERY GATE:** Before executing the assigned repository
+> task, read the minimal authoritative RepoWorkflow entry point (root
+> `README.md`, especially **Entry points**, followed by the relevant section
+> of `PUBLIC_WORKFLOW.md` or `rwf --help` / subcommand help).
+> Identify the existing first-class `rwf` operation, declared configuration,
+> and evidence path for *this task*. For testing, inspect `.ci/tests.json`,
+> `.ci/run`, and `rwf test ... [--remote]` and establish actual hosted
+> platform coverage before inventing a custom workflow. Prefer RWF's
+> supported operation when it meets the acceptance criteria. Consult further
+> documentation or source only where necessary; discovery must be brief and
+> task-specific. Before reporting BLOCKED or USER ACTION REQUIRED, record the
+> relevant supported operation examined, the exact missing capability or
+> authority, and the recovery attempts. Respect scope, exclusive ownership,
+> security deferrals and approval gates. Never assume that merely writing
+> `.ci/run` proves an OS-specific hosted result.
+
+The PMD author MUST make this obligation unavoidable in the **receiving
+worker's startup instructions**, not hide it solely behind a link or refer
+to it as optional reading. This is a discovery rule, not permission to change
+other workers' branches, run unrelated tests, or bypass an approval boundary.
+Keep task-specific discovery focused on the shortest authorised path.
+
+**Review oracle:** A fresh worker supplied the PMD and repository access,
+but not a command name, must independently locate the relevant RWF operation
+before proposing a replacement or escalating. Check both successful discovery
+and the case where a required capability is genuinely unsupported. Repository
+documentation checks alone cannot establish worker compliance.
+
 ## 4. Ticket-completion workers (current use)
 
 For an issue/ticket worker, include these additional specifications:
@@ -350,4 +388,6 @@ Project Settings; they illustrate the authoring convention only.
 - Are external/browser evidence and integration owners distinguished?
 - Does each generated command end with its exact `@filename.pmd` line?
 - Are repository and Library copies clearly distinguished and verified?
+- Does the PMD explicitly require the receiving worker to discover RWF's
+  minimal authoritative entry point *before* selecting task tools or escalating?
 - Have security, merge and production approvals been preserved?
