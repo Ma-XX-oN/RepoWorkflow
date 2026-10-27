@@ -108,6 +108,14 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     self.assertEqual(git_checkout_bytes(self.root, 'é.txt'), b'unicode-name\n')
     self.assertEqual(git_checkout_bytes(self.root, git_native_path('é.txt'.encode())), b'unicode-name\n')
 
+  def test_exact_treeish_not_current_worktree(self):
+    previous = command(self.root, 'rev-parse', 'HEAD').stdout.decode('ascii').strip()
+    (self.root / 'tracked.txt').write_bytes(b'next\n')
+    command(self.root, 'add', 'tracked.txt')
+    command(self.root, 'commit', '-qm', 'next')
+    self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'next\n')
+    self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt', treeish=previous), b'original\n')
+
   def test_unicode_treeish_under_ascii_locale(self):
     git(self.root, 'branch', 'éref')
     self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt', treeish='éref'), b'original\n')
