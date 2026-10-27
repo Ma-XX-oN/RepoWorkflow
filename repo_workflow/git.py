@@ -142,11 +142,26 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
         raise GitError(f"git {' '.join(args)}: {detail.strip()}")
       return completed
     isolated("read-tree", os.fsdecode(treeish.encode("utf-8", "strict")))
-    probe = isolated("ls-files", "-z", "--", native_arg)
-    # Git ls-files accepts pathspec patterns. Verify literal index membership.
-    entries = probe.stdout.split(b"\0")
-    if path.encode("utf-8") not in entries:
+    probe = isolated("ls-files", "--stage", "-z", "--", native_arg)
+    # Git accepts pathspec patterns; require exact, stage-zero index membership.
+    matches: list[bytes] = []
+    for record in probe.stdout.split(b"\0"):
+      if not record:
+        continue
+      mode_stage, sep, entry_path = record.partition(b"\t")
+      if not sep:
+        raise GitError("malformed staged Git index record")
+      if entry_path == path.encode("utf-8"):
+        matches.append(mode_stage)
+    if not matches:
       return None
+    if len(matches) != 1 or not matches[0].endswith(b" 0"):
+      raise GitError("checkout path has unresolved index stages")
+    mode = matches[0].split(b" ", 1)[0]
+    if mode == b"120000":
+      raise GitError("checkout path is a symbolic link, not a regular Git file")
+    if mode not in (b"100644", b"100755"):
+      raise GitError("checkout path is not a regular Git file")
     isolated("checkout-index", "--force", f"--prefix={output}{os.sep}", "--", native_arg)
     materialized = output / git_native_path(wire_bytes)
     try:
