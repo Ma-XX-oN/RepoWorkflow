@@ -45,8 +45,8 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
       "    'blocking': {'nodes': [{'number': 70}], 'totalCount': 1},\n"
       "  }\n"
       "  sys.stdout.buffer.write(json.dumps(value).encode('utf-8'))\n"
-      "elif mode == 'unicode-error':\n"
-      "  require(dependency)\n"
+      "elif mode in {'repo-error', 'dependency-error'}:\n"
+      "  require(repo if mode == 'repo-error' else dependency)\n"
       "  sys.stderr.buffer.write('provider café → 東京\\n'.encode('utf-8'))\n"
       "  raise SystemExit(7)\n"
       "elif mode == 'repo-cp1252':\n"
@@ -137,20 +137,35 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
         "--repo", "o/r",
       ]])
 
-  def test_dependency_unicode_diagnostic_is_utf8_and_controlled(self):
-    with tempfile.TemporaryDirectory() as td:
-      root = Path(td)
-      bindir, log = self.fake_gh(root)
-      result = self.run_provider(
+  def test_unicode_nonzero_diagnostic_is_controlled_for_both_executables(self):
+    cases = (
+      (
+        REPO_INFO,
+        ["--repository", "o/r", "issue", "get", "64"],
+        "repo-error",
+        "GitHub repo-info operation failed",
+      ),
+      (
         DEPENDENCIES,
         ["dependency", "get", "64"],
-        self.environment(bindir, log, "unicode-error"),
-      )
-      error = result.stderr.decode("utf-8")
-      self.assertEqual(result.returncode, 2, error)
-      self.assertIn("GitHub dependency operation failed", error)
-      self.assertIn("provider café → 東京", error)
-      self.assertNotIn("Traceback", error)
+        "dependency-error",
+        "GitHub dependency operation failed",
+      ),
+    )
+    for executable, arguments, mode, diagnostic in cases:
+      with self.subTest(executable=executable.name), tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        bindir, log = self.fake_gh(root)
+        result = self.run_provider(
+          executable,
+          arguments,
+          self.environment(bindir, log, mode),
+        )
+        error = result.stderr.decode("utf-8")
+        self.assertEqual(result.returncode, 2, error)
+        self.assertIn(diagnostic, error)
+        self.assertIn("provider café → 東京", error)
+        self.assertNotIn("Traceback", error)
 
   def test_cp1252_provider_bytes_fail_closed_without_traceback(self):
     cases = (
