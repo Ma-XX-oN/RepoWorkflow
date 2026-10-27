@@ -22,6 +22,14 @@ class ConfigTests(unittest.TestCase):
       "artifacts": [],
     }
 
+  def artifact(self, output: str, artifact_id: str = "bundle") -> dict:
+    return {
+      "id": artifact_id,
+      "generatorCommand": ["gen"],
+      "verifierCommand": ["verify"],
+      "outputs": [output],
+    }
+
   def test_valid_config_normalizes_defaults(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
@@ -72,6 +80,44 @@ class ConfigTests(unittest.TestCase):
       self.write(root, value)
       with self.assertRaises(ConfigError):
         load_config(root)
+
+  def test_artifact_output_preserves_canonical_slash_identity(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      output = "dist/éxports/report final.json"
+      value["artifacts"] = [self.artifact(output)]
+      self.write(root, value)
+      self.assertEqual(load_config(root)["artifacts"][0]["outputs"], [output])
+
+  def test_artifact_output_rejects_backslash_spelling(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      value["artifacts"] = [self.artifact(r"dist\out.js")]
+      self.write(root, value)
+      with self.assertRaisesRegex(ConfigError, "backslash"):
+        load_config(root)
+
+  def test_artifact_output_rejects_noncanonical_repository_paths(self):
+    invalid = [
+      "/dist/out.js",
+      "C:/dist/out.js",
+      "../dist/out.js",
+      "dist/../out.js",
+      "dist/./out.js",
+      "dist//out.js",
+      "dist/out.js/",
+      "dist/\x00out.js",
+    ]
+    for output in invalid:
+      with self.subTest(output=repr(output)), tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        value = self.base()
+        value["artifacts"] = [self.artifact(output)]
+        self.write(root, value)
+        with self.assertRaises(ConfigError):
+          load_config(root)
 
   def test_artifact_verifier_must_be_independent_command(self):
     with tempfile.TemporaryDirectory() as td:
