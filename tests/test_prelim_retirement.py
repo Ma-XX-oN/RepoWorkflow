@@ -1,0 +1,20 @@
+import unittest
+from repo_workflow.prelim_retirement import LandedIntegration, plan_retirement, PrelimRetirementError
+P='refs/heads/PRELIM-issue-123/main-11111111-1111-4111-8111-111111111111'
+I='refs/heads/INT-ATTEMPT-issue-123/main-22222222-2222-4222-8222-222222222222'
+D='refs/heads/main'
+class RetirementTests(unittest.TestCase):
+  def test_accepted_and_durable(self):
+    proof=LandedIntegration(P,'a'*40,I,'b'*40,D,'c'*40,'merge-1','evidence-1')
+    result=plan_retirement(P,'a'*40,I,D,proof,observed_prelim_sha='a'*40,current_destination_sha='c'*40,landed_is_ancestor=True,terminal_record_readback=True)
+    self.assertTrue(result.eligible_for_ref_retirement)
+  def test_missing_terminal_rejected(self):
+    proof=LandedIntegration(P,'a'*40,I,'b'*40,D,'c'*40,'merge-1','evidence-1')
+    with self.assertRaises(PrelimRetirementError):
+      plan_retirement(P,'a'*40,I,D,proof,observed_prelim_sha='a'*40,current_destination_sha='c'*40,landed_is_ancestor=True,terminal_record_readback=False)
+  def test_changed_prelim_rejected(self):
+    proof=LandedIntegration(P,'a'*40,I,'b'*40,D,'c'*40,'merge-1','evidence-1')
+    with self.assertRaises(PrelimRetirementError):
+      plan_retirement(P,'a'*40,I,D,proof,observed_prelim_sha='e'*40,current_destination_sha='c'*40,landed_is_ancestor=True,terminal_record_readback=True)
+
+if __name__=='__main__': unittest.main()

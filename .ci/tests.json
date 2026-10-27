@@ -18,6 +18,18 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-102-prelim-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_validation"
+      },
+      "issue-84-prelim-integration": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration"
+      },
+      "issue-82-prelim-candidate": {
+        "type": "regression",
+        "name": "tests.test_prelim_attempt"
+      },
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
@@ -377,6 +389,70 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "issue-109-executor": {
+        "type": "regression",
+        "name": "tests.test_done_executor"
+      },
+      "issue-109-coordination": {
+        "type": "regression",
+        "name": "tests.test_integration_coordination"
+      },
+      "issue-677-prelim-queue": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue"
+      },
+      "issue-677-ticket-admission": {
+        "type": "regression",
+        "name": "tests.test_ticket_admission"
+      },
+      "issue-677-integration-admission": {
+        "type": "regression",
+        "name": "tests.test_integration_admission"
+      },
+      "issue-677-git-prelim": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue_git"
+      },
+      "issue-681-integration-host-v2": {
+        "type": "regression",
+        "name": "tests.test_integration_host_v2"
+      },
+      "issue-681-github-ref-helper": {
+        "type": "regression",
+        "name": "tests.test_github_integration_provider"
+      },
+      "issue-681-v2-entrypoint": {
+        "type": "regression",
+        "name": "tests.test_integration_host_v2_entrypoint"
+      },
+      "issue-683-prelim-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready"
+      },
+      "issue-103-prelim-retirement": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement"
+      },
+      "issue-681-git-cas": {
+        "type": "regression",
+        "name": "tests.test_integration_host_git_cas"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
+      },
+      "issue-103-retirement-evidence": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_evidence"
+      },
+      "issue-103-retirement-github": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_github"
+      },
+      "issue-103-retirement-remote": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_remote"
       }
     },
     {
