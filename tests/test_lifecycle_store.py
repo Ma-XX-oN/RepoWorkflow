@@ -351,6 +351,71 @@ class LifecycleStoreTests(unittest.TestCase):
     with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
       IssueLifecycle.from_json_value(value)
 
+  def test_all_state_action_pairs_from_independent_contract(self):
+    # Independently authored from SIX_STATE_ACCEPTANCE_MATRIX.md T01-T08.
+    # Six states x seven requests = 42 assertions (8 legal, 34 illegal).
+    states = {
+      "not_started": (),
+      "active": ("start",),
+      "in_review": ("start", "submit-review"),
+      "accepted": ("start", "submit-review", "accept"),
+      "completed": ("start", "submit-review", "accept", "complete"),
+      "aborted": ("start", "abort"),
+    }
+    actions = (
+      "start", "submit-review", "accept", "reject/reopen",
+      "abort", "re-enter", "complete",
+    )
+    # Reject/reopen occurs in two different source states: eight legal
+    # state/action pairs but only seven distinct action spellings.
+    legal = {
+      ("not_started", "start"): "active",
+      ("active", "submit-review"): "in_review",
+      ("in_review", "accept"): "accepted",
+      ("in_review", "reject/reopen"): "active",
+      ("accepted", "reject/reopen"): "active",
+      ("active", "abort"): "aborted",
+      ("aborted", "re-enter"): "active",
+      ("accepted", "complete"): "completed",
+    }
+    cases = 0
+    for state, history in states.items():
+      for action in actions:
+        cases += 1
+        issue = cases
+        snapshot = self.store.read(issue)
+        for event in history:
+          snapshot = self.transition(
+            issue, event, snapshot.revision, candidate="candidate-A",
+          )
+        self.assertEqual(snapshot.lifecycle.state, state)
+        before = self.store.read(issue)
+        expected = legal.get((state, action))
+        with self.subTest(state=state, action=action):
+          if expected is None:
+            with self.assertRaisesRegex(
+              LifecycleError, "illegal lifecycle transition",
+            ):
+              self.transition(
+                issue, action, before.revision, candidate="candidate-A",
+              )
+            self.assertEqual(self.store.read(issue), before)
+          else:
+            result = self.transition(
+              issue, action, before.revision, candidate="candidate-A",
+            )
+            self.assertEqual(result.lifecycle.state, expected)
+            self.assertEqual(
+              result.lifecycle.dependency_satisfied, expected == "completed",
+            )
+            self.assertEqual(
+              len(result.lifecycle.history),
+              len(before.lifecycle.history) + 1,
+            )
+            self.assertEqual(self.store.read(issue), result)
+    self.assertEqual(cases, len(states) * len(actions))
+    self.assertEqual(len(legal), 8)
+
   def test_issue_ids_are_canonical(self):
     for issue in (0, "0", "01", -1, True):
       with self.subTest(issue=issue):
