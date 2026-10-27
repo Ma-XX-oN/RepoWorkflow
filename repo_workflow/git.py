@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import os
 import subprocess
 import tempfile
@@ -54,7 +54,7 @@ def git_wire_path(raw: bytes) -> str:
     raise GitError("invalid UTF-8 Git path") from exc
   if path.startswith("/") or any(part in ("", ".", "..") for part in path.split("/")):
     raise GitError("non-relative or ambiguous Git path")
-  if "\x00" in path or (os.name == "nt" and "\\" in path):
+  if "\x00" in path or (os.name == "nt" and ("\\" in path or ":" in path)):
     raise GitError("Git path cannot be represented as a native path")
   return path
 
@@ -129,11 +129,11 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
         raise GitError(f"git {' '.join(args)}: {detail.strip()}")
       return completed
     isolated("read-tree", treeish)
-    probe = isolated("ls-files", "--error-unmatch", "--", path, check=False)
-    if probe.returncode == 1:
+    probe = isolated("ls-files", "-z", "--", path)
+    # Git ls-files accepts pathspec patterns. Verify literal index membership.
+    entries = probe.stdout.split(b"\0")
+    if path.encode("utf-8") not in entries:
       return None
-    if probe.returncode:
-      raise GitError("git ls-files failed: " + probe.stderr.decode("utf-8", "backslashreplace"))
     isolated("checkout-index", "--force", f"--prefix={output}{os.sep}", "--", path)
     materialized = output.joinpath(*path.split("/"))
     try:
