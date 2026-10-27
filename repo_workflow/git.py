@@ -22,8 +22,9 @@ def git_bytes(
   root: Path, *args: str, check: bool = True, capture: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
   try:
+    native_args = [os.fsdecode(arg.encode("utf-8", "strict")) for arg in args]
     completed = subprocess.run(
-      ["git", *args], cwd=root, capture_output=capture, check=False,
+      ["git", *native_args], cwd=root, capture_output=capture, check=False,
     )
   except (OSError, UnicodeError) as exc:
     raise GitError(f"cannot execute git: {exc}") from exc
@@ -34,7 +35,7 @@ def git_bytes(
     except UnicodeDecodeError as exc:
       raise GitError("invalid UTF-8 Git error diagnostic") from exc
     raise GitError(f"git {' '.join(args)}: {diagnostic}")
-  return completed
+  return subprocess.CompletedProcess(["git", *args], completed.returncode, completed.stdout, completed.stderr)
 
 
 def git(
