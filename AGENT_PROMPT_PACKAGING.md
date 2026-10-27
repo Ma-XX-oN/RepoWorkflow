@@ -110,6 +110,10 @@ Before posting dispatch prompts:
   contents, version and allowed variable names.
 - Verify all workers' current GitHub issue contracts, exact dependencies,
   unique edit ownership and parallel readiness.  Avoid stale graph snapshots.
+- Apply the **mandatory two-frontier scheduling and speculation gate** in
+  [WORK_GRAPH_SCHEDULING.md §13.4](WORK_GRAPH_SCHEDULING.md) before dispatch:
+  distinguish verified READY from SPECULATIVE-ELIGIBLE, preserve unresolved
+  prerequisites, and never describe speculative execution as DONE.
 - Check that each separate conversation fence starts with a full command,
   has matching literal `@PMD` as its **final** line, and supplies all args.
 - Keep copy/paste **launch prompts only in the conversation**.  A ticket may
