@@ -130,10 +130,10 @@ class ConfigTests(unittest.TestCase):
   def test_noncanonical_output_spellings_are_rejected(self):
     invalid = [
       "", "/dist/out.js", "//server/share", "C:/dist/out.js",
-      "C:\\\\dist\\\\out.js", "dist\\\\out.js", "dist/\\\\out.js",
+      "C:\\\\dist\\\\out.js", "dist" + chr(92) + "out.js", "dist/" + chr(92) + "out.js",
       "../dist/out.js", "dist/../out.js", "dist/./out.js",
       "./dist/out.js", "dist//out.js", "dist/out.js/",
-      ".", "..", "dist/.", "dist/..", "dist/\\x00out.js",
+      ".", "..", "dist/.", "dist/..", "dist/" + chr(0) + "out.js",
     ]
     for name in invalid:
       with self.subTest(name=repr(name)), tempfile.TemporaryDirectory() as td:
@@ -150,7 +150,7 @@ class ConfigTests(unittest.TestCase):
       value = self.base()
       value["artifacts"] = [
         self._artifact("slash", ["dist/out.js"]),
-        self._artifact("backslash", ["dist\\\\out.js"]),
+        self._artifact("backslash", ["dist" + chr(92) + "out.js"]),
       ]
       self.write(root, value)
       with self.assertRaisesRegex(ConfigError, "canonical repository-relative"):
@@ -173,7 +173,7 @@ class ConfigTests(unittest.TestCase):
       canonical_repository_path("a folder/文書.txt"), "a folder/文書.txt"
     )
     with self.assertRaises(ConfigError):
-      canonical_repository_path("a\\\\folder.txt")
+      canonical_repository_path("a" + chr(92) + "folder.txt")
 
 
 if __name__ == "__main__":
