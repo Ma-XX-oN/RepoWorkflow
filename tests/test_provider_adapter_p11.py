@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -71,9 +72,14 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
       encoding="utf-8",
     )
     if os.name == "nt":
-      launcher = bindir / "gh.cmd"
-      launcher.write_text(
-        f'@echo off\r\n"{sys.executable}" "{script}" %*\r\n',
+      launcher = bindir / "gh.exe"
+      shutil.copyfile(sys.executable, launcher)
+      (root / "sitecustomize.py").write_text(
+        "from pathlib import Path\n"
+        "import runpy, sys\n"
+        "if Path(sys.executable).name.lower() == 'gh.exe':\n"
+        f"  runpy.run_path({str(script)!r}, run_name='__main__')\n"
+        "  raise SystemExit(0)\n",
         encoding="utf-8",
       )
     else:
@@ -89,6 +95,9 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
   def environment(self, bindir: Path, log: Path, mode: str) -> dict[str, str]:
     env = dict(os.environ)
     env["PATH"] = str(bindir)
+    if os.name == "nt":
+      env["PATH"] += os.pathsep + str(Path(sys.executable).parent)
+      env["PYTHONPATH"] = str(bindir.parent)
     env["P11_LOG"] = str(log)
     env["P11_MODE"] = mode
     env["PYTHONUTF8"] = "0"
