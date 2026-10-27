@@ -15,9 +15,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P11-owned
-            sha: 0f310e8710e3908a426a5aa2e9b13ff1e7d60373
-            modules: tests.test_provider_adapter_p11
+          - id: P8-independent
+            sha: 15fcb1cb31888b14383b915d05c77ba38227da7c
+            modules: tests.test_retry_evidence.RetryEvidenceTests.test_untracked_log_temporarily_hidden_then_restored tests.test_retry_evidence.RetryEvidenceTests.test_linked_parent_directory_is_rejected tests.test_retry_evidence.RetryEvidenceTests.test_parent_symlink_substitution_preserves_external_target
     steps:
       - uses: actions/checkout@v4
         with:
