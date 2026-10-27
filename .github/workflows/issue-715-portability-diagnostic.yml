@@ -15,9 +15,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P16-751-focused
-            sha: 51cd5e6d0af19850ea7d985e50ace6b4e289fbaa
-            modules: tests.test_local_terminal_jsonl_p16
+          - id: P10-current
+            sha: 1f416dfb937428301a206ff1f717ed35304c1433
+            modules: tests.test_process_boundary_p10 tests.test_git_protocol_boundary_p10
+          - id: P10-current-consumers
+            sha: 1f416dfb937428301a206ff1f717ed35304c1433
+            modules: tests.test_repo_info_adapter tests.test_ticket_dependency_adapter tests.test_hosted_version_identity tests.test_retry_evidence
     steps:
       - uses: actions/checkout@v4
         with:
