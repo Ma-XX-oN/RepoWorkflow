@@ -75,19 +75,19 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
     )
     runner = root / "p11_runner.py"
     runner.write_text(
-      "import os, runpy, subprocess, sys\\n"
-      "from unittest.mock import patch\\n"
-      "adapter, *arguments = sys.argv[1:]\\n"
-      "original_run = subprocess.run\\n"
-      "def fake_provider(argv, **kwargs):\\n"
-      "  if not isinstance(argv, list) or not argv or argv[0] != 'gh':\\n"
-      "    raise AssertionError('unexpected provider executable')\\n"
-      "  if kwargs != {'capture_output': True}:\\n"
-      "    raise AssertionError('unexpected provider invocation options')\\n"
-      "  return original_run([sys.executable, os.environ['P11_SCRIPT'], *argv[1:]], capture_output=True)\\n"
-      "sys.argv = [adapter, *arguments]\\n"
-      "with patch('subprocess.run', side_effect=fake_provider):\\n"
-      "  runpy.run_path(adapter, run_name='__main__')\\n",
+      "import os, runpy, subprocess, sys\n"
+      "from unittest.mock import patch\n"
+      "adapter, *arguments = sys.argv[1:]\n"
+      "original_run = subprocess.run\n"
+      "def fake_provider(argv, **kwargs):\n"
+      "  if not isinstance(argv, list) or not argv or argv[0] != 'gh':\n"
+      "    raise AssertionError('unexpected provider executable')\n"
+      "  if kwargs != {'capture_output': True}:\n"
+      "    raise AssertionError('unexpected provider invocation options')\n"
+      "  return original_run([sys.executable, os.environ['P11_SCRIPT'], *argv[1:]], capture_output=True)\n"
+      "sys.argv = [adapter, *arguments]\n"
+      "with patch('subprocess.run', side_effect=fake_provider):\n"
+      "  runpy.run_path(adapter, run_name='__main__')\n",
       encoding="utf-8",
     )
     return bindir, log
