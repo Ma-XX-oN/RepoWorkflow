@@ -15,9 +15,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P2-719
-            sha: cbc6d65be7d03eb35e424279d1c10083339855ff
-            modules: tests.test_launcher tests.test_canonical_lane_smoke tests.test_repo_info_adapter
+          - id: P13-739
+            sha: 67d6322e41ea13b45872733dbcaed80b31177e04
+            modules: tests.test_config
     steps:
       - uses: actions/checkout@v4
         with:
