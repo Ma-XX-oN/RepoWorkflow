@@ -34,6 +34,17 @@ class GitProtocolBoundaryP10(unittest.TestCase):
       expected.append('a\\b.txt')
     self.assertEqual(changed_files(self.root), sorted(expected))
 
+  def test_status_does_not_refresh_the_real_index(self):
+    # A content-identical rewrite changes stat metadata; ordinary git status
+    # updates the index cache even when porcelain output is unchanged.
+    import time
+    index = self.root / '.git' / 'index'
+    before = index.read_bytes()
+    time.sleep(1)
+    (self.root / 'tracked.txt').write_bytes(b'original\n')
+    self.assertEqual(changed_files(self.root), [])
+    self.assertEqual(index.read_bytes(), before)
+
   def test_wire_bytes_and_unsafe_paths(self):
     self.assertEqual(git_wire_path('a é/x y'.encode()), 'a é/x y')
     self.assertEqual(git_native_path(b'a/b'), Path('a') / 'b')
