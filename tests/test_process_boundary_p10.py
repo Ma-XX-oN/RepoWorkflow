@@ -46,6 +46,18 @@ class ProcessBoundaryP10(unittest.TestCase):
       self.assertEqual(result.stdout, 'é|→é'.encode('utf-8'))
       self.assertEqual(result.command[-1], 'é')
 
+  def test_unicode_cwd_under_ascii_locale(self):
+    with tempfile.TemporaryDirectory() as td:
+      native_dir = Path(os.fsdecode(os.fsencode(td) + b'/\xc3\xa9-dir'))
+      native_dir.mkdir()
+      ordinary_unicode_dir = Path(td) / 'é-dir'
+      result = run_command_bytes(
+        [sys.executable, '-c', 'import os,sys;sys.stdout.buffer.write(os.fsencode(os.getcwd()))'],
+        ordinary_unicode_dir,
+      )
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout, os.fsencode(native_dir))
+
   def test_missing_executable_controlled(self):
     with tempfile.TemporaryDirectory() as td:
       result = run_command_bytes(['p10-command-certainly-missing'], Path(td))
