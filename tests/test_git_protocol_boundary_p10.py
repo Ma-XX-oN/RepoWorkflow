@@ -19,6 +19,7 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'init', '-q')
     command(self.root, 'config', 'user.email', 'p10@example.test')
     command(self.root, 'config', 'user.name', 'P10 Test')
+    command(self.root, 'config', 'core.autocrlf', 'false')
     (self.root / 'tracked.txt').write_bytes(b'original\n')
     command(self.root, 'add', 'tracked.txt')
     command(self.root, 'commit', '-qm', 'baseline')
