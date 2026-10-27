@@ -36,7 +36,7 @@ Published lane naming, issue qualification, stability, and completion-display
 rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
 For human-facing **Progress Graph (PG)** Mermaid dependency diagrams, use
-the four-status colours and exact Unicode symbols in
+the five-status colours and exact Unicode symbols in
 [WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
 For RWF's formal six-state **Lifecycle Graph (LG)**, use
 [SIX_STATE_LIFECYCLE.md](SIX_STATE_LIFECYCLE.md) and
@@ -92,6 +92,15 @@ Speculation changes neither the canonical graph nor completion semantics:
   as proof of provider integration.
 - Preserve exclusive source and issue ownership, security/authorization gates,
   and the prohibition on unsafe merges or production cutovers.
+
+In the human-facing Progress Graph, show active authorised speculative work as
+`◑ Speculative` with the prescribed dark blue fill and amber border, even
+though its executable dependency readiness remains **blocked**.  When all
+direct prerequisites become DONE, the speculative visual designation ends:
+show `◐ In progress` if work continues or `♥ Done` if its own acceptance
+is independently complete.  Do not use the speculative symbol for idle,
+unauthorised, or merely proposed downstream work.  This is a presentation
+rule, not a lifecycle state or dependency-edge change.
 
 Use speculation to reduce the critical path of a *serial* chain, not as a way to
 declare blocked tickets complete or relabel parallel tasks.  If a ticket has an
