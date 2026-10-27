@@ -165,6 +165,15 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     with self.assertRaisesRegex(GitError, 'symbolic link'):
       git_checkout_bytes(self.root, 'linked')
 
+  @unittest.skipIf(os.name == 'nt', 'requires committing a POSIX symlink')
+  def test_committed_symlink_rejected_with_core_symlinks_false(self):
+    (self.root / 'linked').symlink_to('tracked.txt')
+    command(self.root, 'add', 'linked')
+    command(self.root, 'commit', '-qm', 'symlink')
+    command(self.root, 'config', 'core.symlinks', 'false')
+    with self.assertRaisesRegex(GitError, 'regular Git file'):
+      git_checkout_bytes(self.root, 'linked')
+
   def test_checkout_rejects_traversal(self):
     with self.assertRaises(GitError):
       git_checkout_bytes(self.root, '../tracked.txt')
