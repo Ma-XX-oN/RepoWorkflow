@@ -68,7 +68,10 @@ def issue_get(repository: str, issue: int) -> None:
     value = json.loads(raw)
     number = int(value["number"])
     title = value["title"]
-    state = value["state"].lower()
+    state_value = value["state"]
+    if not isinstance(state_value, str):
+      raise ValueError("invalid issue state type")
+    state = state_value.lower()
     link = value["url"]
     if number <= 0 or not isinstance(title, str) or not title:
       raise ValueError("invalid issue identity")
