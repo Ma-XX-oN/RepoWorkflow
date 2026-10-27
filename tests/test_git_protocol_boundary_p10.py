@@ -56,6 +56,12 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     self.assertEqual(result.returncode, 0)
     self.assertIn(raw, git_bytes(self.root, 'ls-files', '-z').stdout)
 
+  def test_unicode_repository_root_under_ascii_locale(self):
+    native = Path(os.fsdecode(os.fsencode(self.temp.name) + b'/\xc3\xa9-root'))
+    native.mkdir()
+    command(native, 'init', '-q')
+    self.assertEqual(git(Path(self.temp.name) / 'é-root', 'rev-parse', '--is-inside-work-tree').stdout.strip(), 'true')
+
   def test_git_bytes_nonzero_and_strict_text(self):
     missing = git_bytes(self.root, 'rev-parse', '--verify', 'not-a-ref', check=False)
     self.assertNotEqual(missing.returncode, 0)
