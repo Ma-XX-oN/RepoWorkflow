@@ -12,9 +12,9 @@ role must not redefine its work-status colour.
 
 ## Named graph views
 
-**Progress Graph (PG)** is the human-facing, four-status **Mermaid**
+**Progress Graph (PG)** is the human-facing, five-status **Mermaid**
 dependency diagram specified by this document.  Its nodes use
-`○ Not started`, `◐ In progress`, `🧱 Blocked`, and `♥ Done` with the
+`○ Not started`, `◐ In progress`, `◑ Speculative`, `🧱 Blocked`, and `♥ Done` with the
 exact colours below.  It describes understandable project progress rather
 than formal RWF lifecycle transitions.
 
@@ -43,7 +43,7 @@ request names it or specifically asks for RWF's formal ticket state or
 `rwf lanes view`.  This naming rule does not modify the RWF terminal
 command or its output format.
 
-## Four-state legend
+## Five-state legend
 
 Use this **exact** project status mapping.  Copy the literal Unicode
 characters into the legend and Mermaid node text.  The Blocked symbol is the
@@ -53,11 +53,13 @@ check marks, smaller bullets, icon-library glyphs, or hand-drawn SVG.
 | Status | Unicode | Name / code point | Colour | Meaning |
 |---|---|---|---|---|
 | Done | ♥ | BLACK HEART SUIT, U+2665 | Green | Scope accepted |
-| In progress | ◐ | U+25D0 | Blue | Actively worked |
+| In progress | ◐ | U+25D0 | Blue | Actively worked with all direct prerequisites DONE |
+| Speculative | ◑ | U+25D1 | Dark amber border | Authorised bounded work underway while one or more direct prerequisites are incomplete |
 | Blocked | 🧱 | BRICK, U+1F9F1 | Red | Prerequisite missing |
 | Not started | ○ | WHITE CIRCLE, U+25CB | Grey | Ready, not begun |
 
 The `◐` character is CIRCLE WITH LEFT HALF BLACK (U+25D0).
+The `◑` character is CIRCLE WITH RIGHT HALF BLACK (U+25D1).
 The outlined and half-filled circles show progression toward a completed
 heart; these represent status, not the six-state ticket lifecycle:
 
@@ -72,9 +74,16 @@ which may render as an emoji play button.  The filled `♥` represents
 completed work without implying it is a third circular fill state.
 Use a consistent text font and size where possible.  Avoid custom SVG icons.
 
-A blocked item is **red even if preparatory work has started**.  A not-started
-item is **grey only if it is currently eligible to begin**; unmet
-prerequisites mean blocked/red instead.  Done/green requires completion of
+A speculative item is **blue with a dark amber border** only when bounded,
+authorised downstream execution is underway against a sufficiently stable,
+identified upstream interface and at least one direct prerequisite remains
+incomplete.  Such work remains blocked for final acceptance under RWF's
+executable dependency semantics.  Once all direct prerequisites are DONE,
+the speculative designation ends automatically: show `◐ In progress` if
+work remains underway or `♥ Done` when its own acceptance is complete.
+A blocked item is **red** when prerequisites remain incomplete and no
+independently executable authorised work is underway.  A not-started item
+is **grey only if it is currently eligible to begin**.  Done/green requires completion of
 the node's explicitly labelled scope and accepted evidence; a completed
 leaf handoff is not proof of a whole parent integration or issue closure.
 The blue active status must reflect actual ongoing work, not merely an open
@@ -85,17 +94,18 @@ ticket or an existing draft PR.
 Use fenced `mermaid` flowcharts.  Keep nodes legible, maintain dependency
 direction from prerequisite to dependant, and use the same characters in
 the separate legend and in node labels.  Explicitly define styles for all
-four statuses.  Use high-contrast light text on dark node fills and a brighter
+five statuses.  Use high-contrast light text on dark node fills and a brighter
 status-coloured border, as below.
 
 ### Standard colour tokens
 
 | Status | Fill | Border | Text |
 |---|---|---|---|
-| Done | `#14532D` | `#22C55E` | `#FFFFFF` |
-| In progress | `#1E40AF` | `#3B82F6` | `#FFFFFF` |
-| Blocked | `#7F1D1D` | `#EF4444` | `#FFFFFF` |
-| Not started | `#374151` | `#9CA3AF` | `#FFFFFF` |
+| Done | `#092A1B` | `#22C55E` | `#FFFFFF` |
+| In progress | `#0B1F4A` | `#3B82F6` | `#FFFFFF` |
+| Speculative | `#0B1F4A` | `#D4A017` | `#FFFFFF` |
+| Blocked | `#3B1010` | `#EF4444` | `#FFFFFF` |
+| Not started | `#1C2430` | `#9CA3AF` | `#FFFFFF` |
 
 Mermaid implementation example:
 
@@ -105,26 +115,31 @@ flowchart TD
     B["○ #102<br/>Adapter"]
     C["◐ #103<br/>Assembly"]
     D["🧱 #104<br/>Certification"]
+    E["◑ #105<br/>Speculative validation"]
 
     A --> C
     B --> D
     C --> D
+    B --> E
+    E --> D
 
-    classDef done fill:#14532D,stroke:#22C55E,color:#FFFFFF,stroke-width:2px
-    classDef active fill:#1E40AF,stroke:#3B82F6,color:#FFFFFF,stroke-width:2px
-    classDef blocked fill:#7F1D1D,stroke:#EF4444,color:#FFFFFF,stroke-width:2px
-    classDef notstarted fill:#374151,stroke:#9CA3AF,color:#FFFFFF,stroke-width:2px
+    classDef done fill:#092A1B,stroke:#22C55E,color:#FFFFFF,stroke-width:2px
+    classDef active fill:#0B1F4A,stroke:#3B82F6,color:#FFFFFF,stroke-width:2px
+    classDef speculative fill:#0B1F4A,stroke:#D4A017,color:#FFFFFF,stroke-width:3px
+    classDef blocked fill:#3B1010,stroke:#EF4444,color:#FFFFFF,stroke-width:2px
+    classDef notstarted fill:#1C2430,stroke:#9CA3AF,color:#FFFFFF,stroke-width:2px
 
     class A done
     class B notstarted
     class C active
     class D blocked
+    class E speculative
 ```
 
 Use a text legend with precisely the same symbols:
 
 ```text
-♥ Done    ◐ In progress    🧱 Blocked    ○ Not started
+♥ Done    ◐ In progress    ◑ Speculative    🧱 Blocked    ○ Not started
 ```
 
 If one issue is shown at more than one **phase** (for example, controller
@@ -147,6 +162,9 @@ not independent issues or a cycle.
   explicitly approved brick emoji, avoid alternate emoji, custom SVG icons,
   and role-based colours.  For unsupported fonts, include explicit status
   words rather than inventing alternate glyphs.
+- Verify the rendered node interiors visibly retain their specified dark fills
+  in both light and dark modes; declarations alone do not establish visible
+  rendering fidelity.  The speculative amber border must remain discernible.
 - Graph arrows describe the actual documented dependency relationships;
   the status rendering must never introduce or reverse a graph edge.
 
