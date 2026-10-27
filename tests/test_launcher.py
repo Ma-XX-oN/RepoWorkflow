@@ -104,7 +104,7 @@ class LauncherTests(unittest.TestCase):
       cwd=ROOT,
       env=os.environ.copy(),
       encoding="utf-8",
-        errors="strict",
+      errors="strict",
       capture_output=True,
       check=False,
     )
