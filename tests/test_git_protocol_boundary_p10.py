@@ -77,6 +77,15 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     self.assertEqual(git_bytes(self.root, 'status', '--porcelain', '-z').stdout, before_status)
     self.assertIsNone(git_checkout_bytes(self.root, 'absent.txt'))
 
+  def test_checkout_uses_committed_attributes_not_dirty_worktree(self):
+    (self.root / '.gitattributes').write_text('tracked.txt text eol=crlf\n')
+    command(self.root, 'add', '.gitattributes')
+    command(self.root, 'commit', '-qm', 'attr-snapshot')
+    (self.root / '.gitattributes').write_text('tracked.txt -text\n')
+    before = command(self.root, 'status', '--porcelain', '-z').stdout
+    self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'original\r\n')
+    self.assertEqual(command(self.root, 'status', '--porcelain', '-z').stdout, before)
+
   def test_materializer_smudge_filter(self):
     command(self.root, 'config', 'filter.p10.smudge', 'tr a-z A-Z')
     command(self.root, 'config', 'filter.p10.clean', 'cat')
