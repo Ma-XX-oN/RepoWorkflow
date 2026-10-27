@@ -24,7 +24,8 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'commit', '-qm', 'baseline')
 
   def test_status_unicode_spaces_and_literal_backslash(self):
-    (self.root / 'spaces é.txt').write_text('x')
+    with open(os.fsencode(self.root) + b'/spaces \xc3\xa9.txt', 'wb') as f:
+      f.write(b'x')
     (self.root / 'tracked.txt').write_text('dirty')
     expected = ['spaces é.txt', 'tracked.txt']
     if os.name != 'nt':
@@ -68,6 +69,14 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'commit', '-qm', 'filter')
     self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'ORIGINAL\n')
 
+  def test_unicode_committed_checkout_under_host_locale(self):
+    with open(os.fsencode(self.root) + b'/\xc3\xa9.txt', 'wb') as f:
+      f.write(b'unicode-name\n')
+    command(self.root, 'add', '.')
+    command(self.root, 'commit', '-qm', 'unicode')
+    self.assertEqual(git_checkout_bytes(self.root, 'é.txt'), b'unicode-name\n')
+    self.assertEqual(git_checkout_bytes(self.root, git_native_path('é.txt'.encode())), b'unicode-name\n')
+
   def test_checkout_pathspec_is_literal(self):
     self.assertIsNone(git_checkout_bytes(self.root, '*.txt'))
     self.assertIsNone(git_checkout_bytes(self.root, 'track'))
@@ -108,6 +117,18 @@ class GitProtocolBoundaryP10(unittest.TestCase):
         with patch('repo_workflow.git.git_bytes', return_value=subprocess.CompletedProcess(['git'], 0, wire, b'')):
           with self.assertRaises(GitError):
             changed_files(self.root)
+
+  def test_rename_reports_destination_not_source(self):
+    command(self.root, 'mv', 'tracked.txt', 'new name.txt')
+    self.assertEqual(changed_files(self.root), ['new name.txt'])
+
+  @unittest.skipIf(os.name == 'nt', 'checkout of native POSIX symlink test')
+  def test_checkout_refuses_to_follow_committed_symlink(self):
+    (self.root / 'linked').symlink_to('tracked.txt')
+    command(self.root, 'add', 'linked')
+    command(self.root, 'commit', '-qm', 'symlink')
+    with self.assertRaisesRegex(GitError, 'symbolic link'):
+      git_checkout_bytes(self.root, 'linked')
 
   def test_checkout_rejects_traversal(self):
     with self.assertRaises(GitError):
