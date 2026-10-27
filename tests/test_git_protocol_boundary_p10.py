@@ -98,6 +98,12 @@ class GitProtocolBoundaryP10(unittest.TestCase):
       with self.assertRaisesRegex(GitError, 'invalid UTF-8'):
         git(self.root, 'anything')
 
+  def test_git_check_true_rejects_invalid_utf8_diagnostic(self):
+    fake = subprocess.CompletedProcess(['git'], 1, b'', b'\xff')
+    with patch('repo_workflow.git.subprocess.run', return_value=fake):
+      with self.assertRaisesRegex(GitError, 'invalid UTF-8'):
+        git_bytes(self.root, 'anything')
+
   def test_git_oserror_wrapped(self):
     with patch('repo_workflow.git.subprocess.run', side_effect=OSError('not executable')):
       with self.assertRaisesRegex(GitError, 'cannot execute git'):
