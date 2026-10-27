@@ -9,7 +9,9 @@ from repo_workflow.config import ConfigError, load_config
 class ConfigTests(unittest.TestCase):
   def write(self, root: Path, value: dict) -> None:
     (root / ".ci").mkdir()
-    (root / ".ci" / "repoworkflow.json").write_text(json.dumps(value))
+    (root / ".ci" / "repoworkflow.json").write_text(
+      json.dumps(value, ensure_ascii=False), encoding="utf-8"
+    )
 
   def base(self) -> dict:
     return {
@@ -38,7 +40,9 @@ class ConfigTests(unittest.TestCase):
       self.write(root, value)
       self.assertEqual(load_config(root)["infoCommand"], value["infoCommand"])
       value["infoCommand"] = []
-      (root / ".ci" / "repoworkflow.json").write_text(json.dumps(value))
+      (root / ".ci" / "repoworkflow.json").write_text(
+        json.dumps(value, ensure_ascii=False), encoding="utf-8"
+      )
       with self.assertRaisesRegex(ConfigError, "infoCommand"):
         load_config(root)
 
