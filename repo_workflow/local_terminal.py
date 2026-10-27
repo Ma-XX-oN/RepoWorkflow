@@ -33,7 +33,8 @@ def publish_local_terminal(root: Path, *, stage: str) -> str | None:
     "testResults-" + match.group(1) + ".jsonl"
   )
   try:
-    record = json.loads(log.read_text(encoding="utf-8").splitlines()[-1])
+    # JSONL records are delimited only by physical LF, not Unicode U+2028/U+2029.
+    record = json.loads(log.read_text(encoding="utf-8").removesuffix("\n").rsplit("\n", 1)[-1])
   except (OSError, ValueError, IndexError) as error:
     raise TerminalTagError("latest local terminal evidence unavailable") from error
   if not isinstance(record, dict) or record.get("kind") != stage:
