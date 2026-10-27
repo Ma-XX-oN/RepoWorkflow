@@ -15,9 +15,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P1-718
-            sha: 56ae8b624038e13c0695bb323c98d64741d2d319
-            modules: tests.test_terminal_tag tests.test_consumer_terminal_lifecycle tests.test_hosted_terminal_binding tests.test_local_terminal
+          - id: P4-721
+            sha: e7ed2768f2373db94be986365bfb5455d906b623
+            modules: tests.test_bootstrap_cli tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
+          - id: P9-730
+            sha: 0ab2f1451160013eaa8add83f7d0121e77020661
+            modules: tests.test_windows_unicode_output_p9 tests.test_canonical_lane_smoke
     steps:
       - uses: actions/checkout@v4
         with:
