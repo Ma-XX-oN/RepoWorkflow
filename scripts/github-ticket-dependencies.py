@@ -144,10 +144,11 @@ def main(arguments: list[str]) -> int:
     }, separators=(",", ":")))
     return 0
 
+  if operation == "get" and len(arguments) != 3:
+    fail("dependency get accepts exactly one issue")
+
   current = read(issue)
   if operation == "get":
-    if len(arguments) != 3:
-      fail("dependency get accepts exactly one issue")
     emit(issue, current)
     return 0
 
