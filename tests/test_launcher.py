@@ -112,14 +112,16 @@ class LauncherTests(unittest.TestCase):
     self.assertIn("usage:", result.stdout.lower())
 
   def test_parent_capture_rejects_invalid_utf8(self):
-    with self.assertRaises(UnicodeDecodeError):
-      subprocess.run(
-        [sys.executable, "-c", "import os; os.write(1, bytes([255]))"],
-        encoding="utf-8",
-        errors="strict",
-        capture_output=True,
-        check=False,
-      )
+    for file_descriptor in (1, 2):
+      with self.subTest(file_descriptor=file_descriptor):
+        with self.assertRaises(UnicodeDecodeError):
+          subprocess.run(
+            [sys.executable, "-c", f"import os; os.write({file_descriptor}, bytes([255]))"],
+            encoding="utf-8",
+            errors="strict",
+            capture_output=True,
+            check=False,
+          )
 
   def test_shell_forwards_unicode_args_cwd_env_stdio_and_exit(self):
     shell = self.posix_shell()
