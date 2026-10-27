@@ -143,11 +143,9 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'commit', '-qm', 'backslash')
     self.assertEqual(git_checkout_bytes(self.root, 'file\\name.txt'), b'literal\n')
 
-  @unittest.skipIf(os.name == 'nt', 'POSIX executable bit mutation')
   def test_executable_git_mode_materializes_regular_file(self):
-    target = self.root / 'tracked.txt'
-    target.chmod(target.stat().st_mode | 0o111)
-    command(self.root, 'add', 'tracked.txt')
+    # Git index mode is authoritative even where core.filemode is false.
+    command(self.root, 'update-index', '--chmod=+x', 'tracked.txt')
     command(self.root, 'commit', '-qm', 'executable')
     self.assertTrue(command(self.root, 'ls-files', '--stage', '--', 'tracked.txt').stdout.startswith(b'100755 '))
     self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'original\n')
@@ -192,18 +190,17 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'mv', 'tracked.txt', 'new name.txt')
     self.assertEqual(changed_files(self.root), ['new name.txt'])
 
-  @unittest.skipIf(os.name == 'nt', 'checkout of native POSIX symlink test')
   def test_checkout_refuses_to_follow_committed_symlink(self):
-    (self.root / 'linked').symlink_to('tracked.txt')
-    command(self.root, 'add', 'linked')
+    # Commit a symlink using Git's portable index API, not host symlink privileges.
+    blob = subprocess.run(['git', 'hash-object', '-w', '--stdin'], cwd=self.root, input=b'tracked.txt', capture_output=True, check=True).stdout.decode('ascii').strip()
+    command(self.root, 'update-index', '--add', '--cacheinfo', '120000,' + blob + ',linked')
     command(self.root, 'commit', '-qm', 'symlink')
     with self.assertRaisesRegex(GitError, 'symbolic link'):
       git_checkout_bytes(self.root, 'linked')
 
-  @unittest.skipIf(os.name == 'nt', 'requires committing a POSIX symlink')
   def test_committed_symlink_rejected_with_core_symlinks_false(self):
-    (self.root / 'linked').symlink_to('tracked.txt')
-    command(self.root, 'add', 'linked')
+    blob = subprocess.run(['git', 'hash-object', '-w', '--stdin'], cwd=self.root, input=b'tracked.txt', capture_output=True, check=True).stdout.decode('ascii').strip()
+    command(self.root, 'update-index', '--add', '--cacheinfo', '120000,' + blob + ',linked')
     command(self.root, 'commit', '-qm', 'symlink')
     command(self.root, 'config', 'core.symlinks', 'false')
     with self.assertRaisesRegex(GitError, 'regular Git file'):
