@@ -32,9 +32,11 @@ def _is_link_entry(path: Path) -> bool:
     return True
   if os.name != "nt":
     return False
-  return getattr(
-    path.stat(follow_symlinks=False), "st_reparse_tag", None,
-  ) == stat.IO_REPARSE_TAG_MOUNT_POINT
+  try:
+    tag = getattr(path.stat(follow_symlinks=False), "st_reparse_tag", None)
+  except FileNotFoundError:
+    return False
+  return tag == stat.IO_REPARSE_TAG_MOUNT_POINT
 
 
 def _git_bytes(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:

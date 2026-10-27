@@ -1,12 +1,8 @@
 """Git-backed local retry evidence isolation contract tests."""
 import json, os
 from pathlib import Path
-import subprocess
-import tempfile
-import unittest
-from repo_workflow.retry_evidence import (
-  RetryEvidenceError, isolate_retry_evidence,
-)
+import subprocess, tempfile, unittest
+from repo_workflow.retry_evidence import RetryEvidenceError, isolate_retry_evidence
 class RetryEvidenceTests(unittest.TestCase):
   def setUp(self):
     tmp = tempfile.TemporaryDirectory()
@@ -29,6 +25,10 @@ class RetryEvidenceTests(unittest.TestCase):
   def write_record(self):
     self.log.write_bytes(self.record_bytes())
   def test_untracked_log_temporarily_hidden_then_restored(self):
+    from unittest.mock import patch
+    from repo_workflow import retry_evidence
+    with patch.object(retry_evidence.os, "name", "nt"):
+      self.assertFalse(retry_evidence._is_link_entry(self.root / "missing-parent"))
     self.write_record()
     original = self.log.read_bytes()
     with isolate_retry_evidence(self.root, 569):
