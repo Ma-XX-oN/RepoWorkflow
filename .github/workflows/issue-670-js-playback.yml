@@ -1,0 +1,75 @@
+name: Issue 670 JavaScript interface replay
+
+on:
+  push:
+    branches:
+      - issue-670-javascript-interface-playback-v1
+    paths:
+      - 'testing/javascript/**'
+      - 'tests/interface-playback.test.mjs'
+      - '.ci/tests.json'
+      - '.github/workflows/issue-670-js-playback.yml'
+  pull_request:
+    paths:
+      - 'testing/javascript/**'
+      - 'tests/interface-playback.test.mjs'
+      - '.ci/tests.json'
+      - '.github/workflows/issue-670-js-playback.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  node22:
+    name: Node 22 executable-interface replay
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source size
+        run: |
+          for file in testing/javascript/*.mjs tests/interface-playback.test.mjs; do
+            test "$(wc -l < "$file")" -lt 500
+          done
+      - name: Validate syntax
+        run: |
+          node --check testing/javascript/interface-playback.mjs
+          node --check testing/javascript/interface-stream.mjs
+          node --check tests/interface-playback.test.mjs
+      - name: Run exact-candidate regression
+        run: node --test tests/interface-playback.test.mjs
+      - name: Prohibit private capture fixtures
+        run: |
+          if git ls-files | grep -E '\.(mlog\.zst|har|pcap)$'; then
+            echo 'Private capture fixture tracked in candidate' >&2
+            exit 1
+          fi
+
+  repo-regression:
+    name: RepoWorkflow registry/CLI regression (Python 3.13)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Validate registry and adjacent RepoWorkflow regression
+        run: |
+          python -m json.tool .ci/tests.json > /dev/null
+          python -m unittest tests.test_source_size tests.test_test_cli
+
+  repo-full-regression:
+    name: Full RepoWorkflow Python regression (Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install RepoWorkflow runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run all repository Python unittest cases
+        run: python -m unittest discover -s tests -p 'test_*.py'
