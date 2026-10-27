@@ -6,6 +6,8 @@ import os
 import subprocess
 import tempfile
 
+from .process import native_argument
+
 
 class GitError(RuntimeError):
   pass
@@ -22,9 +24,9 @@ def git_bytes(
   root: Path, *args: str, check: bool = True, capture: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
   try:
-    native_args = [os.fsdecode(arg.encode("utf-8", "surrogateescape")) for arg in args]
+    native_args = [native_argument(arg) for arg in args]
     completed = subprocess.run(
-      ["git", *native_args], cwd=root, capture_output=capture, check=False,
+      ["git", *native_args], cwd=native_argument(str(root)), capture_output=capture, check=False,
     )
   except (OSError, UnicodeError) as exc:
     raise GitError(f"cannot execute git: {exc}") from exc
@@ -130,7 +132,7 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
     def isolated(*args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
       try:
         completed = subprocess.run(
-          ["git", *args], cwd=root, env=env, capture_output=True, check=False,
+          ["git", *args], cwd=native_argument(str(root)), env=env, capture_output=True, check=False,
         )
       except (OSError, UnicodeError) as exc:
         raise GitError(f"cannot execute git: {exc}") from exc
@@ -141,7 +143,7 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
           raise GitError("invalid UTF-8 Git checkout diagnostic") from exc
         raise GitError(f"git {' '.join(args)}: {detail.strip()}")
       return completed
-    isolated("read-tree", os.fsdecode(treeish.encode("utf-8", "strict")))
+    isolated("read-tree", native_argument(treeish))
     probe = isolated("ls-files", "--stage", "-z", "--", native_arg)
     # Git accepts pathspec patterns; require exact, stage-zero index membership.
     matches: list[bytes] = []
