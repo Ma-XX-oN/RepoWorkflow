@@ -12,16 +12,36 @@ def fail(message: str) -> None:
   raise SystemExit(2)
 
 
+def configure_output() -> None:
+  for stream in (sys.stdout, sys.stderr):
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+      reconfigure(encoding="utf-8", errors="strict")
+
+
+def decode_provider_output(data: bytes, stream: str) -> str:
+  try:
+    return data.decode("utf-8")
+  except UnicodeDecodeError:
+    fail(f"GitHub repo-info operation failed: provider {stream} is not valid UTF-8")
+  raise AssertionError("unreachable")
+
+
 def gh(repository: str, *arguments: str) -> str:
-  result = subprocess.run(
-    ["gh", *arguments, "--repo", repository],
-    capture_output=True,
-    text=True,
-  )
+  try:
+    result = subprocess.run(
+      ["gh", *arguments, "--repo", repository],
+      capture_output=True,
+    )
+  except OSError as exc:
+    fail(f"GitHub repo-info operation failed: {exc}")
+
+  stdout = decode_provider_output(result.stdout, "stdout")
+  stderr = decode_provider_output(result.stderr, "stderr")
   if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
+    detail = (stderr or stdout).strip()
     fail("GitHub repo-info operation failed" + (f": {detail}" if detail else ""))
-  return result.stdout
+  return stdout
 
 
 def repository_info(repository: str) -> None:
@@ -104,6 +124,7 @@ def issue_list_open(repository: str) -> None:
 
 
 def main(arguments: list[str]) -> int:
+  configure_output()
   parser = argparse.ArgumentParser()
   parser.add_argument("--repository", required=True)
   known, words = parser.parse_known_args(arguments)
