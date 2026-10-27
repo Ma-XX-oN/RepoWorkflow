@@ -29,7 +29,11 @@ def git_bytes(
     raise GitError(f"cannot execute git: {exc}") from exc
   if check and completed.returncode:
     detail = (completed.stderr or completed.stdout or b"git command failed")
-    raise GitError(f"git {' '.join(args)}: {detail.decode('utf-8', 'backslashreplace').strip()}")
+    try:
+      diagnostic = detail.decode("utf-8", "strict").strip()
+    except UnicodeDecodeError as exc:
+      raise GitError("invalid UTF-8 Git error diagnostic") from exc
+    raise GitError(f"git {' '.join(args)}: {diagnostic}")
   return completed
 
 
@@ -129,7 +133,10 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
       except (OSError, UnicodeError) as exc:
         raise GitError(f"cannot execute git: {exc}") from exc
       if check and completed.returncode:
-        detail = completed.stderr.decode("utf-8", "backslashreplace")
+        try:
+          detail = completed.stderr.decode("utf-8", "strict")
+        except UnicodeDecodeError as exc:
+          raise GitError("invalid UTF-8 Git checkout diagnostic") from exc
         raise GitError(f"git {' '.join(args)}: {detail.strip()}")
       return completed
     isolated("read-tree", treeish)
