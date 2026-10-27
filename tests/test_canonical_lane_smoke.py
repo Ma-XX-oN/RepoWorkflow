@@ -4,10 +4,12 @@ import csv
 import json
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tests.support import RepoFixture
 
@@ -111,8 +113,35 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       [*executable, "--root", str(root), *args],
       cwd=root,
       capture_output=True,
-      text=True,
+      encoding="utf-8",
+      errors="strict",
     )
+
+  def test_invalid_utf8_cli_output_is_not_silently_replaced(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      stub = root / "stub_cli.py"
+      stub.write_text(
+        "import os\n"
+        "os.write(1, bytes([255]))\n",
+        encoding="utf-8",
+      )
+      if sys.platform == "win32":
+        with patch(f"{__name__}.PYTHON_ENTRY", stub):
+          with self.assertRaises(UnicodeDecodeError):
+            self.run_rwf(root, "issue", "list")
+      else:
+        launcher = root / "run-stub"
+        launcher.write_text(
+          "#!/bin/sh\n"
+          f"exec {shlex.quote(sys.executable)} "
+          f"{shlex.quote(str(stub))} \"$@\"\n",
+          encoding="utf-8",
+        )
+        launcher.chmod(0o755)
+        with patch(f"{__name__}.RWF", launcher):
+          with self.assertRaises(UnicodeDecodeError):
+            self.run_rwf(root, "issue", "list")
 
   def test_current_typed_issue_smoke_renders_through_public_cli(self):
     with tempfile.TemporaryDirectory() as td:
