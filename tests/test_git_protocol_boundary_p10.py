@@ -48,6 +48,14 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     self.assertEqual(result.args, ['git', 'add', '--', 'é.txt'])
     self.assertIn(b'\xc3\xa9.txt', git_bytes(self.root, 'ls-files', '-z').stdout)
 
+  def test_git_native_path_arguments_roundtrip_under_ascii_locale(self):
+    raw = 'é-native.txt'.encode('utf-8')
+    with open(os.fsencode(self.root) + b'/' + raw, 'wb') as f:
+      f.write(b'x')
+    result = git(self.root, 'add', '--', str(git_native_path(raw)))
+    self.assertEqual(result.returncode, 0)
+    self.assertIn(raw, git_bytes(self.root, 'ls-files', '-z').stdout)
+
   def test_git_bytes_nonzero_and_strict_text(self):
     missing = git_bytes(self.root, 'rev-parse', '--verify', 'not-a-ref', check=False)
     self.assertNotEqual(missing.returncode, 0)
