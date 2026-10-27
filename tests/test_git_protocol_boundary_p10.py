@@ -123,6 +123,15 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'commit', '-qm', 'backslash')
     self.assertEqual(git_checkout_bytes(self.root, 'file\\name.txt'), b'literal\n')
 
+  @unittest.skipIf(os.name == 'nt', 'POSIX executable bit mutation')
+  def test_executable_git_mode_materializes_regular_file(self):
+    target = self.root / 'tracked.txt'
+    target.chmod(target.stat().st_mode | 0o111)
+    command(self.root, 'add', 'tracked.txt')
+    command(self.root, 'commit', '-qm', 'executable')
+    self.assertTrue(command(self.root, 'ls-files', '--stage', '--', 'tracked.txt').stdout.startswith(b'100755 '))
+    self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'original\n')
+
   def test_autocrlf_checkout_uses_git_configuration(self):
     command(self.root, 'config', 'core.autocrlf', 'true')
     self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'original\r\n')
