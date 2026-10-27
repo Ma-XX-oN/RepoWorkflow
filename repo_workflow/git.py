@@ -140,7 +140,7 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
           raise GitError("invalid UTF-8 Git checkout diagnostic") from exc
         raise GitError(f"git {' '.join(args)}: {detail.strip()}")
       return completed
-    isolated("read-tree", treeish)
+    isolated("read-tree", os.fsdecode(treeish.encode("utf-8", "strict")))
     probe = isolated("ls-files", "-z", "--", native_arg)
     # Git ls-files accepts pathspec patterns. Verify literal index membership.
     entries = probe.stdout.split(b"\0")
