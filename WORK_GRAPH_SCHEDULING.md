@@ -108,4 +108,34 @@ independent deliverable that can truly reach DONE without its successor or
 predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
+## 13.5 Standing authority for reviewed child-to-parent assembly
+
+A verified, exclusively assigned **parent-integration owner** has standing
+authority to import independently accepted, owner-reviewed child source
+into that parent's designated **non-release integration branch**. Routine
+internal source import and assembly **do not require a fresh operator
+authorization per child**. This authority is included in the parent's
+integration assignment, not granted to unrelated workers.
+
+Before each import, the parent owner MUST verify the child acceptance and
+handoff, exact source revision and tested artifact, ownership and source
+provenance, target branch identity, overlapping/stacked deltas, and source-owner
+coordination for conflicts or interface changes. Record the import in the
+parent ledger and test the exact assembled candidate. Do not write to another
+owner's branch or claim to complete that owner's acceptance.
+
+A child with incomplete required acceptance may support **bounded,
+clearly labelled speculative parent preparation** where §13.3 permits it,
+but is **not** an accepted import and cannot establish parent DONE. Any
+provisional integration needs later revalidation against the child's actual
+accepted SHA before final acceptance or downstream handoff.
+
+This standing authority does NOT permit bypassing a separate explicit
+restriction on a particular source/operation, issue ownership, required
+source-owner review, deferred work, protected-branch policies, independent
+certification, or required approvals for PRELIM submission, promotion to
+`main`, release or production activation. Distinguish parent-branch
+assembly from destination promotion; **operator approval is not an
+ordinary child-to-parent import step**.
+
 Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
