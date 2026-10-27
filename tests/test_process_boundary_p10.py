@@ -35,6 +35,17 @@ class ProcessBoundaryP10(unittest.TestCase):
       self.assertEqual(result.returncode, 2)
       self.assertIn('invalid UTF-8', result.stderr)
 
+  def test_unicode_argv_and_environment_under_ascii_locale(self):
+    with tempfile.TemporaryDirectory() as td:
+      script = ('import os,sys; '
+                'sys.stdout.buffer.write(os.fsencode(sys.argv[1])+b"|"+'
+                'os.fsencode(os.environ["P10_UNICODE"]))')
+      env = dict(os.environ, P10_UNICODE='→é')
+      result = run_command_bytes([sys.executable, '-c', script, 'é'], Path(td), env=env)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      self.assertEqual(result.stdout, 'é|→é'.encode('utf-8'))
+      self.assertEqual(result.command[-1], 'é')
+
   def test_missing_executable_controlled(self):
     with tempfile.TemporaryDirectory() as td:
       result = run_command_bytes(['p10-command-certainly-missing'], Path(td))
