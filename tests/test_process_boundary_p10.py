@@ -29,6 +29,12 @@ class ProcessBoundaryP10(unittest.TestCase):
       raw = run_command_bytes([sys.executable, '-c', 'import sys;sys.stdout.buffer.write(b"\\xff")'], Path(td))
       self.assertEqual(raw.stdout, b'\xff')
 
+  def test_legacy_encoded_output_is_not_host_decoded(self):
+    with tempfile.TemporaryDirectory() as td:
+      result = run_command([sys.executable, '-c', 'import sys;sys.stdout.buffer.write(b"\\x96")'], Path(td))
+      self.assertEqual(result.returncode, 2)
+      self.assertIn('invalid UTF-8', result.stderr)
+
   def test_missing_executable_controlled(self):
     with tempfile.TemporaryDirectory() as td:
       result = run_command_bytes(['p10-command-certainly-missing'], Path(td))
