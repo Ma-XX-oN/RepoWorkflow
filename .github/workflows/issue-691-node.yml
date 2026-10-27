@@ -1,0 +1,56 @@
+name: Secret marker decoder V2
+on:
+  pull_request:
+    paths:
+      - 'scripts/secret-marker-decoder.mjs'
+      - 'tests/secret-marker-decoder.test.mjs'
+      - 'tests/secret-marker-v2.test.mjs'
+      - 'tests/secret-marker-v2-cross-repo.test.mjs'
+      - 'tests/fixtures/redaction-marker-v1.json'
+      - 'tests/fixtures/redaction-marker-v2.json'
+      - '.github/workflows/issue-691-node.yml'
+  push:
+    branches:
+      - 'issue-691-persistent-hmac-decoder-v1'
+  workflow_dispatch:
+jobs:
+  synthetic-decoder:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact checkout identity
+        run: git rev-parse HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen V1 and V2 Node acceptance
+        run: node --test tests/secret-marker-decoder.test.mjs tests/secret-marker-v2.test.mjs
+      - name: Actual pinned DC #313 synthetic service interoperability
+        run: |
+          curl --fail --silent --show-error --location --retry 2 \
+            https://raw.githubusercontent.com/Ma-XX-oN/DownloadConversation/e8e9ff1f861fa5cf164d1412637e824424a6300b/src/userscript/02-network-communication/04c-persistent-hmac-service.js \
+            --output "$RUNNER_TEMP/dc313-service.js"
+          DC313_SERVICE_PATH="$RUNNER_TEMP/dc313-service.js" \
+            node --test tests/secret-marker-v2-cross-repo.test.mjs
+
+  python-regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record exact checkout identity
+        run: git rev-parse HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install declared runtime requirements
+        run: python -m pip install -r requirements.txt
+      - name: Full Python unittest discovery
+        run: python -m unittest discover -s tests
