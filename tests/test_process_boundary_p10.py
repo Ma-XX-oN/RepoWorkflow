@@ -15,7 +15,9 @@ class ProcessBoundaryP10(unittest.TestCase):
       env = dict(os.environ, P10_TEST='value')
       result = run_command_bytes([sys.executable, '-c', code], Path(td), env=env, input_data=b'\x00\xff')
       self.assertEqual(result.returncode, 7)
-      self.assertEqual(result.stdout, os.fsencode(str(Path(td).resolve()))+b'|value|\x00\xff')
+      cwd_bytes, env_bytes, input_bytes = result.stdout.split(b'|', 2)
+      self.assertTrue(Path(os.fsdecode(cwd_bytes)).samefile(Path(td)))
+      self.assertEqual((env_bytes, input_bytes), (b'value', b'\x00\xff'))
       self.assertEqual(result.stderr, b'ERR')
       self.assertEqual(result.command[:2], [sys.executable, '-c'])
 
@@ -56,7 +58,7 @@ class ProcessBoundaryP10(unittest.TestCase):
         ordinary_unicode_dir,
       )
       self.assertEqual(result.returncode, 0, result.stderr)
-      self.assertEqual(result.stdout, os.fsencode(native_dir))
+      self.assertTrue(Path(os.fsdecode(result.stdout)).samefile(native_dir))
 
   def test_missing_executable_controlled(self):
     with tempfile.TemporaryDirectory() as td:
