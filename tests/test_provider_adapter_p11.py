@@ -73,7 +73,7 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
     if os.name == "nt":
       launcher = bindir / "gh.cmd"
       launcher.write_text(
-        f'@echo off\\r\\n"{sys.executable}" "{script}" %*\\r\\n',
+        f'@echo off\r\n"{sys.executable}" "{script}" %*\r\n',
         encoding="utf-8",
       )
     else:
