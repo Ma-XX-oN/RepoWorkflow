@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,20 @@ class LauncherTests(unittest.TestCase):
         if completed.returncode == 37:
           return shell
     self.skipTest("No installed shell can execute the existing POSIX launcher")
+
+  def test_unusable_shell_does_not_hide_working_alternative(self):
+    compatible = shutil.which("sh")
+    if compatible is None:
+      self.skipTest("No installed POSIX shell to exercise fallback selection")
+    with patch.dict(os.environ, {"SHELL": sys.executable}):
+      with patch("tests.test_launcher.shutil.which", return_value=compatible):
+        self.assertEqual(self.posix_shell(), compatible)
+
+  def test_missing_shell_capability_is_reported_as_ineligible(self):
+    with patch.dict(os.environ, {"SHELL": sys.executable}):
+      with patch("tests.test_launcher.shutil.which", return_value=None):
+        with self.assertRaises(unittest.SkipTest):
+          self.posix_shell()
 
   def run_launcher(self, python3: str | None, python: str | None):
     shell = self.posix_shell()
