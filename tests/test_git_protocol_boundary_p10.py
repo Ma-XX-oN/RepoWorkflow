@@ -68,6 +68,47 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     command(self.root, 'commit', '-qm', 'filter')
     self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'ORIGINAL\n')
 
+  def test_checkout_pathspec_is_literal(self):
+    self.assertIsNone(git_checkout_bytes(self.root, '*.txt'))
+    self.assertIsNone(git_checkout_bytes(self.root, 'track'))
+
+  @unittest.skipIf(os.name == 'nt', 'Windows cannot represent literal backslash filenames')
+  def test_committed_literal_backslash_checkout(self):
+    (self.root / 'file\\name.txt').write_bytes(b'literal\n')
+    command(self.root, 'add', '--', 'file\\name.txt')
+    command(self.root, 'commit', '-qm', 'backslash')
+    self.assertEqual(git_checkout_bytes(self.root, 'file\\name.txt'), b'literal\n')
+
+  def test_autocrlf_checkout_uses_git_configuration(self):
+    command(self.root, 'config', 'core.autocrlf', 'true')
+    self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt'), b'original\r\n')
+
+  def test_invalid_git_protocol_is_controlled(self):
+    fake = subprocess.CompletedProcess(['git'], 0, b'\xff', b'')
+    with patch('repo_workflow.git.git_bytes', return_value=fake):
+      with self.assertRaisesRegex(GitError, 'invalid UTF-8'):
+        git(self.root, 'anything')
+
+  def test_git_oserror_wrapped(self):
+    with patch('repo_workflow.git.subprocess.run', side_effect=OSError('not executable')):
+      with self.assertRaisesRegex(GitError, 'cannot execute git'):
+        git_bytes(self.root, 'status')
+
+  def test_git_check_false_retains_nonzero_and_raw_diagnostics(self):
+    sample = subprocess.CompletedProcess(['git'], 4, b'out\xff', b'error\xff')
+    with patch('repo_workflow.git.subprocess.run', return_value=sample):
+      result = git_bytes(self.root, 'push', check=False)
+      self.assertEqual((result.returncode, result.stdout, result.stderr), (4, b'out\xff', b'error\xff'))
+      with self.assertRaises(GitError):
+        git_bytes(self.root, 'push')
+
+  def test_injected_malformed_status_records(self):
+    for wire in (b'?? ../escape\0', b'?? bad\xff\0', b'R  dest\0', b'?? a', b'?? a\0?? /root\0'):
+      with self.subTest(wire=wire):
+        with patch('repo_workflow.git.git_bytes', return_value=subprocess.CompletedProcess(['git'], 0, wire, b'')):
+          with self.assertRaises(GitError):
+            changed_files(self.root)
+
   def test_checkout_rejects_traversal(self):
     with self.assertRaises(GitError):
       git_checkout_bytes(self.root, '../tracked.txt')
