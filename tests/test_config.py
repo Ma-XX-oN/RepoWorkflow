@@ -112,5 +112,69 @@ class ConfigTests(unittest.TestCase):
         load_config(root)
 
 
+  def _artifact(self, artifact_id: str, outputs: list[str]) -> dict:
+    return {
+      "id": artifact_id, "generatorCommand": ["gen"],
+      "verifierCommand": ["verify"], "outputs": outputs,
+    }
+
+  def test_canonical_slash_outputs_preserve_identity(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      names = ["dist/out.js", "dir with spaces/été 日本語.js", "data/v1/file.txt"]
+      value["artifacts"] = [self._artifact("bundle", names)]
+      self.write(root, value)
+      self.assertEqual(load_config(root)["artifacts"][0]["outputs"], names)
+
+  def test_noncanonical_output_spellings_are_rejected(self):
+    invalid = [
+      "", "/dist/out.js", "//server/share", "C:/dist/out.js",
+      "C:\\\\dist\\\\out.js", "dist\\\\out.js", "dist/\\\\out.js",
+      "../dist/out.js", "dist/../out.js", "dist/./out.js",
+      "./dist/out.js", "dist//out.js", "dist/out.js/",
+      ".", "..", "dist/.", "dist/..", "dist/\\x00out.js",
+    ]
+    for name in invalid:
+      with self.subTest(name=repr(name)), tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        value = self.base()
+        value["artifacts"] = [self._artifact("bundle", [name])]
+        self.write(root, value)
+        with self.assertRaisesRegex(ConfigError, "canonical repository-relative"):
+          load_config(root)
+
+  def test_backslash_cannot_alias_slash_output(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      value["artifacts"] = [
+        self._artifact("slash", ["dist/out.js"]),
+        self._artifact("backslash", ["dist\\\\out.js"]),
+      ]
+      self.write(root, value)
+      with self.assertRaisesRegex(ConfigError, "canonical repository-relative"):
+        load_config(root)
+
+  def test_duplicate_same_artifact_output_is_rejected(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      value = self.base()
+      value["artifacts"] = [
+        self._artifact("bundle", ["dist/out.js", "dist/out.js"]),
+      ]
+      self.write(root, value)
+      with self.assertRaisesRegex(ConfigError, "declared by both"):
+        load_config(root)
+
+  def test_canonical_repository_path_public_contract(self):
+    from repo_workflow.config import canonical_repository_path
+    self.assertEqual(
+      canonical_repository_path("a folder/文書.txt"), "a folder/文書.txt"
+    )
+    with self.assertRaises(ConfigError):
+      canonical_repository_path("a\\\\folder.txt")
+
+
 if __name__ == "__main__":
   unittest.main()
