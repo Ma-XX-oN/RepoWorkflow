@@ -186,6 +186,22 @@ class GitProtocolBoundaryP10(unittest.TestCase):
           with self.assertRaises(GitError):
             changed_files(self.root)
 
+  def test_injected_raw_nul_status_unicode_and_rename_on_every_os(self):
+    # Protocol semantics need no host filesystem capability for these names.
+    wire = b'?? space \xc3\xa9.txt\0R  line\nname.txt\0old.txt\0?? brackets[1]*?.txt\0'
+    fake = subprocess.CompletedProcess(['git'], 0, wire, b'')
+    with patch('repo_workflow.git.git_bytes', return_value=fake):
+      self.assertEqual(changed_files(self.root), ['brackets[1]*?.txt', 'line\nname.txt', 'space é.txt'])
+
+  def test_backslash_wire_path_uses_native_capability_boundary(self):
+    raw = b'literal\\backslash.txt'
+    if os.name == 'nt':
+      # Windows cannot store this as a single native path segment.
+      with self.assertRaisesRegex(GitError, 'native path'):
+        git_wire_path(raw)
+    else:
+      self.assertEqual(git_wire_path(raw), 'literal\\backslash.txt')
+
   def test_rename_reports_destination_not_source(self):
     command(self.root, 'mv', 'tracked.txt', 'new name.txt')
     self.assertEqual(changed_files(self.root), ['new name.txt'])
