@@ -21,7 +21,7 @@ class ProcessBoundaryP10(unittest.TestCase):
 
   def test_utf8_and_invalid_utf8_fail_controlled(self):
     with tempfile.TemporaryDirectory() as td:
-      ok = run_command([sys.executable, '-c', 'import sys;sys.stdout.buffer.write("→é".encode("utf-8"))'], Path(td))
+      ok = run_command([sys.executable, '-c', 'import sys;sys.stdout.buffer.write("\\u2192\\xe9".encode("utf-8"))'], Path(td))
       self.assertEqual((ok.returncode, ok.stdout), (0, '→é'))
       bad = run_command([sys.executable, '-c', 'import sys;sys.stdout.buffer.write(b"\\xff")'], Path(td))
       self.assertEqual(bad.returncode, 2)
