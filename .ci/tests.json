@@ -18,6 +18,18 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-102-prelim-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_validation"
+      },
+      "issue-84-prelim-integration": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration"
+      },
+      "issue-82-prelim-candidate": {
+        "type": "regression",
+        "name": "tests.test_prelim_attempt"
+      },
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
@@ -377,6 +389,22 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "issue-683-prelim-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
+      },
+      "issue-683-prelim-ready-bridge": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_bridge"
+      },
+      "issue-683-prelim-ready-recorded": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_recorded"
       }
     },
     {
