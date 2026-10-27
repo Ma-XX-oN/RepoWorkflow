@@ -2,6 +2,9 @@ from pathlib import Path
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from unittest.mock import patch
 
 from repo_workflow.relationship_store import (
   RelationshipStore,
@@ -125,6 +128,68 @@ class TicketStateTests(unittest.TestCase):
     with self.assertRaisesRegex(RelationshipStoreError, "stale ticket-state"):
       store._write(first.graph, first.revision - 1, first.states)
     self.assertEqual(store.read(), first)
+
+  def test_lifecycle_change_with_unchanged_csv_rejects_stale_refresh(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    lifecycle = LifecycleStore(self.root)
+    lifecycle.transition(10, "start", "candidate", 0, self.writer, None)
+    previous = store.path.read_bytes()
+    original_read = LifecycleStore.read
+    interleaved = False
+
+    def transition_after_read(reader, issue):
+      nonlocal interleaved
+      sampled = original_read(reader, issue)
+      if str(issue) == "10" and not interleaved:
+        interleaved = True
+        lifecycle.transition(
+          10, "submit-review", "candidate", 0,
+          self.writer, sampled.revision,
+        )
+      return sampled
+
+    with patch.object(LifecycleStore, "read", new=transition_after_read):
+      with self.assertRaisesRegex(
+        RelationshipStoreError, "stale lifecycle projection",
+      ):
+        store.refresh_states(self.writer)
+    self.assertTrue(interleaved)
+    self.assertEqual(store.path.read_bytes(), previous)
+    self.assertEqual(lifecycle.read(10).lifecycle.state, "in_review")
+    restarted = RelationshipStore(self.root)
+    self.assertIsNone(restarted.read().states)
+    current = restarted.refresh_states(self.writer)
+    self.assertEqual(current.states["10"].state, "in_review")
+    self.assertEqual(RelationshipStore(self.root).read().states, current.states)
+
+  def test_concurrent_lifecycle_writers_one_revision_wins(self):
+    store = RelationshipStore(self.root)
+    store.create(self.graph(), self.writer)
+    lifecycle = LifecycleStore(self.root)
+    lifecycle.transition(10, "start", "candidate", 0, self.writer, None)
+    barrier = Barrier(2)
+
+    def competing_writer():
+      barrier.wait(timeout=5)
+      try:
+        lifecycle.transition(
+          10, "submit-review", "candidate", 0, self.writer, 0,
+        )
+        return "committed"
+      except Exception as error:
+        return str(error)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+      results = list(pool.map(lambda _: competing_writer(), range(2)))
+    self.assertEqual(results.count("committed"), 1)
+    self.assertEqual(
+      sum("stale lifecycle revision" in result for result in results), 1,
+    )
+    refreshed = store.refresh_states(self.writer)
+    self.assertEqual(refreshed.states["10"].state, "in_review")
+    self.assertEqual(refreshed.states["10"].lifecycle_revision, 1)
+    self.assertEqual(RelationshipStore(self.root).read().states, refreshed.states)
 
   def test_empty_dependency_set_is_known_not_missing(self):
     RelationshipStore(self.root).create(self.graph(), self.writer)
