@@ -15,11 +15,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P10-current
-            sha: 1f416dfb937428301a206ff1f717ed35304c1433
+          - id: P10-latest
+            sha: dead52f0b259b254c630fe54a0676f92fbf2b300
             modules: tests.test_process_boundary_p10 tests.test_git_protocol_boundary_p10
-          - id: P10-current-consumers
-            sha: 1f416dfb937428301a206ff1f717ed35304c1433
+          - id: P10-latest-consumers
+            sha: dead52f0b259b254c630fe54a0676f92fbf2b300
             modules: tests.test_repo_info_adapter tests.test_ticket_dependency_adapter tests.test_hosted_version_identity tests.test_retry_evidence
     steps:
       - uses: actions/checkout@v4
