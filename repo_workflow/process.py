@@ -43,7 +43,7 @@ def run_command_bytes(
       capture_output=True,
       check=False,
     )
-  except OSError as exc:
+  except (OSError, UnicodeError) as exc:
     return BinaryCommandResult(
       rendered, 2, b"", f"unable to execute command: {exc}".encode("utf-8"),
       time.monotonic() - started,
