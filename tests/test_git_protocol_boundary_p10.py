@@ -136,8 +136,12 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     self.assertIsNone(git_checkout_bytes(self.root, '*.txt'))
     self.assertIsNone(git_checkout_bytes(self.root, 'track'))
 
-  @unittest.skipIf(os.name == 'nt', 'Windows cannot represent literal backslash filenames')
   def test_committed_literal_backslash_checkout(self):
+    if os.name == 'nt':
+      # No native filename can contain a literal backslash on Windows.
+      with self.assertRaisesRegex(GitError, 'native path'):
+        git_checkout_bytes(self.root, 'file\\name.txt')
+      return
     (self.root / 'file\\name.txt').write_bytes(b'literal\n')
     command(self.root, 'add', '--', 'file\\name.txt')
     command(self.root, 'commit', '-qm', 'backslash')
