@@ -25,7 +25,7 @@ def git_bytes(
     completed = subprocess.run(
       ["git", *args], cwd=root, capture_output=capture, check=False,
     )
-  except OSError as exc:
+  except (OSError, UnicodeError) as exc:
     raise GitError(f"cannot execute git: {exc}") from exc
   if check and completed.returncode:
     detail = (completed.stderr or completed.stdout or b"git command failed")
@@ -60,7 +60,7 @@ def git_wire_path(raw: bytes) -> str:
 
 
 def git_native_path(raw: bytes) -> Path:
-  return Path(*git_wire_path(raw).split("/"))
+  return Path(*(os.fsdecode(part.encode("utf-8")) for part in git_wire_path(raw).split("/")))
 
 
 def head_sha(root: Path) -> str:
@@ -107,10 +107,14 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
   """
   if not isinstance(treeish, str) or not treeish or treeish.startswith("-"):
     raise GitError("invalid checkout treeish")
-  wire = relative.as_posix() if isinstance(relative, Path) else relative
-  if not isinstance(wire, str):
+  if isinstance(relative, Path):
+    wire_bytes = os.fsencode(relative.as_posix())
+  elif isinstance(relative, str):
+    wire_bytes = relative.encode("utf-8", "strict")
+  else:
     raise GitError("checkout path must be str or Path")
-  path = git_wire_path(wire.encode("utf-8", "strict"))
+  path = git_wire_path(wire_bytes)
+  native_arg = os.fsdecode(wire_bytes)
   with tempfile.TemporaryDirectory(prefix="rwf-git-checkout-") as scratch:
     index = Path(scratch) / "index"
     output = Path(scratch) / "output"
@@ -122,21 +126,23 @@ def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD
         completed = subprocess.run(
           ["git", *args], cwd=root, env=env, capture_output=True, check=False,
         )
-      except OSError as exc:
+      except (OSError, UnicodeError) as exc:
         raise GitError(f"cannot execute git: {exc}") from exc
       if check and completed.returncode:
         detail = completed.stderr.decode("utf-8", "backslashreplace")
         raise GitError(f"git {' '.join(args)}: {detail.strip()}")
       return completed
     isolated("read-tree", treeish)
-    probe = isolated("ls-files", "-z", "--", path)
+    probe = isolated("ls-files", "-z", "--", native_arg)
     # Git ls-files accepts pathspec patterns. Verify literal index membership.
     entries = probe.stdout.split(b"\0")
     if path.encode("utf-8") not in entries:
       return None
-    isolated("checkout-index", "--force", f"--prefix={output}{os.sep}", "--", path)
-    materialized = output.joinpath(*path.split("/"))
+    isolated("checkout-index", "--force", f"--prefix={output}{os.sep}", "--", native_arg)
+    materialized = output / git_native_path(wire_bytes)
     try:
+      if materialized.is_symlink():
+        raise GitError("checkout path materializes as a symbolic link, not a file")
       return materialized.read_bytes()
     except OSError as exc:
       raise GitError(f"git checkout output unavailable: {exc}") from exc
