@@ -108,4 +108,85 @@ independent deliverable that can truly reach DONE without its successor or
 predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
+## 13.4 Mandatory RWF scheduling and speculation gate
+
+This gate is **mandatory for coordinators and controllers** before scheduling
+workers, generating SPINUP commands, advancing successors, or declaring
+dependency-derived work ready.  Consult the current authoritative dependency
+graph, live issue acceptance contracts, owner claims, handoffs and exact
+candidate revisions.  A stored snapshot or speculative prediction does not
+establish an upstream ticket as DONE.
+
+### Classification before dispatch
+
+Classify each relevant ticket using the current evidence:
+
+| Class | Required condition | Scheduling consequence |
+|---|---|---|
+| **DONE** | Its own scoped acceptance and handoff are independently verified | May satisfy downstream dependency gates |
+| **READY** | All direct prerequisites are verified DONE, work is authorised and unclaimed or held by its continuing owner | May execute normally |
+| **SPECULATIVE-ELIGIBLE** | One or more direct prerequisites remain incomplete, but a sufficiently stable exact upstream interface enables bounded independent authorised work | May execute provisionally, subject to speculation and ownership gates |
+| **BLOCKED** | Direct prerequisites remain incomplete and no independently executable authorised scope is presently available | Do not dispatch as normal ready work |
+| **DEFERRED** | Explicitly deferred by the authorised scope, owner or required approval gate | Do not dispatch until the deferral is lifted |
+
+**Speculative eligibility is not DONE and is not ordinary readiness.**
+An anticipated or likely completion never substitutes for verified upstream
+acceptance.  In the Progress Graph, use the `◑ Speculative` status **only
+once authorised speculative execution is underway**.  A merely eligible
+but idle downstream ticket retains the applicable blocked visual status.
+
+### Two execution frontiers
+
+Maintain and publish two separate dispatch frontiers:
+
+1. **Ordinary READY frontier:** tickets with every direct prerequisite DONE.
+2. **SPECULATIVE-ELIGIBLE frontier:** bounded downstream work whose unfinished
+   prerequisite has a documented stable interface and which can make
+   independent progress without conflicting with its predecessor's owner.
+
+Prioritise completion of executable prerequisites on the critical dependency
+path.  Do not place a speculative dependent *ahead of* its runnable
+prerequisite as if it were already ready, but do not serialize independent,
+authorised work unnecessarily.  Concurrent execution is allowed only where
+source/issue ownership, interface stability, acceptance and approval
+boundaries remain intact.
+
+### Speculative execution and completion boundary
+
+Before speculative work begins, record the incomplete direct prerequisites,
+exact upstream interface revision, stability evidence, bounded work scope,
+owner/approval basis, and final revalidation requirements.  Its
+implementation and focused tests may be provisionally finished, but the
+ticket may **not** be classified DONE, handed off as accepted, integrated
+on the assumption of upstream completion, or used to advance successors
+until all direct prerequisites are verifiably DONE and the downstream
+candidate is revalidated against their *actual accepted revisions*.
+
+If upstream changes invalidate assumptions, revise affected work and
+rerun appropriate tests.  A completion claim must be established by
+independent acceptance evidence, not inferred from upstream predictions,
+mock results or an open/closed issue label alone.
+
+### Mandatory scheduling output
+
+Before generating worker prompts or presenting the next work order, report:
+
+- **DONE** tickets with verified acceptance/handoff evidence.
+- **READY** tickets and runnable prerequisites.
+- **SPECULATIVE-ELIGIBLE** tickets, explicitly identifying unresolved
+  prerequisites and the independent authorised scope.
+- **BLOCKED** tickets with their exact missing prerequisites.
+- **DEFERRED** tickets and the authority/condition for resumption.
+
+Generate independently copyable SPINUP prompts only for currently authorised
+READY work or explicitly labelled, authorised speculative work.  Prefer
+runnable prerequisites before dependents and recheck the live graph,
+claims and acceptance gates whenever scheduling decisions change.
+
+This gate does not expand the scope of any worker, transfer ownership,
+authorise a new claimant, permit conflicting source writes, override security
+or approval controls, or modify the canonical dependency graph, six-state
+lifecycle, or `rwf lanes view` rendering contract.  It supplements
+§13.2 and §13.3 rather than replacing their completion rules.
+
 Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
