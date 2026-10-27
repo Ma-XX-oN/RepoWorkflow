@@ -15,9 +15,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P8-728
-            sha: 5e988e30f7609a0af96b21a98dccf208b9971bd7
-            modules: tests.test_retry_evidence
+          - id: P4-721
+            sha: 1967b094ebe016db841ec55d3385f98c5b514ed3
+            modules: tests.test_bootstrap_cli tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
     steps:
       - uses: actions/checkout@v4
         with:
