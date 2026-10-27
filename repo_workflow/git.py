@@ -87,7 +87,7 @@ def head_reference(root: Path) -> str | None:
 
 
 def changed_files(root: Path) -> list[str]:
-  raw = git_bytes(root, "status", "--porcelain=v1", "--untracked-files=all", "-z").stdout
+  raw = git_bytes(root, "--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all", "-z").stdout
   if raw and not raw.endswith(b"\0"):
     raise GitError("unterminated Git status -z record")
   parts = raw.split(b"\0") if raw else []
