@@ -22,7 +22,7 @@ def git_bytes(
   root: Path, *args: str, check: bool = True, capture: bool = True,
 ) -> subprocess.CompletedProcess[bytes]:
   try:
-    native_args = [os.fsdecode(arg.encode("utf-8", "strict")) for arg in args]
+    native_args = [os.fsdecode(arg.encode("utf-8", "surrogateescape")) for arg in args]
     completed = subprocess.run(
       ["git", *native_args], cwd=root, capture_output=capture, check=False,
     )
