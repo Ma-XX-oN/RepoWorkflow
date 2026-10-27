@@ -40,6 +40,14 @@ class GitProtocolBoundaryP10(unittest.TestCase):
       with self.subTest(raw=raw), self.assertRaises(GitError):
         git_wire_path(raw)
 
+  def test_git_unicode_argument_under_ascii_locale(self):
+    with open(os.fsencode(self.root) + b'/\xc3\xa9.txt', 'wb') as f:
+      f.write(b'unicode-argv\n')
+    result = git(self.root, 'add', '--', 'é.txt')
+    self.assertEqual(result.returncode, 0)
+    self.assertEqual(result.args, ['git', 'add', '--', 'é.txt'])
+    self.assertIn(b'\xc3\xa9.txt', git_bytes(self.root, 'ls-files', '-z').stdout)
+
   def test_git_bytes_nonzero_and_strict_text(self):
     missing = git_bytes(self.root, 'rev-parse', '--verify', 'not-a-ref', check=False)
     self.assertNotEqual(missing.returncode, 0)
