@@ -25,6 +25,20 @@ def _strings(value: Any, label: str) -> list[str]:
   return list(value)
 
 
+def _repository_relative_path(value: str, label: str) -> str:
+  if "\x00" in value:
+    raise ConfigError(f"{label} must not contain NUL")
+  if "\\" in value:
+    raise ConfigError(f"{label} must not contain backslash separators")
+  if value.startswith("/") or (
+    len(value) >= 3 and value[0].isalpha() and value[1:3] == ":/"
+  ):
+    raise ConfigError(f"{label} must be repository-relative")
+  if any(part in {"", ".", ".."} for part in value.split("/")):
+    raise ConfigError(f"{label} must use canonical slash-delimited components")
+  return value
+
+
 def _validate_environment(value: Any, seen: set[str]) -> dict[str, Any]:
   if not isinstance(value, dict):
     raise ConfigError("each environment must be an object")
@@ -75,6 +89,10 @@ def _validate_artifact(value: Any, seen: set[str]) -> dict[str, Any]:
   outputs = _strings(value.get("outputs"), f"{artifact_id}.outputs")
   if not outputs:
     raise ConfigError(f"{artifact_id}.outputs must be non-empty")
+  outputs = [
+    _repository_relative_path(output, f"{artifact_id}.outputs[{index}]")
+    for index, output in enumerate(outputs)
+  ]
   platform = value.get("platform", "any")
   if platform not in {"any", "linux", "windows", "macos"}:
     raise ConfigError(f"unsupported artifact platform for {artifact_id}: {platform}")
@@ -161,14 +179,13 @@ def load_config(root: Path) -> dict[str, Any]:
   output_owners: dict[str, str] = {}
   for artifact in validated_artifacts:
     for output in artifact["outputs"]:
-      normalized = output.replace("\\", "/")
-      prior = output_owners.get(normalized)
+      prior = output_owners.get(output)
       if prior is not None:
         raise ConfigError(
-          f"generated output {normalized} is declared by both {prior} and "
+          f"generated output {output} is declared by both {prior} and "
           f"{artifact['id']}"
         )
-      output_owners[normalized] = artifact["id"]
+      output_owners[output] = artifact["id"]
   result = dict(data)
   result["versionCommand"] = version_command
   if info_command is not None:
