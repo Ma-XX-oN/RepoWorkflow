@@ -8,6 +8,15 @@ from typing import Mapping, Sequence
 
 
 @dataclass(frozen=True)
+class BinaryCommandResult:
+  command: list[str]
+  returncode: int
+  stdout: bytes
+  stderr: bytes
+  duration_seconds: float
+
+
+@dataclass(frozen=True)
 class CommandResult:
   command: list[str]
   returncode: int
@@ -16,12 +25,13 @@ class CommandResult:
   duration_seconds: float
 
 
-def run_command(
+def run_command_bytes(
   command: Sequence[str],
   root: Path,
   *,
   env: Mapping[str, str] | None = None,
-) -> CommandResult:
+  input_data: bytes | None = None,
+) -> BinaryCommandResult:
   rendered = [str(value) for value in command]
   started = time.monotonic()
   try:
@@ -29,22 +39,36 @@ def run_command(
       rendered,
       cwd=root,
       env=dict(env) if env is not None else None,
-      text=True,
+      input=input_data,
       capture_output=True,
       check=False,
     )
   except OSError as exc:
+    return BinaryCommandResult(
+      rendered, 2, b"", f"unable to execute command: {exc}".encode("utf-8"),
+      time.monotonic() - started,
+    )
+  return BinaryCommandResult(
+    rendered, completed.returncode, completed.stdout, completed.stderr,
+    time.monotonic() - started,
+  )
+
+
+def run_command(
+  command: Sequence[str],
+  root: Path,
+  *,
+  env: Mapping[str, str] | None = None,
+) -> CommandResult:
+  result = run_command_bytes(command, root, env=env)
+  try:
+    stdout = result.stdout.decode("utf-8", "strict")
+    stderr = result.stderr.decode("utf-8", "strict")
+  except UnicodeDecodeError as exc:
     return CommandResult(
-      command=rendered,
-      returncode=2,
-      stdout="",
-      stderr=f"unable to execute command: {exc}",
-      duration_seconds=time.monotonic() - started,
+      result.command, 2, "", f"invalid UTF-8 command output: {exc}",
+      result.duration_seconds,
     )
   return CommandResult(
-    command=rendered,
-    returncode=completed.returncode,
-    stdout=completed.stdout,
-    stderr=completed.stderr,
-    duration_seconds=time.monotonic() - started,
+    result.command, result.returncode, stdout, stderr, result.duration_seconds,
   )
