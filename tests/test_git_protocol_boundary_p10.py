@@ -85,6 +85,10 @@ class GitProtocolBoundaryP10(unittest.TestCase):
     self.assertEqual(git_checkout_bytes(self.root, 'é.txt'), b'unicode-name\n')
     self.assertEqual(git_checkout_bytes(self.root, git_native_path('é.txt'.encode())), b'unicode-name\n')
 
+  def test_unicode_treeish_under_ascii_locale(self):
+    git(self.root, 'branch', 'éref')
+    self.assertEqual(git_checkout_bytes(self.root, 'tracked.txt', treeish='éref'), b'original\n')
+
   def test_checkout_pathspec_is_literal(self):
     self.assertIsNone(git_checkout_bytes(self.root, '*.txt'))
     self.assertIsNone(git_checkout_bytes(self.root, 'track'))
