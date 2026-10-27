@@ -15,12 +15,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P2-719
-            sha: d2f34db7063b6e42b02bbe7914339284b85c62ec
-            modules: tests.test_launcher tests.test_canonical_lane_smoke tests.test_repo_info_adapter
-          - id: P11-737
+          - id: P10-consumers
+            sha: 2f6b0ea197aed4f2b78f12a68e231b2555b9e7c4
+            modules: tests.test_repo_info_adapter tests.test_ticket_dependency_adapter tests.test_hosted_version_identity tests.test_retry_evidence
+          - id: P11-consumers
             sha: 782433052254afc75fee8e1dfdb59d69ed455fd1
-            modules: tests.test_provider_adapter_p11
+            modules: tests.test_repo_info_adapter tests.test_ticket_dependency_adapter
     steps:
       - uses: actions/checkout@v4
         with:
