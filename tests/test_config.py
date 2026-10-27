@@ -129,6 +129,8 @@ class ConfigTests(unittest.TestCase):
       names = ["dist/out.js", "dir with spaces/été 日本語.js", "data/v1/file.txt"]
       value["artifacts"] = [self._artifact("bundle", names)]
       self.write(root, value)
+      raw = (root / ".ci" / "repoworkflow.json").read_bytes()
+      self.assertIn(names[1].encode("utf-8"), raw)
       self.assertEqual(load_config(root)["artifacts"][0]["outputs"], names)
 
   def test_noncanonical_output_spellings_are_rejected(self):
