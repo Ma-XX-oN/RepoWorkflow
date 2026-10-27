@@ -47,7 +47,9 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
             ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
             cwd=git_dir, check=True, capture_output=True,
           ).stdout
-          self.assertEqual(Path(decode_git_common_dir(common)), git_dir)
+          self.assertEqual(
+            Path(decode_git_common_dir(common)).resolve(), git_dir.resolve(),
+          )
 
   def test_unicode_git_init_and_common_dir_survive_restricted_locale(self):
     """Git's filesystem path bytes must not use host-default text decoding."""
