@@ -141,8 +141,13 @@ class ConfigTests(unittest.TestCase):
         value = self.base()
         value["artifacts"] = [self._artifact("bundle", [name])]
         self.write(root, value)
-        with self.assertRaisesRegex(ConfigError, "canonical repository-relative"):
-          load_config(root)
+        # The pre-existing non-empty-string field validator owns empty names.
+        if name == "":
+          with self.assertRaises(ConfigError):
+            load_config(root)
+        else:
+          with self.assertRaisesRegex(ConfigError, "canonical repository-relative"):
+            load_config(root)
 
   def test_backslash_cannot_alias_slash_output(self):
     with tempfile.TemporaryDirectory() as td:
