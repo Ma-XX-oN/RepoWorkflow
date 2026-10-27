@@ -56,7 +56,6 @@ def _validate_environment(value: Any, seen: set[str]) -> dict[str, Any]:
   return result
 
 
-
 def canonical_repository_path(value: str) -> str:
   """Validate a repository-relative logical Git path, never a host path."""
   if (
