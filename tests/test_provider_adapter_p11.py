@@ -1,7 +1,6 @@
 from pathlib import Path
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -60,6 +59,9 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
       "  sys.stdout.buffer.write("
       "b'{\"blockedBy\":{\"nodes\":[{\"number\":2,\"title\":\"caf\\xe9\"}],"
       "\"totalCount\":1}}')\n"
+      "elif mode == 'repo-invalid-state':\n"
+      "  require(repo)\n"
+      "  sys.stdout.buffer.write(b'{\\\"number\\\":64,\\\"title\\\":\\\"ok\\\",\\\"state\\\":7,\\\"url\\\":\\\"https://example.invalid/issues/64\\\"}')\n"
       "elif mode == 'repo-malformed':\n"
       "  require(repo)\n"
       "  sys.stdout.buffer.write(b'{bad')\n"
@@ -71,33 +73,30 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
       "  raise SystemExit(92)\n",
       encoding="utf-8",
     )
-    if os.name == "nt":
-      launcher = bindir / "gh.exe"
-      shutil.copyfile(sys.executable, launcher)
-      (root / "sitecustomize.py").write_text(
-        "from pathlib import Path\n"
-        "import runpy, sys\n"
-        "if Path(sys.executable).name.lower() == 'gh.exe':\n"
-        f"  runpy.run_path({str(script)!r}, run_name='__main__')\n"
-        "  raise SystemExit(0)\n",
-        encoding="utf-8",
-      )
-    else:
-      launcher = bindir / "gh"
-      launcher.write_text(
-        f"#!{sys.executable}\n"
-        f"exec(open({str(script)!r}, encoding='utf-8').read())\n",
-        encoding="utf-8",
-      )
-      launcher.chmod(0o755)
+    runner = root / "p11_runner.py"
+    runner.write_text(
+      "import os, runpy, subprocess, sys\\n"
+      "from unittest.mock import patch\\n"
+      "adapter, *arguments = sys.argv[1:]\\n"
+      "original_run = subprocess.run\\n"
+      "def fake_provider(argv, **kwargs):\\n"
+      "  if not isinstance(argv, list) or not argv or argv[0] != 'gh':\\n"
+      "    raise AssertionError('unexpected provider executable')\\n"
+      "  if kwargs != {'capture_output': True}:\\n"
+      "    raise AssertionError('unexpected provider invocation options')\\n"
+      "  return original_run([sys.executable, os.environ['P11_SCRIPT'], *argv[1:]], capture_output=True)\\n"
+      "sys.argv = [adapter, *arguments]\\n"
+      "with patch('subprocess.run', side_effect=fake_provider):\\n"
+      "  runpy.run_path(adapter, run_name='__main__')\\n",
+      encoding="utf-8",
+    )
     return bindir, log
 
   def environment(self, bindir: Path, log: Path, mode: str) -> dict[str, str]:
     env = dict(os.environ)
     env["PATH"] = str(bindir)
-    if os.name == "nt":
-      env["PATH"] += os.pathsep + str(Path(sys.executable).parent)
-      env["PYTHONPATH"] = str(bindir.parent)
+    env["P11_RUNNER"] = str(bindir.parent / "p11_runner.py")
+    env["P11_SCRIPT"] = str(bindir.parent / "fake_gh.py")
     env["P11_LOG"] = str(log)
     env["P11_MODE"] = mode
     env["PYTHONUTF8"] = "0"
@@ -117,7 +116,7 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
     cwd: Path | None = None,
   ) -> subprocess.CompletedProcess:
     return subprocess.run(
-      [sys.executable, str(executable), *arguments],
+      [sys.executable, *([env["P11_RUNNER"]] if "P11_RUNNER" in env else []), str(executable), *arguments],
       capture_output=True,
       cwd=cwd,
       env=env,
@@ -252,6 +251,33 @@ class GitHubProviderBoundaryP11Tests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, error)
         self.assertIn(diagnostic, error)
         self.assertNotIn("Traceback", error)
+
+  def test_repo_invalid_state_fails_closed(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      bindir, log = self.fake_gh(root)
+      result = self.run_provider(
+        REPO_INFO,
+        ["--repository", "o/r", "issue", "get", "64"],
+        self.environment(bindir, log, "repo-invalid-state"),
+      )
+      error = result.stderr.decode("utf-8")
+      self.assertEqual(result.returncode, 2, error)
+      self.assertIn("GitHub issue response is malformed", error)
+      self.assertNotIn("Traceback", error)
+
+  def test_invalid_dependency_get_does_not_call_provider(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      bindir, log = self.fake_gh(root)
+      result = self.run_provider(
+        DEPENDENCIES,
+        ["dependency", "get", "64", "9"],
+        self.environment(bindir, log, "dependency-related"),
+      )
+      self.assertEqual(result.returncode, 2, result.stderr)
+      self.assertIn(b"dependency get accepts exactly one issue", result.stderr)
+      self.assertFalse(log.exists(), "invalid invocation contacted provider")
 
   def test_dependency_related_uses_exact_provider_route_without_fallback(self):
     with tempfile.TemporaryDirectory() as td:
