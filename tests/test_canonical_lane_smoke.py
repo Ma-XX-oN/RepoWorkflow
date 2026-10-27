@@ -21,6 +21,16 @@ CANONICAL_TICKETS = ROOT / ".repoworkflow" / "tickets.csv"
 TYPE_PREFIXES = ("Initiative:", "Epic:", "Feature:")
 
 
+def capture_utf8(command, *, cwd):
+  result = subprocess.run(command, cwd=cwd, capture_output=True, check=False)
+  return subprocess.CompletedProcess(
+    result.args,
+    result.returncode,
+    result.stdout.decode("utf-8", "strict"),
+    result.stderr.decode("utf-8", "strict"),
+  )
+
+
 class CanonicalLaneSmokeTests(unittest.TestCase):
   def make_repo(self, root: Path) -> None:
     RepoFixture(root)
@@ -109,12 +119,9 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
       if sys.platform == "win32"
       else [str(RWF)]
     )
-    return subprocess.run(
+    return capture_utf8(
       [*executable, "--root", str(root), *args],
       cwd=root,
-      capture_output=True,
-      encoding="utf-8",
-      errors="strict",
     )
 
   def test_invalid_utf8_cli_output_is_not_silently_replaced(self):

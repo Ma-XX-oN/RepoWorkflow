@@ -15,6 +15,27 @@ LAUNCHER = ROOT / "rwf"
 PYTHON_ENTRY = ROOT / "repo_workflow.py"
 
 
+def capture_utf8(command, *, input=None, **kwargs):
+  assert "capture_output" not in kwargs
+  assert "encoding" not in kwargs and "errors" not in kwargs
+  assert "check" not in kwargs
+  result = subprocess.run(
+    command,
+    input=input.encode("utf-8") if input is not None else None,
+    capture_output=True,
+    check=False,
+    **kwargs,
+  )
+  # Decode on this thread: Windows subprocess reader threads otherwise swallow
+  # UnicodeDecodeError and produce a misleading None result.
+  return subprocess.CompletedProcess(
+    result.args,
+    result.returncode,
+    result.stdout.decode("utf-8", "strict"),
+    result.stderr.decode("utf-8", "strict"),
+  )
+
+
 class LauncherTests(unittest.TestCase):
   def posix_shell(self):
     # Probe actual execution support, including POSIX shells on Windows.
@@ -71,14 +92,10 @@ class LauncherTests(unittest.TestCase):
           path.chmod(0o755)
       env = os.environ.copy()
       env["PATH"] = os.pathsep.join((str(bindir), env.get("PATH", "")))
-      return subprocess.run(
+      return capture_utf8(
         [shell, str(LAUNCHER), "actions-policy", "--help"],
         cwd=ROOT,
         env=env,
-        encoding="utf-8",
-        errors="strict",
-        capture_output=True,
-        check=False,
       )
 
   def python_forwarder(self):
@@ -114,28 +131,33 @@ class LauncherTests(unittest.TestCase):
     self.assertIn("Python 3.10 or newer is required", result.stderr)
 
   def test_existing_python_entry_works_without_shell(self):
-    result = subprocess.run(
+    result = capture_utf8(
       [sys.executable, str(PYTHON_ENTRY), "actions-policy", "--help"],
       cwd=ROOT,
       env=os.environ.copy(),
-      encoding="utf-8",
-      errors="strict",
-      capture_output=True,
-      check=False,
     )
     self.assertEqual(result.returncode, 0, result.stderr)
     self.assertIn("usage:", result.stdout.lower())
+
+  def test_invalid_capture_decodes_on_calling_thread(self):
+    # Windows subprocess text reader threads do not relay codec exceptions.
+    for invalid_stream in ("stdout", "stderr"):
+      with self.subTest(invalid_stream=invalid_stream):
+        captured = subprocess.CompletedProcess(
+          ["fake"], 0,
+          stdout=b"\xff" if invalid_stream == "stdout" else b"valid",
+          stderr=b"\xff" if invalid_stream == "stderr" else b"valid",
+        )
+        with patch("tests.test_launcher.subprocess.run", return_value=captured):
+          with self.assertRaises(UnicodeDecodeError):
+            capture_utf8(["fake"])
 
   def test_parent_capture_rejects_invalid_utf8(self):
     for file_descriptor in (1, 2):
       with self.subTest(file_descriptor=file_descriptor):
         with self.assertRaises(UnicodeDecodeError):
-          subprocess.run(
+          capture_utf8(
             [sys.executable, "-c", f"import os; os.write({file_descriptor}, bytes([255]))"],
-            encoding="utf-8",
-            errors="strict",
-            capture_output=True,
-            check=False,
           )
 
   def test_shell_forwards_unicode_args_cwd_env_stdio_and_exit(self):
@@ -168,20 +190,17 @@ class LauncherTests(unittest.TestCase):
       env["RWF_TEST_MARKER"] = "value ☃"
       env["PATH"] = os.pathsep.join((str(bindir), env.get("PATH", "")))
       args = ["space here", 'quoted "text"', "Unicode Ω"]
-      result = subprocess.run(
+      result = capture_utf8(
         [shell, str(root / "rwf"), *args],
         cwd=root,
         env=env,
         input="stdin ☃\n",
-        encoding="utf-8",
-        errors="strict",
-        capture_output=True,
-        check=False,
       )
       self.assertEqual(result.returncode, 23, result.stderr)
-      self.assertEqual(json.loads(result.stdout), {
+      actual = json.loads(result.stdout)
+      self.assertTrue(Path(actual.pop("cwd")).samefile(root))
+      self.assertEqual(actual, {
         "args": args,
-        "cwd": str(root.resolve()),
         "env": "value ☃",
         "stdin": "stdin ☃\n",
       })
