@@ -14,7 +14,9 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "repo_workflow.py"
+CLI = ROOT / ("repo_workflow.py" if sys.platform == "win32" else "rwf")
+CLI_COMMAND = ([sys.executable, str(CLI)] if sys.platform == "win32"
+               else [str(CLI)])
 
 
 class LocalStageCardinalityTests(unittest.TestCase):
@@ -23,7 +25,7 @@ class LocalStageCardinalityTests(unittest.TestCase):
     if not CLI.is_file():
       raise unittest.SkipTest("PENDING #545: public launcher missing")
     help_result = subprocess.run(
-      [sys.executable, str(CLI), "test", "--help"], cwd=ROOT,
+      [*CLI_COMMAND, "test", "--help"], cwd=ROOT,
       capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=30, check=False,
     )
     if help_result.returncode or "temporary" not in help_result.stdout:
@@ -50,7 +52,7 @@ class LocalStageCardinalityTests(unittest.TestCase):
 
   def cli(self, *args):
     return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(self.root), *args],
+      [*CLI_COMMAND, "--root", str(self.root), *args],
       cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=60, check=False,
     )
 
