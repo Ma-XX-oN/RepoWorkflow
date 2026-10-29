@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
-import subprocess
+
+from .git import GitError, git_bytes
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _MARKER = re.compile(
@@ -26,15 +27,13 @@ class HostedVersionError(ValueError):
 
 def _git(root: Path, *args: str) -> str:
   try:
-    result = subprocess.run(
-      ["git", "-C", str(root), *args], capture_output=True,
-      text=True, check=False,
-    )
-  except (OSError, UnicodeError) as error:
+    result = git_bytes(root, *args, check=False)
+    decoded = result.stdout.decode("utf-8", "strict")
+  except (GitError, UnicodeError) as error:
     raise HostedVersionError("cannot decode hosted Git request") from error
   if result.returncode:
     raise HostedVersionError("cannot verify hosted Git request")
-  return result.stdout
+  return decoded
 
 
 def _single_parent(root: Path, sha: str) -> str:
