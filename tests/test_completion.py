@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from repo_workflow.workflow_state import save_local_state
 from tests.support import RepoFixture
@@ -53,6 +54,33 @@ def bash_path(executable, path: Path) -> str:
     capture_output=True, encoding="utf-8", errors="strict", check=True,
   )
   return result.stdout.strip() + "/" + location.name
+
+
+class BashDiscoveryTests(unittest.TestCase):
+  def test_failing_wsl_like_stub_is_not_accepted_as_bash(self):
+    # A shim on PATH is not a shell capability merely because it exists.
+    with mock.patch.object(shutil, "which", side_effect=lambda name: (
+      sys.executable if name == "bash" else None
+    )):
+      with mock.patch.object(subprocess, "run", return_value=(
+        subprocess.CompletedProcess(
+          [sys.executable, "-c", "printf rwf-bash-ready"], 1,
+          stdout="", stderr="WSL has no installed distributions",
+        )
+      )):
+        self.assertIsNone(working_bash())
+
+  def test_wrong_probe_output_is_not_accepted_as_bash(self):
+    with mock.patch.object(shutil, "which", side_effect=lambda name: (
+      sys.executable if name == "bash" else None
+    )):
+      with mock.patch.object(subprocess, "run", return_value=(
+        subprocess.CompletedProcess(
+          [sys.executable, "-c", "printf rwf-bash-ready"], 0,
+          stdout="unexpected shell", stderr="",
+        )
+      )):
+        self.assertIsNone(working_bash())
 
 
 class BashCompletionTests(unittest.TestCase):
