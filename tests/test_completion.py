@@ -88,7 +88,7 @@ class BashCompletionTests(unittest.TestCase):
       + "export REPO_WORKFLOW_COMMAND="
       + shlex.quote(self.bash_path(wrapper)) + "\n"
       + "export REPO_WORKFLOW_ROOT="
-      + shlex.quote(str(root)) + "\n"
+      + shlex.quote(self.bash_path(root)) + "\n"
       + "source " + shlex.quote(
         self.bash_path(ROOT / "completions" / "repo-workflow.bash")
       ) + "\n"
@@ -98,6 +98,16 @@ class BashCompletionTests(unittest.TestCase):
       [self.bash, "-c", script],
       capture_output=True, encoding="utf-8", errors="strict", check=False,
     )
+
+  def test_exported_root_is_accessible_to_selected_bash(self):
+    td, root, fx, wrapper = self.make()
+    with td:
+      completed = self.run_bash(
+        root, wrapper,
+        'test -d "$REPO_WORKFLOW_ROOT"\n'
+        'test -f "$REPO_WORKFLOW_COMMAND"\n',
+      )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
 
   def test_aliases_are_registered_without_filename_fallback(self):
     td, root, fx, wrapper = self.make()
