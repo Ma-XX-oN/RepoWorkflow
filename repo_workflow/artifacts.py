@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sys
 
-from .git import changed_files, git, head_sha, repository_state
+from .git import changed_files, git, git_bytes, git_wire_path, head_sha, repository_state
 from .process import run_command
 
 
@@ -85,7 +85,7 @@ def materialize_artifacts(root: Path, config: dict) -> ArtifactResult:
         f"current platform is {actual_platform}"
       )
       break
-    allowed = {path.replace("\\", "/") for path in artifact["outputs"]}
+    allowed = set(artifact["outputs"])
     before_changed = set(changed_files(root))
     before_state = repository_state(root)
     before_fingerprints = {
@@ -160,7 +160,7 @@ def materialize_artifacts(root: Path, config: dict) -> ArtifactResult:
       break
   changed = changed_files(root)
   all_allowed = {
-    path.replace("\\", "/")
+    path
     for artifact in artifacts
     for path in artifact["outputs"]
   }
@@ -188,11 +188,10 @@ def commit_artifact_changes(
   if not result.changed_files:
     return head_sha(root)
   git(root, "add", "--all", "--", *result.changed_files)
-  staged = sorted(
-    line.strip().replace("\\", "/")
-    for line in git(root, "diff", "--cached", "--name-only").stdout.splitlines()
-    if line.strip()
-  )
+  raw = git_bytes(root, "diff", "--cached", "--name-only", "-z").stdout
+  if raw and not raw.endswith(b"\0"):
+    raise ArtifactError("unterminated staged Git path record")
+  staged = sorted(git_wire_path(item) for item in raw.split(b"\0") if item)
   expected = sorted(result.changed_files)
   if staged != expected:
     raise ArtifactError(
