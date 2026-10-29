@@ -114,8 +114,7 @@ def execute_red(
   try:
     completed = subprocess.run(
       command, cwd=cwd, capture_output=True, check=False,
-      env={**os.environ, "PYTHONIOENCODING": "utf-8"},
-    )
+          )
     stdout = completed.stdout.decode("utf-8", errors="strict")
     stderr = completed.stderr.decode("utf-8", errors="strict")
   except (OSError, UnicodeError):
