@@ -141,6 +141,10 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
           str(ROOT / "adapters" / "repo-info-github.py"),
           "--repository", "Ma-XX-oN/RepoWorkflow",
         ],
+        "dependencyCommand": [
+          sys.executable, env["RWF_TEST_RUNNER"],
+          str(ROOT / "scripts" / "github-ticket-dependencies.py"),
+        ],
         "repository": {
           "integrationBranch": "main",
           "authoritativeRemote": "origin",
