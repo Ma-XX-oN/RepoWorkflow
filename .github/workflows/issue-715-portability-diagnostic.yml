@@ -24,8 +24,8 @@ jobs:
             sha: 56ae8b624038e13c0695bb323c98d64741d2d319
             modules: tests.test_terminal_tag
           - id: ASSEMBLED-PORTABILITY
-            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
-            modules: tests.test_hosted_version_identity tests.test_hosted_version_utf8 tests.test_dependency_migration_certification tests.test_renderer_certification_binding tests.test_prelim_integration tests.test_prelim_validation tests.test_launcher_discovery tests.test_launcher_discovery_utf8 tests.test_classification tests.test_artifacts tests.test_portability_subprocess tests.test_self_ci tests.test_test_cli
+            sha: c7393b506f5993abf64df1311c5eda0937d08455
+            modules: tests.test_hosted_version_identity tests.test_hosted_version_utf8 tests.test_dependency_migration_certification tests.test_renderer_certification_binding tests.test_terminal_tag tests.test_prelim_integration tests.test_prelim_validation tests.test_launcher_discovery tests.test_launcher_discovery_utf8 tests.test_classification tests.test_artifacts tests.test_portability_subprocess tests.test_self_ci tests.test_test_cli
     steps:
       - uses: actions/checkout@v4
         with:
