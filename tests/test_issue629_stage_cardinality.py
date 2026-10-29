@@ -8,6 +8,7 @@ No hosted job or protected target is mutated by these tests.
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
