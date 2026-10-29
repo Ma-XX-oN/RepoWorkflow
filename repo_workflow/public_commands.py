@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from .git import current_branch
+from .git import GitError, current_branch
 
 from .command_grammar import Context, validate_node
 from .test_catalogue import TestCatalogueError, load_test_catalogue
@@ -11,35 +11,63 @@ from .manual_test_cli import manual_case_completions, manual_result_completions
 
 
 def _red_group_values(context: Context) -> dict:
-  match = re.fullmatch(
-    r"issue-([1-9][0-9]*)(?:-.*)?",
-    current_branch(context.root),
-  )
-  issue = match.group(1) if match else None
-  groups = ()
-  if issue is not None:
+  # The same resolver is used by Bash Tab, double-Tab, and --help.
+  # Never invent a description when the catalogue supplies only a name.
+  try:
+    branch = current_branch(context.root)
+  except (GitError, ValueError, OSError):
+    branch = ""
+  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
+  if match is None:
+    diagnostic = "RED tests require a current started issue branch"
+  else:
+    issue = match.group(1)
     try:
       catalogue = load_test_catalogue(context.root)
-      groups = tuple(sorted(
+    except TestCatalogueError as error:
+      if str(error).startswith("missing test catalogue:"):
+        diagnostic = (
+          "RED/GREEN tests do not exist for the current issue. "
+          "Build the tests and register them in .ci/tests.json "
+          "with a test name prefix of issue-N-."
+        )
+      else:
+        diagnostic = "RED test catalogue is unavailable: " + str(error)
+    else:
+      names = tuple(sorted(
         name for name in catalogue.groups
         if name.startswith("issue-" + issue + "-")
       ))
-    except TestCatalogueError:
-      pass
-  if groups:
-    return {
-      "completions": [
-        {name: "Run current issue RED test group " + name}
-        for name in groups
-      ],
-    }
+      if names:
+        # The catalogue is already validated. Keep optional separate
+        # descriptions, without manufacturing a description for string-only
+        # test-group registrations.
+        import json
+        path = context.root / ".ci" / "tests.json"
+        try:
+          records = json.loads(path.read_text(encoding="utf-8"))["tests"]
+        except (OSError, ValueError, KeyError, TypeError):
+          records = []
+        descriptions = {
+          name: definition.get("description")
+          for declaration in records if isinstance(declaration, dict)
+          for name, definition in declaration.items()
+          if name in names and isinstance(definition, dict)
+          and isinstance(definition.get("description"), str)
+          and bool(definition["description"].strip())
+        }
+        return {"completions": [
+          {name: descriptions[name]} if name in descriptions else name
+          for name in names
+        ]}
+      diagnostic = (
+        "RED/GREEN tests do not exist for the current issue. "
+        "Build the tests and register them in .ci/tests.json "
+        "with a test name prefix of issue-N-."
+      )
 
   def unavailable(request):
-    return request.error(
-      "RED/GREEN tests do not exist for the current issue. "
-      "Build the tests and register them in .ci/tests.json "
-      "with a test name prefix of issue-N-."
-    )
+    return request.error(diagnostic)
 
   return {"completions": [], "on-tab": unavailable}
 
