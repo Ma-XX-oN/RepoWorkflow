@@ -19,14 +19,15 @@ ROOT = Path(__file__).resolve().parents[1]
 def working_bash():
   """Find a Bash that actually runs; ignore Windows WSL command shims."""
   choices = []
-  direct = shutil.which("bash")
-  if direct:
-    choices.append(Path(direct))
+  # Prefer the Bash co-installed with Git over an unrelated PATH shim.
   git = shutil.which("git")
   if git:
     for parent in list(Path(git).resolve().parents)[:5]:
       choices.extend((parent / "bin" / "bash.exe",
                       parent / "usr" / "bin" / "bash.exe"))
+  direct = shutil.which("bash")
+  if direct:
+    choices.append(Path(direct))
   seen = set()
   for path in choices:
     candidate = str(path)
@@ -69,6 +70,32 @@ class BashDiscoveryTests(unittest.TestCase):
         )
       )):
         self.assertIsNone(working_bash())
+
+  def test_git_bash_wins_over_path_stub(self):
+    with tempfile.TemporaryDirectory() as dirname:
+      git_root = Path(dirname) / "Git"
+      (git_root / "cmd").mkdir(parents=True)
+      (git_root / "bin").mkdir()
+      git = git_root / "cmd" / "git.exe"
+      git.write_text("fixture", encoding="utf-8")
+      git_bash = git_root / "bin" / "bash.exe"
+      git_bash.write_text("fixture", encoding="utf-8")
+      calls = []
+
+      def probe(argv, **kwargs):
+        calls.append(argv[0])
+        return subprocess.CompletedProcess(
+          argv, 0 if argv[0] == str(git_bash) else 1,
+          stdout="rwf-bash-ready" if argv[0] == str(git_bash) else "",
+          stderr="",
+        )
+
+      with mock.patch.object(shutil, "which", side_effect=lambda name: (
+        str(git) if name == "git" else sys.executable
+      )):
+        with mock.patch.object(subprocess, "run", side_effect=probe):
+          self.assertEqual(working_bash(), str(git_bash))
+      self.assertEqual(calls, [str(git_bash)])
 
   def test_wrong_probe_output_is_not_accepted_as_bash(self):
     with mock.patch.object(shutil, "which", side_effect=lambda name: (
