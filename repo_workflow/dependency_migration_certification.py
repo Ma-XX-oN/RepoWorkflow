@@ -33,11 +33,11 @@ def _committed_manifest(root: Path) -> tuple[bytes, bytes] | None:
     record = git_bytes(root, "ls-tree", "-z", "HEAD", "--", relative).stdout
     if not record:
       return None
-    if not record.endswith(b"\\0") or record.count(b"\\0") != 1:
+    if not record.endswith(b"\0") or record.count(b"\0") != 1:
       raise DependencyMigrationCertificationError("ambiguous committed migration manifest")
-    header, separator, name = record[:-1].partition(b"\\t")
+    header, separator, name = record[:-1].partition(b"\t")
     fields = header.split(b" ")
-    if (separator != b"\\t" or name != relative.encode("utf-8")
+    if (separator != b"\t" or name != relative.encode("utf-8")
         or len(fields) != 3 or fields[0] not in (b"100644", b"100755")
         or fields[1] != b"blob"):
       raise DependencyMigrationCertificationError("committed migration manifest is not a regular Git file")
