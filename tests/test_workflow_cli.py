@@ -1,3 +1,4 @@
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -18,15 +19,15 @@ def capture_utf8(argv, **kwargs):
   return subprocess.CompletedProcess(
     result.args,
     result.returncode,
-    result.stdout.decode("utf-8", "strict"),
-    result.stderr.decode("utf-8", "strict"),
+    io.TextIOWrapper(io.BytesIO(result.stdout), encoding="utf-8", errors="strict", newline=None).read(),
+    io.TextIOWrapper(io.BytesIO(result.stderr), encoding="utf-8", errors="strict", newline=None).read(),
   )
 
 
 class WorkflowCliTests(unittest.TestCase):
   def run_cli(self, root: Path, *args: str):
     return capture_utf8(
-      [sys.executable, str(CLI), "--root", str(root), *args],
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *args],
     )
 
   def test_human_and_json_what_next_report_same_transitions(self):
@@ -163,7 +164,7 @@ class WorkflowCliTests(unittest.TestCase):
       fx = RepoFixture(root)
       for alias in ("repo-workflow", "rwf"):
         argv = (
-          [sys.executable, str(CLI)]
+          [sys.executable, "-X", "utf8", str(CLI)]
           if sys.platform == "win32"
           else [str(ROOT / alias)]
         )
