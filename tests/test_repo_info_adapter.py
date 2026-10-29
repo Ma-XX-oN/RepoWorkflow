@@ -54,7 +54,44 @@ class RepoInfoAdapterTests(unittest.TestCase):
         config = resolve_info_config(root)
       command = config["infoCommand"]
       self.assertEqual(command[-2:], ["--repository", "Ma-XX-oN/RepoWorkflow"])
-      self.assertTrue(command[1].endswith("adapters/repo-info-github.py"))
+      self.assertEqual(command[0], sys.executable)
+      expected = (
+        Path(__file__).resolve().parents[1]
+        / "adapters"
+        / "repo-info-github.py"
+      ).resolve()
+      self.assertEqual(Path(command[1]).resolve(), expected)
+      self.assertNotEqual(
+        Path(command[1]).resolve(),
+        (root / "adapters" / "repo-info-github.py").resolve(),
+      )
+
+  def test_discovered_provider_does_not_select_foreign_shadow_adapter(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      shadow = root / "adapters" / "repo-info-github.py"
+      shadow.parent.mkdir()
+      shadow.write_text("raise SystemExit('shadow provider invoked')\n", encoding="utf-8")
+      results = [
+        SimpleNamespace(returncode=0, stdout="origin\n", stderr=""),
+        SimpleNamespace(
+          returncode=0,
+          stdout="git@github.com:Ma-XX-oN/RepoWorkflow.git\n",
+          stderr="",
+        ),
+      ]
+      with patch(
+        "repo_workflow.repo_info_adapter.run_command",
+        side_effect=results,
+      ):
+        config = resolve_info_config(root)
+      command = config["infoCommand"]
+      self.assertEqual(command[-2:], ["--repository", "Ma-XX-oN/RepoWorkflow"])
+      self.assertEqual(
+        Path(command[1]).resolve(),
+        (Path(__file__).resolve().parents[1] / "adapters" / "repo-info-github.py").resolve(),
+      )
+      self.assertNotEqual(Path(command[1]).resolve(), shadow.resolve())
 
   def test_provider_discovery_rejects_missing_and_ambiguous_github_remotes(self):
     cases = [
