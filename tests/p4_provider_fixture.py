@@ -356,7 +356,7 @@ class FirstUseFixture:
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
     verify_provider(root, env)
     return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(root), *words],
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *words],
       cwd=root,
       env=env,
       capture_output=True,
