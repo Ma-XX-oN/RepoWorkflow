@@ -104,12 +104,53 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       encoding="utf-8",
     )
     gh.chmod(0o755)
+    runner = base / "provider_runner.py"
+    runner.write_text(
+      "import os, runpy, subprocess, sys\n"
+      "from unittest.mock import patch\n"
+      "adapter, *arguments = sys.argv[1:]\n"
+      "original_run = subprocess.run\n"
+      "def intercept(argv, **kwargs):\n"
+      "  if isinstance(argv, list) and argv and argv[0] == 'gh':\n"
+      "    if kwargs != {'capture_output': True}:\n"
+      "      raise AssertionError('unexpected gh invocation options')\n"
+      "    return original_run([sys.executable, os.environ['RWF_TEST_FAKE_GH'], *argv[1:]], **kwargs)\n"
+      "  return original_run(argv, **kwargs)\n"
+      "sys.argv = [adapter, *arguments]\n"
+      "with patch('subprocess.run', side_effect=intercept):\n"
+      "  runpy.run_path(adapter, run_name='__main__')\n",
+      encoding="utf-8",
+    )
     env = dict(os.environ)
-    env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     env["RWF_TEST_CALLS"] = str(calls)
+    env["RWF_TEST_FAKE_GH"] = str(gh)
+    env["RWF_TEST_RUNNER"] = str(runner)
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
     return env
 
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
+    config_path = root / ".ci" / "repoworkflow.json"
+    if not config_path.exists():
+      config_path.parent.mkdir(parents=True, exist_ok=True)
+      config_path.write_text(json.dumps({
+        "schema": 1,
+        "versionCommand": [sys.executable, "-c", "print('1.0.0')"],
+        "infoCommand": [
+          sys.executable, env["RWF_TEST_RUNNER"],
+          str(ROOT / "adapters" / "repo-info-github.py"),
+          "--repository", "Ma-XX-oN/RepoWorkflow",
+        ],
+        "repository": {
+          "integrationBranch": "main",
+          "authoritativeRemote": "origin",
+        },
+        "environments": [{
+          "id": "local", "required": True, "platform": "any",
+          "capabilities": [],
+          "validationCommand": [sys.executable, "-c", "raise SystemExit(0)"],
+        }],
+      }), encoding="utf-8")
     launcher = (
       [sys.executable, str(ROOT / "repo_workflow.py")]
       if sys.platform == "win32"
@@ -154,7 +195,7 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       self.assertEqual(selected.stdout.count("*"), 1)
       self.assertEqual(self.dependency_calls(env), [])
 
-      gh = Path(env["PATH"].split(os.pathsep)[0]) / "gh"
+      gh = Path(env["RWF_TEST_FAKE_GH"])
       gh.write_text(
         "#!/usr/bin/env python3\n"
         "import sys\n"
