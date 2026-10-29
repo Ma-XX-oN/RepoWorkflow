@@ -12,13 +12,15 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "repo_workflow.py"
+LAUNCHER = ROOT / ("repo_workflow.py" if sys.platform == "win32" else "rwf")
+LAUNCHER_COMMAND = ([sys.executable, str(LAUNCHER)] if sys.platform == "win32"
+                    else [str(LAUNCHER)])
 STAGES = ("RED", "temporary", "GREEN", "regression", "integration", "results")
 
 
 def run_cli(*args):
   return subprocess.run(
-    [sys.executable, str(LAUNCHER), *args],
+    [*LAUNCHER_COMMAND, *args],
     cwd=ROOT,
     capture_output=True,
     text=True,
