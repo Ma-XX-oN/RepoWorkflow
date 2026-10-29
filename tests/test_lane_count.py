@@ -265,8 +265,8 @@ class LaneCountTests(unittest.TestCase):
       result = subprocess.CompletedProcess(
         process.args,
         process.returncode,
-        process.stdout.decode("utf-8", "strict"),
-        process.stderr.decode("utf-8", "strict"),
+        io.TextIOWrapper(io.BytesIO(process.stdout), encoding="utf-8", errors="strict", newline=None).read(),
+        io.TextIOWrapper(io.BytesIO(process.stderr), encoding="utf-8", errors="strict", newline=None).read(),
       )
       self.assertEqual(result.returncode, 0, result.stderr)
       self.assertEqual(result.stdout, f"{len(expected)}\n")
