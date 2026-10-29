@@ -61,7 +61,7 @@ jobs:
         run: |
           set -o pipefail
           if [[ "$LEAF" == "assembled-full-regression" ]]; then
-            python -m unittest discover -v -s tests -p 'test_*.py' 2>&1 | tee native-leaf-results.txt
+            python scripts/validate.py 2>&1 | tee native-leaf-results.txt
           else
             python -m unittest -v $TEST_MODULES 2>&1 | tee native-leaf-results.txt
           fi
