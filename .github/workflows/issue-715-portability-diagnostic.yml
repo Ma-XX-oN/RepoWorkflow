@@ -17,7 +17,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         lane:
           - id: P4-G4-G6
-            sha: 201a0f638412e55e81612de940f9c8949a155621
+            sha: 0ba3d33d7a7ff24756c0ab71b27cedcec8115a67
             modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
     steps:
       - uses: actions/checkout@v4
