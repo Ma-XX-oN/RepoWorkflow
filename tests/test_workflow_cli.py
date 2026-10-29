@@ -13,12 +13,20 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "repo_workflow.py"
 
 
+def capture_utf8(argv, **kwargs):
+  result = subprocess.run(argv, capture_output=True, check=False, **kwargs)
+  return subprocess.CompletedProcess(
+    result.args,
+    result.returncode,
+    result.stdout.decode("utf-8", "strict"),
+    result.stderr.decode("utf-8", "strict"),
+  )
+
+
 class WorkflowCliTests(unittest.TestCase):
   def run_cli(self, root: Path, *args: str):
-    return subprocess.run(
+    return capture_utf8(
       [sys.executable, str(CLI), "--root", str(root), *args],
-      capture_output=True,
-      text=True,
     )
 
   def test_human_and_json_what_next_report_same_transitions(self):
@@ -154,13 +162,26 @@ class WorkflowCliTests(unittest.TestCase):
       root.mkdir()
       fx = RepoFixture(root)
       for alias in ("repo-workflow", "rwf"):
-        completed = subprocess.run(
-          [str(ROOT / alias), "--root", str(root), "version"],
-          capture_output=True,
-          text=True,
+        argv = (
+          [sys.executable, str(CLI)]
+          if sys.platform == "win32"
+          else [str(ROOT / alias)]
+        )
+        completed = capture_utf8(
+          [*argv, "--root", str(root), "version"],
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stdout.strip(), fx.version)
+
+  def test_capture_rejects_invalid_utf8_in_both_streams(self):
+    for descriptor in (1, 2):
+      with self.subTest(descriptor=descriptor):
+        with self.assertRaises(UnicodeDecodeError):
+          capture_utf8([
+            sys.executable,
+            "-c",
+            f"import os; os.write({descriptor}, bytes([255]))",
+          ])
 
   def test_unknown_command_uses_shared_diagnostic(self):
     with tempfile.TemporaryDirectory() as td:
