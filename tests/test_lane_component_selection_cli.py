@@ -151,11 +151,7 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
           "validationCommand": [sys.executable, "-c", "raise SystemExit(0)"],
         }],
       }), encoding="utf-8")
-    launcher = (
-      [sys.executable, str(ROOT / "repo_workflow.py")]
-      if sys.platform == "win32"
-      else [str(RWF)]
-    )
+    launcher = [sys.executable, str(ROOT / "repo_workflow.py")]
     result = subprocess.run(
       [*launcher, "--root", str(root), *words],
       cwd=root,
