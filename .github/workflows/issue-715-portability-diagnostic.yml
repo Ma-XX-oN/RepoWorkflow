@@ -4,6 +4,7 @@ on:
     branches: [issue-715-residual-leaves-native-v3-20261023]
     paths: [.github/workflows/issue-715-portability-diagnostic.yml]
   workflow_dispatch:
+  pull_request:
 permissions:
   contents: read
 jobs:
