@@ -1,79 +1,71 @@
-name: RWF 715 G8 G11 exact native Windows causal witness
+name: RWF 715 exact-source G3 G4 G7 native three-OS matrix
 on:
   push:
     branches: [issue-715-residual-leaves-native-v3-20261023]
     paths: [.github/workflows/issue-715-portability-diagnostic.yml]
-  workflow_dispatch:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  windows-causality:
-    runs-on: windows-latest
+  focused:
+    name: "${{ matrix.lane.id }} / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        lane:
+          - id: P2-G3-G10
+            sha: bd15fb2b805a46cf19544839b6334c50ff2438c1
+            modules: tests.test_workflow_cli tests.test_issue629_selection_acceptance tests.test_issue629_stage_cardinality tests.test_issue629_cli_acceptance tests.test_lane_component_selection_cli tests.test_lane_count
+          - id: P4-G4-G6
+            sha: 398f77cbb559a3f9c611f293fb60c05edbda6eac
+            modules: tests.test_bootstrap_cli tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state tests.test_dependency_migration_tool
+          - id: G7-G8
+            sha: dfc1c61e7fd51457145806c32769700d1e63a025
+            modules: tests.test_completion tests.test_test_cli tests.test_red_completion_cli tests.test_test_launcher
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 8ec67ae7827f68383432faf7be4eda5125b0cbf2
+          ref: ${{ matrix.lane.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install exact-source dependencies
-        run: python -m pip install -r requirements.txt
-      - name: Measure native G8 and G11, preserve raw trace
+      - name: Assert exact candidate and runner
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ matrix.lane.sha }}
+          LANE: ${{ matrix.lane.id }}
+        run: |
+          python - <<'PY'
+          import os, subprocess, sys, platform
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('LANE='+os.environ['LANE'],flush=True)
+          print('EXACT_TESTED_SHA='+actual,flush=True)
+          print('EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          print('NATIVE_OS='+platform.platform(),flush=True)
+          print('INTERPRETER='+sys.executable,flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Run focused native suite preserving all outcomes
+        shell: bash
+        env:
+          MODULES: ${{ matrix.lane.modules }}
+          LANE: ${{ matrix.lane.id }}
+          GH_PROMPT_DISABLED: '1'
+          GIT_TERMINAL_PROMPT: '0'
         run: |
           set -o pipefail
-          python - <<'PY' 2>&1 | tee RWF-715-G8-G11-windows-native.log
-          import hashlib, os, pathlib, platform, shutil, subprocess, sys
-          import tests.test_completion as completion
-          EXPECTED = '8ec67ae7827f68383432faf7be4eda5125b0cbf2'
-          def cmd(argv, raw=False):
-              p=subprocess.run(argv,capture_output=True,text=not raw)
-              return p
-          head=cmd(['git','rev-parse','HEAD']).stdout.strip()
-          print('SOURCE_SHA',head,'EXPECTED',EXPECTED,flush=True)
-          assert head==EXPECTED
-          print('OS',platform.platform(),'PYTHON',sys.executable,flush=True)
-          path=pathlib.Path('.repoworkflow/migrations/native-dependencies-v1.json')
-          raw=cmd(['git','show','HEAD:'+path.as_posix()],raw=True).stdout
-          work=path.read_bytes()
-          def digest(data):return hashlib.sha256(data).hexdigest()
-          def lines(data):return {'bytes':len(data),'CRLF':data.count(b'\r\n'),'LF':data.count(b'\n'),'bare_LF':data.count(b'\n')-data.count(b'\r\n')}
-          predicted=raw.replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
-          print('G11_COMMITTED_SHA256',digest(raw),'COMMITTED_COUNTS',lines(raw),flush=True)
-          print('G11_WORKTREE_SHA256',digest(work),'WORKTREE_COUNTS',lines(work),flush=True)
-          print('G11_PREDICTED_CRLF_SHA256',digest(predicted),'MATCH',work==predicted,flush=True)
-          for argv in [['git','config','--show-origin','--get','core.autocrlf'],['git','check-attr','-a','--',str(path),'.repoworkflow/tickets.csv']]:
-              p=cmd(argv);print('CONFIG_COMMAND',repr(argv),'RC',p.returncode,'OUT',repr(p.stdout),'ERR',repr(p.stderr),flush=True)
-          test=completion.BashCompletionTests()
-          td,root,fx,wrapper=test.make()
-          with td:
-              body='complete -p repo-workflow\ncomplete -p rwf\n'
-              script=f"""
-          set -euo pipefail
-          export REPO_WORKFLOW_COMMAND={subprocess.list2cmdline([os.fspath(wrapper)])}
-          export REPO_WORKFLOW_ROOT={subprocess.list2cmdline([os.fspath(root)])}
-          source {subprocess.list2cmdline([os.fspath(completion.ROOT / 'completions' / 'repo-workflow.bash')])}
-          {body}
-          """
-              bp=cmd([shutil.which('bash'),'--version'])
-              print('G8_BASH_BINARY',shutil.which('bash'),'VERSION',bp.stdout.strip(),'VERSION_RC',bp.returncode,flush=True)
-              print('G8_BASH_PATH_CHOICES',cmd(['where.exe','bash']).stdout,flush=True)
-              print('G8_GENERATED_SCRIPT_BEGIN',flush=True)
-              print(script,flush=True)
-              print('G8_GENERATED_SCRIPT_END',flush=True)
-              traced=cmd([shutil.which('bash'),'-xc',script])
-              print('G8_EXIT',traced.returncode,flush=True)
-              print('G8_STDOUT_BEGIN\n'+traced.stdout+'\nG8_STDOUT_END',flush=True)
-              print('G8_STDERR_BEGIN\n'+traced.stderr+'\nG8_STDERR_END',flush=True)
-              print('G8_FIRST_SOURCE_COMMAND',next((z for z in traced.stderr.splitlines() if z.startswith('+ source ')),'NOT_OBSERVED'),flush=True)
-          PY
-      - name: Preserve native diagnostic log
+          python -m unittest -v $MODULES 2>&1 | tee "rwf715-$LANE-results.log"
+      - name: Upload source-bound log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rwf715-G8-G11-windows-8ec67ae7
-          path: RWF-715-G8-G11-windows-native.log
-          if-no-files-found: error
+          name: rwf715-${{ matrix.lane.id }}-${{ matrix.os }}-${{ matrix.lane.sha }}
+          path: rwf715-${{ matrix.lane.id }}-results.log
+          if-no-files-found: warn
           retention-days: 30
