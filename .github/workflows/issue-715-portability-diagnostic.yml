@@ -21,11 +21,14 @@ jobs:
             sha: edcb46fbb3a6bbf7bdd0bfe5f4d902bc93d6ad4d
             modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
           - id: P7-G5
-            sha: e834b01889a8cf6452c9419bdfa5ee629dc0c72d
+            sha: cda518716461f89db5f26f7fb54535bca6d6eee3
             modules: tests.test_hosted_version_identity tests.test_hosted_version_utf8
           - id: G11-MIGRATION-CERTIFICATION
-            sha: e834b01889a8cf6452c9419bdfa5ee629dc0c72d
+            sha: cda518716461f89db5f26f7fb54535bca6d6eee3
             modules: tests.test_dependency_migration_certification
+          - id: G9-RENDERER-CERTIFICATION
+            sha: cda518716461f89db5f26f7fb54535bca6d6eee3
+            modules: tests.test_renderer_certification_binding
     steps:
       - uses: actions/checkout@v4
         with:
