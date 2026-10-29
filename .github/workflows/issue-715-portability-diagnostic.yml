@@ -1,4 +1,4 @@
-name: RWF 715 exact-source G7-G8 corrected native three-OS matrix
+name: RWF 715 exact-source P2 corrected native three-OS matrix
 on:
   push:
     branches: [issue-715-residual-leaves-native-v3-20261023]
@@ -16,9 +16,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         lane:
-          - id: G7-G8
-            sha: 8e0fe31f9ca0ef3d5672d45507fc063232db6253
-            modules: tests.test_completion tests.test_test_cli tests.test_red_completion_cli tests.test_test_launcher
+          - id: P2-G3-G10
+            sha: b7cd43a8aba9b96e5c509c3c5dc445ee87d190b4
+            modules: tests.test_workflow_cli tests.test_issue629_selection_acceptance tests.test_issue629_stage_cardinality tests.test_issue629_cli_acceptance tests.test_lane_component_selection_cli tests.test_lane_count
     steps:
       - uses: actions/checkout@v4
         with:
