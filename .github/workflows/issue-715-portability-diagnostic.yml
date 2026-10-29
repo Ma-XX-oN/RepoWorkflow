@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
 jobs:
   focused:
     name: "${{ matrix.lane.id }} / ${{ matrix.os }}"
@@ -49,6 +50,7 @@ jobs:
       - name: Install requirements
         run: python -m pip install -r requirements.txt
       - name: Run focused native suite preserving all outcomes
+        id: suite
         shell: bash
         env:
           MODULES: ${{ matrix.lane.modules }}
@@ -66,3 +68,17 @@ jobs:
           path: rwf715-${{ matrix.lane.id }}-results.log
           if-no-files-found: warn
           retention-days: 30
+      - name: Publish native result to RWF 715
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LANE: ${{ matrix.lane.id }}
+          TARGET_OS: ${{ matrix.os }}
+          SOURCE_SHA: ${{ matrix.lane.sha }}
+          SUITE_OUTCOME: ${{ steps.suite.outcome }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          body="P5 native source-bound result: lane=$LANE os=$TARGET_OS source=$SOURCE_SHA suite=$SUITE_OUTCOME run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect the named artifact and test log before acceptance."
+          gh api "repos/$GH_REPO/issues/715/comments" -f "body=$body"
