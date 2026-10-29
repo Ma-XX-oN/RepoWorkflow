@@ -247,7 +247,7 @@ def run_discovered_cli(base: Path, root: Path, *words: str):
     "RWF_FIXTURE": str(FIXTURE), "RWF_DISCOVERY_BASE": str(base),
   })
   return subprocess.run(
-    [sys.executable, str(wrapper), "--root", str(root), *words],
+    [sys.executable, "-X", "utf8", str(wrapper), "--root", str(root), *words],
     cwd=ROOT, env=env, capture_output=True,
     text=True, encoding="utf-8", errors="strict",
   )
