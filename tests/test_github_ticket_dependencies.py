@@ -19,19 +19,6 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       encoding="utf-8",
     )
     log = root / "log.jsonl"
-    gh = root / ("gh.cmd" if os.name == "nt" else "gh")
-    if os.name == "nt":
-      gh.write_text(
-        f'@echo off\r\n"{sys.executable}" "{root / "fake_gh.py"}" %*\r\n',
-        encoding="utf-8",
-      )
-    else:
-      gh.write_text(
-        f"#!{sys.executable}\n"
-        f"exec(open({str(root / 'fake_gh.py')!r}).read())\n",
-        encoding="utf-8",
-      )
-      gh.chmod(0o755)
     (root / "fake_gh.py").write_text(
       "import json, sys\n"
       f"state_path = {str(state)!r}\n"
@@ -60,13 +47,36 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
       "  raise SystemExit(9)\n",
       encoding="utf-8",
     )
-    return {"PATH": str(root) + os.pathsep + os.environ.get("PATH", "")}, log
+    return self._fake_environment(root), log
+
+  def _fake_environment(self, root: Path) -> dict[str, str]:
+    runner = root / "child_runner.py"
+    runner.write_text(
+      "import os, runpy, subprocess, sys\n"
+      "from unittest.mock import patch\n"
+      "target, *args = sys.argv[1:]\n"
+      "original_run = subprocess.run\n"
+      "def intercept(argv, **kwargs):\n"
+      "  if not isinstance(argv, list) or not argv or argv[0] != 'gh':\n"
+      "    raise AssertionError('unexpected subprocess executable')\n"
+      "  if kwargs != {'capture_output': True}:\n"
+      "    raise AssertionError('unexpected subprocess arguments')\n"
+      "  return original_run([sys.executable, os.environ['RWF_FAKE_GH'], *argv[1:]], capture_output=True)\n"
+      "sys.argv = [target, *args]\n"
+      "with patch('subprocess.run', side_effect=intercept):\n"
+      "  runpy.run_path(target, run_name='__main__')\n",
+      encoding="utf-8",
+    )
+    return {
+      "RWF_FAKE_GH": str(root / "fake_gh.py"),
+      "RWF_CHILD_RUNNER": str(runner),
+    }
 
   def run_adapter(self, env: dict, *args: str):
     merged = dict(os.environ)
     merged.update(env)
     return subprocess.run(
-      [sys.executable, str(ADAPTER), *args],
+      [sys.executable, merged["RWF_CHILD_RUNNER"], str(ADAPTER), *args],
       capture_output=True,
       text=True,
       env=merged,
@@ -152,14 +162,10 @@ class GitHubTicketDependencyAdapterTests(unittest.TestCase):
   def test_provider_failure_is_nonzero(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
-      gh = root / ("gh.cmd" if os.name == "nt" else "gh")
-      if os.name == "nt":
-        gh.write_text("@echo off\r\nexit /b 7\r\n", encoding="utf-8")
-      else:
-        gh.write_text("#!/bin/sh\nexit 7\n", encoding="utf-8")
-        gh.chmod(0o755)
+      env, _ = self.fake_gh(root)
+      (root / "fake_gh.py").write_text("raise SystemExit(7)\n", encoding="utf-8")
       result = self.run_adapter(
-        {"PATH": str(root) + os.pathsep + os.environ.get("PATH", "")},
+        env,
         "dependency", "get", "64",
       )
       self.assertNotEqual(result.returncode, 0)
