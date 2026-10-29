@@ -24,23 +24,26 @@ jobs:
             sha: c0258afe1989511e9bfaf895376a3c1773551704
             modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
           - id: P7-G5
-            sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
             modules: tests.test_hosted_version_identity tests.test_hosted_version_utf8
           - id: G11-MIGRATION-CERTIFICATION
-            sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
             modules: tests.test_dependency_migration_certification
           - id: G9-RENDERER-CERTIFICATION
-            sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
             modules: tests.test_renderer_certification_binding
           - id: P17-G2-LONGPATHS
-            sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
             modules: tests.test_prelim_integration tests.test_prelim_validation
           - id: P15-GIT-LAUNCHER
-            sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
             modules: tests.test_launcher_discovery tests.test_launcher_discovery_utf8
           - id: P12-GIT-PATH-IDENTITY
-            sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
             modules: tests.test_classification tests.test_artifacts
+          - id: P14-STRICT-SUBPROCESS
+            sha: 082e0b5c9ed2d28bbe08b589896f6e85d79c7045
+            modules: tests.test_portability_subprocess tests.test_self_ci tests.test_test_cli
           - id: P1-G1
             sha: 56ae8b624038e13c0695bb323c98d64741d2d319
             modules: tests.test_terminal_tag
