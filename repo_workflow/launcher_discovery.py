@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import os
 import subprocess
+
+from .git import GitError, git_bytes
 
 
 class LauncherDiscoveryError(RuntimeError):
@@ -18,12 +19,13 @@ class RepositoryLauncher:
 
 
 def _run_git(start: Path, *args: str) -> subprocess.CompletedProcess[str]:
-  return subprocess.run(
-    ["git", "-C", os.fspath(start), *args],
-    capture_output=True,
-    text=True,
-    check=False,
-  )
+  try:
+    result = git_bytes(start, *args, check=False)
+    stdout = result.stdout.decode("utf-8", "strict")
+    stderr = result.stderr.decode("utf-8", "strict")
+  except (GitError, UnicodeError) as error:
+    raise LauncherDiscoveryError("invalid Git launcher discovery protocol") from error
+  return subprocess.CompletedProcess(result.args, result.returncode, stdout, stderr)
 
 
 def _repository_root(start: Path) -> Path:
