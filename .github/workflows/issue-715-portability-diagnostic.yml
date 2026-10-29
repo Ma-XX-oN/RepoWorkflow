@@ -15,8 +15,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P11-consumer-repair
-            sha: 31d1d7d8cfeeca8bafd63ce48c86e75a094d21f1
+          - id: P2-P11-assembled
+            sha: c6d993f0b8385bbade40b46e3d361ee80645bff1
             modules: tests.test_provider_adapter_p11 tests.test_github_ticket_dependencies tests.test_repo_info_adapter tests.test_ticket_dependency_adapter
     steps:
       - uses: actions/checkout@v4
