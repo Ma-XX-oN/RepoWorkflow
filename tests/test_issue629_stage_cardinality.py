@@ -8,12 +8,15 @@ No hosted job or protected target is mutated by these tests.
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "rwf"
+CLI = ROOT / ("repo_workflow.py" if sys.platform == "win32" else "rwf")
+CLI_COMMAND = ([sys.executable, str(CLI)] if sys.platform == "win32"
+               else [str(CLI)])
 
 
 class LocalStageCardinalityTests(unittest.TestCase):
@@ -22,8 +25,8 @@ class LocalStageCardinalityTests(unittest.TestCase):
     if not CLI.is_file():
       raise unittest.SkipTest("PENDING #545: public launcher missing")
     help_result = subprocess.run(
-      [str(CLI), "test", "--help"], cwd=ROOT,
-      capture_output=True, text=True, timeout=30, check=False,
+      [*CLI_COMMAND, "test", "--help"], cwd=ROOT,
+      capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=30, check=False,
     )
     if help_result.returncode or "temporary" not in help_result.stdout:
       raise unittest.SkipTest("PENDING #545: unified stages not in candidate")
@@ -44,13 +47,13 @@ class LocalStageCardinalityTests(unittest.TestCase):
   def git(self, *args):
     return subprocess.run(
       ["git", "-C", str(self.root), *args],
-      capture_output=True, text=True, check=True, timeout=30,
+      capture_output=True, text=True, encoding="utf-8", errors="strict", check=True, timeout=30,
     ).stdout.strip()
 
   def cli(self, *args):
     return subprocess.run(
-      [str(CLI), "--root", str(self.root), *args],
-      cwd=ROOT, capture_output=True, text=True, timeout=60, check=False,
+      [*CLI_COMMAND, "--root", str(self.root), *args],
+      cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=60, check=False,
     )
 
   def catalogue(self, names, *, temporary=False):
