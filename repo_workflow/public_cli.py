@@ -374,12 +374,14 @@ def _completed_command_is_terminal(
   return True
 
 
-def _print_completion_items(items, *, describe: bool) -> None:
+def _print_completion_items(items, *, describe: bool, red_listing: bool = False) -> None:
   if describe:
     width = max(len(item.token) for item in items)
     for item in items:
       if item.description is None:
         print(item.token)
+      elif red_listing:
+        print(f"{item.token} - {item.description}")
       else:
         print(f"{item.token:<{width}}  {item.description}")
     return
@@ -412,7 +414,7 @@ def handle_completion(
 
   items = list(response.items)
   if items:
-    _print_completion_items(items, describe=describe)
+    _print_completion_items(items, describe=describe, red_listing=describe and words[:2] == ["test", "RED"])
     return 0
 
   if _completed_command_is_terminal(legal, words):
