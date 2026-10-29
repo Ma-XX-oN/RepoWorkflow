@@ -36,7 +36,10 @@ def working_bash():
     seen.add(candidate)
     try:
       probe = subprocess.run(
-        [candidate, "-c", "printf rwf-bash-ready"],
+        [candidate, "-c",
+         '[[ -n ${BASH_VERSION:-} ]] && '
+         '[[ $(type -t complete) == builtin ]] && '
+         'printf rwf-bash-ready'],
         capture_output=True, encoding="utf-8", errors="strict",
         timeout=8, check=False,
       )
@@ -110,6 +113,23 @@ class BashDiscoveryTests(unittest.TestCase):
         with mock.patch.object(subprocess, "run", side_effect=probe):
           self.assertEqual(working_bash(), str(git_bash))
       self.assertEqual(calls, [str(git_bash)])
+
+  def test_non_bash_printf_shell_is_rejected(self):
+    # printf alone is supported by non-Bash shells such as dash.
+    def non_bash_probe(argv, **kwargs):
+      valid_bash_check = (
+        "BASH_VERSION" in argv[2] and "type -t complete" in argv[2]
+      )
+      return subprocess.CompletedProcess(
+        argv, 1 if valid_bash_check else 0,
+        stdout="" if valid_bash_check else "rwf-bash-ready", stderr="",
+      )
+
+    with mock.patch.object(shutil, "which", side_effect=lambda name: (
+      sys.executable if name == "bash" else None
+    )):
+      with mock.patch.object(subprocess, "run", side_effect=non_bash_probe):
+        self.assertIsNone(working_bash())
 
   def test_wrong_probe_output_is_not_accepted_as_bash(self):
     with mock.patch.object(shutil, "which", side_effect=lambda name: (
