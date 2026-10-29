@@ -57,12 +57,13 @@ jobs:
           source {subprocess.list2cmdline([os.fspath(completion.ROOT / 'completions' / 'repo-workflow.bash')])}
           {body}
           """
-              bp=cmd(['bash','--version'])
+              bp=cmd([shutil.which('bash'),'--version'])
               print('G8_BASH_BINARY',shutil.which('bash'),'VERSION',bp.stdout.strip(),'VERSION_RC',bp.returncode,flush=True)
+              print('G8_BASH_PATH_CHOICES',cmd(['where.exe','bash']).stdout,flush=True)
               print('G8_GENERATED_SCRIPT_BEGIN',flush=True)
               print(script,flush=True)
               print('G8_GENERATED_SCRIPT_END',flush=True)
-              traced=cmd(['bash','-xc',script])
+              traced=cmd([shutil.which('bash'),'-xc',script])
               print('G8_EXIT',traced.returncode,flush=True)
               print('G8_STDOUT_BEGIN\n'+traced.stdout+'\nG8_STDOUT_END',flush=True)
               print('G8_STDERR_BEGIN\n'+traced.stderr+'\nG8_STDERR_END',flush=True)
