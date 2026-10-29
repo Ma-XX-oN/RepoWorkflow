@@ -15,9 +15,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         leaf:
-          - id: P2-P11-assembled
-            sha: c6d993f0b8385bbade40b46e3d361ee80645bff1
-            modules: tests.test_provider_adapter_p11 tests.test_github_ticket_dependencies tests.test_repo_info_adapter tests.test_ticket_dependency_adapter
+          - id: assembled-focused
+            sha: 8ec67ae7827f68383432faf7be4eda5125b0cbf2
+            modules: tests.test_git_protocol_boundary_p10 tests.test_process_boundary_p10 tests.test_config tests.test_dedicated_test_commits tests.test_workspace_worktree tests.test_state_store tests.test_windows_unicode_output_p9 tests.test_canonical_lane_smoke tests.test_local_terminal_jsonl_p16 tests.test_local_terminal tests.test_retry_evidence tests.test_bootstrap_cli tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state tests.test_provider_adapter_p11 tests.test_github_ticket_dependencies tests.test_repo_info_adapter tests.test_ticket_dependency_adapter
+          - id: assembled-full-regression
+            sha: 8ec67ae7827f68383432faf7be4eda5125b0cbf2
+            modules: discover -s tests -p 'test_*.py'
     steps:
       - uses: actions/checkout@v4
         with:
