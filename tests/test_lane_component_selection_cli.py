@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -109,12 +110,23 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
     return env
 
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
-    return subprocess.run(
-      [str(RWF), "--root", str(root), *words],
+    launcher = (
+      [sys.executable, str(ROOT / "repo_workflow.py")]
+      if sys.platform == "win32"
+      else [str(RWF)]
+    )
+    result = subprocess.run(
+      [*launcher, "--root", str(root), *words],
       cwd=root,
       env=env,
       capture_output=True,
-      text=True,
+      check=False,
+    )
+    return subprocess.CompletedProcess(
+      result.args,
+      result.returncode,
+      result.stdout.decode("utf-8", "strict"),
+      result.stderr.decode("utf-8", "strict"),
     )
 
   def dependency_calls(self, env: dict[str, str]) -> list[list[str]]:
