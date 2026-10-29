@@ -8,7 +8,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "rwf"
+LAUNCHER = ROOT / "repo_workflow.py"
 
 
 class SelectionLifecycleAcceptanceTests(unittest.TestCase):
@@ -17,8 +17,8 @@ class SelectionLifecycleAcceptanceTests(unittest.TestCase):
     if not LAUNCHER.exists():
       raise unittest.SkipTest("PENDING #545: ./rwf unavailable")
     result = subprocess.run(
-      [str(LAUNCHER), "test", "--help"],
-      cwd=ROOT, capture_output=True, text=True, timeout=30, check=False,
+      [sys.executable, str(LAUNCHER), "test", "--help"],
+      cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=30, check=False,
     )
     if result.returncode != 0 or "RED" not in result.stdout:
       raise unittest.SkipTest("PENDING #545: unified CLI not in candidate")
@@ -38,13 +38,13 @@ class SelectionLifecycleAcceptanceTests(unittest.TestCase):
   def git(self, *args):
     return subprocess.run(
       ["git", "-C", str(self.root), *args],
-      capture_output=True, text=True, check=True, timeout=30,
+      capture_output=True, text=True, encoding="utf-8", errors="strict", check=True, timeout=30,
     ).stdout.strip()
 
   def cli(self, *args):
     return subprocess.run(
-      [str(LAUNCHER), "--root", str(self.root), *args],
-      cwd=ROOT, capture_output=True, text=True, timeout=30, check=False,
+      [sys.executable, str(LAUNCHER), "--root", str(self.root), *args],
+      cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=30, check=False,
     )
 
   def catalogue(self, names):
