@@ -54,7 +54,7 @@ def bash_path(executable, path: Path) -> str:
     [executable, "-c", "pwd -P"], cwd=location.parent,
     capture_output=True, encoding="utf-8", errors="strict", check=True,
   )
-  return result.stdout.strip() + "/" + location.name
+  return result.stdout.removesuffix("\n") + "/" + location.name
 
 
 class BashDiscoveryTests(unittest.TestCase):
