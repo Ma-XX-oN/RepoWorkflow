@@ -101,9 +101,10 @@ class BashDiscoveryTests(unittest.TestCase):
 
       def probe(argv, **kwargs):
         calls.append(argv[0])
+        is_git_bash = Path(argv[0]).resolve() == git_bash.resolve()
         return subprocess.CompletedProcess(
-          argv, 0 if argv[0] == str(git_bash) else 1,
-          stdout="rwf-bash-ready" if argv[0] == str(git_bash) else "",
+          argv, 0 if is_git_bash else 1,
+          stdout="rwf-bash-ready" if is_git_bash else "",
           stderr="",
         )
 
@@ -111,8 +112,9 @@ class BashDiscoveryTests(unittest.TestCase):
         str(git) if name == "git" else sys.executable
       )):
         with mock.patch.object(subprocess, "run", side_effect=probe):
-          self.assertEqual(working_bash(), str(git_bash))
-      self.assertEqual(calls, [str(git_bash)])
+          self.assertEqual(Path(working_bash()).resolve(), git_bash.resolve())
+      self.assertEqual([Path(p).resolve() for p in calls],
+                       [git_bash.resolve()])
 
   def test_non_bash_printf_shell_is_rejected(self):
     # printf alone is supported by non-Bash shells such as dash.
