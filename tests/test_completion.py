@@ -62,7 +62,7 @@ class BashPathTests(unittest.TestCase):
     with mock.patch.object(subprocess, "run", return_value=(
       subprocess.CompletedProcess(
         ["bash", "-c", "pwd -P"], 0,
-        stdout="/mounted/dir with trailing space \\n", stderr="",
+        stdout="/mounted/dir with trailing space \n", stderr="",
       )
     )):
       self.assertEqual(
