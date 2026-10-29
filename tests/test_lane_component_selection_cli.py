@@ -112,7 +112,7 @@ class LaneComponentSelectionCliTests(unittest.TestCase):
       "original_run = subprocess.run\n"
       "def intercept(argv, **kwargs):\n"
       "  if isinstance(argv, list) and argv and argv[0] == 'gh':\n"
-      "    if kwargs != {'capture_output': True}:\n"
+      "    if kwargs != {'capture_output': True, 'text': True}:\n"
       "      raise AssertionError('unexpected gh invocation options')\n"
       "    return original_run([sys.executable, os.environ['RWF_TEST_FAKE_GH'], *argv[1:]], **kwargs)\n"
       "  return original_run(argv, **kwargs)\n"
