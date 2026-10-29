@@ -12,7 +12,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RWF = ROOT / "rwf"
+RWF = ROOT / "repo_workflow.py"
 
 
 class LaneComponentSelectionCliTests(unittest.TestCase):
