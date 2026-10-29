@@ -21,7 +21,7 @@ jobs:
             sha: edcb46fbb3a6bbf7bdd0bfe5f4d902bc93d6ad4d
             modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
           - id: P4-G7-CONVERGENCE
-            sha: af6dd9a4300599e952ef6b5391483e8b26516bd8
+            sha: c0258afe1989511e9bfaf895376a3c1773551704
             modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
           - id: P7-G5
             sha: 5ee8a89e9a70ebb0d0e0887c8c45c1c95e7a6a87
