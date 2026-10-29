@@ -78,3 +78,41 @@ jobs:
           path: full-regression-results.txt
           if-no-files-found: warn
           retention-days: 14
+
+  portability-focused:
+    name: Portability focused (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Exact assembled portability modules
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v \
+            tests.test_git_protocol_boundary_p10 \
+            tests.test_process_boundary_p10 \
+            tests.test_config \
+            tests.test_retry_evidence \
+            tests.test_windows_unicode_output_p9 \
+            tests.test_local_terminal_jsonl_p16 \
+            tests.test_bootstrap_cli \
+            tests.test_first_use_lanes \
+            tests.test_first_use_lanes_provider \
+            tests.test_first_use_lanes_refresh \
+            tests.test_first_use_lanes_state 2>&1 | tee portability-focused-results.txt
+      - name: Save portability focused results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf699-portability-${{ matrix.os }}-${{ github.sha }}
+          path: portability-focused-results.txt
+          if-no-files-found: warn
+          retention-days: 14
