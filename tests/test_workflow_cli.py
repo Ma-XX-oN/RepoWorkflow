@@ -184,6 +184,26 @@ class WorkflowCliTests(unittest.TestCase):
             f"import os; os.write({descriptor}, bytes([255]))",
           ])
 
+  def test_capture_universal_newlines_preserves_unicode_and_escape_distinction(self):
+    output = (
+      "real → 東京\\r\\n"
+      "literal \\\\u2192\\n"
+      "tail\\r"
+    ).encode("utf-8")
+    completed = capture_utf8([
+      sys.executable,
+      "-c",
+      "import os; os.write(1, " + repr(output) + ")",
+    ])
+    self.assertEqual(completed.returncode, 0, completed.stderr)
+    self.assertEqual(
+      completed.stdout,
+      "real → 東京\\n"
+      "literal \\\\u2192\\n"
+      "tail\\n",
+    )
+    self.assertNotEqual("→", "\\\\u2192")
+
   def test_unknown_command_uses_shared_diagnostic(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
