@@ -120,7 +120,7 @@ def _publish(root: Path, remote: str, ref: str, key: str,
     subject = git(workspace, "log", "-1", "--format=%s").stdout.strip()
     expected = "Durable PRELIM state " + workspace_id
     if subject != expected:
-      git(workspace, "add", "--", relative)
+      git(workspace, "-c", "core.longpaths=true", "add", "--", relative)
       git(workspace, "commit", "-m", expected)
     committed = git(workspace, "rev-parse", "HEAD").stdout.strip()
     expected_payload = json.dumps(record, sort_keys=True, indent=2) + "\n"
