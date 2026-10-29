@@ -63,7 +63,6 @@ class DependencyMigrationToolTests(unittest.TestCase):
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
     subprocess.run(
@@ -76,7 +75,6 @@ class DependencyMigrationToolTests(unittest.TestCase):
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(
       [
@@ -179,7 +177,7 @@ class DependencyMigrationToolTests(unittest.TestCase):
       cwd=root,
       env=env,
       capture_output=True,
-      text=True,
+      text=True, encoding="utf-8", errors="strict",
     )
 
   def state(self, env: dict[str, str]) -> dict:
