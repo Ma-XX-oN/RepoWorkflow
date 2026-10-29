@@ -132,9 +132,55 @@ class StateStoreTests(unittest.TestCase):
     durable = durable_store(repo)
     local = clone_local_store(repo)
 
-    self.assertEqual(durable.root, repo / ".repoworkflow" / "state")
+    self.assertEqual(durable.root, (repo / ".repoworkflow" / "state").resolve())
     self.assertNotEqual(local.root, durable.root)
     self.assertIn("repoworkflow", local.root.parts)
+
+  def test_relative_alias_and_foreign_repository_are_distinct(self):
+    repo = self.root / "repo"
+    foreign = self.root / "foreign"
+    for root in (repo, foreign):
+      root.mkdir()
+      subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+
+    alias = repo / ".." / "repo"
+    canonical = durable_store(repo)
+    aliased = durable_store(alias)
+    other = durable_store(foreign)
+    self.assertEqual(aliased.root, canonical.root)
+    self.assertNotEqual(other.root, canonical.root)
+    self.assertNotEqual(clone_local_store(alias).root, canonical.root)
+
+    canonical.create("marker", {"repository": "repo"}, self.writer)
+    self.assertEqual(aliased.read("marker"), canonical.read("marker"))
+    with self.assertRaisesRegex(StateStoreError, "record is missing"):
+      other.read("marker")
+
+  def test_symlinked_root_alias_and_external_record_are_safe(self):
+    repo = self.root / "real"
+    repo.mkdir()
+    alias = self.root / "alias"
+    try:
+      alias.symlink_to(repo, target_is_directory=True)
+    except OSError as error:
+      if isinstance(error, PermissionError) or getattr(error, "winerror", None) == 1314:
+        self.skipTest("directory symlink permission unavailable")
+      raise
+
+    canonical = durable_store(repo)
+    aliased = durable_store(alias)
+    self.assertEqual(aliased.root, canonical.root)
+    canonical.create("safe", {"origin": "real"}, self.writer)
+    self.assertEqual(aliased.read("safe"), canonical.read("safe"))
+
+    outside = self.root / "outside.json"
+    outside.write_text("untouched", encoding="utf-8")
+    escape = canonical.root / "escape.json"
+    escape.parent.mkdir(parents=True, exist_ok=True)
+    escape.symlink_to(outside)
+    with self.assertRaisesRegex(StateStoreError, "record key escapes store"):
+      aliased.create("escape", {}, self.writer)
+    self.assertEqual(outside.read_text(encoding="utf-8"), "untouched")
 
   def test_key_cannot_escape_store(self):
     for key in ("../outside", "/absolute", "a/../b", "A"):
