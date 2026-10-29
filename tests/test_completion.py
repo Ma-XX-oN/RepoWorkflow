@@ -57,6 +57,20 @@ def bash_path(executable, path: Path) -> str:
   return result.stdout.removesuffix("\n") + "/" + location.name
 
 
+class BashPathTests(unittest.TestCase):
+  def test_pwd_keeps_trailing_whitespace_in_directory_name(self):
+    with mock.patch.object(subprocess, "run", return_value=(
+      subprocess.CompletedProcess(
+        ["bash", "-c", "pwd -P"], 0,
+        stdout="/mounted/dir with trailing space \\n", stderr="",
+      )
+    )):
+      self.assertEqual(
+        bash_path("bash", Path("script.bash")),
+        "/mounted/dir with trailing space /script.bash",
+      )
+
+
 class BashDiscoveryTests(unittest.TestCase):
   def test_failing_wsl_like_stub_is_not_accepted_as_bash(self):
     # A shim on PATH is not a shell capability merely because it exists.
