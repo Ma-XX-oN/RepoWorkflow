@@ -32,6 +32,9 @@ jobs:
           - id: G9-RENDERER-CERTIFICATION
             sha: cda518716461f89db5f26f7fb54535bca6d6eee3
             modules: tests.test_renderer_certification_binding
+          - id: P1-G1
+            sha: 56ae8b624038e13c0695bb323c98d64741d2d319
+            modules: tests.test_terminal_tag
     steps:
       - uses: actions/checkout@v4
         with:
