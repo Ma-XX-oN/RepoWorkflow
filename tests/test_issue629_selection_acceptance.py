@@ -9,7 +9,9 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "repo_workflow.py"
+LAUNCHER = ROOT / ("repo_workflow.py" if sys.platform == "win32" else "rwf")
+LAUNCHER_COMMAND = ([sys.executable, str(LAUNCHER)] if sys.platform == "win32"
+                    else [str(LAUNCHER)])
 
 
 class SelectionLifecycleAcceptanceTests(unittest.TestCase):
@@ -18,7 +20,7 @@ class SelectionLifecycleAcceptanceTests(unittest.TestCase):
     if not LAUNCHER.exists():
       raise unittest.SkipTest("PENDING #545: ./rwf unavailable")
     result = subprocess.run(
-      [sys.executable, str(LAUNCHER), "test", "--help"],
+      [*LAUNCHER_COMMAND, "test", "--help"],
       cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=30, check=False,
     )
     if result.returncode != 0 or "RED" not in result.stdout:
@@ -44,7 +46,7 @@ class SelectionLifecycleAcceptanceTests(unittest.TestCase):
 
   def cli(self, *args):
     return subprocess.run(
-      [sys.executable, str(LAUNCHER), "--root", str(self.root), *args],
+      [*LAUNCHER_COMMAND, "--root", str(self.root), *args],
       cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="strict", timeout=30, check=False,
     )
 
