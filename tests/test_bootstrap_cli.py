@@ -61,7 +61,7 @@ class BootstrapCliTests(unittest.TestCase):
     if env is not None and "RWF_TEST_FIXTURE_BASE" in env:
       verify_provider(root, env)
     return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(root), *args],
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *args],
       capture_output=True,
       text=True,
       env=env, encoding="utf-8", errors="strict",
