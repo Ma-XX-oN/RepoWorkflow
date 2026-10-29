@@ -20,6 +20,9 @@ jobs:
           - id: P4-G4-G6
             sha: edcb46fbb3a6bbf7bdd0bfe5f4d902bc93d6ad4d
             modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
+          - id: P4-G7-CONVERGENCE
+            sha: af6dd9a4300599e952ef6b5391483e8b26516bd8
+            modules: tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
           - id: P7-G5
             sha: cda518716461f89db5f26f7fb54535bca6d6eee3
             modules: tests.test_hosted_version_identity tests.test_hosted_version_utf8
