@@ -156,12 +156,24 @@ owner of integrating its predecessor's final accepted result and carrying its
 **own ticket** to verified DONE. The dotted arrow is not a new relationship,
 a provisional shortcut, or evidence of completed integration.
 
-Once the predecessor reaches DONE, display that unchanged dependency with a
-solid `-->` arrow. The downstream ticket must still integrate and verify the
-accepted predecessor revision before it can become DONE; descendants must not
-treat it as completed merely because the arrow became solid. Other verified
-direct dependencies are solid. Never draw an unverified relationship to
-explain an assumed handoff.
+**Non-umbrella tickets have uniform incoming arrow styles.** When a
+non-umbrella downstream ticket is executing authorised speculative work while
+any of its direct prerequisites is unfinished, show **every incoming direct
+dependency** as dotted `-.->`, including edges from prerequisites that have
+already reached DONE. This is a ticket-level speculative integration state,
+not a separate per-edge assertion that each predecessor is unfinished. Once
+**all** direct prerequisites reach DONE, show **all** incoming edges as solid
+`-->`. The downstream owner must still integrate the accepted inputs and
+verify its own DONE before further ordinary dependants advance.
+
+An **umbrella** may display a mixture of dotted and solid arrows **only** as
+a projection of dependencies belonging to different constituent sub-tickets.
+A mixed umbrella is not a single leaf ticket with mixed execution state.
+Preserve which sub-ticket each projected edge represents; expand the umbrella
+into its sub-tickets if the mixture would be ambiguous. Umbrella presentation
+does not manufacture executable edges or confer eligibility.
+
+Never draw an unverified relationship to explain an assumed handoff.
 
 This is a presentation convention only. No edge is added, removed, reversed,
 or weakened in the canonical graph. The normative integration responsibility
