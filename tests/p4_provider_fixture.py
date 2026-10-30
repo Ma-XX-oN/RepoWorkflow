@@ -179,7 +179,82 @@ def _route(kind, base, args):
   raise ValueError(f"unexpected provider arguments: {kind} {args!r}")
 
 
+def _discovered_info(base: Path, argv: list[str]) -> int:
+  """Run the REAL default adapter; replace only its external GitHub call."""
+  import importlib.util
+  path = ROOT / "adapters" / "repo-info-github.py"
+  spec = importlib.util.spec_from_file_location("p4_real_default_adapter", path)
+  adapter = importlib.util.module_from_spec(spec)
+  spec.loader.exec_module(adapter)
+  def fake_gh(repository, *args):
+    if repository != REPO:
+      raise RuntimeError("wrong discovered repository")
+    with (base / "discovered-calls.jsonl").open("a", encoding="utf-8") as log:
+      log.write(json.dumps(args) + "\n")
+    meta = _read(base / "discovered-metadata.json")
+    if args == ("issue", "list", "--state", "open", "--limit",
+                "1000", "--json", "number,title"):
+      return json.dumps([
+        {"number": int(n), "title": item["title"]}
+        for n, item in sorted(meta.items(), key=lambda p: int(p[0]))
+        if item["state"] == "OPEN"
+      ])
+    if (len(args) == 5 and args[:2] == ("issue", "view")
+        and args[3:] == ("--json", "number,title,state,url")):
+      issue = args[2]
+      if issue not in meta:
+        raise RuntimeError("unexpected default provider issue")
+      item = meta[issue]
+      return json.dumps({
+        "number": int(issue), "title": item["title"],
+        "state": item["state"], "url": item["url"],
+      })
+    raise RuntimeError("unexpected discovered provider command")
+  adapter.gh = fake_gh
+  return adapter.main(argv)
+
+
+def run_discovered_cli(base: Path, root: Path, *words: str):
+  """Run actual public CLI with default discovery and a narrow provider seam."""
+  wrapper = base / "discovered-cli.py"
+  wrapper.write_text(
+    "import os,sys,runpy\n"
+    "from pathlib import Path\n"
+    "sys.path.insert(0,os.environ['RWF_SOURCE_ROOT'])\n"
+    "import repo_workflow.repo_info_adapter as ria\n"
+    "original=ria.run_command\n"
+    "def bounded(command, root):\n"
+    "  if command and Path(command[0]).name.lower() in ('gh','gh.exe'):\n"
+    "    raise RuntimeError('direct gh invocation forbidden')\n"
+    "  if len(command)>1 and Path(command[1]).name=='repo-info-github.py':\n"
+    "    if Path(command[1]).resolve()!=Path(os.environ['RWF_DEFAULT_ADAPTER']):\n"
+    "      raise RuntimeError('wrong discovered adapter')\n"
+    "    return original([sys.executable,os.environ['RWF_FIXTURE'],"
+    "'discovered-info',os.environ['RWF_DISCOVERY_BASE'],*command[2:]],root)\n"
+    "  return original(command,root)\n"
+    "ria.run_command=bounded\n"
+    "sys.argv=[os.environ['RWF_PUBLIC_CLI'],*sys.argv[1:]]\n"
+    "runpy.run_path(os.environ['RWF_PUBLIC_CLI'],run_name='__main__')\n",
+    encoding="utf-8",
+  )
+  env = dict(os.environ)
+  for key in ("GH_TOKEN", "GITHUB_TOKEN"):
+    env.pop(key, None)
+  env.update({
+    "RWF_SOURCE_ROOT": str(ROOT), "RWF_PUBLIC_CLI": str(CLI),
+    "RWF_DEFAULT_ADAPTER": str(ROOT / "adapters" / "repo-info-github.py"),
+    "RWF_FIXTURE": str(FIXTURE), "RWF_DISCOVERY_BASE": str(base),
+  })
+  return subprocess.run(
+    [sys.executable, "-X", "utf8", str(wrapper), "--root", str(root), *words],
+    cwd=ROOT, env=env, capture_output=True,
+    text=True, encoding="utf-8", errors="strict",
+  )
+
+
 def main(argv):
+  if len(argv) >= 3 and argv[0] == "discovered-info":
+    return _discovered_info(Path(argv[1]), argv[2:])
   if len(argv) < 2 or argv[0] not in {"info", "dependency"}:
     print("unexpected provider arguments", file=sys.stderr)
     return 2
@@ -280,7 +355,7 @@ class FirstUseFixture:
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
     verify_provider(root, env)
     return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(root), *words],
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *words],
       cwd=root,
       env=env,
       capture_output=True,
