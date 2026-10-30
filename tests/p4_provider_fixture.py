@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "repo_workflow.py"
@@ -352,10 +353,15 @@ class FirstUseFixture:
       check=True, capture_output=True,
     )
     # Materialize the real platform checkout (including CRLF/filters).
-    subprocess.run(
-      ["git", "-C", str(root), "checkout-index", "--force", "--", relative],
-      check=True, capture_output=True,
-    )
+    # checkout-index into the existing worktree may leave a same-index LF
+    # file untouched, so use an empty prefix as Git's checkout boundary.
+    with tempfile.TemporaryDirectory(prefix="fixture-migration-checkout-") as td:
+      subprocess.run(
+        ["git", "-C", str(root), "checkout-index", "--force",
+         "--prefix=" + td + os.sep, "--", relative],
+        check=True, capture_output=True,
+      )
+      shutil.copyfile(Path(td) / relative, target)
     raw = subprocess.run(
       ["git", "-C", str(root), "show", "HEAD:" + relative],
       check=True, capture_output=True,
