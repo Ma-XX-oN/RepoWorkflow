@@ -7,20 +7,24 @@ skipped, never represented as successful provider/assembled certification.
 import os
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "rwf"
+LAUNCHER = ROOT / ("repo_workflow.py" if sys.platform == "win32" else "rwf")
+LAUNCHER_COMMAND = ([sys.executable, str(LAUNCHER)] if sys.platform == "win32"
+                    else [str(LAUNCHER)])
 STAGES = ("RED", "temporary", "GREEN", "regression", "integration", "results")
 
 
 def run_cli(*args):
   return subprocess.run(
-    [str(LAUNCHER), *args],
+    [*LAUNCHER_COMMAND, *args],
     cwd=ROOT,
     capture_output=True,
     text=True,
+    encoding="utf-8", errors="strict",
     timeout=30,
     env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     check=False,
