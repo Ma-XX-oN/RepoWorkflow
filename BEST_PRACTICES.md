@@ -74,4 +74,34 @@ State **I don't know** when evidence is absent. Do not call a documented recomme
 
 This is the general engineering entry point for AI coding agents and humans examining RWF. Read it at task intake, then follow the linked authoritative specialist documents. Consumer projects should link to this document at their pinned RWF revision when applying its guidance; they retain their own more specific requirements. New guidance belongs here only if it is broadly applicable, while domain-specific contracts retain one authoritative home.
 
+## 8. Durable issue checkpoints and context recovery
+
+GitHub issues are the durable record for ongoing engineering work, not merely
+messages to other agents. Maintain each active issue so that a new engineer or
+AI agent with **zero prior conversation context** can resume accurately.
+
+- Record the original objective and every remaining acceptance criterion, not
+  just the most recent subtask or latest test result.
+- Identify repository, branch, PR, exact source/target SHAs, configuration,
+  assigned ownership, approvals and prohibited actions.
+- Distinguish completed changes and their exact evidence from partial tests,
+  historical runs, fixture evidence, skipped checks, failures and unknowns.
+- Record root-cause findings, decisions, rejected approaches, integration
+  conflicts, unresolved dependencies and responsible owners.
+- Maintain a clear PASS / FAIL / INCOMPLETE / DEFERRED ledger and the **next
+  executable authorized action**. State any genuine blocker precisely.
+- Update the issue after material source changes, tests, defects, decisions,
+  ownership or integration transitions, and **before ending an execution
+  window**. A chat status message or a commit alone is not a checkpoint.
+- Read and reconcile the issue's latest authoritative checkpoint before work
+  resumes; never assume stale notes or a different agent's result proves
+  current acceptance. Avoid duplicate reports and do not alter ownership merely
+  because another agent supplied a checkpoint.
+
+This policy applies even when the **same agent** continues the work. A
+checkpoint is successful only when a context-free reader can distinguish the
+original mission, verified progress, unfinished work and immediate next step.
+Keep tickets current without creating new automation gates or claiming that
+written documentation alone guarantees compliance.
+
 **Core principle:** Verify first. Prefer the simplest supported, portable, contract-preserving fix. Prove behavior on the actual target platforms and exact revision. Never mask missing evidence as success.
