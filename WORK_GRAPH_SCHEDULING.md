@@ -108,6 +108,37 @@ independent deliverable that can truly reach DONE without its successor or
 predecessor, model it as an ordinary separate ticket and direct dependency
 instead of calling it speculative completion.
 
+### Speculative downstream integration ownership and DONE handoff
+
+The **speculative downstream ticket is the integrator for its upstream
+prerequisite's final accepted output** within the downstream ticket's assigned
+scope. Its worker owns the follow-through to **downstream DONE**, not merely
+early implementation or an upstream handoff. The upstream owner remains
+responsible for its own ticket's acceptance and source; this rule does not
+transfer upstream file ownership.
+
+The downstream integrator MUST:
+
+1. Record the exact upstream interface/revision used for speculative work and
+   maintain a durable integration plan, acceptance ledger and outstanding risks.
+2. On upstream DONE, consume the **actual accepted artifact/revision**, reconcile
+   any changed interface, and integrate it into the downstream-owned candidate
+   under existing claim, security and approval boundaries.
+3. Resolve integration defects within downstream ownership; return upstream
+   defects to the upstream owner rather than editing foreign-owned source.
+4. Re-run the downstream ticket's original acceptance criteria and applicable
+   regression/integration verification on the **exact integrated revision**.
+5. Publish the integrated revision, evidence, remaining obligations and genuine
+   DONE handoff in the downstream ticket's durable checkpoint.
+
+**No downstream DONE without integration.** Upstream DONE alone never
+automatically marks the speculative ticket DONE. The speculative integrator
+remains responsible until its own integration and acceptance are verified.
+Tickets depending on it must remain blocked for ordinary executable readiness
+until this downstream ticket itself reaches DONE. Speculative preparation by
+further descendants follows the same rules independently; it is never a
+substitute for the immediate integrator's verified DONE.
+
 ## 13.5 Standing authority for reviewed child-to-parent assembly
 
 A verified, exclusively assigned **parent-integration owner** has standing
