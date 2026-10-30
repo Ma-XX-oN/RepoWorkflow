@@ -1,0 +1,65 @@
+name: RWF 699 P4 convergence native three-OS
+on:
+  push:
+    branches: [issue-715-residual-leaves-native-v3-20261023]
+    paths: [.github/workflows/issue-699-p4-convergence-native.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  p4:
+    name: "699 P4 convergence / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f976d63835f9281a06b1d68cf43a888b3ae3e77f
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact integrated candidate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import subprocess, platform
+          expected='f976d63835f9281a06b1d68cf43a888b3ae3e77f'
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_SOURCE_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),flush=True)
+          assert actual==expected
+          PY
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Syntax of changed suites and fixture
+        run: python -m py_compile tests/p4_provider_fixture.py tests/test_bootstrap_cli.py tests/test_dependency_migration_tool.py
+      - name: Run P4 integrated and first-use retained contracts
+        id: suite
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state 2>&1 | tee rwf699-p4-native-results.log
+      - name: Preserve source-bound output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf699-p4-${{ matrix.os }}-f976d638
+          path: rwf699-p4-native-results.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Report result to controller
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OS: ${{ matrix.os }}
+          OUTCOME: ${{ steps.suite.outcome }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          body="RWF #699 P4 converged native result at f976d63835f9281a06b1d68cf43a888b3ae3e77f os=$OS outcome=$OUTCOME run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Read job logs for acceptance."
+          gh api "repos/$GH_REPO/issues/699/comments" -f "body=$body"
