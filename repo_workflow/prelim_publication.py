@@ -47,7 +47,7 @@ def _remote_record(root: Path, remote: str, ref: str, key: str):
     raise PrelimPublicationError("published state object unavailable")
   relative = ".repoworkflow/state/" + key + ".json"
   try:
-    record = json.loads(git(root, "show", target + ":" + relative).stdout)
+    record = json.loads(git(root, "-c", "core.longpaths=true", "show", target + ":" + relative).stdout)
     _validate_record(record, key)
   except (ValueError, TypeError, KeyError, StateStoreError, GitError) as error:
     raise PrelimPublicationError("published PRELIM state is malformed") from error
@@ -89,7 +89,7 @@ def _publish(root: Path, remote: str, ref: str, key: str,
       original = git(root, "rev-parse", "--verify", ref).stdout.strip()
       relative = ".repoworkflow/state/" + key + ".json"
       try:
-        saved = json.loads(git(root, "show", original + ":" + relative).stdout)
+        saved = json.loads(git(root, "-c", "core.longpaths=true", "show", original + ":" + relative).stdout)
       except (ValueError, GitError) as error:
         raise PrelimPublicationError("local PRELIM identity ref is invalid") from error
       if saved != record:
@@ -124,7 +124,7 @@ def _publish(root: Path, remote: str, ref: str, key: str,
       git(workspace, "commit", "-m", expected)
     committed = git(workspace, "rev-parse", "HEAD").stdout.strip()
     expected_payload = json.dumps(record, sort_keys=True, indent=2) + "\n"
-    if git(workspace, "show", committed + ":" + relative).stdout != expected_payload:
+    if git(workspace, "-c", "core.longpaths=true", "show", committed + ":" + relative).stdout != expected_payload:
       raise PrelimPublicationError("committed PRELIM state payload differs")
     local = git(root, "show-ref", "--verify", ref, check=False)
     if local.returncode:
