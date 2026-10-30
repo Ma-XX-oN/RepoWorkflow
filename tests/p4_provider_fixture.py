@@ -253,6 +253,8 @@ def run_discovered_cli(base: Path, root: Path, *words: str):
 
 
 def main(argv):
+  if len(argv) >= 3 and argv[0] == "discovered-info":
+    return _discovered_info(Path(argv[1]), argv[2:])
   if len(argv) < 2 or argv[0] not in {"info", "dependency"}:
     print("unexpected provider arguments", file=sys.stderr)
     return 2
