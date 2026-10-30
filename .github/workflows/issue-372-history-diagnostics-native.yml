@@ -1,0 +1,65 @@
+name: RWF 372 historical diagnostics no-loss native
+on:
+  push:
+    branches: [issue-715-residual-leaves-native-v3-20261023]
+    paths: [.github/workflows/issue-372-history-diagnostics-native.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  diagnostics:
+    name: "372 diagnostics / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e95e011ebcedc35d312915acbc1a50e775383b0c
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Check exact source
+        shell: bash
+        run: |
+          python - <<'PY'
+          import platform, subprocess
+          expected='e95e011ebcedc35d312915acbc1a50e775383b0c'
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_SOURCE_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),flush=True)
+          assert actual==expected
+          PY
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Parse changed tests
+        run: python -m py_compile tests/test_lane_diagnostics.py tests/test_first_use_lanes.py
+      - name: Run actual no-loss suites
+        id: suite
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_lane_diagnostics tests.test_first_use_lanes 2>&1 | tee rwf372-native-results.log
+      - name: Preserve results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf372-${{ matrix.os }}-e95e011
+          path: rwf372-native-results.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Report native results
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OS: ${{ matrix.os }}
+          OUTCOME: ${{ steps.suite.outcome }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          body="RWF #372 no-loss native diagnostics at e95e011ebcedc35d312915acbc1a50e775383b0c os=$OS outcome=$OUTCOME run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect logs before acceptance."
+          gh api "repos/$GH_REPO/issues/699/comments" -f "body=$body"
