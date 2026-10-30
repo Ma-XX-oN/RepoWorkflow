@@ -119,6 +119,34 @@ class ManualIntegrationResultTests(unittest.TestCase):
     assert require_manual_completion(root, 701, sha, cases=cases) == tuple(sorted(c.name for c in cases))
 
 
+  def test_first_manual_case_pass_second_fail_denies_same_candidate(self):
+    root, sha, cases = self._fixture
+    _selected(root, sha, cases, 0)
+    passed = _record(root, sha, cases)
+    self.assertEqual(passed.result, "succeeded")
+    self.assertEqual(passed.case, cases[0].name)
+
+    _selected(root, sha, cases, 1)
+    def handoff(*args):
+      return FailureHandoff("active", False, "1.2.3-issue.701.2.8",
+                            "1.2.3-issue.701.3.0", "repair-team")
+    failed = _record(root, sha, cases, "failed", on_failure=handoff)
+    self.assertEqual(failed.result, "failed")
+    self.assertEqual(failed.case, cases[1].name)
+
+    events = [
+      json.loads(line)
+      for line in _log(root).read_text(encoding="utf-8").splitlines()
+    ]
+    self.assertEqual(len(events), 2)
+    self.assertEqual([event["case"] for event in events],
+                     [cases[0].name, cases[1].name])
+    with self.assertRaisesRegex(ManualResultError, "MIT FAIL"):
+      require_manual_completion(root, 701, sha, cases=cases)
+    with self.assertRaisesRegex(ManualSelectionError, "failed candidate"):
+      _selected(root, sha, cases, 0)
+
+
   def test_double_active_selection_rejected_no_mutation(self):
     root, sha, cases = self._fixture
     _selected(root, sha, cases)
