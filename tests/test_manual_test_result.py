@@ -139,7 +139,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
       for line in _log(root).read_text(encoding="utf-8").splitlines()
     ]
     self.assertEqual(len(events), 2)
-    self.assertEqual([event["case"] for event in events],
+    self.assertEqual([event["manualCase"] for event in events],
                      [cases[0].name, cases[1].name])
     with self.assertRaisesRegex(ManualResultError, "MIT FAIL"):
       require_manual_completion(root, 701, sha, cases=cases)
