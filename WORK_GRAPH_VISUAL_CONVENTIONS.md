@@ -180,6 +180,34 @@ or weakened in the canonical graph. The normative integration responsibility
 and DONE gating are defined by
 [WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md).
 
+## Default completed-umbrella collapse
+
+The default human-facing PG is a **space-saving projection**. When an
+umbrella's full, authoritative constituent sub-ticket set is known and
+**every constituent ticket is verified DONE**, display the umbrella as one
+collapsed node and omit those completed constituents from the default view.
+The umbrella itself must meet its own acceptance requirements before being
+shown as `♥ Done`; completed children alone do not prove umbrella DONE.
+
+- Retain all external dependency paths entering or leaving the hidden
+  sub-tickets by projecting their boundary connections through the umbrella.
+  Deduplicate identical projected connections, preserve direction, and do
+  not turn presentation edges into new canonical dependencies.
+- Preserve the originating sub-ticket identity in the accessible edge
+  description or expanded detail. Never infer membership solely from graph
+  proximity, an issue title, or connected-component structure.
+- Do not collapse when constituent membership is incomplete, any child is
+  unfinished or unverified, or collapsing would conceal unresolved
+  acceptance, disputed ownership, or an ambiguous dependency relationship.
+- Allow an explicit expanded/detail view showing the real constituent tickets
+  and their canonical edges; collapse must not erase any underlying evidence.
+- Apply the same rule recursively to nested umbrellas only when their
+  respective complete descendant sets and acceptance are verified.
+
+This is solely the **default PG presentation**. It does not mutate
+`.repoworkflow/tickets.csv`, alter scheduling readiness, fabricate DONE, or
+change the six-state LG / terminal lane graph.
+
 ## Evidence and accessibility
 
 - State whether colours reflect a freshly verified canonical ticket snapshot,
