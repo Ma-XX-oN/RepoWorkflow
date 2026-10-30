@@ -101,7 +101,7 @@ class FirstUseStateTests(FirstUseFixture, unittest.TestCase):
       selected = self.run_rwf(root, env, "lanes", "select", "206", "--json")
       self.assertEqual(selected.returncode, 2)
       self.assertIn(
-        "native ticket dependency migration is not certified",
+        "uncommitted migration manifest is not certified",
         selected.stderr,
       )
       self.assertNotIn("Traceback", selected.stderr)
