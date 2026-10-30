@@ -1,0 +1,51 @@
+name: RWF 703 current GREEN oracle native 3OS
+on:
+  push:
+    branches: [issue-715-residual-leaves-native-v3-20261023]
+    paths: [.github/workflows/issue-703-positive-contract-native.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  positive:
+    name: "703 contract / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3ba4e64c5bff1191b1202325ba4fb045422532c9
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact source
+        shell: bash
+        run: |
+          python - <<'PY'
+          import platform, subprocess
+          expected='3ba4e64c5bff1191b1202325ba4fb045422532c9'
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('TESTED_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),flush=True)
+          assert actual==expected
+          PY
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Parse changed test module
+        run: python -m py_compile tests/test_manual_test_result.py
+      - name: Run version PASS/FAIL ordering and negative oracle
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_manual_mit_version_contract tests.test_manual_mit_negative_acceptance tests.test_manual_test_result 2>&1 | tee rwf703-native.log
+      - name: Retain exact-source native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf703-native-${{ matrix.os }}-3ba4e64c
+          path: rwf703-native.log
+          if-no-files-found: warn
+          retention-days: 30
