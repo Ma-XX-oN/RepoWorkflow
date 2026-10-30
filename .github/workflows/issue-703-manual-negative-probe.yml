@@ -4,6 +4,11 @@ on:
     branches:
       - 'issue-703-mit-negative-*'
   workflow_dispatch:
+    inputs:
+      target_sha:
+        description: 'Approved exact assembled #699 source commit SHA'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +22,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact source binding
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.target_sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_TESTED_SHA='+actual, 'EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -36,32 +55,49 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  version-contract-known-red:
-    runs-on: ubuntu-latest
+  version-contract-green:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact source binding
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.target_sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_TESTED_SHA='+actual, 'EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Exercise three explicit unfulfilled Q+1/R=0 contracts
+      - name: Assert actual tested source identity
         shell: bash
         run: |
-          set -euo pipefail
-          set +e
-          python -m unittest tests.test_manual_mit_version_contract -v > version-red.txt 2>&1
-          outcome=$?
-          set -e
-          cat version-red.txt
-          test "$outcome" -ne 0
-          grep -F 'test_development_version_parser_accepts_r_zero' version-red.txt
-          grep -F 'test_version_adapter_accepts_required_failure_transition' version-red.txt
-          grep -F 'test_real_engine_failure_transition_resets_iteration_to_zero' version-red.txt
-          grep -F 'FAILED (failures=3)' version-red.txt
-      - name: Archive explicit RED contract evidence
+          python - <<'PY'
+          import platform, subprocess
+          actual = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('TESTED_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),flush=True)
+          PY
+      - name: Require all three Q+1/R=0 version contracts GREEN
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest tests.test_manual_mit_version_contract -v 2>&1 | tee version-contract-green.txt
+      - name: Archive actual version-contract evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rwf-703-known-red-version-${{ github.sha }}
-          path: version-red.txt
+          name: rwf-703-version-contract-${{ matrix.os }}-${{ github.sha }}
+          path: version-contract-green.txt
           if-no-files-found: warn
           retention-days: 14
