@@ -4,6 +4,11 @@ on:
     branches:
       - 'issue-703-mit-negative-*'
   workflow_dispatch:
+    inputs:
+      target_sha:
+        description: 'Approved exact assembled #699 source commit SHA'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +22,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact source binding
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.target_sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_TESTED_SHA='+actual, 'EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -44,6 +63,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact source binding
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.target_sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_TESTED_SHA='+actual, 'EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
