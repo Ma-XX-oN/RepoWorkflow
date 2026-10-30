@@ -56,6 +56,12 @@ Portable code provides the **same specified behavior** across the supported envi
 - Preserve genuine failure, timeout, incomplete, unknown and rollback distinctions, including provenance and readback.
 - Respect protected branches, provider authority, approval gates and explicit release boundaries.
 
+- A downstream ticket executing speculatively owns integration of the
+  upstream accepted result into its own work, exact-revision retesting, and
+  the evidence-based DONE handoff. Its dependants are not unblocked by
+  preparatory progress or upstream DONE alone. Follow the authoritative
+  [work scheduling contract](WORK_GRAPH_SCHEDULING.md).
+
 ## 6. Evidence-based review and completion
 
 Before declaring work complete, answer:
