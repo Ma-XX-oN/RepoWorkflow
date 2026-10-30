@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import subprocess
+import tempfile
+
+from .process import native_argument
 
 
 class GitError(RuntimeError):
@@ -16,26 +20,54 @@ class RepositoryState:
   refs: dict[str, str]
 
 
-def git(
-  root: Path,
-  *args: str,
-  check: bool = True,
-  capture: bool = True,
-) -> subprocess.CompletedProcess[str]:
+def git_bytes(
+  root: Path, *args: str, check: bool = True, capture: bool = True,
+) -> subprocess.CompletedProcess[bytes]:
   try:
+    native_args = [native_argument(arg) for arg in args]
     completed = subprocess.run(
-      ["git", *args],
-      cwd=root,
-      text=True,
-      capture_output=capture,
-      check=False,
+      ["git", *native_args], cwd=native_argument(str(root)), capture_output=capture, check=False,
     )
-  except OSError as exc:
+  except (OSError, UnicodeError) as exc:
     raise GitError(f"cannot execute git: {exc}") from exc
   if check and completed.returncode:
-    detail = (completed.stderr or completed.stdout or "git command failed").strip()
-    raise GitError(f"git {' '.join(args)}: {detail}")
-  return completed
+    detail = (completed.stderr or completed.stdout or b"git command failed")
+    try:
+      diagnostic = detail.decode("utf-8", "strict").strip()
+    except UnicodeDecodeError as exc:
+      raise GitError("invalid UTF-8 Git error diagnostic") from exc
+    raise GitError(f"git {' '.join(args)}: {diagnostic}")
+  return subprocess.CompletedProcess(["git", *args], completed.returncode, completed.stdout, completed.stderr)
+
+
+def git(
+  root: Path, *args: str, check: bool = True, capture: bool = True,
+) -> subprocess.CompletedProcess[str]:
+  completed = git_bytes(root, *args, check=check, capture=capture)
+  try:
+    stdout = completed.stdout.decode("utf-8", "strict") if completed.stdout is not None else None
+    stderr = completed.stderr.decode("utf-8", "strict") if completed.stderr is not None else None
+  except UnicodeDecodeError as exc:
+    raise GitError(f"git {' '.join(args)}: invalid UTF-8 protocol output: {exc}") from exc
+  return subprocess.CompletedProcess(completed.args, completed.returncode, stdout, stderr)
+
+
+def git_wire_path(raw: bytes) -> str:
+  if not raw or b"\0" in raw:
+    raise GitError("empty or NUL-containing Git path")
+  try:
+    path = raw.decode("utf-8", "strict")
+  except UnicodeDecodeError as exc:
+    raise GitError("invalid UTF-8 Git path") from exc
+  if path.startswith("/") or any(part in ("", ".", "..") for part in path.split("/")):
+    raise GitError("non-relative or ambiguous Git path")
+  if "\x00" in path or (os.name == "nt" and ("\\" in path or ":" in path)):
+    raise GitError("Git path cannot be represented as a native path")
+  return path
+
+
+def git_native_path(raw: bytes) -> Path:
+  return Path(*(os.fsdecode(part.encode("utf-8")) for part in git_wire_path(raw).split("/")))
 
 
 def head_sha(root: Path) -> str:
@@ -55,38 +87,95 @@ def head_reference(root: Path) -> str | None:
 
 
 def changed_files(root: Path) -> list[str]:
-  completed = git(
-    root,
-    "status",
-    "--porcelain=v1",
-    "--untracked-files=all",
-    "-z",
-  )
-  values: list[str] = []
-  parts = completed.stdout.split("\0")
+  raw = git_bytes(root, "--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all", "-z").stdout
+  if raw and not raw.endswith(b"\0"):
+    raise GitError("unterminated Git status -z record")
+  parts = raw.split(b"\0") if raw else []
+  paths: list[str] = []
   index = 0
-  while index < len(parts):
+  while index < len(parts) - 1:
     entry = parts[index]
-    if not entry:
+    if len(entry) < 4 or entry[2:3] != b" " or entry[:2] == b"  ":
+      raise GitError("malformed Git status -z record")
+    paths.append(git_wire_path(entry[3:]))
+    if b"R" in entry[:2] or b"C" in entry[:2]:
       index += 1
-      continue
-    path = entry[3:]
-    status = entry[:2]
-    if "R" in status or "C" in status:
-      index += 1
-      if index < len(parts) and parts[index]:
-        path = parts[index]
-    values.append(path.replace("\\", "/"))
+      if index >= len(parts) - 1:
+        raise GitError("missing Git rename/copy source path")
+      git_wire_path(parts[index])
     index += 1
-  return sorted(set(values))
+  return sorted(set(paths))
+
+
+def git_checkout_bytes(root: Path, relative: str | Path, *, treeish: str = "HEAD") -> bytes | None:
+  """Materialize one committed Git path through Git's own checkout machinery.
+
+  The temporary index and output prefix isolate the caller's index/worktree.
+  """
+  if not isinstance(treeish, str) or not treeish or treeish.startswith("-"):
+    raise GitError("invalid checkout treeish")
+  if isinstance(relative, Path):
+    wire_bytes = os.fsencode(relative.as_posix())
+  elif isinstance(relative, str):
+    wire_bytes = relative.encode("utf-8", "strict")
+  else:
+    raise GitError("checkout path must be str or Path")
+  path = git_wire_path(wire_bytes)
+  native_arg = os.fsdecode(wire_bytes)
+  with tempfile.TemporaryDirectory(prefix="rwf-git-checkout-") as scratch:
+    index = Path(scratch) / "index"
+    output = Path(scratch) / "output"
+    output.mkdir()
+    env = dict(os.environ)
+    env["GIT_INDEX_FILE"] = str(index)
+    env["GIT_WORK_TREE"] = str(output)
+    def isolated(*args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
+      try:
+        completed = subprocess.run(
+          ["git", *args], cwd=native_argument(str(root)), env=env, capture_output=True, check=False,
+        )
+      except (OSError, UnicodeError) as exc:
+        raise GitError(f"cannot execute git: {exc}") from exc
+      if check and completed.returncode:
+        try:
+          detail = completed.stderr.decode("utf-8", "strict")
+        except UnicodeDecodeError as exc:
+          raise GitError("invalid UTF-8 Git checkout diagnostic") from exc
+        raise GitError(f"git {' '.join(args)}: {detail.strip()}")
+      return completed
+    isolated("read-tree", native_argument(treeish))
+    probe = isolated("ls-files", "--stage", "-z", "--", native_arg)
+    # Git accepts pathspec patterns; require exact, stage-zero index membership.
+    matches: list[bytes] = []
+    for record in probe.stdout.split(b"\0"):
+      if not record:
+        continue
+      mode_stage, sep, entry_path = record.partition(b"\t")
+      if not sep:
+        raise GitError("malformed staged Git index record")
+      if entry_path == path.encode("utf-8"):
+        matches.append(mode_stage)
+    if not matches:
+      return None
+    if len(matches) != 1 or not matches[0].endswith(b" 0"):
+      raise GitError("checkout path has unresolved index stages")
+    mode = matches[0].split(b" ", 1)[0]
+    if mode == b"120000":
+      raise GitError("checkout path is a symbolic link, not a regular Git file")
+    if mode not in (b"100644", b"100755"):
+      raise GitError("checkout path is not a regular Git file")
+    isolated("checkout-index", "--force", f"--prefix={output}{os.sep}", "--", native_arg)
+    materialized = output / git_native_path(wire_bytes)
+    try:
+      if materialized.is_symlink():
+        raise GitError("checkout path materializes as a symbolic link, not a file")
+      return materialized.read_bytes()
+    except OSError as exc:
+      raise GitError(f"git checkout output unavailable: {exc}") from exc
 
 
 def local_ref_snapshot(root: Path) -> dict[str, str]:
-  completed = git(
-    root,
-    "for-each-ref",
-    "--format=%(refname)%00%(objectname)",
-  )
+  completed = git(root, "for-each-ref", "--format=%(refname)%00%(objectname)")
   values: dict[str, str] = {}
   for line in completed.stdout.splitlines():
     if "\0" not in line:
@@ -99,11 +188,7 @@ def local_ref_snapshot(root: Path) -> dict[str, str]:
 
 
 def repository_state(root: Path) -> RepositoryState:
-  return RepositoryState(
-    commit=head_sha(root),
-    head_ref=head_reference(root),
-    refs=local_ref_snapshot(root),
-  )
+  return RepositoryState(head_sha(root), head_reference(root), local_ref_snapshot(root))
 
 
 def restore_repository_state(root: Path, state: RepositoryState) -> None:
@@ -112,13 +197,11 @@ def restore_repository_state(root: Path, state: RepositoryState) -> None:
   else:
     git(root, "update-ref", state.head_ref, state.commit)
     git(root, "symbolic-ref", "HEAD", state.head_ref)
-
   current = local_ref_snapshot(root)
   for ref in sorted(set(current) - set(state.refs)):
     git(root, "update-ref", "-d", ref)
   for ref, object_name in state.refs.items():
     if current.get(ref) != object_name:
       git(root, "update-ref", ref, object_name)
-
   git(root, "reset", "--hard", state.commit)
   git(root, "clean", "-fd")

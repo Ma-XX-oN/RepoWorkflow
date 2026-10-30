@@ -7,20 +7,24 @@ skipped, never represented as successful provider/assembled certification.
 import os
 from pathlib import Path
 import subprocess
+import sys
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "rwf"
+LAUNCHER = ROOT / ("repo_workflow.py" if sys.platform == "win32" else "rwf")
+LAUNCHER_COMMAND = ([sys.executable, str(LAUNCHER)] if sys.platform == "win32"
+                    else [str(LAUNCHER)])
 STAGES = ("RED", "temporary", "GREEN", "regression", "integration", "results")
 
 
 def run_cli(*args):
   return subprocess.run(
-    [str(LAUNCHER), *args],
+    [*LAUNCHER_COMMAND, *args],
     cwd=ROOT,
     capture_output=True,
     text=True,
+    encoding="utf-8", errors="strict",
     timeout=30,
     env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     check=False,
@@ -45,7 +49,7 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
       with self.subTest(stage=stage):
         response = run_cli("test", stage, "--help")
         if stage == "RED" and response.returncode != 0:
-          self.assertIn(".ci/tests.json", response.stdout + response.stderr)
+          self.assertIn("RED tests require a current started issue branch", response.stdout + response.stderr)
         else:
           self.assertEqual(response.returncode, 0, response.stderr)
         self.assertTrue((response.stdout + response.stderr).strip())
@@ -65,7 +69,7 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
       with self.subTest(stage=stage):
         response = run_cli("test", stage, "--help")
         if stage == "RED" and response.returncode != 0:
-          self.assertIn(".ci/tests.json", response.stdout + response.stderr)
+          self.assertIn("RED tests require a current started issue branch", response.stdout + response.stderr)
         else:
           self.assertEqual(response.returncode, 0, response.stderr)
           self.assertIn("--remote", response.stdout + response.stderr)

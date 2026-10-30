@@ -56,6 +56,24 @@ def _validate_environment(value: Any, seen: set[str]) -> dict[str, Any]:
   return result
 
 
+def canonical_repository_path(value: str) -> str:
+  """Validate a repository-relative logical Git path, never a host path."""
+  if (
+    not isinstance(value, str)
+    or not value
+    or value.startswith("/")
+    or "\x00" in value
+    or "\\" in value
+    or (len(value) >= 2 and value[0].isascii() and value[0].isalpha()
+        and value[1] == ":")
+    or any(part in {"", ".", ".."} for part in value.split("/"))
+  ):
+    raise ConfigError(
+      f"output must be a canonical repository-relative path: {value!r}"
+    )
+  return value
+
+
 def _validate_artifact(value: Any, seen: set[str]) -> dict[str, Any]:
   if not isinstance(value, dict):
     raise ConfigError("each artifact must be an object")
@@ -75,6 +93,7 @@ def _validate_artifact(value: Any, seen: set[str]) -> dict[str, Any]:
   outputs = _strings(value.get("outputs"), f"{artifact_id}.outputs")
   if not outputs:
     raise ConfigError(f"{artifact_id}.outputs must be non-empty")
+  outputs = [canonical_repository_path(output) for output in outputs]
   platform = value.get("platform", "any")
   if platform not in {"any", "linux", "windows", "macos"}:
     raise ConfigError(f"unsupported artifact platform for {artifact_id}: {platform}")
@@ -161,14 +180,13 @@ def load_config(root: Path) -> dict[str, Any]:
   output_owners: dict[str, str] = {}
   for artifact in validated_artifacts:
     for output in artifact["outputs"]:
-      normalized = output.replace("\\", "/")
-      prior = output_owners.get(normalized)
+      prior = output_owners.get(output)
       if prior is not None:
         raise ConfigError(
-          f"generated output {normalized} is declared by both {prior} and "
+          f"generated output {output} is declared by both {prior} and "
           f"{artifact['id']}"
         )
-      output_owners[normalized] = artifact["id"]
+      output_owners[output] = artifact["id"]
   result = dict(data)
   result["versionCommand"] = version_command
   if info_command is not None:

@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .git import current_branch, head_sha
 from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
+from .test_worktree import tracked_input_changes
 
 PROBES = (
   ("argv-limits", "probe-argv-limits.py"),
@@ -26,28 +27,25 @@ PROBES = (
 
 
 def _dirty(root: Path, evidence: Path) -> list[str]:
-  output = subprocess.run(
-    ["git", "-C", str(root), "status", "--porcelain=v1", "-z",
-     "--untracked-files=all"],
-    check=True, capture_output=True,
-  ).stdout.decode("utf-8", "surrogateescape")
-  relative = evidence.relative_to(root).as_posix()
-  return sorted({
-    line[3:] for line in output.split("\0")
-    if line and line[3:] != relative
-  })
+  return tracked_input_changes(root, evidence)
 
 
 def _probe(engine_root: Path, filename: str) -> int:
-  completed = subprocess.run(
-    [sys.executable, str(engine_root / "scripts" / filename)],
-    cwd=engine_root, capture_output=True, text=True, check=False,
-    env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-  )
-  if completed.stdout:
-    print(completed.stdout, end="")
-  if completed.stderr:
-    print(completed.stderr, end="", file=sys.stderr)
+  try:
+    completed = subprocess.run(
+      [sys.executable, str(engine_root / "scripts" / filename)],
+      cwd=engine_root, capture_output=True, check=False,
+      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+    )
+    stdout = completed.stdout.decode("utf-8", "strict")
+    stderr = completed.stderr.decode("utf-8", "strict")
+  except (OSError, UnicodeError):
+    print("integration probe cannot execute or decode UTF-8 output", file=sys.stderr)
+    return 2
+  if stdout:
+    print(stdout, end="")
+  if stderr:
+    print(stderr, end="", file=sys.stderr)
   return completed.returncode
 
 

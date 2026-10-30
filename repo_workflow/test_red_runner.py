@@ -44,8 +44,7 @@ def record_red(
         env={
           **os.environ,
           "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONIOENCODING": "utf-8",
-        },
+                  },
       )
       stdout = completed.stdout.decode("utf-8", errors="strict")
       stderr = completed.stderr.decode("utf-8", errors="strict")

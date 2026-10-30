@@ -1,0 +1,103 @@
+name: RWF 703 Independent MIT Negative Oracle
+on:
+  push:
+    branches:
+      - 'issue-703-mit-negative-*'
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: 'Approved exact assembled #699 source commit SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  negative-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact source binding
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.target_sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_TESTED_SHA='+actual, 'EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install declared dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Exercise independent RED MIT FAIL / no-CAS oracle
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest tests.test_manual_mit_negative_acceptance -v 2>&1 | tee test-output.txt
+      - name: Retain independent evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf-703-negative-${{ matrix.os }}-${{ github.sha }}
+          path: test-output.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  version-contract-green:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact source binding
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.target_sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_TESTED_SHA='+actual, 'EXPECTED_SHA='+os.environ['EXPECTED_SHA'],flush=True)
+          assert actual==os.environ['EXPECTED_SHA']
+          PY
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert actual tested source identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          import platform, subprocess
+          actual = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('TESTED_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),flush=True)
+          PY
+      - name: Require all three Q+1/R=0 version contracts GREEN
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest tests.test_manual_mit_version_contract -v 2>&1 | tee version-contract-green.txt
+      - name: Archive actual version-contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf-703-version-contract-${{ matrix.os }}-${{ github.sha }}
+          path: version-contract-green.txt
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,8 +1,13 @@
 from pathlib import Path
+import json
 import os
+import shlex
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from repo_workflow.workflow_state import save_local_state
 from tests.support import RepoFixture
@@ -11,9 +16,146 @@ from tests.support import RepoFixture
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def working_bash():
+  """Find a Bash that actually runs; ignore Windows WSL command shims."""
+  choices = []
+  # Prefer the Bash co-installed with Git over an unrelated PATH shim.
+  git = shutil.which("git")
+  if git:
+    for parent in list(Path(git).resolve().parents)[:5]:
+      choices.extend((parent / "bin" / "bash.exe",
+                      parent / "usr" / "bin" / "bash.exe"))
+  direct = shutil.which("bash")
+  if direct:
+    choices.append(Path(direct))
+  seen = set()
+  for path in choices:
+    candidate = str(path)
+    if candidate in seen or not path.is_file():
+      continue
+    seen.add(candidate)
+    try:
+      probe = subprocess.run(
+        [candidate, "-c",
+         '[[ -n ${BASH_VERSION:-} ]] && '
+         '[[ $(type -t complete) == builtin ]] && '
+         'printf rwf-bash-ready'],
+        capture_output=True, encoding="utf-8", errors="strict",
+        timeout=8, check=False,
+      )
+    except (OSError, subprocess.TimeoutExpired):
+      continue
+    if probe.returncode == 0 and probe.stdout == "rwf-bash-ready":
+      return candidate
+  return None
+
+
+def bash_path(executable, path: Path) -> str:
+  """Bash resolves native cwd through its own OS boundary."""
+  location = Path(path)
+  result = subprocess.run(
+    [executable, "-c", "pwd -P"], cwd=location.parent,
+    capture_output=True, encoding="utf-8", errors="strict", check=True,
+  )
+  return result.stdout.removesuffix("\n") + "/" + location.name
+
+
+class BashPathTests(unittest.TestCase):
+  def test_pwd_keeps_trailing_whitespace_in_directory_name(self):
+    with mock.patch.object(subprocess, "run", return_value=(
+      subprocess.CompletedProcess(
+        ["bash", "-c", "pwd -P"], 0,
+        stdout="/mounted/dir with trailing space \n", stderr="",
+      )
+    )):
+      self.assertEqual(
+        bash_path("bash", Path("script.bash")),
+        "/mounted/dir with trailing space /script.bash",
+      )
+
+
+class BashDiscoveryTests(unittest.TestCase):
+  def test_failing_wsl_like_stub_is_not_accepted_as_bash(self):
+    # A shim on PATH is not a shell capability merely because it exists.
+    with mock.patch.object(shutil, "which", side_effect=lambda name: (
+      sys.executable if name == "bash" else None
+    )):
+      with mock.patch.object(subprocess, "run", return_value=(
+        subprocess.CompletedProcess(
+          [sys.executable, "-c", "printf rwf-bash-ready"], 1,
+          stdout="", stderr="WSL has no installed distributions",
+        )
+      )):
+        self.assertIsNone(working_bash())
+
+  def test_git_bash_wins_over_path_stub(self):
+    with tempfile.TemporaryDirectory() as dirname:
+      git_root = Path(dirname) / "Git"
+      (git_root / "cmd").mkdir(parents=True)
+      (git_root / "bin").mkdir()
+      git = git_root / "cmd" / "git.exe"
+      git.write_text("fixture", encoding="utf-8")
+      git_bash = git_root / "bin" / "bash.exe"
+      git_bash.write_text("fixture", encoding="utf-8")
+      calls = []
+
+      def probe(argv, **kwargs):
+        calls.append(argv[0])
+        is_git_bash = Path(argv[0]).resolve() == git_bash.resolve()
+        return subprocess.CompletedProcess(
+          argv, 0 if is_git_bash else 1,
+          stdout="rwf-bash-ready" if is_git_bash else "",
+          stderr="",
+        )
+
+      with mock.patch.object(shutil, "which", side_effect=lambda name: (
+        str(git) if name == "git" else sys.executable
+      )):
+        with mock.patch.object(subprocess, "run", side_effect=probe):
+          self.assertEqual(Path(working_bash()).resolve(), git_bash.resolve())
+      self.assertEqual([Path(p).resolve() for p in calls],
+                       [git_bash.resolve()])
+
+  def test_non_bash_printf_shell_is_rejected(self):
+    # printf alone is supported by non-Bash shells such as dash.
+    def non_bash_probe(argv, **kwargs):
+      valid_bash_check = (
+        "BASH_VERSION" in argv[2] and "type -t complete" in argv[2]
+      )
+      return subprocess.CompletedProcess(
+        argv, 1 if valid_bash_check else 0,
+        stdout="" if valid_bash_check else "rwf-bash-ready", stderr="",
+      )
+
+    with mock.patch.object(shutil, "which", side_effect=lambda name: (
+      sys.executable if name == "bash" else None
+    )):
+      with mock.patch.object(subprocess, "run", side_effect=non_bash_probe):
+        self.assertIsNone(working_bash())
+
+  def test_wrong_probe_output_is_not_accepted_as_bash(self):
+    with mock.patch.object(shutil, "which", side_effect=lambda name: (
+      sys.executable if name == "bash" else None
+    )):
+      with mock.patch.object(subprocess, "run", return_value=(
+        subprocess.CompletedProcess(
+          [sys.executable, "-c", "printf rwf-bash-ready"], 0,
+          stdout="unexpected shell", stderr="",
+        )
+      )):
+        self.assertIsNone(working_bash())
+
+
 class BashCompletionTests(unittest.TestCase):
+  def bash_path(self, path: Path) -> str:
+    return bash_path(self.bash, path)
+
   def make(self, *, regression="PASS"):
-    td = tempfile.TemporaryDirectory()
+    self.bash = working_bash()
+    if self.bash is None:
+      self.skipTest("No executable Bash passed the capability probe")
+    td = tempfile.TemporaryDirectory(prefix="rwf Bash path with spaces ")
+
     base = Path(td.name)
     root = base / "repo"
     root.mkdir()
@@ -23,26 +165,40 @@ class BashCompletionTests(unittest.TestCase):
     wrapper = base / "repo-workflow"
     wrapper.write_text(
       "#!/usr/bin/env bash\n"
-      f"exec {subprocess.list2cmdline([os.fspath(Path(os.sys.executable))])} "
-      f"{subprocess.list2cmdline([os.fspath(ROOT / 'repo_workflow.py')])} \"$@\"\n",
+      + "exec " + shlex.quote(self.bash_path(Path(sys.executable)))
+      + " " + shlex.quote(self.bash_path(ROOT / "repo_workflow.py"))
+      + ' "$@"\n',
       encoding="utf-8",
     )
     wrapper.chmod(0o755)
     return td, root, fx, wrapper
 
   def run_bash(self, root: Path, wrapper: Path, body: str):
-    script = f"""
-set -euo pipefail
-export REPO_WORKFLOW_COMMAND={subprocess.list2cmdline([os.fspath(wrapper)])}
-export REPO_WORKFLOW_ROOT={subprocess.list2cmdline([os.fspath(root)])}
-source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow.bash')])}
-{body}
-"""
-    return subprocess.run(
-      ["bash", "-c", script],
-      capture_output=True,
-      text=True,
+    script = (
+      "set -euo pipefail\n"
+      + "export REPO_WORKFLOW_COMMAND="
+      + shlex.quote(self.bash_path(wrapper)) + "\n"
+      + "export REPO_WORKFLOW_ROOT="
+      + shlex.quote(self.bash_path(root)) + "\n"
+      + "source " + shlex.quote(
+        self.bash_path(ROOT / "completions" / "repo-workflow.bash")
+      ) + "\n"
+      + body
     )
+    return subprocess.run(
+      [self.bash, "-c", script],
+      capture_output=True, encoding="utf-8", errors="strict", check=False,
+    )
+
+  def test_exported_root_is_accessible_to_selected_bash(self):
+    td, root, fx, wrapper = self.make()
+    with td:
+      completed = self.run_bash(
+        root, wrapper,
+        'test -d "$REPO_WORKFLOW_ROOT"\n'
+        'test -f "$REPO_WORKFLOW_COMMAND"\n',
+      )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
 
   def test_aliases_are_registered_without_filename_fallback(self):
     td, root, fx, wrapper = self.make()
@@ -119,6 +275,80 @@ source {subprocess.list2cmdline([os.fspath(ROOT / 'completions' / 'repo-workflow
       )
       self.assertEqual(completed.returncode, 0, completed.stderr)
       self.assertEqual(completed.stdout.splitlines(), ["REPLY:regression"])
+
+  def test_red_single_tab_and_double_tab_equal_direct_help(self):
+    td, root, fx, wrapper = self.make()
+    with td:
+      catalogue = {
+        "test-harnesses": {
+          "unittest": {
+            "command": "python", "layout": ["-m", "unittest", "$test"],
+          },
+        },
+        "tests": [{
+          "test-harness": "unittest",
+          "issue-1-z": {"type": "regression", "name": "tests.test_completion"},
+          "issue-1-a": {
+            "type": "regression", "name": "tests.test_completion",
+            "description": "Alpha case",
+          },
+        }],
+      }
+      (root / ".ci/tests.json").write_text(
+        json.dumps(catalogue), encoding="utf-8",
+      )
+      completed = self.run_bash(
+        root, wrapper,
+        'COMP_WORDS=(rwf test RED "")\n'
+        "COMP_CWORD=3\n"
+        'COMP_LINE="rwf test RED "\n'
+        "COMP_POINT=13\n"
+        "_repo_workflow_complete\n"
+        'printf "ONE:%s\\n" "${COMPREPLY[@]}"\n'
+        "_repo_workflow_complete\n"
+        'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
+      )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      names = [x[4:] for x in completed.stdout.splitlines()
+               if x.startswith("ONE:")]
+      self.assertEqual(names, ["--remote", "issue-1-a", "issue-1-z"])
+      self.assertIn("COUNT:0", completed.stdout)
+      rendered = [x for x in completed.stdout.splitlines()
+                  if not x.startswith(("ONE:", "COUNT:"))]
+      helped = subprocess.run(
+        [sys.executable, str(ROOT / "repo_workflow.py"),
+         "--root", str(root), "test", "RED", "--help"],
+        capture_output=True, encoding="utf-8", errors="strict",
+      )
+      self.assertEqual(helped.returncode, 0, helped.stderr)
+      self.assertEqual(rendered, helped.stdout.splitlines())
+      self.assertEqual(
+        [x for x in rendered if x.startswith("issue-")],
+        ["issue-1-a - Alpha case", "issue-1-z"],
+      )
+
+  def test_red_missing_groups_report_same_real_error(self):
+    td, root, fx, wrapper = self.make()
+    with td:
+      completed = self.run_bash(
+        root, wrapper,
+        'COMP_WORDS=(rwf test RED "")\n'
+        "COMP_CWORD=3\n"
+        "_repo_workflow_complete\n"
+        "_repo_workflow_complete\n"
+        'printf "COUNT:%s\\n" "${#COMPREPLY[@]}"\n',
+      )
+      self.assertEqual(completed.returncode, 0, completed.stderr)
+      self.assertIn("COUNT:0", completed.stdout)
+      self.assertIn("RED/GREEN tests do not exist", completed.stderr)
+      helped = subprocess.run(
+        [sys.executable, str(ROOT / "repo_workflow.py"),
+         "--root", str(root), "test", "RED", "--help"],
+        capture_output=True, encoding="utf-8", errors="strict",
+      )
+      self.assertEqual(helped.returncode, 2)
+      self.assertEqual(helped.stderr.strip(),
+                       completed.stderr.strip().splitlines()[-1])
 
 
 if __name__ == "__main__":

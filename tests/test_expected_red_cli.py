@@ -11,10 +11,16 @@ class ExpectedRedCliTests(unittest.TestCase):
   cli = fixture.TestCliContract.cli
   _catalogue = fixture.TestCliContract._catalogue
 
-  def configure(self, declaration, *, exit_code=3, output="case invariant violated"):
+  def configure(self, declaration, *, exit_code=3, output="case invariant violated", utf8_python=False):
     path = self.root / ".ci/tests.json"
     self._catalogue(path, issue_group="issue-545-declared")
     data = json.loads(path.read_text())
+    if utf8_python:
+      # The native Python harness must emit Unicode on a strict UTF-8 wire,
+      # even when Windows defaults to a legacy child stream code page.
+      data["test-harnesses"]["unittest"]["layout"] = [
+        "-X", "utf8", "-m", "unittest", "$test",
+      ]
     if declaration is not None:
       data["tests"][0]["issue-545-declared"]["expected-red"] = declaration
     path.write_text(json.dumps(data))
@@ -130,7 +136,7 @@ class ExpectedRedCliTests(unittest.TestCase):
   def test_unicode_literal_signature_is_matched_exactly(self):
     signature = "domaine café invariant-545"
     self.configure({"exit-code": 1, "output-contains": signature},
-                   output=signature)
+                   output=signature, utf8_python=True)
     out = self.cli("test", "RED", "issue-545-declared")
     self.assertEqual(out.returncode, 0, out.stderr)
     self.assertEqual(self.last()["redStatus"], "RED")

@@ -119,9 +119,16 @@ jobs:
           raw = subprocess.check_output(
             ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
           )
+          if raw and not raw.endswith(b"\0"):
+            sys.exit("unterminated hosted Git porcelain record")
           entries = [item for item in raw.split(b"\0") if item]
           for entry in entries:
-            changed = entry[3:].decode("utf-8", "surrogateescape")
+            if len(entry) < 4 or entry[2:3] != b" ":
+              sys.exit("malformed hosted Git porcelain record")
+            try:
+              changed = entry[3:].decode("utf-8", "strict")
+            except UnicodeDecodeError:
+              sys.exit("invalid UTF-8 hosted Git pathname")
             if changed != allowed:
               sys.exit("unexpected hosted test side effect: " + changed)
           PY
