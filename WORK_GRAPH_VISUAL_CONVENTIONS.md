@@ -180,14 +180,13 @@ or weakened in the canonical graph. The normative integration responsibility
 and DONE gating are defined by
 [WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md).
 
-## Default completed-umbrella collapse
+## Default completed-umbrella collapse in PG and LG
 
-The default human-facing PG is a **space-saving projection**. When an
+The default human-facing PG **and LG** use the same **space-saving projection**. When an
 umbrella's full, authoritative constituent sub-ticket set is known and
-**every constituent ticket is verified DONE**, display the umbrella as one
+**every constituent ticket has verified completion**, display the umbrella as one
 collapsed node and omit those completed constituents from the default view.
-The umbrella itself must meet its own acceptance requirements before being
-shown as `♥ Done`; completed children alone do not prove umbrella DONE.
+The umbrella remains a **visible ticket node in both expanded and collapsed views**, not merely a subgraph heading. In the PG, the umbrella itself must meet its own acceptance requirements before being shown as `♥ Done`. In the LG, preserve the authoritative lifecycle state and its own glyph; accepted/completed children do not automatically make the umbrella `completed`.
 
 - Retain all external dependency paths entering or leaving the hidden
   sub-tickets by projecting their boundary connections through the umbrella.
@@ -204,9 +203,7 @@ shown as `♥ Done`; completed children alone do not prove umbrella DONE.
 - Apply the same rule recursively to nested umbrellas only when their
   respective complete descendant sets and acceptance are verified.
 
-This is solely the **default PG presentation**. It does not mutate
-`.repoworkflow/tickets.csv`, alter scheduling readiness, fabricate DONE, or
-change the six-state LG / terminal lane graph.
+This is the **default presentation of both named graph views**. The LG keeps its six-state glyphs, lane colours and authoritative lifecycle status, while the PG keeps its five-status visual convention. This rule does not automatically change the terminal `rwf lanes view` renderer, mutate `.repoworkflow/tickets.csv`, alter scheduling readiness, or fabricate completion.
 
 ## Evidence and accessibility
 
