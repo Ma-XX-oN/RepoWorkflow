@@ -136,7 +136,7 @@ def _publish(root: Path, remote: str, ref: str, key: str,
       raise PrelimPublicationError("provider PRELIM publication rejected")
     if _remote_record(root, remote, ref, key) != record:
       raise PrelimPublicationError("provider PRELIM readback differs")
-    git(root, "worktree", "remove", str(workspace))
+    git(root, "-c", "core.longpaths=true", "worktree", "remove", str(workspace))
 
 
 def restore_identity(root: Path, remote: str, attempt: str) -> None:
