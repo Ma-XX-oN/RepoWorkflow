@@ -147,6 +147,27 @@ assembly and final convergence), give those phases distinct Mermaid node IDs
 and explicit phase labels.  State that they are two views of the same ticket,
 not independent issues or a cycle.
 
+## Speculative dependency edge presentation
+
+A dotted Mermaid dependency arrow `-.->` identifies a **canonical direct
+dependency** for which the downstream ticket is performing authorised
+speculative work before its predecessor is DONE. The downstream ticket is the
+owner of integrating its predecessor's final accepted result and carrying its
+**own ticket** to verified DONE. The dotted arrow is not a new relationship,
+a provisional shortcut, or evidence of completed integration.
+
+Once the predecessor reaches DONE, display that unchanged dependency with a
+solid `-->` arrow. The downstream ticket must still integrate and verify the
+accepted predecessor revision before it can become DONE; descendants must not
+treat it as completed merely because the arrow became solid. Other verified
+direct dependencies are solid. Never draw an unverified relationship to
+explain an assumed handoff.
+
+This is a presentation convention only. No edge is added, removed, reversed,
+or weakened in the canonical graph. The normative integration responsibility
+and DONE gating are defined by
+[WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md).
+
 ## Evidence and accessibility
 
 - State whether colours reflect a freshly verified canonical ticket snapshot,
