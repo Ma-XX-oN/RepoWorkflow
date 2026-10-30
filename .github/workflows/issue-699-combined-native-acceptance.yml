@@ -1,0 +1,93 @@
+name: RWF 699 exact assembled full native three-OS acceptance
+on:
+  push:
+    branches: [issue-715-residual-leaves-native-v3-20261023]
+    paths: [.github/workflows/issue-699-combined-native-acceptance.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  native:
+    name: "699 assembled / ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8504f9a93247d15528d0ca50c464ac58909720e8
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact source and native runner
+        shell: bash
+        run: |
+          python - <<'PY'
+          import platform, subprocess, sys
+          expected='8504f9a93247d15528d0ca50c464ac58909720e8'
+          actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          print('EXACT_SOURCE_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),'PYTHON='+sys.executable,flush=True)
+          assert actual==expected
+          PY
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Parse all changed Python source
+        run: python -m py_compile repo_workflow/prelim_publication.py tests/p4_provider_fixture.py tests/test_bootstrap_cli.py tests/test_dependency_migration_tool.py tests/test_first_use_lanes.py tests/test_lane_diagnostics.py
+      - name: Focused P4 P17 historical diagnostics acceptance
+        id: focused
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_PROMPT_DISABLED: '1'
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_prelim_integration tests.test_prelim_validation tests.test_bootstrap_cli tests.test_dependency_migration_tool tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state tests.test_lane_diagnostics 2>&1 | tee rwf699-focused.log
+      - name: Full repository regression without hidden skips
+        id: full
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_PROMPT_DISABLED: '1'
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -v 2>&1 | tee rwf699-full.log
+      - name: Preserve exact-source logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf699-assembled-${{ matrix.os }}-8504f9a9
+          path: |
+            rwf699-focused.log
+            rwf699-full.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Report results to controller
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          OS: ${{ matrix.os }}
+          FOCUSED: ${{ steps.focused.outcome }}
+          FULL: ${{ steps.full.outcome }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          body="RWF #699 exact assembled source 8504f9a93247d15528d0ca50c464ac58909720e8 os=$OS focused=$FOCUSED full=$FULL run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect native logs and test counts; this is verification-only draft #761."
+          gh api "repos/$GH_REPO/issues/699/comments" -f "body=$body"
+      - name: Enforce both suites
+        if: always()
+        shell: bash
+        env:
+          FOCUSED: ${{ steps.focused.outcome }}
+          FULL: ${{ steps.full.outcome }}
+        run: |
+          test "$FOCUSED" = success
+          test "$FULL" = success
