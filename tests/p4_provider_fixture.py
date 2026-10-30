@@ -179,6 +179,41 @@ def _route(kind, base, args):
   raise ValueError(f"unexpected provider arguments: {kind} {args!r}")
 
 
+def _discovered_info(base: Path, argv: list[str]) -> int:
+  """Run the REAL default adapter; replace only its external GitHub call."""
+  import importlib.util
+  path = ROOT / "adapters" / "repo-info-github.py"
+  spec = importlib.util.spec_from_file_location("p4_real_default_adapter", path)
+  adapter = importlib.util.module_from_spec(spec)
+  spec.loader.exec_module(adapter)
+  def fake_gh(repository, *args):
+    if repository != REPO:
+      raise RuntimeError("wrong discovered repository")
+    with (base / "discovered-calls.jsonl").open("a", encoding="utf-8") as log:
+      log.write(json.dumps(args) + "\n")
+    meta = _read(base / "discovered-metadata.json")
+    if args == ("issue", "list", "--state", "open", "--limit",
+                "1000", "--json", "number,title"):
+      return json.dumps([
+        {"number": int(n), "title": item["title"]}
+        for n, item in sorted(meta.items(), key=lambda p: int(p[0]))
+        if item["state"] == "OPEN"
+      ])
+    if (len(args) == 5 and args[:2] == ("issue", "view")
+        and args[3:] == ("--json", "number,title,state,url")):
+      issue = args[2]
+      if issue not in meta:
+        raise RuntimeError("unexpected default provider issue")
+      item = meta[issue]
+      return json.dumps({
+        "number": int(issue), "title": item["title"],
+        "state": item["state"], "url": item["url"],
+      })
+    raise RuntimeError("unexpected discovered provider command")
+  adapter.gh = fake_gh
+  return adapter.main(argv)
+
+
 def run_discovered_cli(base: Path, root: Path, *words: str):
   """Run actual public CLI with default discovery and a narrow provider seam."""
   wrapper = base / "discovered-cli.py"
