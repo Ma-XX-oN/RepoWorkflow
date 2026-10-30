@@ -339,7 +339,28 @@ class FirstUseFixture:
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
-    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    # A migration is certified only after its manifest is Git-committed.
+    # The earlier fixture wrote a worktree-only manifest, which correctly
+    # fails the production's immutable Git identity guard.
+    relative = ".repoworkflow/migrations/native-dependencies-v1.json"
+    subprocess.run(
+      ["git", "-C", str(root), "add", "-f", "--", relative],
+      check=True, capture_output=True,
+    )
+    subprocess.run(
+      ["git", "-C", str(root), "commit", "-m", "fixture migration manifest"],
+      check=True, capture_output=True,
+    )
+    # Materialize the real platform checkout (including CRLF/filters).
+    subprocess.run(
+      ["git", "-C", str(root), "checkout-index", "--force", "--", relative],
+      check=True, capture_output=True,
+    )
+    raw = subprocess.run(
+      ["git", "-C", str(root), "show", "HEAD:" + relative],
+      check=True, capture_output=True,
+    ).stdout
+    digest = hashlib.sha256(raw).hexdigest()
     certification = {
       "schema_version": 1,
       "migration_id": "repoworkflow-native-dependencies-v1",
