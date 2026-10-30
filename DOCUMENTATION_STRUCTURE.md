@@ -5,6 +5,9 @@ Status: authoritative policy for structuring RepoWorkflow source documentation.
 This document defines how documentation should be kept concise and navigable
 without sacrificing authoritative information.
 
+General engineering guidance is indexed in [BEST_PRACTICES.md](BEST_PRACTICES.md),
+which links to the authoritative specialist procedures.
+
 ## 1. Purpose
 
 The practical ~500-line documentation ceiling is a maintainability signal, not

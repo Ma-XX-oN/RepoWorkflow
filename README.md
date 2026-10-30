@@ -22,6 +22,16 @@ Project/
 └── tests/
 ```
 
+## Engineering best practices (humans and AI agents)
+
+**Start with [BEST_PRACTICES.md](BEST_PRACTICES.md)** before implementing, reviewing,
+porting or certifying code in RepoWorkflow or a consumer project. This is the
+repository-neutral engineering entry point, including portability, root-cause
+investigation, testing and evidence-based completion. Specialist contracts:
+[BUG_INVESTIGATION.md](BUG_INVESTIGATION.md),
+[TEST_ADEQUACY.md](TEST_ADEQUACY.md) and
+[DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
+
 ## Runtime dependencies
 
 Install the supported Python runtime dependencies after cloning or updating
