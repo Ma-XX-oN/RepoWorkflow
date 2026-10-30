@@ -28,6 +28,7 @@ def static_prefixes(node: dict, prefix: tuple[str, ...] = ()):
 
 from tests.p4_provider_fixture import (
   FIXTURE, configure_provider, provider_calls, verify_provider,
+  run_discovered_cli,
 )
 
 
@@ -60,11 +61,43 @@ class BootstrapCliTests(unittest.TestCase):
     if env is not None and "RWF_TEST_FIXTURE_BASE" in env:
       verify_provider(root, env)
     return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(root), *args],
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *args],
       capture_output=True,
       text=True,
       env=env, encoding="utf-8", errors="strict",
     )
+
+  def test_read_only_queries_run_through_discovered_github_adapter(self):
+    with tempfile.TemporaryDirectory() as td:
+      base = Path(td)
+      root = base / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      subprocess.run(
+        ["git", "remote", "add", "origin",
+         "https://github.com/Ma-XX-oN/RepoWorkflow.git"],
+        cwd=root, check=True,
+      )
+      (base / "discovered-metadata.json").write_text(json.dumps({
+        "297": {"title": "Bootstrap help", "state": "OPEN",
+                "url": "https://github.com/Ma-XX-oN/RepoWorkflow/issues/297"},
+        "207": {"title": "Merged PR", "state": "MERGED",
+                "url": "https://github.com/Ma-XX-oN/RepoWorkflow/pull/207"},
+      }), encoding="utf-8")
+      calls = base / "discovered-calls.jsonl"
+      calls.write_text("", encoding="utf-8")
+      listed = run_discovered_cli(base, root, "issue", "list")
+      self.assertEqual(listed.returncode, 0, listed.stderr)
+      self.assertEqual(listed.stdout.strip(), "#297  Bootstrap help")
+      info = run_discovered_cli(base, root, "issue", "info", "297")
+      self.assertEqual(info.returncode, 0, info.stderr)
+      self.assertIn("#297  Bootstrap help  open", info.stdout)
+      rejected = run_discovered_cli(base, root, "issue", "info", "207")
+      self.assertEqual(rejected.returncode, 2)
+      self.assertIn("#207 is a pull request, not an issue", rejected.stderr)
+      self.assertEqual(len(calls.read_text(encoding="utf-8").splitlines()), 3)
+      self.assertFalse((root / ".ci/repoworkflow.json").exists())
+
 
   def test_every_static_public_prefix_help_is_configuration_independent(self):
     with tempfile.TemporaryDirectory() as td:
