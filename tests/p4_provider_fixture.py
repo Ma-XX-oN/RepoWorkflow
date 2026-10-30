@@ -179,6 +179,44 @@ def _route(kind, base, args):
   raise ValueError(f"unexpected provider arguments: {kind} {args!r}")
 
 
+def run_discovered_cli(base: Path, root: Path, *words: str):
+  """Run actual public CLI with default discovery and a narrow provider seam."""
+  wrapper = base / "discovered-cli.py"
+  wrapper.write_text(
+    "import os,sys,runpy\n"
+    "from pathlib import Path\n"
+    "sys.path.insert(0,os.environ['RWF_SOURCE_ROOT'])\n"
+    "import repo_workflow.repo_info_adapter as ria\n"
+    "original=ria.run_command\n"
+    "def bounded(command, root):\n"
+    "  if command and Path(command[0]).name.lower() in ('gh','gh.exe'):\n"
+    "    raise RuntimeError('direct gh invocation forbidden')\n"
+    "  if len(command)>1 and Path(command[1]).name=='repo-info-github.py':\n"
+    "    if Path(command[1]).resolve()!=Path(os.environ['RWF_DEFAULT_ADAPTER']):\n"
+    "      raise RuntimeError('wrong discovered adapter')\n"
+    "    return original([sys.executable,os.environ['RWF_FIXTURE'],"
+    "'discovered-info',os.environ['RWF_DISCOVERY_BASE'],*command[2:]],root)\n"
+    "  return original(command,root)\n"
+    "ria.run_command=bounded\n"
+    "sys.argv=[os.environ['RWF_PUBLIC_CLI'],*sys.argv[1:]]\n"
+    "runpy.run_path(os.environ['RWF_PUBLIC_CLI'],run_name='__main__')\n",
+    encoding="utf-8",
+  )
+  env = dict(os.environ)
+  for key in ("GH_TOKEN", "GITHUB_TOKEN"):
+    env.pop(key, None)
+  env.update({
+    "RWF_SOURCE_ROOT": str(ROOT), "RWF_PUBLIC_CLI": str(CLI),
+    "RWF_DEFAULT_ADAPTER": str(ROOT / "adapters" / "repo-info-github.py"),
+    "RWF_FIXTURE": str(FIXTURE), "RWF_DISCOVERY_BASE": str(base),
+  })
+  return subprocess.run(
+    [sys.executable, "-X", "utf8", str(wrapper), "--root", str(root), *words],
+    cwd=ROOT, env=env, capture_output=True,
+    text=True, encoding="utf-8", errors="strict",
+  )
+
+
 def main(argv):
   if len(argv) < 2 or argv[0] not in {"info", "dependency"}:
     print("unexpected provider arguments", file=sys.stderr)
@@ -280,7 +318,7 @@ class FirstUseFixture:
   def run_rwf(self, root: Path, env: dict[str, str], *words: str):
     verify_provider(root, env)
     return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(root), *words],
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *words],
       cwd=root,
       env=env,
       capture_output=True,
