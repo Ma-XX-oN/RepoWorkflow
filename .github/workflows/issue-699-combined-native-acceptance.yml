@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 63836a2ceb4a55865ff348eb6c1dbbff4c0f7be1
+          ref: af66e62a55f52b93fdd2de60104a9b5564dd64cc
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -29,7 +29,7 @@ jobs:
         run: |
           python - <<'PY'
           import platform, subprocess, sys
-          expected='63836a2ceb4a55865ff348eb6c1dbbff4c0f7be1'
+          expected='af66e62a55f52b93fdd2de60104a9b5564dd64cc'
           actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           print('EXACT_SOURCE_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),'PYTHON='+sys.executable,flush=True)
           assert actual==expected
@@ -63,7 +63,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rwf699-assembled-${{ matrix.os }}-63836a2c
+          name: rwf699-assembled-${{ matrix.os }}-af66e62a
           path: |
             rwf699-focused.log
             rwf699-full.log
@@ -80,7 +80,7 @@ jobs:
           FULL: ${{ steps.full.outcome }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          body="RWF #699 exact assembled source 63836a2ceb4a55865ff348eb6c1dbbff4c0f7be1 os=$OS focused=$FOCUSED full=$FULL run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect native logs and test counts; this is verification-only draft #761."
+          body="RWF #699 exact assembled source af66e62a55f52b93fdd2de60104a9b5564dd64cc os=$OS focused=$FOCUSED full=$FULL run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect native logs and test counts; this is verification-only draft #761."
           gh api "repos/$GH_REPO/issues/699/comments" -f "body=$body"
       - name: Enforce both suites
         if: always()
