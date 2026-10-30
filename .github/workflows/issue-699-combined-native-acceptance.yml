@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: af66e62a55f52b93fdd2de60104a9b5564dd64cc
+          ref: 67cd1c56882973c2c89116e6601242b7d90b5874
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -29,7 +29,7 @@ jobs:
         run: |
           python - <<'PY'
           import platform, subprocess, sys
-          expected='af66e62a55f52b93fdd2de60104a9b5564dd64cc'
+          expected='67cd1c56882973c2c89116e6601242b7d90b5874'
           actual=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           print('EXACT_SOURCE_SHA='+actual,'NATIVE_PLATFORM='+platform.platform(),'PYTHON='+sys.executable,flush=True)
           assert actual==expected
@@ -37,7 +37,7 @@ jobs:
       - name: Install requirements
         run: python -m pip install -r requirements.txt
       - name: Parse all changed Python source
-        run: python -m py_compile repo_workflow/prelim_publication.py tests/p4_provider_fixture.py tests/test_bootstrap_cli.py tests/test_dependency_migration_tool.py tests/test_first_use_lanes.py tests/test_first_use_lanes_state.py tests/test_lane_diagnostics.py tests/test_workflow_cli.py tests/test_lane_count.py tests/test_lane_component_selection_cli.py tests/test_issue629_cli_acceptance.py tests/test_issue629_selection_acceptance.py tests/test_issue629_stage_cardinality.py tests/test_completion.py tests/test_test_cli.py tests/test_test_launcher.py tests/test_red_completion_cli.py tests/test_manual_test_result.py tests/test_expected_red_cli.py
+        run: python -m py_compile repo_workflow/prelim_publication.py tests/p4_provider_fixture.py tests/test_bootstrap_cli.py tests/test_dependency_migration_tool.py tests/test_first_use_lanes.py tests/test_first_use_lanes_state.py tests/test_lane_diagnostics.py tests/test_workflow_cli.py tests/test_lane_count.py tests/test_lane_component_selection_cli.py tests/test_issue629_cli_acceptance.py tests/test_issue629_selection_acceptance.py tests/test_issue629_stage_cardinality.py tests/test_completion.py tests/test_test_cli.py tests/test_test_launcher.py tests/test_red_completion_cli.py tests/test_manual_test_result.py tests/test_expected_red_cli.py tests/test_lane_follow_verification.py tests/test_lane_show_children_verification.py
       - name: Focused P4 P17 historical diagnostics acceptance
         id: focused
         continue-on-error: true
@@ -63,7 +63,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rwf699-assembled-${{ matrix.os }}-af66e62a
+          name: rwf699-assembled-${{ matrix.os }}-67cd1c56
           path: |
             rwf699-focused.log
             rwf699-full.log
@@ -80,7 +80,7 @@ jobs:
           FULL: ${{ steps.full.outcome }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          body="RWF #699 exact assembled source af66e62a55f52b93fdd2de60104a9b5564dd64cc os=$OS focused=$FOCUSED full=$FULL run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect native logs and test counts; this is verification-only draft #761."
+          body="RWF #699 exact assembled source 67cd1c56882973c2c89116e6601242b7d90b5874 os=$OS focused=$FOCUSED full=$FULL run=https://github.com/$GH_REPO/actions/runs/$RUN_ID. Inspect native logs and test counts; this is verification-only draft #761."
           gh api "repos/$GH_REPO/issues/699/comments" -f "body=$body"
       - name: Enforce both suites
         if: always()
