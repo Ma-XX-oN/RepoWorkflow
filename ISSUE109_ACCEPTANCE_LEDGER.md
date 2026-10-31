@@ -6,6 +6,23 @@ October 31 addenda for live current-source and provider evidence. Owner:
 existing V3 claim 6273106943.
 PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 
+## Current-final-candidate acceptance status (2026-10-31)
+
+**NOT DONE.** The 16 original P01-P16 criteria remain authoritative. A
+historically successful exact-source fixture is not a final-candidate PASS.
+At this checkpoint **2 procedural criteria PASS** (P01 preserved ownership,
+P02 closed prerequisite tickets) and **14 final-candidate criteria remain
+INCOMPLETE**, including those with historically successful test-only provider
+subcases. The latest documented accepted product source
+`59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90` is **not** the current
+consolidation branch tip. No independently issued current-source release/MIT
+Check Run or bound default trusted native done executor has been verified.
+
+| State | Criteria | Evidence classification |
+|---|---|---|
+| PASS (procedural) | P01, P02 | PR #680 remains open/draft; #103/#108/#118/#681/#683 closed |
+| INCOMPLETE final-candidate | P03-P16 | Historical isolated provider proofs and native tests do not certify this exact branch/current parent; independent release/MIT and shared authority absent in checked evidence |
+
 ## Proof levels
 
 - Unit fixtures and simulated provider transport are **not** proof of
