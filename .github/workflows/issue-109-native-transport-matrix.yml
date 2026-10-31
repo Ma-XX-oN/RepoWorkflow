@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: acb5a5b9b5110833d99933eb1d1a53b3e1e48a89
+          ref: a260d27c528c9dcc8aaf325db560bda1a95b598c
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Verify immutable tested source
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "acb5a5b9b5110833d99933eb1d1a53b3e1e48a89"
+        run: test "$(git rev-parse HEAD)" = "a260d27c528c9dcc8aaf325db560bda1a95b598c"
       - name: Compile production transport and independent test
         run: python -m compileall -q repo_workflow adapters tests
       - name: Native real-subprocess negative and positive fixture matrix
