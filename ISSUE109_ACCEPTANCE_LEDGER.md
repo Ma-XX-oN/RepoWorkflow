@@ -378,3 +378,7 @@ Check Run or bound default trusted native done executor has been verified.
 - Added a real-Git historical-chain negative test, `test_historical_retry_rejects_noncanonical_marker`. A valid new request referencing an earlier malformed CRLF request is correctly recognized as a request, but `original_candidate` refuses to traverse the malformed historical marker as valid test-source identity.
 - Exact tested source module remains blob `30f4e0d243972a81a6d124beab21a75eab112780`. Added regression tests bring the **exact-source isolated real-Git suite to 11/11 PASS**, including current and historical CRLF, extra blank line, dedicated retry, forged parent and mixed source rejection. The exact tested test module blob `ef817bbc68a9bf8ff7dafbfab5da00af8c7c17f1` was independently read back from **both main and #109 assembly** and matches local `git hash-object`.
 - No current three-platform CI acceptance or independent release/MIT App issuance is implied by these focused local tests.
+
+### 2026-10-31 — strict UTF-8 negative completion
+
+- Added `test_committed_marker_non_utf8_fails_closed` with an actual Git commit containing a non-UTF-8 byte. The exact committed marker reader rejected it. **12/12 focused exact-source real-Git tests PASS**; both source and test modules compiled successfully. Current source blob remains `30f4e0d243972a81a6d124beab21a75eab112780`; current test blob `8c1d39a5dcacff850240e09ac85c27f92e4fbc5e` matches locally executed source and both GitHub branches.
