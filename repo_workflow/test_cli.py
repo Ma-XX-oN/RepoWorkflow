@@ -467,7 +467,7 @@ def run_test(
       **({
         "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
         "selectedGroups": list(stage_groups(root, "regression")),
-      } if (root / ".ci/tests.json").is_file() else {}),
+      } if root.resolve() == engine_root.resolve() and (root / ".ci/tests.json").is_file() else {}),
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
