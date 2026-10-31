@@ -1,0 +1,36 @@
+name: Experimental 800-line tiktoken measurement
+on:
+  push:
+    branches:
+      - experiment-800-line-tiktoken-20261031
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: b7f39e33837bcbb9e22cd88bb63222d3149b416d
+          persist-credentials: false
+      - name: Install tokenizer
+        run: |
+          python -m pip install --disable-pip-version-check 'tiktoken==0.12.0'
+      - name: Count exact 800-line Python sample
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import tiktoken
+          path = Path("tests/test_first_use_lanes.py")
+          lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+          assert len(lines) >= 800
+          sample = "".join(lines[:800]).removesuffix("\n")
+          raw = sample.encode("utf-8")
+          assert len(raw) == 24837, (len(raw), "sample bytes changed")
+          tokens = len(tiktoken.get_encoding("o200k_base").encode(sample))
+          print(f"RWF_TOKEN_RESULT encoding=o200k_base tokenizer={tiktoken.__version__} lines=800 bytes={len(raw)} tokens={tokens} under_8000={tokens < 8000} sha256={hashlib.sha256(raw).hexdigest()}")
+          PY
