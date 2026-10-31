@@ -9,6 +9,102 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "regression-actions-policy": {
+        "type": "regression",
+        "name": "tests.test_actions_policy"
+      },
+      "regression-artifacts": {
+        "type": "regression",
+        "name": "tests.test_artifacts"
+      },
+      "regression-branch-policy": {
+        "type": "regression",
+        "name": "tests.test_branch_policy"
+      },
+      "regression-classification": {
+        "type": "regression",
+        "name": "tests.test_classification"
+      },
+      "regression-command-diagnostics": {
+        "type": "regression",
+        "name": "tests.test_command_diagnostics"
+      },
+      "regression-completion-spec": {
+        "type": "regression",
+        "name": "tests.test_completion_spec"
+      },
+      "regression-config": {
+        "type": "regression",
+        "name": "tests.test_config"
+      },
+      "regression-contract": {
+        "type": "regression",
+        "name": "tests.test_contract"
+      },
+      "regression-current-work-store": {
+        "type": "regression",
+        "name": "tests.test_current_work_store"
+      },
+      "regression-dependency-comparison": {
+        "type": "regression",
+        "name": "tests.test_dependency_comparison"
+      },
+      "regression-dependency-migration-manifest": {
+        "type": "regression",
+        "name": "tests.test_dependency_migration_manifest"
+      },
+      "regression-graph-boundary-order": {
+        "type": "regression",
+        "name": "tests.test_graph_boundary_order"
+      },
+      "integration-github-integration-provider": {
+        "type": "integration",
+        "name": "tests.test_github_integration_provider"
+      },
+      "integration-integration-evidence-external": {
+        "type": "integration",
+        "name": "tests.test_integration_evidence_external"
+      },
+      "integration-integration-host-git-cas": {
+        "type": "integration",
+        "name": "tests.test_integration_host_git_cas"
+      },
+      "integration-integration-host-v2-entrypoint": {
+        "type": "integration",
+        "name": "tests.test_integration_host_v2_entrypoint"
+      },
+      "integration-integration-lease-github": {
+        "type": "integration",
+        "name": "tests.test_integration_lease_github"
+      },
+      "integration-integration-retirement-github": {
+        "type": "integration",
+        "name": "tests.test_integration_retirement_github"
+      },
+      "integration-integration-terminal-github": {
+        "type": "integration",
+        "name": "tests.test_integration_terminal_github"
+      },
+      "integration-repo-host-authority-isolation": {
+        "type": "integration",
+        "name": "tests.test_repo_host_authority_isolation"
+      },
+      "integration-repo-host-github-integration-mit": {
+        "type": "integration",
+        "name": "tests.test_repo_host_github_integration_mit"
+      },
+      "integration-workspace-integration": {
+        "type": "integration",
+        "name": "tests.test_workspace_integration"
+      },
+      "integration-prelim-queue-git": {
+        "type": "integration",
+        "name": "tests.test_prelim_queue_git"
+      }
+    }
+  ],
   "aliases": {}
 }
