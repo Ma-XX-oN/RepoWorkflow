@@ -180,6 +180,11 @@ temporary selection file.  The exact file-content template/schema is still
 under design and must be settled before this part of the Rosetta contract is
 implemented.
 
+For the current inventory of test modules not yet directly registered, see
+[the unregistered module classification review](TEST_CLASSIFICATION_REVIEW_20261031.md).
+This review is not a reason to automatically promote unverified candidates;
+each retained or retired group needs issue-contract evidence.
+
 The catalogue is static.  Full regression selection is derived from entries
 whose metadata says `type: regression`; fast selection is derived from speed
 metadata; group selection matches canonical group keys.  Separate manually
