@@ -74,9 +74,9 @@ def _group_keys(tests: object) -> frozenset[str]:
         raise TestCatalogueError(f"duplicate test group: {key}")
       if not isinstance(value, dict):
         raise TestCatalogueError(f"test group {key} must be an object")
-      if value.get("type") not in {"regression", "integration"}:
+      if value.get("type") not in {"regression", "integration", "manual"}:
         raise TestCatalogueError(
-          f"test group {key} must use regression or integration type"
+          f"test group {key} must use regression, integration or manual type"
         )
       groups.add(key)
   return frozenset(groups)
