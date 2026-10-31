@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 9e2d350a68bbfb2647c527395ee8b1f682ada5b0
+          ref: 0d296a23817501fd3a2cfd73ab1becb1f027b368
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Exact immutable assembled source
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "9e2d350a68bbfb2647c527395ee8b1f682ada5b0"
+        run: test "$(git rev-parse HEAD)" = "0d296a23817501fd3a2cfd73ab1becb1f027b368"
       - name: Install declared requirements
         run: python -m pip install -r requirements.txt
       - name: Full repository unittest discovery
