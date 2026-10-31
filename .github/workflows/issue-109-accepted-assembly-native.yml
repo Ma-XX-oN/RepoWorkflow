@@ -15,20 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 209f002a237d41b189abe5b95c1e089b9d5a32f1
+          ref: 665afd43cc9a02fb4dddb292f4ecf0fa863abe86
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert accepted exact product commit
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "209f002a237d41b189abe5b95c1e089b9d5a32f1"
+        run: test "$(git rev-parse HEAD)" = "665afd43cc9a02fb4dddb292f4ecf0fa863abe86"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile all source and tests
         run: python -m compileall -q repo_workflow adapters tests
       - name: Cross-owner exact-source negative and integration regression
-        run: python -m unittest tests.test_done_host_transport tests.test_integration_evidence_external tests.test_engine_remote tests.test_engine_version_adapter tests.test_version_adapter tests.test_phase_terminal tests.test_prelim_integration_ready tests.test_prelim_ready_v2_roundtrip tests.test_done_runtime tests.test_manual_mit_negative_acceptance tests.test_manual_test_cli -v
+        run: python -m unittest tests.test_done_host_transport tests.test_integration_evidence_external tests.test_repo_host_authority_isolation tests.test_engine_remote tests.test_engine_version_adapter tests.test_version_adapter tests.test_phase_terminal tests.test_prelim_integration_ready tests.test_prelim_ready_v2_roundtrip tests.test_done_runtime tests.test_manual_mit_negative_acceptance tests.test_manual_test_cli -v
   full:
     strategy:
       fail-fast: false
@@ -38,14 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 209f002a237d41b189abe5b95c1e089b9d5a32f1
+          ref: 665afd43cc9a02fb4dddb292f4ecf0fa863abe86
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert accepted exact product commit
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "209f002a237d41b189abe5b95c1e089b9d5a32f1"
+        run: test "$(git rev-parse HEAD)" = "665afd43cc9a02fb4dddb292f4ecf0fa863abe86"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Unmodified complete native regression
