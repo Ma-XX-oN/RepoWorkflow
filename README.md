@@ -204,6 +204,7 @@ The intended human-facing interface is the Git-like `rwf` command family:
 
 ```text
 rwf init
+rwf start ...
 rwf status
 rwf what-next
 rwf issue ...
