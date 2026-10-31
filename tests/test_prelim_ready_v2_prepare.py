@@ -5,7 +5,7 @@ from repo_workflow.git import git
 from repo_workflow.prelim_attempt_lock import PrelimError
 from repo_workflow.prelim_ready_v2_prepare import prepare_destination_prelim
 from repo_workflow.prelim_ready_v2_record import preparation_ref
-from tests.test_prelim_attempt import PrelimAttemptTests
+from tests import test_prelim_attempt as _prelim_attempt
 
 
 G = "11111111-1111-4111-8111-111111111111"
@@ -13,7 +13,7 @@ H = "22222222-2222-4222-8222-222222222222"
 
 
 class DestinationPreparationTests(unittest.TestCase):
-  setUp = PrelimAttemptTests.setUp
+  setUp = _prelim_attempt.PrelimAttemptTests.setUp
 
   def make(self, guid=G, destination="main"):
     return prepare_destination_prelim(

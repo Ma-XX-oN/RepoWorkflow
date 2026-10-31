@@ -7,14 +7,14 @@ from repo_workflow.git import git
 from repo_workflow.prelim_validation import PrelimValidationError
 from repo_workflow.prelim_ready_v2_prepare import prepare_destination_prelim
 from repo_workflow.prelim_ready_v2_validation import validate_destination_prelim
-from tests.test_prelim_attempt import PrelimAttemptTests
+from tests import test_prelim_attempt as _prelim_attempt
 
 
 G = "11111111-1111-4111-8111-111111111111"
 
 
 class DestinationValidationTests(unittest.TestCase):
-  setUp = PrelimAttemptTests.setUp
+  setUp = _prelim_attempt.PrelimAttemptTests.setUp
 
   def prepare(self):
     return prepare_destination_prelim(
