@@ -17,7 +17,11 @@ missing. Catalogue registration is **not** automatic stage selection.
 The #703 MIT negative acceptance oracle
 (`tests.test_manual_mit_negative_acceptance`) and the deliberately RED
 version-contract oracle (`tests.test_manual_mit_version_contract`) are
-registered as `type: manual` under issue-owned `issue-703-...` groups.
+registered as `type: manual` under the canonical issue-owned
+`issue-703-manual--...` case names. Manual case declarations require
+`instructions` and `expected_result`, never a runnable `name`; their
+instructions identify the excluded source module with the literal
+`Unittest module: tests.test_...` marker for completeness accounting.
 They require explicit separately authorized acceptance selection. They are
 excluded from broad regression/integration staging until their governing
 acceptance contracts authorize promotion. Do not silently remove failing
