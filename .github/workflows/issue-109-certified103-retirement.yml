@@ -1,0 +1,47 @@
+name: RWF109 certified 103 retirement 3OS convergence
+on:
+  push:
+    branches: [issue-109-certified-103-retirement-assembly-20261031]
+    paths: ['.github/workflows/issue-109-certified103-retirement.yml']
+permissions:
+  contents: read
+jobs:
+  native-retirement:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 05b7e29947f9ab4ae6055f8eee75e6566ab4666b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert merged product exact SHA
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = 05b7e29947f9ab4ae6055f8eee75e6566ab4666b
+          python -m compileall -q repo_workflow adapters
+          echo 'RWF109_CERTIFIED103_PRODUCT_SHA=05b7e29947f9ab4ae6055f8eee75e6566ab4666b'
+      - name: Exact source retirement and done integration suites
+        shell: bash
+        run: |
+          python -m unittest -q \
+            tests.test_prelim_retirement \
+            tests.test_prelim_retirement_evidence \
+            tests.test_prelim_retirement_execute \
+            tests.test_prelim_retirement_github \
+            tests.test_prelim_retirement_remote \
+            tests.test_done_completion \
+            tests.test_done_provider_pipeline \
+            tests.test_done_runtime \
+            tests.test_done_cli \
+            tests.test_done_provider_acceptance \
+            tests.test_done_shared_lifecycle \
+            tests.test_repo_host_authority_isolation \
+            tests.test_integration_evidence_external
