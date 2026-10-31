@@ -413,8 +413,7 @@ project's ~500-line ceiling:
 
 RepoWorkflow must not:
 
-- contain product-specific knowledge of AIConversationCore,
-  DownloadConversation, AgentPanelSpeaker, AI-General-Memory, or Multi-AI;
+- contain product-specific knowledge of any other repo;
 - duplicate each consumer's test suite in shared configuration;
 - turn JSON into a scripting language;
 - use GitHub Actions as a general repository-editing mechanism;
