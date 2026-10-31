@@ -31,3 +31,36 @@ jobs:
         run: python -m compileall -q adapters repo_workflow tests
       - name: Run unmodified owner + imported provider suites
         run: python -m unittest tests.test_done_cli tests.test_done_runtime tests.test_done_provider_pipeline tests.test_done_shared_lifecycle tests.test_integration_host_v2 tests.test_integration_host_v2_entrypoint tests.test_github_integration_provider tests.test_integration_acceptance_intent tests.test_integration_destination_accept_github tests.test_integration_destination_github tests.test_integration_evidence_external tests.test_integration_host_git_cas tests.test_integration_lease_github tests.test_integration_retirement_github tests.test_integration_terminal_github tests.test_repo_host_github_integration_mit -v
+      - name: Real GitHub provider v2 read-only remote inventory
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          from repo_workflow.integration_host_v2 import IntegrationHost
+          repository = "Ma-XX-oN/RepoWorkflow"
+          executable = Path("adapters/repo-host-integration-v2.py")
+          def transport(request):
+            result = subprocess.run(
+              [sys.executable, str(executable)],
+              input=json.dumps(request, separators=(",", ":")),
+              text=True, capture_output=True, check=True, timeout=120,
+            )
+            return json.loads(result.stdout)
+          host = IntegrationHost(repository, transport)
+          result = host.request(
+            "refs.list", "rwf109-read-only-verified-inventory",
+            {"prefix": "refs/heads/PRELIM-"},
+          )
+          observed = json.loads(subprocess.check_output(
+            ["gh", "api", f"repos/{repository}/git/matching-refs/heads/PRELIM-",
+             "--paginate"], text=True,
+          ))
+          actual = {item["ref"]: item["object"]["sha"] for item in observed}
+          assert result["refs"] == actual, "provider v2 inventory differs from direct GitHub API readback"
+          print("LIVE_PROVIDER_V2_READ_ONLY_MATCH=PASS", "PRELIM_COUNT=", len(actual), flush=True)
+          PY
