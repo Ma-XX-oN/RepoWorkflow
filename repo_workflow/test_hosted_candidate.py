@@ -1,0 +1,77 @@
+"""Bind on-demand tests to a dedicated, exact-source invocation commit."""
+import os
+from pathlib import Path
+import re
+import subprocess
+
+from .ci_invocation import parse_invocation
+from .hosted_version_identity import HostedVersionError, resolve_invocation
+from .git import current_branch, head_sha
+from .test_results_reader import TestCommandError
+
+
+_SHA = re.compile(r"[0-9a-f]{40}\Z")
+
+
+def _git(root, *args):
+  result = subprocess.run(
+    ["git", "-C", str(root), *args], capture_output=True, text=True,
+    check=False,
+  )
+  if result.returncode:
+    raise TestCommandError("hosted invocation object unavailable")
+  return result.stdout.strip()
+
+
+def hosted_candidate_bound(root: Path) -> bool:
+  """Hosted stage is immutable only when its exact invocation was verified."""
+  # Only the checked-out workflow repository is the authoritative hosted
+  # source. Tests using temporary consumer repositories remain local tests,
+  # even when the parent process is running under GitHub Actions.
+  workspace = os.environ.get("GITHUB_WORKSPACE")
+  if not workspace or root.resolve() != Path(workspace).resolve():
+    return False
+  expected = os.environ.get("RWF_HOSTED_TEST_CANDIDATE")
+  hosted = (os.environ.get("GITHUB_ACTIONS") == "true"
+            and os.environ.get("GITHUB_WORKFLOW") == "RepoWorkflow On-Demand CI")
+  if expected is None and not hosted:
+    return False
+  if (not hosted
+      or os.environ.get("GITHUB_REF_NAME") != current_branch(root)):
+    raise TestCommandError("hosted test candidate identity changed")
+  candidate = head_sha(root)
+  if expected is None:
+    invocation = os.environ.get("GITHUB_SHA")
+    if type(invocation) is not str or _SHA.fullmatch(invocation) is None:
+      raise TestCommandError("hosted invocation identity absent")
+    marker = parse_invocation(_git(root, "show", invocation + ":.ci/run") + "\n")
+    ancestors = _git(root, "rev-list", "--parents", "-n", "1", invocation).split()
+    changed = _git(root, "diff-tree", "--no-commit-id", "--name-only",
+                   "-r", invocation).splitlines()
+    if (len(ancestors) != 2 or ancestors[0] != invocation
+        or marker.previous_tip != ancestors[1] or changed != [".ci/run"]):
+      raise TestCommandError("hosted invocation is not an exact-source request")
+    expected = marker.previous_tip
+  if type(expected) is not str or _SHA.fullmatch(expected) is None:
+    raise TestCommandError("hosted test candidate identity changed")
+  if candidate != expected:
+    # In chained dedicated invocations the immediate parent is another
+    # marker-only commit, not the physical tested candidate. Reconstruct its
+    # exact authenticated ancestry rather than silently treating the marker
+    # as a changed source. Explicit candidate pins cannot be overridden.
+    if os.environ.get("RWF_HOSTED_TEST_CANDIDATE") is not None:
+      raise TestCommandError("hosted test candidate identity changed")
+    try:
+      resolved = resolve_invocation(root, invocation)
+    except HostedVersionError as error:
+      raise TestCommandError("hosted invocation ancestry invalid") from error
+    if resolved["candidate_sha"] != candidate:
+      raise TestCommandError("hosted test candidate identity changed")
+  return True
+
+
+def publish_if_local(root: Path, *, stage: str) -> None:
+  """The hosted result publisher owns terminal tags, not its test checkout."""
+  if not hosted_candidate_bound(root):
+    from .local_terminal import publish_local_terminal
+    publish_local_terminal(root, stage=stage)
