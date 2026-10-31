@@ -81,12 +81,12 @@ def _group_records(
 def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
   # Lazy import preserves standalone CLI fixture tests without the MIT module.
   from .manual_test_catalogue import ManualCatalogueError, read_manual_cases
-  catalogue = load_test_catalogue(root)
-  prefix = f"issue-{issue}-"
   try:
     manual_names = {case.name for case in read_manual_cases(root, int(issue))}
   except ManualCatalogueError as error:
     raise SelfCiError("manual test catalogue invalid: " + str(error)) from error
+  catalogue = load_test_catalogue(root)
+  prefix = f"issue-{issue}-"
   # Manual cases share the catalogue, but are never runnable CI commands.
   owned = tuple(sorted(
     group for group in catalogue.groups
