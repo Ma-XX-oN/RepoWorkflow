@@ -1,0 +1,70 @@
+name: RWF109 after-parent-update read-only provider 3OS
+on:
+  push:
+    branches: [verification-109-current-parent-read-20261031]
+    paths: [.github/workflows/verification-rwf109-current-parent-read.yml]
+permissions:
+  contents: read
+jobs:
+  live-read:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cdcd8d18a7c6e00365952dd9f8bad1d837f969f9
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact accepted source
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "cdcd8d18a7c6e00365952dd9f8bad1d837f969f9"
+      - name: Read real remote READY and destination with v2 host
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from repo_workflow.done_host_transport import bind_native_integration_host
+          from repo_workflow.done_host_coordinator import IntegrationHostCoordinator
+
+          repository = "Ma-XX-oN/RepoWorkflow"
+          def api(path):
+            request = Request(
+              "https://api.github.com/repos/" + repository + "/" + path,
+              headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                       "Accept": "application/vnd.github+json"})
+            with urlopen(request, timeout=30) as response:
+              return json.load(response)
+
+          before = api("git/ref/heads/main")["object"]["sha"]
+          host = bind_native_integration_host(
+            repository=repository, engine_root=Path.cwd())
+          coordinator = IntegrationHostCoordinator(host)
+          ready = coordinator.read_ready_prelims()
+          inventory = host.request(
+            "refs.list", "rwf109-accepted-read-only-independent-inventory",
+            {"prefix": "refs/heads/PRELIM-"})
+          assert type(inventory) is dict and "refs" in inventory
+          assert set(r.ref for r in ready) == set(inventory["refs"])
+          lease = coordinator.read_destination_lease("main")
+          assert lease.destination == "main" and lease.generation >= 0
+          dest = host.request(
+            "destination.read", "rwf109-accepted-read-only-destination",
+            {"destination": "main"})
+          after = api("git/ref/heads/main")["object"]["sha"]
+          assert before == after == dest["sha"]
+          assert dest["ref"] == "refs/heads/main"
+          print("RWF109_LIVE_PROVIDER_READ=PASS",
+                "main_sha="+after, "ready_count="+str(len(ready)),
+                "lease_generation="+str(lease.generation), flush=True)
+          PY
