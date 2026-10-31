@@ -44,6 +44,7 @@ workflow triggers, inspect their own `on:` declarations. See
 - **CI and test execution:**
   [Execution environments](EXECUTION_ENVIRONMENTS.md) ->
   [test strategy](TEST_STRATEGY.md) ->
+  [catalogue stages and selection](TEST_CATALOGUE.md) ->
   [on-demand CI contract](CI_INVOCATION_CONTRACT.md) ->
   [risk-scoped certification](RISK_SCOPED_CI_CERTIFICATION.md).
 - **Documentation and code size:**
