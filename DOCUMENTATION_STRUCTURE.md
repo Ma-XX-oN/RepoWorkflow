@@ -8,6 +8,15 @@ without sacrificing authoritative information.
 General engineering guidance is indexed in [BEST_PRACTICES.md](BEST_PRACTICES.md),
 which links to the authoritative specialist procedures.
 
+## Hierarchical navigation
+
+Use [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for a short entry point
+that links to increasingly focused contracts. A specialist document should
+own its subject and cross-link to another branch when a real task crosses
+boundaries. Avoid duplicating authoritative detail in overview pages.
+For environment selection, see
+[EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md).
+
 ## 1. Purpose
 
 A document reaching **500 lines** triggers a soft maintainability review;
