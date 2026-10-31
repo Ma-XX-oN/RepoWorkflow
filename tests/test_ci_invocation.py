@@ -96,6 +96,17 @@ class CiInvocationTests(unittest.TestCase):
     with self.assertRaisesRegex(CiInvocationError, "only .ci/run"):
       verify_invocation(self.root)
 
+  def test_committed_marker_extra_blank_line_fails_closed(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_text(
+      f"regression-testing {self.base}\n\n"
+    )
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "malformed CI request")
+    with self.assertRaises(CiInvocationError):
+      verify_invocation(self.root)
+
   def test_no_request_fails_closed(self):
     with self.assertRaisesRegex(CiInvocationError, "missing"):
       verify_invocation(self.root)
