@@ -14,18 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: a47236f288a2a5fd094d22659cfcca4b75609623
+          ref: 28f3c622e639ade3a246518a4c4a70113fd60089
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert original product revision
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "a47236f288a2a5fd094d22659cfcca4b75609623"
+        run: test "$(git rev-parse HEAD)" = "28f3c622e639ade3a246518a4c4a70113fd60089"
       - name: Compile exact modified source and tests
-        run: python -m py_compile adapters/repo_host_github_integration_evidence.py tests/test_integration_evidence_external.py
+        run: python -m py_compile adapters/repo_host_github_integration_evidence.py adapters/repo_host_github_authority.py tests/test_integration_evidence_external.py tests/test_repo_host_authority_isolation.py
       - name: Exact source verifier 3OS negative matrix
-        run: python -m unittest tests.test_integration_evidence_external -v
+        run: python -m unittest tests.test_integration_evidence_external tests.test_repo_host_authority_isolation -v
       - name: Read-only live destination SHA and allow-list provider cross-check
         shell: bash
         env:
