@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - 'issue-703-mit-negative-*'
+    paths:
+      - '.ci/run'
   workflow_dispatch:
     inputs:
       target_sha:
