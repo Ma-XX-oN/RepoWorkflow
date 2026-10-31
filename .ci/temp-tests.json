@@ -9,6 +9,26 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-109-stage-catalogue": {
+        "type": "regression",
+        "name": "tests.test_test_catalogue"
+      },
+      "issue-109-stage-selection": {
+        "type": "regression",
+        "name": "tests.test_self_ci_tiers"
+      },
+      "issue-109-stage-manual-selection": {
+        "type": "integration",
+        "name": "tests.test_manual_self_ci_selection"
+      },
+      "issue-109-stage-manual-catalogue": {
+        "type": "integration",
+        "name": "tests.test_manual_test_catalogue"
+      }
+    }
+  ],
   "aliases": {}
 }
