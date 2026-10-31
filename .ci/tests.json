@@ -577,6 +577,54 @@
       "integration-ci-invocation-trigger": {
         "type": "integration",
         "name": "tests.test_ci_invocation_trigger_contract"
+      },
+      "regression-actions-policy": {
+        "type": "regression",
+        "name": "tests.test_actions_policy"
+      },
+      "regression-artifacts": {
+        "type": "regression",
+        "name": "tests.test_artifacts"
+      },
+      "regression-branch-policy": {
+        "type": "regression",
+        "name": "tests.test_branch_policy"
+      },
+      "regression-classification": {
+        "type": "regression",
+        "name": "tests.test_classification"
+      },
+      "regression-command-diagnostics": {
+        "type": "regression",
+        "name": "tests.test_command_diagnostics"
+      },
+      "regression-completion-spec": {
+        "type": "regression",
+        "name": "tests.test_completion_spec"
+      },
+      "regression-config": {
+        "type": "regression",
+        "name": "tests.test_config"
+      },
+      "regression-contract": {
+        "type": "regression",
+        "name": "tests.test_contract"
+      },
+      "regression-current-work-store": {
+        "type": "regression",
+        "name": "tests.test_current_work_store"
+      },
+      "regression-dependency-comparison": {
+        "type": "regression",
+        "name": "tests.test_dependency_comparison"
+      },
+      "regression-dependency-migration-manifest": {
+        "type": "regression",
+        "name": "tests.test_dependency_migration_manifest"
+      },
+      "regression-graph-boundary-order": {
+        "type": "regression",
+        "name": "tests.test_graph_boundary_order"
       }
     },
     {
