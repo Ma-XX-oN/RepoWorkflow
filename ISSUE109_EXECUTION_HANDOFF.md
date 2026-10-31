@@ -46,3 +46,35 @@ occurred.
 
 ## No unauthorized changes
 No protected main ref, PR merge, provider ruleset or release tag changed.
+
+## 2026-10-31 current continuation (supersedes source pointers above)
+
+This file's October 17 exact-source pointers are historical. For current
+source use the live branch `issue-109-accepted-assembly-20261030` and
+`ISSUE109_ACCEPTANCE_LEDGER.md` on that branch. Do not promote old fixture or
+hosted results to its current HEAD. The direct current `repo_workflow.py`
+entrypoint calls `handle_public` without a trusted done executor; the
+public command fails closed until an independently authenticated service is
+bound. `done_runtime.execute_ready_done` still requires actual planner,
+READY, provider, retirement, lifecycle and verification callbacks. Independent
+release/MIT GitHub App issuer and stable shared lifecycle state authority
+are not installed by historical test fixtures.
+
+The #109 exact-source accepted product previously pinned by native workflows
+is `59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90`, not the current
+consolidation HEAD. Native verification runs 41227150581 and 41227396552
+had five successful jobs and an in-progress Windows full job when checked.
+Historical three-OS read-only GitHub provider run 41222111102 succeeded, but
+observed old main parent `f838ae7cddaa1376b086bb146a13bfec8602b085`;
+it cannot certify an integration against newer main. Do not start redundant
+native validation on ordinary pushes. The consolidated branch's native
+workflow push triggers now use `.ci/run` exclusively; three historical
+migration/certification workflows have separate, named path selectors. The
+permanent guard `tests/test_ci_invocation_trigger_contract.py` is registered
+under `.ci/tests.json` both here and on main.
+
+Remaining: actual independently issued ART/AIT/release/MIT, trusted production
+native executor connection, authoritative shared lifecycle state, current
+parent/CAS acceptance, exact-current-source native suite, and independent
+#583/#677 oracle readback. Preserve all existing ownership and security gates;
+no production merge or stable tag is authorized by this checkpoint.
