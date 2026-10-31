@@ -30,7 +30,7 @@ def selected_modules(root: Path, stage: str) -> tuple[str, ...]:
   records = {}
   for declaration in catalogue["tests"]:
     for group, item in declaration.items():
-      if group in {"test-harness", "command"}:
+      if group in {"test-harness", "command"} or item["type"] == "manual":
         continue
       records[group] = (declaration["test-harness"], item["name"])
   # Every shipped unittest module must be classified, including intentionally
