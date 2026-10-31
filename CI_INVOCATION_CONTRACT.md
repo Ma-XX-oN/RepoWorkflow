@@ -1,11 +1,17 @@
 # On-demand CI invocation contract
 
-Status: documented design decision, pending implementation (#538).
+Status: on-demand development-branch invocation implemented; protected integration
+and replacement of separate Self CI remain outside this claim.
 
-This document records the agreed trigger, evidence, and merge semantics.
-It does not assert that the current GitHub Actions workflow implements them.
-Until implementation and repository-protection changes are validated, the
-existing hosted CI configuration remains the executable behaviour.
+The implemented GitHub adapter is `.github/workflows/on-demand-ci.yml`:
+`push` on `issue-*` branches with a `paths` filter for `.ci/run` only.
+Source-only pushes and merges without a `.ci/run` change do not trigger
+**this workflow**. Other separately configured workflows are independent;
+inspect their event declarations before asserting that no CI run will occur.
+`rwf test <stage> --remote` creates the dedicated invocation commit.
+Issue #538 delivered the earlier documentation-only contract; it is not an
+accurate current implementation-status indicator. Protected-branch enforcement
+and complete integration acceptance must be verified independently.
 
 ## Provider-neutral scope and planned migration
 
@@ -69,7 +75,7 @@ tested candidate identity.
 
 ## 2. Hosted execution without a dispatcher on routine pushes
 
-The intended GitHub Actions push trigger uses a path filter confined to
+The implemented on-demand GitHub Actions push trigger uses a path filter confined to
 `.ci/run`. Ordinary pushes with no change to that path must not launch a
 hosted test job merely to inspect a request. CI is requested by a
 selector-changing push, not automatically by every code push.
@@ -138,23 +144,23 @@ required when the candidate tree already represents the exact result.
 Ancestry alone does not replace the required PASS evidence in the testing
 log.
 
-## 5. Implementation and protection work remaining
+## 5. Current implementation and independent acceptance boundaries
 
-This specification deliberately does **not** change the existing CI triggers
-or server rules. Implementation must separately reconcile:
+The on-demand development-branch adapter is implemented at
+`.github/workflows/on-demand-ci.yml`. It does not replace separate Self CI,
+certification/migration workflows, or protected-branch enforcement. Consult
+`PUBLIC_WORKFLOW.md` section 10.1 for the Self CI distinction and
+`WORKFLOW_INTEGRATION.md` section 10 for evidence reuse.
 
-- `PUBLIC_WORKFLOW.md` section 10.1 (currently assigns issue-tier checks
-  to ordinary PRs and integration to `main` pushes);
-- `WORKFLOW_INTEGRATION.md` section 10 (currently requires automatic server
-  examination of every pushed candidate);
-- the GitHub Actions workflow, `repo_workflow/self_ci.py`, test catalogue,
-  and required-check/branch-protection settings;
-- GitHub path-filter limitations and required-check pending behaviour;
-- trusted verification of local/external testing-log evidence without
-  requiring hosted test execution on every push;
-- server-enforced current-base / stale-concurrent-candidate rejection.
+Do not confuse `.ci/run` (the **current hosted stage invocation file**) with
+`.ci/run-ci-request` (a distinct legacy exact-candidate bookkeeping file),
+with `.ci/rwf` (a **proposed**, not implemented rename), or with any
+`.repoworkflow/migrations/run-*` marker used by a separate migration workflow.
+Only `.ci/run` changes on `issue-*` branches trigger the implemented on-demand
+workflow. Any other workflow has its own trigger rules.
 
-The on-demand trigger must be tested for initial invocation, repeated same
-stage, missed event retry, source-only push, selector-only push, malformed
-selector, stale evidence, local/external evidence, current-base races, and
-restart or re-fetch behaviour before replacing the current CI policy.
+The invocation and evidence acceptance matrix includes first invocation,
+repeat/missed-event retry, source-only versus selector-changing pushes,
+malformed selectors, stale/forged evidence, local/external evidence, current-base
+races, and restart/re-fetch. Passing isolated workflow tests is not proof of
+protected production integration or full repository-wide CI policy migration.
