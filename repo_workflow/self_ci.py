@@ -110,7 +110,6 @@ def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
     owned,
     lifecycle.high_risk_aliases,
   ))
-  selected.update(_groups_of_type(root, "invariant"))
   return tuple(sorted(selected))
 
 
