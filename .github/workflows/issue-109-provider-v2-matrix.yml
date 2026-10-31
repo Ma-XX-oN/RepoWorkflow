@@ -1,0 +1,66 @@
+name: RWF 109 assembled provider-v2 exact source native matrix
+on:
+  push:
+    branches:
+      - 'issue-109-provider-v2-convergence-20261030'
+permissions:
+  contents: read
+jobs:
+  provider-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: acb5a5b9b5110833d99933eb1d1a53b3e1e48a89
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert source identity
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "acb5a5b9b5110833d99933eb1d1a53b3e1e48a89"
+          python -V
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile all imported production and test sources
+        run: python -m compileall -q adapters repo_workflow tests
+      - name: Run unmodified owner + imported provider suites
+        run: python -m unittest tests.test_done_host_transport tests.test_done_cli tests.test_done_runtime tests.test_done_provider_pipeline tests.test_done_shared_lifecycle tests.test_integration_host_v2 tests.test_integration_host_v2_entrypoint tests.test_github_integration_provider tests.test_integration_acceptance_intent tests.test_integration_destination_accept_github tests.test_integration_destination_github tests.test_integration_evidence_external tests.test_integration_host_git_cas tests.test_integration_lease_github tests.test_integration_retirement_github tests.test_integration_terminal_github tests.test_repo_host_github_integration_mit -v tests.test_hosted_candidate tests.test_hosted_version_history_collision tests.test_prelim_integration_ready tests.test_prelim_ready tests.test_prelim_ready_authority tests.test_prelim_ready_bridge tests.test_prelim_ready_git tests.test_prelim_ready_provider_scope tests.test_prelim_ready_recorded tests.test_prelim_ready_v2_prepare tests.test_prelim_ready_v2_publish tests.test_prelim_ready_v2_roundtrip tests.test_prelim_ready_v2_validation
+      - name: Real GitHub provider v2 read-only remote inventory
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          from repo_workflow.integration_host_v2 import IntegrationHost
+          repository = "Ma-XX-oN/RepoWorkflow"
+          executable = Path("adapters/repo-host-integration-v2.py")
+          def transport(request):
+            result = subprocess.run(
+              [sys.executable, str(executable)],
+              input=json.dumps(request, separators=(",", ":")),
+              text=True, capture_output=True, check=True, timeout=120,
+            )
+            return json.loads(result.stdout)
+          host = IntegrationHost(repository, transport)
+          result = host.request(
+            "refs.list", "rwf109-read-only-verified-inventory",
+            {"prefix": "refs/heads/PRELIM-"},
+          )
+          observed = json.loads(subprocess.check_output(
+            ["gh", "api", f"repos/{repository}/git/matching-refs/heads/PRELIM-",
+             "--paginate"], text=True,
+          ))
+          actual = {item["ref"]: item["object"]["sha"] for item in observed}
+          assert result["refs"] == actual, "provider v2 inventory differs from direct GitHub API readback"
+          print("LIVE_PROVIDER_V2_READ_ONLY_MATCH=PASS", "PRELIM_COUNT=", len(actual), flush=True)
+          PY
