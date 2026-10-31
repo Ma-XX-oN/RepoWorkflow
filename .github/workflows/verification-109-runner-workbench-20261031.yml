@@ -1,0 +1,16 @@
+name: RWF109 isolated repository runner admission diagnostic
+on:
+  push:
+    branches:
+      - verification-109-runner-workbench-20261031
+    paths:
+      - .ci/verification-109-probe
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm repository runner admission
+        run: echo RWF109_REPO_RUNNER_OK
