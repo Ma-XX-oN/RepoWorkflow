@@ -586,11 +586,11 @@
         "name": "scripts/validate.py"
       },
       "issue-583-graph-platform-probe": {
-        "type": "regression",
+        "type": "integration",
         "name": "scripts/probe-graph-renderer.py"
       },
       "issue-583-ticket-merge-probe": {
-        "type": "regression",
+        "type": "integration",
         "name": "scripts/probe-ticket-merge.py"
       }
     }
