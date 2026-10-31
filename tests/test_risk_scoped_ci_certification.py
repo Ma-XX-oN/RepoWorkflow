@@ -20,7 +20,7 @@ class RiskScopedCiCertificationTests(unittest.TestCase):
     catalogue = load_test_catalogue(ROOT)
     expanded = catalogue.expand_aliases(["self-ci"])
     self.assertIn("issue-476-staged-self-ci", expanded)
-    self.assertIn("invariant-self-ci-contract", expanded)
+    self.assertIn("integration-self-ci-contract", expanded)
     self.assertNotEqual(expanded, tuple(sorted(catalogue.groups)))
 
   def test_certification_issue_keeps_its_owned_group(self):
@@ -33,7 +33,7 @@ class RiskScopedCiCertificationTests(unittest.TestCase):
     )
     self.assertEqual(plan.tier, "issue")
     self.assertIn("issue-477-risk-scoped-ci", plan.groups)
-    self.assertIn("invariant-self-ci-contract", plan.groups)
+    self.assertNotIn("integration-self-ci-contract", plan.groups)
 
   def test_dependency_complete_outcome_can_select_explicit_regression(self):
     plan = plan_self_ci(
