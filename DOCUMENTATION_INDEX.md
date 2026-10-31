@@ -10,7 +10,7 @@ This map does not replace task acceptance, ticket ownership or approval gates.
 1. [Engineering overview](BEST_PRACTICES.md): investigate, design and verify.
 2. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
 3. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
-   workbench, including GitHub Actions when local tools lack dependencies.
+   workbench on any authorised CI provider when local tools lack dependencies.
 4. [Testing and proof](TEST_ADEQUACY.md): distinguish fixtures, native runs,
    hosted evidence and provider certification.
 5. [Current work](CURRENT_WORK_STATE.md): check active coordination context;
