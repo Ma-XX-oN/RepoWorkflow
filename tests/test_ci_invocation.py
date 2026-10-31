@@ -114,7 +114,7 @@ class CiInvocationTests(unittest.TestCase):
     (directory / "run").write_bytes(
       f"regression-testing {self.base}\r\n".encode("utf-8")
     )
-    self.git("add", ".ci/run")
+    self.git("-c", "core.autocrlf=false", "add", ".ci/run")
     self.git("commit", "-qm", "CRLF CI request")
     with self.assertRaises(CiInvocationError):
       verify_invocation(self.root)
@@ -125,7 +125,7 @@ class CiInvocationTests(unittest.TestCase):
     (directory / "run").write_bytes(
       f"regression-testing {self.base}\r\n".encode("utf-8")
     )
-    self.git("add", ".ci/run")
+    self.git("-c", "core.autocrlf=false", "add", ".ci/run")
     self.git("commit", "-qm", "historical malformed request")
     malformed_tip = self.git("rev-parse", "HEAD")
     self.invoke(previous_tip=malformed_tip)
