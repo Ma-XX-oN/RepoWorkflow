@@ -46,14 +46,20 @@ def _git(root: Path, *args: str, raw: bool = False) -> str:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
     capture_output=True,
-    text=True,
+    text=not raw,
     check=False,
   )
   if result.returncode:
+    stderr = result.stderr.decode("utf-8", "replace") if raw else result.stderr
     raise CiInvocationError(
-      f"cannot verify CI invocation commit: {result.stderr.strip()}"
+      f"cannot verify CI invocation commit: {stderr.strip()}"
     )
-  return result.stdout if raw else result.stdout.strip()
+  if raw:
+    try:
+      return result.stdout.decode("utf-8", "strict")
+    except UnicodeDecodeError as error:
+      raise CiInvocationError("committed CI marker is not UTF-8") from error
+  return result.stdout.strip()
 
 
 def verify_invocation(root: Path) -> CiInvocation:
