@@ -55,7 +55,7 @@ def selected_modules(root: Path, stage: str) -> tuple[str, ...]:
       if key in {"test-harness", "command"} or item["type"] != "manual":
         continue
       match = re.search(
-        r"Unittest module: (tests\\.test_[A-Za-z0-9_]+)\\.",
+        r"Unittest module: (tests\.test_[A-Za-z0-9_]+)\.",
         item["instructions"],
       )
       if match:
