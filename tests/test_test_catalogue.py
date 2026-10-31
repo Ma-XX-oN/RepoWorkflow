@@ -104,13 +104,22 @@ class TestCatalogueTests(unittest.TestCase):
   def test_legacy_invariant_type_is_rejected(self):
     value = self.value()
     value["tests"][0]["issue-474-catalogue"]["type"] = "invariant"
-    with self.assertRaisesRegex(TestCatalogueError, "regression or integration"):
+    with self.assertRaisesRegex(TestCatalogueError, "regression, integration or manual"):
       parse_test_catalogue(value)
+
+  def test_manual_integration_case_type_is_retained(self):
+    value = self.value()
+    value["tests"][0]["issue-474-catalogue"] = {
+      "type": "manual",
+      "instructions": "Inspect the candidate.",
+      "expected_result": "Expected terminal observed.",
+    }
+    self.assertIn("issue-474-catalogue", parse_test_catalogue(value).groups)
 
   def test_undefined_type_is_rejected(self):
     value = self.value()
     del value["tests"][0]["issue-474-catalogue"]["type"]
-    with self.assertRaisesRegex(TestCatalogueError, "regression or integration"):
+    with self.assertRaisesRegex(TestCatalogueError, "regression, integration or manual"):
       parse_test_catalogue(value)
 
   def test_aliases_are_not_recursive(self):
