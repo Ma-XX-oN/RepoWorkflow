@@ -16,10 +16,37 @@ The rule has two related purposes:
    tool-response/context budgets. Avoid normal workflows that require multiple
    source reads, chunk assembly or reconstruction.
 
-The historic approximately 10,000-token figure concerned a **tool-response
-budget**, not the model's entire context window. Neither a 500-line count nor
-a byte count directly measures token usage. The line ceiling is a practical
-structural safeguard, **not an established technical truncation threshold**.
+### Original technical source of the 10,000-token limit
+
+The figure comes from the **`functions.exec` code-execution tool's output
+contract**, which states: "Total output is capped at 10,000 tokens; longer
+output is truncated." It is a limit on the tool's **model-visible returned
+output**, not on the model's entire context window and not a documented
+universal limit for every GitHub connector operation.
+
+In the October 13, 2026 experiments, two independently observed
+truncations reported:
+
+| Original output tokens | Omitted tokens | Retained tokens |
+| ---: | ---: | ---: |
+| 28,887 | 18,887 | 10,000 |
+| 14,869 | 4,869 | 10,000 |
+
+The displayed truncation notice reported the original token count. The
+exactly 10,000 retained tokens in both cases corroborated the execution
+tool's documented cap. The reported truncation could remove content from
+the **middle** while preserving beginning and ending material. This is why
+seeing the last line alone is not a proof of complete source retrieval.
+
+**Reference:** `functions.exec` tool description supplied by the ChatGPT
+execution environment (operational tool contract; no stable public URL).
+Recheck that contract if the tool implementation or environment changes.
+This record preserves the observed numbers and their provenance without
+claiming that the limit applies to unrelated tools.
+
+Neither a 500-line count nor a byte count directly measures token usage.
+The line ceiling is a practical structural safeguard, **not an established
+technical truncation threshold**.
 
 The test rejects covered files with **500 or more lines**; the accepted
 maximum is therefore **499**. The authoritative set of checked paths is
