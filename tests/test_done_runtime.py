@@ -236,6 +236,21 @@ class RuntimeTests(unittest.TestCase):
             execute_provider_attempt=lambda *args:failed,
             publish_failure_handoff=lambda attempt:receipt)
 
+  def test_mit_deferral_foreign_destination_or_reason_refused(self):
+    outcome=DeferredProviderAttempt(self.ready,"timeout-proof",2)
+    valid=MitDeferredEvent(G,"main",A,1,"timeout-proof","timeout")
+    for event in (
+      replace(valid,destination="other"),
+      replace(valid,reason="failure"),
+      replace(valid,reason="approved"),
+    ):
+      with self.subTest(event=event):
+        with self.assertRaisesRegex(DoneRuntimeError,
+                                    "missing exact provider evidence"):
+          self.invoke(
+            execute_provider_attempt=lambda *args:outcome,
+            read_deferred_mit=lambda ready:event)
+
   def test_failed_stage_requires_durable_issue_handoff(self):
     failed=FailedProviderAttempt(
       self.ready,"AIT","failed-stage-proof",2)
