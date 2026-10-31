@@ -55,6 +55,20 @@ class HandoffTests(unittest.TestCase):
                      ((109,"comment-109"),(681,"comment-681")))
     self.assertEqual(len(self.posts),2)
 
+  def test_release_stage_failures_have_durable_owner_handoff(self):
+    handoff=replace(self.handoff,failure_kind="release_FAIL")
+    persisted=self.invoke(handoff=handoff)
+    self.assertEqual(persisted.handoff.failure_kind,"release_FAIL")
+    self.assertEqual(persisted.per_issue_refs,
+                     ((109,"comment-109"),(681,"comment-681")))
+
+  def test_unrecognized_stage_failure_is_rejected(self):
+    for failure_kind in ("release_PASS","release_TIMEOUT","unknown_FAIL"):
+      with self.subTest(failure_kind=failure_kind):
+        with self.assertRaises(HandoffError):
+          self.invoke(handoff=replace(
+            self.handoff,failure_kind=failure_kind))
+
   def test_lost_ack_reconciles_without_duplicate_write(self):
     self.lost_ack=True
     result=self.invoke()
