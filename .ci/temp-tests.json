@@ -9,6 +9,26 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-109-runner-catalogue": {
+        "type": "regression",
+        "name": "tests.test_test_catalogue"
+      },
+      "issue-109-runner-validator": {
+        "type": "regression",
+        "name": "tests.test_validate_script"
+      },
+      "issue-109-runner-engine": {
+        "type": "regression",
+        "name": "tests.test_engine_regression"
+      },
+      "issue-109-runner-integration": {
+        "type": "integration",
+        "name": "tests.test_local_integration"
+      }
+    }
+  ],
   "aliases": {}
 }
