@@ -47,13 +47,15 @@ def _configured_command():
   if type(command) is not list or len(command) not in (1, 2):
     return None
   workspace = Path(__file__).resolve().parents[1]
+  project_checkout = Path.cwd().resolve()
   for element in command:
     if (type(element) is not str or not element
         or not os.path.isabs(element)
         or ".." in element.replace("\\", "/").split("/")):
       return None
     target = Path(element).resolve()
-    if target == workspace or workspace in target.parents:
+    if (target == workspace or workspace in target.parents
+        or target == project_checkout or project_checkout in target.parents):
       return None
   return command
 
