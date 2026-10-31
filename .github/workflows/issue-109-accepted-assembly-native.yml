@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - 'issue-109-accepted-assembly-20261030'
+    paths:
+      - '.ci/run'
 permissions:
   contents: read
 jobs:
