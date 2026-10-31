@@ -143,6 +143,8 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
     except Exception as error:
       raise DoneRuntimeError("MIT deferred provider read UNKNOWN") from error
     if (getattr(event,"guid",None)!=ready.guid
+        or getattr(event,"destination",None)!=ready.destination
+        or getattr(event,"reason",None)!="timeout"
         or getattr(event,"prelim_sha",None)!=ready.sha
         or getattr(event,"evidence_ref",None)!=attempt.evidence_ref
         or type(getattr(event,"lease_generation",None)) is not int
