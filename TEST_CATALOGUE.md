@@ -15,15 +15,15 @@ both inventories and fails closed on unclassified modules or missing targets.
 Only retained regression/integration declarations run in broad stages;
 temporary targets are selected explicitly, never promoted silently.
 
-The #703 negative MIT oracle (`tests.test_manual_mit_negative_acceptance`)
-and deliberately RED version-contract oracle
-(`tests.test_manual_mit_version_contract`) are automated acceptance tests
-registered as `issue-703-...` groups in `.ci/temp-tests.json`. Their
-file names do not make them RWF `type: manual` cases: such cases define
-non-executable operator instructions with strict
-`issue-N-manual--...` identities. The #703 RED oracles require explicit
-authorization to run and remain isolated from broad regression/integration
-until their acceptance contracts justify retirement or promotion.
+The #703 MIT negative and version-contract oracles are registered in the
+**authoritative** `.ci/tests.json` as `issue-703-...` groups with
+`type: regression` and `lifecycle: RED`. Lifecycle is separate from test
+type: RED groups are visible to explicit `rwf test RED` selection, but the
+stage planner excludes them from ordinary regression, integration, and automatic
+issue verification. On accepted GREEN transition, set `lifecycle: GREEN`
+to activate ordinary retained-stage execution. This does not turn them into
+`type: manual` MIT cases, which have independent operator-case contracts.
+The former duplicated `.ci/temp-tests.json` declarations were retired.
 
 Classify new or relocated test modules before running a broad stage. When
 retiring a temporary test, remove its temporary registration and its file
