@@ -79,7 +79,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Assert accepted exact product commit
+      - name: Assert validated exact requested source
         shell: bash
         run: test "$(git rev-parse HEAD)" = "${{ needs.plan.outputs.tested_sha }}"
       - name: Install dependencies
