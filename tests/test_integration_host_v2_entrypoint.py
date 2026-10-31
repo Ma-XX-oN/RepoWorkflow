@@ -312,6 +312,7 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(result["status"], "applied")
     self.assertEqual(calls[0][0], self.backend)
     self.assertEqual(calls[0][2], "origin")
+    self.assertEqual(calls[0][0], self.backend)
 
 
 if __name__ == "__main__":

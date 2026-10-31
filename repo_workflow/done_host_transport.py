@@ -16,7 +16,8 @@ class NativeHostTransportError(RuntimeError):
   """An authenticated provider response was not established."""
 
 
-def bind_native_integration_host(*, repository, engine_root, timeout=120):
+def bind_native_integration_host(*, repository, engine_root,
+                                 project_root=None, timeout=120):
   """Bind the installed v2 adapter, never a candidate-controlled command."""
   if type(timeout) is not int or not 1 <= timeout <= 120:
     raise NativeHostTransportError("invalid provider timeout")
@@ -31,13 +32,28 @@ def bind_native_integration_host(*, repository, engine_root, timeout=120):
   except (OSError, RuntimeError) as error:
     raise NativeHostTransportError("trusted provider installation unavailable") from error
 
+  workspace = root
+  if project_root is not None:
+    try:
+      workspace = Path(project_root).resolve(strict=True)
+      if not workspace.is_dir():
+        raise NativeHostTransportError("trusted project checkout unavailable")
+    except (OSError, RuntimeError) as error:
+      raise NativeHostTransportError("trusted project checkout unavailable") from error
+
   def transport(request):
+    # A read-only provider observation needs no local checkout. Writes do.
+    read_only = {"refs.list", "destination.read", "lease.read",
+                 "attempt.read", "retirement.read",
+                 "mit.deferred.read", "mit.resume.read"}
+    if request.get("operation") not in read_only and project_root is None:
+      raise NativeHostTransportError("trusted project checkout required for mutation")
     try:
       result = subprocess.run(
         [sys.executable, str(adapter)],
         input=json.dumps(request, sort_keys=True, separators=(",", ":")),
         capture_output=True, text=True, encoding="utf-8", errors="strict",
-        timeout=timeout, cwd=str(root), check=False,
+        timeout=timeout, cwd=str(workspace), check=False,
       )
     except (OSError, UnicodeError, subprocess.TimeoutExpired) as error:
       raise NativeHostTransportError("provider outcome UNKNOWN") from error

@@ -118,7 +118,7 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       witness = make_evidence_verifier(value, backend)
       if witness is None:
         raise IntegrationHostError("trusted destination verifier unavailable")
-      root = Path(__file__).resolve().parents[1]
+      root = Path.cwd().resolve()
       if config_reader is None:
         from repo_workflow.config import load_config
         config = load_config(root)
@@ -143,7 +143,7 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
         "record": record,
       }
     if operation in {"ref.cas", "lease.cas"}:
-      root = Path(__file__).resolve().parents[1]
+      root = Path.cwd().resolve()
       if config_reader is None:
         from repo_workflow.config import load_config
         config = load_config(root)

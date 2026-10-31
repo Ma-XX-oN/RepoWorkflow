@@ -60,6 +60,43 @@ class NativeTransportTests(unittest.TestCase):
                                 IntegrationHostError)):
           self.invoke()
 
+  def test_distinct_engine_and_project_checkout_are_preserved(self):
+    self.script()
+    project = self.root / "separate-project"
+    project.mkdir()
+    with patch("repo_workflow.done_host_transport.subprocess.run",
+               wraps=subprocess.run) as run:
+      host = bind_native_integration_host(
+        repository="Example/Sandbox", engine_root=self.root,
+        project_root=project)
+      self.assertEqual(host.request(
+        "refs.list", "separate-project-read",
+        {"prefix": "refs/heads/PRELIM-"}), {"refs": {}})
+    self.assertEqual(Path(run.call_args.kwargs["cwd"]).resolve(),
+                     project.resolve())
+    self.assertEqual(Path(run.call_args.args[0][1]).resolve(),
+                     self.adapter.resolve())
+
+  def test_mutation_without_project_checkout_is_denied(self):
+    self.script()
+    host = bind_native_integration_host(
+      repository="Example/Sandbox", engine_root=self.root)
+    with self.assertRaisesRegex(IntegrationHostError,
+                                "UNKNOWN"):
+      host.request("lease.cas", "mutating-without-project", {
+        "destination": "main", "expected_generation": 0,
+        "expected_holder": None, "expected_guid": None,
+        "holder": "worker",
+        "guid": "11111111-1111-4111-8111-111111111111",
+      })
+
+  def test_invalid_project_checkout_is_denied(self):
+    self.script()
+    with self.assertRaises(NativeHostTransportError):
+      bind_native_integration_host(
+        repository="Example/Sandbox", engine_root=self.root,
+        project_root=self.root / "missing-checkout")
+
   def test_invalid_timeout_rejected_before_provider(self):
     self.script()
     for timeout in (0, -1, 121, True, "30"):
