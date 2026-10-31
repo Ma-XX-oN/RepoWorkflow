@@ -48,7 +48,7 @@ class ExplicitCiInvocationTests(unittest.TestCase):
       "native-dependency-lane-certification-v1.yml",
       "native-dependency-migration-v1.yml",
     }
-    paths = sorted(WORKFLOWS.glob("*.yml"))
+    paths = sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")])
     self.assertGreaterEqual(len(paths), 1)
     for path in paths:
       with self.subTest(workflow=path.name):
