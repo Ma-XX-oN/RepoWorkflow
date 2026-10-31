@@ -22,8 +22,12 @@ def _workspace(root: Path, attempt: str) -> Path:
 
 
 @contextmanager
-def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str):
+def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str, *,
+                  timeout_seconds=120.0):
   """Process-scoped lock released by the OS even after an abrupt crash."""
+  if (type(timeout_seconds) not in (int, float)
+      or not 0 < timeout_seconds <= 120):
+    raise PrelimError("invalid attempt lock wait duration")
   # Locks are clone-local coordination metadata, never tracked workflow
   # records. Keep the inode stable so simultaneous waiters cannot split locks.
   path = (_workspace(root, attempt).parent.parent / "prelim-locks" /
@@ -34,7 +38,9 @@ def _attempt_lock(root: Path, store: JsonRecordStore, attempt: str):
   try:
     if os.fstat(fd).st_size == 0:
       os.write(fd, b"0")
-    deadline = time.monotonic() + 5.0
+    # Native Git/worktree operations can legitimately exceed five seconds.
+    # Use the same bounded wait on every platform; crashed workers release it.
+    deadline = time.monotonic() + timeout_seconds
     while True:
       try:
         if os.name == "nt":

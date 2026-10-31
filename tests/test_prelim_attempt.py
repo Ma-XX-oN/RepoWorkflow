@@ -297,6 +297,19 @@ class PrelimAttemptTests(unittest.TestCase):
     self.assertEqual(git(self.root, "rev-parse", results[0].branch).stdout.strip(),
                      results[0].candidate_sha)
 
+  def test_contended_lock_has_bounded_explicit_negative_path(self):
+    from repo_workflow.prelim_attempt import _attempt_lock
+    attempt = str(uuid.uuid4())
+    with _attempt_lock(self.root, durable_store(self.root), attempt):
+      with self.assertRaisesRegex(PrelimError, "attempt lock is busy"):
+        with _attempt_lock(self.root, durable_store(self.root), attempt,
+                           timeout_seconds=0.2):
+          self.fail("contended writer acquired a held attempt lock")
+    with self.assertRaisesRegex(PrelimError, "invalid attempt lock"):
+      with _attempt_lock(self.root, durable_store(self.root), attempt,
+                         timeout_seconds=True):
+        self.fail("boolean timeout accepted")
+
   def test_abrupt_worker_death_releases_attempt_lock(self):
     from repo_workflow.prelim_attempt import _attempt_lock
     attempt = str(uuid.uuid4())
