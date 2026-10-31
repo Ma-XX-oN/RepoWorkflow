@@ -1,4 +1,4 @@
-name: RWF 109 exact accepted source provider READY full native convergence
+name: RWF 109 explicit exact-candidate full native convergence
 on:
   push:
     branches:
@@ -8,7 +8,36 @@ on:
 permissions:
   contents: read
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tested_sha: ${{ steps.request.outputs.tested_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify dedicated invocation and resolve exact source
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/on-demand-ci-plan.py > plan.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          plan = json.loads(Path("plan.json").read_text(encoding="utf-8"))
+          assert plan["stage"] in {"regression-testing", "integration-testing"}
+          source = plan["tested_sha"]
+          assert len(source) == 40 and all(c in "0123456789abcdef" for c in source)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+            out.write("tested_sha=" + source + "\n")
+          PY
   focused:
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -17,14 +46,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90
+          ref: ${{ needs.plan.outputs.tested_sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert accepted exact product commit
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90"
+        run: test "$(git rev-parse HEAD)" = "${{ needs.plan.outputs.tested_sha }}"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile all source and tests
@@ -32,6 +61,7 @@ jobs:
       - name: Cross-owner exact-source negative and integration regression
         run: python -m unittest tests.test_done_host_transport tests.test_integration_evidence_external tests.test_repo_host_authority_isolation tests.test_engine_remote tests.test_engine_version_adapter tests.test_version_adapter tests.test_phase_terminal tests.test_prelim_integration_ready tests.test_prelim_ready_v2_roundtrip tests.test_done_runtime tests.test_manual_mit_negative_acceptance tests.test_manual_test_cli -v
   full:
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -40,14 +70,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90
+          ref: ${{ needs.plan.outputs.tested_sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert accepted exact product commit
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90"
+        run: test "$(git rev-parse HEAD)" = "${{ needs.plan.outputs.tested_sha }}"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Unmodified complete native regression
