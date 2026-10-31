@@ -37,7 +37,8 @@ def verifier_command() -> list[str] | None:
       or any(type(part) is not str or not part for part in command)):
     return None
   workspace = Path(__file__).resolve().parents[1]
-  project_checkout = Path.cwd().resolve()
+  project_lexical = Path.cwd()
+  project_checkout = project_lexical.resolve()
   for executable in command:
     if not (os.path.isabs(executable) or ntpath.isabs(executable)):
       return None
@@ -46,7 +47,7 @@ def verifier_command() -> list[str] | None:
     lexical = Path(executable)
     target = lexical.resolve()
     if any(root == candidate or root in candidate.parents
-           for root in (workspace, project_checkout)
+           for root in (workspace, project_lexical, project_checkout)
            for candidate in (lexical, target)):
       return None
   return command
