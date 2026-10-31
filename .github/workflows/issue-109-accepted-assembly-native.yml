@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d8522b10bcf49ba8b07a58c937a8ee6ccd874dba
+          ref: baf612e646d560971ef7a9b6205f4440f0401743
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert accepted exact product commit
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "d8522b10bcf49ba8b07a58c937a8ee6ccd874dba"
+        run: test "$(git rev-parse HEAD)" = "baf612e646d560971ef7a9b6205f4440f0401743"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile all source and tests
@@ -38,14 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d8522b10bcf49ba8b07a58c937a8ee6ccd874dba
+          ref: baf612e646d560971ef7a9b6205f4440f0401743
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert accepted exact product commit
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "d8522b10bcf49ba8b07a58c937a8ee6ccd874dba"
+        run: test "$(git rev-parse HEAD)" = "baf612e646d560971ef7a9b6205f4440f0401743"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Unmodified complete native regression
