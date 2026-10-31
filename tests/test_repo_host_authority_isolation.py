@@ -31,6 +31,22 @@ class HostAuthorityIsolationTests(unittest.TestCase):
   def test_independent_absolute_external_verifier_retained(self):
     self.assertEqual(self.configured(self.issuer), [str(self.issuer)])
 
+  def test_explicit_external_python_interpreter_is_portable(self):
+    command = [sys.executable, str(self.issuer)]
+    with patch.dict(os.environ, {
+        "RWF_REPO_HOST_AUTH_COMMAND": json.dumps(command)}, clear=True):
+      with patch("repo_host_github_authority.Path.cwd",
+                 return_value=self.project):
+        self.assertEqual(verifier_command(), command)
+
+  def test_project_script_with_external_interpreter_denied(self):
+    command = [sys.executable, str(self.project / "issuer")]
+    with patch.dict(os.environ, {
+        "RWF_REPO_HOST_AUTH_COMMAND": json.dumps(command)}, clear=True):
+      with patch("repo_host_github_authority.Path.cwd",
+                 return_value=self.project):
+        self.assertIsNone(verifier_command())
+
   def test_mutable_project_verifier_denied(self):
     self.assertIsNone(self.configured(self.project / "issuer"))
 
