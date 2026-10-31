@@ -669,6 +669,54 @@
       "integration-prelim-queue-git": {
         "type": "integration",
         "name": "tests.test_prelim_queue_git"
+      },
+      "regression-graph-boundary-plan": {
+        "type": "regression",
+        "name": "tests.test_graph_boundary_plan"
+      },
+      "regression-graph-cell-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_cell_semantics"
+      },
+      "regression-graph-geometry-interactions": {
+        "type": "regression",
+        "name": "tests.test_graph_geometry_interactions"
+      },
+      "regression-graph-long-plan": {
+        "type": "regression",
+        "name": "tests.test_graph_long_plan"
+      },
+      "regression-graph-long-routes": {
+        "type": "regression",
+        "name": "tests.test_graph_long_routes"
+      },
+      "regression-graph-quality": {
+        "type": "regression",
+        "name": "tests.test_graph_quality"
+      },
+      "regression-graph-render-model": {
+        "type": "regression",
+        "name": "tests.test_graph_render_model"
+      },
+      "regression-graph-route-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_route_semantics"
+      },
+      "regression-guard": {
+        "type": "regression",
+        "name": "tests.test_guard"
+      },
+      "regression-relationships": {
+        "type": "regression",
+        "name": "tests.test_relationships"
+      },
+      "regression-relationship-store": {
+        "type": "regression",
+        "name": "tests.test_relationship_store"
+      },
+      "regression-state-store": {
+        "type": "regression",
+        "name": "tests.test_state_store"
       }
     },
     {
