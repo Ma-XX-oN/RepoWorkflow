@@ -85,9 +85,10 @@ def make_evidence_verifier(request, backend):
     try:
       result = subprocess.run(
         command, input=json.dumps(payload), capture_output=True,
-        text=True, check=False, timeout=30,
+        text=True, encoding="utf-8", errors="strict",
+        check=False, timeout=30,
       )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, UnicodeError, subprocess.TimeoutExpired):
       return False
     if result.returncode or not result.stdout or len(result.stdout) > 4096:
       return False

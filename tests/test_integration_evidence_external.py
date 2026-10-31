@@ -52,6 +52,13 @@ if mode == "forged": result["record_digest"] = "0"*64
 if mode == "foreign": result["actor_id"] = "attacker"
 if mode == "revoked": result["decision"] = "deny"
 if mode == "bad-revision": result["revocation_revision"] = "2"
+if mode == "non-utf8":
+  sys.stdout.buffer.write(bytes([0xe9]))
+  raise SystemExit(0)
+if mode == "utf8-unicode":
+  result["authority_ref"] = "external-verifier-\u2192-evidence"
+  sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8") + b"\\n")
+  raise SystemExit(0)
 print(json.dumps(result))
 '''
 
@@ -88,6 +95,12 @@ class ExternalEvidenceTests(unittest.TestCase):
     for mode in ("forged", "stale", "revoked", "foreign", "bad-revision"):
       with self.subTest(mode=mode):
         self.assertFalse(self.check(mode))
+
+  def test_external_explicit_utf8_unicode_evidence_passes(self):
+    self.assertTrue(self.check("utf8-unicode"))
+
+  def test_non_utf8_response_fails_closed(self):
+    self.assertFalse(self.check("non-utf8"))
 
   def test_changed_record_is_not_granted(self):
     with patch.dict(os.environ, self.env, clear=True):
