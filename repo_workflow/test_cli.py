@@ -20,7 +20,7 @@ from .test_cache import reusable_local_group_passes, has_local_applicable_observ
 from .github_cache import hosted_cache_checker, read_remote_published_log
 from .self_ci import group_command, SelfCiError
 from .test_red_declaration import red_declaration
-from .test_catalogue import load_test_catalogue
+from .test_catalogue import load_test_catalogue, stage_groups
 from .test_results_reader import TestCommandError, results as read_results
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
@@ -472,6 +472,8 @@ def run_test(
       ),
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "kind": "regression",
+      "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
+      "selectedGroups": list(stage_groups(root, "regression")),
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
