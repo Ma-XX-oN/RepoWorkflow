@@ -569,6 +569,10 @@
       "issue-683-integration-ready": {
         "type": "regression",
         "name": "tests.test_prelim_integration_ready"
+      },
+      "issue-109-native-host-transport": {
+        "type": "regression",
+        "name": "tests.test_done_host_transport"
       }
     },
     {
