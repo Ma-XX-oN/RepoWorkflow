@@ -46,8 +46,12 @@ def verifier_command() -> list[str] | None:
   # Resolve symlinks so a checked-out alias cannot bypass this boundary.
   if os.path.isabs(executable):
     workspace = Path(__file__).resolve().parents[1]
-    target = Path(executable).resolve()
-    if target == workspace or workspace in target.parents:
+    project_checkout = Path.cwd().resolve()
+    lexical = Path(executable)
+    target = lexical.resolve()
+    if any(root == candidate or root in candidate.parents
+           for root in (workspace, project_checkout)
+           for candidate in (lexical, target)):
       return None
   return command
 
