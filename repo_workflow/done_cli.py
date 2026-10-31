@@ -117,9 +117,17 @@ def execute_done_command(release, *, trusted_executor, emit):
     handoff=outcome.persisted_handoff
     outcome=outcome.attempt
     if (handoff.handoff.guid!=outcome.ready.guid
+        or handoff.handoff.issue!=int(
+          outcome.ready.umbrella.removeprefix("issue-"))
+        or handoff.handoff.destination!=outcome.ready.destination
         or handoff.handoff.prelim_sha!=outcome.ready.sha
         or handoff.handoff.failure_kind!=outcome.failed_stage+"_FAIL"
-        or not handoff.per_issue_refs):
+        or len(handoff.per_issue_refs)
+           !=len(handoff.handoff.owner_issue_ids)
+        or {issue for issue,_ in handoff.per_issue_refs}
+           !=set(handoff.handoff.owner_issue_ids)
+        or any(type(ref) is not str or not ref.strip()
+               for _,ref in handoff.per_issue_refs)):
       raise DoneCommandError("durable owner handoff differs")
     if (outcome.ready.guid
         and outcome.failed_stage in {"ART","AIT","release","MIT"}

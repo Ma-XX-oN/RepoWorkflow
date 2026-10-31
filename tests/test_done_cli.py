@@ -198,6 +198,29 @@ class CommandTests(unittest.TestCase):
     self.assertEqual(json.loads(self.messages[-1])["status"],
                      "FAILED_STAGE")
 
+  def test_failed_stage_output_rejects_foreign_or_incomplete_owner_receipt(self):
+    from dataclasses import replace
+    ready=self.fixture.accepted.ready
+    failed=FailedProviderAttempt(ready,"release","stage-proof",2)
+    handoff=FailureHandoff(
+      ready.guid,123,ready.destination,ready.sha,"b"*40,"c"*40,
+      "release_FAIL","stage-proof",(123,),"repro",(),"release",
+      "release-op")
+    valid=PersistedFailureHandoff(handoff,((123,"comment-123"),))
+    forged=[
+      replace(valid,handoff=replace(handoff,issue=124)),
+      replace(valid,handoff=replace(handoff,destination="other")),
+      replace(valid,handoff=replace(handoff,owner_issue_ids=(123,681))),
+      replace(valid,per_issue_refs=((681,"comment-681"),)),
+      replace(valid,per_issue_refs=((123,""),)),
+    ]
+    for receipt in forged:
+      self.messages.clear()
+      with self.subTest(receipt=receipt):
+        with self.assertRaisesRegex(DoneCommandError,"handoff differs"):
+          self.run_command(outcome=VerifiedFailedDone(failed,receipt))
+        self.assertEqual(self.messages,[])
+
   def test_untrusted_pass_flag_never_counts_success(self):
     with self.assertRaisesRegex(DoneCommandError,"unverified"):
       self.run_command(outcome=True)

@@ -215,6 +215,27 @@ class RuntimeTests(unittest.TestCase):
                      "release_FAIL")
     self.assertEqual(len(records),1)
 
+  def test_failed_owner_receipt_must_match_issue_parent_and_exact_owners(self):
+    failed=FailedProviderAttempt(self.ready,"AIT","failed-stage-proof",2)
+    handoff=FailureHandoff(
+      G,123,"main",A,B,C,"AIT_FAIL","failed-stage-proof",
+      (123,),"repro",(),"owner","operation")
+    valid=PersistedFailureHandoff(handoff,((123,"comment-123"),))
+    forged=[
+      replace(valid,handoff=replace(handoff,issue=124)),
+      replace(valid,handoff=replace(handoff,destination="other")),
+      replace(valid,handoff=replace(handoff,expected_parent_sha=C)),
+      replace(valid,handoff=replace(handoff,owner_issue_ids=(123,681))),
+      replace(valid,per_issue_refs=((681,"comment-681"),)),
+      replace(valid,per_issue_refs=((123,""),)),
+    ]
+    for receipt in forged:
+      with self.subTest(receipt=receipt):
+        with self.assertRaisesRegex(DoneRuntimeError,"durable owner handoff"):
+          self.invoke(
+            execute_provider_attempt=lambda *args:failed,
+            publish_failure_handoff=lambda attempt:receipt)
+
   def test_failed_stage_requires_durable_issue_handoff(self):
     failed=FailedProviderAttempt(
       self.ready,"AIT","failed-stage-proof",2)
