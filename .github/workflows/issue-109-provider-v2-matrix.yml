@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - 'issue-109-provider-v2-convergence-20261030'
+    paths:
+      - '.ci/run'
 permissions:
   contents: read
 jobs:
