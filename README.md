@@ -7,8 +7,8 @@ in each repository.
 
 The central boundary is:
 
-> GitHub workflow YAML is only a bootstrap. Repository workflow logic must remain
-> executable locally and on other CI platforms.
+> CI-provider workflow configuration is only a bootstrap. Repository workflow
+> logic must remain executable locally and on other CI platforms.
 
 A consumer is structured broadly as:
 
