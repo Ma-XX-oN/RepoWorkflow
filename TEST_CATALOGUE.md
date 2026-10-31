@@ -15,15 +15,17 @@ both inventories and fails closed on unclassified modules or missing targets.
 Only retained regression/integration declarations run in broad stages;
 temporary targets are selected explicitly, never promoted silently.
 
-The #703 MIT negative and version-contract oracles are registered in the
-**authoritative** `.ci/tests.json` as `issue-703-...` groups with
-`type: regression` and `lifecycle: RED`. Lifecycle is separate from test
-type: RED groups are visible to explicit `rwf test RED` selection, but the
-stage planner excludes them from ordinary regression, integration, and automatic
-issue verification. On accepted GREEN transition, set `lifecycle: GREEN`
-to activate ordinary retained-stage execution. This does not turn them into
-`type: manual` MIT cases, which have independent operator-case contracts.
-The former duplicated `.ci/temp-tests.json` declarations were retired.
+The #703 MIT negative and version-contract modules are registered in the
+**authoritative** `.ci/tests.json` as issue-owned groups with
+`type: regression`, `lifecycle: GREEN`. Their six independent native
+Ubuntu/macOS/Windows jobs passed in GitHub Actions run 41251290328;
+they are now ordinary retained regression/integration coverage. The historical
+RED marker remains supported for newly failing RED oracles: lifecycle is
+separate from test type, and `lifecycle: RED` excludes a group from retained
+regression/integration and automatic issue verification until its owner
+certifies GREEN. These automated tests are not `type: manual` MIT cases,
+which have distinct operator-case contracts. Their former duplicated
+`.ci/temp-tests.json` declarations were retired.
 
 Classify new or relocated test modules before running a broad stage. When
 retiring a temporary test, remove its temporary registration and its file
