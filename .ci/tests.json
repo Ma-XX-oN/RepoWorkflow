@@ -377,6 +377,10 @@
       "issue-572-local-terminal-acceptance": {
         "type": "regression",
         "name": "tests.test_local_terminal"
+      },
+      "invariant-ci-invocation-trigger": {
+        "type": "invariant",
+        "name": "tests.test_ci_invocation_trigger_contract"
       }
     },
     {
