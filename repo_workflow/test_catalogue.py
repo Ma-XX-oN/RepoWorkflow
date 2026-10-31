@@ -85,6 +85,40 @@ def _group_keys(tests: object) -> frozenset[str]:
   return frozenset(groups)
 
 
+def stage_groups(root: Path, stage: str) -> tuple[str, ...]:
+  """Select retained groups by declared stage, not aliases or discovery.
+
+  Integration includes regression obligations. Duplicate native targets are
+  selected once, retaining the earliest canonical group name.
+  """
+  if stage not in {"regression", "integration"}:
+    raise TestCatalogueError("unknown retained testing stage: " + stage)
+  path = Path(root) / CATALOGUE_PATH
+  try:
+    value = json.loads(path.read_text(encoding="utf-8"))
+  except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    raise TestCatalogueError("cannot read authoritative test catalogue") from error
+  parse_test_catalogue(value)
+  allowed = {"regression"} if stage == "regression" else {
+    "regression", "integration"
+  }
+  selected: dict[tuple[str, str], str] = {}
+  for declaration in value["tests"]:
+    harness = declaration["test-harness"]
+    for group, metadata in declaration.items():
+      if group in {"test-harness", "command"}:
+        continue
+      if metadata["type"] not in allowed:
+        continue
+      target = metadata.get("name")
+      if not isinstance(target, str) or not target:
+        raise TestCatalogueError("retained group lacks native target: " + group)
+      selected.setdefault((harness, target), group)
+  if not selected:
+    raise TestCatalogueError("no registered tests for " + stage)
+  return tuple(sorted(selected.values()))
+
+
 def _aliases(value: object, groups: frozenset[str]) -> dict[str, tuple[str, ...]]:
   if value is None:
     return {}
