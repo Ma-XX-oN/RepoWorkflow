@@ -26,3 +26,62 @@ jobs:
         run: python -m py_compile adapters/repo_host_github_integration_evidence.py tests/test_integration_evidence_external.py
       - name: Exact source verifier 3OS negative matrix
         run: python -m unittest tests.test_integration_evidence_external -v
+      - name: Read-only live destination SHA and allow-list provider cross-check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+          from repo_workflow.done_host_transport import bind_native_integration_host
+
+          repository = "Ma-XX-oN/RepoWorkflow"
+          def api(path):
+            request = Request(
+              "https://api.github.com/repos/" + repository + "/" + path,
+              headers={
+                "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+            )
+            try:
+              with urlopen(request, timeout=30) as response:
+                return json.load(response)
+            except HTTPError as error:
+              if error.code == 404:
+                return None
+              raise
+
+          before = api("git/ref/heads/main")
+          assert before is not None
+          host = bind_native_integration_host(
+            repository=repository, engine_root=Path.cwd(),
+          )
+          observed = host.request(
+            "destination.read", "rwf109-destination-read-only-acceptance",
+            {"destination": "main"},
+          )
+          after = api("git/ref/heads/main")
+          assert after is not None
+          sha = before["object"]["sha"]
+          assert sha == after["object"]["sha"] == observed["sha"]
+          assert observed["destination"] == "main"
+          assert observed["ref"] == "refs/heads/main"
+          policy_path = ".repoworkflow/allow-tickets/to-main"
+          record = api("contents/" + policy_path + "?ref=" + sha)
+          if record is None:
+            assert observed["policy_present"] is False
+            assert observed["policy_text"] is None
+          else:
+            assert record["encoding"] == "base64"
+            raw = base64.b64decode(record["content"], validate=False)
+            assert observed["policy_present"] is True
+            assert observed["policy_text"] == raw.decode("utf-8")
+          print("LIVE_DESTINATION_READBACK=PASS", sha, flush=True)
+          PY
