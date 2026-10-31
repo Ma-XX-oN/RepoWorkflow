@@ -1,0 +1,52 @@
+name: RWF 109 exact accepted source provider READY full native convergence
+on:
+  push:
+    branches:
+      - 'issue-109-accepted-assembly-20261030'
+permissions:
+  contents: read
+jobs:
+  focused:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d8522b10bcf49ba8b07a58c937a8ee6ccd874dba
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert accepted exact product commit
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "d8522b10bcf49ba8b07a58c937a8ee6ccd874dba"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile all source and tests
+        run: python -m compileall -q repo_workflow adapters tests
+      - name: Cross-owner exact-source negative and integration regression
+        run: python -m unittest tests.test_done_host_transport tests.test_integration_evidence_external tests.test_engine_remote tests.test_engine_version_adapter tests.test_version_adapter tests.test_phase_terminal tests.test_prelim_integration_ready tests.test_prelim_ready_v2_roundtrip tests.test_done_runtime tests.test_manual_mit_negative_acceptance tests.test_manual_test_cli -v
+  full:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d8522b10bcf49ba8b07a58c937a8ee6ccd874dba
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert accepted exact product commit
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "d8522b10bcf49ba8b07a58c937a8ee6ccd874dba"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Unmodified complete native regression
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
