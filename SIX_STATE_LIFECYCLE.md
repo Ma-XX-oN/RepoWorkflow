@@ -182,6 +182,26 @@ or commit the full refresh leaves the original CSV intact and reports an error.
 A valid historical absence proven by the lifecycle store is not_started.
 Do not infer fresh lifecycle truth from a stale cached CSV snapshot.
 
+## Completed umbrella presentation in the Lifecycle Graph
+
+The human-facing **Lifecycle Graph (LG)** follows the same default umbrella
+collapse rule as the PG in
+[WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md):
+the umbrella ticket is always shown as a **ticket node**, including in the
+expanded view. Show its constituent sub-ticket nodes while any constituent
+is not verified `completed`, the membership set is uncertain, or the
+umbrella's own completion remains unverified. When all constituents and
+the umbrella are verified `completed`, hide the constituent nodes by default
+and show the umbrella alone. Explicit expansion restores all original
+tickets and dependency edges.
+
+Preserve external connections by projecting hidden constituent dependency
+edges onto the umbrella for display only, with original edge provenance
+available in expanded detail. Never create new canonical dependencies.
+The LG continues to use its **six lifecycle states and corresponding glyphs**;
+do not substitute PG's five work-progress statuses. This presentation rule
+does not modify the terminal renderer `rwf lanes view` or its lane colours.
+
 ## 7. Verification gates
 
 [SIX_STATE_ACCEPTANCE_MATRIX.md](SIX_STATE_ACCEPTANCE_MATRIX.md) is the

@@ -93,6 +93,15 @@ Speculation changes neither the canonical graph nor completion semantics:
 - Preserve exclusive source and issue ownership, security/authorization gates,
   and the prohibition on unsafe merges or production cutovers.
 
+For **non-umbrella tickets**, speculative execution is a ticket-level
+condition: when any direct prerequisite is unfinished, all incoming
+dependency arrows display dotted in the PG. When all direct prerequisites
+are DONE, all incoming arrows display solid. This notation never changes
+the underlying dependency set or the integrator's obligation to reach DONE.
+Umbrella-level mixed arrows represent different constituent sub-ticket
+dependencies, not mixed styles on one implementation ticket. See
+[WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
+
 In the human-facing Progress Graph, show active authorised speculative work as
 `◑ Speculative` with the prescribed dark blue fill and amber border, even
 though its executable dependency readiness remains **blocked**.  When all

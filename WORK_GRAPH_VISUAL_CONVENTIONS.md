@@ -156,17 +156,54 @@ owner of integrating its predecessor's final accepted result and carrying its
 **own ticket** to verified DONE. The dotted arrow is not a new relationship,
 a provisional shortcut, or evidence of completed integration.
 
-Once the predecessor reaches DONE, display that unchanged dependency with a
-solid `-->` arrow. The downstream ticket must still integrate and verify the
-accepted predecessor revision before it can become DONE; descendants must not
-treat it as completed merely because the arrow became solid. Other verified
-direct dependencies are solid. Never draw an unverified relationship to
-explain an assumed handoff.
+**Non-umbrella tickets have uniform incoming arrow styles.** When a
+non-umbrella downstream ticket is executing authorised speculative work while
+any of its direct prerequisites is unfinished, show **every incoming direct
+dependency** as dotted `-.->`, including edges from prerequisites that have
+already reached DONE. This is a ticket-level speculative integration state,
+not a separate per-edge assertion that each predecessor is unfinished. Once
+**all** direct prerequisites reach DONE, show **all** incoming edges as solid
+`-->`. The downstream owner must still integrate the accepted inputs and
+verify its own DONE before further ordinary dependants advance.
+
+An **umbrella** may display a mixture of dotted and solid arrows **only** as
+a projection of dependencies belonging to different constituent sub-tickets.
+A mixed umbrella is not a single leaf ticket with mixed execution state.
+Preserve which sub-ticket each projected edge represents; expand the umbrella
+into its sub-tickets if the mixture would be ambiguous. Umbrella presentation
+does not manufacture executable edges or confer eligibility.
+
+Never draw an unverified relationship to explain an assumed handoff.
 
 This is a presentation convention only. No edge is added, removed, reversed,
 or weakened in the canonical graph. The normative integration responsibility
 and DONE gating are defined by
 [WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md).
+
+## Default completed-umbrella collapse in PG and LG
+
+The default human-facing PG **and LG** use the same **space-saving projection**. When an
+umbrella's full, authoritative constituent sub-ticket set is known and
+**every constituent ticket has verified completion**, display the umbrella as one
+collapsed node and omit those completed constituents from the default view.
+The umbrella remains a **visible ticket node in both expanded and collapsed views**, not merely a subgraph heading. In the PG, the umbrella itself must meet its own acceptance requirements before being shown as `♥ Done`. In the LG, preserve the authoritative lifecycle state and its own glyph; accepted/completed children do not automatically make the umbrella `completed`.
+
+- Retain all external dependency paths entering or leaving the hidden
+  sub-tickets by projecting their boundary connections through the umbrella.
+  Deduplicate identical projected connections, preserve direction, and do
+  not turn presentation edges into new canonical dependencies.
+- Preserve the originating sub-ticket identity in the accessible edge
+  description or expanded detail. Never infer membership solely from graph
+  proximity, an issue title, or connected-component structure.
+- Do not collapse when constituent membership is incomplete, any child is
+  unfinished or unverified, or collapsing would conceal unresolved
+  acceptance, disputed ownership, or an ambiguous dependency relationship.
+- Allow an explicit expanded/detail view showing the real constituent tickets
+  and their canonical edges; collapse must not erase any underlying evidence.
+- Apply the same rule recursively to nested umbrellas only when their
+  respective complete descendant sets and acceptance are verified.
+
+This is the **default presentation of both named graph views**. The LG keeps its six-state glyphs, lane colours and authoritative lifecycle status, while the PG keeps its five-status visual convention. This rule does not automatically change the terminal `rwf lanes view` renderer, mutate `.repoworkflow/tickets.csv`, alter scheduling readiness, or fabricate completion.
 
 ## Evidence and accessibility
 
