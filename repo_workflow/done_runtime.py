@@ -158,9 +158,20 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
       raise DoneRuntimeError("failed-owner handoff UNKNOWN") from error
     if (not isinstance(persisted,PersistedFailureHandoff)
         or persisted.handoff.guid!=ready.guid
+        or persisted.handoff.issue!=int(plan.issue)
+        or persisted.handoff.destination!=ready.destination
         or persisted.handoff.prelim_sha!=ready.sha
+        or persisted.handoff.expected_parent_sha!=plan.expected_parent_sha
         or persisted.handoff.failure_kind!=attempt.failed_stage+"_FAIL"
-        or len(persisted.per_issue_refs)==0):
+        or plan.issue not in tuple(str(i) for i in
+                                   persisted.handoff.owner_issue_ids)
+        or len(persisted.per_issue_refs)==0
+        or len(persisted.per_issue_refs)
+           !=len(persisted.handoff.owner_issue_ids)
+        or {issue for issue,_ in persisted.per_issue_refs}
+           !=set(persisted.handoff.owner_issue_ids)
+        or any(type(ref) is not str or not ref.strip()
+               for _,ref in persisted.per_issue_refs)):
       raise DoneRuntimeError("failed attempt lacks durable owner handoff")
     return VerifiedFailedDone(attempt,persisted)
   raise DoneRuntimeError("provider attempt disposition unverified")
