@@ -412,3 +412,8 @@ Check Run or bound default trusted native done executor has been verified.
 ### 2026-10-31 — historical pending native run completion
 
 - Rechecked original GitHub Actions jobs for RWF runs **41227150581** and **41227396552**. Both now have terminal **6/6 job SUCCESS** (focused and full Ubuntu/macOS/Windows). Each older workflow nevertheless checked out pinned accepted product `59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90` rather than its triggering newer branch HEAD; therefore these are **historical exact-source proof for the pinned product**, not P15 current-candidate completion. The corrected current-source public workbench run is 41233918913.
+
+### 2026-10-31 — native full regression duration and workbench timeout correction
+
+- Historical pinned-source RWF full jobs established platform durations: 41227150581 Ubuntu 14m02s, macOS 24m56s, Windows 83m43s; 41227396552 Ubuntu 13m59s, macOS 18m35s, Windows 73m31s (all six-job native source checks terminal SUCCESS at their original SHA). Therefore the initial Disposable-001 full matrix 41233918913 `timeout-minutes:20` is insufficient for Windows and at risk for macOS; its test results must be distinguished from expected timeout.
+- Corrected **future** public workbench workflow `.github/workflows/verification-109.yml` on `verification-109-exact-source-20261031` to `timeout-minutes:120` in non-invoking workflow commit `a5fa820893cc5b7a5de96f4ca6003f2d2b5f3142`. Existing run 41233918913 retains the originally scheduled 20-minute limit. Do not treat timeout as RWF source regression or rerun unchanged. New dedicated marker invocation is required for any replacement full verification.
