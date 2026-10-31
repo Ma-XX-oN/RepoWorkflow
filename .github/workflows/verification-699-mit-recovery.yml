@@ -1,0 +1,45 @@
+name: RWF 699 MIT recovery scenario matrix
+on:
+  push:
+    branches: ['verification-699-mit-recovery-20261030']
+permissions:
+  contents: read
+jobs:
+  scenario-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 67cd1c56882973c2c89116e6601242b7d90b5874
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact assembled SHA
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "EXACT_SOURCE_SHA=$actual"
+          test "$actual" = "67cd1c56882973c2c89116e6601242b7d90b5874"
+      - name: Execute MIT failure recovery and native runtime suites
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v \
+            tests.test_manual_test_cli \
+            tests.test_manual_mit_negative_acceptance \
+            tests.test_manual_mit_version_contract \
+            tests.test_done_runtime \
+            tests.test_done_provider_pipeline \
+            tests.test_done_cli \
+            tests.test_done_mit_defer_v2 2>&1 | tee mit-recovery-results.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mit-recovery-${{ matrix.os }}-${{ github.run_id }}
+          path: mit-recovery-results.txt
+          if-no-files-found: warn
