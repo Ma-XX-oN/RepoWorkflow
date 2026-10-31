@@ -78,14 +78,6 @@ def _group_records(
   return records
 
 
-def _groups_of_type(root: Path, kind: str) -> tuple[str, ...]:
-  return tuple(sorted(
-    group
-    for group, (_declaration, metadata) in _group_records(root).items()
-    if metadata.get("type") == kind
-  ))
-
-
 def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
   # Lazy import preserves standalone CLI fixture tests without the MIT module.
   from .manual_test_catalogue import ManualCatalogueError, read_manual_cases
