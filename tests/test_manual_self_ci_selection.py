@@ -35,8 +35,8 @@ class ManualSelfCiTests(unittest.TestCase):
           "instructions": "Inspect the integrated candidate.",
           "expected_result": "UI and candidate identity match.",
         },
-        "invariant-self-ci": {
-          "type": "invariant",
+        "integration-self-ci": {
+          "type": "integration",
           "name": "tests.test_self_ci",
         },
       }],
@@ -52,10 +52,10 @@ class ManualSelfCiTests(unittest.TestCase):
       lifecycle.return_value.read.return_value.lifecycle.high_risk_aliases = ()
       return issue_verification_groups(self.root, "699")
 
-  def test_manual_case_excluded_automatic_and_invariants_retained(self):
+  def test_manual_case_and_integration_group_excluded_from_issue_verification(self):
     self.catalogue()
     self.assertEqual(
-      self.select(), ("invariant-self-ci", "issue-699-regression"),
+      self.select(), ("issue-699-regression",),
     )
     with self.assertRaisesRegex(SelfCiError, "native test name"):
       group_command(self.root, "issue-699-manual--inspect")
