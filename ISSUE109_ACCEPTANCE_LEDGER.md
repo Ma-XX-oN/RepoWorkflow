@@ -408,3 +408,7 @@ Check Run or bound default trusted native done executor has been verified.
 
 - Explicitly triggered public `Ma-XX-oN/Disposable-001` workbench run [41233918913](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/41233918913), checking out and asserting current exact #109 consolidation source `72e0ca5c3c5889fb513c370c0a5141ae9bff2c3a`. The workflow runs unmodified `python -m unittest discover -s tests -p 'test_*.py' -v` on genuine Ubuntu, macOS and Windows, with 20-minute job timeout. No RWF `.ci/run` change and no protected refs mutated. All three jobs entered full regression execution; terminal results must be collected separately before upgrading P15.
 - GitHub REST currently reports no production `PRELIM-*` or `INT-ATTEMPT-*` heads in RepoWorkflow and no independently issued current-source release/MIT Check Runs. Thus a native suite PASS alone does not certify P06/P07/P10/P12/P13/P16.
+
+### 2026-10-31 — historical pending native run completion
+
+- Rechecked original GitHub Actions jobs for RWF runs **41227150581** and **41227396552**. Both now have terminal **6/6 job SUCCESS** (focused and full Ubuntu/macOS/Windows). Each older workflow nevertheless checked out pinned accepted product `59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90` rather than its triggering newer branch HEAD; therefore these are **historical exact-source proof for the pinned product**, not P15 current-candidate completion. The corrected current-source public workbench run is 41233918913.
