@@ -42,16 +42,26 @@ def push_paths(source):
 
 
 class ExplicitCiInvocationTests(unittest.TestCase):
-  def test_on_demand_and_109_push_workflows_use_only_run_marker(self):
-    paths = [WORKFLOWS / "on-demand-ci.yml"]
-    paths.extend(sorted(WORKFLOWS.glob("issue-109-*.yml")))
+  def test_push_workflows_have_explicit_paths(self):
+    exceptions = {
+      "lane-cache-routing-certification.yml",
+      "native-dependency-lane-certification-v1.yml",
+      "native-dependency-migration-v1.yml",
+    }
+    paths = sorted(WORKFLOWS.glob("*.yml"))
     self.assertGreaterEqual(len(paths), 1)
     for path in paths:
       with self.subTest(workflow=path.name):
-        self.assertTrue(path.is_file())
-        requested = push_paths(path.read_text(encoding="utf-8"))
-        self.assertIsNotNone(requested)
-        self.assertEqual(requested, [".ci/run"])
+        source = path.read_text(encoding="utf-8")
+        self.assertNotIn("on: push", source)
+        self.assertNotIn("on: [push]", source)
+        requested = push_paths(source)
+        if requested is None:
+          continue
+        if path.name in exceptions:
+          self.assertTrue(requested)
+        else:
+          self.assertEqual(requested, [".ci/run"])
 
 
 if __name__ == "__main__":
