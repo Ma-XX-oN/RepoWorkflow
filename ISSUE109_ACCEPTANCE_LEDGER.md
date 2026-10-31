@@ -301,3 +301,16 @@ Check Run or bound default trusted native done executor has been verified.
   an arbitrary other name. The actual live default CLI still supplies no
   trusted executor and the shared-lifecycle provider requires the caller to
   designate its authoritative branch.
+
+### 2026-10-31 — Disposable-000 independent namespace inventory
+
+- Direct current provider read: Disposable-000 `main` SHA is
+  `b411d215bec5c62c8a3ca3062ec8f8743f2d7299`.
+  `refs/heads/INT-ATTEMPT-*` inventory is empty. The PRELIM prefix has
+  **three** existing refs: `PRELIM-issue-123/main-44444444-4444-4444-8444-444444444444`,
+  `PRELIM-issue-703/issue-703-live-destination-20261022t1627-11111111-1111-4111-8111-111111111703`, and
+  `PRELIM-issue-703/issue-703-timeout-destination-20261022t1636-22222222-2222-4222-8222-222222222703`.
+- No proof that those refs belong to an unfinished #109 run or should be
+  deleted. They are not the run-scoped refs named in #703's October 31
+  cleanup handoffs. Preserve their ownership and do not treat an empty
+  `INT-ATTEMPT-*` inventory as proof of complete global cleanup.
