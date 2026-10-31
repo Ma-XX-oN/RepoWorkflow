@@ -133,6 +133,17 @@ class CiInvocationTests(unittest.TestCase):
     with self.assertRaises(CiInvocationError):
       original_candidate(self.root, malformed_tip)
 
+  def test_committed_marker_non_utf8_fails_closed(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_bytes(
+      f"regression-testing {self.base}".encode("utf-8") + b"\xff"
+    )
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "invalid UTF-8 CI request")
+    with self.assertRaises(CiInvocationError):
+      verify_invocation(self.root)
+
   def test_no_request_fails_closed(self):
     with self.assertRaisesRegex(CiInvocationError, "missing"):
       verify_invocation(self.root)
