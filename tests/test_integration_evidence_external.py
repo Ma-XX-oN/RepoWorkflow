@@ -132,6 +132,12 @@ class ExternalEvidenceTests(unittest.TestCase):
               json.dumps(command)}, clear=True):
           self.assertIsNone(make_evidence_verifier(self.request, Backend()))
 
+  def test_project_checkout_verifier_is_untrusted(self):
+    with patch.dict(os.environ, self.env, clear=True):
+      with patch("adapters.repo_host_github_integration_evidence.Path.cwd",
+                 return_value=Path(self.tmp.name)):
+        self.assertIsNone(make_evidence_verifier(self.request, Backend()))
+
   def test_identity_unknown_cannot_authorize(self):
     class Unknown:
       def identity(self):
