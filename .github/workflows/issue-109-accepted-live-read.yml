@@ -2,7 +2,7 @@ name: RWF109 accepted assembly live read-only provider matrix
 on:
   push:
     branches: [issue-109-accepted-assembly-20261030]
-    paths: [.github/workflows/issue-109-accepted-live-read.yml]
+    paths: [.ci/run]
 permissions:
   contents: read
 jobs:
