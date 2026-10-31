@@ -42,8 +42,8 @@
         "type": "regression",
         "name": "tests.test_self_ci_tiers"
       },
-      "invariant-self-ci-contract": {
-        "type": "invariant",
+      "integration-self-ci-contract": {
+        "type": "integration",
         "name": "tests.test_self_ci"
       },
       "issue-477-risk-scoped-ci": {
@@ -574,8 +574,8 @@
         "type": "regression",
         "name": "tests.test_done_host_transport"
       },
-      "invariant-ci-invocation-trigger": {
-        "type": "invariant",
+      "integration-ci-invocation-trigger": {
+        "type": "integration",
         "name": "tests.test_ci_invocation_trigger_contract"
       }
     },
@@ -604,7 +604,7 @@
     ],
     "self-ci": [
       "issue-476-staged-self-ci",
-      "invariant-self-ci-contract"
+      "integration-self-ci-contract"
     ]
   }
 }
