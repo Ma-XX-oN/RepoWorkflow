@@ -364,3 +364,11 @@ Check Run or bound default trusted native done executor has been verified.
 - Added `test_committed_marker_extra_blank_line_fails_closed` to `tests/test_ci_invocation.py` on both branches. Exact test Git blob `0e6c3d76ea54f99c9f032e53d667e44c5b100c3d`, verified identical on both.
 - Source and test Python compilation PASS. Executed exact Git-blob-identical source and test files in isolated real Git fixture with `python -m unittest discover -s ... -p test_ci_invocation.py`: **9/9 PASS**. Additional exact-code marker checks included valid dedicated invocation/retry and negative ordinary source-only, forged parent SHA, extra newline and malformed contents. This is an isolated exact-source verification, not a full checkout or three-OS native run.
 - No `.ci/run` commit, hosted CI dispatch, production branch merge, or independently issued release/MIT authorization was produced by this bug fix.
+
+### 2026-10-31 — CRLF exact-byte bypass fixed and verified
+
+- After stripping the extra-blank-line vulnerability, a separate real-Git fixture reproduced acceptance of a single committed CRLF suffix `\r\n`: `subprocess.run(text=True)` performed universal-newline translation before strict parsing. This violates the canonical no-suffix-or-single-LF request grammar.
+- Corrected raw marker Git reads to use subprocess binary capture and strict UTF-8 decoding; ordinary Git metadata reads remain text-mode/trimmed. Both current committed and historical invocation marker paths use raw byte-preserving reads. Non-UTF-8 marker data now fails closed.
+- Added real-Git `test_committed_marker_crlf_fails_closed` alongside the extra-blank-line regression. **10/10 exact-code isolated real-Git tests PASS**, Python compilation PASS, after correction.
+- Verified byte identity across `main` and #109 assembly: `repo_workflow/ci_invocation.py` Git blob `30f4e0d243972a81a6d124beab21a75eab112780`; `tests/test_ci_invocation.py` blob `591baa145a74e20fde15d621223c100d7bdbad68`. Local `git hash-object` of tested source equals GitHub blob hashes.
+- Source/fixture acceptance is not an actual three-OS CI test or production provider-stage certification. No `.ci/run` invocation or production integration was initiated.
