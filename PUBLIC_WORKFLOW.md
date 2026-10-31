@@ -390,7 +390,11 @@ ancestry and exact record bytes against the run's immutable artifact.  Missing,
 expired, malformed, forged, mismatched or inaccessible artifacts fail closed.
 Read-only `results --remote` never dispatches a hosted stage.
 
-The on-demand workflow remains staged alongside existing Self CI.  Functional
+The implemented on-demand workflow triggers only for `.ci/run` changes on
+`issue-*` branches. `.ci/run-ci-request` is not its trigger; `.ci/rwf` is
+not yet implemented. Separate Self CI and migration/certification workflows
+have independent event triggers. The on-demand workflow remains alongside
+existing Self CI.  Functional
 certification of its five stages does not authorise replacing Self CI, merging,
 releasing or enabling protected production integration.  Server branch/ruleset
 enforcement is separately deferred under #85.
@@ -417,7 +421,11 @@ Regression is selected explicitly when a dependency-complete umbrella outcome
 is ready or when broader risk warrants it.  RepoWorkflow does not infer
 umbrella semantics from Initiative/Epic/Feature title prefixes.
 
-Authoritative `main` pushes are always integration candidates.  CI emits the
+Under the separate legacy Self CI policy, authoritative `main` pushes are
+integration candidates; this does **not** describe the on-demand workflow's
+trigger. That workflow only responds to `.ci/run` changes on `issue-*`
+branches. A candidate classification is not evidence that a paid test run
+was requested. Self CI emits the
 selected tier, groups, and reason so narrower evidence cannot be mistaken for a
 stronger gate.
 
