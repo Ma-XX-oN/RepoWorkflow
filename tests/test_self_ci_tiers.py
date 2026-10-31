@@ -41,8 +41,8 @@ class SelfCiTierTests(unittest.TestCase):
           "type": "regression",
           "name": "tests.test_quantified_grammar",
         },
-        "invariant-self-ci-contract": {
-          "type": "invariant",
+        "integration-self-ci-contract": {
+          "type": "integration",
           "name": "tests.test_self_ci",
         },
       }],
@@ -92,7 +92,7 @@ class SelfCiTierTests(unittest.TestCase):
     self.assertEqual(plan.tier, "integration")
     self.assertIn("main integration candidate", plan.reason)
 
-  def test_issue_pr_selects_owned_group_and_cheap_invariants(self):
+  def test_issue_pr_does_not_include_integration_stage_groups(self):
     plan = plan_self_ci(
       self.repo,
       event="pull_request",
@@ -104,7 +104,7 @@ class SelfCiTierTests(unittest.TestCase):
     self.assertEqual(plan.issue, "476")
     self.assertEqual(
       plan.groups,
-      ("invariant-self-ci-contract", "issue-476-staged-self-ci"),
+      ("issue-476-staged-self-ci",),
     )
 
   def test_high_risk_alias_adds_groups_without_replacing_owned_group(self):
@@ -119,7 +119,6 @@ class SelfCiTierTests(unittest.TestCase):
     self.assertEqual(
       groups,
       (
-        "invariant-self-ci-contract",
         "issue-456-command-grammar",
         "issue-476-staged-self-ci",
       ),
