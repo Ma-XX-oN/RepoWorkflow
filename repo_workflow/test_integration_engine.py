@@ -65,7 +65,7 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
   )
   candidate = head_sha(root)
   before_dirty = _dirty(root, log)
-  regression = self_regression(root)
+  regression = self_regression(root, stage="integration")
   observations = [{
     "group": "regression",
     "exit_code": 0 if regression == "PASS" else 1,
