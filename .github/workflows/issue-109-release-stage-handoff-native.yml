@@ -1,4 +1,4 @@
-name: RWF109 release failure handoff exact-source 3OS
+name: RWF109 release failure runtime persisted handoff exact-source 3OS
 on:
   push:
     branches: [issue-109-release-stage-handoff-fix-20261031]
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Ma-XX-oN/RepoWorkflow
-          ref: e25418e7b0c9a689d5df36f32f26091ca4238342
+          ref: 459cadb6269f8d626a3c05c1a76d753f3ed92c18
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -25,7 +25,7 @@ jobs:
       - name: Assert accepted exact product SHA and compile
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = e25418e7b0c9a689d5df36f32f26091ca4238342
+          test "$(git rev-parse HEAD)" = 459cadb6269f8d626a3c05c1a76d753f3ed92c18
           python -m compileall -q repo_workflow adapters
       - name: Install declared dependencies
         run: python -m pip install -r requirements.txt
