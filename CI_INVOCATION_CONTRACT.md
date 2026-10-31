@@ -179,3 +179,22 @@ workflows (`lane-cache-routing-certification.yml`,
 Their exception is **not** permission to add unrestricted native testing on
 ordinary pushes. Changes to a GitHub workflow event filter must be reviewed
 against this guard and its authoritative contract before merging.
+
+## #109 supplemental native stage mirror (unmerged candidate)
+
+The dedicated `issue-109-accepted-assembly-native.yml` workflow triggers
+**only** on changes to `.ci/run` on its explicitly named #109 branch.
+It validates the same exact source SHA parsed from the canonical marker.
+Its three-OS jobs invoke `scripts/validate.py regression` or
+`scripts/validate.py integration`, and for integration the three
+platform probes. This removes bespoke raw-unittest discovery or
+hard-coded focused suites; the module selection comes from
+`.ci/tests.json` through the RWF stage engine.
+
+**This separate workflow is supplemental native coverage, not an
+authoritative RWF stage invocation or result publisher.** Only
+`RepoWorkflow On-Demand CI` executes the public `./rwf test`
+stage, publishes canonical JSONL and terminal evidence, and
+performs remote readback. A supplemental 3OS success alone
+must never be treated as release/integration authorization.
+No ordinary source-only push triggers either on-demand workflow.
