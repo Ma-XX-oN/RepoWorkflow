@@ -48,6 +48,15 @@ class ValidateScriptTests(unittest.TestCase):
       result = validate_script.unique_suite(("tests.test_validate_script",))
     self.assertEqual(result.countTestCases(), 1)
 
+  def test_missing_module_is_not_filtered_out(self):
+    suite = validate_script.unique_suite(
+      ("tests.test_missing_catalogue_module_109_negative",)
+    )
+    self.assertEqual(suite.countTestCases(), 1)
+    result = unittest.TestResult()
+    suite.run(result)
+    self.assertEqual(len(result.errors), 1)
+
   def test_explicit_empty_dependency_field_reaches_test_execution(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
