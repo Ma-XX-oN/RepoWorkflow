@@ -221,6 +221,24 @@ class CommandTests(unittest.TestCase):
           self.run_command(outcome=VerifiedFailedDone(failed,receipt))
         self.assertEqual(self.messages,[])
 
+  def test_mit_timeout_output_refuses_foreign_destination_or_reason(self):
+    from dataclasses import replace
+    ready=self.fixture.accepted.ready
+    deferred=DeferredProviderAttempt(ready,"timeout-proof",2)
+    event=MitDeferredEvent(
+      ready.guid,ready.destination,ready.sha,1,"timeout-proof","timeout")
+    for forged in (
+      replace(event,destination="other"),
+      replace(event,reason="approved"),
+      replace(event,reason="failed"),
+    ):
+      self.messages.clear()
+      with self.subTest(forged=forged):
+        with self.assertRaisesRegex(DoneCommandError,
+                                    "evidence differs"):
+          self.run_command(outcome=VerifiedDeferredDone(deferred,forged))
+        self.assertEqual(self.messages,[])
+
   def test_untrusted_pass_flag_never_counts_success(self):
     with self.assertRaisesRegex(DoneCommandError,"unverified"):
       self.run_command(outcome=True)
