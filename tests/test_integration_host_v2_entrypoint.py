@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import tempfile
+from unittest.mock import patch
 from repo_workflow.integration_host_v2 import IntegrationHostError
 
 
@@ -268,6 +270,31 @@ class V2EntrypointTests(unittest.TestCase):
       self.assertEqual(result["status"],"applied")
       self.assertEqual(result["result"][key],value)
       self.assertEqual(seen,[(self.backend,kind,value)])
+
+  def test_mutating_provider_uses_actual_project_checkout(self):
+    params = {"destination": "main", "expected_generation": 0,
+              "expected_holder": None, "expected_guid": None,
+              "holder": "worker-a", "guid": GUID}
+    request = dict(self.request, operation="lease.cas", parameters=params)
+    observed = {}
+    with tempfile.TemporaryDirectory() as temp:
+      project = Path(temp).resolve()
+      def config_reader(root):
+        observed["configured_root"] = root
+        return {"repository": {"authoritativeRemote": "origin"}}
+      def lease_write(backend, value, root, remote):
+        observed["mutation_root"] = root
+        observed["remote"] = remote
+        return "applied", {"destination": "main", "generation": 1,
+                           "holder": "worker-a", "guid": GUID}
+      with patch.object(MOD.Path, "cwd", return_value=project):
+        result = MOD.process(
+          request, backend_factory=self.factory, verify=self.verify,
+          config_reader=config_reader, lease_write=lease_write)
+      self.assertEqual(result["status"], "applied")
+      self.assertEqual(observed["configured_root"], project)
+      self.assertEqual(observed["mutation_root"], project)
+      self.assertEqual(observed["remote"], "origin")
 
   def test_lease_cas_rejects_incomplete_identity(self):
     request = dict(self.request, operation="lease.cas", parameters={})
