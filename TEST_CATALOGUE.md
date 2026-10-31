@@ -6,35 +6,30 @@ the complete schema and TDD policy remain under design and are not frozen here.
 
 The authoritative repository catalogue is `.ci/tests.json`.
 
-## Completeness and exceptional acceptance oracles
+## Completeness and RED-oracle staging
 
-Every retained `tests/test_*.py` module must appear as a native target in the
-authoritative catalogue, including separately authorized cases that are **not**
-ordinary regression or integration. `scripts/validate.py` fails closed if
-a shipped unittest module is unclassified or a registered unittest target is
-missing. Catalogue registration is **not** automatic stage selection.
+Every shipped `tests/test_*.py` module must be represented by exactly one
+native test target in the retained `.ci/tests.json` catalogue or the
+issue-scoped `.ci/temp-tests.json` catalogue. `scripts/validate.py` checks
+both inventories and fails closed on unclassified modules or missing targets.
+Only retained regression/integration declarations run in broad stages;
+temporary targets are selected explicitly, never promoted silently.
 
-The #703 MIT negative acceptance oracle
-(`tests.test_manual_mit_negative_acceptance`) and the deliberately RED
-version-contract oracle (`tests.test_manual_mit_version_contract`) are
-registered as `type: manual` under the canonical issue-owned
-`issue-703-manual--...` case names. Manual case declarations require
-`instructions` and `expected_result`, never a runnable `name`; their
-instructions identify the excluded source module with the literal
-`Unittest module: tests.test_...` marker for completeness accounting.
-They require explicit separately authorized acceptance selection. They are
-excluded from broad regression/integration staging until their governing
-acceptance contracts authorize promotion. Do not silently remove failing
-RED oracles or make them permanent regression tests to satisfy completeness.
+The #703 negative MIT oracle (`tests.test_manual_mit_negative_acceptance`)
+and deliberately RED version-contract oracle
+(`tests.test_manual_mit_version_contract`) are automated acceptance tests
+registered as `issue-703-...` groups in `.ci/temp-tests.json`. Their
+file names do not make them RWF `type: manual` cases: such cases define
+non-executable operator instructions with strict
+`issue-N-manual--...` identities. The #703 RED oracles require explicit
+authorization to run and remain isolated from broad regression/integration
+until their acceptance contracts justify retirement or promotion.
 
 Classify new or relocated test modules before running a broad stage. When
-retiring a temporary test, delete its temporary registration and retire the
-file if obsolete; retain and classify it only when the owning contract requires
-ongoing coverage. Cross-check
-[TEST_STRATEGY.md](TEST_STRATEGY.md) for test-purpose definitions, and track
-repository-wide classification exceptions in
+retiring a temporary test, remove its temporary registration and its file
+if obsolete, or move the still-required test into retained catalogue coverage.
+See [TEST_STRATEGY.md](TEST_STRATEGY.md) and
 [#778](https://github.com/Ma-XX-oN/RepoWorkflow/issues/778).
-
 
 The executable stage vocabulary is **RED, GREEN, temporary, regression, and
 integration**. Catalogue group metadata uses `type: regression` or
