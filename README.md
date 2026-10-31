@@ -22,6 +22,14 @@ Project/
 └── tests/
 ```
 
+## Find the right documentation
+
+Start at the [documentation map](DOCUMENTATION_INDEX.md) for a short,
+task-oriented route into authoritative specialist contracts. If local tools
+or network access are insufficient, check
+[execution environments](EXECUTION_ENVIRONMENTS.md) before ruling out
+GitHub Actions as a testing workbench.
+
 ## Engineering best practices (humans and AI agents)
 
 **Start with [BEST_PRACTICES.md](BEST_PRACTICES.md)** before implementing, reviewing,
