@@ -69,10 +69,10 @@ class CiInvocationTests(unittest.TestCase):
   def invoke(self, previous_tip=None, stage="regression-testing"):
     directory = self.root / ".ci"
     directory.mkdir(exist_ok=True)
-    (directory / "run").write_text(
-      f"{stage} {previous_tip or self.git('rev-parse', 'HEAD')}\n"
+    (directory / "run").write_bytes(
+      f"{stage} {previous_tip or self.git('rev-parse', 'HEAD')}\n".encode("utf-8")
     )
-    self.git("add", ".ci/run")
+    self.git("-c", "core.autocrlf=false", "add", ".ci/run")
     self.git("commit", "-qm", "invoke CI")
 
   def test_dedicated_request_committed_after_current_tip(self):
