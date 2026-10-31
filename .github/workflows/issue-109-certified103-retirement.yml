@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 05b7e29947f9ab4ae6055f8eee75e6566ab4666b
+          ref: a83bca01de4aed72f9ec67980f6e81d621b7855c
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
@@ -25,9 +25,9 @@ jobs:
       - name: Assert merged product exact SHA
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = 05b7e29947f9ab4ae6055f8eee75e6566ab4666b
+          test "$(git rev-parse HEAD)" = a83bca01de4aed72f9ec67980f6e81d621b7855c
           python -m compileall -q repo_workflow adapters
-          echo 'RWF109_CERTIFIED103_PRODUCT_SHA=05b7e29947f9ab4ae6055f8eee75e6566ab4666b'
+          echo 'RWF109_CERTIFIED103_PRODUCT_SHA=a83bca01de4aed72f9ec67980f6e81d621b7855c'
       - name: Exact source retirement and done integration suites
         shell: bash
         run: |
