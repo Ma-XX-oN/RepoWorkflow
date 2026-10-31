@@ -164,3 +164,18 @@ repeat/missed-event retry, source-only versus selector-changing pushes,
 malformed selectors, stale/forged evidence, local/external evidence, current-base
 races, and restart/re-fetch. Passing isolated workflow tests is not proof of
 protected production integration or full repository-wide CI policy migration.
+
+## Regression enforcement
+
+The source-level CI event-filter guard is
+`tests/test_ci_invocation_trigger_contract.py`, registered as
+`invariant-ci-invocation-trigger` in `.ci/tests.json`. It rejects missing,
+broadened or unsupported push-path declarations in the current checkout.
+On-demand and issue-specific native verification workflows require only
+`.ci/run`. The three separately scoped historic migration/certification
+workflows (`lane-cache-routing-certification.yml`,
+`native-dependency-lane-certification-v1.yml`, and
+`native-dependency-migration-v1.yml`) retain their own explicit path filters.
+Their exception is **not** permission to add unrestricted native testing on
+ordinary pushes. Changes to a GitHub workflow event filter must be reviewed
+against this guard and its authoritative contract before merging.
