@@ -472,8 +472,10 @@ def run_test(
       ),
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "kind": "regression",
-      "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
-      "selectedGroups": list(stage_groups(root, "regression")),
+      **({
+        "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
+        "selectedGroups": list(stage_groups(root, "regression")),
+      } if (root / ".ci/tests.json").is_file() else {}),
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
