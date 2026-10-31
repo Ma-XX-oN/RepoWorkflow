@@ -42,6 +42,20 @@ def push_paths(source):
 
 
 class ExplicitCiInvocationTests(unittest.TestCase):
+  def test_native_assembly_mirrors_catalogue_stage_not_raw_discovery(self):
+    source = (WORKFLOWS / "issue-109-accepted-assembly-native.yml").read_text(
+      encoding="utf-8"
+    )
+    self.assertIn("python scripts/validate.py regression", source)
+    self.assertIn("python scripts/validate.py integration", source)
+    self.assertIn("python scripts/probe-argv-limits.py", source)
+    self.assertIn("python scripts/probe-graph-renderer.py", source)
+    self.assertIn("python scripts/probe-ticket-merge.py", source)
+    self.assertNotIn("python -m unittest", source)
+    self.assertNotIn("unittest discover", source)
+    self.assertNotIn("\\n  focused:", source)
+    self.assertIn("ref: ${{ needs.plan.outputs.tested_sha }}", source)
+
   def test_push_workflows_have_explicit_paths(self):
     exceptions = {
       "lane-cache-routing-certification.yml",
