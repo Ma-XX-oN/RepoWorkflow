@@ -31,22 +31,18 @@ def verifier_command() -> list[str] | None:
     return None
   try:
     command = json.loads(raw)
-  except ValueError:
+  except (TypeError, ValueError):
     return None
-  if not isinstance(command, list) or len(command) != 1 or not all(
-    isinstance(part, str) and part for part in command
-  ):
+  if (type(command) is not list or len(command) not in (1, 2)
+      or any(type(part) is not str or not part for part in command)):
     return None
-  executable = command[0]
-  if not (os.path.isabs(executable) or ntpath.isabs(executable)):
-    return None
-  if ".." in executable.replace("\\", "/").split("/"):
-    return None
-  # A verifier shipped by an unreviewed PR cannot issue trusted grants.
-  # Resolve symlinks so a checked-out alias cannot bypass this boundary.
-  if os.path.isabs(executable):
-    workspace = Path(__file__).resolve().parents[1]
-    project_checkout = Path.cwd().resolve()
+  workspace = Path(__file__).resolve().parents[1]
+  project_checkout = Path.cwd().resolve()
+  for executable in command:
+    if not (os.path.isabs(executable) or ntpath.isabs(executable)):
+      return None
+    if ".." in executable.replace("\\", "/").split("/"):
+      return None
     lexical = Path(executable)
     target = lexical.resolve()
     if any(root == candidate or root in candidate.parents
@@ -54,7 +50,6 @@ def verifier_command() -> list[str] | None:
            for candidate in (lexical, target)):
       return None
   return command
-
 
 def _scope(request: dict) -> str:
   return hashlib.sha256(
@@ -73,9 +68,10 @@ def authorize(request: dict, backend) -> dict:
   try:
     result = subprocess.run(
       command, input=json.dumps(evaluation),
-      capture_output=True, text=True, timeout=30, check=False,
+      capture_output=True, text=True, encoding="utf-8", errors="strict",
+      timeout=30, check=False,
     )
-  except (OSError, subprocess.TimeoutExpired) as exc:
+  except (OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
     raise ProviderError("unauthorized", "trusted verifier unavailable") from exc
   if result.returncode or not result.stdout:
     raise ProviderError("unauthorized", "trusted verifier denied request")
