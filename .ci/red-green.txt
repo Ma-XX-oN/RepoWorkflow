@@ -1,1 +1,1 @@
-issue-703-mit-negative-red-oracle
+issue-703-mit-negative-acceptance
