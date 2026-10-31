@@ -17,6 +17,70 @@ boundaries. Avoid duplicating authoritative detail in overview pages.
 For environment selection, see
 [EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md).
 
+## Documentation architecture: recursively scoped navigation
+
+The documentation is a **hierarchy of increasingly specific answers**,
+with cross-links wherever one issue spans multiple subjects. Each level
+should summarize its purpose briefly and point to the next level only
+when more detail is required.
+
+1. **Repository entry points:** `README.md` introduces RepoWorkflow;
+   `AGENTS.md` directs coding agents to
+   [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md).
+2. **Topic index:** `DOCUMENTATION_INDEX.md` maps tasks and major areas
+   to short overviews. It should not copy full procedures.
+3. **Domain overview:** A topic's overview states scope, key invariants,
+   boundaries and which specialist contract controls each question.
+4. **Specialist contract:** The authoritative document contains the
+   complete requirements, procedures and acceptance semantics for one
+   coherent subject. Link to its deeper evidence or examples as needed.
+5. **Evidence and examples:** Focused test matrices, experiment reports
+   and issue-specific records support their parent contract without
+   silently becoming alternative sources of policy.
+
+**Recursive application:** A specialist may become an overview for a
+narrower subject. Every new level follows the same pattern: brief
+orientation, explicit authoritative owner, focused subordinate links.
+Do not impose a fixed maximum depth, duplicate a contract, or create
+trivial pages just to satisfy the shape of the tree.
+
+**Cross-cutting links:** Link directly across branches when useful.
+For example, a missing local Python dependency links from
+[bug investigation](BUG_INVESTIGATION.md) to
+[execution environments](EXECUTION_ENVIRONMENTS.md), then to
+[test adequacy](TEST_ADEQUACY.md). Do not force readers back through
+the root index or pretend the hierarchy represents issue dependencies.
+
+### Adding or reorganizing documentation
+
+Before adding a document:
+
+1. Search the index and existing specialist pages for the authoritative
+   owner of the subject. Extend that owner if the new material fits.
+2. If the subject is independent, create a focused specialist document
+   under the nearest logical overview. Give it a clear purpose, status
+   and links to its controlling contracts.
+3. Add a **short navigation link** from its immediate parent. Update
+   `DOCUMENTATION_INDEX.md` only for new major topics or high-value
+   task entry routes; do not index every leaf redundantly.
+4. Add cross-links from other branches only when they solve a real
+   discovery problem. Prefer links that explain *why* to follow them.
+5. Preserve every existing authoritative statement during moves.
+   Keep historical evidence distinct from current policy and do not
+   turn a proposed implementation into a verified capability.
+6. Verify relative links, discoverability from `README.md` or
+   `AGENTS.md`, coherent ownership, and no circular reading
+   prerequisites. Navigation cycles are acceptable; mandatory
+   prerequisite cycles are not.
+7. Apply the [500-soft / 800-hard file-length rule](SOURCE_SIZE_RATIONALE.md)
+   and 80-soft / 120-strong line-width guidance without arbitrary
+   splitting or loss of semantics.
+
+**Placement test:** A reader starting with only a problem description
+should be able to navigate from the short index to its authoritative
+procedure in a small number of purposeful clicks, and find a directly
+linked alternative execution environment when the first approach fails.
+
 ## 1. Purpose
 
 A document reaching **500 lines** triggers a soft maintainability review;
