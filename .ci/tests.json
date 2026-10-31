@@ -1065,16 +1065,6 @@
       "issue-583-authoritative-validate": {
         "type": "regression",
         "name": "tests.test_validate_script"
-      },
-      "issue-703-manual--mit_negative_acceptance_oracle": {
-        "type": "manual",
-        "instructions": "Unittest module: tests.test_manual_mit_negative_acceptance. Run only with explicit #703 RED-oracle authorization; simulation is not provider proof.",
-        "expected_result": "Check negative MIT fail/defer/UNKNOWN handling against #703 acceptance, without treating this as regression PASS."
-      },
-      "issue-703-manual--mit_version_contract_red_oracle": {
-        "type": "manual",
-        "instructions": "Unittest module: tests.test_manual_mit_version_contract. Run only with explicit #703 RED-oracle authorization; do not assume expected RED failures are regression defects.",
-        "expected_result": "Verify Q+1/R=0 version-transition acceptance after the #109 adapter is ready; record current RED outcomes separately."
       }
     },
     {
