@@ -36,20 +36,12 @@ class ValidateScriptTests(unittest.TestCase):
         "issue,title,dependencies\n10,Valid,\n",
         encoding="utf-8",
       )
-      suite = unittest.TestSuite([
-        unittest.FunctionTestCase(lambda: None),
-      ])
       with (
         patch.object(validate_script, "ROOT", root),
-        patch.object(validate_script, "catalogued_modules",
-                     return_value=("tests.test_validate_script",)),
-        patch.object(validate_script, "run", return_value=0) as run,
-        patch.object(validate_script.unittest.defaultTestLoader,
-                     "loadTestsFromNames", return_value=suite) as load,
+        patch.object(validate_script, "run", side_effect=(0, 0)) as run,
       ):
         self.assertEqual(validate_script.main(), 0)
-      run.assert_called_once()
-      load.assert_called_once_with(("tests.test_validate_script",))
+      self.assertEqual(run.call_count, 2)
 
 
 if __name__ == "__main__":
