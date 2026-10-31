@@ -57,7 +57,7 @@ if mode == "non-utf8":
   raise SystemExit(0)
 if mode == "utf8-unicode":
   result["authority_ref"] = "external-verifier-\u2192-evidence"
-  sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8") + b"\\n")
+  sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8") )
   raise SystemExit(0)
 print(json.dumps(result))
 '''
