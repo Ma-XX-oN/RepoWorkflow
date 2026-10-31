@@ -27,6 +27,27 @@ class ValidateScriptTests(unittest.TestCase):
         self.assertEqual(validate_script.main(), 1)
       run.assert_not_called()
 
+  def test_imported_testcase_does_not_cross_stage_boundary(self):
+    class Owned(unittest.TestCase):
+      def test_ok(self):
+        pass
+
+    class External(unittest.TestCase):
+      def test_other(self):
+        pass
+
+    External.__module__ = "tests.test_integration_only"
+    loaded = unittest.TestSuite([
+      Owned("test_ok"), Owned("test_ok"), External("test_other"),
+    ])
+    with patch.object(
+      validate_script.unittest.defaultTestLoader,
+      "loadTestsFromNames",
+      return_value=loaded,
+    ):
+      result = validate_script.unique_suite(("tests.test_validate_script",))
+    self.assertEqual(result.countTestCases(), 1)
+
   def test_explicit_empty_dependency_field_reaches_test_execution(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
