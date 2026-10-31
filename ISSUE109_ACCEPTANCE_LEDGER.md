@@ -314,3 +314,27 @@ Check Run or bound default trusted native done executor has been verified.
   deleted. They are not the run-scoped refs named in #703's October 31
   cleanup handoffs. Preserve their ownership and do not treat an empty
   `INT-ATTEMPT-*` inventory as proof of complete global cleanup.
+
+### 2026-10-31 — corrected native matrix exact-source binding
+
+- The old `issue-109-accepted-assembly-native.yml` attached six checks to an
+  invocation push while checking out hardcoded accepted source
+  `59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90`, regardless of newer
+  consolidation changes. Thus run 41227150581/41227396552 checks cannot
+  certify their triggering `head_sha` revisions even after completion.
+- Corrected the workflow on the consolidation branch: a read-only Ubuntu
+  `plan` job calls existing authoritative
+  `scripts/on-demand-ci-plan.py` to verify the dedicated `.ci/run`
+  invocation, derive `tested_sha` and `stage`, and validate SHA shape.
+  Focused and full Linux/macOS/Windows jobs now depend on `plan`, check out
+  exactly `needs.plan.outputs.tested_sha`, assert their actual HEAD equals
+  it, and run only on regression/integration stages. RED/temporary/GREEN
+  marker requests do not start those broad native matrices.
+- Exact committed workflow Git blob `a9764ce30c738ac83d4dae904c881d1d98da7f26`
+  matched locally reproduced workflow bytes. YAML parser and matrix/path
+  assertions PASS. Extracted exact embedded Python compiled and produced the
+  correct outputs for all five declared stages, rejecting an invalid SHA.
+  These are static and isolated execution checks, **not a live Actions run**.
+- No `.ci/run` change was made and no new broad native run requested. A
+  fresh correct exact-candidate native run remains required after the final
+  functional candidate is frozen and independent authorities are available.
