@@ -1,0 +1,65 @@
+name: RWF109 optimized distinct tests Git invocation count
+on:
+  push:
+    branches: [issue-109-ci-performance-deduplicate-imported-tests-20261031]
+    paths: [.github/workflows/issue-109-dedup-git-count.yml]
+permissions:
+  contents: read
+jobs:
+  git-count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bb55cb853f81670689d5b1fad9163caca7fa21e3
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Count Git subprocesses after avoiding duplicate test discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = bb55cb853f81670689d5b1fad9163caca7fa21e3
+          python - <<'PY'
+          import collections,subprocess,time,unittest,sys
+          modules=[
+            "tests.test_prelim_ready_v2_prepare",
+            "tests.test_prelim_ready_v2_publish",
+            "tests.test_prelim_ready_v2_roundtrip",
+            "tests.test_prelim_ready_v2_validation",
+            "tests.test_prelim_ready_provider_scope",
+            "tests.test_prelim_ready_authority",
+            "tests.test_prelim_queue",
+            "tests.test_prelim_queue_git",
+            "tests.test_done_current_policy",
+            "tests.test_done_ready_scheduler",
+            "tests.test_done_policy_admission",
+            "tests.test_integration_admission",
+            "tests.test_prelim_integration_ready",
+            "tests.test_prelim_attempt",
+          ]
+          orig=subprocess.run
+          counts=collections.Counter()
+          duration=collections.Counter()
+          def track(*a,**k):
+            cmd=a[0] if a else k["args"]
+            executable=str(cmd[0]).lower() if isinstance(cmd,(list,tuple)) else str(cmd).split()[0].lower()
+            key="git" if executable.endswith("git") or executable.endswith("git.exe") else "other"
+            begin=time.perf_counter()
+            try:
+              return orig(*a,**k)
+            finally:
+              counts[key]+=1
+              duration[key]+=time.perf_counter()-begin
+          subprocess.run=track
+          start=time.perf_counter()
+          r=unittest.TextTestRunner(verbosity=0).run(unittest.defaultTestLoader.loadTestsFromNames(modules))
+          print("RWF109_OPTIMIZED_GIT_COUNT tests=%d git_calls=%d git_seconds=%.6f other_calls=%d total=%.6f pass=%s" %
+            (r.testsRun,counts["git"],duration["git"],counts["other"],time.perf_counter()-start,r.wasSuccessful()),flush=True)
+          assert r.testsRun==111
+          sys.exit(0 if r.wasSuccessful() else 1)
+          PY
