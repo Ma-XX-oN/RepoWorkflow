@@ -48,7 +48,7 @@ RepoWorkflow CI distinguishes issue verification, regression, and integration
 because they establish different facts and have different cost.
 
 Issue development runs the issue-owned catalogue group(s), plus any groups
-expanded from durable high-risk aliases and cheap invariant groups.  This is
+expanded from durable high-risk aliases. Integration-stage checks are not\nautomatically added to ordinary issue verification. This is
 the normal pull-request feedback path.  It must not claim regression or
 integration evidence.
 
