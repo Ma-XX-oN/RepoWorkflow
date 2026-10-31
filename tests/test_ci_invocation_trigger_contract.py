@@ -53,8 +53,12 @@ class ExplicitCiInvocationTests(unittest.TestCase):
     for path in paths:
       with self.subTest(workflow=path.name):
         source = path.read_text(encoding="utf-8")
-        self.assertNotIn("on: push", source)
-        self.assertNotIn("on: [push]", source)
+        lines = source.splitlines()
+        self.assertEqual(lines.count("on:"), 1)
+        self.assertFalse(any(
+          line.startswith("  push") and line != "  push:"
+          for line in lines
+        ))
         requested = push_paths(source)
         if requested is None:
           continue
