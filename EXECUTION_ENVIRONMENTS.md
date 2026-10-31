@@ -58,8 +58,11 @@ prerequisite.
 
 ## CI invocation marker: current versus planned
 
-The repository currently uses **`.ci/run`** for its on-demand CI invocation
-contract. A future migration intends to use **`.ci/rwf`**; that future name
+The implemented GitHub on-demand workflow uses **`.ci/run`** as its sole
+invocation marker for `issue-*` branch pushes. An ordinary source-only push
+cannot trigger that workflow. Other independently configured workflows may
+have different push triggers. `.ci/run-ci-request` is a distinct legacy
+candidate-binding file and is not the on-demand trigger. A future migration intends to use **`.ci/rwf`**; that future name
 is **not the current executable interface**. Do not change invocation paths
 or claim the migration is active without an implemented, accepted contract.
 The invocation marker and its syntax are conceptually independent of the CI
