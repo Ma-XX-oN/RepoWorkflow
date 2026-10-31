@@ -356,3 +356,11 @@ Check Run or bound default trusted native done executor has been verified.
   was parsed locally and its embedded Python stage-output checks passed all
   five stages and invalid-source rejection. Subsequent cosmetic job-label
   revision does not change its plan or source checkout semantics.
+
+### 2026-10-31 — committed CI marker exact-byte validation bug fixed
+
+- Verified bug in shared `repo_workflow/ci_invocation.py`: helper `_git()` stripped `git show HEAD:.ci/run` output before `parse_invocation`, allowing a committed `.ci/run` with an extra trailing blank line to pass the strict one-marker grammar. The malformed committed marker was reproduced using the exact old GitHub source in an actual isolated Git fixture.
+- Fixed on both `main` and the #109 assembly branch: `_git(...,raw=True)` preserves committed marker content for both current `verify_invocation` and historical `original_candidate`; ordinary command-line Git identity reads retain whitespace trimming. Fixed source Git blob `bcc7e44351aa5a15e75fe44281166e80255511de`, verified identical on both branches.
+- Added `test_committed_marker_extra_blank_line_fails_closed` to `tests/test_ci_invocation.py` on both branches. Exact test Git blob `0e6c3d76ea54f99c9f032e53d667e44c5b100c3d`, verified identical on both.
+- Source and test Python compilation PASS. Executed exact Git-blob-identical source and test files in isolated real Git fixture with `python -m unittest discover -s ... -p test_ci_invocation.py`: **9/9 PASS**. Additional exact-code marker checks included valid dedicated invocation/retry and negative ordinary source-only, forged parent SHA, extra newline and malformed contents. This is an isolated exact-source verification, not a full checkout or three-OS native run.
+- No `.ci/run` commit, hosted CI dispatch, production branch merge, or independently issued release/MIT authorization was produced by this bug fix.
