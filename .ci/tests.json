@@ -390,15 +390,42 @@
         "type": "regression",
         "name": "tests.test_local_terminal"
       },
-      "issue-109-provider-pipeline": {"type": "regression", "name": "tests.test_done_provider_pipeline"},
-      "issue-109-retirement-bridge": {"type": "regression", "name": "tests.test_done_retirement_bridge"},
-      "issue-109-terminal-v2": {"type": "regression", "name": "tests.test_done_terminal_v2"},
-      "issue-109-int-workspace": {"type": "regression", "name": "tests.test_done_int_workspace"},
-      "issue-109-lifecycle-binding": {"type": "regression", "name": "tests.test_done_lifecycle_binding"},
-      "issue-109-landed-results": {"type": "regression", "name": "tests.test_done_landed_results"},
-      "issue-109-failed-terminal": {"type": "regression", "name": "tests.test_done_failed_attempt"},
-      "issue-109-ready-scheduler": {"type": "regression", "name": "tests.test_done_ready_scheduler"},
-      "issue-109-current-policy": {"type": "regression", "name": "tests.test_done_current_policy"},
+      "issue-109-provider-pipeline": {
+        "type": "regression",
+        "name": "tests.test_done_provider_pipeline"
+      },
+      "issue-109-retirement-bridge": {
+        "type": "regression",
+        "name": "tests.test_done_retirement_bridge"
+      },
+      "issue-109-terminal-v2": {
+        "type": "regression",
+        "name": "tests.test_done_terminal_v2"
+      },
+      "issue-109-int-workspace": {
+        "type": "regression",
+        "name": "tests.test_done_int_workspace"
+      },
+      "issue-109-lifecycle-binding": {
+        "type": "regression",
+        "name": "tests.test_done_lifecycle_binding"
+      },
+      "issue-109-landed-results": {
+        "type": "regression",
+        "name": "tests.test_done_landed_results"
+      },
+      "issue-109-failed-terminal": {
+        "type": "regression",
+        "name": "tests.test_done_failed_attempt"
+      },
+      "issue-109-ready-scheduler": {
+        "type": "regression",
+        "name": "tests.test_done_ready_scheduler"
+      },
+      "issue-109-current-policy": {
+        "type": "regression",
+        "name": "tests.test_done_current_policy"
+      },
       "issue-109-hosted-artifact-bridge": {
         "type": "regression",
         "name": "tests.test_done_stage_hosted"
@@ -435,20 +462,114 @@
         "type": "regression",
         "name": "tests.test_done_queue_scheduler"
       },
-      "issue-109-completion": {"type": "regression", "name": "tests.test_done_completion"},
-      "issue-109-canonical-lifecycle": {"type": "regression", "name": "tests.test_done_canonical_lifecycle"},
-      "issue-109-shared-lifecycle": {"type": "regression", "name": "tests.test_done_shared_lifecycle"},
-      "issue-109-check-issuer": {"type": "regression", "name": "tests.test_done_check_issuer"},
-      "issue-109-hosted-stages": {"type": "regression", "name": "tests.test_done_hosted_stage_pipeline"},
-      "issue-109-policy-admission": {"type": "regression", "name": "tests.test_done_policy_admission"},
-      "issue-109-stage-certification": {"type": "regression", "name": "tests.test_done_stage_certification"},
-      "issue-109-mit-defer-v2": {"type": "regression", "name": "tests.test_done_mit_defer_v2"},
-      "issue-109-evidence-provider": {"type": "regression", "name": "tests.test_done_evidence_provider"},
-      "issue-109-evidence-promotion": {"type": "regression", "name": "tests.test_done_evidence_promotion"},
-      "issue-109-host-coordination": {"type": "regression", "name": "tests.test_done_host_coordinator"},
-      "issue-109-provider-acceptance": {"type": "regression", "name": "tests.test_done_provider_acceptance"},
-      "issue-109-executor": {"type": "regression", "name": "tests.test_done_executor"},
-      "issue-109-coordination": {"type": "regression", "name": "tests.test_integration_coordination"}
+      "issue-109-completion": {
+        "type": "regression",
+        "name": "tests.test_done_completion"
+      },
+      "issue-109-canonical-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_done_canonical_lifecycle"
+      },
+      "issue-109-shared-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_done_shared_lifecycle"
+      },
+      "issue-109-check-issuer": {
+        "type": "regression",
+        "name": "tests.test_done_check_issuer"
+      },
+      "issue-109-hosted-stages": {
+        "type": "regression",
+        "name": "tests.test_done_hosted_stage_pipeline"
+      },
+      "issue-109-policy-admission": {
+        "type": "regression",
+        "name": "tests.test_done_policy_admission"
+      },
+      "issue-109-stage-certification": {
+        "type": "regression",
+        "name": "tests.test_done_stage_certification"
+      },
+      "issue-109-mit-defer-v2": {
+        "type": "regression",
+        "name": "tests.test_done_mit_defer_v2"
+      },
+      "issue-109-evidence-provider": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_provider"
+      },
+      "issue-109-evidence-promotion": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_promotion"
+      },
+      "issue-109-host-coordination": {
+        "type": "regression",
+        "name": "tests.test_done_host_coordinator"
+      },
+      "issue-109-provider-acceptance": {
+        "type": "regression",
+        "name": "tests.test_done_provider_acceptance"
+      },
+      "issue-109-executor": {
+        "type": "regression",
+        "name": "tests.test_done_executor"
+      },
+      "issue-109-coordination": {
+        "type": "regression",
+        "name": "tests.test_integration_coordination"
+      },
+      "issue-683-prelim-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
+      },
+      "issue-683-prelim-ready-bridge": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_bridge"
+      },
+      "issue-683-prelim-ready-recorded": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_recorded"
+      },
+      "issue-683-prelim-ready-authority": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_authority"
+      },
+      "issue-683-provider-scope": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_provider_scope"
+      },
+      "issue-683-hosted-candidate-pin": {
+        "type": "regression",
+        "name": "tests.test_hosted_candidate"
+      },
+      "issue-683-destination-preparation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_prepare"
+      },
+      "issue-683-destination-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_validation"
+      },
+      "issue-683-destination-publication": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_publish"
+      },
+      "issue-683-destination-roundtrip": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_roundtrip"
+      },
+      "issue-683-historical-version-collision": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_history_collision"
+      },
+      "issue-683-integration-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration_ready"
+      }
     },
     {
       "test-harness": "script-runner",
