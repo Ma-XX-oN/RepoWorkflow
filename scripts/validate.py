@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -45,7 +46,20 @@ def selected_modules(root: Path, stage: str) -> tuple[str, ...]:
     if declaration["test-harness"] == "unittest"
     for key, item in declaration.items()
     if key not in {"test-harness", "command"}
+    and item["type"] != "manual"
   }
+  # A manual case is not executable catalogue metadata. Explicit RED oracles
+  # identify their shipped unittest module in the authorized instructions.
+  for declaration in catalogue["tests"]:
+    for key, item in declaration.items():
+      if key in {"test-harness", "command"} or item["type"] != "manual":
+        continue
+      match = re.search(
+        r"Unittest module: (tests\\.test_[A-Za-z0-9_]+)\\.",
+        item["instructions"],
+      )
+      if match:
+        registered.add(match.group(1))
   unclassified = shipped - registered
   dangling = registered - shipped
   if unclassified or dangling:
