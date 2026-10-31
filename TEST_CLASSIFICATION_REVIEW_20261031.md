@@ -159,6 +159,33 @@ artifacts are still required by migration/recovery contracts and other tests.
 Both files remain untouched until that check; this is not an authorization
 to erase historical certification evidence.
 
+## Implemented classification checkpoint — later 2026-10-31
+
+The original 124-row table above is the **historical discovery audit**, not
+the current missing-module list. In the current #109 consolidation branch,
+all 253 retained `tests/test_*.py` module targets are now directly registered
+under reviewed `regression` or `integration` types in `.ci/tests.json`.
+The only two files intentionally without retained group declarations are
+`tests/test_manual_mit_negative_acceptance.py` and
+`tests/test_manual_mit_version_contract.py`: these remain active
+independent #703 **RED** oracles. Their presence in the source tree is
+deliberate; the new staged runner does not discover or execute them during
+retained regression/integration acceptance.
+
+The archived #327/#346 provider and one-shot migration tests were kept
+because their workflow and committed audit artifacts remain present, and
+their continuing evidence-integrity assertions have not been superseded
+by an independent verification mechanism. No test file has been deleted
+without establishing obsolescence. Catalogue membership no longer arises
+from filename discovery or a guessed alias.
+
+The staged runner uses `stage_groups`, unique native target resolution,
+and canonical module-origin filtering. It is an implementation candidate,
+**not yet a broad regression or integration certification**; final acceptance
+requires actual `.ci/run` stage invocation, exact revision, provider results,
+and readback. The earlier table retains initial hypotheses for audit history,
+which are superseded by actual per-group metadata in the current catalogue.
+
 ## Activation gate
 
 1. Check issue provenance and current acceptance requirements per module; separate unit regressions from genuine multi-component/provider integration. The source code's name alone is not evidence of its required stage.
