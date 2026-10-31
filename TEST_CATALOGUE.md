@@ -185,11 +185,23 @@ For the current inventory of test modules not yet directly registered, see
 This review is not a reason to automatically promote unverified candidates;
 each retained or retired group needs issue-contract evidence.
 
-The catalogue is static.  Full regression selection is derived from entries
-whose metadata says `type: regression`; fast selection is derived from speed
-metadata; group selection matches canonical group keys.  Separate manually
-maintained aggregate suite membership is intentionally avoided because it would
-create multiple places that must remain synchronized.
+The catalogue is static.  The **intended** retained regression membership
+comes from entries whose metadata says `type: regression`; integration entries
+mark the separate cross-boundary stage. Fast selection is derived from speed
+metadata; group selection matches canonical group keys. Separate manually
+maintained aggregate suite membership is intentionally avoided because it
+would create multiple places that must remain synchronized.
+
+**Current implementation gap:** RepoWorkflow engine `rwf test regression`
+still delegates to `scripts/validate.py`, which executes broad filesystem
+unittest discovery rather than selecting registered group targets by stage.
+`rwf test integration` runs that broad validation plus platform probes.
+Therefore the catalogue's intended stage-based full selection is **not yet
+implemented**, even though individual named-group selection and `.ci/run`
+invocation are implemented. Do not represent discovery-only test results as
+proof of catalogue selection. The reviewed modules and retire-or-retain
+decisions must be resolved before switching the broad runner to catalogue-only
+selection, so required test coverage is not silently dropped.
 
 When many selected tests are representable in one native invocation, RWF may
 batch them.  Batching must preserve whole test selections and respect the
