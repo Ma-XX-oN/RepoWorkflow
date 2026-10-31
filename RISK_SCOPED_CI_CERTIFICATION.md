@@ -81,3 +81,19 @@ issue < regression < integration
 A stronger successful run may satisfy a narrower verification requirement.
 The reverse is forbidden.  In particular, issue-tier or regression-tier
 evidence cannot authorize a release requiring integration evidence.
+
+## Current stage-model supersession (2026-10-31)
+
+The records above describe the historical #477 implementation and remain
+historical evidence, not the current catalogue schema. The current RWF
+catalogue permits only the retained stage types `regression` and
+`integration`; the former `invariant` type was removed as a conflicting
+classification. Historical `invariant-self-ci-contract` is now
+`integration-self-ci-contract`, and the CI invocation check is registered
+as `integration-ci-invocation-trigger`.
+
+Current issue verification includes the issue-owned groups and explicitly
+durable high-risk alias memberships, **not automatic integration groups**.
+Integration checks are still required at the integration gate, but they do
+not silently become issue-level checks. This supersedes the historical
+selection bullet above without rewriting historical run observations.
