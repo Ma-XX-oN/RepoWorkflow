@@ -573,6 +573,10 @@
       "issue-109-native-host-transport": {
         "type": "regression",
         "name": "tests.test_done_host_transport"
+      },
+      "invariant-ci-invocation-trigger": {
+        "type": "invariant",
+        "name": "tests.test_ci_invocation_trigger_contract"
       }
     },
     {
