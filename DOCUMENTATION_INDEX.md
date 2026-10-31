@@ -33,6 +33,12 @@ This map does not replace task acceptance, ticket ownership or approval gates.
   [done planner](DONE_PLANNER_CONTRACT.md) ->
   [release](STABLE_RELEASE.md).
 
+**Current CI trigger:** `.ci/run` is the sole invocation marker for the
+on-demand workflow on `issue-*` branches. `.ci/run-ci-request` is unrelated
+legacy bookkeeping; `.ci/rwf` is proposed. For separate Self CI and migration
+workflow triggers, inspect their own `on:` declarations. See
+[on-demand CI contract](CI_INVOCATION_CONTRACT.md).
+
 ## Perform a focused task
 
 - **CI and test execution:**
