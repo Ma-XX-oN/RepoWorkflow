@@ -58,6 +58,13 @@ This map does not replace task acceptance, ticket ownership or approval gates.
   [lane cache refresh](LANE_CACHE_REFRESH.md) ->
   [graph display](LANE_GRAPH_DISPLAY.md).
 
+## How this documentation system is maintained
+
+The recursive hierarchy, authoritative ownership, placement rules,
+link validation and cross-cutting navigation policy are defined in
+[DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md), under
+**Documentation architecture**. Read it before adding or moving docs.
+
 ## Navigation rules
 
 - Each topic starts with a compact overview and links to focused procedures.
