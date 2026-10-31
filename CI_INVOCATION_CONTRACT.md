@@ -7,6 +7,20 @@ It does not assert that the current GitHub Actions workflow implements them.
 Until implementation and repository-protection changes are validated, the
 existing hosted CI configuration remains the executable behaviour.
 
+## Provider-neutral scope and planned migration
+
+RepoWorkflow is designed to operate across CI systems. GitHub Actions is an
+existing provider, not the definition of its workflow semantics. The
+**current** invocation path specified below is `.ci/run`. The **planned**
+future location is `.ci/rwf`; that migration is not implemented or accepted
+by this document. Until a newer authoritative contract is approved and
+verified, use the current path and semantics. The CI provider owns its
+trigger adapter, not the portable RWF lifecycle.
+
+For using a CI runner as a temporary diagnostic workbench, independent of
+normal stage invocation, see
+[EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md).
+
 ## 1. Single invocation file
 
 Use one tracked file, `.ci/run`. Its contents are exactly one testing
