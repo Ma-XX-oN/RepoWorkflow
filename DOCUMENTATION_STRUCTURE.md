@@ -23,6 +23,25 @@ responsibilities.  The goal is not to make the file numerically smaller.  The
 goal is to keep each authoritative document focused enough that its subject,
 ownership, invariants, and relationships remain easy to understand and verify.
 
+## Line readability for agents and humans
+
+Source code and documentation are primarily consumed by agents, but must
+remain comfortable for humans to read without horizontal scrolling.
+
+- **80 characters is a soft limit** for ordinary source and prose lines.
+  Exceeding it should prompt a readability review, not an automatic split.
+- **120 characters is a strong limit**. Exceed it only when wrapping would
+  damage correctness or clarity, such as an indivisible URL, externally
+  defined identifier, or exact machine-consumed literal.
+- Prefer meaningful wrapping, shorter expressions, and coherent formatting
+  over minification or arbitrary file/module splits.
+- Do not break authoritative strings, data, URLs, test expectations or
+  formatting contracts merely to comply with a numeric width.
+
+These are writing and review guidelines, not newly implemented CI gates.
+The separate file-length and single-response-retrieval rationale is in
+[SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md).
+
 ## 2. Preserve semantics
 
 Do not satisfy a size limit by deleting, weakening, or compressing information
