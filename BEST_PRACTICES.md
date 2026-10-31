@@ -21,7 +21,9 @@
 - Do not widen a local correction into a redesign without verified necessity and authorization.
 - Review interactions with downstream consumers and preserve intentional behavior, including negative paths.
 - Validate untrusted inputs at system boundaries. Check internal invariants explicitly; do not silently turn violations into success.
-- Apply the responsibility-based code and documentation guidance in [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
+- Apply the 500-line soft review threshold and 800-line hard ceiling using
+  [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md); preserve cohesive
+  files and never split solely to satisfy the soft threshold.
 - For the 500-line rule's single-read/context purpose, limitations, and measured
   connector evidence, follow [SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md).
 

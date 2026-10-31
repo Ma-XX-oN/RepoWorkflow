@@ -4,7 +4,7 @@
 enforced limit remains in `tests/test_source_size.py`. For semantic-preserving
 refactoring, see [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
 
-## Why the 500-line rule exists
+## Why the 500-soft / 800-hard rule exists
 
 The rule has two related purposes:
 
@@ -48,17 +48,20 @@ Neither a 500-line count nor a byte count directly measures token usage.
 The line ceiling is a practical structural safeguard, **not an established
 technical truncation threshold**.
 
-The test rejects covered files with **500 or more lines**; the accepted
-maximum is therefore **499**. The authoritative set of checked paths is
-defined by the test, not by this document.
+The current policy has a **500-line soft review threshold** and an
+**800-line hard ceiling**. At 500–799 lines, review cohesion and readability,
+but do not split a focused file solely because it exceeds 499 lines. At
+800 lines or more, the authoritative size test fails; refactor by genuine
+responsibility boundaries without losing requirements, semantics or tests.
+The authoritative set of checked paths is defined by the test.
 
 ## October 13, 2026 discussion: proposed thresholds, not measurements
 
 The discussion considered a **6,000-token warning**, **8,000-token hard
 threshold**, and approximately **10,000 tokens for a relevant task working
 set**. These were *proposals*, not an implemented token budget or an experimentally
-proven universal connector cutoff. The current source-size gate enforces
-lines, not these token thresholds. Do not claim token validation is active.
+proven universal connector cutoff. The current source-size gate enforces the 800-line hard ceiling,
+not the proposed token thresholds. Do not claim token validation is active.
 
 A token estimator must name its tokenizer and account for response framing;
 otherwise its measurements cannot establish an exact response ceiling.
@@ -101,8 +104,9 @@ repeat reads verified expected byte count, not a second full content comparison.
 permitted tool-response size, or integrity of an entire oversized response
 after direct rendering into model context. The orchestrator can handle a
 large response while a model-visible representation has a separate limit.
-No tokenizer-based token threshold was measured. These results do **not**
-justify changing the 500-line cap or asserting that 8,000 tokens are safe.
+No tokenizer-based token threshold was measured. These results did not, by themselves, establish a universal safe line or
+token ceiling. The later hosted tokenizer experiment below adds one measured
+800-line sample; neither experiment proves every 800-line file fits.
 
 ## October 31, 2026: hosted 800-line tokenizer verification
 
@@ -138,15 +142,15 @@ fits, prove a general model-visible token cutoff, or authorize changing
 the repository source-size test. The earlier single-response retrieval
 experiment and this tokenizer measurement are distinct checks.
 
-**Policy under consideration:** A 500-line soft review threshold and an
-800-line hard threshold, complemented by the existing 80-character soft
-and 120-character strong line-width guidance. These thresholds have
-**not** replaced the enforced below-500-line rule.
+**Adopted policy:** A 500-line soft review threshold and an 800-line
+hard ceiling, complemented by the existing 80-character soft and
+120-character strong line-width guidance. The source-size test enforces
+the 800-line ceiling; 500 lines prompts review, not test failure.
 
 ## Operational rule
 
-- Keep the existing line-count test while its structural policy remains in
-  effect. Do not minify code or delete behavior, tests, or rationale to pass.
+- Apply 500 lines as a soft cohesion review trigger and 800 lines as the
+  hard gate. Do not minify code or delete behavior, tests, or rationale to pass.
 - Prefer files small enough to read **in one complete tool response**.
   Oversize or mixed-responsibility files should be split coherently.
 - Pin exact source revisions. If a response is visibly incomplete, do not

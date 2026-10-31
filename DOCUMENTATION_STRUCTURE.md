@@ -10,8 +10,9 @@ which links to the authoritative specialist procedures.
 
 ## 1. Purpose
 
-The practical ~500-line documentation ceiling is a maintainability signal, not
-a content budget.
+A document reaching **500 lines** triggers a soft maintainability review;
+**800 lines or more** violates the hard ceiling enforced by the source-size
+test. Neither threshold is permission to remove authoritative content.
 
 For the complete origin, single-response agent retrieval objective, measured
 GitHub connector observations, and unverified token-budget boundary, see
