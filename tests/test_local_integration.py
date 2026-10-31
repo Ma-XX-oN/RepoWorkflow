@@ -107,7 +107,8 @@ class LocalIntegrationTests(unittest.TestCase):
     self.assertFalse(record["reusable"])
 
   def test_history_mutation_is_not_reusable(self):
-    def advance(_root):
+    def advance(_root, *, stage):
+      self.assertEqual(stage, "integration")
       (self.root / "source.txt").write_text("changed\n")
       subprocess.run(
         ["git", "add", "source.txt"], cwd=self.root, check=True,
