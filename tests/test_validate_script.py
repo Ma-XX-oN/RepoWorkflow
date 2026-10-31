@@ -88,8 +88,10 @@ class ValidateScriptTests(unittest.TestCase):
           "issue-778-retained": {
             "type": "regression", "name": "tests.test_retained"
           },
-          "issue-703-manual-red": {
-            "type": "manual", "name": "tests.test_manual_red"
+          "issue-703-manual--red_oracle": {
+            "type": "manual",
+            "instructions": "Unittest module: tests.test_manual_red. RED only.",
+            "expected_result": "Verify separately with explicit authorization.",
           },
         }],
       }
