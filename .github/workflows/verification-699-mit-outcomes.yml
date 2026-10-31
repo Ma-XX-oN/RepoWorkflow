@@ -30,8 +30,8 @@ jobs:
         shell: bash
         run: |
           python -m unittest -v \
-            test_manual_test_cli.TestManualLauncher.test_first_outstanding_explicit_and_sequential_pass \
-            test_manual_test_cli.TestManualLauncher.test_failed_case_blocks_same_candidate_and_retains_evidence \
-            test_manual_test_cli.TestManualLauncher.test_pending_manual_result_must_not_complete_gate \
-            test_manual_test_cli.TestManualLauncher.test_stale_multiple_and_definition_drift_fail_closed \
-            test_manual_test_cli.TestAutomaticIntegrationPresentation.test_terminal_publication_is_blocked_until_mit_finishes
+            tests.test_manual_test_cli.TestManualLauncher.test_first_outstanding_explicit_and_sequential_pass \
+            tests.test_manual_test_cli.TestManualLauncher.test_failed_case_blocks_same_candidate_and_retains_evidence \
+            tests.test_manual_test_cli.TestManualLauncher.test_pending_manual_result_must_not_complete_gate \
+            tests.test_manual_test_cli.TestManualLauncher.test_stale_multiple_and_definition_drift_fail_closed \
+            tests.test_manual_test_cli.TestAutomaticIntegrationPresentation.test_terminal_publication_is_blocked_until_mit_finishes
