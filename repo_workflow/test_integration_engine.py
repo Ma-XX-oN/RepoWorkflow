@@ -92,8 +92,10 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "kind": "integration",
-    "catalogueSHA256": hashlib.sha256((root / ".ci/tests.json").read_bytes()).hexdigest(),
-    "selectedGroups": list(stage_groups(root, "integration")),
+    **({
+      "catalogueSHA256": hashlib.sha256((root / ".ci/tests.json").read_bytes()).hexdigest(),
+      "selectedGroups": list(stage_groups(root, "integration")),
+    } if (root / ".ci/tests.json").is_file() else {}),
     "branch": current_branch(root),
     "testSHA": candidate,
     "sourceSHA": candidate,
