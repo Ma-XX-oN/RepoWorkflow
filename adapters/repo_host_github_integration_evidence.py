@@ -7,7 +7,6 @@ Absent, stale, revoked, mismatched or unreadable authority is a hard refusal.
 from datetime import datetime, timezone
 import hashlib
 import json
-import ntpath
 import os
 from pathlib import Path
 import subprocess
@@ -45,17 +44,15 @@ def _configured_command():
     command = json.loads(raw)
   except (TypeError, ValueError):
     return None
-  if (type(command) is not list or len(command) != 1
-      or type(command[0]) is not str or not command[0]):
+  if type(command) is not list or len(command) not in (1, 2):
     return None
-  executable = command[0]
-  if not (os.path.isabs(executable) or ntpath.isabs(executable)):
-    return None
-  if ".." in executable.replace("\\", "/").split("/"):
-    return None
-  if os.path.isabs(executable):
-    workspace = Path(__file__).resolve().parents[1]
-    target = Path(executable).resolve()
+  workspace = Path(__file__).resolve().parents[1]
+  for element in command:
+    if (type(element) is not str or not element
+        or not os.path.isabs(element)
+        or ".." in element.replace("\\", "/").split("/")):
+      return None
+    target = Path(element).resolve()
     if target == workspace or workspace in target.parents:
       return None
   return command

@@ -72,7 +72,7 @@ class ExternalEvidenceTests(unittest.TestCase):
                     "event":{"proof":"test-only"}},
     }
     self.env = {"RWF_REPO_HOST_INTEGRATION_EVIDENCE_COMMAND":
-                json.dumps([str(self.script)])}
+                json.dumps([sys.executable, str(self.script)])}
 
   def check(self, mode=""):
     with patch.dict(os.environ, {**self.env,
@@ -104,6 +104,19 @@ class ExternalEvidenceTests(unittest.TestCase):
         with patch.dict(os.environ, {
             "RWF_REPO_HOST_INTEGRATION_EVIDENCE_COMMAND":
               json.dumps([command])}, clear=True):
+          self.assertIsNone(make_evidence_verifier(self.request, Backend()))
+
+  def test_interpreter_script_path_must_be_independent_and_absolute(self):
+    forbidden = (
+      [sys.executable, str(Path(__file__).resolve())],
+      [sys.executable, "relative-verifier"],
+      ["relative-python", str(self.script)],
+    )
+    for command in forbidden:
+      with self.subTest(command=command):
+        with patch.dict(os.environ, {
+            "RWF_REPO_HOST_INTEGRATION_EVIDENCE_COMMAND":
+              json.dumps(command)}, clear=True):
           self.assertIsNone(make_evidence_verifier(self.request, Backend()))
 
   def test_identity_unknown_cannot_authorize(self):
