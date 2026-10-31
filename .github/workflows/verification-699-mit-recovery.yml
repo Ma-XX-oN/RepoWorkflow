@@ -36,7 +36,19 @@ jobs:
             tests.test_done_runtime \
             tests.test_done_provider_pipeline \
             tests.test_done_cli \
-            tests.test_done_mit_defer_v2 2>&1 | tee mit-recovery-results.txt
+            tests.test_done_mit_defer_v2 \
+            tests.test_manual_test_result \
+            tests.test_done_failure_handoff \
+            tests.test_done_failed_attempt \
+            tests.test_done_shared_lifecycle \
+            tests.test_done_canonical_lifecycle \
+            tests.test_done_check_issuer \
+            tests.test_done_stage_certification \
+            tests.test_done_terminal_v2 \
+            tests.test_done_cas_git \
+            tests.test_six_state_integration \
+            tests.test_lifecycle_store \
+            tests.test_done_completion 2>&1 | tee mit-recovery-results.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
