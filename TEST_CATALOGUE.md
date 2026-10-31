@@ -6,6 +6,32 @@ the complete schema and TDD policy remain under design and are not frozen here.
 
 The authoritative repository catalogue is `.ci/tests.json`.
 
+## Completeness and exceptional acceptance oracles
+
+Every retained `tests/test_*.py` module must appear as a native target in the
+authoritative catalogue, including separately authorized cases that are **not**
+ordinary regression or integration. `scripts/validate.py` fails closed if
+a shipped unittest module is unclassified or a registered unittest target is
+missing. Catalogue registration is **not** automatic stage selection.
+
+The #703 MIT negative acceptance oracle
+(`tests.test_manual_mit_negative_acceptance`) and the deliberately RED
+version-contract oracle (`tests.test_manual_mit_version_contract`) are
+registered as `type: manual` under issue-owned `issue-703-...` groups.
+They require explicit separately authorized acceptance selection. They are
+excluded from broad regression/integration staging until their governing
+acceptance contracts authorize promotion. Do not silently remove failing
+RED oracles or make them permanent regression tests to satisfy completeness.
+
+Classify new or relocated test modules before running a broad stage. When
+retiring a temporary test, delete its temporary registration and retire the
+file if obsolete; retain and classify it only when the owning contract requires
+ongoing coverage. Cross-check
+[TEST_STRATEGY.md](TEST_STRATEGY.md) for test-purpose definitions, and track
+repository-wide classification exceptions in
+[#778](https://github.com/Ma-XX-oN/RepoWorkflow/issues/778).
+
+
 The executable stage vocabulary is **RED, GREEN, temporary, regression, and
 integration**. Catalogue group metadata uses `type: regression` or
 `type: integration` for retained automated suites, and `type: manual` only
