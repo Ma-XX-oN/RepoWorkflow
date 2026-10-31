@@ -80,6 +80,10 @@ explicitly through the public `rwf test` stages.  A local invocation runs
 the selected stage and appends observations to the existing per-issue
 `.repoworkflow/validation/testResults-<issue#>.jsonl` log.
 
+The implemented on-demand workflow responds to `.ci/run` changes on
+`issue-*` branches, not ordinary source pushes or changes to the unrelated
+`.ci/run-ci-request` bookkeeping file. `.ci/rwf` is a planned rename only.
+Separate Self CI and certification workflows retain independent trigger rules.
 A hosted request uses `rwf test <stage> --remote`: it creates and pushes a
 dedicated `.ci/run` commit containing the stage marker and immediate
 pre-invocation tip SHA.  The server verifies that invocation and executes
