@@ -59,12 +59,13 @@ def unique_suite(modules: tuple[str, ...]) -> unittest.TestSuite:
   source = unittest.defaultTestLoader.loadTestsFromNames(modules)
   result = unittest.TestSuite()
   seen = set()
+  allowed_modules = frozenset(modules)
 
   def append_once(suite):
     for test in suite:
       if isinstance(test, unittest.TestSuite):
         append_once(test)
-      elif test.id() not in seen:
+      elif test.__class__.__module__ in allowed_modules and test.id() not in seen:
         seen.add(test.id())
         result.addTest(test)
 
