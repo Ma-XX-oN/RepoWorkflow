@@ -338,3 +338,21 @@ Check Run or bound default trusted native done executor has been verified.
 - No `.ci/run` change was made and no new broad native run requested. A
   fresh correct exact-candidate native run remains required after the final
   functional candidate is frozen and independent authorities are available.
+
+### 2026-10-31 — exact-code on-demand plan real Git fixture
+
+- Verified exact module bytes by Git blob identity: GitHub branch
+  `repo_workflow/ci_invocation.py` blob `3d22ab5bac025c0fe7cf69b96492dfcc1e5508c3`
+  and `scripts/on-demand-ci-plan.py` blob
+  `5277f1cb15820b4043896bc77041878f9ce35b82` each matched a local
+  materialized copy. Both modules passed `py_compile`.
+- An isolated actual Git repository executed the **exact copied code**:
+  dedicated regression invocation PASS with tested source SHA equal to prior
+  branch tip; repeated marker retry PASS while recovering the original source;
+  ordinary source-only commit rejected; forged previous-tip SHA rejected.
+  No provider invocation and no hosted CI run were started. This is a narrow
+  local exact-code real-Git test, not full checkout/3OS certification.
+- The native workflow exact YAML blob `a9764ce30c738ac83d4dae904c881d1d98da7f26`
+  was parsed locally and its embedded Python stage-output checks passed all
+  five stages and invalid-source rejection. Subsequent cosmetic job-label
+  revision does not change its plan or source checkout semantics.
