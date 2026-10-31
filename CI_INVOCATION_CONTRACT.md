@@ -169,7 +169,7 @@ restart or re-fetch behaviour before replacing the current CI policy.
 
 The source-level CI event-filter guard is
 `tests/test_ci_invocation_trigger_contract.py`, registered as
-`invariant-ci-invocation-trigger` in `.ci/tests.json`. It rejects missing,
+`integration-ci-invocation-trigger` in `.ci/tests.json`. It rejects missing,
 broadened or unsupported push-path declarations in the current checkout.
 On-demand and issue-specific native verification workflows require only
 `.ci/run`. The three separately scoped historic migration/certification
