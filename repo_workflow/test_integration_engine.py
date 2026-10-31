@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import platform
@@ -17,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .git import current_branch, head_sha
 from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
+from .test_catalogue import stage_groups
 from .test_worktree import tracked_input_changes
 
 PROBES = (
@@ -90,6 +92,8 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "kind": "integration",
+    "catalogueSHA256": hashlib.sha256((root / ".ci/tests.json").read_bytes()).hexdigest(),
+    "selectedGroups": list(stage_groups(root, "integration")),
     "branch": current_branch(root),
     "testSHA": candidate,
     "sourceSHA": candidate,
