@@ -4,6 +4,12 @@
 
 **Nature:** Human-readable best-practices guidance, not a claim of universal automated enforcement. Applies whenever relevant to the task. The original assignment, explicit acceptance criteria, ownership and approval rules remain controlling.
 
+For topic-oriented navigation start with
+[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md). When local tool or package
+installation fails, consult [EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md)
+for GitHub Actions as a controlled diagnostic workbench before declaring
+all verification blocked.
+
 ## 1. Investigate before changing
 
 - State the required behavior and the observed departure from it, with exact source revision, environment and reproduction.
