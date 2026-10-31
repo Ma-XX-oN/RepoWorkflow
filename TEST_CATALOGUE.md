@@ -17,13 +17,16 @@ temporary targets are selected explicitly, never promoted silently.
 
 The #703 negative MIT oracle (`tests.test_manual_mit_negative_acceptance`)
 and deliberately RED version-contract oracle
-(`tests.test_manual_mit_version_contract`) are automated acceptance tests
-registered as `issue-703-...` groups in `.ci/temp-tests.json`. Their
-file names do not make them RWF `type: manual` cases: such cases define
-non-executable operator instructions with strict
-`issue-N-manual--...` identities. The #703 RED oracles require explicit
-authorization to run and remain isolated from broad regression/integration
-until their acceptance contracts justify retirement or promotion.
+(`tests.test_manual_mit_version_contract`) are independent automated RED
+acceptance fixtures. They are preserved on the dedicated
+`issue-703-independent-red-oracles-20261031` certification branch, not in
+the #109 assembly source or its temporary catalogue. This isolation is
+required: RWF regression also executes any selected temporary groups after
+the retained suite. A known-RED oracle must not become an unconditional
+regression obligation. Their file names do not make them RWF
+`type: manual` cases; those define non-executable operator instructions.
+When #703 is ready, select its RED oracles explicitly on its own issue
+branch, then determine whether to retire them or promote passing tests.
 
 Classify new or relocated test modules before running a broad stage. When
 retiring a temporary test, remove its temporary registration and its file
