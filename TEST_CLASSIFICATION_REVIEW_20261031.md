@@ -134,6 +134,15 @@
 | [`tests/test_workspace_store.py`](tests/test_workspace_store.py) | Regression candidate — retained behaviour/contract assertions | Verify originating contract and current value; then retain with correct stage or retire with evidence |
 | [`tests/test_workspace_worktree.py`](tests/test_workspace_worktree.py) | Integration candidate — executable/provider/cross-boundary assertions | Verify originating contract and current value; then retain with correct stage or retire with evidence |
 
+## Independent issue ownership checked
+
+GitHub issue [#703](https://github.com/Ma-XX-oN/RepoWorkflow/issues/703)
+is **OPEN** and explicitly owns independent MIT negative-path certification.
+The two named RED oracle modules must not be deleted as obsolete, silently
+registered as a passing regression suite, or treated as authenticated provider
+PASS. Their eventual promotion/retirement belongs to the #703 acceptance
+contract and #699 controller handoff.
+
 ## Activation gate
 
 1. Check issue provenance and current acceptance requirements per module; separate unit regressions from genuine multi-component/provider integration. The source code's name alone is not evidence of its required stage.
