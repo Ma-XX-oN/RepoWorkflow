@@ -104,6 +104,45 @@ large response while a model-visible representation has a separate limit.
 No tokenizer-based token threshold was measured. These results do **not**
 justify changing the 500-line cap or asserting that 8,000 tokens are safe.
 
+## October 31, 2026: hosted 800-line tokenizer verification
+
+**Independent execution:** [GitHub Actions run 41210454306](https://github.com/Ma-XX-oN/RepoWorkflow/actions/runs/41210454306);
+job `124564151325` completed with **SUCCESS**.
+
+A dedicated, temporary workflow installed `tiktoken==0.12.0` on a hosted
+Ubuntu runner and checked out pinned RepoWorkflow commit
+`b7f39e33837bcbb9e22cd88bb63222d3149b416d`.
+It measured the first 800 lines of `tests/test_first_use_lanes.py`,
+joining the original lines and removing the final newline from the sample.
+
+| Property | Verified result |
+| --- | --- |
+| Sample | First 800 Python source lines |
+| UTF-8 bytes | 24,837 |
+| Tokenizer | `tiktoken` 0.12.0 |
+| Encoding | `o200k_base` |
+| Encoded tokens | **6,456** |
+| Proposed 8,000-token ceiling | **PASS** (1,544-token headroom) |
+| Sample SHA-256 | `506eb1c73567a426d26452b2d85c04f39cc1ed467f5ae74d7d07951b2d30cff0` |
+
+**Reproducibility:** The temporary workflow is at commit
+`0a2c42a6817d89707f7fe8f51d8058e8eb1eea7e` on branch
+`experiment-800-line-tiktoken-20261031`. The Actions log includes the
+`RWF_TOKEN_RESULT` record with the encoding, version, bytes, token
+count, threshold comparison, and sample digest.
+
+**Scope of proof:** This one representative 800-line Python sample is
+below 8,000 tokens using the named tokenizer, and the hosted workflow
+finished successfully. It does **not** guarantee that every 800-line file
+fits, prove a general model-visible token cutoff, or authorize changing
+the repository source-size test. The earlier single-response retrieval
+experiment and this tokenizer measurement are distinct checks.
+
+**Policy under consideration:** A 500-line soft review threshold and an
+800-line hard threshold, complemented by the existing 80-character soft
+and 120-character strong line-width guidance. These thresholds have
+**not** replaced the enforced below-500-line rule.
+
 ## Operational rule
 
 - Keep the existing line-count test while its structural policy remains in
