@@ -8,6 +8,7 @@ from repo_workflow.test_catalogue import (
   TestCatalogueError,
   load_test_catalogue,
   parse_test_catalogue,
+  stage_groups,
 )
 
 
@@ -43,6 +44,33 @@ class TestCatalogueTests(unittest.TestCase):
         ],
       },
     }
+
+  def test_stage_selection_is_catalogue_owned_and_deduplicated(self):
+    value = self.value()
+    value["tests"][0]["issue-474-alias"] = {
+      "type": "regression", "name": "tests.test_test_catalogue",
+    }
+    value["tests"][0]["issue-474-integration"] = {
+      "type": "integration", "name": "tests.test_completion",
+    }
+    value["tests"][0]["issue-474-manual--review"] = {
+      "type": "manual", "instructions": "Inspect",
+      "expected_result": "PASS",
+    }
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      path = root / CATALOGUE_PATH
+      path.parent.mkdir()
+      path.write_text(json.dumps(value), encoding="utf-8")
+      self.assertEqual(stage_groups(root, "regression"), (
+        "issue-456-grammar", "issue-474-catalogue",
+      ))
+      self.assertEqual(stage_groups(root, "integration"), (
+        "issue-456-grammar", "issue-474-catalogue",
+        "issue-474-integration",
+      ))
+      with self.assertRaisesRegex(TestCatalogueError, "unknown retained"):
+        stage_groups(root, "temporary")
 
   def test_aliases_expand_by_sorted_union_and_deduplicate(self):
     catalogue = parse_test_catalogue(self.value())
