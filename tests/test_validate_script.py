@@ -57,6 +57,8 @@ class ValidateScriptTests(unittest.TestCase):
       (root / "tests" / "test_retained.py").write_text("", encoding="utf-8")
       (root / "tests" / "test_unclassified.py").write_text("", encoding="utf-8")
       catalogue = {
+        "test-harnesses": {"unittest": {"command": "python",
+                                       "layout": ["-m", "unittest", "$test"]}},
         "tests": [{
           "test-harness": "unittest",
           "issue-778-retained": {
@@ -79,6 +81,8 @@ class ValidateScriptTests(unittest.TestCase):
       for name in ("test_retained", "test_manual_red"):
         (root / "tests" / (name + ".py")).write_text("", encoding="utf-8")
       catalogue = {
+        "test-harnesses": {"unittest": {"command": "python",
+                                       "layout": ["-m", "unittest", "$test"]}},
         "tests": [{
           "test-harness": "unittest",
           "issue-778-retained": {
