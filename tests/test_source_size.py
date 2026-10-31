@@ -2,6 +2,8 @@ from pathlib import Path
 import unittest
 
 
+# Why this structural gate also exists for single-read agent retrieval:
+# SOURCE_SIZE_RATIONALE.md (linked from DOCUMENTATION_STRUCTURE.md).
 ROOT = Path(__file__).resolve().parents[1]
 
 

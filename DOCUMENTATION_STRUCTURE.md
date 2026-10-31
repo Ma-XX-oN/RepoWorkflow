@@ -13,6 +13,11 @@ which links to the authoritative specialist procedures.
 The practical ~500-line documentation ceiling is a maintainability signal, not
 a content budget.
 
+For the complete origin, single-response agent retrieval objective, measured
+GitHub connector observations, and unverified token-budget boundary, see
+[SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md). The practical ceiling
+is not a demonstrated technical truncation threshold.
+
 A document approaching the ceiling should trigger a review of its
 responsibilities.  The goal is not to make the file numerically smaller.  The
 goal is to keep each authoritative document focused enough that its subject,
