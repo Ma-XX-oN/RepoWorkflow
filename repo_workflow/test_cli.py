@@ -58,7 +58,6 @@ def _issue_prefix(root: Path) -> str:
     raise TestCommandError("RED/GREEN requires a current issue branch")
   return "issue-" + match.group(1) + "-"
 
-
 def _validate_selection(root: Path, name: str) -> str:
   prefix = _issue_prefix(root)
   if (
@@ -71,14 +70,12 @@ def _validate_selection(root: Path, name: str) -> str:
     )
   return name
 
-
 def _committed_selection(root: Path) -> str | None:
   result = subprocess.run(
     ["git", "-C", str(root), "show", "HEAD:.ci/red-green.txt"],
     capture_output=True, text=True, check=False,
   )
   return result.stdout if result.returncode == 0 else None
-
 
 def read_selection(root: Path) -> str | None:
   path = root / SELECTION
@@ -96,7 +93,6 @@ def read_selection(root: Path) -> str | None:
   if raw != _committed_selection(root):
     raise TestCommandError("RED/GREEN selection must match committed state")
   return _validate_selection(root, lines[0])
-
 
 def _skip_without_selection(
   root: Path, stage: str, *, remote: bool,
@@ -131,7 +127,6 @@ def _skip_without_selection(
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   return 0
 
-
 def select_group(root: Path, name: str) -> str:
   name = _validate_selection(root, name)
   path = root / SELECTION
@@ -162,7 +157,6 @@ def select_group(root: Path, name: str) -> str:
     "test: select RED/GREEN group " + name, "--", SELECTION.as_posix(),
   )
   return name
-
 
 def request_remote(
   root: Path, stage: str, *, engine_root: Path | None = None,
@@ -197,10 +191,8 @@ def request_remote(
   print("Hosted request for " + stage + " committed after " + previous_tip)
   return 0
 
-
 def results(root: Path, *, remote: bool) -> int:
   return read_results(root, remote=remote, git_cmd=_git)
-
 
 def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
   path = root / catalogue_path
