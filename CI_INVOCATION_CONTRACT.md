@@ -73,6 +73,19 @@ Here A, B, and C stand for actual full Git commit SHAs. The two marker
 values mean the tips immediately before each invocation commit, not the
 tested candidate identity.
 
+
+### Exact committed marker validation
+
+The stage marker parser validates **the committed file content**, not a
+whitespace-trimmed or newline-normalized rendition of Git output.
+The accepted byte content is the canonical UTF-8
+`<stage> <40-lowercase-hex-pre-invocation-SHA>` followed by **zero or one
+LF** (`\\n`). Extra lines, trailing spaces, CRLF, non-UTF-8 bytes, and
+forged preceding commit SHA must fail closed. This also applies when
+traversing historical invocation/retry commits to recover the original
+tested source. The regression tests in `tests/test_ci_invocation.py`
+exercise both current and historical reads using real Git commits.
+
 ## 2. Hosted execution without a dispatcher on routine pushes
 
 The implemented on-demand GitHub Actions push trigger uses a path filter confined to
