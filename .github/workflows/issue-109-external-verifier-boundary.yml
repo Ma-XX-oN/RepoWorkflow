@@ -14,14 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 7be17cd57dc2145827f7eb9e04afbd1747bc6f4e
+          ref: da068e50f57bafe09f24f7168a8154828fd297e4
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Assert original product revision
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "7be17cd57dc2145827f7eb9e04afbd1747bc6f4e"
+        run: test "$(git rev-parse HEAD)" = "da068e50f57bafe09f24f7168a8154828fd297e4"
       - name: Compile exact modified source and tests
         run: python -m py_compile adapters/repo_host_github_integration_evidence.py adapters/repo_host_github_authority.py tests/test_integration_evidence_external.py tests/test_repo_host_authority_isolation.py
       - name: Exact source verifier 3OS negative matrix
