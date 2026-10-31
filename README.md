@@ -22,6 +22,15 @@ Project/
 └── tests/
 ```
 
+## Find the right documentation and current CI trigger
+
+Start at [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md). The implemented
+on-demand GitHub workflow triggers on `issue-*` branches only when `.ci/run`
+changes. Ordinary source-only pushes do not trigger it. `.ci/run-ci-request`
+is separate legacy candidate bookkeeping, **not** the trigger; `.ci/rwf` is
+proposed and not implemented. Other workflows have independent event filters.
+See [CI_INVOCATION_CONTRACT.md](CI_INVOCATION_CONTRACT.md).
+
 ## Runtime dependencies
 
 Install the supported Python runtime dependencies after cloning or updating
