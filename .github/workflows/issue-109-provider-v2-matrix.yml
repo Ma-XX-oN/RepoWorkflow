@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 20f0b9edc9473208566e176aff1a6b0360c09303
+          ref: acb5a5b9b5110833d99933eb1d1a53b3e1e48a89
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -23,7 +23,7 @@ jobs:
       - name: Assert source identity
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "20f0b9edc9473208566e176aff1a6b0360c09303"
+          test "$(git rev-parse HEAD)" = "acb5a5b9b5110833d99933eb1d1a53b3e1e48a89"
           python -V
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
