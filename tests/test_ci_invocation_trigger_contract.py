@@ -50,8 +50,8 @@ class ExplicitCiInvocationTests(unittest.TestCase):
       with self.subTest(workflow=path.name):
         self.assertTrue(path.is_file())
         requested = push_paths(path.read_text(encoding="utf-8"))
-        if requested is not None:
-          self.assertEqual(requested, [".ci/run"])
+        self.assertIsNotNone(requested)
+        self.assertEqual(requested, [".ci/run"])
 
 
 if __name__ == "__main__":
