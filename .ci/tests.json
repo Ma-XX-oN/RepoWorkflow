@@ -1076,6 +1076,10 @@
       "regression-discovered-workspace-worktree": {
         "type": "regression",
         "name": "tests.test_workspace_worktree"
+      },
+      "regression-catalogue-inventory": {
+        "type": "regression",
+        "name": "tests.test_validate_catalogue"
       }
     },
     {
