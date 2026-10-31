@@ -32,6 +32,27 @@ def selected_modules(root: Path, stage: str) -> tuple[str, ...]:
       if group in {"test-harness", "command"}:
         continue
       records[group] = (declaration["test-harness"], item["name"])
+  # Every shipped unittest module must be classified, including intentionally
+  # excluded manual/RED acceptance oracles. Registration does not imply stage
+  # selection: only regression/integration declarations execute here.
+  shipped = {
+    "tests." + path.stem
+    for path in (root / "tests").glob("test_*.py")
+  }
+  registered = {
+    item["name"]
+    for declaration in catalogue["tests"]
+    if declaration["test-harness"] == "unittest"
+    for key, item in declaration.items()
+    if key not in {"test-harness", "command"}
+  }
+  unclassified = shipped - registered
+  dangling = registered - shipped
+  if unclassified or dangling:
+    raise ValueError(
+      "unclassified or missing unittest modules: "
+      + ", ".join(sorted(unclassified | dangling))
+    )
   selected = stage_groups(root, stage)
   modules = set()
   probes = set()
