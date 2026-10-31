@@ -65,7 +65,11 @@ def unique_suite(modules: tuple[str, ...]) -> unittest.TestSuite:
     for test in suite:
       if isinstance(test, unittest.TestSuite):
         append_once(test)
-      elif test.__class__.__module__ in allowed_modules and test.id() not in seen:
+      elif (
+        test.__class__.__module__ in allowed_modules
+        or isinstance(test, unittest.loader._FailedTest)
+      ) and test.id() not in seen:
+        # Import errors must stay visible; excluding them would forge PASS.
         seen.add(test.id())
         result.addTest(test)
 
