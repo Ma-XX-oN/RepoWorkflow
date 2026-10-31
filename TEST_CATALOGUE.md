@@ -192,16 +192,19 @@ metadata; group selection matches canonical group keys. Separate manually
 maintained aggregate suite membership is intentionally avoided because it
 would create multiple places that must remain synchronized.
 
-**Current implementation gap:** RepoWorkflow engine `rwf test regression`
-still delegates to `scripts/validate.py`, which executes broad filesystem
-unittest discovery rather than selecting registered group targets by stage.
-`rwf test integration` runs that broad validation plus platform probes.
-Therefore the catalogue's intended stage-based full selection is **not yet
-implemented**, even though individual named-group selection and `.ci/run`
-invocation are implemented. Do not represent discovery-only test results as
-proof of catalogue selection. The reviewed modules and retire-or-retain
-decisions must be resolved before switching the broad runner to catalogue-only
-selection, so required test coverage is not silently dropped.
+**Current stage selection implementation (unmerged #109 candidate):**
+`rwf test regression` invokes `scripts/validate.py regression`, which
+selects the registered `type: regression` test modules and executes their
+unique unittest case identities without filesystem discovery. `rwf test
+integration` selects both regression and integration modules, then executes
+the three separately registered platform probes. Imported TestCase aliases
+from another stage cannot cross the declared module boundary. The catalogue
+and the exact selected group names are bound into canonical testing evidence.
+Issue-specific RED tests are **not** promoted into retained stages merely
+because their source modules exist. Local or hosted execution still must
+use RWF's `rwf test` entrypoints and published testing-log contract.
+This code path requires a successful exact-candidate broad regression and
+integration acceptance before it can be marked certified.
 
 When many selected tests are representable in one native invocation, RWF may
 batch them.  Batching must preserve whole test selections and respect the
