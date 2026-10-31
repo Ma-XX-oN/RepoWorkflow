@@ -96,6 +96,8 @@ def execute_done_command(release, *, trusted_executor, emit):
     event=outcome.provider_event
     outcome=outcome.attempt
     if (getattr(event,"guid",None)!=outcome.ready.guid
+        or getattr(event,"destination",None)!=outcome.ready.destination
+        or getattr(event,"reason",None)!="timeout"
         or getattr(event,"prelim_sha",None)!=outcome.ready.sha
         or getattr(event,"evidence_ref",None)!=outcome.evidence_ref
         or type(getattr(event,"lease_generation",None)) is not int
