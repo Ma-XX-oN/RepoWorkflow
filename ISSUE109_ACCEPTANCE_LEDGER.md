@@ -372,3 +372,9 @@ Check Run or bound default trusted native done executor has been verified.
 - Added real-Git `test_committed_marker_crlf_fails_closed` alongside the extra-blank-line regression. **10/10 exact-code isolated real-Git tests PASS**, Python compilation PASS, after correction.
 - Verified byte identity across `main` and #109 assembly: `repo_workflow/ci_invocation.py` Git blob `30f4e0d243972a81a6d124beab21a75eab112780`; `tests/test_ci_invocation.py` blob `591baa145a74e20fde15d621223c100d7bdbad68`. Local `git hash-object` of tested source equals GitHub blob hashes.
 - Source/fixture acceptance is not an actual three-OS CI test or production provider-stage certification. No `.ci/run` invocation or production integration was initiated.
+
+### 2026-10-31 — historical invocation retry strictness
+
+- Added a real-Git historical-chain negative test, `test_historical_retry_rejects_noncanonical_marker`. A valid new request referencing an earlier malformed CRLF request is correctly recognized as a request, but `original_candidate` refuses to traverse the malformed historical marker as valid test-source identity.
+- Exact tested source module remains blob `30f4e0d243972a81a6d124beab21a75eab112780`. Added regression tests bring the **exact-source isolated real-Git suite to 11/11 PASS**, including current and historical CRLF, extra blank line, dedicated retry, forged parent and mixed source rejection. The exact tested test module blob `ef817bbc68a9bf8ff7dafbfab5da00af8c7c17f1` was independently read back from **both main and #109 assembly** and matches local `git hash-object`.
+- No current three-platform CI acceptance or independent release/MIT App issuance is implied by these focused local tests.
