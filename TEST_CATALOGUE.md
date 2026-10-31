@@ -6,6 +6,25 @@ the complete schema and TDD policy remain under design and are not frozen here.
 
 The authoritative repository catalogue is `.ci/tests.json`.
 
+The executable stage vocabulary is **RED, GREEN, temporary, regression, and
+integration**. Catalogue group metadata uses `type: regression` or
+`type: integration` for retained suites. `type: invariant` is invalid:
+an invariant is a requirement being tested, not a separate RWF execution
+stage. Issue-specific RED/GREEN selectors are named `issue-<number>-...`;
+the optional temporary catalogue is `.ci/temp-tests.json`. Do not infer
+that unregistered files are automatically regression tests, or migrate
+short-lived tests into retained suites without verifying their ownership
+and value.
+
+`aliases` are **named associations of already registered group keys**,
+used for durable high-risk group expansion and other named selections.
+They do not define the regression or integration stages; stage membership
+is defined by per-group `type`. An integration stage includes the
+applicable broad regression obligations and integration-only probes as
+specified in `TEST_STRATEGY.md`.
+
+
+
 The catalogue has three top-level collections: `test-harnesses`, `tests`,
 and `aliases`.  `test-harnesses` is the Rosetta dictionary.  Each key names
 a harness and its value describes how native test targets are translated into
