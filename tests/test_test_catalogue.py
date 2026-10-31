@@ -72,6 +72,35 @@ class TestCatalogueTests(unittest.TestCase):
       with self.assertRaisesRegex(TestCatalogueError, "unknown retained"):
         stage_groups(root, "temporary")
 
+  def test_red_lifecycle_is_registered_but_excluded_from_retained_stages(self):
+    value = self.value()
+    value["tests"][0]["issue-703-negative-red"] = {
+      "type": "regression", "lifecycle": "RED",
+      "name": "tests.test_manual_mit_negative_acceptance",
+    }
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      path = root / CATALOGUE_PATH
+      path.parent.mkdir()
+      path.write_text(json.dumps(value), encoding="utf-8")
+      self.assertIn(
+        "issue-703-negative-red", load_test_catalogue(root).groups
+      )
+      for stage in ("regression", "integration"):
+        self.assertNotIn("issue-703-negative-red", stage_groups(root, stage))
+      value["tests"][0]["issue-703-negative-red"]["lifecycle"] = "GREEN"
+      path.write_text(json.dumps(value), encoding="utf-8")
+      self.assertIn("issue-703-negative-red", stage_groups(root, "regression"))
+
+  def test_invalid_red_lifecycle_fails_closed(self):
+    value = self.value()
+    value["tests"][0]["issue-703-invalid"] = {
+      "type": "regression", "lifecycle": "unfinished",
+      "name": "tests.test_manual_mit_negative_acceptance",
+    }
+    with self.assertRaisesRegex(TestCatalogueError, "invalid RED/GREEN"):
+      parse_test_catalogue(value)
+
   def test_aliases_expand_by_sorted_union_and_deduplicate(self):
     catalogue = parse_test_catalogue(self.value())
     self.assertEqual(
