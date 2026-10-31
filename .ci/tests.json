@@ -1065,6 +1065,14 @@
       "issue-583-authoritative-validate": {
         "type": "regression",
         "name": "tests.test_validate_script"
+      },
+      "issue-703-mit-negative-acceptance-oracle": {
+        "type": "manual",
+        "name": "tests.test_manual_mit_negative_acceptance"
+      },
+      "issue-703-mit-version-contract-red-oracle": {
+        "type": "manual",
+        "name": "tests.test_manual_mit_version_contract"
       }
     },
     {
