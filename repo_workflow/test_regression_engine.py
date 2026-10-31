@@ -9,10 +9,12 @@ import sys
 import tempfile
 
 
-def self_regression(root: Path) -> str:
+def self_regression(root: Path, *, stage: str = "regression") -> str:
+  if stage not in {"regression", "integration"}:
+    raise ValueError("invalid regression adapter stage")
   with tempfile.TemporaryDirectory(prefix="rwf-self-regression-cache-") as cache:
     result = subprocess.run(
-      [sys.executable, str(root / "scripts" / "validate.py")],
+      [sys.executable, str(root / "scripts" / "validate.py"), stage],
       cwd=root, capture_output=True, text=True, check=False,
       env={**os.environ, "PYTHONPYCACHEPREFIX": cache},
     )
