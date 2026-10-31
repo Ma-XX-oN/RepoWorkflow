@@ -74,6 +74,36 @@ but issue or regression evidence must never masquerade as integration evidence.
 Every CI plan records the selected tier, selected groups where applicable, and
 the reason for that selection.
 
+## 1.2 Authoritative test catalogue terminology
+
+The canonical test catalogue is `.ci/tests.json`. Its `type` field
+identifies one of the **established testing stages**, `regression` or
+`integration`. **`invariant` is not a test stage or permitted catalogue
+type.** A policy invariant is a property to verify, not a third stage.
+CI-contract boundary checks are integration-stage groups.
+
+Issue-specific RED/GREEN groups use the established `issue-<number>-...`
+names and the documented selection in `.ci/red-green.txt`. Their eventual
+retained stage is determined by the test's purpose and acceptance contract,
+not inferred from its filename or from having run GREEN. Short-lived tests
+belong in the `.ci/temp-tests.json` temporary catalogue while required;
+retire obsolete temporary tests instead of promoting them automatically.
+
+Aliases are reusable, explicitly named *associations of registered groups*,
+such as durable high-risk associations; **aliases do not define regression
+or integration**, and the absence of an alias does not make a stage empty.
+The authoritative stage is selected through `rwf test`, optionally invoked
+by `.ci/run`. The catalogue metadata is the source of the registered
+group's classification. A test used at more than one stage needs explicit,
+reviewed coverage without duplicate execution or fabricated stage results.
+
+The existing engine self-regression currently executes
+`scripts/validate.py`, whose broad discovery is an internal
+implementation. It must not be treated as authorization to invoke raw
+discovery in place of RWF or automatically classify every discovered file.
+Changes to broad stage selection must preserve coverage and canonical test
+result publication, and be verified at an exact candidate revision.
+
 ## 2. Cross-cutting tests
 
 These tests apply across implementation stages.
