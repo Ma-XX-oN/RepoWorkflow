@@ -47,13 +47,18 @@ def _configured_command():
   if type(command) is not list or len(command) not in (1, 2):
     return None
   workspace = Path(__file__).resolve().parents[1]
+  project_lexical = Path.cwd()
+  project_checkout = project_lexical.resolve()
   for element in command:
     if (type(element) is not str or not element
         or not os.path.isabs(element)
         or ".." in element.replace("\\", "/").split("/")):
       return None
-    target = Path(element).resolve()
-    if target == workspace or workspace in target.parents:
+    lexical = Path(element)
+    target = lexical.resolve()
+    if any(root == candidate or root in candidate.parents
+           for root in (workspace, project_lexical, project_checkout)
+           for candidate in (lexical, target)):
       return None
   return command
 
