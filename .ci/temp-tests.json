@@ -9,6 +9,14 @@
       ]
     }
   },
-  "tests": [],
+  "tests": [
+    {
+      "test-harness": "unittest",
+      "issue-109-loader-negative": {
+        "type": "regression",
+        "name": "tests.test_validate_script"
+      }
+    }
+  ],
   "aliases": {}
 }
