@@ -36,12 +36,17 @@ class ValidateScriptTests(unittest.TestCase):
         "issue,title,dependencies\n10,Valid,\n",
         encoding="utf-8",
       )
+      suite = unittest.TestSuite([unittest.FunctionTestCase(lambda: None)])
       with (
         patch.object(validate_script, "ROOT", root),
-        patch.object(validate_script, "run", side_effect=(0, 0)) as run,
+        patch.object(validate_script, "selected_modules",
+                     return_value=("tests.test_validate_script",)) as selected,
+        patch.object(validate_script, "unique_suite", return_value=suite),
+        patch.object(validate_script, "run", return_value=0) as run,
       ):
         self.assertEqual(validate_script.main(), 0)
-      self.assertEqual(run.call_count, 2)
+      run.assert_called_once()
+      selected.assert_called_once_with(root, "regression")
 
 
 if __name__ == "__main__":
