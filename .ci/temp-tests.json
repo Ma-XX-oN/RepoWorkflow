@@ -9,14 +9,6 @@
       ]
     }
   },
-  "tests": [
-    {
-      "test-harness": "unittest",
-      "issue-109-stage-selection-contract": {
-        "type": "regression",
-        "name": "tests.test_test_catalogue"
-      }
-    }
-  ],
+  "tests": [],
   "aliases": {}
 }
