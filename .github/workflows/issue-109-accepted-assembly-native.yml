@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tested_sha: ${{ steps.request.outputs.tested_sha }}
+      stage: ${{ steps.request.outputs.stage }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,14 +31,16 @@ jobs:
           import json, os
           from pathlib import Path
           plan = json.loads(Path("plan.json").read_text(encoding="utf-8"))
-          assert plan["stage"] in {"regression-testing", "integration-testing"}
+          assert plan["stage"] in {"RED-testing", "temp-testing", "GREEN-testing", "regression-testing", "integration-testing"}
           source = plan["tested_sha"]
           assert len(source) == 40 and all(c in "0123456789abcdef" for c in source)
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
             out.write("tested_sha=" + source + "\n")
+            out.write("stage=" + plan["stage"] + "\n")
           PY
   focused:
     needs: plan
+    if: needs.plan.outputs.stage == 'regression-testing' || needs.plan.outputs.stage == 'integration-testing'
     strategy:
       fail-fast: false
       matrix:
@@ -51,7 +54,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Assert accepted exact product commit
+      - name: Assert validated exact requested source
         shell: bash
         run: test "$(git rev-parse HEAD)" = "${{ needs.plan.outputs.tested_sha }}"
       - name: Install dependencies
@@ -62,6 +65,7 @@ jobs:
         run: python -m unittest tests.test_done_host_transport tests.test_integration_evidence_external tests.test_repo_host_authority_isolation tests.test_engine_remote tests.test_engine_version_adapter tests.test_version_adapter tests.test_phase_terminal tests.test_prelim_integration_ready tests.test_prelim_ready_v2_roundtrip tests.test_done_runtime tests.test_manual_mit_negative_acceptance tests.test_manual_test_cli -v
   full:
     needs: plan
+    if: needs.plan.outputs.stage == 'regression-testing' || needs.plan.outputs.stage == 'integration-testing'
     strategy:
       fail-fast: false
       matrix:
