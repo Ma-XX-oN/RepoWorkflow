@@ -143,6 +143,22 @@ registered as a passing regression suite, or treated as authenticated provider
 PASS. Their eventual promotion/retirement belongs to the #703 acceptance
 contract and #699 controller handoff.
 
+## Historical one-shot tests requiring retirement determination
+
+GitHub history ties `tests/test_native_dependency_migration_workflow.py` to
+completed issue [#327](https://github.com/Ma-XX-oN/RepoWorkflow/issues/327)
+(one-shot dependency migration workflow, closed 2026-10-05), and
+`tests/test_real_provider_lane_certification.py` to historical real-provider
+evidence for closed issues
+[#327](https://github.com/Ma-XX-oN/RepoWorkflow/issues/327) and
+[#346](https://github.com/Ma-XX-oN/RepoWorkflow/issues/346). These are
+**explicit retirement-review candidates**, not automatically retained in
+broad regression merely because their source files remain discoverable.
+Before deletion, verify whether the workflow and committed certification
+artifacts are still required by migration/recovery contracts and other tests.
+Both files remain untouched until that check; this is not an authorization
+to erase historical certification evidence.
+
 ## Activation gate
 
 1. Check issue provenance and current acceptance requirements per module; separate unit regressions from genuine multi-component/provider integration. The source code's name alone is not evidence of its required stage.
