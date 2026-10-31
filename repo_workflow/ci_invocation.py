@@ -42,7 +42,7 @@ def parse_invocation(text: str) -> CiInvocation:
   return CiInvocation(parts[0], parts[1])
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str, raw: bool = False) -> str:
   result = subprocess.run(
     ["git", "-C", str(root), *args],
     capture_output=True,
@@ -53,13 +53,13 @@ def _git(root: Path, *args: str) -> str:
     raise CiInvocationError(
       f"cannot verify CI invocation commit: {result.stderr.strip()}"
     )
-  return result.stdout.strip()
+  return result.stdout if raw else result.stdout.strip()
 
 
 def verify_invocation(root: Path) -> CiInvocation:
   """Require HEAD to be a dedicated request commit on its direct parent."""
   try:
-    raw = _git(root, "show", "HEAD:.ci/run")
+    raw = _git(root, "show", "HEAD:.ci/run", raw=True)
   except CiInvocationError as error:
     if "does not exist in" in str(error):
       raise CiInvocationError("missing committed .ci/run invocation") from error
@@ -99,7 +99,7 @@ def original_candidate(root: Path, tip: str) -> str:
       root, "diff-tree", "--no-commit-id", "--name-only", "-r", sha,
     ).splitlines()
     if changed == [".ci/run"]:
-      request = parse_invocation(_git(root, "show", sha + ":.ci/run"))
+      request = parse_invocation(_git(root, "show", sha + ":.ci/run", raw=True))
       if request.previous_tip != parent:
         raise CiInvocationError("historical CI invocation ancestry mismatch")
     elif (len(changed) == 1 and re.fullmatch(
