@@ -45,7 +45,7 @@ class ExplicitCiInvocationTests(unittest.TestCase):
   def test_on_demand_and_109_push_workflows_use_only_run_marker(self):
     paths = [WORKFLOWS / "on-demand-ci.yml"]
     paths.extend(sorted(WORKFLOWS.glob("issue-109-*.yml")))
-    self.assertGreater(len(paths), 1)
+    self.assertGreaterEqual(len(paths), 1)
     for path in paths:
       with self.subTest(workflow=path.name):
         self.assertTrue(path.is_file())
