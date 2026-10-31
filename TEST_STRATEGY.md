@@ -489,7 +489,6 @@ public-workflow tests establish different facts.  Passing one category must
 not be cited as evidence for another without an explicit test that crosses the
 relevant boundary.
 
-
 For hosted CI that validates mutable branch or pull-request heads, newer
 candidates should cancel obsolete in-progress candidates when the platform
 supports safe concurrency groups.  This is not merely a cost optimization:
