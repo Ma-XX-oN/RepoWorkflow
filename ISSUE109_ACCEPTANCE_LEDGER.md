@@ -382,3 +382,9 @@ Check Run or bound default trusted native done executor has been verified.
 ### 2026-10-31 — strict UTF-8 negative completion
 
 - Added `test_committed_marker_non_utf8_fails_closed` with an actual Git commit containing a non-UTF-8 byte. The exact committed marker reader rejected it. **12/12 focused exact-source real-Git tests PASS**; both source and test modules compiled successfully. Current source blob remains `30f4e0d243972a81a6d124beab21a75eab112780`; current test blob `8c1d39a5dcacff850240e09ac85c27f92e4fbc5e` matches locally executed source and both GitHub branches.
+
+### 2026-10-31 — current continuation differential acceptance scope
+
+- GitHub direct compare from previously accepted product `59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90` to current #109 assembly returned `ahead`, 54 commits and 28 changed files. Source changes are limited to `repo_workflow/ci_invocation.py` (strict marker byte handling) and two added foreign-destination/non-timeout MIT deferral checks each in `repo_workflow/done_cli.py` and `repo_workflow/done_runtime.py`. Remaining differences are tests, CI workflows, contracts and documentation.
+- Existing targeted exact-byte CI invocation tests: 12/12 PASS on verified source copies in isolated Git repository. The foreign-destination/MIT reason checks have dedicated test assertions in `tests/test_done_cli.py` and `tests/test_done_runtime.py` from source commit `5d4dace45f918430a1eb477f8f59d2f0c2a76b3a`. Full current-assembly native certification is still not established by the prior pinned-source workflows.
+- Direct GitHub Checks API for assembly checkpoint `510d3e6709fb52f0322f770f70f5c90a612c70e8` returned zero check runs; none can be called a current exact-candidate authenticated release/MIT approval. No authority to issue a separate GitHub App check was demonstrated.
