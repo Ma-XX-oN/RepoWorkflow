@@ -1,11 +1,12 @@
 # On-demand CI invocation contract
 
-Status: documented design decision, pending implementation (#538).
+Status: on-demand issue-branch invocation implemented in `.github/workflows/on-demand-ci.yml`; separate Self CI and protected production integration remain independent.
 
-This document records the agreed trigger, evidence, and merge semantics.
-It does not assert that the current GitHub Actions workflow implements them.
-Until implementation and repository-protection changes are validated, the
-existing hosted CI configuration remains the executable behaviour.
+The implemented workflow triggers on `push` to `issue-*` branches with a
+`paths` filter matching only `.ci/run`. An ordinary source-only push or merge
+without a `.ci/run` change does not trigger this workflow. Other CI workflows
+have their own triggers. Issue #538 originally documented the design only;
+its historical status does not describe the present implementation.
 
 ## 1. Single invocation file
 
@@ -55,7 +56,7 @@ tested candidate identity.
 
 ## 2. Hosted execution without a dispatcher on routine pushes
 
-The intended GitHub Actions push trigger uses a path filter confined to
+The implemented on-demand GitHub Actions push trigger uses a path filter confined to
 `.ci/run`. Ordinary pushes with no change to that path must not launch a
 hosted test job merely to inspect a request. CI is requested by a
 selector-changing push, not automatically by every code push.
@@ -124,10 +125,10 @@ required when the candidate tree already represents the exact result.
 Ancestry alone does not replace the required PASS evidence in the testing
 log.
 
-## 5. Implementation and protection work remaining
+## 5. Implementation and protection boundaries
 
-This specification deliberately does **not** change the existing CI triggers
-or server rules. Implementation must separately reconcile:
+The `.ci/run` on-demand trigger is implemented; the following items concern
+separate legacy Self CI, evidence/security acceptance and protected integration:
 
 - `PUBLIC_WORKFLOW.md` section 10.1 (currently assigns issue-tier checks
   to ordinary PRs and integration to `main` pushes);
@@ -144,3 +145,9 @@ The on-demand trigger must be tested for initial invocation, repeated same
 stage, missed event retry, source-only push, selector-only push, malformed
 selector, stale evidence, local/external evidence, current-base races, and
 restart or re-fetch behaviour before replacing the current CI policy.
+
+
+**Canonical file names:** `.ci/run` invokes on-demand hosted CI;
+`.ci/run-ci-request` is distinct legacy candidate bookkeeping, not its trigger;
+`.ci/rwf` is only a proposed rename. Migration markers under
+`.repoworkflow/migrations/run-*` belong to separate workflows.
