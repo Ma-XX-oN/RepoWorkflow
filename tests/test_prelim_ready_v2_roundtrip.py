@@ -10,7 +10,7 @@ from repo_workflow.prelim_ready_v2_validation import (
   validate_destination_prelim, v2_identity_key, v2_identity_ref,
 )
 from repo_workflow.state_store import durable_store
-from tests.test_prelim_attempt import PrelimAttemptTests
+from tests import test_prelim_attempt as _prelim_attempt
 
 
 G = "11111111-1111-4111-8111-111111111111"
@@ -50,7 +50,7 @@ class GitProvider:
 
 
 class DestinationRoundTripTests(unittest.TestCase):
-  setUp = PrelimAttemptTests.setUp
+  setUp = _prelim_attempt.PrelimAttemptTests.setUp
 
   def test_prepared_source_remains_immutable_through_real_git_publication(self):
     candidate = prepare_destination_prelim(
