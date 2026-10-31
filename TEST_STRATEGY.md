@@ -77,9 +77,9 @@ the reason for that selection.
 ## 1.2 Authoritative test catalogue terminology
 
 The canonical test catalogue is `.ci/tests.json`. Its `type` field
-identifies one of the **established testing stages**, `regression` or
-`integration`. **`invariant` is not a test stage or permitted catalogue
-type.** A policy invariant is a property to verify, not a third stage.
+identifies **`regression` or `integration` for automated retained suites**;
+`manual` is reserved for separately authorized manual integration cases.
+**`invariant` is not a test stage or permitted catalogue type.** A policy invariant is a property to verify, not a third stage.
 CI-contract boundary checks are integration-stage groups.
 
 Issue-specific RED/GREEN groups use the established `issue-<number>-...`
