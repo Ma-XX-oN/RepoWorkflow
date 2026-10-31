@@ -1,0 +1,37 @@
+name: RWF 699 MIT CLI reported outcomes exact-source verification
+on:
+  push:
+    branches:
+      - verification-699-mit-outcomes-20261030
+permissions:
+  contents: read
+jobs:
+  actual-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 67cd1c56882973c2c89116e6601242b7d90b5874
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert original source revision
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "EXACT_SOURCE_SHA=$actual"
+          test "$actual" = "67cd1c56882973c2c89116e6601242b7d90b5874"
+      - name: Execute real subprocess CLI outcome tests
+        shell: bash
+        run: |
+          python -m unittest -v \
+            test_manual_test_cli.TestManualLauncher.test_first_outstanding_explicit_and_sequential_pass \
+            test_manual_test_cli.TestManualLauncher.test_failed_case_blocks_same_candidate_and_retains_evidence \
+            test_manual_test_cli.TestManualLauncher.test_pending_manual_result_must_not_complete_gate \
+            test_manual_test_cli.TestManualLauncher.test_stale_multiple_and_definition_drift_fail_closed \
+            test_manual_test_cli.TestAutomaticIntegrationPresentation.test_terminal_publication_is_blocked_until_mit_finishes
