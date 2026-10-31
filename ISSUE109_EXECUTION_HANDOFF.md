@@ -1,6 +1,9 @@
 # #109 Functional executor checkpoint — 2026-10-17
 
-Status: **PARTIAL / NOT CERTIFIED**. Do not merge or publish stable tags.
+Status: **PARTIAL / NOT CERTIFIED** as of 2026-10-31. Do not merge or
+publish stable tags. October 17 source pointers below are historical;
+read the October 31 continuation at the end and
+[ISSUE109_ACCEPTANCE_LEDGER.md](ISSUE109_ACCEPTANCE_LEDGER.md) first.
 Exclusive implementation claim recorded on #109 in this session.
 
 ## Exact stacked source
