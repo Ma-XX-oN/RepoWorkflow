@@ -16,14 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: cdcd8d18a7c6e00365952dd9f8bad1d837f969f9
+          ref: 554be6d2577d8f9f4df1a3eb8f2425df2ff03a56
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Verify exact accepted source
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "cdcd8d18a7c6e00365952dd9f8bad1d837f969f9"
+        run: test "$(git rev-parse HEAD)" = "554be6d2577d8f9f4df1a3eb8f2425df2ff03a56"
       - name: Read real remote READY and destination with v2 host
         shell: bash
         env:
