@@ -151,3 +151,18 @@ restart or re-fetch behaviour before replacing the current CI policy.
 `.ci/run-ci-request` is distinct legacy candidate bookkeeping, not its trigger;
 `.ci/rwf` is only a proposed rename. Migration markers under
 `.repoworkflow/migrations/run-*` belong to separate workflows.
+
+## Regression enforcement
+
+The source-level CI event-filter guard is
+`tests/test_ci_invocation_trigger_contract.py`, registered as
+`invariant-ci-invocation-trigger` in `.ci/tests.json`. It rejects missing,
+broadened or unsupported push-path declarations in the current checkout.
+On-demand and issue-specific native verification workflows require only
+`.ci/run`. The three separately scoped historic migration/certification
+workflows (`lane-cache-routing-certification.yml`,
+`native-dependency-lane-certification-v1.yml`, and
+`native-dependency-migration-v1.yml`) retain their own explicit path filters.
+Their exception is **not** permission to add unrestricted native testing on
+ordinary pushes. Changes to a GitHub workflow event filter must be reviewed
+against this guard and its authoritative contract before merging.
