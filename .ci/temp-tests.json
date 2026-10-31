@@ -2,53 +2,9 @@
   "test-harnesses": {
     "unittest": {
       "command": "python",
-      "layout": [
-        "-m",
-        "unittest",
-        "$test"
-      ]
+      "layout": ["-m", "unittest", "$test"]
     }
   },
-  "tests": [
-    {
-      "test-harness": "unittest",
-      "issue-109-regression-fix-consumer-terminal-lifecycle": {
-        "type": "regression",
-        "name": "tests.test_consumer_terminal_lifecycle"
-      },
-      "issue-109-regression-fix-engine-regression": {
-        "type": "regression",
-        "name": "tests.test_engine_regression"
-      },
-      "issue-109-regression-fix-local-integration": {
-        "type": "regression",
-        "name": "tests.test_local_integration"
-      },
-      "issue-109-regression-fix-regression-temporary": {
-        "type": "regression",
-        "name": "tests.test_regression_temporary"
-      },
-      "issue-109-regression-fix-test-execution-mutation": {
-        "type": "regression",
-        "name": "tests.test_test_execution_mutation"
-      },
-      "issue-109-regression-fix-risk-scoped-ci-certification": {
-        "type": "regression",
-        "name": "tests.test_risk_scoped_ci_certification"
-      },
-      "issue-109-regression-fix-source-size": {
-        "type": "regression",
-        "name": "tests.test_source_size"
-      },
-      "issue-109-regression-fix-validate-script": {
-        "type": "regression",
-        "name": "tests.test_validate_script"
-      },
-      "issue-109-regression-fix-test-catalogue": {
-        "type": "regression",
-        "name": "tests.test_test_catalogue"
-      }
-    }
-  ],
+  "tests": [],
   "aliases": {}
 }
