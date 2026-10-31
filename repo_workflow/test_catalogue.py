@@ -74,6 +74,13 @@ def _group_keys(tests: object) -> frozenset[str]:
         raise TestCatalogueError(f"duplicate test group: {key}")
       if not isinstance(value, dict):
         raise TestCatalogueError(f"test group {key} must be an object")
+      lifecycle = value.get("lifecycle")
+      if lifecycle is not None and (
+        lifecycle not in {"RED", "GREEN"} or value.get("type") == "manual"
+      ):
+        raise TestCatalogueError(
+          f"test group {key} has invalid RED/GREEN lifecycle"
+        )
       stage = value.get("type")
       if not isinstance(stage, str) or stage not in {
         "regression", "integration", "manual"
@@ -108,7 +115,7 @@ def stage_groups(root: Path, stage: str) -> tuple[str, ...]:
     for group, metadata in declaration.items():
       if group in {"test-harness", "command"}:
         continue
-      if metadata["type"] not in allowed:
+      if metadata["type"] not in allowed or metadata.get("lifecycle") == "RED":
         continue
       target = metadata.get("name")
       if not isinstance(target, str) or not target:
