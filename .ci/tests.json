@@ -717,6 +717,354 @@
       "regression-state-store": {
         "type": "regression",
         "name": "tests.test_state_store"
+      },
+      "integration-canonical-lane-smoke": {
+        "type": "integration",
+        "name": "tests.test_canonical_lane_smoke"
+      },
+      "integration-cli": {
+        "type": "integration",
+        "name": "tests.test_cli"
+      },
+      "regression-dependency-migration-certification": {
+        "type": "regression",
+        "name": "tests.test_dependency_migration_certification"
+      },
+      "integration-dependency-migration-tool": {
+        "type": "integration",
+        "name": "tests.test_dependency_migration_tool"
+      },
+      "integration-dependency-sync-cli": {
+        "type": "integration",
+        "name": "tests.test_dependency_sync_cli"
+      },
+      "regression-dependency-sync-from-tickets": {
+        "type": "regression",
+        "name": "tests.test_dependency_sync_from_tickets"
+      },
+      "regression-dependency-sync-to-tickets": {
+        "type": "regression",
+        "name": "tests.test_dependency_sync_to_tickets"
+      },
+      "integration-done-cas-git": {
+        "type": "integration",
+        "name": "tests.test_done_cas_git"
+      },
+      "regression-dotnet-toolchain-projection": {
+        "type": "regression",
+        "name": "tests.test_dotnet_toolchain_projection"
+      },
+      "regression-fail-diagnostics": {
+        "type": "regression",
+        "name": "tests.test_fail_diagnostics"
+      },
+      "regression-finalize": {
+        "type": "regression",
+        "name": "tests.test_finalize"
+      },
+      "integration-first-use-lanes-provider": {
+        "type": "integration",
+        "name": "tests.test_first_use_lanes_provider"
+      },
+      "integration-first-use-lanes-refresh": {
+        "type": "integration",
+        "name": "tests.test_first_use_lanes_refresh"
+      },
+      "integration-first-use-lanes-state": {
+        "type": "integration",
+        "name": "tests.test_first_use_lanes_state"
+      },
+      "integration-git-protocol-boundary-p10": {
+        "type": "integration",
+        "name": "tests.test_git_protocol_boundary_p10"
+      },
+      "integration-github-adapter": {
+        "type": "integration",
+        "name": "tests.test_github_adapter"
+      },
+      "integration-github-ticket-dependencies": {
+        "type": "integration",
+        "name": "tests.test_github_ticket_dependencies"
+      },
+      "integration-github-toolchain-cli": {
+        "type": "integration",
+        "name": "tests.test_github_toolchain_cli"
+      },
+      "regression-github-toolchains": {
+        "type": "regression",
+        "name": "tests.test_github_toolchains"
+      },
+      "integration-high-risk-cli": {
+        "type": "integration",
+        "name": "tests.test_high_risk_cli"
+      },
+      "integration-hosted-version-utf8": {
+        "type": "integration",
+        "name": "tests.test_hosted_version_utf8"
+      },
+      "integration-integration-acceptance-intent": {
+        "type": "integration",
+        "name": "tests.test_integration_acceptance_intent"
+      },
+      "regression-integration-admission": {
+        "type": "regression",
+        "name": "tests.test_integration_admission"
+      },
+      "integration-integration-destination-accept-github": {
+        "type": "integration",
+        "name": "tests.test_integration_destination_accept_github"
+      },
+      "integration-integration-destination-github": {
+        "type": "integration",
+        "name": "tests.test_integration_destination_github"
+      },
+      "integration-integration-host-v2": {
+        "type": "integration",
+        "name": "tests.test_integration_host_v2"
+      },
+      "integration-issue-info-cli": {
+        "type": "integration",
+        "name": "tests.test_issue_info_cli"
+      },
+      "integration-issue-list": {
+        "type": "integration",
+        "name": "tests.test_issue_list"
+      },
+      "integration-issue-metadata": {
+        "type": "integration",
+        "name": "tests.test_issue_metadata"
+      },
+      "integration-issue-start": {
+        "type": "integration",
+        "name": "tests.test_issue_start"
+      },
+      "integration-lane-component-selection-cli": {
+        "type": "integration",
+        "name": "tests.test_lane_component_selection_cli"
+      },
+      "integration-lane-count": {
+        "type": "integration",
+        "name": "tests.test_lane_count"
+      },
+      "regression-lane-decomposition": {
+        "type": "regression",
+        "name": "tests.test_lane_decomposition"
+      },
+      "integration-lane-diagnostics": {
+        "type": "integration",
+        "name": "tests.test_lane_diagnostics"
+      },
+      "regression-lane-follow-grammar": {
+        "type": "regression",
+        "name": "tests.test_lane_follow_grammar"
+      },
+      "integration-lane-list": {
+        "type": "integration",
+        "name": "tests.test_lane_list"
+      },
+      "integration-lane-selection": {
+        "type": "integration",
+        "name": "tests.test_lane_selection"
+      },
+      "regression-lane-show-children": {
+        "type": "regression",
+        "name": "tests.test_lane_show_children"
+      },
+      "regression-lane-show-children-grammar": {
+        "type": "regression",
+        "name": "tests.test_lane_show_children_grammar"
+      },
+      "regression-lane-traversal": {
+        "type": "regression",
+        "name": "tests.test_lane_traversal"
+      },
+      "integration-launcher": {
+        "type": "integration",
+        "name": "tests.test_launcher"
+      },
+      "integration-launcher-discovery": {
+        "type": "integration",
+        "name": "tests.test_launcher_discovery"
+      },
+      "integration-launcher-discovery-utf8": {
+        "type": "integration",
+        "name": "tests.test_launcher_discovery_utf8"
+      },
+      "integration-local-launcher": {
+        "type": "integration",
+        "name": "tests.test_local_launcher"
+      },
+      "integration-local-terminal-jsonl-p16": {
+        "type": "integration",
+        "name": "tests.test_local_terminal_jsonl_p16"
+      },
+      "regression-manual-self-ci-selection": {
+        "type": "regression",
+        "name": "tests.test_manual_self_ci_selection"
+      },
+      "regression-manual-test-catalogue": {
+        "type": "regression",
+        "name": "tests.test_manual_test_catalogue"
+      },
+      "integration-manual-test-cli": {
+        "type": "integration",
+        "name": "tests.test_manual_test_cli"
+      },
+      "regression-manual-test-result": {
+        "type": "regression",
+        "name": "tests.test_manual_test_result"
+      },
+      "integration-native-dependency-migration-workflow": {
+        "type": "integration",
+        "name": "tests.test_native_dependency_migration_workflow"
+      },
+      "regression-orchestrate": {
+        "type": "regression",
+        "name": "tests.test_orchestrate"
+      },
+      "integration-parent-branch": {
+        "type": "integration",
+        "name": "tests.test_parent_branch"
+      },
+      "integration-portability-subprocess": {
+        "type": "integration",
+        "name": "tests.test_portability_subprocess"
+      },
+      "regression-prelim-queue": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue"
+      },
+      "regression-prelim-retirement": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement"
+      },
+      "regression-prelim-retirement-evidence": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_evidence"
+      },
+      "regression-prelim-retirement-execute": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_execute"
+      },
+      "regression-prelim-retirement-github": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_github"
+      },
+      "integration-prelim-retirement-remote": {
+        "type": "integration",
+        "name": "tests.test_prelim_retirement_remote"
+      },
+      "integration-process-boundary-p10": {
+        "type": "integration",
+        "name": "tests.test_process_boundary_p10"
+      },
+      "integration-provider-adapter-p11": {
+        "type": "integration",
+        "name": "tests.test_provider_adapter_p11"
+      },
+      "regression-real-provider-lane-certification": {
+        "type": "regression",
+        "name": "tests.test_real_provider_lane_certification"
+      },
+      "integration-red-completion-cli": {
+        "type": "integration",
+        "name": "tests.test_red_completion_cli"
+      },
+      "integration-relationship-registration": {
+        "type": "integration",
+        "name": "tests.test_relationship_registration"
+      },
+      "integration-renderer-certification-binding": {
+        "type": "integration",
+        "name": "tests.test_renderer_certification_binding"
+      },
+      "integration-repo-info-adapter": {
+        "type": "integration",
+        "name": "tests.test_repo_info_adapter"
+      },
+      "integration-repository-policy": {
+        "type": "integration",
+        "name": "tests.test_repository_policy"
+      },
+      "integration-results": {
+        "type": "integration",
+        "name": "tests.test_results"
+      },
+      "regression-runtime-identity": {
+        "type": "regression",
+        "name": "tests.test_runtime_identity"
+      },
+      "integration-stable-adapter": {
+        "type": "integration",
+        "name": "tests.test_stable_adapter"
+      },
+      "integration-stable-release": {
+        "type": "integration",
+        "name": "tests.test_stable_release"
+      },
+      "integration-template": {
+        "type": "integration",
+        "name": "tests.test_template"
+      },
+      "regression-terminal-style": {
+        "type": "regression",
+        "name": "tests.test_terminal_style"
+      },
+      "regression-test-catalogue": {
+        "type": "regression",
+        "name": "tests.test_test_catalogue"
+      },
+      "regression-ticket-admission": {
+        "type": "regression",
+        "name": "tests.test_ticket_admission"
+      },
+      "integration-ticket-dependency-adapter": {
+        "type": "integration",
+        "name": "tests.test_ticket_dependency_adapter"
+      },
+      "integration-ticket-merge": {
+        "type": "integration",
+        "name": "tests.test_ticket_merge"
+      },
+      "integration-transaction": {
+        "type": "integration",
+        "name": "tests.test_transaction"
+      },
+      "regression-validate-script": {
+        "type": "regression",
+        "name": "tests.test_validate_script"
+      },
+      "regression-version-adapter": {
+        "type": "regression",
+        "name": "tests.test_version_adapter"
+      },
+      "integration-windows-unicode-output-p9": {
+        "type": "integration",
+        "name": "tests.test_windows_unicode_output_p9"
+      },
+      "regression-workflow-state": {
+        "type": "regression",
+        "name": "tests.test_workflow_state"
+      },
+      "regression-workflow-transitions": {
+        "type": "regression",
+        "name": "tests.test_workflow_transitions"
+      },
+      "integration-workspace-cli": {
+        "type": "integration",
+        "name": "tests.test_workspace_cli"
+      },
+      "regression-workspace-readiness": {
+        "type": "regression",
+        "name": "tests.test_workspace_readiness"
+      },
+      "regression-workspace-store": {
+        "type": "regression",
+        "name": "tests.test_workspace_store"
+      },
+      "integration-workspace-worktree": {
+        "type": "integration",
+        "name": "tests.test_workspace_worktree"
       }
     },
     {
