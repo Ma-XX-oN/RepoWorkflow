@@ -69,10 +69,13 @@ class ValidateScriptTests(unittest.TestCase):
       (root / ".ci" / "tests.json").write_text(
         json.dumps(catalogue), encoding="utf-8"
       )
+      (root / ".ci" / "temp-tests.json").write_text(
+        json.dumps({"tests": []}), encoding="utf-8"
+      )
       with self.assertRaisesRegex(ValueError, "tests.test_unclassified"):
         validate_script.selected_modules(root, "regression")
 
-  def test_separately_classified_manual_oracle_is_not_regression(self):
+  def test_separately_classified_red_oracle_is_not_regression(self):
     import json
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
@@ -88,15 +91,18 @@ class ValidateScriptTests(unittest.TestCase):
           "issue-778-retained": {
             "type": "regression", "name": "tests.test_retained"
           },
-          "issue-703-manual--red_oracle": {
-            "type": "manual",
-            "instructions": "Unittest module: tests.test_manual_red. RED only.",
-            "expected_result": "Verify separately with explicit authorization.",
-          },
         }],
       }
       (root / ".ci" / "tests.json").write_text(
         json.dumps(catalogue), encoding="utf-8"
+      )
+      (root / ".ci" / "temp-tests.json").write_text(
+        json.dumps({"tests": [{
+          "test-harness": "unittest",
+          "issue-703-red-oracle": {
+            "type": "regression", "name": "tests.test_manual_red"
+          },
+        }]}), encoding="utf-8"
       )
       self.assertEqual(
         validate_script.selected_modules(root, "regression"),
