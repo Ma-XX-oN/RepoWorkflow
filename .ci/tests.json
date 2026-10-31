@@ -625,6 +625,50 @@
       "regression-graph-boundary-order": {
         "type": "regression",
         "name": "tests.test_graph_boundary_order"
+      },
+      "integration-github-integration-provider": {
+        "type": "integration",
+        "name": "tests.test_github_integration_provider"
+      },
+      "integration-integration-evidence-external": {
+        "type": "integration",
+        "name": "tests.test_integration_evidence_external"
+      },
+      "integration-integration-host-git-cas": {
+        "type": "integration",
+        "name": "tests.test_integration_host_git_cas"
+      },
+      "integration-integration-host-v2-entrypoint": {
+        "type": "integration",
+        "name": "tests.test_integration_host_v2_entrypoint"
+      },
+      "integration-integration-lease-github": {
+        "type": "integration",
+        "name": "tests.test_integration_lease_github"
+      },
+      "integration-integration-retirement-github": {
+        "type": "integration",
+        "name": "tests.test_integration_retirement_github"
+      },
+      "integration-integration-terminal-github": {
+        "type": "integration",
+        "name": "tests.test_integration_terminal_github"
+      },
+      "integration-repo-host-authority-isolation": {
+        "type": "integration",
+        "name": "tests.test_repo_host_authority_isolation"
+      },
+      "integration-repo-host-github-integration-mit": {
+        "type": "integration",
+        "name": "tests.test_repo_host_github_integration_mit"
+      },
+      "integration-workspace-integration": {
+        "type": "integration",
+        "name": "tests.test_workspace_integration"
+      },
+      "integration-prelim-queue-git": {
+        "type": "integration",
+        "name": "tests.test_prelim_queue_git"
       }
     },
     {
