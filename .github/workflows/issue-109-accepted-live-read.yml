@@ -6,7 +6,36 @@ on:
 permissions:
   contents: read
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tested_sha: ${{ steps.request.outputs.tested_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Resolve exact authorized source from .ci/run
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/on-demand-ci-plan.py > plan.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          plan=json.loads(Path('plan.json').read_text(encoding='utf-8'))
+          assert plan['stage'] in {'regression-testing', 'integration-testing'}
+          sha=plan['tested_sha']
+          assert len(sha)==40 and all(ch in '0123456789abcdef' for ch in sha)
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+            stream.write('tested_sha='+sha+'\n')
+          PY
   live-read:
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -16,14 +45,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90
+          ref: ${{ needs.plan.outputs.tested_sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Verify exact accepted source
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90"
+        run: test "$(git rev-parse HEAD)" = "${{ needs.plan.outputs.tested_sha }}"
       - name: Read real remote READY and destination with v2 host
         shell: bash
         env:
