@@ -1,0 +1,49 @@
+name: RWF 109 native provider transport live read and negative matrix
+on:
+  push:
+    branches:
+      - 'issue-109-provider-v2-convergence-20261030'
+permissions:
+  contents: read
+jobs:
+  native-transport:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 171da3a38df7ff77e3263268f1da77937ed59676
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify immutable tested source
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "171da3a38df7ff77e3263268f1da77937ed59676"
+      - name: Compile production transport and independent test
+        run: python -m compileall -q repo_workflow adapters tests
+      - name: Native real-subprocess negative and positive fixture matrix
+        run: python -m unittest tests.test_done_host_transport -v
+      - name: Real GitHub authenticated v2 provider inventory against independent API read
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          from repo_workflow.done_host_transport import bind_native_integration_host
+          repository = "Ma-XX-oN/RepoWorkflow"
+          host = bind_native_integration_host(repository=repository, engine_root=Path("."))
+          result = host.request("refs.list", "native-real-provider-inventory", {"prefix":"refs/heads/PRELIM-"})
+          expected = json.loads(subprocess.check_output(
+            ["gh","api",f"repos/{repository}/git/matching-refs/heads/PRELIM-","--paginate"],
+            text=True))
+          actual = {row["ref"]:row["object"]["sha"] for row in expected}
+          assert result["refs"] == actual, "independent provider readback mismatch"
+          print("LIVE_NATIVE_PROVIDER_V2=PASS", len(actual), flush=True)
+          PY
