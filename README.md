@@ -24,6 +24,13 @@ Project/
 
 ## Find the right documentation
 
+**Hosted testing trigger:** changing `.ci/run` on an `issue-*` branch
+invokes the on-demand GitHub workflow; ordinary source-only pushes do not.
+`.ci/run-ci-request` is a separate legacy candidate-bookkeeping file, **not**
+the trigger; `.ci/rwf` is only a proposed future name. Other workflows have
+independent triggers. See [CI invocation](CI_INVOCATION_CONTRACT.md) and
+[execution environments](EXECUTION_ENVIRONMENTS.md).
+
 Start at the [documentation map](DOCUMENTATION_INDEX.md) for a short,
 task-oriented route into authoritative specialist contracts. If local tools
 or network access are insufficient, check
