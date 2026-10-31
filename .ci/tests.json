@@ -1030,10 +1030,6 @@
         "type": "integration",
         "name": "tests.test_transaction"
       },
-      "regression-validate-script": {
-        "type": "regression",
-        "name": "tests.test_validate_script"
-      },
       "regression-version-adapter": {
         "type": "regression",
         "name": "tests.test_version_adapter"
@@ -1065,14 +1061,14 @@
       "integration-workspace-worktree": {
         "type": "integration",
         "name": "tests.test_workspace_worktree"
+      },
+      "issue-583-authoritative-validate": {
+        "type": "regression",
+        "name": "tests.test_validate_script"
       }
     },
     {
       "test-harness": "script-runner",
-      "issue-583-authoritative-validate": {
-        "type": "regression",
-        "name": "scripts/validate.py"
-      },
       "issue-583-graph-platform-probe": {
         "type": "integration",
         "name": "scripts/probe-graph-renderer.py"
@@ -1080,6 +1076,10 @@
       "issue-583-ticket-merge-probe": {
         "type": "integration",
         "name": "scripts/probe-ticket-merge.py"
+      },
+      "issue-583-argv-limits-probe": {
+        "type": "integration",
+        "name": "scripts/probe-argv-limits.py"
       }
     }
   ],
