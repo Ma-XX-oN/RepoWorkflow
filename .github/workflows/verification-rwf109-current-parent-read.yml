@@ -1,4 +1,4 @@
-name: RWF109 after-parent-update read-only provider 3OS
+name: RWF109 after-second-parent-update read-only provider 3OS
 on:
   push:
     branches: [verification-109-current-parent-read-20261031]
