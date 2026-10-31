@@ -9,18 +9,6 @@
       ]
     }
   },
-  "tests": [
-    {
-      "test-harness": "unittest",
-      "issue-703-mit-negative-red-oracle": {
-        "type": "regression",
-        "name": "tests.test_manual_mit_negative_acceptance"
-      },
-      "issue-703-mit-version-contract-red-oracle": {
-        "type": "regression",
-        "name": "tests.test_manual_mit_version_contract"
-      }
-    }
-  ],
+  "tests": [],
   "aliases": {}
 }
