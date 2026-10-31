@@ -1,6 +1,9 @@
 # RWF #109 — exact-source executor acceptance ledger
 
-Updated: 2026-10-20 22:57 EDT. Owner: existing V3 claim 6273106943.
+Current status (2026-10-31): NOT CERTIFIED. The October 20 matrix and
+October 21 evidence below are historical checkpoints; read the latest
+October 31 addenda for live current-source and provider evidence. Owner:
+existing V3 claim 6273106943.
 PR: #680 (draft; no merge). Security #85/#86 remain deferred.
 
 ## Proof levels
