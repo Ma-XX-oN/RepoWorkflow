@@ -7,6 +7,7 @@ from repo_workflow.ci_invocation import (
   CiInvocationError,
   parse_invocation,
   verify_invocation,
+  original_candidate,
 )
 
 
@@ -117,6 +118,20 @@ class CiInvocationTests(unittest.TestCase):
     self.git("commit", "-qm", "CRLF CI request")
     with self.assertRaises(CiInvocationError):
       verify_invocation(self.root)
+
+  def test_historical_retry_rejects_noncanonical_marker(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_bytes(
+      f"regression-testing {self.base}\r\n".encode("utf-8")
+    )
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "historical malformed request")
+    malformed_tip = self.git("rev-parse", "HEAD")
+    self.invoke(previous_tip=malformed_tip)
+    self.assertEqual(verify_invocation(self.root).previous_tip, malformed_tip)
+    with self.assertRaises(CiInvocationError):
+      original_candidate(self.root, malformed_tip)
 
   def test_no_request_fails_closed(self):
     with self.assertRaisesRegex(CiInvocationError, "missing"):
