@@ -55,7 +55,8 @@ def publish_failure_handoff(handoff, *, publish_comment, read_comment):
                handoff.prelim_sha,handoff.expected_parent_sha,
                handoff.tested_int_sha))
       or handoff.failure_kind not in {
-        "ART_FAIL","AIT_FAIL","MIT_FAIL","CONFLICT","STALE_PARENT"}
+        "ART_FAIL","AIT_FAIL","release_FAIL","MIT_FAIL",
+        "CONFLICT","STALE_PARENT"}
       or any(type(t) is not str or not t.strip()
              for t in (
                handoff.evidence_ref,handoff.reproduction_ref,

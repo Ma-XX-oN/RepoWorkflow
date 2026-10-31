@@ -4,7 +4,7 @@ import unittest
 
 from repo_workflow.done_completion import VerifiedCompletion
 from repo_workflow.done_failure_handoff import (
-  FailureHandoff,PersistedFailureHandoff,
+  FailureHandoff,PersistedFailureHandoff,publish_failure_handoff,
 )
 from repo_workflow.done_planner import DonePlan
 from repo_workflow.done_provider_pipeline import (
@@ -191,6 +191,29 @@ class RuntimeTests(unittest.TestCase):
       self.invoke(
         execute_provider_attempt=lambda *args:outcome,
         read_deferred_mit=lambda ready:None)
+
+  def test_release_failure_reaches_persisted_owner_handoff(self):
+    failed=FailedProviderAttempt(
+      self.ready,"release","release-stage-proof",2)
+    handoff=FailureHandoff(
+      G,123,"main",A,B,C,"release_FAIL","release-stage-proof",
+      (123,),"release-run-artifact",(),"release-stage-failure",
+      "release-operation-1")
+    records={}
+    def publish(issue,key,record):
+      records[(issue,key)]={
+        "issue_id":issue,"operation_id":key,
+        "handoff":record,"comment_ref":"durable-"+key}
+    def reread(issue,key):
+      return records.get((issue,key))
+    outcome=self.invoke(
+      execute_provider_attempt=lambda *args:failed,
+      publish_failure_handoff=lambda attempt:publish_failure_handoff(
+        handoff,publish_comment=publish,read_comment=reread))
+    self.assertIsInstance(outcome,VerifiedFailedDone)
+    self.assertEqual(outcome.persisted_handoff.handoff.failure_kind,
+                     "release_FAIL")
+    self.assertEqual(len(records),1)
 
   def test_failed_stage_requires_durable_issue_handoff(self):
     failed=FailedProviderAttempt(
