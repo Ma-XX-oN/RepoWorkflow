@@ -48,6 +48,55 @@ class ValidateScriptTests(unittest.TestCase):
       result = validate_script.unique_suite(("tests.test_validate_script",))
     self.assertEqual(result.countTestCases(), 1)
 
+  def test_unregistered_test_module_fails_closed(self):
+    import json
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      (root / ".ci").mkdir()
+      (root / "tests").mkdir()
+      (root / "tests" / "test_retained.py").write_text("", encoding="utf-8")
+      (root / "tests" / "test_unclassified.py").write_text("", encoding="utf-8")
+      catalogue = {
+        "tests": [{
+          "test-harness": "unittest",
+          "issue-778-retained": {
+            "type": "regression", "name": "tests.test_retained"
+          },
+        }],
+      }
+      (root / ".ci" / "tests.json").write_text(
+        json.dumps(catalogue), encoding="utf-8"
+      )
+      with self.assertRaisesRegex(ValueError, "tests.test_unclassified"):
+        validate_script.selected_modules(root, "regression")
+
+  def test_separately_classified_manual_oracle_is_not_regression(self):
+    import json
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      (root / ".ci").mkdir()
+      (root / "tests").mkdir()
+      for name in ("test_retained", "test_manual_red"):
+        (root / "tests" / (name + ".py")).write_text("", encoding="utf-8")
+      catalogue = {
+        "tests": [{
+          "test-harness": "unittest",
+          "issue-778-retained": {
+            "type": "regression", "name": "tests.test_retained"
+          },
+          "issue-703-manual-red": {
+            "type": "manual", "name": "tests.test_manual_red"
+          },
+        }],
+      }
+      (root / ".ci" / "tests.json").write_text(
+        json.dumps(catalogue), encoding="utf-8"
+      )
+      self.assertEqual(
+        validate_script.selected_modules(root, "regression"),
+        ("tests.test_retained",),
+      )
+
   def test_missing_module_is_not_filtered_out(self):
     suite = validate_script.unique_suite(
       ("tests.test_missing_catalogue_module_109_negative",)
