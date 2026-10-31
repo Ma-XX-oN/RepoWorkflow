@@ -138,6 +138,24 @@ class ExternalEvidenceTests(unittest.TestCase):
                  return_value=Path(self.tmp.name)):
         self.assertIsNone(make_evidence_verifier(self.request, Backend()))
 
+  def test_lexical_project_path_cannot_escape_through_symlink(self):
+    project = Path(self.tmp.name) / "untrusted-project"
+    project.mkdir()
+    linked = project / "verifier-link"
+    original = Path.resolve
+    def redirected(path, *args, **kwargs):
+      if path == linked:
+        return self.script
+      return original(path, *args, **kwargs)
+    with patch.dict(os.environ, {
+        "RWF_REPO_HOST_INTEGRATION_EVIDENCE_COMMAND":
+          json.dumps([sys.executable, str(linked)])}, clear=True):
+      with patch("adapters.repo_host_github_integration_evidence.Path.cwd",
+                 return_value=project):
+        with patch("adapters.repo_host_github_integration_evidence.Path.resolve",
+                   autospec=True, side_effect=redirected):
+          self.assertIsNone(make_evidence_verifier(self.request, Backend()))
+
   def test_identity_unknown_cannot_authorize(self):
     class Unknown:
       def identity(self):
