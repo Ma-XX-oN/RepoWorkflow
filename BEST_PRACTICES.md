@@ -22,6 +22,8 @@
 - Review interactions with downstream consumers and preserve intentional behavior, including negative paths.
 - Validate untrusted inputs at system boundaries. Check internal invariants explicitly; do not silently turn violations into success.
 - Apply the responsibility-based code and documentation guidance in [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
+- For the 500-line rule's single-read/context purpose, limitations, and measured
+  connector evidence, follow [SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md).
 
 ## 3. Portable behavior first
 
