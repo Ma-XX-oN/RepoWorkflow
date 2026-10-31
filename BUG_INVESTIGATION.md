@@ -7,6 +7,10 @@ This document defines how bugs are investigated before and during correction.
 It complements [TEST_ADEQUACY.md](TEST_ADEQUACY.md), which owns verification
 adequacy and closure requirements.
 
+For missing local tools, package access or native runner capability, follow
+[execution environment selection](EXECUTION_ENVIRONMENTS.md) before
+classifying verification as externally blocked.
+
 ## 1. Required experiment cycle
 
 Every bug investigation must maintain an explicit evidence log using repeated
