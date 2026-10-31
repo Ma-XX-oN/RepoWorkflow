@@ -96,6 +96,23 @@ class TestCatalogueTests(unittest.TestCase):
     with self.assertRaisesRegex(TestCatalogueError, "duplicate test group"):
       parse_test_catalogue(value)
 
+  def test_integration_is_an_authoritative_stage(self):
+    value = self.value()
+    value["tests"][0]["issue-474-catalogue"]["type"] = "integration"
+    self.assertIn("issue-474-catalogue", parse_test_catalogue(value).groups)
+
+  def test_legacy_invariant_type_is_rejected(self):
+    value = self.value()
+    value["tests"][0]["issue-474-catalogue"]["type"] = "invariant"
+    with self.assertRaisesRegex(TestCatalogueError, "regression or integration"):
+      parse_test_catalogue(value)
+
+  def test_undefined_type_is_rejected(self):
+    value = self.value()
+    del value["tests"][0]["issue-474-catalogue"]["type"]
+    with self.assertRaisesRegex(TestCatalogueError, "regression or integration"):
+      parse_test_catalogue(value)
+
   def test_aliases_are_not_recursive(self):
     value = self.value()
     value["aliases"]["recursive"] = ["command-grammar"]
