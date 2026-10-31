@@ -61,8 +61,10 @@ tier is selected explicitly by the workflow that knows the umbrella outcome is
 complete.
 
 Integration runs the broad validation suite plus all authoritative
-cross-platform/provider probes.  An authoritative push to `main` is always an
-integration candidate.  Full platform probes are therefore integration gates,
+cross-platform/provider probes. Under separate legacy Self CI policy, an
+authoritative push to `main` is an integration candidate, not a request to
+run the on-demand workflow. The on-demand workflow runs only when `.ci/run`
+changes on an `issue-*` branch. Full platform probes are integration gates,
 not ordinary issue-development feedback.
 
 Documentation-only changes retain the dedicated fast path and may skip code
@@ -208,8 +210,9 @@ Required validation-reuse tests:
 - changed validation-relevant candidate requires fresh evidence;
 - INCOMPLETE evidence is not treated as PASS or FAIL;
 - genuine FAIL creates only the appropriate immutable failure evidence;
-- a pushed candidate always receives server-side examination even when hosted
-  execution is skipped because exact local evidence is complete;
+- under the separately configured legacy Self CI path, a pushed candidate
+  receives server-side examination when that workflow is triggered; on-demand
+  execution instead requires a `.ci/run` change on an `issue-*` branch;
 - local and hosted paths invoke the same validation contract and produce
   semantically equivalent results.
 
@@ -303,7 +306,9 @@ Required server tests:
   another SHA;
 - ordinary development actors cannot arbitrarily create, update, or delete
   protected stable tags;
-- server examines pushed candidates and runs only missing automated validation.
+- the applicable separately triggered server workflow examines pushed
+  candidates and runs only missing automated validation; ordinary source
+  pushes do not invoke the `.ci/run`-gated on-demand workflow.
 
 Required stable-finalization tests:
 
