@@ -74,7 +74,7 @@ class NativeTransportTests(unittest.TestCase):
     self.script()
     with patch("repo_workflow.done_host_transport.subprocess.run",
                side_effect=subprocess.TimeoutExpired("python", 1)):
-      with self.assertRaisesRegex(NativeHostTransportError, "UNKNOWN"):
+      with self.assertRaisesRegex(IntegrationHostError, "UNKNOWN"):
         self.invoke()
 
 
