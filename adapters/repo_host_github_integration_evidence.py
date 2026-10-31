@@ -53,9 +53,11 @@ def _configured_command():
         or not os.path.isabs(element)
         or ".." in element.replace("\\", "/").split("/")):
       return None
-    target = Path(element).resolve()
-    if (target == workspace or workspace in target.parents
-        or target == project_checkout or project_checkout in target.parents):
+    lexical = Path(element)
+    target = lexical.resolve()
+    if any(root == candidate or root in candidate.parents
+           for root in (workspace, project_checkout)
+           for candidate in (lexical, target)):
       return None
   return command
 
