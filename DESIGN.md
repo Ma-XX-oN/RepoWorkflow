@@ -92,8 +92,11 @@ The consumer owns how its own operations work, including:
 
 ## 4. Universal CI request guard
 
-`.ci/run-ci-request` is part of the authoritative validation contract in every
-execution environment.  It is not merely a GitHub trigger file.
+`.ci/run-ci-request` is legacy exact-candidate bookkeeping in the validation
+contract, not the current GitHub on-demand trigger. The implemented on-demand
+workflow invokes on `.ci/run` changes pushed to `issue-*` branches. `.ci/rwf`
+is a proposed future name only; separate CI workflows have independent
+triggers. See [CI_INVOCATION_CONTRACT.md](CI_INVOCATION_CONTRACT.md).
 
 Before an authoritative validation run begins, RepoWorkflow must establish all
 of the following:
@@ -115,9 +118,10 @@ If authoritative tag state cannot be established because the remote, network,
 credentials, or required history is unavailable, eligibility is INCOMPLETE.
 RepoWorkflow must never infer "untagged" from stale or unavailable evidence.
 
-On GitHub, modification of `.ci/run-ci-request` is additionally the explicit
-request to spend the expensive CI quota.  Manual dispatch may be supported as
-another explicit request, but it must pass the same universal guard.
+The implemented on-demand GitHub workflow runs only when `.ci/run` changes
+on an `issue-*` branch. Changing `.ci/run-ci-request` does not trigger it.
+This legacy bookkeeping guard is separate from hosted stage invocation;
+other workflows must be assessed against their own trigger filters.
 
 ## 5. Version contract
 
