@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - issue-699-mit-controller-assembly
+    paths:
+      - '.ci/run'
   workflow_dispatch:
 
 permissions:
