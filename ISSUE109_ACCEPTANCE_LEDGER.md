@@ -239,3 +239,13 @@ PR: #680 (draft; no merge). Security #85/#86 remain deferred.
    executor, verify source-to-landed terminal/promotion and #583 oracles.
 6. Handoff exact provider/test evidence without merging, claiming #583/#677,
    publishing stable release tags or activating deferred security #85/#86.
+
+## 2026-10-31 — continuation after CI-trigger documentation reconciliation
+
+- Current #109 accepted-assembly branch HEAD: `f927dbff3821d91abf91a0b4a72fbe9b926e224c` at this read.
+- The implemented on-demand adapter (`.github/workflows/on-demand-ci.yml`) is gated on `.ci/run` changes to `issue-*` branches. Four extra #109 verification workflows on the consolidation branch were corrected to require `.ci/run` rather than ordinary pushes or their own workflow-file change.
+- The branch carries the measured test-only elimination of duplicate imported `PrelimAttemptTests` (111 unique identities versus 155 duplicate-discovery executions); prior native evidence is recorded in #109 comments, notably runs 41226128896 and 41226227895. These are earlier exact source experiments, **not** full acceptance of this branch HEAD.
+- Added `tests/test_ci_invocation_trigger_contract.py` to guard the on-demand and issue-109 push path filters against returning to unrestricted push testing. An isolated two-workflow fixture passed; broadening a fixture path filter was rejected. This fixture is not full-repository CI evidence; exact-current branch native execution still pending.
+- Existing native runs 41227150581 and 41227396552 checked while running: each had five of six matrix jobs successful; each full Windows regression job remained in progress at that observation. Their native workflow explicitly checks out accepted product `59b4d62ef2c38a5cd53cfbe03f937c27aedcbc90`; do not treat their completion as proof of later consolidation commits.
+- Source-read of `repo_workflow/public_cli.py` confirms `handle_public(..., done_executor=None)` delegates to `execute_done_command(... trusted_executor=done_executor)`. There is no default trusted service binding at this entry point. `repo_workflow/done_cli.py` rejects a missing executor; functional native production DONE remains **INCOMPLETE**. Do not fabricate a provider authorization or treat fail-closed behavior as successful integration.
+- Remaining acceptance: current exact source three-OS broad suite with genuine tested SHA; independent ART/AIT/release/MIT issuer and provider artifact/readback; trusted default done executor and globally authoritative lifecycle state; fresh current-destination CAS, full source-to-landed proof; #583 and #677 independent oracle/certification. No production merge, tag, ruleset or approval changes authorized by this note.
