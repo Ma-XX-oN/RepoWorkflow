@@ -8,7 +8,8 @@ The authoritative repository catalogue is `.ci/tests.json`.
 
 The executable stage vocabulary is **RED, GREEN, temporary, regression, and
 integration**. Catalogue group metadata uses `type: regression` or
-`type: integration` for retained suites. `type: invariant` is invalid:
+`type: integration` for retained automated suites, and `type: manual` only
+for separately authorized manual integration cases. `type: invariant` is invalid:
 an invariant is a requirement being tested, not a separate RWF execution
 stage. Issue-specific RED/GREEN selectors are named `issue-<number>-...`;
 the optional temporary catalogue is `.ci/temp-tests.json`. Do not infer
