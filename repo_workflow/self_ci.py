@@ -86,11 +86,18 @@ def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
   except ManualCatalogueError as error:
     raise SelfCiError("manual test catalogue invalid: " + str(error)) from error
   catalogue = load_test_catalogue(root)
+  # RED probes remain explicitly selectable by rwf test RED, but not by
+  # automatic issue CI or retained regression/integration verification.
+  records = _group_records(root)
+  red_names = {
+    name for name, (_, metadata) in records.items()
+    if metadata.get("lifecycle") == "RED"
+  }
   prefix = f"issue-{issue}-"
   # Manual cases share the catalogue, but are never runnable CI commands.
   owned = tuple(sorted(
     group for group in catalogue.groups
-    if group.startswith(prefix) and group not in manual_names
+    if group.startswith(prefix) and group not in manual_names and group not in red_names
   ))
   if not owned:
     raise SelfCiError(
