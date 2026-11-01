@@ -281,3 +281,31 @@ RepoWorkflow change without waiting for separate user merge authorization.
 This exception applies only to the RepoWorkflow repository and must not be
 inherited by consumer repositories.
 
+
+## 19. Consumer integration execution and evidence
+
+The public `rwf test integration` stage in a consumer repository is distinct
+from RWF's own self-integration probes. The consumer must provide its canonical
+`.ci/repoworkflow.json` environment validation adapter, and the retained
+`.ci/tests.json` catalogue must contain an explicit `type: integration`
+target. Regression-only test coverage is insufficient.
+
+Integration executes the required consumer environment checks and then all
+retained regression and integration catalogue groups. An environment FAIL or
+INCOMPLETE prevents integration group execution and cannot produce an
+integration PASS. Group failures, dirty input, changed source identity,
+missing manual approval, and nonreusable evidence prevent integration terminal
+publication. Results are append-only, bound to the exact candidate and
+canonical development version.
+
+Regression and integration terminal results use **distinct development
+versions**. A regression result under a version does not authorize publishing
+integration evidence under that same version: the repository-owned version
+adapter must make a fresh `task --increment CI-iteration` transition and
+commit that change before the integration candidate is validated. The new
+candidate is retested. A local one-platform consumer PASS is not a substitute
+for required hosted environments, provider-stage acceptance, or an authorized
+`rwf done` executor.
+
+The engine checkout continues to use its own integration probes; consumer
+adapters must not silently substitute those probes for consumer tests.
