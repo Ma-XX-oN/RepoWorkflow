@@ -64,11 +64,11 @@ def prepare_engine_request(
       transition_engine_version(
         root, operation="task --increment merge-integration-failed",
       )
-    elif stage == "regression" and _remote_tag(
-      root, remote, plan_phase(
-        version, phase="regression", outcome="FAIL",
-      ).terminal_tag,
-    ):
+    elif stage == "regression" and any(_remote_tag(
+      root, remote, plan_phase(version, phase=phase, outcome=outcome).terminal_tag,
+    ) for phase, outcome in (
+      ("regression", "FAIL"), ("integration", "PASS"),
+    )):
       transition_engine_version(
         root, operation="task --increment CI-iteration",
       )
