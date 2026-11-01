@@ -342,8 +342,7 @@ def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
 ) -> int:
-  if stage == "results":
-    return results(root, remote=remote)
+  if stage == "results": return results(root, remote=remote)
   if stage not in STAGES:
     raise TestCommandError("unknown test stage")
   if stage == "RED":
@@ -401,8 +400,7 @@ def run_test(
     return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    if (root.resolve() == engine_root.resolve()
-        and (root / "VERSION").is_file()
+    if (root.resolve() == engine_root.resolve() and (root / "VERSION").is_file()
         and not hosted_candidate_bound(root)):
       match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
       if match is None:
