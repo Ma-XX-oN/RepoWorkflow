@@ -28,6 +28,8 @@ def run_consumer_integration(
   catalogue = json.loads((root / ".ci" / "tests.json").read_text(encoding="utf-8"))
   if not any(
     isinstance(spec, dict) and spec.get("type") == "integration"
+    and spec.get("lifecycle") != "RED"
+    and name in groups
     for declaration in catalogue["tests"]
     for name, spec in declaration.items()
     if name not in {"test-harness", "command"}
