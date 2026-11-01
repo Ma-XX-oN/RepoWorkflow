@@ -1,0 +1,28 @@
+name: RWF 109 assembly version identity preparation
+on:
+  push:
+    branches: [issue-109-accepted-assembly-20261030]
+    paths: [.ci/issue-109-version-prep]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run canonical integration version preparation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python repo_workflow.py --root . test integration --remote
+          git show HEAD^:.ci/engine-version
+          git show HEAD:.ci/engine-version
+          git show HEAD:.ci/run
+          git status --porcelain
