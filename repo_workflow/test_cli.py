@@ -418,6 +418,9 @@ def run_test(
         verifier=verify_local,
         manual_check=after_automatic_integration,
         publish=publish_if_local if hosted_candidate_bound(root) else publish_local_terminal,
+        get_version=lambda consumer: __import__(
+          'repo_workflow.version_adapter', fromlist=['read_development_version']
+        ).read_development_version(consumer, load_config(consumer)),
       )
     rc = run_local_integration(root, engine_root=engine_root)
     if rc == 0 and after_automatic_integration(root) != 0:
