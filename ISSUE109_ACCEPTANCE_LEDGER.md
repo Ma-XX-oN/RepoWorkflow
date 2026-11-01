@@ -475,8 +475,9 @@ accepted #109 assembly branch, not merged to main.
 - **PENDING exact-final proof:** official RWF regression request
   Actions 41263299633 at invocation 9207309e28503674853ec428a6568dc938b0caeb
   targets clean product source `098f94c109ca3d216d842dfb393521bef543345e`.
-  Follow-up changes to product code and catalogue were made after this
-  source, so a later exact-revision run is required for final acceptance.
+  The product code and catalogue changes were committed before this source;
+  the present ledger-only update follows it. Final acceptance still requires
+  a completed provider run bound to the correct source revision.
 - **NOT MET:** independently authenticated release/MIT issuer, trusted
   default `done` runtime, READY/CAS/retirement/promotion/canonical lifecycle
   live acceptance, #703 MIT negative provider certification, #583/#677
