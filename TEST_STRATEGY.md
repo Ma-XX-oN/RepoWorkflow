@@ -92,6 +92,11 @@ registered targets, deduplicates native module identities, and records exact
 catalogue/source identity. See [TEST_CATALOGUE.md](TEST_CATALOGUE.md).
 No standalone discovery run substitutes for RWF published evidence.
 
+Consumer-repository integration, separate versioned regression/integration
+candidates, and the authoritative environment adapter are specified in
+[WORKFLOW_INTEGRATION.md §19](WORKFLOW_INTEGRATION.md#19-consumer-integration-execution-and-evidence).
+
+
 ## 2. Cross-cutting tests
 
 These tests apply across implementation stages.
