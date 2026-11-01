@@ -1,0 +1,28 @@
+name: RWF #109 consumer adapter focused acceptance
+on:
+  push:
+    branches:
+      - issue-109-consumer-integration-adapter-20261031
+    paths:
+      - .ci/issue-109-consumer-run
+permissions:
+  contents: read
+jobs:
+  consumer-adapter:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Python source compile and exact focused tests
+        run: |
+          python -m py_compile repo_workflow/test_cli.py repo_workflow/test_consumer_integration.py tests/test_consumer_integration_adapter.py
+          python -m unittest -v tests.test_consumer_integration_adapter tests.test_local_integration
