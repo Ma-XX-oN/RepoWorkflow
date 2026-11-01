@@ -15,7 +15,7 @@ from .test_results_reader import TestCommandError
 
 def run_consumer_integration(
   root: Path, *, engine_root: Path, run_groups, verify, verifier,
-  manual_check, publish,
+  manual_check, publish, get_version,
 ) -> int:
   root = root.resolve()
   if root == engine_root.resolve():
@@ -56,6 +56,14 @@ def run_consumer_integration(
     raise TestCommandError("consumer integration evidence is not reusable")
   if manual_check(root) != 0:
     return 2
+  version = get_version(root)
+  if not isinstance(version, str) or not version.strip():
+    raise TestCommandError("consumer integration version is unavailable")
+  terminal = dict(record)
+  terminal["testVersion"] = version
+  terminal["sourceSHA"] = candidate
+  with path.open("a", encoding="utf-8") as handle:
+    handle.write(json.dumps(terminal, sort_keys=True) + "\\n")
   publish(root, stage="integration")
   return 0
 
