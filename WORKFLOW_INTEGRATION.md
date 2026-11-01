@@ -311,3 +311,9 @@ for required hosted environments, provider-stage acceptance, or an authorized
 
 The engine checkout continues to use its own integration probes; consumer
 adapters must not silently substitute those probes for consumer tests.
+
+The engine's on-demand version preparation likewise advances an iteration
+when a prior regression PASS or integration PASS consumed that version for the
+opposite phase; immutable terminal evidence cannot be reassigned across
+phases or source candidates. The transition is made by the engine version
+adapter before the dedicated `.ci/run` request, not by moving terminal tags.
