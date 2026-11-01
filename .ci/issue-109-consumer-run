@@ -5,3 +5,4 @@ Correct JSONL terminal separator and engine negative test fixture.
 Include original public test-CLI contract regression on all native OS.
 Verify exact latest consumer adapter plus documentation source revision.
 Verify retained integration GREEN requirement and RED-only negative oracle.
+Validate separate automatic and manual-completed integration terminal records.
