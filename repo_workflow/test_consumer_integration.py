@@ -41,7 +41,7 @@ def run_consumer_integration(
   if outcome != "PASS":
     return {"FAIL": 1, "INCOMPLETE": 2}[outcome]
   candidate = head_sha(root)
-  result = run_groups(root, "integration", groups)
+  result = run_groups(root, "integration-automatic", groups)
   if result != 0:
     return result
   path = root / ".repoworkflow" / "validation" / (
@@ -52,7 +52,7 @@ def run_consumer_integration(
   except (OSError, ValueError, IndexError) as error:
     raise TestCommandError("consumer integration evidence unavailable") from error
   if (
-    record.get("kind") != "integration"
+    record.get("kind") != "integration-automatic"
     or record.get("testSHA") != candidate
     or record.get("result") != "succeeded"
     or record.get("reusable") is not True
@@ -66,6 +66,7 @@ def run_consumer_integration(
   if not isinstance(version, str) or not version.strip():
     raise TestCommandError("consumer integration version is unavailable")
   terminal = dict(record)
+  terminal["kind"] = "integration"
   terminal["testVersion"] = version
   terminal["sourceSHA"] = candidate
   with path.open("a", encoding="utf-8") as handle:
