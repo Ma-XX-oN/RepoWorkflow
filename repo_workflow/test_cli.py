@@ -27,6 +27,7 @@ from .terminal_tag import publish_terminal_tag
 from .local_terminal import publish_local_terminal, verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
+from .version_adapter import read_development_version
 from .test_hosted_candidate import hosted_candidate_bound, publish_if_local
 from .test_worktree import tracked_input_changes
 from .manual_test_cli import after_automatic_integration
@@ -418,9 +419,9 @@ def run_test(
         verifier=verify_local,
         manual_check=after_automatic_integration,
         publish=publish_if_local if hosted_candidate_bound(root) else publish_local_terminal,
-        get_version=lambda consumer: __import__(
-          'repo_workflow.version_adapter', fromlist=['read_development_version']
-        ).read_development_version(consumer, load_config(consumer)),
+        get_version=lambda consumer: read_development_version(
+          consumer, load_config(consumer),
+        ),
       )
     rc = run_local_integration(root, engine_root=engine_root)
     if rc == 0 and after_automatic_integration(root) != 0:
