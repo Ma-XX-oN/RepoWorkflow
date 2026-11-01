@@ -127,6 +127,7 @@ class ConsumerIntegrationTests(unittest.TestCase):
         run_groups=self.groups, verify=self.verify,
         verifier=lambda *_: None, manual_check=self.manual,
         publish=self.publish,
+        get_version=lambda root: '1.2.3-issue.1.0.1',
       )
 
 
