@@ -341,6 +341,13 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
 
   def test_terminal_publication_is_blocked_until_mit_finishes(self):
     from repo_workflow.test_cli import run_test
+
+    def consumer_dispatch(root, **kwargs):
+      result = kwargs["manual_check"](root)
+      if result == 0:
+        kwargs["publish"](root, stage="integration")
+      return result
+
     with tempfile.TemporaryDirectory() as temp:
       root = Path(temp) / "work"
       root.mkdir()
@@ -348,8 +355,8 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
       engine.mkdir()
       with patch("repo_workflow.test_cli.current_branch",
                  return_value="issue-702-fixture"):
-        with patch("repo_workflow.test_cli.run_local_integration",
-                   return_value=0):
+        with patch("repo_workflow.test_consumer_integration.run_consumer_integration",
+                   side_effect=consumer_dispatch) as dispatch:
           with patch("repo_workflow.test_cli.after_automatic_integration",
                      return_value=2):
             with patch("repo_workflow.test_cli.publish_local_terminal") as pub:
@@ -364,6 +371,7 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
                 root, "integration", remote=False, engine_root=engine
               ), 0)
               pub.assert_called_once_with(root, stage="integration")
+          self.assertEqual(dispatch.call_count, 2)
 
   def test_legacy_nonmanual_catalogue_does_not_require_new_engine(self):
     with tempfile.TemporaryDirectory() as temp:
