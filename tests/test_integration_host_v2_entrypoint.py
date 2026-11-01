@@ -85,6 +85,7 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertFalse(self.backend.calls)
 
   def test_authorized_ref_cas_uses_configured_remote(self):
+    self.backend.refs[REF] = "b"*40
     calls = []
     request = dict(self.request, operation="ref.cas",
       parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
@@ -102,6 +103,7 @@ class V2EntrypointTests(unittest.TestCase):
                               REF, "b"*40, SHA)])
 
   def test_cas_rejects_repository_scope_failure_before_git(self):
+    self.backend.refs[REF] = "b"*40
     request = dict(self.request, operation="ref.cas",
       parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
     attempted = []
