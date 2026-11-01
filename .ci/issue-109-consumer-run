@@ -2,3 +2,4 @@ focused integration adapter acceptance source af1fb6c42833571bb8268ac89aeb4599c9
 Retry TestCase.run collision fix.
 Verify authoritative version in consumer integration completion evidence.
 Correct JSONL terminal separator and engine negative test fixture.
+Include original public test-CLI contract regression on all native OS.
