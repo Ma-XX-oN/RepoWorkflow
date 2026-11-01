@@ -413,16 +413,12 @@ def run_test(
     if root.resolve() != engine_root.resolve():
       from .test_consumer_integration import run_consumer_integration
       return run_consumer_integration(
-        root, engine_root=engine_root,
-        run_groups=_run_group_set,
-        verify=verify_consumer_retry,
-        verifier=verify_local,
+        root, engine_root=engine_root, run_groups=_run_group_set,
+        verify=verify_consumer_retry, verifier=verify_local,
         manual_check=after_automatic_integration,
         publish=publish_if_local if hosted_candidate_bound(root) else publish_local_terminal,
         get_version=lambda consumer: read_development_version(
-          consumer, load_config(consumer),
-        ),
-      )
+          consumer, load_config(consumer)))
     rc = run_local_integration(root, engine_root=engine_root)
     if rc == 0 and after_automatic_integration(root) != 0:
       return 2
