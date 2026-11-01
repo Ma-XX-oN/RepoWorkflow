@@ -343,8 +343,7 @@ def run_test(
   group: str | None = None,
 ) -> int:
   if stage == "results": return results(root, remote=remote)
-  if stage not in STAGES:
-    raise TestCommandError("unknown test stage")
+  if stage not in STAGES: raise TestCommandError("unknown test stage")
   if stage == "RED":
     from .test_red_runner import record_red
     selected = select_group(root, group) if group else read_selection(root)
@@ -375,8 +374,7 @@ def run_test(
       dirty_inputs=_uncommitted_inputs,
       expectation=expectation, declaration_error=declaration_error,
     )
-  if group is not None:
-    raise TestCommandError("test group is only supported for RED")
+  if group is not None: raise TestCommandError("test group is only supported for RED")
   if stage == "GREEN":
     selected = read_selection(root)
     if selected is None:
