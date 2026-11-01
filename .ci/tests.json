@@ -394,6 +394,10 @@
         "type": "regression",
         "name": "tests.test_consumer_integration_adapter"
       },
+      "issue-109-ref-cas-identity": {
+        "type": "regression",
+        "name": "tests.test_issue_109_ref_cas_request_identity"
+      },
       "issue-109-provider-pipeline": {
         "type": "regression",
         "name": "tests.test_done_provider_pipeline"
