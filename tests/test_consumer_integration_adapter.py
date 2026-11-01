@@ -18,6 +18,7 @@ class ConsumerIntegrationTests(unittest.TestCase):
     self.addCleanup(self.temp.cleanup)
     self.root = Path(self.temp.name)
     (self.root / ".ci").mkdir()
+    (self.root / ".ci/repoworkflow.json").write_text("{}")
     (self.root / ".repoworkflow/validation").mkdir(parents=True)
     self.catalogue = {
       "test-harnesses": {"unittest": {"command": "python", "layout": [
@@ -107,6 +108,12 @@ class ConsumerIntegrationTests(unittest.TestCase):
     with self.assertRaisesRegex(TestCommandError, "not reusable"):
       self.execute_adapter()
     self.assertEqual(self.calls, ["verify", "groups"])
+
+  def test_missing_environment_adapter_fails_closed(self):
+    (self.root / ".ci/repoworkflow.json").unlink()
+    with self.assertRaisesRegex(TestCommandError, "environment adapter"):
+      self.execute_adapter()
+    self.assertEqual(self.calls, [])
 
   def test_no_integration_tests_rejected_before_environment(self):
     self.catalogue["tests"].pop()
