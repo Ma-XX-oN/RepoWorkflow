@@ -122,6 +122,13 @@ class ConsumerIntegrationTests(unittest.TestCase):
       self.execute_adapter()
     self.assertEqual(self.calls, [])
 
+  def test_red_only_integration_group_does_not_satisfy_stage(self):
+    self.catalogue["tests"][-1]["issue-1-integration"]["lifecycle"] = "RED"
+    self._catalogue()
+    with self.assertRaisesRegex(TestCommandError, "registered integration tests"):
+      self.execute_adapter()
+    self.assertEqual(self.calls, [])
+
   def test_missing_manual_approval_does_not_publish(self):
     self.manual = lambda root: 2
     self.assertEqual(self.execute_adapter(), 2)
