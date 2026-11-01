@@ -295,7 +295,9 @@ retained regression and integration catalogue groups. An environment FAIL or
 INCOMPLETE prevents integration group execution and cannot produce an
 integration PASS. Group failures, dirty input, changed source identity,
 missing manual approval, and nonreusable evidence prevent integration terminal
-publication. Results are append-only, bound to the exact candidate and
+publication. Automatic group observations use a nonterminal
+`integration-automatic` kind; only after all manual gates pass may an
+append-only `integration` terminal record be written. Results are append-only, bound to the exact candidate and
 canonical development version.
 
 Regression and integration terminal results use **distinct development
