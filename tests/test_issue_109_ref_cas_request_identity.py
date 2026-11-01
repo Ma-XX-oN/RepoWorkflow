@@ -49,7 +49,7 @@ class CasRequestIdentityTests(unittest.TestCase):
     self.backend = Backend()
     self.calls = []
 
-  def request(self, request_id, *, old=OLD, new=NEW, verify=None):
+  def request(self, request_id, *, old=OLD, new=NEW, verify=None, scope=None):
     payload = {
       "schema_version": 2,
       "repository": self.backend.repository,
@@ -68,7 +68,7 @@ class CasRequestIdentityTests(unittest.TestCase):
       verify=verify or (lambda request, backend: {"decision": "allow"}),
       config_reader=lambda root: {
         "repository": {"authoritativeRemote": "origin"}},
-      verify_remote_scope=lambda root, remote, backend: "trusted-endpoint",
+      verify_remote_scope=scope or (lambda root, remote, backend: "trusted-endpoint"),
       cas_write=cas_write,
     )
 
@@ -99,6 +99,15 @@ class CasRequestIdentityTests(unittest.TestCase):
     self.request("req-1")
     with self.assertRaises(IntegrationHostError):
       self.request("req-1", old="c" * 40, new="d" * 40)
+
+  def test_foreign_remote_denied_before_reservation_or_cas(self):
+    def deny_scope(root, remote, backend):
+      raise IntegrationHostError("repository scope differs")
+    with self.assertRaisesRegex(IntegrationHostError, "repository"):
+      self.request("req-bad-remote", scope=deny_scope)
+    self.assertEqual(self.backend.reservations, {})
+    self.assertEqual(self.backend.sha, OLD)
+    self.assertEqual(self.calls, [])
 
   def test_unauthorized_request_does_not_reserve_or_mutate(self):
     def deny(request, backend):
