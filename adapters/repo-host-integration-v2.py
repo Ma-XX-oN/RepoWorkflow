@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from repo_host_github_authority import authorize
 from repo_host_github_integration import (
   IntegrationProviderError, create_int_attempt, inventory_ready_refs,
-  cas_int_attempt_git,
+  cas_int_attempt_git, _read_ref,
 )
 from repo_host_github_provider import GitHubBackend, ProviderError
 from repo_host_github_integration_terminal import (
@@ -152,7 +152,16 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       remote = config["repository"]["authoritativeRemote"]
       if operation == "lease.cas":
         return lease_write(backend, value, root, remote)
+      # Validate the authenticated remote before any durable reservation.
       endpoint = verify_remote_scope(root, remote, backend)
+      # A matching new SHA is NOT proof that a different stale request won.
+      # Only the exact reserved request can reconcile a lost ACK.
+      fresh = backend.reserve(value)
+      observed = _read_ref(backend, params["ref"])
+      if not fresh and observed == params["sha"]:
+        return "unchanged", {"ref": params["ref"], "sha": params["sha"]}
+      if observed != params["expected_sha"]:
+        raise IntegrationHostError("stale INT-ATTEMPT CAS expected SHA")
       return "applied", cas_write(
         root, endpoint, params["ref"], params["expected_sha"], params["sha"])
     return create_int_attempt(backend, value, authorized=True)
