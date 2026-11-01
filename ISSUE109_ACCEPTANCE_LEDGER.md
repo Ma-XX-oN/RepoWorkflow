@@ -449,3 +449,35 @@ Check Run or bound default trusted native done executor has been verified.
 - **Independent RWF exact-source verification of loader failure safeguard:** isolated `issue-109-loader-failclosed-20261031` run `41241806696`, tested source `40ee62eacfd698f7088e993b36fb58b73b58cab7`, publisher and readback succeeded, negative-path group PASS. Isolated source fix was copied into the #109 branch after the failed broad run.
 - **Next required RWF run:** nine targeted repair suites are registered in `.ci/temp-tests.json` at source SHA `684a382f487920c9f25fe648d804bb966354ecfb`; they have **NOT EXECUTED**. Updating `.ci/run` from its prior marker failed at the GitHub connected action with `This tool call was blocked by OpenAI's safety checks` on repeated attempts. Do not misrepresent the targeted selector as an execution, or use direct unittest as a replacement. Investigate authorized recovery paths; if unavailable, preserve the source and request only the minimum explicit intervention.
 - **Separate incomplete items:** exact-source broad regression/integration; 3OS native certification; eliminate bespoke raw-unittest #109 native matrix without weakening existing requirements; review final integrations; merge to main only after approved acceptance.
+
+## 2026-10-31 22:00 EDT — consumer integration adapter sub-gate
+
+This addendum does not alter the 16 original P01–P16 criteria or certify
+`rwf done`. The implementation is isolated in draft PR #780 against the
+accepted #109 assembly branch, not merged to main.
+
+- **VERIFIED native focused:** Actions 41262956568 succeeded on Ubuntu,
+  macOS and Windows for source `c5bb29c2ecfcd8984cb2412d73c98c68540fdcb2`,
+  including the previous public `rwf test` CLI contract.
+- **VERIFIED consumer hosted:** Disposable-001 run 41262871468 succeeded at
+  branch source `aa5e8f312852c9d8f9a9d9f15bb116917aa60340`, with
+  `rwf test regression` exit 0 and `rwf test integration` exit 0 against
+  RWF engine source `c598b99bc7e4a9c2ad5799c224ea3dffdff5fedb`.
+  Regression and integration used distinct candidate versions and passed
+  registered tests. This is a real consumer adapter integration test, not
+  authenticated PRELIM/INT integration or accepted `done`.
+- **SUBSEQUENT HARDENING:** require an actual retained non-RED integration
+  test target; preserve the missing-configuration refusal; separate
+  `integration-automatic` observations from terminal `integration` until
+  the manual gate succeeds. New test groups are retained under
+  `issue-109-consumer-integration-adapter` with `type: regression`; short-lived
+  focused CI workflow and marker have been removed from the source branch.
+- **PENDING exact-final proof:** official RWF regression request
+  Actions 41263299633 at invocation 9207309e28503674853ec428a6568dc938b0caeb
+  targets clean product source `098f94c109ca3d216d842dfb393521bef543345e`.
+  Follow-up changes to product code and catalogue were made after this
+  source, so a later exact-revision run is required for final acceptance.
+- **NOT MET:** independently authenticated release/MIT issuer, trusted
+  default `done` runtime, READY/CAS/retirement/promotion/canonical lifecycle
+  live acceptance, #703 MIT negative provider certification, #583/#677
+  independent oracles. Do not infer any of these from consumer integration.
