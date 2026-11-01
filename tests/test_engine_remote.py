@@ -120,10 +120,17 @@ class EngineRemotePreparationTests(unittest.TestCase):
       prepare_engine_request(self.root, stage="regression", issue=573)
     self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
 
-  def test_integration_pass_never_increments_regression_r(self):
+  def test_integration_pass_consumes_version_for_new_regression(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.0.1")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.0.2")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.0.2")
+
+  def test_regression_pass_consumes_version_for_new_integration(self):
     self.prepare()
     self.publish("v0.1.121-issue.572.0.1")
-    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.0.1")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.0.2")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.0.2")
 
   def test_invalid_stage_and_issue_never_change_history(self):
     original = self.git("rev-parse", "HEAD")

@@ -27,6 +27,7 @@ from .terminal_tag import publish_terminal_tag
 from .local_terminal import publish_local_terminal, verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
+from .version_adapter import read_development_version
 from .test_hosted_candidate import hosted_candidate_bound, publish_if_local
 from .test_worktree import tracked_input_changes
 from .manual_test_cli import after_automatic_integration
@@ -341,10 +342,8 @@ def run_test(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
 ) -> int:
-  if stage == "results":
-    return results(root, remote=remote)
-  if stage not in STAGES:
-    raise TestCommandError("unknown test stage")
+  if stage == "results": return results(root, remote=remote)
+  if stage not in STAGES: raise TestCommandError("unknown test stage")
   if stage == "RED":
     from .test_red_runner import record_red
     selected = select_group(root, group) if group else read_selection(root)
@@ -375,8 +374,7 @@ def run_test(
       dirty_inputs=_uncommitted_inputs,
       expectation=expectation, declaration_error=declaration_error,
     )
-  if group is not None:
-    raise TestCommandError("test group is only supported for RED")
+  if group is not None: raise TestCommandError("test group is only supported for RED")
   if stage == "GREEN":
     selected = read_selection(root)
     if selected is None:
@@ -400,15 +398,21 @@ def run_test(
     return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    if (
-      root.resolve() == engine_root.resolve()
-      and (root / "VERSION").is_file()
-      and not hosted_candidate_bound(root)
-    ):
+    if (root.resolve() == engine_root.resolve() and (root / "VERSION").is_file()
+        and not hosted_candidate_bound(root)):
       match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
       if match is None:
         raise TestCommandError("integration requires issue branch")
       prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+    if root.resolve() != engine_root.resolve():
+      from .test_consumer_integration import run_consumer_integration
+      return run_consumer_integration(
+        root, engine_root=engine_root, run_groups=_run_group_set,
+        verify=verify_consumer_retry, verifier=verify_local,
+        manual_check=after_automatic_integration,
+        publish=publish_if_local if hosted_candidate_bound(root) else publish_local_terminal,
+        get_version=lambda consumer: read_development_version(
+          consumer, load_config(consumer)))
     rc = run_local_integration(root, engine_root=engine_root)
     if rc == 0 and after_automatic_integration(root) != 0:
       return 2
