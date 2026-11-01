@@ -63,7 +63,7 @@ def run_consumer_integration(
   terminal["testVersion"] = version
   terminal["sourceSHA"] = candidate
   with path.open("a", encoding="utf-8") as handle:
-    handle.write(json.dumps(terminal, sort_keys=True) + "\\n")
+    handle.write(json.dumps(terminal, sort_keys=True) + "\n")
   publish(root, stage="integration")
   return 0
 
