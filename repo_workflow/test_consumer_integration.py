@@ -20,6 +20,10 @@ def run_consumer_integration(
   root = root.resolve()
   if root == engine_root.resolve():
     raise AssertionError("consumer adapter must not replace engine integration")
+  if not (root / ".ci" / "repoworkflow.json").is_file():
+    raise TestCommandError(
+      "consumer integration requires an authoritative environment adapter"
+    )
   groups = stage_groups(root, "integration")
   catalogue = json.loads((root / ".ci" / "tests.json").read_text(encoding="utf-8"))
   if not any(
