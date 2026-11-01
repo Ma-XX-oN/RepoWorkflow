@@ -67,7 +67,7 @@ class ConsumerIntegrationTests(unittest.TestCase):
     self.calls.append("publish")
     self.assertEqual(stage, "integration")
 
-  def run(self):
+  def execute_adapter(self):
     with (
       patch("repo_workflow.test_consumer_integration.head_sha", return_value=SHA),
       patch("repo_workflow.git.current_branch", return_value="issue-1-feature"),
@@ -80,40 +80,40 @@ class ConsumerIntegrationTests(unittest.TestCase):
       )
 
   def test_real_authority_and_both_retained_groups_required(self):
-    self.assertEqual(self.run(), 0)
+    self.assertEqual(self.execute_adapter(), 0)
     self.assertEqual(self.calls, ["verify", "groups", "manual", "publish"])
 
   def test_environment_fail_never_executes_groups(self):
     self.verify_result = "FAIL"
-    self.assertEqual(self.run(), 1)
+    self.assertEqual(self.execute_adapter(), 1)
     self.assertEqual(self.calls, ["verify"])
 
   def test_environment_incomplete_never_executes_groups(self):
     self.verify_result = "INCOMPLETE"
-    self.assertEqual(self.run(), 2)
+    self.assertEqual(self.execute_adapter(), 2)
     self.assertEqual(self.calls, ["verify"])
 
   def test_integration_group_failure_never_publishes(self):
     self.group_result = 1
-    self.assertEqual(self.run(), 1)
+    self.assertEqual(self.execute_adapter(), 1)
     self.assertEqual(self.calls, ["verify", "groups"])
 
   def test_nonreusable_evidence_fails_closed(self):
     self.reusable = False
     with self.assertRaisesRegex(TestCommandError, "not reusable"):
-      self.run()
+      self.execute_adapter()
     self.assertEqual(self.calls, ["verify", "groups"])
 
   def test_no_integration_tests_rejected_before_environment(self):
     self.catalogue["tests"].pop()
     self._catalogue()
     with self.assertRaisesRegex(TestCommandError, "registered integration tests"):
-      self.run()
+      self.execute_adapter()
     self.assertEqual(self.calls, [])
 
   def test_missing_manual_approval_does_not_publish(self):
     self.manual = lambda root: 2
-    self.assertEqual(self.run(), 2)
+    self.assertEqual(self.execute_adapter(), 2)
     self.assertEqual(self.calls, ["verify", "groups"])
 
   def test_engine_route_is_not_consumer_adapter(self):
