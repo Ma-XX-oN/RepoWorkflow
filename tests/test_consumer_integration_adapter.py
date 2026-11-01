@@ -51,7 +51,7 @@ class ConsumerIntegrationTests(unittest.TestCase):
     self.calls.append("groups")
     if self.group_result == 0:
       record = {
-        "kind": "integration", "testSHA": SHA,
+        "kind": "integration-automatic", "testSHA": SHA,
         "result": "succeeded", "reusable": self.reusable,
         "groups": [{"group": name, "exit_code": 0} for name in selected],
       }
@@ -87,6 +87,8 @@ class ConsumerIntegrationTests(unittest.TestCase):
     rows = (self.root / '.repoworkflow/validation/testResults-1.jsonl').read_text().splitlines()
     self.assertEqual(len(rows), 2)
     self.assertEqual(json.loads(rows[-1])['testVersion'], '1.2.3-issue.1.0.1')
+    self.assertEqual([json.loads(line)['kind'] for line in rows],
+                     ['integration-automatic', 'integration'])
 
   def test_environment_fail_never_executes_groups(self):
     self.verify_result = "FAIL"
@@ -128,6 +130,18 @@ class ConsumerIntegrationTests(unittest.TestCase):
     with self.assertRaisesRegex(TestCommandError, "registered integration tests"):
       self.execute_adapter()
     self.assertEqual(self.calls, [])
+
+  def test_manual_pending_leaves_automatic_observation_only(self):
+    self.manual = lambda root: 2
+    self.assertEqual(self.execute_adapter(), 2)
+    records = [
+      json.loads(line) for line in (
+        self.root / ".repoworkflow/validation/testResults-1.jsonl"
+      ).read_text().splitlines()
+    ]
+    self.assertEqual([row["kind"] for row in records],
+                     ["integration-automatic"])
+    self.assertNotIn("publish", self.calls)
 
   def test_missing_manual_approval_does_not_publish(self):
     self.manual = lambda root: 2
