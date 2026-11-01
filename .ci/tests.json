@@ -390,6 +390,10 @@
         "type": "regression",
         "name": "tests.test_local_terminal"
       },
+      "issue-109-consumer-integration-adapter": {
+        "type": "regression",
+        "name": "tests.test_consumer_integration_adapter"
+      },
       "issue-109-provider-pipeline": {
         "type": "regression",
         "name": "tests.test_done_provider_pipeline"
