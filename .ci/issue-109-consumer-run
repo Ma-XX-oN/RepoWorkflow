@@ -1,2 +1,3 @@
 focused integration adapter acceptance source af1fb6c42833571bb8268ac89aeb4599c9d5bca3
 Retry TestCase.run collision fix.
+Verify authoritative version in consumer integration completion evidence.
