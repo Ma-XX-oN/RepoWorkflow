@@ -482,3 +482,36 @@ accepted #109 assembly branch, not merged to main.
   default `done` runtime, READY/CAS/retirement/promotion/canonical lifecycle
   live acceptance, #703 MIT negative provider certification, #583/#677
   independent oracles. Do not infer any of these from consumer integration.
+
+## 2026-11-01 03:02 UTC — exact-source official integration PASS
+
+A prior integration run (41264971954) completed with validation FAIL due
+solely to a stale manual-integration presentation fixture invoking the former
+engine-only integration dispatcher. All nine native probes passed in that run.
+The fixture now invokes the consumer adapter and proves that pending MIT
+prevents terminal publication; native Linux/macOS/Windows focused run
+41266570145 passed. The temporary focused workflow was removed.
+
+The failed integration version `0.1.122-issue.109.1.20` remains an immutable
+CI-FAIL. RWF-owned version recovery run 41266685427 succeeded and advanced
+to `0.1.122-issue.109.2.0`, followed by removal of its temporary workbench.
+The official integration request then ran against exact source
+`fd5c5653c14d438f0b0243afd5907ab0cc5424bb`, invocation
+`ad2563c8f968bb44014255bbde7c7c69b45fe40a`.
+
+**VERIFIED:** GitHub Actions run 41266730777 completed SUCCESS: plan,
+broad validation, publisher, results, and graph-renderer, argv-limits and
+ticket-merge platform probes on Linux/macOS/Windows (9/9). The provider
+published canonical result `integration/succeeded`, runId 41266730777,
+tested SHA `fd5c5653c14d438f0b0243afd5907ab0cc5424bb`, version
+`0.1.122-issue.109.2.0`, and immutable terminal tag
+`v0.1.122-PRELIM-109.2.0`. The exact-source regression terminal
+`v0.1.122-issue.109.1.19` was previously verified from run 41264506495.
+
+**NOT CERTIFIED:** Native default `rwf done` is still not bound to an
+independently authenticated provider executor; current-release and MIT Check
+Runs/READY/CAS/ref retirement/source-to-landed/canonical lifecycle and
+independent #703/#583/#677 certification remain outstanding. The two
+terminal tags belong to distinct versions/source revisions and are not
+a substitute for a single final assembled/certified candidate. P01/P02
+remain procedural PASS; P03-P16 remain incomplete for final #109 DONE.
