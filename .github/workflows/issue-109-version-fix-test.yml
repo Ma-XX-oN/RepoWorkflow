@@ -1,0 +1,23 @@
+name: Issue 109 assembled version collision focused native checks
+on:
+  push:
+    branches: [issue-109-accepted-assembly-20261030]
+    paths: [.ci/issue-109-version-fix-test]
+permissions:
+  contents: read
+jobs:
+  version:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m py_compile repo_workflow/engine_remote.py tests/test_engine_remote.py
+      - run: python -m unittest -v tests.test_engine_remote tests.test_source_size
