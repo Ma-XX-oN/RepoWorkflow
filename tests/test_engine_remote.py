@@ -126,6 +126,12 @@ class EngineRemotePreparationTests(unittest.TestCase):
     self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.0.2")
     self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.0.2")
 
+  def test_integration_pass_consumes_version_for_new_integration(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.0.1")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.0.2")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.0.2")
+
   def test_regression_pass_consumes_version_for_new_integration(self):
     self.prepare()
     self.publish("v0.1.121-issue.572.0.1")
