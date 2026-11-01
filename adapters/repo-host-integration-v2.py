@@ -152,16 +152,16 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       remote = config["repository"]["authoritativeRemote"]
       if operation == "lease.cas":
         return lease_write(backend, value, root, remote)
+      # Validate the authenticated remote before any durable reservation.
+      endpoint = verify_remote_scope(root, remote, backend)
       # A matching new SHA is NOT proof that a different stale request won.
-      # Reserve the exact request before testing the provider's current ref:
-      # only a replay of that same immutable request can reconcile a lost ACK.
+      # Only the exact reserved request can reconcile a lost ACK.
       fresh = backend.reserve(value)
       observed = _read_ref(backend, params["ref"])
       if not fresh and observed == params["sha"]:
         return "unchanged", {"ref": params["ref"], "sha": params["sha"]}
       if observed != params["expected_sha"]:
         raise IntegrationHostError("stale INT-ATTEMPT CAS expected SHA")
-      endpoint = verify_remote_scope(root, remote, backend)
       return "applied", cas_write(
         root, endpoint, params["ref"], params["expected_sha"], params["sha"])
     return create_int_attempt(backend, value, authorized=True)
