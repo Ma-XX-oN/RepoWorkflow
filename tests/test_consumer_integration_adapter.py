@@ -77,11 +77,15 @@ class ConsumerIntegrationTests(unittest.TestCase):
         run_groups=self.groups, verify=self.verify,
         verifier=lambda *_: None, manual_check=self.manual,
         publish=self.publish,
+        get_version=lambda root: '1.2.3-issue.1.0.1',
       )
 
   def test_real_authority_and_both_retained_groups_required(self):
     self.assertEqual(self.execute_adapter(), 0)
     self.assertEqual(self.calls, ["verify", "groups", "manual", "publish"])
+    rows = (self.root / '.repoworkflow/validation/testResults-1.jsonl').read_text().splitlines()
+    self.assertEqual(len(rows), 2)
+    self.assertEqual(json.loads(rows[-1])['testVersion'], '1.2.3-issue.1.0.1')
 
   def test_environment_fail_never_executes_groups(self):
     self.verify_result = "FAIL"
