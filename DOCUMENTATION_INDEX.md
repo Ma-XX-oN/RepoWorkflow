@@ -8,6 +8,8 @@ This map does not replace task acceptance, ticket ownership or approval gates.
 ## Solve a problem
 
 1. [Engineering overview](BEST_PRACTICES.md): investigate, design and verify.
+   Follow [design principles](DESIGN_PRINCIPLES.md) for reuse, wrappers and
+   separation of command logic from execution transport.
 2. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
 3. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
    workbench on any authorised CI provider when local tools lack dependencies.
