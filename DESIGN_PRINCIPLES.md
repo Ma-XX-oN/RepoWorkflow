@@ -119,6 +119,42 @@ through the workflow state machine or individual command handlers.
 For concrete portability requirements, continue with
 [best practices — portable behavior](BEST_PRACTICES.md).
 
+## 7. Optimize after correctness and measurement
+
+**Optimization is normally the last engineering step**, not the organizing
+principle of initial implementation.
+
+1. First design for correct behavior, simple interfaces, cohesion, reuse,
+   maintainability, and preservation of workflow/state invariants.
+2. Build a complete working model and verify its required behavior and
+   negative paths in the actual supported execution environments.
+3. Establish a representative performance baseline. Profile or measure the
+   real system to identify bottlenecks; do not infer them from intuition,
+   isolated microbenchmarks, or the apparent cost of one operation.
+4. Optimize the **verified bottlenecks**, prioritizing improvements with
+   meaningful end-to-end benefit. Change the smallest relevant boundary.
+5. Rerun the same behavioral and performance tests against the exact
+   optimized revision to confirm correctness and actual improvement.
+
+An early architectural performance decision is justified **only when there is
+strong, explicit evidence that postponing it would impose a substantial
+performance or structural cost**. Record the evidence, expected impact, and
+tradeoff before making that decision. Otherwise defer optimization.
+
+- Avoid speculative caching, parallelism, batching, special cases, and clever
+  algorithms that increase complexity without measured need.
+- Do not trade away clarity, portable semantics, invariant checks, or
+  reliability for an unverified speedup.
+- Reducing redundant work is good design when it follows naturally from
+  clear ownership and reuse; do not turn it into premature tuning.
+- Compare whole-workflow cost, not just the speed of a helper. Include setup,
+  process startup, I/O, provider calls, contention, and regression risk when
+  they matter.
+
+**Order of operations:** sound design → working implementation → behavioral
+verification → representative profiling → targeted optimization → full
+reverification.
+
 ## Review prompts
 
 Before accepting a design, ask: Does it duplicate an existing state transition?
