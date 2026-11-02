@@ -21,6 +21,10 @@ all verification blocked.
 
 ## 2. Design simple, reusable, maintainable code
 
+Apply the [engineering design principles](DESIGN_PRINCIPLES.md) for shared
+command implementations, centralized wrappers, transport adapters, and
+minimal code duplication.
+
 - Prefer correct standard-library facilities and established platform APIs over bespoke path, encoding, process or transport heuristics.
 - Keep components cohesive with clear responsibilities, contracts and interfaces. Do not copy the same workaround into multiple callers.
 - Introduce one reusable interface for shared semantics; contain unavoidable platform differences inside narrowly scoped adapters.
