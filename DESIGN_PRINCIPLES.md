@@ -79,6 +79,46 @@ not the operation itself.** This resembles a decorator around command dispatch
 and an adapter at the provider boundary; the principle matters more than the
 design-pattern name.
 
+## 6. Portable semantics behind narrow capability boundaries
+
+OS-agnostic code must preserve the **same specified behavior** across native
+Windows, Linux, and macOS, rather than accumulating OS-name checks to make
+each platform's tests pass.
+
+- **Ports and Adapters (hexagonal architecture):** Keep mechanical workflow
+  transitions independent of the OS, shell, filesystem, subprocess runtime,
+  and CI provider. Put necessary native mechanics behind a narrow port.
+- **Adapter and Facade:** Present one cohesive Git/process/path interface
+  to callers. Prefer an existing portable standard-library or Git API over
+  inventing a new adapter or facade.
+- **Dependency Inversion:** High-level workflow rules depend on the contract
+  of a capability, not on a particular operating system's implementation.
+- **Strategy, only when justified:** If supported environments genuinely
+  require different mechanisms, select implementations in one place behind
+  the same observable contract. Avoid per-call platform branching and
+  unnecessary class hierarchies.
+- **Canonical identity versus representation:** Preserve repository and path
+  identity independently from native separators, Git wire formats, checkout
+  transformations, line endings, filename bytes, and shell spelling.
+- **Capability-based decisions:** Check the required capability or use an API
+  that provides it portably; do not treat OS names as proxies for capability.
+- **End-to-end semantic parity:** Test exact intended behavior and negative
+  paths on genuine native platforms. A platform skip is not a behavioral PASS.
+  Do not weaken assertions or silently normalize meaningful differences.
+
+**Example:** A path identity rule should rely on Git-authoritative identity
+and checkout semantics where Git owns the data. The workflow transition
+calls one reusable path/Git abstraction, not a succession of Windows/Linux
+separator, case, encoding, and line-ending heuristics.
+
+The central rule is **one semantic contract, narrow platform mechanics**.
+Together with the remote invocation wrapper, this means cross-cutting
+variation belongs at the boundary where it originates, never scattered
+through the workflow state machine or individual command handlers.
+
+For concrete portability requirements, continue with
+[best practices — portable behavior](BEST_PRACTICES.md).
+
 ## Review prompts
 
 Before accepting a design, ask: Does it duplicate an existing state transition?
