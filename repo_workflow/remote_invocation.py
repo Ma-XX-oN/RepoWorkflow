@@ -156,6 +156,11 @@ def _validate(root: Path, argv: list[str]) -> _Request:
   if _SHA.fullmatch(source_sha) is None:
     raise RemoteInvocationError("invalid source SHA")
   if source_sha != source_tip:
+    present = git(root, "cat-file", "-e", source_tip + "^{commit}",
+                  check=False)
+    if present.returncode:
+      git(root, "fetch", "--quiet", "--no-tags", "origin",
+          f"refs/heads/{source_branch}")
     ancestor = git(
       root, "merge-base", "--is-ancestor", source_sha, source_tip,
       check=False,
@@ -219,6 +224,8 @@ def invoke_numbered(
     origin = _git(root, "remote", "get-url", "origin")
     git(source, "remote", "set-url", "origin", origin)
     _assert_hosted_grammar(source, request.argv)
+    if _remote_tip(root, request.branch) != request.request_sha:
+      raise RemoteInvocationError("CMD attempt was superseded before execution")
     with redirect_stdout(_StreamCapture(stdout, combined)):
       with redirect_stderr(_StreamCapture(stderr, combined)):
         try:
