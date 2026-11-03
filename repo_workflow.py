@@ -60,6 +60,7 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.remote_invocation import RemoteInvocationError, invoke_numbered
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -214,6 +215,14 @@ def main(argv: list[str] | None = None) -> int:
         return handle_completion(root, words, describe=describe)
       if mode == "help":
         return handle_help(root, words)
+      if len(words) >= 2 and words[-2] == "--remote":
+        outcome = invoke_numbered(
+          root, words,
+          lambda source, local: main(["--root", str(source), *local]),
+        )
+        sys.stdout.write(outcome.stdout)
+        sys.stderr.write(outcome.stderr)
+        return outcome.exit_code
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
     args = build_parser().parse_args(argv)
@@ -421,6 +430,7 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RemoteInvocationError,
     ResultError,
     GitError,
     GuardError,
