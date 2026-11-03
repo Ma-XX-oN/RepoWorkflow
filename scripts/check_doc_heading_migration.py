@@ -158,6 +158,13 @@ for path in sorted(base_files & new_files):
         failures.append(path + " link moved to wrong section: " + before + " -> " + after)
     elif before != after and (old is None or new is None or old[0] != new[0]):
       failures.append(path + " changed link lacks equivalent target: " + before + " -> " + after)
+print("Potential numbered prose-section references:")
+for path in sorted(base_files & new_files):
+  if path.startswith(".repoworkflow/"):
+    continue
+  for number, line in enumerate(active_lines(migrated[path]), 1):
+    if re.search(r"(?i)(?:\\bsections?\\s+|§\\s*)\\d+(?:\\.\\d+)*\\b", line):
+      print("REFERENCE", path, number, line.strip()[:220])
 print("Markdown files:", len(base_files))
 print("Numbered headings migrated:", total_numbered)
 print("Links checked:", link_count, "modified:", changed_links)
