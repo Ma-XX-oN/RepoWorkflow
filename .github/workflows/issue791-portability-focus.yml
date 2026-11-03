@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 56b31a1f27aebcdb41a70541dd2b4aaeb66951c1
+          ref: 28368455f37667332d81f5074a5635611799bd47
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 56b31a1f27aebcdb41a70541dd2b4aaeb66951c1
+          test "$(git rev-parse HEAD)" = 28368455f37667332d81f5074a5635611799bd47
           python -m pip install -r requirements.txt
           python -m compileall -q repo_workflow repo_workflow.py tests
       - name: Run affected native tests diagnostic
