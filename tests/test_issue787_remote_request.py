@@ -122,6 +122,18 @@ class CMDSubmissionTests(unittest.TestCase):
       self.assertEqual(0, status)
       self.assertEqual("CMD#1 CMD-1-feature-test", out.getvalue().strip())
 
+  def test_detached_or_cmd_source_branch_is_rejected(self):
+    original = git(self.source, "rev-parse", "HEAD")
+    git(self.source, "checkout", "--detach", original)
+    with self.assertRaises(RemoteRequestError):
+      self.submit()
+    git(self.source, "checkout", "feature-test")
+    first = self.submit()
+    git(self.source, "fetch", "origin", first.branch)
+    git(self.source, "checkout", "-b", first.branch, "FETCH_HEAD")
+    with self.assertRaises(RemoteRequestError):
+      self.submit()
+
   def test_invalid_argv_and_unauthorized_retry(self):
     for args in (
       ["test", "RED"], ["test", "RED", "--remote", "--poll"],
