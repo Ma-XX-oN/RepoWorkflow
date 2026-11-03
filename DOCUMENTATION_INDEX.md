@@ -19,12 +19,12 @@ authority and accountable termination; follow its specialist links.
 2. [Dependency pause and fix propagation](DEPENDENCY_PAUSE_AND_PROPAGATION.md):
    check operator holds, descendant closure and accepted-fix transfer before
    scheduling or resuming workers.
-2. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
-3. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
+3. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
+4. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
    workbench on any authorised CI provider when local tools lack dependencies.
-4. [Testing and proof](TEST_ADEQUACY.md): distinguish fixtures, native runs,
+5. [Testing and proof](TEST_ADEQUACY.md): distinguish fixtures, native runs,
    hosted evidence and provider certification.
-5. [Current work](CURRENT_WORK_STATE.md): check active coordination context;
+6. [Current work](CURRENT_WORK_STATE.md): check active coordination context;
    confirm freshness against the actual issues and source revisions.
 
 **Cross-platform RED FLAG:** If the same test has divergent results on
