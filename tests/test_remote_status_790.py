@@ -85,6 +85,25 @@ class StatusTest(unittest.TestCase):
                return_value=status):
       self.assertEqual(remote_status(self.root), 75)
 
+  def test_utf8_output_does_not_inherit_legacy_console_code_page(self):
+    # Deliberately simulate a CP1252 stdout even on POSIX platforms.
+    # A return-code-only assertion cannot detect lost Unicode output.
+    from io import BytesIO, TextIOWrapper
+    from repo_workflow.remote_status import _render
+    result = PublishedResult("CMD-1-issue-790", "a" * 40,
+                             0, 9, "λ failed\\n", "b" * 40)
+    status = CommandStatus(1, result.branch, result.request_sha,
+                           0, "completed", result, None)
+    raw = BytesIO()
+    console = TextIOWrapper(raw, encoding="cp1252", errors="strict")
+    with patch("repo_workflow.remote_status.sys.stdout", console):
+      self.assertEqual(_render(status), 9)
+      console.flush()
+    self.assertEqual(
+      raw.getvalue().decode("utf-8", "strict"),
+      "CMD-1 CMD-1-issue-790 COMPLETED exit=9\\nλ failed\\n",
+    )
+
   def test_poll_repeats_last_interval_and_never_submits(self):
     pending = CommandStatus(1, "CMD-1-issue-790", "a" * 40,
                             0, "running", None, 123)
