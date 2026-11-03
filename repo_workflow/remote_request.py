@@ -148,6 +148,8 @@ def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
 
 
 def _argv(argv: list[str]) -> None:
+  if not isinstance(argv, list) or not all(isinstance(x, str) for x in argv):
+    raise RemoteRequestError("request argv must be a list of strings")
   if not argv or argv[-1] != "--remote" or argv.count("--remote") != 1:
     raise RemoteRequestError("expected one terminal public --remote")
   if "--poll" in argv or any("\0" in token for token in argv):
@@ -155,7 +157,9 @@ def _argv(argv: list[str]) -> None:
 
 
 def _remote_name(remote: str) -> None:
-  if not re.fullmatch(r"[A-Za-z0-9._/-]+", remote) or remote.startswith("-"):
+  if not isinstance(remote, str) or not re.fullmatch(
+    r"[A-Za-z0-9._/-]+", remote
+  ) or remote.startswith("-"):
     raise RemoteRequestError("invalid Git remote name")
 
 
