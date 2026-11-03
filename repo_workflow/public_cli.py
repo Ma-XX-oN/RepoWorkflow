@@ -125,22 +125,29 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # Keep RED group selection legal when switches follow its group name.
+  # A named RED group is a terminal grammar value. For client-only
+  # polling, validate the complete switch sequence with the shared grammar;
+  # select_group separately validates the actual registered group name.
+  grammar_words = words
   if (
     len(words) >= 4 and words[:2] == ["test", "RED"]
     and not words[2].startswith("--") and words[3] == "--remote"
   ):
-    words = [words[0], words[1], "--remote", words[2], *words[4:]]
+    if len(words) >= 5 and words[4] == "--poll":
+      grammar_words = [*words[:2], *words[3:]]
+    else:
+      words = [words[0], words[1], "--remote", words[2], *words[4:]]
+      grammar_words = words
   general, legal, facts, plan, state, failure = _diagnose(
     root,
-    words,
+    grammar_words,
     completion=False,
   )
   if failure is not None:
     return _print_failure(failure)
 
-  parse_tokens(COMMANDS, general, words)
-  parse_tokens(COMMANDS, legal, words)
+  parse_tokens(COMMANDS, general, grammar_words)
+  parse_tokens(COMMANDS, legal, grammar_words)
 
   # Status is read-only, including no ticket merge-driver configuration.
   if words[0] == "remote-status":
