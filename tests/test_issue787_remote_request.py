@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import redirect_stdout
+from io import StringIO
 import subprocess
 import tempfile
 import threading
@@ -100,6 +102,14 @@ class CMDSubmissionTests(unittest.TestCase):
         self.source, first.branch, first.request_sha, args, permitted=True,
       )
     self.assertTrue(self.submit().reused)
+
+  def test_unpolled_output_identifies_cmd_on_new_and_reused_request(self):
+    for _ in range(2):
+      out = StringIO()
+      with redirect_stdout(out):
+        status = submit_unpolled(self.source, ["test", "RED", "--remote"])
+      self.assertEqual(0, status)
+      self.assertEqual("CMD#1 CMD-1-feature-test", out.getvalue().strip())
 
   def test_invalid_argv_and_unauthorized_retry(self):
     for args in (
