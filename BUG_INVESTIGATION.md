@@ -135,7 +135,7 @@ confidence to justify the fix.
 A failed hypothesis is useful progress when its evidence rules out a plausible
 cause.
 
-## 7. Cross-platform test divergence
+## Cross-platform test divergence
 
 When an identical test passes on one supported OS but fails on another,
 treat the discrepancy as a portability **RED FLAG**, not as evidence that
@@ -169,7 +169,7 @@ For test dimensions and evidence requirements, follow
 Record the divergence, classification, correction and verification in
 the durable investigation log.
 
-## 8. Correction and confirmation
+## 7. Correction and confirmation
 
 After the defect mechanism is established:
 
@@ -183,7 +183,7 @@ After the defect mechanism is established:
 The detailed verification obligations are defined in
 [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 9. Escaped defects
+## 8. Escaped defects
 
 When a bug escaped existing verification, investigate why the test system did
 not expose it earlier.
@@ -203,7 +203,7 @@ Ask whether the escape reveals a reusable weakness such as:
 Correct the reusable verification/process gap when it can recur elsewhere.
 Fixing only the local product defect is incomplete in that case.
 
-## 10. Preserve the log
+## 9. Preserve the log
 
 Keep the experiment log with the durable work record for the bug, such as the
 issue, pull request, or repository audit record.
@@ -218,7 +218,7 @@ The record should make it possible for a later worker to determine:
 
 Do not rely on chat history as the sole record of a bug investigation.
 
-## 11. Run-ending statement
+## 10. Run-ending statement
 
 When an investigation run stops before the bug is completely resolved, record
 the immediate reason explicitly:
