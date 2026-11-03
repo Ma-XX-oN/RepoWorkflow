@@ -13,6 +13,11 @@ Issue #538 delivered the earlier documentation-only contract; it is not an
 accurate current implementation-status indicator. Protected-branch enforcement
 and complete integration acceptance must be verified independently.
 
+For the separately approved **planned** generic CMD-branch request protocol,
+see [REMOTE_INVOCATION_CONTRACT.md](REMOTE_INVOCATION_CONTRACT.md).
+That specification does not modify this implemented `.ci/run` trigger,
+commit format, or hosted test semantics until a separately authorized cutover.
+
 ## Provider-neutral scope and planned migration
 
 RepoWorkflow is designed to operate across CI systems. GitHub Actions is an
