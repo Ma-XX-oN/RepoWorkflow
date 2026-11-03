@@ -55,12 +55,12 @@ def verify_request_marker(repository: str, revision: str, attempt: int) -> None:
   if not isinstance(encoded, str):
     fail("GitHub CI request marker is missing")
   try:
-    raw = base64.b64decode(encoded, validate=False)
+    raw = base64.b64decode("".join(encoded.split()), validate=True)
     text = raw.decode("utf-8", "strict")
     tokens = shlex.split(text, posix=True)
   except (ValueError, UnicodeError, binascii.Error) as exc:
     fail(f"GitHub CI request marker cannot be decoded: {exc}")
-  if not tokens or tokens[-2:] != ["--remote", str(attempt)]:
+  if len(tokens) < 3 or tokens[-2:] != ["--remote", str(attempt)] or "\\x00" in text:
     fail("GitHub CI request retry attempt does not match committed marker")
 
 
