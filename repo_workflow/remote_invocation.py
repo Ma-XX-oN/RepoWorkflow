@@ -81,6 +81,14 @@ def _committed_marker(root: Path, commit: str) -> tuple[tuple[str, ...], int]:
   return tuple(words[:-2]), int(value)
 
 
+def _request_source(root: Path, commit: str) -> str:
+  message = _git(root, "show", "-s", "--format=%B", commit)
+  trailers = re.findall(r"(?m)^RWF-Source: ([0-9a-f]{40})$", message)
+  if len(trailers) != 1:
+    raise RemoteInvocationError("missing or malformed CMD source identity trailer")
+  return trailers[0]
+
+
 def _assert_committed_result(root: Path, commit: str) -> None:
   completed = subprocess.run(
     ["git", "show", f"{commit}:{_RESULT}"],
@@ -148,10 +156,12 @@ def _validate(root: Path, argv: list[str]) -> _Request:
   current = tip
   first = True
   saw_request = False
+  source_trailers: list[str] = []
   while True:
     parent, paths = _parent_and_paths(root, current)
     if paths == [_MARKER]:
       local_argv, retry = _committed_marker(root, current)
+      source_trailers.append(_request_source(root, current))
       if local_argv != target_argv or retry != expected_retry:
         raise RemoteInvocationError("CMD request identity or retry lineage mismatch")
       if first and retry != latest_retry:
@@ -173,6 +183,8 @@ def _validate(root: Path, argv: list[str]) -> _Request:
 
   if _SHA.fullmatch(source_sha) is None:
     raise RemoteInvocationError("invalid source SHA")
+  if any(trailer != source_sha for trailer in source_trailers):
+    raise RemoteInvocationError("CMD source identity trailer mismatches source tip")
   source_result = git(root, "cat-file", "-e", f"{source_sha}:{_RESULT}",
                       check=False)
   if source_result.returncode == 0:
