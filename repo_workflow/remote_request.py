@@ -37,8 +37,8 @@ def _run(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
       ["git", *args], cwd=root, capture_output=True, text=True,
       encoding="utf-8", errors="strict", check=False,
     )
-  except OSError as exc:
-    raise RemoteRequestError(f"cannot execute git: {exc}") from exc
+  except (OSError, UnicodeError) as exc:
+    raise RemoteRequestError(f"cannot execute or decode git: {exc}") from exc
 
 
 def _git(root: Path, *args: str) -> str:
