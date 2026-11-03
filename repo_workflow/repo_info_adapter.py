@@ -196,7 +196,7 @@ def ci_invocation_status(
 ) -> dict[str, Any]:
   """Read a provider observation for one exact CMD marker commit."""
   if not isinstance(branch, str) or re.fullmatch(
-    r"CMD-[1-9][0-9]*-[^\\s\\x00-\\x1f]+", branch
+    r"CMD-[1-9][0-9]*-[^\s\x00-\x1f]+", branch
   ) is None or branch.startswith("-"):
     raise _fail("CMD branch")
   if not isinstance(request_revision, str) or re.fullmatch(
