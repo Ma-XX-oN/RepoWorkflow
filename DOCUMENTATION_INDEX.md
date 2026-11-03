@@ -43,6 +43,9 @@ workflow triggers, inspect their own `on:` declarations. See
 
 ## Perform a focused task
 
+- **Remote invocation design (planned):**
+  [Consolidated .ci/rwf contract](REMOTE_INVOCATION_CONTRACT.md) ->
+  [implemented .ci/run contract](CI_INVOCATION_CONTRACT.md).
 - **CI and test execution:**
   [Execution environments](EXECUTION_ENVIRONMENTS.md) ->
   [test strategy](TEST_STRATEGY.md) ->
