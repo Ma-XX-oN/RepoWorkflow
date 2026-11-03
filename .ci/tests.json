@@ -474,6 +474,34 @@
         "type": "regression",
         "name": "tests.test_first_use_lanes_state"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-740-portability-subprocess": {
+        "type": "regression",
+        "name": "tests.test_portability_subprocess"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-741-launcher-discovery-utf8": {
+        "type": "regression",
+        "name": "tests.test_launcher_discovery_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-process-boundary": {
+        "type": "regression",
+        "name": "tests.test_process_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-hosted-version-utf8": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_utf8"
+      }
     }
   ],
   "aliases": {
