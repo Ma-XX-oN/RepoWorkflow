@@ -1,0 +1,44 @@
+name: RWF 791 Full Native Catalogue Certification
+on:
+  push:
+    branches:
+      - issue-791-native-full-cert-20261103
+    paths:
+      - '.ci/issue791-fullnative-trigger'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  full-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b2fbd827d44ea06b2c8090c601f82e5072204c0a
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Exact source branch and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = b2fbd827d44ea06b2c8090c601f82e5072204c0a
+          git switch -c issue-791-remote-lifecycle-certification-20261103
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          test "$(git rev-parse HEAD)" = b2fbd827d44ea06b2c8090c601f82e5072204c0a
+          python -c 'import platform; print(platform.platform())'
+      - name: Run official public regression stage
+        shell: bash
+        run: ./rwf test regression
+      - name: Validate stage results against exact source
+        shell: bash
+        run: |
+          python scripts/validate-hosted-result.py regression-testing b2fbd827d44ea06b2c8090c601f82e5072204c0a issue-791-remote-lifecycle-certification-20261103
