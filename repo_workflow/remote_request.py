@@ -178,6 +178,10 @@ def submit_request(
         stale = True
         break
       if matched:
+        # Do not return an obsolete request SHA after a concurrent retry.
+        if _remote_refs(root, remote).get(branch) != tip:
+          stale = True
+          break
         return SubmittedRequest(
           int(match.group(1)), branch, source_sha, tip, True,
         )
