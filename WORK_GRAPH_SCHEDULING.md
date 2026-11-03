@@ -13,6 +13,17 @@ by [dependency pause and propagation](DEPENDENCY_PAUSE_AND_PROPAGATION.md).
 Check holds and all affected consumer revisions before issuing launch prompts.
 A pause is not a new dependency edge or lifecycle status.
 
+## Leaf-only dispatch invariant
+
+The coordinator may display and manage umbrella/controller tickets, but may
+generate ticket-worker SPINUP commands **only** for independently ownable
+executable leaves. No umbrella/controller SPINUP is issued for final acceptance:
+record that state through the controller's existing coordination and verified
+dependency handoffs. Treat integration/certification as an executable leaf only
+when the graph assigns it an atomic owned deliverable and required prerequisites
+are satisfied. Verify current issue graph, pauses and claims before dispatch.
+See [agent prompt packaging](AGENT_PROMPT_PACKAGING.md#leaf-only-worker-prompt-eligibility).
+
 ## Derive scheduling from the graph
 
 Do not maintain a separate manual work order when the dependency graph can
