@@ -305,6 +305,35 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertTrue(again.reused)
     self.assertEqual(first.request_sha, again.request_sha)
 
+  def test_retry_rejects_remote_tip_advance_during_commit(self):
+    first = self.submit()
+    original = request_transport._commit
+    competing_tip = []
+
+    def race(root, parent, text, *, source_sha):
+      candidate = original(root, parent, text, source_sha=source_sha)
+      clone = Path(self.temp.name) / "retry-competitor"
+      git(Path(self.temp.name), "clone", "-b", first.branch,
+          str(self.remote), str(clone))
+      git(clone, "config", "user.email", "test@example.invalid")
+      git(clone, "config", "user.name", "Fixture")
+      result = clone / ".repoworkflow" / "result"
+      result.parent.mkdir(parents=True)
+      result.write_text("1\ncompeting result\n")
+      git(clone, "add", ".repoworkflow/result")
+      git(clone, "commit", "-m", "competing result")
+      git(clone, "push", "origin", "HEAD")
+      competing_tip.append(git(clone, "rev-parse", "HEAD"))
+      return candidate
+
+    with patch.object(request_transport, "_commit", side_effect=race):
+      with self.assertRaises(RemoteRequestError):
+        retry_request(self.source, first.branch, first.request_sha,
+                      ["test", "RED", "--remote"], permitted=True)
+    self.assertEqual(competing_tip[0], git(
+      self.source, "ls-remote", "origin", "refs/heads/" + first.branch
+    ).split()[0])
+
   def test_result_publication_and_retry_keep_request_revision_identity(self):
     first = self.submit()
     clone = Path(self.temp.name) / "attempt-result"
