@@ -135,6 +135,40 @@ confidence to justify the fix.
 A failed hypothesis is useful progress when its evidence rules out a plausible
 cause.
 
+## Cross-platform test divergence
+
+When an identical test passes on one supported OS but fails on another,
+treat the discrepancy as a portability **RED FLAG**, not as evidence that
+the failing platform is inherently unsupported.
+
+1. Compare the exact source revision, test code, fixtures, configuration,
+   runtime, shell, dependencies and environment on both platforms. Verify
+   that the tests exercise the same behavior and expected results.
+2. Use the Problem / Hypothesis / Action / Learning cycle to investigate
+   implicit OS defaults: text encodings and console streams, LF/CRLF,
+   path identity and separators, locale, process invocation and exit codes,
+   filesystem behavior, permissions, Git configuration and test/CI setup.
+3. Establish whether the cause is an application portability defect, an
+   invalid test oracle or fixture, a CI/environment defect, or an actual
+   platform capability difference. Do not assume the classification.
+4. Prefer the smallest shared OS-agnostic correction that preserves one
+   specified behavior. Isolate an OS-specific implementation only when a
+   verified capability difference requires it.
+5. Never hide divergence with a platform skip, relaxed assertions,
+   alternate expected outputs, or environment overrides that mask the
+   failing boundary. Justify genuine nonapplicability explicitly.
+6. Add portable regression coverage that exposes the original mechanism
+   on all platforms where feasible. Check observable outputs, including
+   exact bytes when relevant, not just return codes. Rerun the unchanged
+   required native acceptance tests on the final exact source revision.
+
+For governing principles, review
+[portable behavior](BEST_PRACTICES.md#3-portable-behavior-first).
+For test dimensions and evidence requirements, follow
+[test adequacy](TEST_ADEQUACY.md#4-test-dimension-analysis).
+Record the divergence, classification, correction and verification in
+the durable investigation log.
+
 ## 7. Correction and confirmation
 
 After the defect mechanism is established:

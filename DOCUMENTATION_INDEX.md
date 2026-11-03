@@ -18,6 +18,13 @@ This map does not replace task acceptance, ticket ownership or approval gates.
 5. [Current work](CURRENT_WORK_STATE.md): check active coordination context;
    confirm freshness against the actual issues and source revisions.
 
+**Cross-platform RED FLAG:** If the same test has divergent results on
+supported operating systems, follow the
+[portability investigation procedure](BUG_INVESTIGATION.md#cross-platform-test-divergence)
+before changing tests or adding OS exceptions. Review
+[portable behavior](BEST_PRACTICES.md#3-portable-behavior-first) and
+[verification adequacy](TEST_ADEQUACY.md#4-test-dimension-analysis).
+
 ## Understand the product
 
 - [Architecture](DESIGN.md) -> [public interface](PUBLIC_WORKFLOW.md)
