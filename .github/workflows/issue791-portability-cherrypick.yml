@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 71728df1b8fede74dca7111b59c92efe3f8663fe
+          ref: 8e63c6a11b8d8680ccf6e587d3032cc6ba0e44bc
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -27,13 +27,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 71728df1b8fede74dca7111b59c92efe3f8663fe
+          test "$(git rev-parse HEAD)" = 8e63c6a11b8d8680ccf6e587d3032cc6ba0e44bc
           python -m pip install -r requirements.txt
           git switch -c issue-791-remote-lifecycle-certification-20261103
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           python -c 'import platform;print(platform.platform())'
-          test "$(git rev-parse HEAD)" = 71728df1b8fede74dca7111b59c92efe3f8663fe
+          test "$(git rev-parse HEAD)" = 8e63c6a11b8d8680ccf6e587d3032cc6ba0e44bc
       - name: Complete registered regression
         shell: bash
         run: ./rwf test regression
