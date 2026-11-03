@@ -58,8 +58,8 @@ class DiscoveredProviderTests(unittest.TestCase):
     with patch(
       "repo_workflow.repo_info_adapter.run_command",
       side_effect=[
-        SimpleNamespace(returncode=0, stdout="origin\\n", stderr=""),
-        SimpleNamespace(returncode=0, stdout=remotes + "\\n", stderr=""),
+        SimpleNamespace(returncode=0, stdout="origin\n", stderr=""),
+        SimpleNamespace(returncode=0, stdout=remotes + "\n", stderr=""),
       ],
     ):
       return resolve_info_config(Path("."), config)
