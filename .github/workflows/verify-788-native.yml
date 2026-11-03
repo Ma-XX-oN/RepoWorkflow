@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 10ec945b2f50b7b8def2b3af4578d2008a2ab71b
+          ref: aee2ca8599240cf6eabff5d399400ca6f9ee58e6
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - name: Verify exact candidate source
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = 10ec945b2f50b7b8def2b3af4578d2008a2ab71b
+          test "$(git rev-parse HEAD)" = aee2ca8599240cf6eabff5d399400ca6f9ee58e6
       - name: Execute registered #788, #786 and #787 suites
         shell: bash
         run: |
