@@ -16,6 +16,7 @@ from uuid import uuid4
 from .config import load_config
 from .remote_result import PublishedResult, RemoteResultError, read_result
 from .repo_info_adapter import RepoInfoError, ci_invocation_status, resolve_info_config
+from .remote_request import RemoteRequestError, submit_request
 
 
 PENDING_EXIT = 75
@@ -214,6 +215,7 @@ def remote_status(
   root: Path, selection: int | None = None,
   *, intervals: tuple[float, ...] | None = None, remote: str = "origin",
   info_config: dict | None = None, sleep=time.sleep,
+  expected_request: str | None = None,
 ) -> int:
   """Read once, or poll without mutation until completion.
 
@@ -224,7 +226,53 @@ def remote_status(
   while True:
     status = command_status(root, selection, remote=remote,
                             info_config=info_config)
+    if expected_request is not None and status.request_sha != expected_request:
+      raise RemoteStatusError("polled CMD was superseded by another attempt")
     if status.result is not None or intervals is None:
       return _render(status)
     sleep(intervals[min(index, len(intervals) - 1)])
     index += 1
+
+def submit_remote(
+  root: Path, argv: list[str], *,
+  intervals: tuple[float, ...] | None = None, remote: str = "origin",
+  clock=time.time, status_reader=command_status,
+) -> int:
+  """Submit a public numbered CMD, reuse identical requests, never guess loss.
+
+  The accepted provider adapter has no terminal non-execution proof or
+  executor-fencing token. Thus it cannot authorize a retry of an attempt.
+  Repeated requests always reuse the prior CMD; no retry commit is written.
+  """
+  try:
+    request = submit_request(root, argv, remote=remote)
+  except RemoteRequestError as exc:
+    print(f"Remote request rejected: {exc}", file=sys.stderr)
+    return 1
+  print(
+    f"CMD-{request.number} {request.branch} "
+    + ("REUSED" if request.reused else "SUBMITTED")
+  )
+  if intervals is not None:
+    return remote_status(
+      root, request.number, intervals=intervals, remote=remote,
+      expected_request=request.request_sha,
+    )
+  if request.reused:
+    # At 15 seconds check status; never confuse an absent result or a
+    # provider-not-observed response with permission to submit another attempt.
+    try:
+      submitted_at = float(_git(
+        Path(root), "show", "-s", "--format=%ct", request.request_sha,
+      ))
+      if clock() - submitted_at >= 15:
+        observation = status_reader(root, request.number, remote=remote)
+        if observation.request_sha != request.request_sha:
+          raise RemoteStatusError("reused request advanced during inspection")
+        if observation.result is None:
+          print(f"CMD-{request.number} {request.branch} PENDING ({observation.state})")
+    except (ValueError, RemoteStatusError) as exc:
+      # The request was already accepted/reused; status uncertainty must
+      # never create another remote execution or falsify acceptance.
+      print(f"CMD-{request.number} status UNKNOWN: {exc}", file=sys.stderr)
+  return 0

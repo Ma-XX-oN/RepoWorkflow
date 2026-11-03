@@ -395,7 +395,16 @@ COMMANDS = {
       "_values": _red_group_values,
       "_value_description": "Current issue RED test-group name",
       "_quantifier": "?",
-      "_switches": {"--remote": "Request RED tests through hosted CI"},
+      "_switches": {
+        "--remote": "Request RED tests through a numbered CMD",
+        "--poll": {
+          "": "Poll the CMD result until completion",
+          "_params": [{
+            "<seconds>": "Polling delays in seconds (repeat final delay)",
+            "_quantifier": "*",
+          }],
+        },
+      },
     },
     "temporary": {
       "": "Run applicable temporary fidelity tests locally",

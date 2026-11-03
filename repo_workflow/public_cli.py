@@ -30,7 +30,9 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
-from .remote_status import RemoteStatusError, parse_intervals, remote_status
+from .remote_status import (
+  RemoteStatusError, parse_intervals, remote_status, submit_remote,
+)
 from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -120,13 +122,12 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # Accept the documented RED group before its optional hosted switch.
-  # The grammar parser requires switches before dynamic values internally.
+  # Keep RED group selection legal when switches follow its group name.
   if (
-    len(words) == 4 and words[:2] == ["test", "RED"]
-    and words[3] == "--remote" and not words[2].startswith("--")
+    len(words) >= 4 and words[:2] == ["test", "RED"]
+    and not words[2].startswith("--") and words[3] == "--remote"
   ):
-    words = [words[0], words[1], "--remote", words[2]]
+    words = [words[0], words[1], "--remote", words[2], *words[4:]]
   general, legal, facts, plan, state, failure = _diagnose(
     root,
     words,
@@ -137,6 +138,38 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
 
   parse_tokens(COMMANDS, general, words)
   parse_tokens(COMMANDS, legal, words)
+
+  # Status is read-only, including no ticket merge-driver configuration.
+  if words[0] == "remote-status":
+    tail = words[1:]
+    if "--poll" in tail:
+      offset = tail.index("--poll")
+      selectors = tail[:offset]
+      intervals = parse_intervals(tail[offset + 1:])
+    else:
+      selectors = tail
+      intervals = None
+    if len(selectors) > 1:
+      raise RemoteStatusError("expected at most one CMD selector")
+    try:
+      selector = int(selectors[0]) if selectors else None
+    except ValueError as exc:
+      raise RemoteStatusError("CMD selector must be an integer") from exc
+    return remote_status(root, selector, intervals=intervals)
+
+  # Public RED remote submission uses .ci/rwf. Legacy .ci/run stages
+  # remain on their existing testing path until separately authorized.
+  if words[:2] == ["test", "RED"] and "--remote" in words:
+    offset = words.index("--poll") if "--poll" in words else len(words)
+    if offset < words.index("--remote"):
+      raise RemoteStatusError("--poll must follow --remote")
+    intervals = (
+      parse_intervals(words[offset + 1:])
+      if offset < len(words) else None
+    )
+    submit_words = [value for value in words[:offset] if value != "--remote"]
+    submit_words.append("--remote")
+    return submit_remote(root, submit_words, intervals=intervals)
 
   configure_ticket_merge_driver(root, engine_root)
 
@@ -206,23 +239,6 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     else:
       print(render_human(plan, state))
     return 0
-
-  if command == "remote-status":
-    tail = words[1:]
-    if "--poll" in tail:
-      offset = tail.index("--poll")
-      selectors = tail[:offset]
-      intervals = parse_intervals(tail[offset + 1:])
-    else:
-      selectors = tail
-      intervals = None
-    if len(selectors) > 1:
-      raise RemoteStatusError("expected at most one CMD selector")
-    try:
-      selector = int(selectors[0]) if selectors else None
-    except ValueError as exc:
-      raise RemoteStatusError("CMD selector must be an integer") from exc
-    return remote_status(root, selector, intervals=intervals)
 
   if command == "test":
     return run_test(
