@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - verify-787-concurrency-correction-20261103
+  pull_request:
+    branches:
+      - issue-787-cmd-request-transport-20261102
 
 permissions:
   contents: read
