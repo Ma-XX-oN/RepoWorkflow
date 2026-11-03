@@ -140,6 +140,40 @@ class CMDSubmissionTests(unittest.TestCase):
     recorded = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
     self.assertEqual([*args, "0"], shlex.split(recorded, posix=True))
 
+  def test_source_preexisting_argument_file_preserves_source_identity(self):
+    request = self.source / ".ci" / "rwf"
+    request.parent.mkdir(parents=True)
+    request.write_text("old source data\\n")
+    git(self.source, "add", ".ci/rwf")
+    git(self.source, "commit", "-m", "source already has .ci/rwf")
+    first = self.submit()
+    retry = retry_request(
+      self.source, first.branch, first.request_sha,
+      ["test", "RED", "--remote"], permitted=True,
+    )
+    self.assertEqual(first.branch, retry.branch)
+    self.assertEqual(first.source_sha, retry.source_sha)
+
+  def test_completed_result_commit_is_reused(self):
+    first = self.submit()
+    clone = Path(self.temp.name) / "published"
+    git(
+      Path(self.temp.name), "clone", "-b", first.branch,
+      str(self.remote), str(clone),
+    )
+    git(clone, "config", "user.email", "test@example.invalid")
+    git(clone, "config", "user.name", "Fixture")
+    result = clone / ".repoworkflow" / "result"
+    result.parent.mkdir(parents=True)
+    result.write_text("0\\ncompleted\\n")
+    git(clone, "add", ".repoworkflow/result")
+    git(clone, "commit", "-m", "provider published result")
+    git(clone, "push", "origin", "HEAD")
+    again = self.submit()
+    self.assertEqual(first.number, again.number)
+    self.assertTrue(again.reused)
+    self.assertNotEqual(first.request_sha, again.request_sha)
+
   def test_concurrent_allocation_reuses_same_number(self):
     paths = []
     for index in range(2):
