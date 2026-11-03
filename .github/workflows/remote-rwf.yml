@@ -1,0 +1,39 @@
+name: RepoWorkflow CMD Forwarding
+
+# Separate from .ci/run; this adapter is not an alternate RWF dispatcher.
+on:
+  push:
+    branches:
+      - 'CMD-*'
+    paths:
+      - '.ci/rwf'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rwf-cmd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  forward:
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/CMD-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact CMD request and full history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Restore authoritative origin refs
+        shell: bash
+        run: git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Forward authenticated CMD argv through normal CLI
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/hosted-rwf-forward.py
