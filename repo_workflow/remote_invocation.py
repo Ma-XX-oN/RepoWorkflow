@@ -80,6 +80,22 @@ def _committed_marker(root: Path, commit: str) -> tuple[tuple[str, ...], int]:
   return tuple(words[:-2]), int(value)
 
 
+def _assert_committed_result(root: Path, commit: str) -> None:
+  completed = subprocess.run(
+    ["git", "show", f"{commit}:{_RESULT}"],
+    cwd=root, capture_output=True, check=False,
+  )
+  if completed.returncode:
+    raise RemoteInvocationError("missing CMD result in publication commit")
+  try:
+    raw = completed.stdout.decode("utf-8", errors="strict")
+  except UnicodeError as exc:
+    raise RemoteInvocationError("CMD result must contain strict UTF-8") from exc
+  status, separator, _ = raw.partition("\\n")
+  if not separator or re.fullmatch(r"-?[0-9]+", status) is None:
+    raise RemoteInvocationError("CMD result must begin with decimal exit code")
+
+
 def _parent_and_paths(root: Path, commit: str) -> tuple[str, list[str]]:
   parents = _git(root, "rev-list", "--parents", "-n", "1", commit).split()
   if len(parents) != 2:
@@ -148,6 +164,7 @@ def _validate(root: Path, argv: list[str]) -> _Request:
     elif paths == [_RESULT]:
       if first or not saw_request:
         raise RemoteInvocationError("latest CMD attempt already has a result")
+      _assert_committed_result(root, current)
       current = parent
     else:
       raise RemoteInvocationError("unauthorized CMD history mutation")
@@ -155,6 +172,10 @@ def _validate(root: Path, argv: list[str]) -> _Request:
 
   if _SHA.fullmatch(source_sha) is None:
     raise RemoteInvocationError("invalid source SHA")
+  source_result = git(root, "cat-file", "-e", f"{source_sha}:{_RESULT}",
+                      check=False)
+  if source_result.returncode == 0:
+    raise RemoteInvocationError("ordinary source branch contains CMD result")
   if source_sha != source_tip:
     present = git(root, "cat-file", "-e", source_tip + "^{commit}",
                   check=False)
