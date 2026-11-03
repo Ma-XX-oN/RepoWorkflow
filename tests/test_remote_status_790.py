@@ -91,7 +91,7 @@ class StatusTest(unittest.TestCase):
     from io import BytesIO, TextIOWrapper
     from repo_workflow.remote_status import _render
     result = PublishedResult("CMD-1-issue-790", "a" * 40,
-                             0, 9, "λ failed\\n", "b" * 40)
+                             0, 9, "λ failed\n", "b" * 40)
     status = CommandStatus(1, result.branch, result.request_sha,
                            0, "completed", result, None)
     raw = BytesIO()
@@ -101,7 +101,7 @@ class StatusTest(unittest.TestCase):
       console.flush()
     self.assertEqual(
       raw.getvalue().decode("utf-8", "strict"),
-      "CMD-1 CMD-1-issue-790 COMPLETED exit=9\\nλ failed\\n",
+      "CMD-1 CMD-1-issue-790 COMPLETED exit=9\nλ failed\n",
     )
 
   def test_poll_repeats_last_interval_and_never_submits(self):
