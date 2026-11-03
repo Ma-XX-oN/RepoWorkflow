@@ -31,20 +31,20 @@ jobs:
           errors = []
           with TemporaryDirectory() as tmp:
             root = Path(tmp)
-          import subprocess, json
-          subprocess.run(["git","init","-b","issue-1-rwf791-reuse-20261103"],cwd=root,check=True,capture_output=True)
-          subprocess.run(["git","config","user.name","Test"],cwd=root,check=True)
-          subprocess.run(["git","config","user.email","test@example.invalid"],cwd=root,check=True)
-          (root/".ci").mkdir()
-          (root/".ci/tests.json").write_text(json.dumps({
-            "test-harnesses":{"unittest":{"command":"python","layout":["-m","unittest","$test"]}},
-            "tests":[{"test-harness":"unittest",
-              "issue-1-rwf788-red":{"type":"regression","name":"tests.test_remote_status_790",
-                "expected-red":{"exit-code":1,"output-contains":"x"}}}],
-            "aliases":{}
-          }),encoding="utf-8")
-          subprocess.run(["git","add","."],cwd=root,check=True)
-          subprocess.run(["git","commit","-m","registered RED fixture"],cwd=root,check=True,capture_output=True)
+            import subprocess, json
+            subprocess.run(["git","init","-b","issue-1-rwf791-reuse-20261103"],cwd=root,check=True,capture_output=True)
+            subprocess.run(["git","config","user.name","Test"],cwd=root,check=True)
+            subprocess.run(["git","config","user.email","test@example.invalid"],cwd=root,check=True)
+            (root/".ci").mkdir()
+            (root/".ci/tests.json").write_text(json.dumps({
+              "test-harnesses":{"unittest":{"command":"python","layout":["-m","unittest","$test"]}},
+              "tests":[{"test-harness":"unittest",
+                "issue-1-rwf788-red":{"type":"regression","name":"tests.test_remote_status_790",
+                  "expected-red":{"exit-code":1,"output-contains":"x"}}}],
+              "aliases":{}
+            }),encoding="utf-8")
+            subprocess.run(["git","add","."],cwd=root,check=True)
+            subprocess.run(["git","commit","-m","registered RED fixture"],cwd=root,check=True,capture_output=True)
             cmd = CommandRef(1, "CMD-1-issue-1-demo", "c" * 40)
             mocks = [
               patch("repo_workflow.remote_status.resolve_command", return_value=cmd),
