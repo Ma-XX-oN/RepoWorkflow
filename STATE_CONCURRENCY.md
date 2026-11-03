@@ -7,7 +7,7 @@ This document extends [STATE_LAYOUT.md](STATE_LAYOUT.md).  That document decides
 where a fact is authoritative; this one defines how independent writers may
 change durable repository facts without silently overwriting one another.
 
-## 1. Scope
+## Scope
 
 This contract applies to mutable durable/shared records under committed
 `.repoworkflow/`.
@@ -16,7 +16,7 @@ Clone-common workspace claims already use a local CAS namespace.  They are not
 made globally authoritative by this contract, and worktree-local execution
 context remains local.
 
-## 2. Durable mutation identity
+## Durable mutation identity
 
 Every durable mutation is evaluated against an exact authoritative input
 identity.
@@ -40,7 +40,7 @@ workflow legality are separate semantic gates.
 Writer/session identity must not be inferred from branch name, worktree path,
 commit author, operating-system user, or process ID.
 
-## 3. Record revisions
+## Record revisions
 
 Every mutable durable record has a monotonically increasing integer revision.
 
@@ -55,7 +55,7 @@ even if the later value was written by the same writer or session.
 Revision comparison is record-scoped.  Unrelated records do not share one
 global revision counter.
 
-## 4. Compare-and-swap rule
+## Compare-and-swap rule
 
 Durable mutation is compare-and-swap (CAS):
 
@@ -72,7 +72,7 @@ retry the write against the newer state.
 The caller may reread, recompute the semantic transition, and submit a new
 mutation only after proving that transition remains legal.
 
-## 5. Independent writers
+## Independent writers
 
 Two agents may mutate different durable record keys concurrently.
 
@@ -85,7 +85,7 @@ If two semantic operations touch several records that together form one
 invariant, they are one transaction for conflict purposes.  Implementations
 must not split such an invariant and call the partial writes independent.
 
-## 6. Conflict handling
+## Conflict handling
 
 A detected conflict fails closed and reports enough information to reread the
 authoritative state.
@@ -103,7 +103,7 @@ Conflict resolution is deterministic:
 A semantic layer may define an idempotent already-applied result.  It must
 prove equivalence explicitly rather than relying on storage-layer guessing.
 
-## 7. Atomic publication
+## Atomic publication
 
 A durable record replacement must be atomic at the storage boundary: readers
 observe either the complete prior value or the complete successor value.
@@ -117,7 +117,7 @@ For repository history, a successful local file replacement is not by itself a
 cross-clone global lock.  Integration against the shared repository must still
 use exact candidate/base identity and server-side integration controls.
 
-## 8. Multi-record transitions
+## Multi-record transitions
 
 A transition that must change multiple durable records atomically must declare
 its complete read set and write set before publication.
@@ -137,7 +137,7 @@ Partial publication must never be reported as successful workflow state.
 The recovery rules for interrupted transactions are defined by
 [STATE_RECOVERY.md](STATE_RECOVERY.md).
 
-## 9. Writer identity and auditability
+## Writer identity and auditability
 
 Successful durable mutations retain enough provenance to answer:
 
@@ -152,7 +152,7 @@ authorized writer may legally advance the same record using CAS.
 Secrets, access tokens, host credentials, and transient process identifiers
 must not be persisted as writer identity.
 
-## 10. Local versus durable state
+## Local versus durable state
 
 Local state may reference a durable record/revision but cannot advance it.
 
@@ -165,7 +165,7 @@ In particular:
 
 There is no shared mutable global `active_issue` record.
 
-## 11. Cross-clone behaviour
+## Cross-clone behaviour
 
 Independent clones cannot coordinate through clone-common locks.
 
@@ -175,7 +175,7 @@ changed before the second conflicting mutation becomes canonical.
 
 RWF must describe this as optimistic concurrency, not global locking.
 
-## 12. Required failures
+## Required failures
 
 Fail closed on at least:
 
@@ -189,7 +189,7 @@ Fail closed on at least:
 
 A conflict must not mutate the prior authoritative record.
 
-## 13. Required implementation coverage
+## Required implementation coverage
 
 The generic state store in #101 must prove at least:
 

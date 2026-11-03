@@ -14,7 +14,7 @@ repository-neutral
 adequacy policy in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).  These concrete stage
 requirements do not replace that gate; both apply.
 
-## 1. Test principles
+## Test principles
 
 RepoWorkflow must test policy at several levels:
 
@@ -42,7 +42,7 @@ Tests must not depend on the user's machine or manual acceptance.  Temporary
 repositories, remotes, GitHub test branches/PRs where required, and automated
 shell interaction are the test harness.
 
-## 1.1 Validation depth by workflow stage
+## Validation depth by workflow stage
 
 RepoWorkflow CI distinguishes issue verification, regression, and integration
 because they establish different facts and have different cost.
@@ -74,11 +74,11 @@ but issue or regression evidence must never masquerade as integration evidence.
 Every CI plan records the selected tier, selected groups where applicable, and
 the reason for that selection.
 
-## 2. Cross-cutting tests
+## Cross-cutting tests
 
 These tests apply across implementation stages.
 
-### 2.1 State and command consistency
+### State and command consistency
 
 - every legal state-machine transition is reachable through its documented
   command;
@@ -90,7 +90,7 @@ These tests apply across implementation stages.
   transition explicitly records failure evidence;
 - `repo-workflow` and `rwf` behave equivalently.
 
-### 2.2 Exact-candidate identity
+### Exact-candidate identity
 
 - evidence records the exact tested SHA;
 - evidence for SHA A is accepted for A;
@@ -100,7 +100,7 @@ These tests apply across implementation stages.
 - mutations made by validators are detected, rolled back where specified, and
   cannot produce PASS evidence.
 
-### 2.3 Validation environment evidence
+### Validation environment evidence
 
 - every authoritative validation record includes structured `platform`
   evidence with OS and architecture;
@@ -122,14 +122,14 @@ These tests apply across implementation stages.
   suite rather than assuming that evidence is portable merely because its SHA
   matches.
 
-### 2.4 Git ref immutability and reachability
+### Git ref immutability and reachability
 
 - task, PRELIM, and stable tags cannot be reused or moved;
 - deleting an ephemeral branch does not make a tagged candidate unreachable;
 - squashing the final integration does not destroy PRELIM reachability;
 - malformed or unauthorized refs are rejected.
 
-### 2.5 Concurrency and worker isolation
+### Concurrency and worker isolation
 
 Use at least two independent clones against one disposable remote.
 
@@ -140,7 +140,7 @@ Use at least two independent clones against one disposable remote.
 - concurrent audit updates do not silently lose records;
 - stale observations are rejected before destructive cleanup or integration.
 
-### 2.6 Failure atomicity
+### Failure atomicity
 
 Inject failures at mutation boundaries such as version update, commit, tag,
 push, audit append, and cleanup.
@@ -151,7 +151,7 @@ push, audit append, and cleanup.
 - rerunning after an interrupted operation is deterministic or gives an
   actionable recovery state.
 
-### 2.6 Platform coverage
+### Platform coverage
 
 - run the portable unit/integration suite on Linux and Windows;
 - exercise Git invocation, path handling, process invocation, quoting, line
@@ -159,7 +159,7 @@ push, audit append, and cleanup.
 - platform-specific consumer validation remains INCOMPLETE rather than falsely
   PASS when the required platform/capability is unavailable.
 
-## 3. Stage 1 - repository version adapter
+## Stage 1 - repository version adapter
 
 This stage covers the repository-owned `repo-version` contract and RWF
 forwarding.
@@ -181,14 +181,14 @@ Required tests:
 - equivalent adapter behaviour works through `repo-workflow version` and
   `rwf version`.
 
-## 4. Stage 2 - state machine, guidance, CLI, alias, and completion
+## Stage 2 - state machine, guidance, CLI, alias, and completion
 
 The complete Stage 2 TDD contract is maintained in
 [COMMAND_GRAMMAR_TESTS.md](COMMAND_GRAMMAR_TESTS.md).  Keep the concrete
 state-machine, parser, completion, diagnostic, alias, and shell-interaction
 test matrix there so this strategy remains below the project size ceiling.
 
-## 5. Stage 3 - validation audit and local/hosted equivalence
+## Stage 3 - validation audit and local/hosted equivalence
 
 Required audit tests:
 
@@ -216,7 +216,7 @@ Required validation-reuse tests:
 - local and hosted paths invoke the same validation contract and produce
   semantically equivalent results.
 
-## 6. Stage 4 - GUID preliminary integration, reintegration, and PRELIM tags
+## Stage 4 - GUID preliminary integration, reintegration, and PRELIM tags
 
 Required creation tests:
 
@@ -267,7 +267,7 @@ Required cleanup tests:
 - PRELIM tags/audit evidence survive cleanup;
 - a later integration creates a fresh GUID from then-current server main.
 
-## 7. Stage 5 - local Git guard layer
+## Stage 5 - local Git guard layer
 
 Each guard needs positive and negative tests.
 
@@ -290,7 +290,7 @@ Required tests:
 - absence/bypass of local hooks cannot be mistaken for server authorization;
 - guard failure is a STOP and leaves no repair-forward mutation.
 
-## 8. Stage 6 - protected server integration and stable finalization
+## Stage 6 - protected server integration and stable finalization
 
 Use hosted integration tests where server behaviour itself is the contract.
 
@@ -326,14 +326,14 @@ Where GitHub plan/repository permissions make a protection mechanism
 unavailable, the test must record that as an external capability dependency;
 RWF must not silently claim that boundary is enforced.
 
-## 9. Stage 7 - consumer pilot and full lifecycle certification
+## Stage 7 - consumer pilot and full lifecycle certification
 
 The pilot must be automated and disposable enough that the user is not the
 test harness.
 
 At minimum, exercise these complete scenarios:
 
-### 9.1 Happy path
+### Happy path
 
 Exercise both required forms:
 
@@ -350,32 +350,32 @@ an explicit human-result transition.
 Verify every intermediate branch, version, SHA, tag, audit record, legal next
 action, and cleanup result.
 
-### 9.2 ART failure and recovery
+### ART failure and recovery
 
 ART FAIL -> immutable failure evidence -> automatic `R` increment ->
 development fix -> new candidate -> PASS.  Prove failed evidence remains
 reachable and cannot validate the replacement candidate.
 
-### 9.3 AIT failure and recovery
+### AIT failure and recovery
 
 AIT FAIL -> immutable integration-rejection evidence -> automatic `Q`
 increment and `R` reset -> return to development -> new ART/AIT validation ->
 AIT succeeds.  Prove no user result entry is required and that AIT failure is
 not misclassified as an ART/CI iteration.
 
-### 9.4 MIT failure and recovery
+### MIT failure and recovery
 
 MIT FAIL -> manual rejection evidence -> automatic `Q` increment and `R` reset
 -> return to development -> fresh automated validation -> required MIT -> MIT
 succeeds.
 
-### 9.5 INCOMPLETE and retry
+### INCOMPLETE and retry
 
 Missing capability/environment -> INCOMPLETE -> no terminal tag -> unchanged
 candidate may retry -> changed candidate cannot inherit the incomplete run as
 terminal evidence.
 
-### 9.6 Exact integrated-candidate validation
+### Exact integrated-candidate validation
 
 Construct a prelim candidate by combining an already accepted task with the
 current parent.  Prove the resulting SHA cannot inherit task-candidate ART,
@@ -385,30 +385,30 @@ acceptance contract applies to the integrated result.  Verify complete local
 evidence is reusable for the exact prelim SHA and that the server runs missing
 automated ART/AIT rather than asking the user to run them.
 
-### 9.7 Main advances during integration
+### Main advances during integration
 
 Run the A/B/B'/C reintegration scenario from Stage 4 end to end, including
 server rejection of stale B' and successful fresh validation of C.
 
-### 9.8 Concurrent workers
+### Concurrent workers
 
 Two accepted tasks begin separate integration attempts against the same remote.
 Verify unique GUID branches, no ref collision, no cross-worker cleanup, and
 correct stale handling when one lands first.
 
-### 9.9 Squash integration and evidence retention
+### Squash integration and evidence retention
 
 Land an integration using squash semantics, clean up the prelim branch, and
 prove the PRELIM tag still reaches the exact tested pre-squash candidate while
 the stable tag identifies the final server-main release commit.
 
-### 9.10 Guard/bypass defence in depth
+### Guard/bypass defence in depth
 
 Demonstrate that an operation blocked locally is also rejected at the server
 boundary when local hooks are absent or bypassed, for every remotely enforceable
 critical invariant.
 
-## 10. Stage completion gates
+## Stage completion gates
 
 An implementation stage is complete only when the universal adequacy gate in
 [TEST_ADEQUACY.md](TEST_ADEQUACY.md) is satisfied and:
@@ -428,7 +428,7 @@ An implementation stage is complete only when the universal adequacy gate in
 The final RWF lifecycle is certifiable only when the complete Stage 7 system
 suite passes in addition to all lower-level tests.
 
-## 11. Regression rule for future changes
+## Regression rule for future changes
 
 Every defect found in RepoWorkflow must receive a regression test that fails
 for the defect before or alongside the fix and passes afterward.

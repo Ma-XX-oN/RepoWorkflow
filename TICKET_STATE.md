@@ -2,7 +2,7 @@
 
 Status: authoritative contract for durable ticket identity and dependency state.
 
-## 1. Purpose
+## Purpose
 
 RepoWorkflow keeps one durable repository copy of the ticket facts needed for
 offline workflow operations and fast repeated dependency traversal.
@@ -29,7 +29,7 @@ Rows are ordered by issue number. Dependencies are sorted positive issue
 numbers separated by semicolons. An empty dependency field means the ticket is
 known to have no direct dependencies.
 
-## 1.1 Cached lifecycle state (six-state migration)
+## Cached lifecycle state (six-state migration)
 
 A first explicit graph `--current` refresh migrates the canonical CSV to:
 
@@ -56,7 +56,7 @@ infer RWF completion from the provider's open/closed status. A failed
 refresh must not partially rewrite a state snapshot.
 
 
-## 2. Authority
+## Authority
 
 Title authority is unconditional:
 
@@ -79,7 +79,7 @@ synchronized local title before changing dependencies.
 
 Every provider synchronization acquires title and dependencies together.
 
-## 3. Public synchronization
+## Public synchronization
 
 One or more explicit issues may be synchronized:
 
@@ -111,7 +111,7 @@ remains authoritative.
 `to-tickets --replace` replaces conflicting provider dependencies only.
 There is no title-push operation in dependency synchronization.
 
-## 4. Ticket title taxonomy
+## Ticket title taxonomy
 
 Ticket creators use these descriptive prefixes when they improve navigation:
 
@@ -123,7 +123,7 @@ Ticket creators use these descriptive prefixes when they improve navigation:
 Prefixes are presentation only. RepoWorkflow does not infer dependencies,
 readiness, branch topology, ownership, or execution semantics from a title.
 
-## 5. Ticket creation
+## Ticket creation
 
 When RWF or an agent creates/decomposes tickets:
 
@@ -155,7 +155,7 @@ dependency merely to encode container membership.  A newly created ticket must
 not be left absent from `.repoworkflow/tickets.csv` while dependent work
 continues.
 
-## 6. Dependency invariants
+## Dependency invariants
 
 Only direct dependencies are stored.
 
@@ -170,7 +170,7 @@ Transitive prerequisites are obtained by traversal. A redundant transitive
 edge is not stored unless it represents an independently required direct
 interface.
 
-## 7. Branch-parent separation
+## Branch-parent separation
 
 Branch parent identity is not ticket state.
 
@@ -184,7 +184,7 @@ RWF-Parent: <parent-branch>
 Git branch identity/history is the sole parent authority. Ticket dependency
 topology never creates or stores a branch parent.
 
-## 8. Semantic merge
+## Semantic merge
 
 The synchronized CSV is merged by ticket number, not line position.
 
@@ -207,7 +207,7 @@ temporary paths. The merge implementation itself is repository-portable; the
 Git configuration is clone-local because Git does not load merge-driver
 commands from committed attributes.
 
-## 9. Git merge-driver activation
+## Git merge-driver activation
 
 The repository marks the synchronized file with:
 
@@ -227,7 +227,7 @@ before relying on automatic semantic merges. RepoWorkflow does this during
 normal public command execution; repository initialization should establish the
 same configuration before handing the repository to users/agents.
 
-## 10. Verification
+## Verification
 
 TEST_ADEQUACY.md applies. Verification must independently cover parsing,
 canonical serialization, migration, restart/readback, synchronization
