@@ -180,4 +180,4 @@ certification, or required approvals for PRELIM submission, promotion to
 assembly from destination promotion; **operator approval is not an
 ordinary child-to-parent import step**.
 
-Further sections: [14. Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).
+Further sections: [Use decomposition to expose architecture problems](WORK_GRAPH_REFINEMENT.md).

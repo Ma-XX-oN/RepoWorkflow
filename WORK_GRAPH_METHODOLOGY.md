@@ -474,4 +474,4 @@ Terminal cleanup should have its own preconditions and invariants when it occurs
 after intervening asynchronous or external work.
 
 
-Further sections: [13. Scheduling, dependency-complete work and speculation](WORK_GRAPH_SCHEDULING.md).
+Further sections: [Scheduling, dependency-complete work and speculation](WORK_GRAPH_SCHEDULING.md).
