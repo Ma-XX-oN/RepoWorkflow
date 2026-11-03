@@ -255,5 +255,18 @@ class CmdFixture(unittest.TestCase):
     self.push()
     self.assertEqual(self.invoke("test", "RED", "--remote", "1").retry, 1)
 
+  def test_hosted_cmd_missing_suffix_rejected_before_handler(self):
+    import importlib.util
+    script = Path(__file__).resolve().parents[1] / "repo_workflow.py"
+    spec = importlib.util.spec_from_file_location("rwf_786_missing", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    output = io.StringIO()
+    with redirect_stderr(output):
+      status = module.main(["--root", str(self.repo), "test", "RED"])
+    self.assertEqual(status, 2)
+    self.assertIn("requires numbered --remote suffix", output.getvalue())
+    self.assertFalse((self.repo / ".repoworkflow" / "validation").exists())
+
 if __name__ == "__main__":
   unittest.main()
