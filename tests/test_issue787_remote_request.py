@@ -169,6 +169,24 @@ class CMDSubmissionTests(unittest.TestCase):
     with self.assertRaises(RemoteRequestError):
       self.submit()
 
+  def test_nonsequential_retry_marker_is_rejected(self):
+    first = self.submit()
+    clone = Path(self.temp.name) / "bad-retry"
+    git(Path(self.temp.name), "clone", "-b", first.branch,
+        str(self.remote), str(clone))
+    git(clone, "config", "user.email", "test@example.invalid")
+    git(clone, "config", "user.name", "Fixture")
+    (clone / ".ci" / "rwf").write_text("test RED --remote 9\n")
+    git(clone, "add", ".ci/rwf")
+    git(clone, "commit", "-m", "skip retry lineage")
+    git(clone, "push", "origin", "HEAD")
+    tampered_tip = git(clone, "rev-parse", "HEAD")
+    with self.assertRaises(RemoteRequestError):
+      retry_request(self.source, first.branch, tampered_tip,
+                    ["test", "RED", "--remote"], permitted=True)
+    another = self.submit()
+    self.assertEqual(2, another.number)
+
   def test_unauthorized_extra_file_history_is_not_reused(self):
     first = self.submit()
     clone = Path(self.temp.name) / "tamper"
