@@ -16,6 +16,9 @@ authority and accountable termination; follow its specialist links.
 1. [Engineering overview](BEST_PRACTICES.md): investigate, design and verify.
    Follow [design principles](DESIGN_PRINCIPLES.md) for reuse, wrappers and
    separation of command logic from execution transport.
+2. [Dependency pause and fix propagation](DEPENDENCY_PAUSE_AND_PROPAGATION.md):
+   check operator holds, descendant closure and accepted-fix transfer before
+   scheduling or resuming workers.
 2. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
 3. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
    workbench on any authorised CI provider when local tools lack dependencies.
