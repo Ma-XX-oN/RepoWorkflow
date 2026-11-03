@@ -1,0 +1,19 @@
+name: Temporary heading migration link verification
+on:
+  push:
+    branches:
+      - docs-unnumbered-headings-link-migration-20261103
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m py_compile scripts/check_doc_heading_migration.py
+      - run: python scripts/check_doc_heading_migration.py
