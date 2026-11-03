@@ -32,6 +32,11 @@ If documents or links are missing, search root/README/CONTRIBUTING/docs,
 Project/Library and connected sources; record the gap, follow verified
 contracts, invent no rules and continue independently authorized work.
 
+Before issuing a worker prompt or resuming a dependent issue, apply the
+[dependency pause and propagation gate](DEPENDENCY_PAUSE_AND_PROPAGATION.md).
+Explicit operator pauses bar execution even where an old graph says READY;
+accepted fixes must reach and be reverified in paused consumers before resume.
+
 ## Authority, evidence and scope
 
 Higher-priority platform safety and tool requirements govern. Repository
