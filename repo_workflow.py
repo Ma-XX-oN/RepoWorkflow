@@ -5,6 +5,7 @@ import argparse
 import json
 from pathlib import Path
 import os
+import subprocess
 import sys
 
 from repo_workflow.actions_policy import ActionsPolicyError, check_actions_policy
@@ -229,7 +230,11 @@ def main(argv: list[str] | None = None) -> int:
       if len(words) >= 2 and words[-2] == "--remote":
         outcome = invoke_numbered(
           root, words,
-          lambda source, local: main(["--root", str(source), *local]),
+          lambda source, local: subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()),
+             "--root", str(source), *local],
+            cwd=source, capture_output=True, check=False,
+          ),
         )
         sys.stdout.write(outcome.stdout)
         sys.stderr.write(outcome.stderr)
