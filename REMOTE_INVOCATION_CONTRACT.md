@@ -64,16 +64,25 @@ marker-only commit. Request/retry commits may change **only** `.ci/rwf`;
 hosted result-publication commits are a separate permitted kind of commit
 on the CMD branch.
 
-**Argument representation:** The producer must preserve the user's
-argument-vector tokens (excluding client-only `--poll`) and produce a
-reversibly encoded plain-text argument sequence. The consumer decodes into
-argv tokens and directly invokes the existing Python RWF entry point with
-those tokens, never passing raw file text to a shell, `eval`, or a
-provider-specific command interpreter. The implementation must define a
-single writer/reader encoding and prove round-trip equality for whitespace,
-quotes, backslashes, Unicode, and empty arguments before supporting those
-inputs. Unspecified quoting or platform-dependent shell expansion is not
-part of the accepted contract; no new command grammar is created here.
+**Argument representation:** Encode the argument vector (excluding the
+`rwf` executable and client-only `--poll`) with Python's portable
+`shlex.join(argv)` format and UTF-8. Decode the file using
+`shlex.split(text, posix=True)`; this is a lexical *serialization format*,
+not a request to execute a POSIX shell. Pass the resulting token list
+directly to the existing Python RWF entry point. Never interpolate raw file
+contents into `sh -c`, `eval`, a shell command string, or a provider
+expression.
+
+The exact round-trip invariant is
+`shlex.split(shlex.join(argv), posix=True) == argv`. This preserves
+whitespace, single/double quotes, backslashes, Unicode, empty arguments
+and tokens containing shell metacharacters as **literal argv data**.
+UTF-8 decoding and malformed quoting errors are ordinary invalid-request
+errors. There is no platform-specific shell expansion. A final file newline
+outside any quoting is insignificant. Embedded newlines **inside quoted
+arguments** remain part of that argument. Actual command argv cannot
+contain a NUL byte and such requests are rejected. This reuses standard
+Python APIs and does not implement the deferred #784 security certification.
 
 ## 3. Central wrapper and execution boundary
 
