@@ -129,6 +129,10 @@ reverify before reuse. Internal authorized code execution does not imply
 displaying code unless requested. For non-code research, open and verify
 sources and seek independent corroboration when applicable.
 
+A copyable, compact ChatGPT Custom Instructions profile is preserved in
+[CHATGPT_CUSTOM_INSTRUCTIONS.txt](CHATGPT_CUSTOM_INSTRUCTIONS.txt).
+It is a settings snapshot, not an independent repository policy authority.
+
 This document does not automatically change ChatGPT account Custom
 Instructions, Library prompts or previously started agents. Such changes
 require their own user/platform action.
