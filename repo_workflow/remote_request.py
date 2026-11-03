@@ -134,14 +134,23 @@ def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
       _git(checkout, "add", "-f", "--", ".ci/rwf")
       if _git(checkout, "diff", "--cached", "--name-only") != ".ci/rwf":
         raise RemoteRequestError("request must change only .ci/rwf")
+      hooks = checkout / ".rwf-empty-hooks"
+      hooks.mkdir()
       _git(
         checkout, "-c", "user.name=RepoWorkflow",
-        "-c", "user.email=rwf@localhost", "commit", "--quiet",
-        "-m", "rwf: submit remote command",
+        "-c", "user.email=rwf@localhost",
+        "-c", "commit.gpgsign=false",
+        "-c", f"core.hooksPath={hooks}",
+        "commit", "--quiet", "-m", "rwf: submit remote command",
         "-m", f"RWF-Source: {source_sha}",
       )
       sha = _git(checkout, "rev-parse", "HEAD")
       assert _SHA.fullmatch(sha)
+      changed = _git(
+        checkout, "diff-tree", "--no-commit-id", "--name-only", "-r", sha,
+      ).splitlines()
+      if changed != [".ci/rwf"]:
+        raise RemoteRequestError("CMD commit changed non-request paths")
       return sha
     finally:
       _git(root, "worktree", "remove", "--force", str(checkout))
