@@ -108,13 +108,16 @@ dependencies, not mixed styles on one implementation ticket. See
 [WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
 
 In the human-facing Progress Graph, show active authorised speculative work as
-`◑ Speculative` with the prescribed dark blue fill and amber border, even
-though its executable dependency readiness remains **blocked**.  When all
-direct prerequisites become DONE, the speculative visual designation ends:
-show `◐ In progress` if work continues or `♥ Done` if its own acceptance
-is independently complete.  Do not use the speculative symbol for idle,
-unauthorised, or merely proposed downstream work.  This is a presentation
-rule, not a lifecycle state or dependency-edge change.
+`◑ Active speculative` with dark blue fill and amber border while a direct
+prerequisite remains incomplete. If speculative work was previously started
+but is **not currently executing** because prerequisites remain unfinished,
+show `🚧 Blocked speculative` in amber, not the active `◑` symbol.
+Use `🧱 Blocked` for non-speculative blocked work. Distinguish these states
+using current execution evidence, not merely an open ticket or draft PR.
+When all direct prerequisites become DONE, remove the speculative designation:
+show `◐ In progress` if work continues, `○ Not started` if work has not
+started, or `♥ Done` only after original acceptance is independently
+complete. This is a presentation rule, not a lifecycle state or edge change.
 
 Use speculation to reduce the critical path of a *serial* chain, not as a way to
 declare blocked tickets complete or relabel parallel tasks.  If a ticket has an
