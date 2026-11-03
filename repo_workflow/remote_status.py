@@ -13,7 +13,6 @@ import sys
 import time
 from uuid import uuid4
 
-from .config import load_config
 from .remote_result import PublishedResult, RemoteResultError, read_result
 from .repo_info_adapter import RepoInfoError, ci_invocation_status, resolve_info_config
 from .remote_request import RemoteRequestError, submit_request
@@ -166,9 +165,7 @@ def command_status(root: Path, selection: int | None = None, *,
       completed, None,
     )
   try:
-    config = info_config if info_config is not None else resolve_info_config(
-      root, load_config(root),
-    )
+    config = info_config if info_config is not None else resolve_info_config(root)
     observation = ci_invocation_status(
       root, config, cmd.branch, request_sha, retry,
     )
