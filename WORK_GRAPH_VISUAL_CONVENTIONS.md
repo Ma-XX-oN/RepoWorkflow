@@ -12,9 +12,9 @@ role must not redefine its work-status colour.
 
 ## Named graph views
 
-**Progress Graph (PG)** is the human-facing, five-status **Mermaid**
+**Progress Graph (PG)** is the human-facing, six-status **Mermaid**
 dependency diagram specified by this document.  Its nodes use
-`○ Not started`, `◐ In progress`, `◑ Speculative`, `🧱 Blocked`, and `♥ Done` with the
+`○ Not started`, `◐ In progress`, `◑ Active speculative`, `🚧 Blocked speculative`, `🧱 Blocked`, and `♥ Done` with the
 exact colours below.  It describes understandable project progress rather
 than formal RWF lifecycle transitions.
 
@@ -43,18 +43,18 @@ request names it or specifically asks for RWF's formal ticket state or
 `rwf lanes view`.  This naming rule does not modify the RWF terminal
 command or its output format.
 
-## Five-state legend
+## Six-state legend
 
 Use this **exact** project status mapping.  Copy the literal Unicode
-characters into the legend and Mermaid node text.  The Blocked symbol is the
-explicitly approved brick emoji.  Do not substitute other emoji, play buttons,
+characters into the legend and Mermaid node text.  The blocked symbols are the approved brick and construction emojis.  Do not substitute other emoji, play buttons,
 check marks, smaller bullets, icon-library glyphs, or hand-drawn SVG.
 
 | Status | Unicode | Name / code point | Colour | Meaning |
 |---|---|---|---|---|
 | Done | ♥ | BLACK HEART SUIT, U+2665 | Green | Scope accepted |
 | In progress | ◐ | U+25D0 | Blue | Actively worked with all direct prerequisites DONE |
-| Speculative | ◑ | U+25D1 | Dark amber border | Authorised bounded work underway while one or more direct prerequisites are incomplete |
+| Active speculative | ◑ | U+25D1 | Blue with amber border | Authorised bounded work underway while one or more direct prerequisites are incomplete |
+| Blocked speculative | 🚧 | CONSTRUCTION SIGN, U+1F6A7 | Amber | Speculative work previously begun, not executing, awaiting incomplete prerequisites |
 | Blocked | 🧱 | BRICK, U+1F9F1 | Red | Prerequisite missing |
 | Not started | ○ | WHITE CIRCLE, U+25CB | Grey | Ready, not begun |
 
@@ -81,8 +81,10 @@ incomplete.  Such work remains blocked for final acceptance under RWF's
 executable dependency semantics.  Once all direct prerequisites are DONE,
 the speculative designation ends automatically: show `◐ In progress` if
 work remains underway or `♥ Done` when its own acceptance is complete.
-A blocked item is **red** when prerequisites remain incomplete and no
-independently executable authorised work is underway.  A not-started item
+A blocked speculative item uses **🚧** with dark amber styling when
+speculative work has already begun but is **not currently executing** while
+awaiting incomplete prerequisites. A non-speculative blocked item uses
+**🧱** with red styling. Neither blocked symbol implies execution.  A not-started item
 is **grey only if it is currently eligible to begin**.  Done/green requires completion of
 the node's explicitly labelled scope and accepted evidence; a completed
 leaf handoff is not proof of a whole parent integration or issue closure.
@@ -94,7 +96,7 @@ ticket or an existing draft PR.
 Use fenced `mermaid` flowcharts.  Keep nodes legible, maintain dependency
 direction from prerequisite to dependant, and use the same characters in
 the separate legend and in node labels.  Explicitly define styles for all
-five statuses.  Use high-contrast light text on dark node fills and a brighter
+six statuses.  Use high-contrast light text on dark node fills and a brighter
 status-coloured border, as below.
 
 ### Standard colour tokens
@@ -103,7 +105,8 @@ status-coloured border, as below.
 |---|---|---|---|
 | Done | `#092A1B` | `#22C55E` | `#FFFFFF` |
 | In progress | `#0B1F4A` | `#3B82F6` | `#FFFFFF` |
-| Speculative | `#0B1F4A` | `#D4A017` | `#FFFFFF` |
+| Active speculative | `#0B1F4A` | `#D4A017` | `#FFFFFF` |
+| Blocked speculative | `#372807` | `#E0A526` | `#FFFFFF` |
 | Blocked | `#3B1010` | `#EF4444` | `#FFFFFF` |
 | Not started | `#1C2430` | `#9CA3AF` | `#FFFFFF` |
 
@@ -115,17 +118,20 @@ flowchart TD
     B["○ #102<br/>Adapter"]
     C["◐ #103<br/>Assembly"]
     D["🧱 #104<br/>Certification"]
-    E["◑ #105<br/>Speculative validation"]
+    E["◑ #105<br/>Active speculative validation"]
+    F["🚧 #106<br/>Blocked speculative validation"]
 
     A --> C
     B --> D
     C --> D
     B --> E
     E --> D
+    E -.-> F
 
     classDef done fill:#092A1B,stroke:#22C55E,color:#FFFFFF,stroke-width:2px
     classDef active fill:#0B1F4A,stroke:#3B82F6,color:#FFFFFF,stroke-width:2px
     classDef speculative fill:#0B1F4A,stroke:#D4A017,color:#FFFFFF,stroke-width:3px
+    classDef blockedSpeculative fill:#372807,stroke:#E0A526,color:#FFFFFF,stroke-width:3px
     classDef blocked fill:#3B1010,stroke:#EF4444,color:#FFFFFF,stroke-width:2px
     classDef notstarted fill:#1C2430,stroke:#9CA3AF,color:#FFFFFF,stroke-width:2px
 
@@ -134,12 +140,13 @@ flowchart TD
     class C active
     class D blocked
     class E speculative
+    class F blockedSpeculative
 ```
 
 Use a text legend with precisely the same symbols:
 
 ```text
-♥ Done    ◐ In progress    ◑ Speculative    🧱 Blocked    ○ Not started
+♥ Done    ◐ In progress    ◑ Active speculative    🚧 Blocked speculative    🧱 Blocked    ○ Not started
 ```
 
 If one issue is shown at more than one **phase** (for example, controller
@@ -150,14 +157,14 @@ not independent issues or a cycle.
 ## Speculative dependency edge presentation
 
 A dotted Mermaid dependency arrow `-.->` identifies a **canonical direct
-dependency** for which the downstream ticket is performing authorised
-speculative work before its predecessor is DONE. The downstream ticket is the
+dependency** for which the downstream ticket is actively performing (◑) or has paused (🚧)
+authorised speculative work before its predecessor is DONE. The downstream ticket is the
 owner of integrating its predecessor's final accepted result and carrying its
 **own ticket** to verified DONE. The dotted arrow is not a new relationship,
 a provisional shortcut, or evidence of completed integration.
 
 **Non-umbrella tickets have uniform incoming arrow styles.** When a
-non-umbrella downstream ticket is executing authorised speculative work while
+non-umbrella downstream ticket has begun authorised speculative work while
 any of its direct prerequisites is unfinished, show **every incoming direct
 dependency** as dotted `-.->`, including edges from prerequisites that have
 already reached DONE. This is a ticket-level speculative integration state,
@@ -203,7 +210,7 @@ The umbrella remains a **visible ticket node in both expanded and collapsed view
 - Apply the same rule recursively to nested umbrellas only when their
   respective complete descendant sets and acceptance are verified.
 
-This is the **default presentation of both named graph views**. The LG keeps its six-state glyphs, lane colours and authoritative lifecycle status, while the PG keeps its five-status visual convention. This rule does not automatically change the terminal `rwf lanes view` renderer, mutate `.repoworkflow/tickets.csv`, alter scheduling readiness, or fabricate completion.
+This is the **default presentation of both named graph views**. The LG keeps its six-state glyphs, lane colours and authoritative lifecycle status, while the PG keeps its six-status visual convention. This rule does not automatically change the terminal `rwf lanes view` renderer, mutate `.repoworkflow/tickets.csv`, alter scheduling readiness, or fabricate completion.
 
 ## Evidence and accessibility
 
