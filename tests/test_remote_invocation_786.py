@@ -204,5 +204,21 @@ class CmdFixture(unittest.TestCase):
       self.invoke("test", "RED", "--remote", "1")
 
 
+  def alternate_request(self, text: str):
+    self.cmd = "CMD-2-" + self.branch
+    _run(self.repo, "checkout", "-b", self.cmd, self.source_sha)
+    self.marker(text)
+    self.push()
+
+  def test_unsupported_hosted_grammar_rejected(self):
+    self.alternate_request("version --remote 0")
+    with self.assertRaisesRegex(RemoteInvocationError, "not eligible"):
+      self.invoke("version", "--remote", "0")
+
+  def test_read_only_results_rejected(self):
+    self.alternate_request("test results --remote 0")
+    with self.assertRaisesRegex(RemoteInvocationError, "read-only"):
+      self.invoke("test", "results", "--remote", "0")
+
 if __name__ == "__main__":
   unittest.main()
