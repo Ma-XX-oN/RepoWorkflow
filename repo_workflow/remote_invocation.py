@@ -224,7 +224,9 @@ class _StreamCapture(io.TextIOBase):
 def invoke_numbered(
   root: Path,
   argv: list[str],
-  execute_local: Callable[[Path, list[str]], int],
+  execute_local: Callable[
+    [Path, list[str]], int | subprocess.CompletedProcess[bytes]
+  ],
   *,
   publish: Callable[[InvocationOutcome], None] | None = None,
 ) -> InvocationOutcome:
@@ -250,7 +252,18 @@ def invoke_numbered(
     with redirect_stdout(_StreamCapture(stdout, combined)):
       with redirect_stderr(_StreamCapture(stderr, combined)):
         try:
-          status = execute_local(source, list(request.argv))
+          result = execute_local(source, list(request.argv))
+          if isinstance(result, subprocess.CompletedProcess):
+            if not isinstance(result.stdout, bytes):
+              raise TypeError("captured stdout must be bytes")
+            if not isinstance(result.stderr, bytes):
+              raise TypeError("captured stderr must be bytes")
+            stdout.write(result.stdout.decode("utf-8", errors="strict"))
+            stderr.write(result.stderr.decode("utf-8", errors="strict"))
+            combined.write(stdout.getvalue() + stderr.getvalue())
+            status = result.returncode
+          else:
+            status = result
           if type(status) is not int:
             raise TypeError("local CLI returned a non-integer status")
         except Exception:
