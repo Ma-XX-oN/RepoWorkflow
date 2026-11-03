@@ -164,10 +164,27 @@ class CMDSubmissionTests(unittest.TestCase):
     git(clone, "config", "user.name", "Fixture")
     (clone / ".ci" / "rwf").write_bytes(b"test RED --remote \xff\n")
     git(clone, "add", ".ci/rwf")
-    git(clone, "commit", "-m", "invalid UTF-8 marker")
+    git(clone, "commit", "-m", "invalid UTF-8 marker", "-m", f"RWF-Source: {first.source_sha}")
     git(clone, "push", "origin", "HEAD")
     with self.assertRaises(RemoteRequestError):
       self.submit()
+
+  def test_marker_without_matching_source_identity_is_not_reused(self):
+    clone = Path(self.temp.name) / "forged-marker"
+    git(Path(self.temp.name), "clone", "-b", "feature-test",
+        str(self.remote), str(clone))
+    git(clone, "config", "user.email", "test@example.invalid")
+    git(clone, "config", "user.name", "Fixture")
+    git(clone, "checkout", "-b", "CMD-1-feature-test")
+    marker = clone / ".ci" / "rwf"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("test RED --remote 0\n")
+    git(clone, "add", ".ci/rwf")
+    git(clone, "commit", "-m", "missing source binding")
+    git(clone, "push", "origin", "HEAD")
+    new_request = self.submit()
+    self.assertEqual(2, new_request.number)
+    self.assertFalse(new_request.reused)
 
   def test_nonsequential_retry_marker_is_rejected(self):
     first = self.submit()
