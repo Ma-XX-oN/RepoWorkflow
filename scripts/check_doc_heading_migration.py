@@ -163,7 +163,7 @@ for path in sorted(base_files & new_files):
   if path.startswith(".repoworkflow/"):
     continue
   for number, line in enumerate(active_lines(migrated[path]), 1):
-    if re.search(r"(?i)(?:\\bsections?\\s+|§\\s*)\\d+(?:\\.\\d+)*\\b", line):
+    if re.search(r"(?i)(?:\bsections?\s+|§\s*)\d+(?:\.\d+)*\b", line):
       print("REFERENCE", path, number, line.strip()[:220])
 print("Markdown files:", len(base_files))
 print("Numbered headings migrated:", total_numbered)
