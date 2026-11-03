@@ -33,6 +33,9 @@ from .runtime_identity import runtime_writer_identity
 from .remote_status import (
   RemoteStatusError, parse_intervals, remote_status, submit_remote,
 )
+from .test_cli import read_selection, select_group
+from .test_red_declaration import red_declaration
+from .test_results_reader import TestCommandError
 from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -162,10 +165,6 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   if words[:2] == ["test", "RED"] and "--remote" in words:
     # Preserve the existing unconfigured RED/GREEN skip contract: a remote
     # command with no committed RED selection has no test to execute.
-    if words == ["test", "RED", "--remote"] and not (root / ".ci" / "red-green.txt").exists():
-      return run_test(
-        root, "RED", remote=True, engine_root=engine_root, group=None,
-      )
     offset = words.index("--poll") if "--poll" in words else len(words)
     if offset < words.index("--remote"):
       raise RemoteStatusError("--poll must follow --remote")
@@ -173,8 +172,17 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       parse_intervals(words[offset + 1:])
       if offset < len(words) else None
     )
-    submit_words = [value for value in words[:offset] if value != "--remote"]
-    submit_words.append("--remote")
+    submitted = [value for value in words[:offset] if value != "--remote"]
+    group = next((value for value in submitted[2:] if value), None)
+    selected = select_group(root, group) if group is not None else read_selection(root)
+    if selected is None:
+      return run_test(
+        root, "RED", remote=True, engine_root=engine_root, group=None,
+      )
+    _, declaration_error = red_declaration(root, selected)
+    if declaration_error:
+      raise TestCommandError(declaration_error)
+    submit_words = [*submitted, "--remote"]
     return submit_remote(root, submit_words, intervals=intervals)
 
   configure_ticket_merge_driver(root, engine_root)
@@ -436,7 +444,9 @@ def handle_help(root: Path, words: list[str]) -> int:
     print(node["_value_description"])
     print("Register current issue-N- test groups in .ci/tests.json.")
     for option, description in node["_switches"].items():
-      print(option + "  " + description)
+      print(option + "  " + (
+        description if isinstance(description, str) else description[""]
+      ))
     return 0
   help_words = [*words, ""]
   return handle_completion(root, help_words, describe=True)

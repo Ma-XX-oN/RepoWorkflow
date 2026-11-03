@@ -210,17 +210,36 @@ class StatusTest(unittest.TestCase):
           ), 75)
         merge.assert_not_called()
 
-  def test_cli_red_submission_uses_cmd_transport(self):
+  def test_cli_red_submission_validates_selection_before_cmd_transport(self):
     from repo_workflow.public_cli import handle_public
-    with patch("repo_workflow.public_cli.submit_remote",
-               return_value=0) as submit:
-      self.assertEqual(handle_public(
-        self.root, ["test", "RED", "--remote", "--poll", "0.1"],
-        engine_root=self.root,
-      ), 0)
-      self.assertEqual(submit.call_args.args[1],
-                       ["test", "RED", "--remote"])
-      self.assertEqual(submit.call_args.kwargs["intervals"], (0.1,))
+    with patch("repo_workflow.public_cli.read_selection",
+               return_value="issue-790-red"):
+      with patch("repo_workflow.public_cli.red_declaration",
+                 return_value=(object(), "")):
+        with patch("repo_workflow.public_cli.submit_remote",
+                   return_value=0) as submit:
+          self.assertEqual(handle_public(
+            self.root, ["test", "RED", "--remote", "--poll", "0.1"],
+            engine_root=self.root,
+          ), 0)
+          self.assertEqual(submit.call_args.args[1],
+                           ["test", "RED", "--remote"])
+          self.assertEqual(submit.call_args.kwargs["intervals"], (0.1,))
+
+  def test_cli_red_missing_declaration_cannot_publish_cmd(self):
+    from repo_workflow.public_cli import handle_public
+    from repo_workflow.test_results_reader import TestCommandError
+    with patch("repo_workflow.public_cli.read_selection",
+               return_value="issue-790-red"):
+      with patch("repo_workflow.public_cli.red_declaration",
+                 return_value=(None, "expected-failure-declaration-missing")):
+        with patch("repo_workflow.public_cli.submit_remote") as submit:
+          with self.assertRaisesRegex(TestCommandError, "declaration"):
+            handle_public(
+              self.root, ["test", "RED", "--remote"],
+              engine_root=self.root,
+            )
+          submit.assert_not_called()
 
   def test_stale_polled_attempt_is_not_accepted(self):
     pending = CommandStatus(2, "CMD-2-issue-790",
