@@ -29,7 +29,7 @@ against an identified candidate and verified from persistent/provider evidence.
 | Graph and CLI | G01–G15 | 15 | Display, refresh and public output |
 | **Total** | | **74** | **Specification cases, not 74 passes** |
 
-## 1. Transition oracle
+## Transition oracle
 
 ### State-transition diagram (same T01–T08 IDs as the table)
 
@@ -88,7 +88,7 @@ shape, including mandatory evidence, in each positive row; reject missing,
 stale, mismatched and forged inputs independently.  Verify the authoritative
 persisted record after each attempt, not only the return code.
 
-## 2. Lifecycle history and evidence oracle
+## Lifecycle history and evidence oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ Generic record revisions and provenance belong to the canonical envelope.
 History events retain their historical schema representation; normalization
 applies to interpretation, not retroactive mutation.
 
-## 3. Concurrency, atomicity and recovery oracle
+## Concurrency, atomicity and recovery oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -142,7 +142,7 @@ applies to interpretation, not retroactive mutation.
 An operation must not claim a completed transition on a partially published
 multi-record result.  Do not infer global exclusivity from clone-local locks.
 
-## 4. CSV projection and semantic merge oracle
+## CSV projection and semantic merge oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -173,7 +173,7 @@ Rows and dependency lists retain canonical numeric order.  The empty revision
 exception applies *only* to a proven never-started issue.  A projection is
 not an authority for transitions, nor a guarantee of live freshness.
 
-## 5. Graph and public-command oracle
+## Graph and public-command oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -195,7 +195,7 @@ not an authority for transitions, nor a guarantee of live freshness.
 
 
 
-## 6. Execution evidence requirements and example ledger
+## Execution evidence requirements and example ledger
 
 **No test outcome is certified by this document.** The 74 acceptance cases
 in sections 1–5 specify scenarios and expected results; they are not test

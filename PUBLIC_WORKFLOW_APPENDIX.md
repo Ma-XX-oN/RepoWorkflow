@@ -1,8 +1,8 @@
-# 14. Existing lower-level work — companion sections
+# Existing lower-level work — companion sections
 
 Continued from [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
 
-## 14. Existing lower-level work
+## Existing lower-level work
 
 The revised public workflow reuses rather than discards existing lower-level
 mechanisms where they still satisfy the new architecture:
@@ -18,7 +18,7 @@ Internal commands may remain temporarily for machine compatibility, but they
 must not define the normal human-facing workflow or force GitHub-specific
 semantics into the portable engine.
 
-## 15. Remaining design work
+## Remaining design work
 
 The major unsettled details are tracked explicitly rather than hidden in this
 synopsis:
