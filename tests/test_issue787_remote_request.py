@@ -200,6 +200,30 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertTrue(again.reused)
     self.assertEqual(first.request_sha, again.request_sha)
 
+  def test_result_publication_and_retry_keep_request_revision_identity(self):
+    first = self.submit()
+    clone = Path(self.temp.name) / "attempt-result"
+    git(Path(self.temp.name), "clone", "-b", first.branch,
+        str(self.remote), str(clone))
+    git(clone, "config", "user.email", "test@example.invalid")
+    git(clone, "config", "user.name", "Fixture")
+    result = clone / ".repoworkflow" / "result"
+    result.parent.mkdir(parents=True)
+    result.write_text("0\nfirst attempt\n")
+    git(clone, "add", ".repoworkflow/result")
+    git(clone, "commit", "-m", "result 0")
+    git(clone, "push", "origin", "HEAD")
+    first_result_tip = git(clone, "rev-parse", "HEAD")
+    reused = self.submit()
+    self.assertEqual(first.request_sha, reused.request_sha)
+    second = retry_request(self.source, first.branch, first_result_tip,
+                           ["test", "RED", "--remote"], permitted=True)
+    self.assertEqual(first.number, second.number)
+    self.assertNotEqual(first.request_sha, second.request_sha)
+    newest = self.submit()
+    self.assertEqual(second.request_sha, newest.request_sha)
+    self.assertTrue(newest.reused)
+
   def test_source_tip_advance_during_allocation_fails_closed(self):
     original = request_transport._remote_refs
     advanced = False
