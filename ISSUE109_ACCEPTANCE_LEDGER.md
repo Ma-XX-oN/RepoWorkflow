@@ -1,5 +1,54 @@
 # RWF #109 — exact-source executor acceptance ledger
 
+## November 1, 2026 — source-bound acceptance update (not a DONE claim)
+
+This is a documentation-only staging revision. The certified source is the
+**earlier immutable test source**, not this documentation commit. Do not
+transfer the test result to a changed candidate without revalidating its inputs.
+
+- **P01/P02 procedural:** PASS. Original claim and draft PR #680 retained;
+  direct functional prerequisites #83/#103/#108/#118/#681/#683 closed.
+- **P15 assembled testing:** PASS for the exact listed source revisions.
+  Regression source `95b7791e7cdaad23536b55183abb563009d41f06`,
+  version `0.1.122-issue.109.1.17`: authoritative run 41254663769
+  SUCCESS including authenticated terminal publisher and remote readback;
+  native Ubuntu/macOS/Windows 41254663764 all PASS.
+  Integration source `d3c8fef54d6eff45d3c2b6fa04ef6baf1688a75d`,
+  version `0.1.122-issue.109.1.18`: authoritative run 41255036941
+  SUCCESS including 9/9 platform probes, terminal publisher and readback;
+  native Ubuntu/macOS/Windows 41255036939 all PASS. Exact-source read-only
+  GitHub provider matrices 41254663908 and 41255036922 each 3/3 PASS.
+  Catalogue has 255/255 shipped Python modules registered (267 groups:
+  197 regression, 70 integration, 0 temporary), including both #703 GREEN
+  MIT fixture modules.
+- **P03–P14 and P16:** INCOMPLETE at final current-source executor and
+  independent live-provider acceptance level. Historical disposable proofs,
+  simulated unit tests, and read-only provider operations do not fulfill
+  independently authenticated mutating ART/AIT/MIT, destination CAS,
+  lifecycle, retirement, promotion, current-policy and recovery requirements.
+  Source-bound release/MIT GitHub Check Runs: 0 on each listed SHA.
+  Current provider inventory has 0 PRELIM and 0 INT-ATTEMPT refs.
+- **Runtime and external authority:** `repo_workflow.py` does not pass a
+  default `done_executor` to `handle_public`. The mutating provider adapter
+  requires independently configured `RWF_REPO_HOST_AUTH_COMMAND` (#80);
+  none of the 12 assembly workflow YAMLs configures it. An unbound public
+  command deliberately fails closed. A mock approval is not a substitute.
+- **Delivery:** #699 PR #709 source is an ancestor of tested #109 assembly,
+  237 commits behind it. #109 original draft PR #680 is not updated: its
+  PR-only two file blobs are already identical in the assembly, but branch
+  ancestry and the original #103 target have diverged. No merge to main,
+  protected stable release or production activation has occurred.
+
+**Conservative 16-criterion count:** 3 scoped PASS (P01, P02, P15),
+13 final-acceptance INCOMPLETE (P03–P14, P16). Continue authorized
+trusted-runtime and independent #703/#583/#677 provider certification;
+preserve exact source, provider IDs, authorization, readback and failed paths.
+
+Evidence and source handoffs are recorded in GitHub #109 comments
+6551374532, 6551447071, 6551451514, 6551463942 and 6551494846.
+No existing historical evidence below is rewritten or promoted.
+
+
 Current status (2026-10-31): NOT CERTIFIED. The October 20 matrix and
 October 21 evidence below are historical checkpoints; read the latest
 October 31 addenda for live current-source and provider evidence. Owner:
