@@ -214,6 +214,12 @@ class StatusTest(unittest.TestCase):
     }), encoding="utf-8")
     git(self.root, "add", ".ci/tests.json", "smoke_case.py")
     git(self.root, "commit", "-m", "register composite RED")
+    # The test-only bare remote lives inside this fixture's work directory.
+    # Ignore its bookkeeping without weakening production cleanliness checks.
+    with (self.root / ".git/info/exclude").open(
+      "a", encoding="utf-8",
+    ) as exclusions:
+      exclusions.write("\nremote.git/\n")
     select_group(self.root, group)
     before = git(self.root, "rev-parse", "HEAD")
     request = submit_request(
