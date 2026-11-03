@@ -247,13 +247,12 @@ class StatusTest(unittest.TestCase):
 
   def test_cli_red_missing_declaration_cannot_publish_cmd(self):
     from repo_workflow.public_cli import handle_public
-    from repo_workflow.test_results_reader import TestCommandError
     with patch("repo_workflow.public_cli.read_selection",
                return_value="issue-790-red"):
       with patch("repo_workflow.public_cli.red_declaration",
                  return_value=(None, "expected-failure-declaration-missing")):
         with patch("repo_workflow.public_cli.submit_remote") as submit:
-          with self.assertRaisesRegex(TestCommandError, "declaration"):
+          with self.assertRaisesRegex(RemoteStatusError, "declaration"):
             handle_public(
               self.root, ["test", "RED", "--remote"],
               engine_root=self.root,
