@@ -66,13 +66,13 @@ class RepoInfoAdapterTests(unittest.TestCase):
       self.assertEqual(Path(command[1]).resolve(), expected)
       self.assertNotEqual(
         Path(command[1]).resolve(),
-        (root / "adapters" / "repo-info-github.py").resolve(),
+        (root / "adapters" / "repo-info-ci-github.py").resolve(),
       )
 
   def test_discovered_provider_does_not_select_foreign_shadow_adapter(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td)
-      shadow = root / "adapters" / "repo-info-github.py"
+      shadow = root / "adapters" / "repo-info-ci-github.py"
       shadow.parent.mkdir()
       shadow.write_text("raise SystemExit('shadow provider invoked')\n", encoding="utf-8")
       results = [
