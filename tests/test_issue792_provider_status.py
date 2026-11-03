@@ -4,12 +4,15 @@ import contextlib
 import importlib.util
 import io
 import json
+import sys
+import tempfile
 from pathlib import Path
 import subprocess
 import unittest
 from unittest.mock import patch
 
 from repo_workflow.repo_info_adapter import RepoInfoError, ci_invocation_status
+from tests.support import RepoFixture
 
 
 SHA = "a" * 40
@@ -105,6 +108,25 @@ class CoreStatusTests(unittest.TestCase):
         with self.subTest(args=args), self.assertRaises(RepoInfoError):
           ci_invocation_status(Path("."), {}, *args)
     invoked.assert_not_called()
+
+  def test_configured_fake_provider_through_real_read_only_dispatch(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      RepoFixture(root)
+      script = root / "fake_info.py"
+      payload = run_payload("completed", 135)
+      script.write_text(
+        "import json, sys\\n"
+        + "assert sys.argv[1:] == " +
+        repr(["ci", "invocation", "status", BRANCH, SHA, "2"]) + "\\n"
+        + "print(" + repr(json.dumps(payload)) + ")\\n",
+        encoding="utf-8",
+      )
+      config = {"infoCommand": [sys.executable, str(script)]}
+      self.assertEqual(
+        ci_invocation_status(root, config, BRANCH, SHA, 2), payload
+      )
 
   def test_adapter_errors_are_not_not_observed(self):
     with patch(
