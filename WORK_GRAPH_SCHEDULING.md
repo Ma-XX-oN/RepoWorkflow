@@ -15,13 +15,15 @@ A pause is not a new dependency edge or lifecycle status.
 
 ## Leaf-only dispatch invariant
 
-The coordinator may display and manage umbrella/controller tickets, but may
-generate ticket-worker SPINUP commands **only** for independently ownable
-executable leaves. No umbrella/controller SPINUP is issued for final acceptance:
-record that state through the controller's existing coordination and verified
-dependency handoffs. Treat integration/certification as an executable leaf only
-when the graph assigns it an atomic owned deliverable and required prerequisites
-are satisfied. Verify current issue graph, pauses and claims before dispatch.
+Ticket-worker prompts are allowed ONLY for currently READY atomic leaves:
+all direct prerequisites VERIFIED DONE at current accepted revisions,
+no governing pause, and verified ownership. Before each prompt, inspect
+the current graph and issue. If any predecessor is unfinished or unknown,
+do NOT emit even a conditional or future prompt for its dependent ticket.
+Recheck the eligible leaves after the predecessor actually finishes.
+Controllers and umbrellas are never worker-dispatched. A deadline does not
+change this rule. Authorized speculative execution within an already
+active worker is not authorization for a new blocked-ticket SPINUP.
 See [agent prompt packaging](AGENT_PROMPT_PACKAGING.md#leaf-only-worker-prompt-eligibility).
 
 ## Derive scheduling from the graph
