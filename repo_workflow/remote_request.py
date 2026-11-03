@@ -65,6 +65,8 @@ def _source(root: Path) -> tuple[str, str]:
 def _remote_refs(root: Path, remote: str) -> dict[str, str]:
   refs = {}
   for line in _git(root, "ls-remote", "--heads", remote).splitlines():
+    if "\t" not in line:
+      raise RemoteRequestError("malformed remote ref listing")
     sha, ref = line.split("\t", 1)
     if not _SHA.fullmatch(sha) or not ref.startswith("refs/heads/"):
       raise RemoteRequestError("malformed remote ref listing")
@@ -152,14 +154,18 @@ def _argv(argv: list[str]) -> None:
     raise RemoteRequestError("poll or NUL is not valid request argv")
 
 
+def _remote_name(remote: str) -> None:
+  if not re.fullmatch(r"[A-Za-z0-9._/-]+", remote) or remote.startswith("-"):
+    raise RemoteRequestError("invalid Git remote name")
+
+
 def submit_request(
   root: Path, argv: list[str], *, remote: str = "origin",
   max_collisions: int = 100,
 ) -> SubmittedRequest:
   """Submit or reuse identical source revision and argument vector."""
   _argv(argv)
-  if not re.fullmatch(r"[A-Za-z0-9._/-]+", remote) or remote.startswith("-"):
-    raise RemoteRequestError("invalid Git remote name")
+  _remote_name(remote)
   root = Path(root)
   source_branch, source_sha = _source(root)
   payload = shlex.join([*argv, "0"])
@@ -222,6 +228,7 @@ def retry_request(
   if not permitted:
     raise RemoteRequestError("retry requires prior-attempt suppression evidence")
   _argv(argv)
+  _remote_name(remote)
   match = _CMD.fullmatch(branch)
   if match is None or not _SHA.fullmatch(expected_tip):
     raise RemoteRequestError("invalid CMD retry identity")
