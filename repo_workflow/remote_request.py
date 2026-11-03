@@ -33,9 +33,13 @@ _SHA = re.compile(r"[0-9a-f]{40,64}\Z")
 
 def _run(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
   try:
-    return subprocess.run(
-      ["git", *args], cwd=root, capture_output=True, text=True,
-      encoding="utf-8", errors="strict", check=False,
+    result = subprocess.run(
+      ["git", *args], cwd=root, capture_output=True, check=False,
+    )
+    return subprocess.CompletedProcess(
+      result.args, result.returncode,
+      result.stdout.decode("utf-8", errors="strict"),
+      result.stderr.decode("utf-8", errors="strict"),
     )
   except (OSError, UnicodeError) as exc:
     raise RemoteRequestError(f"cannot execute or decode git: {exc}") from exc
