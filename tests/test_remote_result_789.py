@@ -95,6 +95,19 @@ class ResultFixture(unittest.TestCase):
     with self.assertRaises(RemoteResultError):
       publish_result(self.root, old)
 
+  def test_identical_retry_output_still_publishes_result_only(self):
+    first = self.outcome()
+    publish_result(self.root, first)
+    git(self.root, "fetch", "origin", self.branch)
+    git(self.root, "reset", "--hard", "FETCH_HEAD")
+    self.marker(1)
+    latest = replace(first, request_sha=self.request, retry=1)
+    published = publish_result(self.root, latest)
+    self.assertEqual(read_result(self.root, self.branch), published)
+    self.assertEqual(git(self.root, "diff-tree", "--no-commit-id",
+                         "--name-only", "-r", published.publication_sha),
+                     ".repoworkflow/result")
+
   def test_latest_retry_publishes_own_result(self):
     first = self.outcome()
     publish_result(self.root, first)
