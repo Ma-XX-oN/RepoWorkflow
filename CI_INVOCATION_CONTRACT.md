@@ -162,8 +162,9 @@ log.
 The on-demand development-branch adapter is implemented at
 `.github/workflows/on-demand-ci.yml`. It does not replace separate Self CI,
 certification/migration workflows, or protected-branch enforcement. Consult
-`PUBLIC_WORKFLOW.md` section 10.1 for the Self CI distinction and
-`WORKFLOW_INTEGRATION.md` section 10 for evidence reuse.
+[CI validation tiers](PUBLIC_WORKFLOW.md#ci-validation-tiers) for the Self CI
+distinction and [local and hosted validation equivalence](WORKFLOW_INTEGRATION.md#local-and-hosted-validation-equivalence)
+for evidence reuse.
 
 Do not confuse `.ci/run` (the **current hosted stage invocation file**) with
 `.ci/run-ci-request` (a distinct legacy exact-candidate bookkeeping file),

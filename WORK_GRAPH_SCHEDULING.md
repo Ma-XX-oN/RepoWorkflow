@@ -165,7 +165,9 @@ parent ledger and test the exact assembled candidate. Do not write to another
 owner's branch or claim to complete that owner's acceptance.
 
 A child with incomplete required acceptance may support **bounded,
-clearly labelled speculative parent preparation** where §13.3 permits it,
+clearly labelled speculative parent preparation** where
+[speculative work on serial dependencies](#speculative-work-on-serial-dependencies)
+permits it,
 but is **not** an accepted import and cannot establish parent DONE. Any
 provisional integration needs later revalidation against the child's actual
 accepted SHA before final acceptance or downstream handoff.

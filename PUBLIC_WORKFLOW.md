@@ -482,4 +482,4 @@ Issue #56 owns the public `done` workflow.  Existing #17 owns prelim
 integration/reintegration/PRELIM mechanics and #18 owns protected-server
 enforcement.
 
-Further sections: [14. Existing lower-level work](PUBLIC_WORKFLOW_APPENDIX.md).
+Further sections: [Existing lower-level work](PUBLIC_WORKFLOW_APPENDIX.md).

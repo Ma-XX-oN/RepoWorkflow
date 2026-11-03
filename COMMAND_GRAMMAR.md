@@ -342,7 +342,8 @@ Legal transitions:
 ```
 
 Catalogue/custom handlers may instead provide domain-specific diagnostics, such
-as the missing issue-scoped TDD group error in section 4.
+as the missing issue-scoped TDD group error in
+[catalogue completion](#catalogue-completion).
 
 ## Shell adapters
 

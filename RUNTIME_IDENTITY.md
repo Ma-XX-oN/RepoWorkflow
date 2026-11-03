@@ -108,7 +108,8 @@ starting another one and supplies the corresponding explicit session value.
 
 Semantic/core RWF does not generate either identity.  The ordinary public
 invocation layer may generate the clone-local/default identities described in
-section 2 before entering the semantic boundary.
+[authoritative production input](#authoritative-production-input) before
+entering the semantic boundary.
 
 ## Failure behaviour
 

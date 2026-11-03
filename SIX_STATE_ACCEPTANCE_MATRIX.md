@@ -198,8 +198,8 @@ not an authority for transitions, nor a guarantee of live freshness.
 ## Execution evidence requirements and example ledger
 
 **No test outcome is certified by this document.** The 74 acceptance cases
-in sections 1–5 specify scenarios and expected results; they are not test
-execution records. The five entries below illustrate the ledger format only.
+in the five oracle sections above specify scenarios and expected results;
+they are not test execution records. The five entries below illustrate the ledger format only.
 They do not assert that the tests were never run elsewhere. Actual execution
 results must be established from exact-revision, independently checked evidence.
 

@@ -13,7 +13,8 @@ or current-state projection semantics.
 **Mermaid** dependency view in
 [WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
 The views share dependency relationships but not state labels or colours.
-The state-transition diagram in section 3 documents legal transitions;
+The state-transition diagram in [Transitions](#transitions) documents legal
+transitions;
 it is distinct from the Lifecycle Graph of issue dependencies.
 
 ## Source of truth
