@@ -1,0 +1,60 @@
+name: Verify #790 integrated #792 exact-source native
+on:
+  push:
+    branches: [verify-790-792-integration-native-20261103]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dc902bfb2aacdd98740b74130441d0ec5b884d8c
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Exact-source compile and registered dependency test groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'dc902bfb2aacdd98740b74130441d0ec5b884d8c'
+          python -m py_compile repo_workflow/repo_info_adapter.py repo_workflow/remote_status.py repo_workflow/public_cli.py tests/test_repo_info_adapter.py tests/test_issue792_provider_status.py tests/test_remote_status_790.py
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          catalog = json.loads(Path(".ci/tests.json").read_text(encoding="utf-8"))
+          groups = (
+            "issue-792-provider-status",
+            "issue-790-remote-status",
+            "issue-789-cmd-results",
+            "issue-787-cmd-transport",
+            "issue-543-first-use-owner",
+          )
+          for group in groups:
+            matches = [row[group] for row in catalog["tests"] if group in row]
+            assert len(matches) == 1 and matches[0]["type"] == "regression", group
+            target = matches[0]["name"]
+            print(f"REGISTERED {group} {target}", flush=True)
+            result = subprocess.call([sys.executable, "-m", "unittest", target])
+            if result:
+              raise SystemExit(result)
+          for target in (
+            "tests.test_repo_info_adapter",
+            "tests.test_test_launcher",
+            "tests.test_bootstrap_cli.BootstrapCliTests.test_every_static_public_prefix_help_is_configuration_independent",
+            "tests.test_test_cli.TestCliContract.test_red_help_does_not_require_registered_issue_tests",
+          ):
+            print(f"ADDITIONAL ACCEPTANCE {target}", flush=True)
+            result = subprocess.call([sys.executable, "-m", "unittest", target])
+            if result:
+              raise SystemExit(result)
+          PY
