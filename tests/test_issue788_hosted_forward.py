@@ -65,7 +65,7 @@ class HostedForwardTests(unittest.TestCase):
     marker.write_text(
       (shlex.join(self.words if words is None else words) + "\n")
       if raw is None else raw,
-      encoding="utf-8",
+      encoding="utf-8", newline="\n",
     )
     self.git("add", ".ci/rwf")
     if extra:
