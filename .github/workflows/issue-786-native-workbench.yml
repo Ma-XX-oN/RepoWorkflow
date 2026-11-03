@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ab0f4865e08de9e53eb6a5ac3d6c9e25891fac5f
+          ref: 9542a05c75668de7dc7c1f61c62b40467bdaf158
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'ab0f4865e08de9e53eb6a5ac3d6c9e25891fac5f'
+          test "$(git rev-parse HEAD)" = '9542a05c75668de7dc7c1f61c62b40467bdaf158'
           git switch -c issue-786-central-invocation-wrapper-20261102
           python - <<'PY'
           import subprocess
