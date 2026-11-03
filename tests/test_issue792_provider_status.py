@@ -74,6 +74,8 @@ class CoreStatusTests(unittest.TestCase):
       {"attempt": True},
       {"schema_version": 2},
       {"state": "success"},
+      {"state": []},
+      {"state": "completed", "run_id": None},
       {"run_id": 0},
       {"run_id": True},
       {"state": "not-observed", "run_id": 7},
@@ -168,6 +170,16 @@ class GithubStatusTests(unittest.TestCase):
       self.assertIn("branch=CMD-7-issue-792", endpoint)
       self.assertIn("event=push", endpoint)
       self.assertIn("remote-rwf.yml", endpoint)
+
+  def test_non_exhaustive_pagination_fails_closed(self):
+    full_page = {"workflow_runs": [
+      github_run("completed", run_id=i + 1, head_sha="b" * 40)
+      for i in range(100)
+    ]}
+    with patch.object(PROVIDER, "gh_json", return_value=full_page) as gh:
+      with self.assertRaisesRegex(SystemExit, "2"):
+        PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
+    self.assertEqual(gh.call_count, 100)
 
   def test_invalid_provider_responses_fail_closed(self):
     for malformed in ({}, {"workflow_runs": None}, {"workflow_runs": [None]},
