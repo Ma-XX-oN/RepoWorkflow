@@ -63,7 +63,9 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
-from repo_workflow.remote_invocation import RemoteInvocationError, invoke_numbered
+from repo_workflow.remote_invocation import (
+  RemoteInvocationError, emit_outcome, invoke_numbered,
+)
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -237,8 +239,7 @@ def main(argv: list[str] | None = None) -> int:
             capture_output=True, check=False,
           ),
         )
-        sys.stdout.write(outcome.stdout)
-        sys.stderr.write(outcome.stderr)
+        emit_outcome(outcome)
         return outcome.exit_code
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
