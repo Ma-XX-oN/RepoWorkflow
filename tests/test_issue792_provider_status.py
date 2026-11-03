@@ -84,7 +84,7 @@ class CoreStatusTests(unittest.TestCase):
     for change in invalid:
       with self.subTest(change=change), patch(
         "repo_workflow.repo_info_adapter._invoke",
-        return_value=run_payload("queued", 1, **change),
+        return_value={**run_payload("queued", 1), **change},
       ):
         with self.assertRaises(RepoInfoError):
           ci_invocation_status(Path("."), {}, BRANCH, SHA, 2)
