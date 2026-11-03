@@ -177,7 +177,11 @@ class StatusTest(unittest.TestCase):
     self.assertEqual(retry, 0)
     argv = config["infoCommand"]
     self.assertEqual(argv[0], sys.executable)
-    self.assertTrue(argv[1].endswith("adapters/repo-info-ci-github.py"))
+    self.assertEqual(
+      Path(argv[1]).resolve(),
+      (Path(__file__).resolve().parents[1]
+       / "adapters" / "repo-info-ci-github.py").resolve(),
+    )
     self.assertEqual(argv[2:], [
       "--repository", "Ma-XX-oN/Disposable-001",
       "--workflow", "remote-rwf.yml",
