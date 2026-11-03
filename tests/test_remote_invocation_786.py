@@ -220,5 +220,38 @@ class CmdFixture(unittest.TestCase):
     with self.assertRaisesRegex(RemoteInvocationError, "read-only"):
       self.invoke("test", "results", "--remote", "0")
 
+  def test_real_cli_nonzero_parity(self):
+    import importlib.util
+    self.alternate_request("test temporary --remote 0")
+    script = Path(__file__).resolve().parents[1] / "repo_workflow.py"
+    spec = importlib.util.spec_from_file_location("rwf_786_failure", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as localdir:
+      source = Path(localdir) / "source"
+      _run(self.area, "clone", "--quiet", str(self.repo), str(source))
+      _run(source, "checkout", "-b", self.branch, self.source_sha)
+      out1, err1 = io.StringIO(), io.StringIO()
+      with redirect_stdout(out1), redirect_stderr(err1):
+        rc1 = module.main(["--root", str(source), "test", "temporary"])
+      out2, err2 = io.StringIO(), io.StringIO()
+      with redirect_stdout(out2), redirect_stderr(err2):
+        rc2 = module.main([
+          "--root", str(self.repo), "test", "temporary", "--remote", "0",
+        ])
+      self.assertNotEqual(rc1, 0)
+      self.assertEqual((rc2, out2.getvalue(), err2.getvalue()),
+                       (rc1, out1.getvalue(), err1.getvalue()))
+
+  def test_published_previous_attempt_is_valid_retry_ancestry(self):
+    path = self.repo / ".repoworkflow" / "result"
+    path.parent.mkdir(parents=True)
+    path.write_text("1\\nold outcome\\n", encoding="utf-8")
+    _run(self.repo, "add", ".repoworkflow/result")
+    _run(self.repo, "commit", "-m", "publish previous attempt")
+    self.marker("test RED --remote 1")
+    self.push()
+    self.assertEqual(self.invoke("test", "RED", "--remote", "1").retry, 1)
+
 if __name__ == "__main__":
   unittest.main()
