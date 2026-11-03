@@ -218,6 +218,8 @@ def submit_request(
     branch = f"CMD-{number}-{source_branch}"
     if commit is None:
       commit = _commit(root, source_sha, payload, source_sha=source_sha)
+    if _source(root) != (source_branch, source_sha):
+      raise RemoteRequestError("source changed during request preparation")
     result = _run(
       root, "push", "--porcelain",
       f"--force-with-lease=refs/heads/{branch}:",
