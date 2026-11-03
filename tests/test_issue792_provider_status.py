@@ -204,6 +204,16 @@ class GithubStatusTests(unittest.TestCase):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
     self.assertEqual(gh.call_count, 100)
 
+  def test_provider_pagination_count_mismatch_fails_closed(self):
+    wrong = {"total_count": 2, "workflow_runs": [github_run("completed")]}
+    with patch.object(PROVIDER, "gh_json", return_value=wrong):
+      with self.assertRaises(SystemExit):
+        PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
+    bad = {"total_count": "not-an-int", "workflow_runs": []}
+    with patch.object(PROVIDER, "gh_json", return_value=bad):
+      with self.assertRaises(SystemExit):
+        PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
+
   def test_invalid_provider_responses_fail_closed(self):
     for malformed in ({}, {"workflow_runs": None}, {"workflow_runs": [None]},
                       {"workflow_runs": [github_run("completed", run_id=False)]}):
