@@ -1,0 +1,39 @@
+name: RWF 791 Portability Imported Full Native
+on:
+  push:
+    branches:
+      - issue-791-portability-fullnative-20261103
+    paths:
+      - '.ci/issue791-portability-fullnative-trigger'
+permissions:
+  contents: read
+jobs:
+  native-regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 28368455f37667332d81f5074a5635611799bd47
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies, source invariant and environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 28368455f37667332d81f5074a5635611799bd47
+          python -m pip install -r requirements.txt
+          git switch -c issue-791-remote-lifecycle-certification-20261103
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python -c 'import platform;print(platform.platform())'
+          test "$(git rev-parse HEAD)" = 28368455f37667332d81f5074a5635611799bd47
+      - name: Public full registered regression (exact source)
+        shell: bash
+        run: ./rwf test regression
