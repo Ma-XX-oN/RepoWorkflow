@@ -234,4 +234,6 @@ def ci_invocation_status(
     raise _fail("CI invocation detail")
   if value["state"] == "unknown" and detail is None:
     raise _fail("unknown CI invocation detail")
+  if value["state"] != "unknown" and detail is not None:
+    raise _fail("non-unknown CI invocation detail")
   return value
