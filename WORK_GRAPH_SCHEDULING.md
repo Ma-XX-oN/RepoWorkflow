@@ -13,6 +13,19 @@ by [dependency pause and propagation](DEPENDENCY_PAUSE_AND_PROPAGATION.md).
 Check holds and all affected consumer revisions before issuing launch prompts.
 A pause is not a new dependency edge or lifecycle status.
 
+## Leaf-only dispatch invariant
+
+Ticket-worker prompts are allowed ONLY for currently READY atomic leaves:
+all direct prerequisites VERIFIED DONE at current accepted revisions,
+no governing pause, and verified ownership. Before each prompt, inspect
+the current graph and issue. If any predecessor is unfinished or unknown,
+do NOT emit even a conditional or future prompt for its dependent ticket.
+Recheck the eligible leaves after the predecessor actually finishes.
+Controllers and umbrellas are never worker-dispatched. A deadline does not
+change this rule. Authorized speculative execution within an already
+active worker is not authorization for a new blocked-ticket SPINUP.
+See [agent prompt packaging](AGENT_PROMPT_PACKAGING.md#leaf-only-worker-prompt-eligibility).
+
 ## Derive scheduling from the graph
 
 Do not maintain a separate manual work order when the dependency graph can
