@@ -6,6 +6,9 @@ import subprocess
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
+
+import repo_workflow.remote_request as request_transport
 
 from repo_workflow.remote_request import (
   RemoteRequestError, retry_request, submit_request, submit_unpolled,
@@ -174,6 +177,27 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertEqual(first.number, again.number)
     self.assertTrue(again.reused)
     self.assertNotEqual(first.request_sha, again.request_sha)
+
+  def test_source_tip_advance_during_allocation_fails_closed(self):
+    original = request_transport._remote_refs
+    advanced = False
+
+    def advance(root, remote):
+      nonlocal advanced
+      refs = original(root, remote)
+      if not advanced:
+        advanced = True
+        (self.source / "file.txt").write_text("raced commit\\n")
+        git(self.source, "commit", "-am", "move source during request")
+      return refs
+
+    with patch.object(request_transport, "_remote_refs", side_effect=advance):
+      with self.assertRaises(RemoteRequestError):
+        self.submit()
+    self.assertEqual([], [
+      branch for branch in git(self.source, "ls-remote", "--heads", "origin").splitlines()
+      if "CMD-" in branch
+    ])
 
   def test_concurrent_distinct_requests_allocate_distinct_numbers(self):
     clones = []
