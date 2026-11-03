@@ -201,7 +201,7 @@ def _render(status: CommandStatus) -> int:
   # Windows' inherited console code page is not sufficient for arbitrary
   # UTF-8 command output. Keep strict encoding rather than replacing glyphs.
   if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="strict")
+    sys.stdout.reconfigure(encoding="utf-8", errors="strict", newline="\n")
   if status.result is None:
     print(f"CMD-{status.number} {status.branch} PENDING ({status.state})")
     return PENDING_EXIT
