@@ -276,6 +276,8 @@ class GithubStatusTests(unittest.TestCase):
       response(b"test RED --remote not-an-attempt\n"),
       response(b"test RED --remote 2\nother"),
       response(b"test RED --remote 2\x00"),
+      response(b"--remote 2"),
+      {"type": "file", "encoding": "base64", "content": "!!!"},
       response(b"\xff"),
       {"type": "dir", "encoding": "base64", "content": valid["content"]},
       {"type": "file", "encoding": "base64", "content": None},
@@ -285,6 +287,18 @@ class GithubStatusTests(unittest.TestCase):
         PROVIDER, "gh_json", return_value=payload
       ), self.assertRaises(SystemExit):
         PROVIDER.verify_request_marker("o/r", SHA, 2)
+
+  def test_output_codec_uses_explicit_strict_utf8(self):
+    with patch.object(PROVIDER.sys, "stdout") as stdout, patch.object(
+      PROVIDER.sys, "stderr"
+    ) as stderr:
+      PROVIDER.configure_output()
+    stdout.reconfigure.assert_called_once_with(
+      encoding="utf-8", errors="strict"
+    )
+    stderr.reconfigure.assert_called_once_with(
+      encoding="utf-8", errors="strict"
+    )
 
   def test_status_rejects_attempt_mismatch_before_workflow_lookup(self):
     payload = {
