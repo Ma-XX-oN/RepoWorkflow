@@ -207,8 +207,12 @@ def submit_request(
         if _remote_refs(root, remote).get(branch) != tip:
           stale = True
           break
+        request_sha = _git(
+          root, "log", "-1", "--format=%H", tip, "--", ".ci/rwf",
+        )
+        assert _SHA.fullmatch(request_sha)
         return SubmittedRequest(
-          int(match.group(1)), branch, source_sha, tip, True,
+          int(match.group(1)), branch, source_sha, request_sha, True,
         )
     if stale:
       continue
