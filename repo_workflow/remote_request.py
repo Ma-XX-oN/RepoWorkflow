@@ -110,7 +110,7 @@ def _matches(
   return count > 0
 
 
-def _commit(root: Path, parent: str, text: str) -> str:
+def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
   # A detached worktree keeps the source branch and user index untouched.
   with tempfile.TemporaryDirectory(prefix="rwf-cmd-") as directory:
     checkout = Path(directory) / "checkout"
@@ -125,7 +125,7 @@ def _commit(root: Path, parent: str, text: str) -> str:
       _git(
         checkout, "-c", "user.name=RepoWorkflow",
         "-c", "user.email=rwf@localhost", "commit", "--quiet",
-        "-m", "rwf: submit remote command",
+        "-m", "rwf: submit remote command",\n        "-m", f"RWF-Source: {source_sha}",
       )
       sha = _git(checkout, "rev-parse", "HEAD")
       assert _SHA.fullmatch(sha)
@@ -178,7 +178,7 @@ def submit_request(
     number = max(numbers, default=0) + 1
     branch = f"CMD-{number}-{source_branch}"
     if commit is None:
-      commit = _commit(root, source_sha, payload)
+      commit = _commit(root, source_sha, payload, source_sha=source_sha)
     result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
     if result.returncode == 0:
       return SubmittedRequest(\n        number, branch, source_sha, commit,\n        "[up to date]" in result.stdout,\n      )
@@ -205,21 +205,31 @@ def retry_request(
   if not _inspect(root, remote, branch, expected_tip):
     raise RemoteRequestError("CMD changed during inspection")
   lineage = _git(root, "rev-list", "--reverse", expected_tip).splitlines()
-  first = next(
-    (node for node in lineage if _git(
+  first = None
+  source_sha = None
+  for node in lineage:
+    message = _git(root, "log", "-1", "--format=%B", node)
+    match_source = re.search(r"^RWF-Source: ([0-9a-f]{40,64})$", message, re.M)
+    if match_source is None:
+      continue
+    if _git(
       root, "diff-tree", "--no-commit-id", "--name-only", "-r", node
-    ) == ".ci/rwf"), None,
-  )
-  if first is None:
-    raise RemoteRequestError("missing CMD request")
-  source_sha = _git(root, "rev-parse", f"{first}^")
+    ) != ".ci/rwf":
+      continue
+    first = node
+    source_sha = match_source.group(1)
+    break
+  if first is None or source_sha is None:
+    raise RemoteRequestError("missing CMD source identity")
+  if _git(root, "rev-parse", f"{first}^") != source_sha:
+    raise RemoteRequestError("CMD source identity does not match parent")
   if not _matches(root, remote, branch, expected_tip, source_sha, argv):
     raise RemoteRequestError("invalid CMD retry lineage")
   prior = shlex.split(_git(root, "show", f"{expected_tip}:.ci/rwf"), posix=True)
   if len(prior) != len(argv) + 1 or prior[:-1] != argv:
     raise RemoteRequestError("retry command mismatch")
   count = int(prior[-1])
-  commit = _commit(root, expected_tip, shlex.join([*argv, str(count + 1)]))
+  commit = _commit(\n    root, expected_tip, shlex.join([*argv, str(count + 1)]),\n    source_sha=source_sha,\n  )
   result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
   if result.returncode:
     raise RemoteRequestError("CMD retry publication rejected: " + result.stderr.strip())
