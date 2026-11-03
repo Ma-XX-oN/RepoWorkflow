@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 
 _RESULT = ".repoworkflow/result"
 _MARKER = ".ci/rwf"
-_CMD = re.compile(r"CMD-[1-9][0-9]*-.+\\Z")
-_SHA = re.compile(r"[0-9a-f]{40,64}\\Z")
-_STATUS = re.compile(r"-?[0-9]+\\Z")
+_CMD = re.compile(r"CMD-[1-9][0-9]*-.+\Z")
+_SHA = re.compile(r"[0-9a-f]{40,64}\Z")
+_STATUS = re.compile(r"-?[0-9]+\Z")
 
 
 class RemoteResultError(RuntimeError):
@@ -173,8 +173,6 @@ def publish_result(root: Path, outcome: InvocationOutcome, *,
     changed = _text(root, "diff-tree", "--no-commit-id", "--name-only", "-r", marker).splitlines()
     if changed != [_MARKER]:
       raise RemoteResultError("CMD request modified non-marker paths")
-    if _text(root, "rev-parse", "HEAD") == tip:
-      pass  # Detached or attached checkouts are not mutated.
     # A temporary alternate index generates one tree, independently of any
     # caller's staged files. Publication becomes visible in a single Git ref update.
     with tempfile.TemporaryDirectory(prefix="rwf-result-") as directory:
