@@ -132,6 +132,20 @@ class CMDSubmissionTests(unittest.TestCase):
         ["test", "GREEN", "--remote"], permitted=True,
       )
 
+  def test_invalid_utf8_in_remote_request_fails_closed(self):
+    first = self.submit()
+    clone = Path(self.temp.name) / "bad-utf8"
+    git(Path(self.temp.name), "clone", "-b", first.branch,
+        str(self.remote), str(clone))
+    git(clone, "config", "user.email", "test@example.invalid")
+    git(clone, "config", "user.name", "Fixture")
+    (clone / ".ci" / "rwf").write_bytes(b"test RED --remote \xff\n")
+    git(clone, "add", ".ci/rwf")
+    git(clone, "commit", "-m", "invalid UTF-8 marker")
+    git(clone, "push", "origin", "HEAD")
+    with self.assertRaises(RemoteRequestError):
+      self.submit()
+
   def test_unauthorized_extra_file_history_is_not_reused(self):
     first = self.submit()
     clone = Path(self.temp.name) / "tamper"
