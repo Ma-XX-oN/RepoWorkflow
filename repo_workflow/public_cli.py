@@ -162,7 +162,7 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   if words[:2] == ["test", "RED"] and "--remote" in words:
     # Preserve the existing unconfigured RED/GREEN skip contract: a remote
     # command with no committed RED selection has no test to execute.
-    if not (root / ".ci" / "red-green.txt").exists():
+    if words == ["test", "RED", "--remote"] and not (root / ".ci" / "red-green.txt").exists():
       return run_test(
         root, "RED", remote=True, engine_root=engine_root, group=None,
       )
