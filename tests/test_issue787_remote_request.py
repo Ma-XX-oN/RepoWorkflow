@@ -198,7 +198,7 @@ class CMDSubmissionTests(unittest.TestCase):
     again = self.submit()
     self.assertEqual(first.number, again.number)
     self.assertTrue(again.reused)
-    self.assertNotEqual(first.request_sha, again.request_sha)
+    self.assertEqual(first.request_sha, again.request_sha)
 
   def test_source_tip_advance_during_allocation_fails_closed(self):
     original = request_transport._remote_refs
