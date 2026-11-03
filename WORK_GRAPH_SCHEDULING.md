@@ -8,6 +8,11 @@ naming and conversation-only worker launch conventions in
 Shared prompt revisions follow [PMD_AUTHORING.md](PMD_AUTHORING.md);
 launching a new worker never transfers an existing owner claim.
 
+Explicit operator **pause gates** and cross-ticket fix propagation are governed
+by [dependency pause and propagation](DEPENDENCY_PAUSE_AND_PROPAGATION.md).
+Check holds and all affected consumer revisions before issuing launch prompts.
+A pause is not a new dependency edge or lifecycle status.
+
 ## Derive scheduling from the graph
 
 Do not maintain a separate manual work order when the dependency graph can
