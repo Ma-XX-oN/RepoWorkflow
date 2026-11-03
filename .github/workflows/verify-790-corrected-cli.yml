@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d1da9d547095f6e5da1e47d0783f71d65b929878
+          ref: 16026cae3c529a0b02c82cb85b2a5dcff4478586
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'd1da9d547095f6e5da1e47d0783f71d65b929878'
+          test "$(git rev-parse HEAD)" = '16026cae3c529a0b02c82cb85b2a5dcff4478586'
           python -m py_compile repo_workflow/public_cli.py tests/test_test_launcher.py
           python - <<'PY'
           import json
