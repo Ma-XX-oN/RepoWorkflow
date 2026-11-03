@@ -181,6 +181,8 @@ def submit_request(
         stale = True
         break
       if matched:
+        if _source(root) != (source_branch, source_sha):
+          raise RemoteRequestError("source changed while reusing CMD")
         # Do not return an obsolete request SHA after a concurrent retry.
         if _remote_refs(root, remote).get(branch) != tip:
           stale = True
