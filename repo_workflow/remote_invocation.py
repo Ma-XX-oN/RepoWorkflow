@@ -15,6 +15,8 @@ import traceback
 from typing import Callable
 
 from .git import current_branch, git, head_sha
+from .command_grammar import CommandGrammarError, Context, parse_tokens
+from .public_commands import COMMANDS
 
 
 _CMD = re.compile(r"CMD-([1-9][0-9]*)-(.+)\Z")
@@ -165,6 +167,20 @@ def _validate(root: Path, argv: list[str]) -> _Request:
   )
 
 
+def _assert_hosted_grammar(source: Path, words: tuple[str, ...]) -> None:
+  """Reuse the public parser; do not grant new remote command permissions."""
+  if words[:2] == ("test", "results"):
+    raise RemoteInvocationError("test results is read-only")
+  probe = [*words, "--remote"]
+  if len(probe) == 4 and probe[:2] == ["test", "RED"]:
+    probe = [probe[0], probe[1], "--remote", probe[2]]
+  try:
+    parse_tokens(COMMANDS, Context(source, legal_only=False), probe)
+    parse_tokens(COMMANDS, Context(source, legal_only=True), probe)
+  except CommandGrammarError as exc:
+    raise RemoteInvocationError("command is not eligible for hosted execution") from exc
+
+
 class _StreamCapture(io.TextIOBase):
   def __init__(self, separate: io.StringIO, combined: io.StringIO):
     self._separate = separate
@@ -202,6 +218,7 @@ def invoke_numbered(
         request.source_branch, request.source_sha)
     origin = _git(root, "remote", "get-url", "origin")
     git(source, "remote", "set-url", "origin", origin)
+    _assert_hosted_grammar(source, request.argv)
     with redirect_stdout(_StreamCapture(stdout, combined)):
       with redirect_stderr(_StreamCapture(stderr, combined)):
         try:
