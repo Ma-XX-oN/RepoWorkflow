@@ -32,8 +32,19 @@ jobs:
       - name: Restore authoritative origin refs
         shell: bash
         run: git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Checkout pinned RWF engine outside consumer workspace
+        shell: bash
+        env:
+          RWF_ENGINE_ROOT: ${{ runner.temp }}/rwf-engine
+        run: |
+          set -euo pipefail
+          git clone --quiet https://github.com/Ma-XX-oN/RepoWorkflow.git "$RWF_ENGINE_ROOT"
+          git -C "$RWF_ENGINE_ROOT" checkout --quiet --detach 99f03d3432c46d52e2086282901c8f44313c7650
+          test "$(git -C "$RWF_ENGINE_ROOT" rev-parse HEAD)" = 99f03d3432c46d52e2086282901c8f44313c7650
+          python -m pip install -r "$RWF_ENGINE_ROOT/requirements.txt"
       - name: Forward authenticated CMD argv through normal CLI
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/hosted-rwf-forward.py
+          RWF_ENGINE_ROOT: ${{ runner.temp }}/rwf-engine
+        run: python "$RWF_ENGINE_ROOT/scripts/hosted-rwf-forward.py"
