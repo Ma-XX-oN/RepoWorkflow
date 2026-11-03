@@ -187,7 +187,7 @@ class CMDSubmissionTests(unittest.TestCase):
       refs = original(root, remote)
       if not advanced:
         advanced = True
-        (self.source / "file.txt").write_text("raced commit\\n")
+        (self.source / "file.txt").write_text("raced commit\n")
         git(self.source, "commit", "-am", "move source during request")
       return refs
 
