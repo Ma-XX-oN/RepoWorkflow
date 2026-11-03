@@ -99,12 +99,11 @@ def status(repository: str, workflow: str, branch: str, revision: str, attempt: 
     if not isinstance(runs, list):
       fail("GitHub CI invocation response lacks workflow_runs")
     total = data.get("total_count")
-    if total is not None:
-      if type(total) is not int or total < 0:
-        fail("GitHub CI invocation count is malformed")
-      if expected_total is not None and total != expected_total:
-        fail("GitHub CI invocation listing changed during pagination")
-      expected_total = total
+    if type(total) is not int or total < 0:
+      fail("GitHub CI invocation count is missing or malformed")
+    if expected_total is not None and total != expected_total:
+      fail("GitHub CI invocation listing changed during pagination")
+    expected_total = total
     enumerated += len(runs)
     for run in runs:
       if not isinstance(run, dict):
