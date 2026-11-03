@@ -13,6 +13,7 @@ import sys
 import time
 from uuid import uuid4
 
+from .config import ConfigError
 from .remote_result import PublishedResult, RemoteResultError, read_result
 from .repo_info_adapter import RepoInfoError, ci_invocation_status, resolve_info_config
 from .remote_request import RemoteRequestError, submit_request
@@ -274,7 +275,7 @@ def submit_remote(
           raise RemoteStatusError("reused request advanced during inspection")
         if observation.result is None:
           print(f"CMD-{request.number} {request.branch} PENDING ({observation.state})")
-    except (ValueError, RemoteStatusError) as exc:
+    except (ValueError, RemoteStatusError, ConfigError) as exc:
       # The request was already accepted/reused; status uncertainty must
       # never create another remote execution or falsify acceptance.
       print(f"CMD-{request.number} status UNKNOWN: {exc}", file=sys.stderr)

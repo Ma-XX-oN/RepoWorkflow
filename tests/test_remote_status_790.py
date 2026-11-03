@@ -187,6 +187,12 @@ class StatusTest(unittest.TestCase):
       self.assertEqual(submit_remote(
         self.root, argv, clock=lambda: stamp + 16,
       ), 0)
+    from repo_workflow.config import ConfigError
+    with patch("repo_workflow.remote_status.resolve_info_config",
+               side_effect=ConfigError("malformed consumer configuration")):
+      self.assertEqual(submit_remote(
+        self.root, argv, clock=lambda: stamp + 17,
+      ), 0)
     self.assertEqual(git(self.root, "ls-remote", "origin",
                          f"refs/heads/{branch}").split()[0], marker)
     self.assertEqual(git(self.root, "rev-parse", "HEAD"), before)
