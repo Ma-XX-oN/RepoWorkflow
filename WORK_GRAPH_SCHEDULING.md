@@ -41,7 +41,7 @@ Published lane naming, issue qualification, stability, and completion-display
 rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
 
 For human-facing **Progress Graph (PG)** Mermaid dependency diagrams, use
-the five-status colours and exact Unicode symbols in
+the six-status colours and exact Unicode symbols in
 [WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
 For RWF's formal six-state **Lifecycle Graph (LG)**, use
 [SIX_STATE_LIFECYCLE.md](SIX_STATE_LIFECYCLE.md) and
