@@ -179,9 +179,18 @@ def publish_result(root: Path, outcome: InvocationOutcome, *,
       index = str(Path(directory) / "index")
       env = dict(os.environ, GIT_INDEX_FILE=index)
       blob = _run(root, "hash-object", "-w", "--stdin", data=data).decode().strip()
+      previous = _text(root, "ls-tree", tip, "--", _RESULT)
+      # Retried attempts can return byte-identical output. A new result
+      # commit must still change this path for the accepted CMD lineage
+      # validators to recognize it; toggle the Git file mode in that case.
+      mode = "100644"
+      if previous:
+        fields = previous.split()
+        if len(fields) == 4 and fields[1] == "blob" and fields[2] == blob:
+          mode = "100755" if fields[0] == "100644" else "100644"
       _run(root, "read-tree", f"{tip}^{{tree}}", env=env)
       _run(root, "update-index", "--add", "--cacheinfo",
-           "100644", blob, _RESULT, env=env)
+           mode, blob, _RESULT, env=env)
       tree = _run(root, "write-tree", env=env).decode().strip()
     identity_env = dict(os.environ, GIT_AUTHOR_NAME="RepoWorkflow",
                         GIT_AUTHOR_EMAIL="rwf@localhost",
