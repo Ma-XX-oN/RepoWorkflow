@@ -7,10 +7,13 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+from contextlib import redirect_stdout
+from io import StringIO
 
 from repo_workflow.remote_result import PublishedResult
+from repo_workflow.remote_request import SubmittedRequest
 from repo_workflow.remote_status import (
-  PENDING_EXIT, CommandStatus, RemoteStatusError,
+  PENDING_EXIT, CommandStatus, RemoteStatusError, submit_remote,
   parse_intervals, remote_status, resolve_command, command_status,
 )
 
@@ -117,6 +120,118 @@ class StatusTest(unittest.TestCase):
             command_status(
               self.root, info_config={"infoCommand": ["fake"]},
             )
+
+
+  def test_cli_grammar_status_and_poll(self):
+    from repo_workflow.command_grammar import Context, parse_tokens
+    from repo_workflow.public_commands import COMMANDS
+    context = Context(self.root, legal_only=False)
+    for words in (
+      ["remote-status"],
+      ["remote-status", "2"],
+      ["remote-status", "-1"],
+      ["remote-status", "--poll"],
+      ["remote-status", "-1", "--poll", "0", "0.1"],
+      ["test", "RED", "--remote", "--poll", "0"],
+    ):
+      with self.subTest(words=words):
+        self.assertEqual(
+          parse_tokens(COMMANDS, context, words), tuple(words),
+        )
+
+  def test_one_shot_pending_exit_is_distinctly_labeled(self):
+    pending = CommandStatus(2, "CMD-2-issue-790",
+                            "a" * 40, 0, "running", None, 123)
+    output = StringIO()
+    with patch("repo_workflow.remote_status.command_status",
+               return_value=pending), redirect_stdout(output):
+      self.assertEqual(remote_status(self.root), PENDING_EXIT)
+    self.assertIn("CMD-2 CMD-2-issue-790 PENDING (running)", output.getvalue())
+
+  def test_submission_reuses_idempotently_without_retry_before_threshold(self):
+    req = SubmittedRequest(2, "CMD-2-issue-790",
+                           "b" * 40, "a" * 40, True)
+    with patch("repo_workflow.remote_status.submit_request",
+               return_value=req) as submit:
+      with patch("repo_workflow.remote_status._git", return_value="100"):
+        with patch("repo_workflow.remote_status.command_status") as status:
+          self.assertEqual(submit_remote(
+            self.root, ["test", "RED", "--remote"], clock=lambda: 114,
+          ), 0)
+          status.assert_not_called()
+      submit.assert_called_once()
+
+  def test_reuse_after_threshold_queries_provider_without_retry(self):
+    req = SubmittedRequest(2, "CMD-2-issue-790",
+                           "b" * 40, "a" * 40, True)
+    pending = CommandStatus(2, req.branch, req.request_sha,
+                            0, "unknown", None, None)
+    with patch("repo_workflow.remote_status.submit_request",
+               return_value=req) as submit:
+      with patch("repo_workflow.remote_status._git", return_value="100"):
+        observer = lambda *args, **kwargs: pending
+        self.assertEqual(submit_remote(
+          self.root, ["test", "RED", "--remote"],
+          clock=lambda: 115, status_reader=observer,
+        ), 0)
+      submit.assert_called_once()
+
+  def test_submission_failure_returns_one(self):
+    from repo_workflow.remote_request import RemoteRequestError
+    with patch("repo_workflow.remote_status.submit_request",
+               side_effect=RemoteRequestError("rejected")):
+      self.assertEqual(submit_remote(
+        self.root, ["test", "RED", "--remote"],
+      ), 1)
+
+  def test_polled_submission_checks_original_request_identity(self):
+    req = SubmittedRequest(2, "CMD-2-issue-790",
+                           "b" * 40, "a" * 40, False)
+    with patch("repo_workflow.remote_status.submit_request",
+               return_value=req):
+      with patch("repo_workflow.remote_status.remote_status",
+                 return_value=4) as status:
+        self.assertEqual(submit_remote(
+          self.root, ["test", "RED", "--remote"], intervals=(0.0,),
+        ), 4)
+        self.assertEqual(status.call_args.kwargs["expected_request"],
+                         req.request_sha)
+
+  def test_cli_status_does_not_configure_merge_driver(self):
+    from repo_workflow.public_cli import handle_public
+    pending = StringIO()
+    with patch("repo_workflow.public_cli.remote_status",
+               return_value=75):
+      with patch("repo_workflow.public_cli.configure_ticket_merge_driver") as merge:
+        with redirect_stdout(pending):
+          self.assertEqual(handle_public(
+            self.root, ["remote-status", "--poll", "0"],
+            engine_root=self.root,
+          ), 75)
+        merge.assert_not_called()
+
+  def test_cli_red_submission_uses_cmd_transport(self):
+    from repo_workflow.public_cli import handle_public
+    with patch("repo_workflow.public_cli.submit_remote",
+               return_value=0) as submit:
+      self.assertEqual(handle_public(
+        self.root, ["test", "RED", "--remote", "--poll", "0.1"],
+        engine_root=self.root,
+      ), 0)
+      self.assertEqual(submit.call_args.args[1],
+                       ["test", "RED", "--remote"])
+      self.assertEqual(submit.call_args.kwargs["intervals"], (0.1,))
+
+  def test_stale_polled_attempt_is_not_accepted(self):
+    pending = CommandStatus(2, "CMD-2-issue-790",
+                            "b" * 40, 1, "running", None, 123)
+    with patch("repo_workflow.remote_status.command_status",
+               return_value=pending):
+      with self.assertRaisesRegex(RemoteStatusError, "superseded"):
+        remote_status(
+          self.root, expected_request="a" * 40, intervals=(0.0,),
+          sleep=lambda _: self.fail("must not sleep after stale response"),
+        )
 
 
 if __name__ == "__main__":
