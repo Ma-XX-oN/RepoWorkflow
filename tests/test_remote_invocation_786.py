@@ -7,6 +7,7 @@ import io
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -55,12 +56,15 @@ class CmdFixture(unittest.TestCase):
     self.hosted.start()
     self.addCleanup(self.hosted.stop)
 
-  def marker(self, text: str):
+  def marker(self, text: str, *, source_identity: str | None = None):
     path = self.repo / ".ci" / "rwf"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text + "\n", encoding="utf-8")
     _run(self.repo, "add", ".ci/rwf")
-    _run(self.repo, "commit", "-m", "request")
+    _run(
+      self.repo, "commit", "-m", "request", "-m",
+      "RWF-Source: " + (source_identity or self.source_sha),
+    )
 
   def push(self):
     _run(self.repo, "push", "origin", self.cmd)
@@ -106,25 +110,25 @@ class CmdFixture(unittest.TestCase):
     self.assertIn("RuntimeError: deliberate explosion", failure.stderr)
 
   def test_public_runtime_parity_for_red_without_selection(self):
-    import importlib.util
     engine = Path(__file__).resolve().parents[1] / "repo_workflow.py"
-    spec = importlib.util.spec_from_file_location("rwf_786_entry", engine)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
     with tempfile.TemporaryDirectory() as localdir:
       local = Path(localdir) / "source"
       _run(self.area, "clone", "--quiet", str(self.repo), str(local))
       _run(local, "checkout", "-b", self.branch, self.source_sha)
-      localout, localerr = io.StringIO(), io.StringIO()
-      with redirect_stdout(localout), redirect_stderr(localerr):
-        localstatus = module.main(["--root", str(local), "test", "RED"])
-      wrappedout, wrappederr = io.StringIO(), io.StringIO()
-      with redirect_stdout(wrappedout), redirect_stderr(wrappederr):
-        wrappedstatus = module.main([
-          "--root", str(self.repo), "test", "RED", "--remote", "0",
-        ])
-      self.assertEqual((wrappedstatus, wrappedout.getvalue(), wrappederr.getvalue()),
-                       (localstatus, localout.getvalue(), localerr.getvalue()))
+      local_process = subprocess.run(
+        [sys.executable, str(engine), "--root", str(local), "test", "RED"],
+        cwd=local, capture_output=True, check=False,
+      )
+      wrapped_process = subprocess.run(
+        [sys.executable, str(engine), "--root", str(self.repo),
+         "test", "RED", "--remote", "0"],
+        cwd=self.repo, capture_output=True, check=False,
+      )
+      self.assertEqual(
+        (wrapped_process.returncode, wrapped_process.stdout,
+         wrapped_process.stderr),
+        (local_process.returncode, local_process.stdout, local_process.stderr),
+      )
 
   def test_ordinary_branch_numbered_invocation_is_denied(self):
     _run(self.repo, "checkout", self.branch)
@@ -189,6 +193,21 @@ class CmdFixture(unittest.TestCase):
     self.marker("test 'RED --remote 1")
     self.push()
     with self.assertRaisesRegex(RemoteInvocationError, "quoting"):
+      self.invoke("test", "RED", "--remote", "1")
+
+  def test_forged_cmd_source_trailer_is_denied(self):
+    self.marker("test RED --remote 1", source_identity="f" * 40)
+    self.push()
+    with self.assertRaisesRegex(RemoteInvocationError, "source identity"):
+      self.invoke("test", "RED", "--remote", "1")
+
+  def test_missing_cmd_source_trailer_is_denied(self):
+    self.marker("test RED --remote 1")
+    self.push()
+    # Change only the request's commit message, preserving its request bytes.
+    _run(self.repo, "commit", "--amend", "-m", "missing trailer")
+    _run(self.repo, "push", "--force-with-lease", "origin", self.cmd)
+    with self.assertRaisesRegex(RemoteInvocationError, "source identity"):
       self.invoke("test", "RED", "--remote", "1")
 
   def test_noncanonical_marker_is_denied(self):
