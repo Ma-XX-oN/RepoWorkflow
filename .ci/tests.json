@@ -453,6 +453,27 @@
         "type": "regression",
         "name": "tests.test_git_protocol_boundary_p10"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-721-first-use-provider": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes_provider"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-721-first-use-refresh": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes_refresh"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-721-first-use-state": {
+        "type": "regression",
+        "name": "tests.test_first_use_lanes_state"
+      }
     }
   ],
   "aliases": {
