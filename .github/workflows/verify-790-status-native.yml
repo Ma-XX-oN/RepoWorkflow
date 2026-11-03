@@ -34,10 +34,13 @@ jobs:
           import sys
           from pathlib import Path
           data = json.loads(Path(".ci/tests.json").read_text(encoding="utf-8"))
-          entry = next((x for x in data["tests"] if "issue-790-remote-status" in x), None)
-          assert entry is not None, "registered group missing"
-          assert entry["test-harness"] == "unittest"
-          target = entry["issue-790-remote-status"]["name"]
-          print(f"Running registered issue-790-remote-status: {target}", flush=True)
-          raise SystemExit(subprocess.call([sys.executable, "-m", "unittest", target]))
+          for group in ("issue-790-remote-status", "issue-543-first-use-owner"):
+            entry = next((x for x in data["tests"] if group in x), None)
+            assert entry is not None, f"registered {group} missing"
+            assert entry["test-harness"] == "unittest"
+            target = entry[group]["name"]
+            print(f"Running registered {group}: {target}", flush=True)
+            code = subprocess.call([sys.executable, "-m", "unittest", target])
+            if code:
+              raise SystemExit(code)
           PY
