@@ -33,7 +33,7 @@ Maintain a durable **propagation ledger** at the owning issue and at every pause
 | Contract and test | reproduced RED, accepted behavior, official/native/provider GREEN or explicit incompletes |
 | Affected consumers | direct and transitive graph consumers, paused branches, cross-workstream interface consumers |
 | Per-consumer state | NOT REQUIRED / PENDING / IMPORTED / VERIFIED, target SHA and owner |
-| Revalidation | original acceptance criteria invalidated, prescribed test, native OS/provider outcomes and exact revision |
+| Revalidation | invalidated acceptance, prescribed test, native/provider results, exact SHA |
 | Resume | operator pause lifted, #660 gate verified DONE, required imported fixes VERIFIED, acceptance re-read |
 
 Source-owner DONE is not propagation DONE. A downstream owner imports accepted source only within authorized
