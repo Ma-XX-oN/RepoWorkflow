@@ -44,9 +44,9 @@ def gh_json(url: str) -> dict:
 def status(repository: str, workflow: str, branch: str, revision: str, attempt: int) -> None:
   if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None:
     fail("invalid GitHub repository identity")
-  if not workflow or workflow.startswith("-") or "/" in workflow or "\\\\" in workflow:
+  if not workflow or workflow.startswith("-") or re.fullmatch(r"[A-Za-z0-9_.-]+", workflow) is None:
     fail("invalid configured GitHub workflow identity")
-  if re.fullmatch(r"CMD-[1-9][0-9]*-[^\\s\\x00-\\x1f]+", branch) is None:
+  if re.fullmatch(r"CMD-[1-9][0-9]*-[^\s\x00-\x1f]+", branch) is None:
     fail("invalid CMD branch")
   if re.fullmatch(r"[0-9a-fA-F]{40}", revision) is None or attempt < 0:
     fail("invalid CI request identity")
