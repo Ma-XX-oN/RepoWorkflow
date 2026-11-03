@@ -7,6 +7,12 @@ This map does not replace task acceptance, ticket ownership or approval gates.
 
 ## Solve a problem
 
+**Agents: start every repository run** with the
+[agent execution standard](AGENT_EXECUTION_STANDARD.md). It defines
+mandatory documentation/workbench discovery, recovery, acceptance tracking,
+authority and accountable termination; follow its specialist links.
+
+
 1. [Engineering overview](BEST_PRACTICES.md): investigate, design and verify.
    Follow [design principles](DESIGN_PRINCIPLES.md) for reuse, wrappers and
    separation of command logic from execution transport.

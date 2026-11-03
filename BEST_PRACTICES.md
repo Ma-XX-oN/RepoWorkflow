@@ -10,6 +10,13 @@ installation fails, consult [EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.m
 for GitHub Actions as a controlled diagnostic workbench before declaring
 all verification blocked.
 
+## Agent execution and recovery
+
+Start every repository execution run with the
+[agent execution standard](AGENT_EXECUTION_STANDARD.md). It governs current
+documentation discovery, authorized workbench selection, recovery, acceptance
+tracking and justified stopping. Follow the specialist documents linked there.
+
 ## Investigate before changing
 
 - State the required behavior and the observed departure from it, with exact source revision, environment and reproduction.
