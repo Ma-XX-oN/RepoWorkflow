@@ -141,6 +141,8 @@ class CoreStatusTests(unittest.TestCase):
 
 class GithubStatusTests(unittest.TestCase):
   def lookup(self, pages):
+    total = sum(len(page["workflow_runs"]) for page in pages)
+    pages = [{"total_count": total, **page} for page in pages]
     output = io.StringIO()
     with patch.object(PROVIDER, "verify_request_marker"), patch.object(
       PROVIDER, "gh_json", side_effect=pages
@@ -198,7 +200,7 @@ class GithubStatusTests(unittest.TestCase):
       self.assertIn("remote-rwf.yml", endpoint)
 
   def test_non_exhaustive_pagination_fails_closed(self):
-    full_page = {"workflow_runs": [
+    full_page = {"total_count": 100, "workflow_runs": [
       github_run("completed", run_id=i + 1, head_sha="b" * 40)
       for i in range(100)
     ]}
@@ -224,8 +226,11 @@ class GithubStatusTests(unittest.TestCase):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
 
   def test_invalid_provider_responses_fail_closed(self):
-    for malformed in ({}, {"workflow_runs": None}, {"workflow_runs": [None]},
-                      {"workflow_runs": [github_run("completed", run_id=False)]}):
+    for malformed in (
+      {}, {"workflow_runs": None}, {"workflow_runs": []},
+      {"total_count": 1, "workflow_runs": [None]},
+      {"total_count": 1, "workflow_runs": [github_run("completed", run_id=False)]},
+    ):
       with self.subTest(malformed=malformed), patch.object(
         PROVIDER, "gh_json", return_value=malformed
       ), patch.object(PROVIDER, "verify_request_marker"), self.assertRaises(SystemExit):
