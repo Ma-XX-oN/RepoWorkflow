@@ -49,8 +49,8 @@ applicable tests against the new SHA. Only then mark READY and resume.
 If the label cannot be created, read back, or removed, the pause/unpause
 operation is INCOMPLETE and scheduling must fail closed. On label removal
 failure after governor DONE, report the release as incomplete; retry only
-after diagnosing the provider error, without scheduling the ticket. A written notice
-alone is not evidence that a label-based hold has been enforced. Pause
+after diagnosing the provider error, without scheduling the ticket.
+A written notice alone is not evidence that a label-based hold has been enforced. Pause
 release is not a merge, production activation, or ownership transfer.
 
 ## Fix once, propagate to every affected consumer
