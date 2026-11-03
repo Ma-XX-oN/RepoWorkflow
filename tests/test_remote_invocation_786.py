@@ -268,5 +268,17 @@ class CmdFixture(unittest.TestCase):
     self.assertIn("requires numbered --remote suffix", output.getvalue())
     self.assertFalse((self.repo / ".repoworkflow" / "validation").exists())
 
+  def test_real_process_capture_preserves_bytes_and_status(self):
+    outcome = self.invoke(handler=lambda root, args: subprocess.CompletedProcess(
+      args=["rwf", *args],
+      returncode=42,
+      stdout="π output\\n".encode("utf-8"),
+      stderr="δ failure\\n".encode("utf-8"),
+    ))
+    self.assertEqual(outcome.exit_code, 42)
+    self.assertEqual(outcome.stdout, "π output\\n")
+    self.assertEqual(outcome.stderr, "δ failure\\n")
+    self.assertEqual(outcome.output, "π output\\nδ failure\\n")
+
 if __name__ == "__main__":
   unittest.main()
