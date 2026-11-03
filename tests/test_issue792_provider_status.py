@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import base64
 import importlib.util
 import io
 import json
@@ -141,7 +142,7 @@ class CoreStatusTests(unittest.TestCase):
 class GithubStatusTests(unittest.TestCase):
   def lookup(self, pages):
     output = io.StringIO()
-    with patch.object(PROVIDER, "gh_json", side_effect=pages) as gh, contextlib.redirect_stdout(output):
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", side_effect=pages\n    ) as gh, contextlib.redirect_stdout(output):
       PROVIDER.status("Ma-XX-oN/RepoWorkflow", "remote-rwf.yml", BRANCH, SHA, 2)
     value = json.loads(output.getvalue())
     self.assertEqual(value["branch"], BRANCH)
@@ -199,18 +200,18 @@ class GithubStatusTests(unittest.TestCase):
       github_run("completed", run_id=i + 1, head_sha="b" * 40)
       for i in range(100)
     ]}
-    with patch.object(PROVIDER, "gh_json", return_value=full_page) as gh:
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", return_value=full_page\n    ) as gh:
       with self.assertRaisesRegex(SystemExit, "2"):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
     self.assertEqual(gh.call_count, 100)
 
   def test_provider_pagination_count_mismatch_fails_closed(self):
     wrong = {"total_count": 2, "workflow_runs": [github_run("completed")]}
-    with patch.object(PROVIDER, "gh_json", return_value=wrong):
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", return_value=wrong\n    ):
       with self.assertRaises(SystemExit):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
     bad = {"total_count": "not-an-int", "workflow_runs": []}
-    with patch.object(PROVIDER, "gh_json", return_value=bad):
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", return_value=bad\n    ):
       with self.assertRaises(SystemExit):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
 
@@ -219,7 +220,7 @@ class GithubStatusTests(unittest.TestCase):
                       {"workflow_runs": [github_run("completed", run_id=False)]}):
       with self.subTest(malformed=malformed), patch.object(
         PROVIDER, "gh_json", return_value=malformed
-      ), self.assertRaises(SystemExit):
+      ), patch.object(PROVIDER, "verify_request_marker"), self.assertRaises(SystemExit):
         PROVIDER.status("o/r", "remote-rwf.yml", BRANCH, SHA, 2)
 
   def test_failed_credentials_malformed_json_and_unicode_fail(self):
@@ -249,6 +250,43 @@ class GithubStatusTests(unittest.TestCase):
         with self.subTest(args=args), self.assertRaises(SystemExit):
           PROVIDER.status(*args)
     gh.assert_not_called()
+
+  def test_committed_request_marker_exact_retry_binding(self):
+    def response(value):
+      return {
+        "type": "file", "encoding": "base64",
+        "content": base64.b64encode(value).decode("ascii"),
+      }
+    valid = response(b"test RED --remote 2\\n")
+    with patch.object(PROVIDER, "gh_json", return_value=valid) as fetch:
+      PROVIDER.verify_request_marker("o/r", SHA, 2)
+    self.assertIn("/contents/.ci/rwf?ref=" + SHA, fetch.call_args.args[0])
+    invalid = [
+      response(b"test RED --remote 1\\n"),
+      response(b"test RED --remote 20\\n"),
+      response(b"test RED --remote -1\\n"),
+      response(b"test RED --remote not-an-attempt\\n"),
+      response(b"test RED --remote 2\\nother"),
+      response(b"test RED --remote 2\\x00"),
+      response(b"\\xff"),
+      {"type": "dir", "encoding": "base64", "content": valid["content"]},
+      {"type": "file", "encoding": "base64", "content": None},
+    ]
+    for payload in invalid:
+      with self.subTest(payload=payload), patch.object(
+        PROVIDER, "gh_json", return_value=payload
+      ), self.assertRaises(SystemExit):
+        PROVIDER.verify_request_marker("o/r", SHA, 2)
+
+  def test_status_rejects_attempt_mismatch_before_workflow_lookup(self):
+    payload = {
+      "type": "file", "encoding": "base64",
+      "content": base64.b64encode(b"test GREEN --remote 1\\n").decode("ascii"),
+    }
+    with patch.object(PROVIDER, "gh_json", return_value=payload) as fetch:
+      with self.assertRaises(SystemExit):
+        PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
+    fetch.assert_called_once()
 
   def test_existing_operations_delegate_to_original_provider(self):
     with patch.object(PROVIDER.subprocess, "call", return_value=0) as delegated:
