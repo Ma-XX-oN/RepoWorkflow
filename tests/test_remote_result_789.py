@@ -95,6 +95,30 @@ class ResultFixture(unittest.TestCase):
     with self.assertRaises(RemoteResultError):
       publish_result(self.root, old)
 
+  def test_latest_retry_publishes_own_result(self):
+    first = self.outcome()
+    publish_result(self.root, first)
+    git(self.root, "fetch", "origin", self.branch)
+    git(self.root, "reset", "--hard", "FETCH_HEAD")
+    self.marker(1)
+    latest = replace(first, request_sha=self.request, retry=1,
+                     exit_code=23, output="retry Δ\\n")
+    published = publish_result(self.root, latest)
+    self.assertEqual(read_result(self.root, self.branch), published)
+    self.assertEqual((published.retry, published.exit_code), (1, 23))
+    self.assertNotEqual(published.request_sha, first.request_sha)
+
+  def test_forged_publication_rejected_by_readback(self):
+    (self.root / ".repoworkflow").mkdir(exist_ok=True)
+    (self.root / ".repoworkflow/result").write_text(
+      "0\\nforged\\n", encoding="utf-8",
+    )
+    git(self.root, "add", ".repoworkflow/result")
+    git(self.root, "commit", "-m", "forged without identity")
+    git(self.root, "push", "origin", self.branch)
+    with self.assertRaises(RemoteResultError):
+      read_result(self.root, self.branch)
+
   def test_non_cmd_branch_denied(self):
     with self.assertRaises(RemoteResultError):
       publish_result(self.root, replace(
