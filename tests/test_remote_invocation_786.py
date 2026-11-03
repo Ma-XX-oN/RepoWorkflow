@@ -296,5 +296,14 @@ class CmdFixture(unittest.TestCase):
     self.assertEqual(out.getvalue(), "π".encode("utf-8"))
     self.assertEqual(err.getvalue(), "δ".encode("utf-8"))
 
+  def test_invalid_subprocess_utf8_fails_closed(self):
+    def invalid(root, args):
+      return subprocess.CompletedProcess(
+        args=["rwf", *args], returncode=0,
+        stdout=bytes([255]), stderr=b"",
+      )
+    with self.assertRaisesRegex(RemoteInvocationError, "non-UTF-8"):
+      self.invoke(handler=invalid)
+
 if __name__ == "__main__":
   unittest.main()
