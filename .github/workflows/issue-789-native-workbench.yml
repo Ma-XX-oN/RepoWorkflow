@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: f2b543d13af4e2310205b9ae75fd3ae53c2651ce
+          ref: 7322ff1acb903b11c6e5691106ad13b44efd5177
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'f2b543d13af4e2310205b9ae75fd3ae53c2651ce'
+          test "$(git rev-parse HEAD)" = '7322ff1acb903b11c6e5691106ad13b44efd5177'
           git switch -c issue-789-cmd-results-20261102
           python - <<'PY'
           import subprocess
