@@ -233,7 +233,8 @@ def main(argv: list[str] | None = None) -> int:
           lambda source, local: subprocess.run(
             [sys.executable, str(Path(__file__).resolve()),
              "--root", str(source), *local],
-            cwd=source, capture_output=True, check=False,
+            cwd=source, stdin=subprocess.DEVNULL,
+            capture_output=True, check=False,
           ),
         )
         sys.stdout.write(outcome.stdout)
