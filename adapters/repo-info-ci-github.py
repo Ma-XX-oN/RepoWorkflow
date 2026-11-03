@@ -7,9 +7,12 @@ delegates existing operations unchanged and owns only hosted CI API access.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 from urllib.parse import quote
@@ -41,6 +44,27 @@ def gh_json(url: str) -> dict:
   return value
 
 
+
+def verify_request_marker(repository: str, revision: str, attempt: int) -> None:
+  """Bind an observed Actions SHA to the actual numbered .ci/rwf request."""
+  endpoint = f"repos/{repository}/contents/.ci/rwf?ref={revision}"
+  payload = gh_json(endpoint)
+  if payload.get("type") != "file" or payload.get("encoding") != "base64":
+    fail("GitHub CI request marker response is malformed")
+  encoded = payload.get("content")
+  if not isinstance(encoded, str):
+    fail("GitHub CI request marker is missing")
+  try:
+    raw = base64.b64decode(encoded, validate=False)
+    text = raw.decode("utf-8", "strict")
+    tokens = shlex.split(text, posix=True)
+  except (ValueError, UnicodeError, binascii.Error) as exc:
+    fail(f"GitHub CI request marker cannot be decoded: {exc}")
+  if not tokens or tokens[-2:] != ["--remote", str(attempt)]:
+    fail("GitHub CI request retry attempt does not match committed marker")
+
+
+
 def status(repository: str, workflow: str, branch: str, revision: str, attempt: int) -> None:
   if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None:
     fail("invalid GitHub repository identity")
@@ -51,6 +75,7 @@ def status(repository: str, workflow: str, branch: str, revision: str, attempt: 
   if re.fullmatch(r"[0-9a-fA-F]{40}", revision) is None or attempt < 0:
     fail("invalid CI request identity")
   revision = revision.lower()
+  verify_request_marker(repository, revision, attempt)
   matched: dict[int, dict] = {}
   expected_total = None
   enumerated = 0
