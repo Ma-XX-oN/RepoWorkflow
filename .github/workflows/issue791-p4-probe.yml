@@ -1,0 +1,36 @@
+name: RWF 791 P4 Exact Source Compatibility Probe
+on:
+  push:
+    branches:
+      - issue-791-p4-split-probe-20261103
+    paths:
+      - '.ci/issue791-p4-probe-trigger'
+permissions:
+  contents: read
+jobs:
+  p4-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 45647bc9acd762e25cbc0ab7258d273781c750c1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Exact product and donor test identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 45647bc9acd762e25cbc0ab7258d273781c750c1
+          python -m pip install -r requirements.txt
+          python -m compileall -q tests
+          test "$(git rev-parse HEAD:tests/test_first_use_lanes.py)" = 9b5207102dc93f3465627f148625f00735a1dfab
+      - name: P4 approved split compatibility diagnostic
+        shell: bash
+        run: python -m unittest -v tests.test_first_use_lanes tests.test_first_use_lanes_provider tests.test_first_use_lanes_refresh tests.test_first_use_lanes_state
