@@ -117,10 +117,10 @@ class CoreStatusTests(unittest.TestCase):
       script = root / "fake_info.py"
       payload = run_payload("completed", 135)
       script.write_text(
-        "import json, sys\\n"
+        "import json, sys\n"
         + "assert sys.argv[1:] == " +
-        repr(["ci", "invocation", "status", BRANCH, SHA, "2"]) + "\\n"
-        + "print(" + repr(json.dumps(payload)) + ")\\n",
+        repr(["ci", "invocation", "status", BRANCH, SHA, "2"]) + "\n"
+        + "print(" + repr(json.dumps(payload)) + ")\n",
         encoding="utf-8",
       )
       config = {"infoCommand": [sys.executable, str(script)]}
