@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
+import sys
 import tempfile
 import traceback
 from typing import Callable
@@ -205,6 +206,21 @@ def _assert_hosted_grammar(source: Path, words: tuple[str, ...]) -> None:
     parse_tokens(COMMANDS, Context(source, legal_only=True), probe)
   except CommandGrammarError as exc:
     raise RemoteInvocationError("command is not eligible for hosted execution") from exc
+
+
+def emit_outcome(outcome: InvocationOutcome) -> None:
+  """Emit strict UTF-8 bytes even when the host text codec differs."""
+  for stream, value in (
+    (sys.stdout, outcome.stdout),
+    (sys.stderr, outcome.stderr),
+  ):
+    encoded = value.encode("utf-8", errors="strict")
+    binary = getattr(stream, "buffer", None)
+    if binary is None:
+      stream.write(value)
+    else:
+      binary.write(encoded)
+      binary.flush()
 
 
 class _StreamCapture(io.TextIOBase):
