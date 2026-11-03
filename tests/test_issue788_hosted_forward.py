@@ -154,7 +154,7 @@ class HostedForwardTests(unittest.TestCase):
 
   def test_workflow_filter_is_only_cmd_marker(self):
     workflow = (ROOT / ".github/workflows/remote-rwf.yml").read_text(encoding="utf-8")
-    self.assertIn("- 'CMD-*'", workflow)
+    self.assertIn("- 'CMD-**'", workflow)
     self.assertIn("- '.ci/rwf'", workflow)
     self.assertNotIn("- '.ci/run'", workflow)
     self.assertIn("fetch-depth: 0", workflow)
