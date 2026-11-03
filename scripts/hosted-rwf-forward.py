@@ -103,6 +103,12 @@ def run(root: Path, environment: dict[str, str]) -> int:
     raise HostedForwardError("CMD branch identity was not restored")
   invoked_env = dict(environment)
   invoked_env["RWF_HOSTED_INVOCATION"] = "1"
+  # The normal test/transition handlers commit with the hosted actor identity.
+  # Set this only after authentication; retain normal handler ownership.
+  invoked_env["GIT_AUTHOR_NAME"] = "github-actions[bot]"
+  invoked_env["GIT_AUTHOR_EMAIL"] = "41898282+github-actions[bot]@users.noreply.github.com"
+  invoked_env["GIT_COMMITTER_NAME"] = "github-actions[bot]"
+  invoked_env["GIT_COMMITTER_EMAIL"] = "41898282+github-actions[bot]@users.noreply.github.com"
   engine = Path(_required(environment, "RWF_ENGINE_ROOT")).resolve()
   if not (engine / "repo_workflow.py").is_file():
     raise HostedForwardError("pinned RWF engine entry point is missing")
