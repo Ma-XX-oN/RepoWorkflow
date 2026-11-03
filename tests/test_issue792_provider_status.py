@@ -142,7 +142,9 @@ class CoreStatusTests(unittest.TestCase):
 class GithubStatusTests(unittest.TestCase):
   def lookup(self, pages):
     output = io.StringIO()
-    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", side_effect=pages\n    ) as gh, contextlib.redirect_stdout(output):
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(
+      PROVIDER, "gh_json", side_effect=pages
+    ) as gh, contextlib.redirect_stdout(output):
       PROVIDER.status("Ma-XX-oN/RepoWorkflow", "remote-rwf.yml", BRANCH, SHA, 2)
     value = json.loads(output.getvalue())
     self.assertEqual(value["branch"], BRANCH)
@@ -200,18 +202,24 @@ class GithubStatusTests(unittest.TestCase):
       github_run("completed", run_id=i + 1, head_sha="b" * 40)
       for i in range(100)
     ]}
-    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", return_value=full_page\n    ) as gh:
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(
+      PROVIDER, "gh_json", return_value=full_page
+    ) as gh:
       with self.assertRaisesRegex(SystemExit, "2"):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
     self.assertEqual(gh.call_count, 100)
 
   def test_provider_pagination_count_mismatch_fails_closed(self):
     wrong = {"total_count": 2, "workflow_runs": [github_run("completed")]}
-    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", return_value=wrong\n    ):
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(
+      PROVIDER, "gh_json", return_value=wrong
+    ):
       with self.assertRaises(SystemExit):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
     bad = {"total_count": "not-an-int", "workflow_runs": []}
-    with patch.object(PROVIDER, "verify_request_marker"), patch.object(\n      PROVIDER, "gh_json", return_value=bad\n    ):
+    with patch.object(PROVIDER, "verify_request_marker"), patch.object(
+      PROVIDER, "gh_json", return_value=bad
+    ):
       with self.assertRaises(SystemExit):
         PROVIDER.status("o/r", "remote.yml", BRANCH, SHA, 2)
 
@@ -257,18 +265,18 @@ class GithubStatusTests(unittest.TestCase):
         "type": "file", "encoding": "base64",
         "content": base64.b64encode(value).decode("ascii"),
       }
-    valid = response(b"test RED --remote 2\\n")
+    valid = response(b"test RED --remote 2\n")
     with patch.object(PROVIDER, "gh_json", return_value=valid) as fetch:
       PROVIDER.verify_request_marker("o/r", SHA, 2)
     self.assertIn("/contents/.ci/rwf?ref=" + SHA, fetch.call_args.args[0])
     invalid = [
-      response(b"test RED --remote 1\\n"),
-      response(b"test RED --remote 20\\n"),
-      response(b"test RED --remote -1\\n"),
-      response(b"test RED --remote not-an-attempt\\n"),
-      response(b"test RED --remote 2\\nother"),
-      response(b"test RED --remote 2\\x00"),
-      response(b"\\xff"),
+      response(b"test RED --remote 1\n"),
+      response(b"test RED --remote 20\n"),
+      response(b"test RED --remote -1\n"),
+      response(b"test RED --remote not-an-attempt\n"),
+      response(b"test RED --remote 2\nother"),
+      response(b"test RED --remote 2\x00"),
+      response(b"\xff"),
       {"type": "dir", "encoding": "base64", "content": valid["content"]},
       {"type": "file", "encoding": "base64", "content": None},
     ]
@@ -281,7 +289,7 @@ class GithubStatusTests(unittest.TestCase):
   def test_status_rejects_attempt_mismatch_before_workflow_lookup(self):
     payload = {
       "type": "file", "encoding": "base64",
-      "content": base64.b64encode(b"test GREEN --remote 1\\n").decode("ascii"),
+      "content": base64.b64encode(b"test GREEN --remote 1\n").decode("ascii"),
     }
     with patch.object(PROVIDER, "gh_json", return_value=payload) as fetch:
       with self.assertRaises(SystemExit):
