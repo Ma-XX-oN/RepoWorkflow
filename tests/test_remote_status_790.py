@@ -104,6 +104,39 @@ class StatusTest(unittest.TestCase):
       "CMD-1 CMD-1-issue-790 COMPLETED exit=9\nλ failed\n",
     )
 
+  def test_submitted_cmd_output_is_strict_utf8_lf_under_cp1252(self):
+    # A request's Unicode branch name and an error both cross CLI text I/O.
+    from io import BytesIO, TextIOWrapper
+    from repo_workflow.remote_request import RemoteRequestError
+
+    out_bytes, err_bytes = BytesIO(), BytesIO()
+    out = TextIOWrapper(out_bytes, encoding="cp1252", errors="strict")
+    err = TextIOWrapper(err_bytes, encoding="cp1252", errors="strict")
+    request = SubmittedRequest(1, "CMD-1-issue-λ",
+                               "a" * 40, "b" * 40, False)
+    with patch("repo_workflow.remote_status.sys.stdout", out):
+      with patch("repo_workflow.remote_status.sys.stderr", err):
+        with patch("repo_workflow.remote_status.submit_request",
+                   return_value=request):
+          self.assertEqual(
+            submit_remote(self.root, ["test", "RED", "--remote"]), 0,
+          )
+        with patch("repo_workflow.remote_status.submit_request",
+                   side_effect=RemoteRequestError("rejected λ")):
+          self.assertEqual(
+            submit_remote(self.root, ["test", "RED", "--remote"]), 1,
+          )
+        out.flush()
+        err.flush()
+    self.assertEqual(
+      out_bytes.getvalue().decode("utf-8", "strict"),
+      "CMD-1 CMD-1-issue-λ SUBMITTED\n",
+    )
+    self.assertEqual(
+      err_bytes.getvalue().decode("utf-8", "strict"),
+      "Remote request rejected: rejected λ\n",
+    )
+
   def test_poll_repeats_last_interval_and_never_submits(self):
     pending = CommandStatus(1, "CMD-1-issue-790", "a" * 40,
                             0, "running", None, 123)

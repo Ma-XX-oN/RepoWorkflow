@@ -197,11 +197,15 @@ def parse_intervals(values: list[str] | None) -> tuple[float, ...] | None:
   return tuple(intervals)
 
 
+def _configure_utf8_output() -> None:
+  # Explicit UTF-8/LF for every public CMD status or submission stream.
+  for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+      stream.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+
+
 def _render(status: CommandStatus) -> int:
-  # Windows' inherited console code page is not sufficient for arbitrary
-  # UTF-8 command output. Keep strict encoding rather than replacing glyphs.
-  if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+  _configure_utf8_output()
   if status.result is None:
     print(f"CMD-{status.number} {status.branch} PENDING ({status.state})")
     return PENDING_EXIT
@@ -222,6 +226,7 @@ def remote_status(
   Exit 75 denotes PENDING for one-shot retrieval. Completed command code 75
   is preserved without remapping; the COMPLETED marker disambiguates it.
   """
+  _configure_utf8_output()
   index = 0
   while True:
     status = command_status(root, selection, remote=remote,
@@ -244,6 +249,7 @@ def submit_remote(
   executor-fencing token. Thus it cannot authorize a retry of an attempt.
   Repeated requests always reuse the prior CMD; no retry commit is written.
   """
+  _configure_utf8_output()
   try:
     request = submit_request(root, argv, remote=remote)
   except RemoteRequestError as exc:
