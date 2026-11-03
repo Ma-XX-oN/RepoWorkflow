@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 4ce4da725f8dc7422d86fa4ac81170f9a44e0e72
+          ref: 3274783d76d4e0216ed60969bcdabf62cabfcd49
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '4ce4da725f8dc7422d86fa4ac81170f9a44e0e72'
+          test "$(git rev-parse HEAD)" = '3274783d76d4e0216ed60969bcdabf62cabfcd49'
           python - <<'PY'
           import json
           import subprocess
