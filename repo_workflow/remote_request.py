@@ -131,7 +131,7 @@ def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
     try:
       request = checkout / ".ci" / "rwf"
       request.parent.mkdir(parents=True, exist_ok=True)
-      request.write_text(text + "\n", encoding="utf-8")
+      request.write_text(text + "\n", encoding="utf-8", newline="\n")
       _git(checkout, "add", "-f", "--", ".ci/rwf")
       if _git(checkout, "diff", "--cached", "--name-only") != ".ci/rwf":
         raise RemoteRequestError("request must change only .ci/rwf")
