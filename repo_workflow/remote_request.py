@@ -11,6 +11,7 @@ import re
 import shlex
 import subprocess
 import tempfile
+from uuid import uuid4
 
 
 class RemoteRequestError(RuntimeError):
@@ -70,10 +71,17 @@ def _remote_refs(root: Path, remote: str) -> dict[str, str]:
 
 
 def _inspect(root: Path, remote: str, branch: str, tip: str) -> bool:
-  result = _run(root, "fetch", "--no-tags", remote, f"refs/heads/{branch}")
-  if result.returncode:
-    raise RemoteRequestError("cannot inspect existing CMD")
-  return _git(root, "rev-parse", "FETCH_HEAD^{commit}") == tip
+  # Separate ref per invocation: concurrent fetches must not share FETCH_HEAD.
+  ref = f"refs/rwf/cmd-inspect/{uuid4().hex}"
+  try:
+    result = _run(
+      root, "fetch", "--no-tags", remote, f"refs/heads/{branch}:{ref}",
+    )
+    if result.returncode:
+      raise RemoteRequestError("cannot inspect existing CMD")
+    return _git(root, "rev-parse", f"{ref}^{{commit}}") == tip
+  finally:
+    _run(root, "update-ref", "-d", ref)
 
 
 def _matches(
