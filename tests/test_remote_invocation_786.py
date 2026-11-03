@@ -248,7 +248,7 @@ class CmdFixture(unittest.TestCase):
   def test_published_previous_attempt_is_valid_retry_ancestry(self):
     path = self.repo / ".repoworkflow" / "result"
     path.parent.mkdir(parents=True)
-    path.write_text("1\\nold outcome\\n", encoding="utf-8")
+    path.write_text("1\nold outcome\n", encoding="utf-8")
     _run(self.repo, "add", ".repoworkflow/result")
     _run(self.repo, "commit", "-m", "publish previous attempt")
     self.marker("test RED --remote 1")
