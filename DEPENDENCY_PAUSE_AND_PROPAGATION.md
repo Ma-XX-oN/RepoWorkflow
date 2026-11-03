@@ -1,6 +1,6 @@
 # Dependency Pause and Fix Propagation Gate
 
-Status: proposed repository-wide coordination procedure. The current #660 / #109 pause is an explicit operator
+Status: repository-wide coordination procedure. The current #660 / #109 pause is an explicit operator
 instruction, recorded on affected GitHub issues. This document does not itself alter formal lifecycle state,
 grant file ownership, or authorize merges.
 
@@ -38,7 +38,8 @@ not modify formal RWF lifecycle history.
 
 On verified governing-ticket DONE, discover all issues with that exact label,
 remove **only** that governor's label, update their durable checkpoint, and
-notify the user of every released ticket. Tickets retaining any other
+notify the user of every released ticket, including whether each is READY or
+still awaiting source refresh or test verification. Tickets retaining any other
 `paused-by-*` label remain PAUSED. Tickets with no remaining pause labels
 become UNPAUSED, not automatically READY. Before execution, refresh source
 (current Git: authorized rebase; future RWF: fresh copy at the authoritative
@@ -46,7 +47,9 @@ tip), propagate required accepted fixes, and reverify all previously passing
 applicable tests against the new SHA. Only then mark READY and resume.
 
 If the label cannot be created, read back, or removed, the pause/unpause
-operation is INCOMPLETE and scheduling must fail closed. A written notice
+operation is INCOMPLETE and scheduling must fail closed. On label removal
+failure after governor DONE, report the release as incomplete; retry only
+after diagnosing the provider error, without scheduling the ticket. A written notice
 alone is not evidence that a label-based hold has been enforced. Pause
 release is not a merge, production activation, or ownership transfer.
 
@@ -82,18 +85,22 @@ verified fixes from #660 and their required consumers. Do not perform implementa
 integration, successor dispatch, merges or production activation for the paused tickets. Do not mark formal
 lifecycle DONE/aborted on account of the scheduling pause.
 
-Resume requires **all**:
+READY and execution resume require **all**:
 1.  #660's original umbrella acceptance ledger is fully VERIFIED DONE, not merely leaf handoff, issue comment
    or successful focused test.
-2.  The explicit operator pause is lifted or its stated '#660 DONE' condition has been verified from current
-   authority.
+2.  The `paused-by-rwf-660` label has been removed and independently
+   read back; any remaining governor pause keeps the ticket PAUSED.
 3.  Required corrected blobs are imported into each affected consumer by its authorized owner/integrator and
    tested against its exact target SHA.
 4.  The descendant set, conflicting graph records, remaining acceptance and ownership are checked again; issue
    pause notices and propagation ledgers are updated.
 
-If any check fails, remain PAUSED, report the exact unmet condition, and do not generate an execution prompt
-for that ticket.
+If #660 is not VERIFIED DONE, retain `paused-by-rwf-660`. Once DONE is
+verified, remove that particular label and record UNPAUSED, even if source
+refresh or tests remain incomplete. Keep other governor labels unchanged.
+A released ticket with unmet refresh, accepted-fix propagation, regression,
+ownership or dependency checks is BLOCKED, not READY; record its blocker
+and do not dispatch it until all readiness requirements have been verified.
 
 ## Human-facing PG and handoff
 
