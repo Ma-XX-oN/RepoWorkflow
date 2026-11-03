@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import os
+import subprocess
 import sys
 
 from repo_workflow.actions_policy import ActionsPolicyError, check_actions_policy
@@ -25,6 +27,7 @@ from repo_workflow.config import ConfigError, load_config
 from repo_workflow.git import (
   GitError,
   changed_files,
+  current_branch,
   head_sha,
   repository_state,
   restore_repository_state,
@@ -60,6 +63,9 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.remote_invocation import (
+  RemoteInvocationError, emit_outcome, invoke_numbered,
+)
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -214,6 +220,27 @@ def main(argv: list[str] | None = None) -> int:
         return handle_completion(root, words, describe=describe)
       if mode == "help":
         return handle_help(root, words)
+      if (
+        os.environ.get("RWF_HOSTED_INVOCATION") == "1"
+        and current_branch(root).startswith("CMD-")
+        and words[:2] != ["test", "results"]
+        and not (len(words) >= 2 and words[-2] == "--remote")
+      ):
+        raise RemoteInvocationError(
+          "hosted CMD invocation requires numbered --remote suffix"
+        )
+      if len(words) >= 2 and words[-2] == "--remote":
+        outcome = invoke_numbered(
+          root, words,
+          lambda source, local: subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()),
+             "--root", str(source), *local],
+            cwd=source, stdin=subprocess.DEVNULL,
+            capture_output=True, check=False,
+          ),
+        )
+        emit_outcome(outcome)
+        return outcome.exit_code
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
     args = build_parser().parse_args(argv)
@@ -421,6 +448,7 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RemoteInvocationError,
     ResultError,
     GitError,
     GuardError,
