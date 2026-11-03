@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shlex
 import subprocess
+import sys
 import time
 from uuid import uuid4
 
@@ -196,6 +197,10 @@ def parse_intervals(values: list[str] | None) -> tuple[float, ...] | None:
 
 
 def _render(status: CommandStatus) -> int:
+  # Windows' inherited console code page is not sufficient for arbitrary
+  # UTF-8 command output. Keep strict encoding rather than replacing glyphs.
+  if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="strict")
   if status.result is None:
     print(f"CMD-{status.number} {status.branch} PENDING ({status.state})")
     return PENDING_EXIT
