@@ -757,7 +757,7 @@
           "id": "RS-5",
           "requirement": "provider errors fail closed and exact request/attempt authenticated",
           "verification": [
-            "tests/test_issue792_provider_status.py::ProviderAdapterTests.test_all_normalized_states_and_identity",
+            "tests/test_issue792_provider_status.py::CoreStatusTests.test_all_normalized_states_and_identity",
             "tests/test_remote_status_790.py::StatusTest.test_provider_errors_fail_closed"
           ]
         }
@@ -772,7 +772,7 @@
       },
       "provider_boundary": true,
       "provider_contract_verification": [
-        "tests/test_issue792_provider_status.py::ProviderAdapterTests.test_all_normalized_states_and_identity"
+        "tests/test_issue792_provider_status.py::CoreStatusTests.test_all_normalized_states_and_identity"
       ]
     }
   ],
