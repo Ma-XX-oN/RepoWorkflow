@@ -37,6 +37,12 @@ Before issuing a worker prompt or resuming a dependent issue, apply the
 Explicit operator pauses bar execution even where an old graph says READY;
 accepted fixes must reach and be reverified in paused consumers before resume.
 
+For ticket-worker prompt generation, enforce the
+[leaf-only dispatch gate](AGENT_PROMPT_PACKAGING.md#leaf-only-worker-prompt-eligibility).
+Never issue an umbrella/controller worker SPINUP, including in response to a
+deadline or group-completion request. A controller's own completion is
+reported from verified descendant acceptance, not a new controller worker.
+
 ## Authority, evidence and scope
 
 Higher-priority platform safety and tool requirements govern. Repository
