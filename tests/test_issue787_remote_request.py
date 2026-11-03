@@ -19,7 +19,8 @@ from repo_workflow.remote_request import (
 
 def git(root, *args):
   result = subprocess.run(
-    ["git", *args], cwd=root, text=True, capture_output=True, check=False,
+    ["git", *args], cwd=root, text=True, capture_output=True,
+    encoding="utf-8", errors="strict", check=False,
   )
   if result.returncode:
     raise AssertionError(result.stderr)
