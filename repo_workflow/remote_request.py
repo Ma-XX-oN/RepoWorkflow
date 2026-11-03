@@ -133,7 +133,8 @@ def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
       _git(
         checkout, "-c", "user.name=RepoWorkflow",
         "-c", "user.email=rwf@localhost", "commit", "--quiet",
-        "-m", "rwf: submit remote command",\n        "-m", f"RWF-Source: {source_sha}",
+        "-m", "rwf: submit remote command",
+        "-m", f"RWF-Source: {source_sha}",
       )
       sha = _git(checkout, "rev-parse", "HEAD")
       assert _SHA.fullmatch(sha)
@@ -193,7 +194,10 @@ def submit_request(
       commit = _commit(root, source_sha, payload, source_sha=source_sha)
     result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
     if result.returncode == 0:
-      return SubmittedRequest(\n        number, branch, source_sha, commit,\n        "[up to date]" in result.stdout,\n      )
+      return SubmittedRequest(
+        number, branch, source_sha, commit,
+        "[up to date]" in result.stdout,
+      )
     # Only a genuine concurrent branch collision warrants retrying.
     if branch not in _remote_refs(root, remote):
       raise RemoteRequestError("CMD publication rejected: " + result.stderr.strip())
@@ -241,7 +245,10 @@ def retry_request(
   if len(prior) != len(argv) + 1 or prior[:-1] != argv:
     raise RemoteRequestError("retry command mismatch")
   count = int(prior[-1])
-  commit = _commit(\n    root, expected_tip, shlex.join([*argv, str(count + 1)]),\n    source_sha=source_sha,\n  )
+  commit = _commit(
+    root, expected_tip, shlex.join([*argv, str(count + 1)]),
+    source_sha=source_sha,
+  )
   result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
   if result.returncode:
     raise RemoteRequestError("CMD retry publication rejected: " + result.stderr.strip())
