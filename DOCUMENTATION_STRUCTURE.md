@@ -10,6 +10,15 @@ which links to the authoritative specialist procedures.
 
 ## Hierarchical navigation
 
+Use descriptive, unnumbered Markdown headings for documentation sections.
+Reserve numbering for ordered procedures, enumerated contractual identifiers,
+and numbers that carry substantive meaning. Numbered headings change GitHub
+fragment identifiers when sections are inserted or rearranged, so preserve
+or update references and verify that fragment links resolve to their intended
+sections when migrating existing headings. Historical audit records retain
+their original wording and identities.
+
+
 Use [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for a short entry point
 that links to increasingly focused contracts. A specialist document should
 own its subject and cross-link to another branch when a real task crosses
@@ -81,7 +90,7 @@ should be able to navigate from the short index to its authoritative
 procedure in a small number of purposeful clicks, and find a directly
 linked alternative execution environment when the first approach fails.
 
-## 1. Purpose
+## Purpose
 
 A document reaching **500 lines** triggers a soft maintainability review;
 **800 lines or more** violates the hard ceiling enforced by the source-size
@@ -116,7 +125,7 @@ These are writing and review guidelines, not newly implemented CI gates.
 The separate file-length and single-response-retrieval rationale is in
 [SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md).
 
-## 2. Preserve semantics
+## Preserve semantics
 
 Do not satisfy a size limit by deleting, weakening, or compressing information
 that is still authoritative.
@@ -141,7 +150,7 @@ information is lost.
 Concision becomes a problem only when it creates ambiguity, removes necessary
 context, or silently discards constraints.
 
-## 3. Split by responsibility
+## Split by responsibility
 
 When a document becomes too broad, identify a real subject or responsibility
 boundary and move that complete responsibility into a focused companion
@@ -178,7 +187,7 @@ Document B
 
 Do not create arbitrary "part 1" / "part 2" pages merely to move lines.
 
-## 4. One authoritative owner
+## One authoritative owner
 
 After a split, each semantic rule should have one authoritative home.
 
@@ -195,7 +204,7 @@ WORK_GRAPH_TESTING.md defines how those semantics are verified.
 
 Cross-references should reduce duplication, not hide important relationships.
 
-## 5. Preserve context during extraction
+## Preserve context during extraction
 
 When moving material to a companion document:
 
@@ -210,7 +219,7 @@ When moving material to a companion document:
 A split is incomplete if a reader must reconstruct the old document mentally to
 understand either new one.
 
-## 6. Line count is a trigger, not a target
+## Line count is a trigger, not a target
 
 Do not optimize a document toward 499 or 500 lines.
 
@@ -223,7 +232,7 @@ Likewise, do not split a focused document merely because it is moderately long
 if there is no sound responsibility boundary.  The structural boundary is the
 primary criterion.
 
-## 7. Relationship to source-size policy
+## Relationship to source-size policy
 
 The same principle applies to authoritative production source:
 
@@ -235,7 +244,7 @@ The same principle applies to authoritative production source:
 Source and documentation differ in mechanics, but both use the size ceiling as
 an architectural diagnostic rather than a deletion quota.
 
-## 8. Review checklist
+## Review checklist
 
 Before accepting a size-driven split, verify:
 
@@ -253,7 +262,7 @@ Before accepting a size-driven split, verify:
 If the last answer is yes, restore the lost context or find a better structural
 split.
 
-## 9. Principle
+## Principle
 
 Prefer several concise, directed, semantically complete documents over either:
 

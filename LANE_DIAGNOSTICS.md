@@ -3,7 +3,7 @@
 Status: authoritative contract for progress and performance diagnostics emitted
 by lane commands.
 
-## 1. Purpose
+## Purpose
 
 Lane commands may perform slow provider work.  Users must be able to distinguish
 provider/network delay from local relationship, decomposition, or rendering
@@ -12,7 +12,7 @@ work without changing command semantics.
 Diagnostics are observability data only.  They are never dependency, lifecycle,
 selection, or provider authority.
 
-## 2. Progress output
+## Progress output
 
 Provider activity emits concise progress on stderr.
 
@@ -32,7 +32,7 @@ Purely local successful lane reads are quiet by default.
 stdout remains reserved for the command result or explicit `--debug`
 diagnostic projection.
 
-## 3. Invocation records
+## Invocation records
 
 Each valid lane invocation creates one clone-local record under the Git common
 directory:
@@ -63,7 +63,7 @@ Each record contains:
 Provider payloads, authentication data, tokens, and environment secrets are
 never recorded.
 
-## 4. Debug projection
+## Debug projection
 
 `rwf lanes view --debug` renders the normal graph, followed by a concise
 projection of the in-memory diagnostics for that invocation.
@@ -79,7 +79,7 @@ It includes:
 Debug output does not cause a refresh.  Provider access still follows
 LANE_CACHE_REFRESH.md.
 
-## 5. Failure isolation
+## Failure isolation
 
 Diagnostic persistence is best-effort.
 
@@ -92,7 +92,7 @@ A diagnostics write failure:
 
 Provider/workflow errors remain primary.
 
-## 6. Verification
+## Verification
 
 Tests must independently prove:
 

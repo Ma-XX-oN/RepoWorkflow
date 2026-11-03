@@ -7,7 +7,7 @@ This document defines local execution/navigation state only.  Durable issue
 lifecycle and relationship authority remain in `ISSUE_LIFECYCLE_STATE.md` and
 `RELATIONSHIP_GRAPH.md`.
 
-## 1. Placement and authority
+## Placement and authority
 
 Current-work state belongs to one worktree and lives under:
 
@@ -23,7 +23,7 @@ clone therefore cannot overwrite one another's current issue/navigation state.
 Local current-work state may reference durable facts.  It cannot create,
 advance, complete, abort, or otherwise replace durable workflow history.
 
-## 2. Schema version
+## Schema version
 
 The initial schema version is `1`.
 
@@ -49,7 +49,7 @@ The semantic value has this shape:
 All issue identifiers are canonical positive decimal strings without leading
 zeroes.
 
-## 3. Current execution context
+## Current execution context
 
 `current` is either `null` or contains exactly:
 
@@ -65,7 +65,7 @@ expected authoritative inputs for the owning workflow operation.
 
 A stale current context never advances or overwrites newer durable state.
 
-## 4. Re-entry pointer
+## Re-entry pointer
 
 `resume` is either `null` or has the same three fields as `current`.
 
@@ -86,7 +86,7 @@ In particular, it does not:
 The re-entry operation must reread current durable lifecycle and relationship
 authority before acting.
 
-## 5. Navigation
+## Navigation
 
 `selected_issue` is a canonical issue identifier or `null`.
 
@@ -96,7 +96,7 @@ Selection is a local navigation hint.  It may identify an issue other than
 Commands that require an active current issue must use `current`, not
 `selected_issue`.
 
-## 6. Derived cache identity
+## Derived cache identity
 
 `cache_sources` is either `null` or contains exactly:
 
@@ -113,7 +113,7 @@ is stale.
 A cache whose source revisions no longer match authority may be discarded and
 rebuilt.  Cache loss never changes durable state.
 
-## 7. Start projection
+## Start projection
 
 After a successful durable issue-start/re-entry transition, local current-work
 may project that result as:
@@ -129,7 +129,7 @@ The durable transition is authoritative.  A local write failure must not make a
 failed durable transition appear successful; the owning multi-record workflow
 defines rollback/recovery.
 
-## 8. Abort projection
+## Abort projection
 
 After a successful durable abort transition:
 
@@ -141,7 +141,7 @@ After a successful durable abort transition:
 Clearing local current state before durable abort succeeds must not be reported
 as a successful abort.
 
-## 9. Missing and stale local state
+## Missing and stale local state
 
 Missing current-work state does not erase durable history.
 
@@ -160,7 +160,7 @@ A stale pure cache may be rebuilt.  A stale current/resume pointer that cannot
 be uniquely reconstructed is preserved for diagnosis and action stops rather
 than guessing a replacement.
 
-## 10. Reconstruction
+## Reconstruction
 
 Reconstruction follows `STATE_RECOVERY.md`.
 
@@ -177,7 +177,7 @@ one result is uniquely determined.  They must not reconstruct:
 Repeated reconstruction against unchanged authority is idempotent and does not
 advance durable revisions.
 
-## 11. Record concurrency
+## Record concurrency
 
 The #172 semantic store uses #101 atomic record/CAS primitives in the
 worktree-local namespace.
@@ -188,7 +188,7 @@ writers fail explicitly.
 Local CAS coordinates mutations of this worktree's current-work record only.
 It is not a cross-worktree or cross-clone workflow lock.
 
-## 12. Failure semantics
+## Failure semantics
 
 Reject at least:
 
@@ -203,7 +203,7 @@ Reject at least:
 Malformed local state is not silently interpreted as an empty current context
 unless it is a separately defined fully reconstructable cache.
 
-## 13. Required implementation coverage
+## Required implementation coverage
 
 #172 must prove at least:
 

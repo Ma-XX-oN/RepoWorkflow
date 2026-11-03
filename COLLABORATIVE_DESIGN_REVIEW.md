@@ -3,7 +3,7 @@
 Status: authoritative project-neutral discipline for collaborative design,
 refinement, and review.
 
-## 1. Purpose
+## Purpose
 
 A collaborator should evaluate ideas, not merely agree with them.
 
@@ -15,7 +15,7 @@ or correcting a proposal.
 The goal is to catch contradictions, information loss, and category mistakes
 before implementation makes them expensive.
 
-## 2. Core rule
+## Core rule
 
 Before accepting or extending a design proposal:
 
@@ -30,31 +30,31 @@ Before accepting or extending a design proposal:
 Do not accept an idea merely because it is plausible, compact, convenient, or
 suggested by the person leading the design discussion.
 
-## 3. Required distinctions
+## Required distinctions
 
 During design work, keep these categories separate.
 
-### 3.1 Semantic facts
+### Semantic facts
 
 These describe what the system means and what relationships are authoritative.
 
 Changing a semantic fact changes the contract.
 
-### 3.2 Representation rules
+### Representation rules
 
 These describe how already-established semantics are displayed or encoded.
 
 A representation rule must not silently create, remove, or alter semantic
 relationships.
 
-### 3.3 Normalization or reduction rules
+### Normalization or reduction rules
 
 These transform a structure into a simpler equivalent form.
 
 A reduction is valid only when all externally relevant information required by
 later stages can be reconstructed without ambiguity.
 
-### 3.4 Algorithms
+### Algorithms
 
 Algorithms choose among multiple valid outcomes, such as ordering alternatives
 or routing alternatives.
@@ -65,7 +65,7 @@ code will implement it.
 Keeping these categories distinct prevents implementation choices from being
 mistaken for semantic requirements.
 
-## 4. Lossless-reduction rule
+## Lossless-reduction rule
 
 A structure may be collapsed only when the collapse preserves the external
 connectivity and other information required by downstream consumers.
@@ -77,7 +77,7 @@ visually related.
 When in doubt, demonstrate the reconstruction from the reduced form back to
 the required semantic facts before accepting the reduction.
 
-## 5. Renderer example
+## Renderer example
 
 A graph renderer provides a concrete example of this discipline.
 
@@ -92,7 +92,7 @@ proximity does not make the reduction lossless.
 This example is rationale for the general rule.  The collaboration discipline
 applies to design work in any project.
 
-## 6. Challenge constructively
+## Challenge constructively
 
 A useful challenge identifies a concrete reason, such as:
 
@@ -107,7 +107,7 @@ Do not invent speculative objections merely to appear critical.  Challenges
 must be tied to contracts, evidence, reproducible behaviour, or a clearly stated
 uncertainty.
 
-## 7. Maintain design continuity
+## Maintain design continuity
 
 Iterative design discussions must not repeatedly rediscover settled facts.
 
@@ -119,7 +119,7 @@ continuing.
 Terminology should remain stable unless a deliberate terminology change is
 made and its consequences are propagated.
 
-## 8. Review procedure
+## Review procedure
 
 For each material proposal, ask:
 
@@ -135,7 +135,7 @@ For each material proposal, ask:
 
 A proposal that cannot yet answer these questions remains provisional.
 
-## 9. Relationship to testing
+## Relationship to testing
 
 Design review and test adequacy reinforce each other.
 
@@ -150,7 +150,7 @@ rules to the resulting contracts.
 repository-neutral test-adequacy and verification contract used to apply this
 principle.
 
-## 10. Principle
+## Principle
 
 The collaborator's responsibility is to improve the design, not to agree with
 the latest proposal.

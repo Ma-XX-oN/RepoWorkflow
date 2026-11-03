@@ -8,7 +8,7 @@ store implemented by #164.  Generic atomic storage, writer identity, and
 recovery are defined separately by `STATE_CONCURRENCY.md`,
 `STATE_RECOVERY.md`, and #101.
 
-## 1. Scope and authority
+## Scope and authority
 
 Issue lifecycle is durable repository state.
 
@@ -20,7 +20,7 @@ Repository-host issue state is provider input.  It does not silently overwrite
 RWF lifecycle history.  Transitions that synchronize host and RWF state must do
 so through their owning workflow operation.
 
-## 2. Schema version and record identity
+## Schema version and record identity
 
 Lifecycle schema version `1` is the original transition-only record.
 Version `2` adds durable high-risk aliases. Version `3` adds `in_review`,
@@ -41,7 +41,7 @@ The lifecycle value is stored inside the generic #101 record envelope.  The
 generic envelope owns record revision, previous revision, writer identity, and
 session identity.  This schema does not duplicate those fields.
 
-## 3. Lifecycle value
+## Lifecycle value
 
 A lifecycle value has this shape:
 
@@ -84,7 +84,7 @@ Every lifecycle value contains exactly:
 by the lifecycle transition, or `null` when the transition does not consume
 relationship state.
 
-## 4. High-risk test associations
+## High-risk test associations
 
 `high_risk_aliases` is a sorted, duplicate-free array of semantic section
 names from the authoritative `.ci/tests.json` catalogue.
@@ -106,7 +106,7 @@ The alias names select additional issue-verification coverage only.  They do
 not by themselves satisfy TDD, regression, integration, dependency, acceptance,
 or completion gates.
 
-## 4. Lifecycle states
+## Lifecycle states
 
 The six current states are:
 
@@ -124,7 +124,7 @@ itself imply merge authorization or final integration.
 states may be introduced only by a later schema version or explicit contract
 extension.
 
-## 5. Dependency satisfaction
+## Dependency satisfaction
 
 A direct issue dependency is satisfied only when the dependency's canonical
 durable lifecycle value has:
@@ -148,7 +148,7 @@ In particular:
 This gives #164 one normalized fact to expose and #144 one durable fact to
 consume.
 
-## 6. History
+## History
 
 `history` is an append-only semantic transition history.
 
@@ -171,7 +171,7 @@ Generic writer/session provenance remains in the #101 record envelope.  A
 future need for per-history-entry durable provenance requires an explicit schema
 extension rather than copying transient process identity into this value.
 
-## 7. Legal semantic transitions
+## Legal semantic transitions
 
 New version-3 transitions are:
 
@@ -199,7 +199,7 @@ same-state lifecycle event merely to record activity.
 Completion is distinct from acceptance because integration/authorization policy
 can remain between those facts.
 
-## 8. Relationship reference
+## Relationship reference
 
 A lifecycle transition that consumes canonical issue relationships records the
 exact generic record revision in `relationship_revision`.
@@ -211,7 +211,7 @@ interpretable against the relationship revision it consumed.  A caller deciding
 whether a new transition is legal must use current authoritative relationship
 state when that transition's contract requires it.
 
-## 9. Reconstruction and recovery
+## Reconstruction and recovery
 
 Durable lifecycle history must remain reconstructable after local branch,
 workspace, or clone cleanup.
@@ -229,7 +229,7 @@ canonical lifecycle reader can establish that no durable lifecycle record has
 ever existed for that issue.  A missing record that should exist is a recovery
 error, not a reset.
 
-## 10. Concurrency
+## Concurrency
 
 Lifecycle mutation uses the generic #101 compare-and-swap revision.
 
@@ -240,7 +240,7 @@ conflict requiring reread and semantic recomputation, not last-writer-wins.
 A workflow transition spanning lifecycle plus other durable records must obey
 the multi-record transaction/recovery contract before exposing partial success.
 
-## 11. Provider and local-state separation
+## Provider and local-state separation
 
 The lifecycle value contains no GitHub-specific payload.
 
@@ -258,7 +258,7 @@ The lifecycle value also contains no:
 
 Those facts belong to their declared local or provider scopes.
 
-## 12. Validation requirements
+## Validation requirements
 
 Implementations of this schema must prove at least:
 
@@ -278,7 +278,7 @@ Implementations of this schema must prove at least:
 14. high-risk alias updates preserve lifecycle state/history;
 15. repeated/changed alias updates are deterministic and stale CAS fails closed.
 
-## 13. Consumer contract
+## Consumer contract
 
 #164 owns persistence and the normalized lifecycle reader.
 

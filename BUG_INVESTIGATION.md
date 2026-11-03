@@ -11,7 +11,7 @@ For missing local tools, package access or native runner capability, follow
 [execution environment selection](EXECUTION_ENVIRONMENTS.md) before
 classifying verification as externally blocked.
 
-## 1. Required experiment cycle
+## Required experiment cycle
 
 Every bug investigation must maintain an explicit evidence log using repeated
 cycles of:
@@ -27,7 +27,7 @@ The cycle applies to every bug-resolution task.  The amount of detail may scale
 with the complexity of the defect, but the four fields and evidence-driven
 progression are required.
 
-## 2. Problem
+## Problem
 
 State the observed defect precisely.
 
@@ -44,7 +44,7 @@ Do not start from an unverified explanation of the symptom.
 When practical, first turn the report into a deterministic failing test or
 other repeatable objective reproduction.
 
-## 3. Hypothesis
+## Hypothesis
 
 State one concrete explanation for the observed defect.
 
@@ -68,7 +68,7 @@ The parser is broken.
 When several explanations remain plausible, test them separately rather than
 silently combining them.
 
-## 4. Action
+## Action
 
 Perform the smallest useful diagnostic or corrective action that tests the
 current hypothesis.
@@ -86,7 +86,7 @@ Do not make a broad implementation change merely to see whether the symptom
 disappears.  If the action cannot distinguish the current hypothesis from
 competing explanations, refine the experiment first.
 
-## 5. Learning
+## Learning
 
 Record what the action established before choosing the next step.
 
@@ -102,7 +102,7 @@ Also record any newly exposed fact that changes the next experiment.
 Do not treat a changed symptom as proof of root cause without showing why the
 action establishes that conclusion.
 
-## 6. Repeat until the defect mechanism is known
+## Repeat until the defect mechanism is known
 
 Most non-trivial defects require more than one cycle:
 
@@ -163,13 +163,13 @@ the failing platform is inherently unsupported.
    required native acceptance tests on the final exact source revision.
 
 For governing principles, review
-[portable behavior](BEST_PRACTICES.md#3-portable-behavior-first).
+[portable behavior](BEST_PRACTICES.md#portable-behavior-first).
 For test dimensions and evidence requirements, follow
-[test adequacy](TEST_ADEQUACY.md#4-test-dimension-analysis).
+[test adequacy](TEST_ADEQUACY.md#test-dimension-analysis).
 Record the divergence, classification, correction and verification in
 the durable investigation log.
 
-## 7. Correction and confirmation
+## Correction and confirmation
 
 After the defect mechanism is established:
 
@@ -183,7 +183,7 @@ After the defect mechanism is established:
 The detailed verification obligations are defined in
 [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 8. Escaped defects
+## Escaped defects
 
 When a bug escaped existing verification, investigate why the test system did
 not expose it earlier.
@@ -203,7 +203,7 @@ Ask whether the escape reveals a reusable weakness such as:
 Correct the reusable verification/process gap when it can recur elsewhere.
 Fixing only the local product defect is incomplete in that case.
 
-## 9. Preserve the log
+## Preserve the log
 
 Keep the experiment log with the durable work record for the bug, such as the
 issue, pull request, or repository audit record.
@@ -218,7 +218,7 @@ The record should make it possible for a later worker to determine:
 
 Do not rely on chat history as the sole record of a bug investigation.
 
-## 10. Run-ending statement
+## Run-ending statement
 
 When an investigation run stops before the bug is completely resolved, record
 the immediate reason explicitly:

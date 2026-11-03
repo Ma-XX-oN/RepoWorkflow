@@ -7,7 +7,7 @@ This document extends [STATE_CONCURRENCY.md](STATE_CONCURRENCY.md).  That
 contract defines what writer/session identity means and where it is required;
 this contract defines how a production invocation supplies it.
 
-## 1. Scope
+## Scope
 
 This contract applies to RWF commands that perform, or can enter, semantic
 transitions which mutate durable shared state.
@@ -16,7 +16,7 @@ It freezes only the invocation boundary.  Durable lifecycle semantics,
 relationship semantics, authorization, CAS, and multi-record transaction
 protocols remain owned by their existing contracts.
 
-## 2. Authoritative production input
+## Authoritative production input
 
 An invoking agent/process supplies identity through exactly these process
 environment variables:
@@ -44,7 +44,7 @@ Explicitly supplied environment values remain authoritative.  If exactly one
 of the pair is supplied, invocation fails closed rather than synthesizing the
 other.
 
-## 3. Source and precedence
+## Source and precedence
 
 There is no precedence chain.
 
@@ -62,7 +62,7 @@ must not contain credentials or claim a GitHub/Git identity.
 
 An explicitly supplied environment value is never silently replaced.
 
-## 4. Validation boundary
+## Validation boundary
 
 Identity is validated once at the command-to-semantic-transition boundary,
 before any durable mutation or mutation-dependent side effect begins.
@@ -79,7 +79,7 @@ A read-only command that does not enter a mutation-capable transition does not
 require runtime writer/session identity merely because it can inspect records
 that contain provenance.
 
-## 5. Propagation
+## Propagation
 
 After validation, semantic transitions receive the constructed
 `WriterIdentity` value.  They do not reread environment variables and do not
@@ -92,7 +92,7 @@ provenance contracts require it.
 Provider adapters may arrange the invoking process environment, but core RWF
 sees only the two provider-neutral strings.
 
-## 6. Retry and execution semantics
+## Retry and execution semantics
 
 `RWF_WRITER_ID` identifies the logical writer, not an individual process.
 An orchestrator reuses it for retries and later executions performed by that
@@ -108,9 +108,10 @@ starting another one and supplies the corresponding explicit session value.
 
 Semantic/core RWF does not generate either identity.  The ordinary public
 invocation layer may generate the clone-local/default identities described in
-section 2 before entering the semantic boundary.
+[authoritative production input](#authoritative-production-input) before
+entering the semantic boundary.
 
-## 7. Failure behaviour
+## Failure behaviour
 
 For a mutation-capable transition, any missing or malformed runtime identity
 is an invocation error and fails closed.
@@ -123,7 +124,7 @@ transition.
 Diagnostics identify which required identity input is missing or malformed
 without searching for substitute identity sources.
 
-## 8. Identity is not authorization
+## Identity is not authorization
 
 Possessing or choosing a writer/session identity grants no workflow authority.
 
@@ -134,7 +135,7 @@ conflict bypass, or transition bypass.
 
 Writer/session identity is provenance only.
 
-## 9. Persistence rule
+## Persistence rule
 
 The invoking agent/process supplies opaque non-secret identifiers suitable for
 durable audit provenance.  Authentication material is not an identity source
@@ -143,7 +144,7 @@ and must not be deliberately supplied as either identity.
 RWF persists only the validated identity strings required by existing durable
 provenance contracts; it never persists the surrounding process environment.
 
-## 10. Consumer obligations
+## Consumer obligations
 
 The runtime identity implementation in #186 must:
 

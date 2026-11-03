@@ -9,7 +9,7 @@ mechanics, shell presentation, GitHub, or WorkStack.
 A workspace is clone-local operational state that lets one worker safely own
 and resume one issue context while other workers operate in parallel.
 
-## 1. Scope and authority
+## Scope and authority
 
 A workspace records local execution context only.
 
@@ -36,7 +36,7 @@ The workspace layer owns:
 Ticket title prefixes are descriptive only and do not create workspace or
 dependency semantics.
 
-## 2. Workspace identity
+## Workspace identity
 
 Each workspace has one stable local identifier.
 
@@ -58,7 +58,7 @@ Implementations may use a collision suffix when more than one local workspace
 for the same issue is explicitly supported in the future.  The initial model
 permits at most one active local workspace per issue per clone.
 
-## 3. Workspace lifecycle
+## Workspace lifecycle
 
 The semantic lifecycle is:
 
@@ -86,27 +86,27 @@ PROCESSING
    +--> ABORTED
 ```
 
-### 3.1 AVAILABLE
+### AVAILABLE
 
 The workspace exists locally but has no current worker claim.
 
 A worker may claim it only with the current claim revision.
 
-### 3.2 CLAIMED
+### CLAIMED
 
 Exactly one worker owns the local execution slot.
 
 Claimed does not mean the durable issue has started or that a branch/worktree
 mutation has completed.  Those are separate transitions.
 
-### 3.3 PROCESSING
+### PROCESSING
 
 The claimed worker has entered the workspace and may perform issue work.
 
 The local workspace must retain enough information to resume after process,
 shell, chat, or agent-session loss.
 
-### 3.4 BLOCKED
+### BLOCKED
 
 The workspace remains owned but cannot currently advance because of an explicit
 condition.
@@ -115,7 +115,7 @@ BLOCKED is not inferred from inactivity.
 
 A blocked record must include an actionable blocker description or reference.
 
-### 3.5 COMPLETE
+### COMPLETE
 
 Local work for the workspace has reached its required terminal condition and
 all required durable workflow facts have already been recorded elsewhere.
@@ -123,14 +123,14 @@ all required durable workflow facts have already been recorded elsewhere.
 COMPLETE does not itself imply branch deletion, worktree deletion, merge, or
 release.
 
-### 3.6 ABORTED
+### ABORTED
 
 The local workspace was intentionally abandoned.
 
 Abort must preserve any already-durable workflow history and must not erase
 uncommitted or otherwise non-durable work.
 
-## 4. Claim contract
+## Claim contract
 
 Claims use compare-and-swap semantics.
 
@@ -172,7 +172,7 @@ current revision is rev 4
 
 No claim operation silently retries against the newer revision.
 
-## 5. Worker and session identity
+## Worker and session identity
 
 `worker_id` identifies the logical worker that owns the claim.
 
@@ -186,7 +186,7 @@ therefore increments the revision.
 
 Neither worker nor session identity is a security credential.
 
-## 6. Legal claim transitions
+## Legal claim transitions
 
 The initial claim-state transitions are:
 
@@ -212,7 +212,7 @@ A transition is legal only when:
 
 Illegal transitions fail without changing the record.
 
-## 7. Ownership rules
+## Ownership rules
 
 A claimed workspace belongs to one worker at a time.
 
@@ -229,7 +229,7 @@ are satisfied.
 
 The initial contract does not include forced takeover.
 
-## 8. Resume and re-entry
+## Resume and re-entry
 
 A workspace resume record must provide enough local context to answer:
 
@@ -246,7 +246,7 @@ Resume state is advisory local context.
 On re-entry, authoritative durable state must be re-read before any mutation.
 A stale resume record cannot override newer durable facts.
 
-## 9. Workspace creation
+## Workspace creation
 
 Creating a workspace establishes only local operational identity unless a later
 command explicitly performs canonical issue-start semantics.
@@ -262,7 +262,7 @@ Workspace creation must not by itself fabricate:
 The command layer may later compose provisioning and issue start into one user
 operation, but the semantic layers remain distinct.
 
-## 10. Relationship to issue readiness
+## Relationship to issue readiness
 
 Workspace existence and issue readiness are separate facts.
 
@@ -275,7 +275,7 @@ Beginning issue work uses the direct dependency projection defined by
 Descriptive ticket grouping and Git branch parent/ancestry do not create
 readiness edges.
 
-## 11. Relationship to WorkStack
+## Relationship to WorkStack
 
 WorkStack may allocate cross-repository work to a repository-local RWF
 workspace.
@@ -289,7 +289,7 @@ because it requested allocation.
 Likewise, RWF local workspace records do not replace WorkStack's durable
 cross-repository lane state.
 
-## 12. Failure atomicity
+## Failure atomicity
 
 Each workspace mutation must have one of two observable outcomes:
 
@@ -303,7 +303,7 @@ If a later Git/backend operation fails after a local record was tentatively
 created, the caller must either roll back the record or leave an explicit,
 recoverable non-success state defined by the provisioning contract.
 
-## 13. Cleanup and retirement
+## Cleanup and retirement
 
 Closing a workspace is not permission to destroy local work.
 
@@ -321,7 +321,7 @@ Retirement removes disposable local execution context only.
 
 Durable issue/workflow history remains intact.
 
-## 14. Storage boundary
+## Storage boundary
 
 The concrete path/layout is owned by the clone-local state layout contract.
 
@@ -334,7 +334,7 @@ The workspace semantic model requires only that:
 - one clone cannot overwrite another clone's local state through repository
   commits.
 
-## 15. Contract tests
+## Contract tests
 
 Implementations must cover at least:
 

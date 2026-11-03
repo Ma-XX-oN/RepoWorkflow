@@ -8,7 +8,7 @@ work graph.  It is intentionally independent of RepoWorkflow's own backlog.
 The same rules apply to product repositories, libraries, infrastructure,
 documentation projects, and other repositories that use RWF.
 
-## 1. Purpose
+## Purpose
 
 Issue decomposition is not merely project-management cleanup.  A well-formed
 issue graph is a high-level architecture model.
@@ -33,7 +33,7 @@ Cross-repository managers can consume the same model.  WorkStack
 (https://github.com/Ma-XX-oN/WorkStack) coordinates multiple repositories;
 this remains the source for repository-neutral decomposition and graph semantics.
 
-## 2. Decompose to the smallest independently verifiable leaf
+## Decompose to the smallest independently verifiable leaf
 
 Prefer the **smallest useful, independently testable and ownable behaviour**,
 not merely a ticket with one broad interface.  A shared command or subsystem
@@ -103,7 +103,7 @@ Useful split boundaries include:
 - candidate preparation versus result finalization;
 - creation versus later cleanup/reconciliation.
 
-## 3. The leaf contract
+## The leaf contract
 
 Each implementation leaf should normally be expressible using the following
 shape:
@@ -131,7 +131,7 @@ Direct blockers
 Not every issue body needs these exact headings, but the information should be
 unambiguous.
 
-### 3.1 Preconditions
+### Preconditions
 
 Preconditions should name authoritative facts or interfaces, not vague project
 states.
@@ -152,7 +152,7 @@ The workflow is ready.
 Dependencies are handled.
 ```
 
-### 3.2 Postconditions
+### Postconditions
 
 A postcondition describes observable completion, not implementation activity.
 
@@ -172,7 +172,7 @@ Tests have been added.
 The helper was refactored.
 ```
 
-### 3.3 Invariants
+### Invariants
 
 Invariants define the safety envelope.
 
@@ -187,7 +187,7 @@ Examples:
 
 Strong invariants make RED tests straightforward.
 
-### 3.4 Failure and rollback
+### Failure and rollback
 
 Mutation leaves should define what partial failure means.
 
@@ -200,7 +200,7 @@ Transactional operations should normally state one of:
 - failure leaves an explicit recoverable intermediate state;
 - failure records an immutable unsuccessful attempt and stops.
 
-## 4. Dependency analysis is a decomposition tool
+## Dependency analysis is a decomposition tool
 
 Dependencies should be explicit and direct.
 
@@ -228,7 +228,7 @@ A useful rule is:
 > If explaining one dependency requires a paragraph, look for a missing
 > interface boundary.
 
-## 5. Human-facing containers and executable dependencies
+## Human-facing containers and executable dependencies
 
 RepoWorkflow stores one executable graph relationship: the direct ticket
 dependency.
@@ -246,7 +246,7 @@ ownership, membership, readiness, or ordering semantics.
 
 An ordinary implementation/certification ticket normally has no such prefix.
 
-### 5.1 Direct dependency
+### Direct dependency
 
 A ticket depends on another ticket only when it requires that ticket's exact
 result before it can proceed.
@@ -257,7 +257,7 @@ S1 -> S2 -> A2
 
 Direct dependencies are authoritative for executable readiness.
 
-### 5.2 Container decomposition
+### Container decomposition
 
 An Initiative, Epic, or Feature may describe a larger outcome implemented by
 several tickets. The provider issue body may list or explain that decomposition,
@@ -266,7 +266,7 @@ but RWF does not persist a second container relationship graph.
 Scheduling still comes only from explicit direct dependencies among the actual
 tickets.
 
-## 5.3 Ticket-creation dependency requirement
+## Ticket-creation dependency requirement
 
 Updating the canonical dependency graph is a required part of ticket creation
 and decomposition, not optional follow-up bookkeeping.
@@ -310,7 +310,7 @@ never created.
 creation, commit, validation, and readback procedure that implements this
 requirement.
 
-## 6. Keep dependencies direct
+## Keep dependencies direct
 
 Do not duplicate transitive prerequisites.
 
@@ -330,7 +330,7 @@ unless A independently requires C's interface.
 
 This keeps the graph minimal while preserving exact executable constraints.
 
-## 7. Shared prerequisite consolidation
+## Shared prerequisite consolidation
 
 A shared prerequisite remains an ordinary dependency target.
 
@@ -341,7 +341,7 @@ depend directly only on the concrete tickets whose outputs they require.
 This prevents duplicate implementations and unnecessary serialization without
 introducing a second machine-readable ownership graph.
 
-## 8. Separate contract, dispatcher, and provider implementation
+## Separate contract, dispatcher, and provider implementation
 
 Provider boundaries are especially prone to poor decomposition.
 
@@ -360,7 +360,7 @@ proceed in parallel.
 The portable contract must not leak provider-specific payloads, names, runner
 labels, event structures, or authentication mechanics.
 
-## 9. Separate presentation from semantics
+## Separate presentation from semantics
 
 Human-facing commands should consume semantic interfaces rather than own them.
 
@@ -384,7 +384,7 @@ repository-information contract
 This prevents presentation work from becoming an unnecessary blocker for other
 semantic consumers.
 
-## 10. Separate planning from mutation
+## Separate planning from mutation
 
 Complex mutating commands often benefit from a read-only planner.
 
@@ -404,7 +404,7 @@ candidate/state before mutation.
 
 This makes safety tests much simpler and prevents stale plans from executing.
 
-## 11. Separate shared state from local context
+## Separate shared state from local context
 
 Multi-agent repositories must distinguish durable workflow facts from
 clone/agent-local navigation or current-work context.
@@ -450,7 +450,7 @@ domain records
 
 Each stage has independently testable invariants.
 
-## 12. Cleanup is part of completion
+## Cleanup is part of completion
 
 Required cleanup or reconciliation is not an optional epilogue.
 
@@ -474,4 +474,4 @@ Terminal cleanup should have its own preconditions and invariants when it occurs
 after intervening asynchronous or external work.
 
 
-Further sections: [13. Scheduling, dependency-complete work and speculation](WORK_GRAPH_SCHEDULING.md).
+Further sections: [Scheduling, dependency-complete work and speculation](WORK_GRAPH_SCHEDULING.md).

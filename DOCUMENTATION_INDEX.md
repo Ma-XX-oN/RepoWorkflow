@@ -22,8 +22,8 @@ This map does not replace task acceptance, ticket ownership or approval gates.
 supported operating systems, follow the
 [portability investigation procedure](BUG_INVESTIGATION.md#cross-platform-test-divergence)
 before changing tests or adding OS exceptions. Review
-[portable behavior](BEST_PRACTICES.md#3-portable-behavior-first) and
-[verification adequacy](TEST_ADEQUACY.md#4-test-dimension-analysis).
+[portable behavior](BEST_PRACTICES.md#portable-behavior-first) and
+[verification adequacy](TEST_ADEQUACY.md#test-dimension-analysis).
 
 ## Understand the product
 

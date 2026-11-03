@@ -6,7 +6,7 @@ This document defines the repository-owned `repo-version` boundary consumed by
 RepoWorkflow.  Core RWF owns version lifecycle semantics.  A consumer adapter
 owns where and how its literal version is stored.
 
-## 1. Configuration and invocation
+## Configuration and invocation
 
 `.ci/repoworkflow.json` supplies `versionCommand` as a non-empty argv array.
 RWF invokes that command from the repository root and appends exactly one of the
@@ -15,7 +15,7 @@ semantic requests defined below.
 The adapter must not require shell interpretation.  Arguments are passed as
 argv elements.
 
-## 2. Canonical read
+## Canonical read
 
 An invocation with no additional arguments is read-only.
 
@@ -31,7 +31,7 @@ On success it must:
 All numeric components are non-negative decimal integers.  RWF treats the
 reported value as canonical repository version state.
 
-## 3. Semantic mutation requests
+## Semantic mutation requests
 
 The complete schema-1 mutation vocabulary is:
 
@@ -67,7 +67,7 @@ Successful transitions have these semantic effects:
 A request in the wrong source namespace is invalid and must fail rather than
 guessing or repairing the state.
 
-## 4. Mutation postconditions
+## Mutation postconditions
 
 A successful mutation may change only repository-owned version-bearing
 worktree/index state required to represent the requested successor.
@@ -84,7 +84,7 @@ After a zero exit, RWF re-reads the canonical version and verifies that the
 observed before/after relation is exactly the requested semantic transition.
 A zero exit with an inconsistent successor is an adapter contract violation.
 
-## 5. Failure and transaction boundary
+## Failure and transaction boundary
 
 Adapter mutation is failure-atomic at the adapter boundary.  If the adapter
 exits non-zero, it must restore every version-storage change it attempted before
@@ -99,7 +99,7 @@ caller restores the complete pre-transition repository state.  This separation
 lets callers such as candidate preparation roll back version changes together
 with their own bookkeeping without teaching the adapter about RWF state.
 
-## 6. Normalized RWF result
+## Normalized RWF result
 
 The RWF invocation layer exposes canonical version strings, not adapter stdout
 or repository storage details.
@@ -111,7 +111,7 @@ successor and can retain the predecessor as transaction evidence.
 Adapter stderr/stdout diagnostics are surfaced on failure but are not parsed as
 workflow state.
 
-## 7. Consumer synchronization
+## Consumer synchronization
 
 The preliminary #163 dependency-contract synchronization pass checked the
 direct #118 implementation consumer and the known direct consumers of #118:

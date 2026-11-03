@@ -5,7 +5,7 @@ workflow contract.
 
 Tracking issue: #163.
 
-## 1. Purpose
+## Purpose
 
 RWF dependency edges can be structurally correct while a prerequisite's stated
 scope is still insufficient for a known consumer.  This trial is intended to
@@ -15,7 +15,7 @@ already being built.
 The method should remain cheaper than implementation.  It is not a requirement
 to design or mock every downstream issue in advance.
 
-## 2. Normal verification pass
+## Normal verification pass
 
 Before implementing a dependency lane, traverse from ready leaves toward the
 root.
@@ -44,7 +44,7 @@ For fan-out, verify the prerequisite against each direct consumer.  For fan-in,
 verify that guarantees supplied by independent prerequisites are mutually
 compatible at the consumer.
 
-## 3. Escalation
+## Escalation
 
 Stop when the declared contracts are clearly compatible.
 
@@ -71,7 +71,7 @@ contract comparison
                 +-- missing guarantee --> revise decomposition/specification
 ```
 
-## 4. Graph changes
+## Graph changes
 
 After an initial lane passes, revalidate affected paths toward the root when an
 issue contract or relationship changes.
@@ -79,7 +79,7 @@ issue contract or relationship changes.
 Do not repeat a full graph review for an isolated change unless the change
 alters broad decomposition assumptions.
 
-## 5. Implementation discoveries
+## Implementation discoveries
 
 Not every later discovery is a planning failure.
 
@@ -93,7 +93,7 @@ Classify a missing prerequisite as:
 When a completed prerequisite is genuinely insufficient, create an explicit
 repair issue rather than hiding prerequisite repair inside the consumer.
 
-## 6. Completion-time direct-consumer review
+## Completion-time direct-consumer review
 
 The primary synchronization pass still occurs before implementation.
 
@@ -109,7 +109,7 @@ This completion-time pass is both defence in depth and an opportunity to catch
 a missing production boundary while the producer's implementation details are
 still fresh.
 
-## 7. Trial evaluation
+## Trial evaluation
 
 After several applications, assess:
 
@@ -121,7 +121,7 @@ After several applications, assess:
 - whether this guidance should be revised, adopted as authoritative, or
   dropped.
 
-## 8. First application: workspace readiness lane
+## First application: workspace readiness lane
 
 The first pass examined the current relationship/readiness lane:
 
@@ -151,7 +151,7 @@ required by downstream consumers had not been represented as an implementation
 issue.
 
 
-## 9. Second application: issue-start convergence
+## Second application: issue-start convergence
 
 The next pass examined the convergence into canonical issue start:
 
@@ -193,7 +193,7 @@ These findings refine the trial in three ways:
 The pass remains intentionally shallow: it verifies direct dependency edges and
 escalates only when an edge exposes a concrete ambiguity or missing guarantee.
 
-## 10. Third application: #187 implementation and integration
+## Third application: #187 implementation and integration
 
 The #187 run applied the preliminary checks while implementing the semantic
 transaction coordinator created by the second application.
@@ -234,7 +234,7 @@ preliminary guidance and automated gates should change.
 
 
 
-## 11. Fourth application: Lane A (#186 -> #185 -> #64 -> #142)
+## Fourth application: Lane A (#186 -> #185 -> #64 -> #142)
 
 This trial applied the preliminary checks across a complete dependency lane rather
 than one isolated issue.

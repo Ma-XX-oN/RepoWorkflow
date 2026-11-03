@@ -3,7 +3,7 @@
 Status: design specification for issue #1.  No production implementation is
 part of this document commit.
 
-## 1. Goals
+## Goals
 
 RepoWorkflow provides one authoritative implementation of repository workflow
 rules that can be reused by multiple repositories without copying CI engines,
@@ -17,7 +17,7 @@ The design must support three execution contexts with equivalent semantics:
 
 GitHub-specific YAML is therefore an adapter, not the workflow engine.
 
-## 2. Consumption model
+## Consumption model
 
 Each consumer adds this repository as a Git submodule using the same directory
 name as the repository:
@@ -34,9 +34,9 @@ reviewable in the consumer's history.
 A consumer may update the submodule only as an explicit repository change.
 RepoWorkflow must not silently self-update during validation.
 
-## 3. Layering
+## Layering
 
-### 3.1 GitHub adapter
+### GitHub adapter
 
 `.github/workflows/ci.yml` should be byte-for-byte identical across consumers
 whenever technically possible.
@@ -55,7 +55,7 @@ It must not contain project-specific test commands, artifact generators,
 version discovery, branch-policy algorithms, result semantics, or project
 special cases.
 
-### 3.2 RepoWorkflow engine
+### RepoWorkflow engine
 
 RepoWorkflow owns platform-independent mechanisms and invariants:
 
@@ -72,14 +72,14 @@ RepoWorkflow owns platform-independent mechanisms and invariants:
 - common tagging rules;
 - common serial/parallel execution helpers.
 
-### 3.3 Consumer configuration
+### Consumer configuration
 
 The consumer's `.ci` data describes repository-specific facts.  Configuration
 must remain declarative.  When behaviour has meaningful logic, configuration
 points to a repository-owned script instead of embedding a miniature program in
 JSON.
 
-### 3.4 Consumer scripts/tests
+### Consumer scripts/tests
 
 The consumer owns how its own operations work, including:
 
@@ -90,7 +90,7 @@ The consumer owns how its own operations work, including:
 - artifact generation and independent artifact verification;
 - project-specific prerequisite checks.
 
-## 4. Universal CI request guard
+## Universal CI request guard
 
 `.ci/run-ci-request` is the legacy exact-candidate validation bookkeeping
 contract, **not** the current on-demand GitHub trigger. The current on-demand
@@ -126,7 +126,7 @@ above remains separate from the invocation mechanism. Dedicated migration,
 certification, or legacy Self CI workflows must be evaluated against their
 own event filters.
 
-## 5. Version contract
+## Version contract
 
 RepoWorkflow must not know where a consumer stores its version.
 
@@ -147,9 +147,9 @@ RepoWorkflow compares only:
 requested version == repository-reported canonical version
 ```
 
-## 6. Validation contract
+## Validation contract
 
-### 6.1 One entry point per environment
+### One entry point per environment
 
 Each required environment/capability set declares exactly one repository-owned
 authoritative validation script.
@@ -169,7 +169,7 @@ RepoWorkflow may provide reusable helpers such as serial and parallel runners.
 Those helpers are orchestration primitives; they do not define which project
 tests exist.
 
-### 6.2 Environment matrix
+### Environment matrix
 
 Separate environment entries are justified by genuinely different required
 execution conditions, such as:
@@ -186,7 +186,7 @@ Configuration should describe capabilities in platform-neutral terms where
 practical.  A GitHub adapter may map those requirements to GitHub runner
 labels; another platform may map them differently.
 
-### 6.3 Result classification
+### Result classification
 
 A validation environment produces one structured result associated with the
 exact version and commit.
@@ -203,7 +203,7 @@ Independent required environments must all report before terminal
 finalization.  A failing environment does not suppress execution of unrelated
 required environments.
 
-## 7. Terminal result tags
+## Terminal result tags
 
 For a development version `X`:
 
@@ -219,7 +219,7 @@ issue iteration.
 An infrastructure retry may re-evaluate the same unchanged candidate when no
 terminal result has been established.
 
-## 8. Branch policy
+## Branch policy
 
 Branch-parent and dependency-history protection is a common repository
 invariant, not a product-specific Core feature.
@@ -235,7 +235,7 @@ history to a work branch. The shared checker establishes facts from Git history
 and rejects undeclared imported history or a pull-request base that differs
 from the recovered branch parent.
 
-### 8.1 Direct issue dependency graph
+### Direct issue dependency graph
 
 RepoWorkflow's executable issue graph contains only explicit direct
 dependencies.
@@ -274,7 +274,7 @@ does not select a branch parent.
 The durable synchronized representation and direction-specific authority rules
 are defined in [TICKET_STATE.md](TICKET_STATE.md).
 
-## 9. Repository and GitHub Actions policy
+## Repository and GitHub Actions policy
 
 RepoWorkflow owns common enforcement that prevents automation from evolving
 back into repository-editing machinery.
@@ -291,7 +291,7 @@ Common policy should cover, where technically enforceable:
 
 Repository-specific exceptions should be minimal, declarative, and reviewable.
 
-## 10. Generated artifacts
+## Generated artifacts
 
 A consumer that commits generated artifacts declares each artifact and provides
 repository-owned scripts for generation and independent verification.
@@ -314,7 +314,7 @@ GitHub publication concern and requires a narrowly scoped GitHub write job.
 Repositories with no committed generated artifacts need no artifact-specific
 hook.
 
-## 11. Repository-provided configuration and hooks
+## Repository-provided configuration and hooks
 
 The exact schema remains subject to contract testing, but RepoWorkflow is
 expected to need repository-specific declarations for:
@@ -363,7 +363,7 @@ Illustrative only:
 
 This example is not yet a frozen schema.
 
-## 12. Parallel/serial helper contract
+## Parallel/serial helper contract
 
 RepoWorkflow may provide platform-independent helpers for consumer validation
 scripts.  At minimum, useful primitives include:
@@ -380,7 +380,7 @@ Consumers remain free to implement their own orchestration when the shared
 helpers are insufficient, as long as the environment exposes one authoritative
 validation entry point to RepoWorkflow.
 
-## 13. Local/GitHub/other-platform equivalence
+## Local/GitHub/other-platform equivalence
 
 The same RepoWorkflow engine and same consumer scripts/configuration must drive
 all supported execution contexts.
@@ -398,7 +398,7 @@ Changing execution platform must not alter:
 This makes local execution a real authoritative workflow path rather than an
 approximation of GitHub Actions.
 
-## 13. Specialized design contracts
+## Specialized design contracts
 
 The detailed contracts that previously lived in this file are split by
 responsibility so each authoritative document remains comfortably below the
@@ -416,7 +416,7 @@ project's ~500-line ceiling:
 - [TEST_ADEQUACY.md](TEST_ADEQUACY.md) defines the universal repository-neutral
   test adequacy and verification gate applied to all coding work and consumers.
 
-## 14. Non-goals
+## Non-goals
 
 RepoWorkflow must not:
 
@@ -428,7 +428,7 @@ RepoWorkflow must not:
 - infer safety-critical branch, version, or tag facts from weak heuristics when
   a consumer declaration or authoritative check is required.
 
-## 15. Implementation discipline
+## Implementation discipline
 
 Implementation starts only after this design has been reviewed against the
 existing consumers.
@@ -457,7 +457,7 @@ No generated-artifact, branch-policy, integration-validation, or other existing
 check should be removed merely because RepoWorkflow has a nominal replacement;
 its responsibility must first be mapped and verified in the new path.
 
-## 16. Guarded task-to-release lifecycle
+## Guarded task-to-release lifecycle
 
 Issue #14 extends this architecture with an explicit state-machine-driven
 workflow for task validation, preliminary integration, protected server

@@ -4,7 +4,7 @@ Status: authoritative guidance for task-specific AGENT-CMD prompt files.
 See [AGENT-CMD-PROTOCOL.md](AGENT-CMD-PROTOCOL.md) for the separate,
 task-neutral command parser, substitution, execution, recovery and safety rules.
 
-## 1. Purpose and boundaries
+## Purpose and boundaries
 
 `.pmd` means **Prompt Markdown**. For a controller coordinating
 multiple workers, see [AGENT_PROMPT_PACKAGING.md](AGENT_PROMPT_PACKAGING.md)
@@ -26,7 +26,7 @@ file to Git does not automatically install or update that Library copy, nor
 does updating a Library copy change Git.  Confirm the intended runtime copy
 is attached before relying on it.
 
-## 2. Minimum required version contract
+## Minimum required version contract
 
 Every authored PMD MUST:
 
@@ -121,7 +121,7 @@ requires an **explicit takeover instruction** and verified handoff.
 These examples use fictional issues; they are not instructions to claim
 tickets in any real repository.
 
-## 3. Task-specific content
+## Task-specific content
 
 After the minimum version declaration, document only what the task needs.
 The following fields are a recommended checklist, not a mandatory form for
@@ -150,7 +150,7 @@ A PMD can include placeholders such as `$issue`, `$version`, or
 literal and nonrecursive.  Do not invent absent values, re-expand substituted
 text or change AGENT-CMD quoting/escaping semantics.
 
-## 4. Ticket-completion workers (current use)
+## Ticket-completion workers (current use)
 
 For an issue/ticket worker, include these additional specifications:
 
@@ -257,7 +257,7 @@ explicitly requests transfer, and the worker audits the handoff first.
 
 All three example issues and the repository name are illustrative.
 
-## 5. Command-generation convention
+## Command-generation convention
 
 For a coordinated group, use **one controller-ticket-prefixed shared PMD**,
 not one duplicated PMD per worker; place separate, independently copyable
@@ -285,7 +285,7 @@ must still inspect live prerequisites, claims and the prompt revision.
 For tasks without tickets, use appropriate task-specific arguments instead
 of inventing an issue or forcing an artificial dependency graph.
 
-## 6. Safe revision procedure
+## Safe revision procedure
 
 1. Read the authoritative prompt and affected live task contracts.
 2. Make the required task-specific changes, increment the literal prompt
@@ -300,7 +300,7 @@ of inventing an issue or forcing an artificial dependency graph.
 6. Existing worker conversations do not automatically reload the changed PMD.
    Resume/notify them explicitly when they need the new instructions.
 
-## 7. Project Settings instructions (copyable block)
+## Project Settings instructions (copyable block)
 
 Copy **only** the contents of the Markdown fence below into the
 relevant ChatGPT Project Settings -> Instructions field.  This is a
@@ -339,7 +339,7 @@ attachments or already-running workers; verify the runtime copy.
 **Do not copy the example ticket numbers or SPINUP commands** into
 Project Settings; they illustrate the authoring convention only.
 
-## 8. Review checklist
+## Review checklist
 
 - Is the declared PMD filename correct and the literal version unambiguous?
 - Does a mismatched supplied `$version` stop **before** any mutation?
