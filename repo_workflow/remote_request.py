@@ -54,9 +54,11 @@ def _source(root: Path) -> tuple[str, str]:
   branch = _git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
   if _CMD.fullmatch(branch):
     raise RemoteRequestError("remote request cannot originate from a CMD branch")
-  sha = _git(root, "rev-parse", "--verify", "HEAD^{commit}")
+  sha = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}")
   assert _SHA.fullmatch(sha)
   _git(root, "check-ref-format", "--branch", branch)
+  if _git(root, "symbolic-ref", "--quiet", "--short", "HEAD") != branch:
+    raise RemoteRequestError("source branch changed during request")
   return branch, sha
 
 
@@ -188,6 +190,8 @@ def submit_request(
         )
     if stale:
       continue
+    if _source(root) != (source_branch, source_sha):
+      raise RemoteRequestError("source tip changed during CMD allocation")
     number = max(numbers, default=0) + 1
     branch = f"CMD-{number}-{source_branch}"
     if commit is None:
