@@ -206,6 +206,26 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertEqual([], errors)
     self.assertEqual([1, 2], sorted(result.number for result in results))
 
+  def test_two_threads_same_checkout_do_not_share_fetch_head(self):
+    barrier = threading.Barrier(2)
+    results = []
+    errors = []
+
+    def worker():
+      try:
+        barrier.wait()
+        results.append(self.submit())
+      except Exception as exc:
+        errors.append(exc)
+
+    tasks = [threading.Thread(target=worker) for _ in range(2)]
+    for task in tasks:
+      task.start()
+    for task in tasks:
+      task.join()
+    self.assertEqual([], errors)
+    self.assertEqual([1, 1], sorted(result.number for result in results))
+
   def test_concurrent_allocation_reuses_same_number(self):
     paths = []
     for index in range(2):
