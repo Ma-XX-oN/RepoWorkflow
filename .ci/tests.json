@@ -432,6 +432,13 @@
         "type": "regression",
         "name": "tests.test_issue788_hosted_forward"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-791-publisher-wiring": {
+        "type": "regression",
+        "name": "tests.test_issue791_publisher_wiring"
+      }
     }
   ],
   "aliases": {
