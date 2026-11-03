@@ -157,6 +157,15 @@ class CMDSubmissionTests(unittest.TestCase):
     recorded = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
     self.assertEqual([*args, "0"], shlex.split(recorded, posix=True))
 
+  def test_utf8_argument_embedded_newline_round_trip(self):
+    args = ["test", "alpha\nbeta ü", "--remote"]
+    result = self.submit(args)
+    git(self.source, "fetch", "origin", result.branch)
+    import shlex
+    raw = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
+    self.assertEqual([*args, "0"], shlex.split(raw, posix=True))
+    self.assertNotIn("\r\n", raw)
+
   def test_source_preexisting_argument_file_preserves_source_identity(self):
     request = self.source / ".ci" / "rwf"
     request.parent.mkdir(parents=True)
