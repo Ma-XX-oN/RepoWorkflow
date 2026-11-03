@@ -1,0 +1,43 @@
+name: Verify #790 native CMD status
+on:
+  push:
+    branches:
+      - verify-790-status-native-20261103
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 65f75f5165eebf5d39d301c46d31f18e0b9907d7
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify exact source and registered #790 catalogue group
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '65f75f5165eebf5d39d301c46d31f18e0b9907d7'
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          data = json.loads(Path(".ci/tests.json").read_text(encoding="utf-8"))
+          entry = next((x for x in data["tests"] if "issue-790-remote-status" in x), None)
+          assert entry is not None, "registered group missing"
+          assert entry["test-harness"] == "unittest"
+          target = entry["issue-790-remote-status"]["name"]
+          print(f"Running registered issue-790-remote-status: {target}", flush=True)
+          raise SystemExit(subprocess.call([sys.executable, "-m", "unittest", target]))
+          PY
