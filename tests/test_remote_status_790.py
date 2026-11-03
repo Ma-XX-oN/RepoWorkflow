@@ -137,6 +137,166 @@ class StatusTest(unittest.TestCase):
       "Remote request rejected: rejected λ\n",
     )
 
+  def test_unconfigured_consumer_status_uses_discovered_info_adapter(self):
+    from repo_workflow.repo_info_adapter import RepoInfoError
+    self.add_cmd(1)
+    self.assertFalse((self.root / ".ci/repoworkflow.json").exists())
+    config = {"infoCommand": ["fake-provider"]}
+    with patch("repo_workflow.remote_status.resolve_info_config",
+               return_value=config) as resolver:
+      with patch("repo_workflow.remote_status.ci_invocation_status",
+                 return_value={"state": "not-observed", "run_id": None}) as query:
+        status = command_status(self.root)
+      resolver.assert_called_once_with(self.root)
+      self.assertEqual(query.call_args.args[1], config)
+      self.assertEqual(status.state, "not-observed")
+      self.assertIsNone(status.result)
+    with patch("repo_workflow.remote_status.resolve_info_config",
+               side_effect=RepoInfoError("provider unavailable")):
+      with self.assertRaisesRegex(RemoteStatusError, "provider unavailable"):
+        command_status(self.root)
+
+  def test_unconfigured_github_discovery_integrates_with_command_status(self):
+    import sys
+    self.add_cmd(1)
+    git(self.root, "remote", "add", "github",
+        "git@github.com:Ma-XX-oN/Disposable-001.git")
+    self.assertFalse((self.root / ".ci/repoworkflow.json").exists())
+    with patch("repo_workflow.remote_status.ci_invocation_status",
+               return_value={"state": "not-observed", "run_id": None}) as query:
+      status = command_status(self.root)
+    self.assertEqual(status.state, "not-observed")
+    self.assertIsNone(status.result)
+    self.assertEqual(status.branch, "CMD-1-issue-790")
+    self.assertEqual(status.retry, 0)
+    self.assertEqual(query.call_count, 1)
+    root, config, branch, request_sha, retry = query.call_args.args
+    self.assertEqual(root, self.root)
+    self.assertEqual(branch, status.branch)
+    self.assertEqual(request_sha, status.request_sha)
+    self.assertEqual(retry, 0)
+    argv = config["infoCommand"]
+    self.assertEqual(argv[0], sys.executable)
+    self.assertEqual(
+      Path(argv[1]).resolve(),
+      (Path(__file__).resolve().parents[1]
+       / "adapters" / "repo-info-ci-github.py").resolve(),
+    )
+    self.assertEqual(argv[2:], [
+      "--repository", "Ma-XX-oN/Disposable-001",
+      "--workflow", "remote-rwf.yml",
+    ])
+
+  def test_unconfigured_reuse_before_and_after_threshold_is_safe(self):
+    from repo_workflow.remote_request import submit_request
+    from repo_workflow.repo_info_adapter import RepoInfoError
+    self.add_cmd(1)
+    self.assertFalse((self.root / ".ci/repoworkflow.json").exists())
+    branch = "CMD-1-issue-790"
+    marker = git(self.root, "rev-parse", branch)
+    stamp = int(git(self.root, "show", "-s", "--format=%ct", marker))
+    argv = ["test", "RED", "--remote"]
+    before = git(self.root, "rev-parse", "HEAD")
+    with patch("repo_workflow.remote_status.resolve_info_config",
+               return_value={"infoCommand": ["fake"]}) as resolver:
+      with patch("repo_workflow.remote_status.ci_invocation_status",
+                 return_value={"state": "unknown", "run_id": None}) as query:
+        self.assertEqual(submit_remote(
+          self.root, argv, clock=lambda: stamp + 14,
+        ), 0)
+        query.assert_not_called()
+        self.assertEqual(submit_remote(
+          self.root, argv, clock=lambda: stamp + 15,
+        ), 0)
+        query.assert_called_once()
+        resolver.assert_called_once_with(self.root)
+    self.assertEqual(git(self.root, "rev-parse", "HEAD"), before)
+    self.assertEqual(git(self.root, "ls-remote", "origin",
+                         f"refs/heads/{branch}").split()[0], marker)
+    with patch("repo_workflow.remote_status.resolve_info_config",
+               side_effect=RepoInfoError("provider offline")):
+      self.assertEqual(submit_remote(
+        self.root, argv, clock=lambda: stamp + 16,
+      ), 0)
+    from repo_workflow.config import ConfigError
+    with patch("repo_workflow.remote_status.resolve_info_config",
+               side_effect=ConfigError("malformed consumer configuration")):
+      self.assertEqual(submit_remote(
+        self.root, argv, clock=lambda: stamp + 17,
+      ), 0)
+    self.assertEqual(git(self.root, "ls-remote", "origin",
+                         f"refs/heads/{branch}").split()[0], marker)
+    self.assertEqual(git(self.root, "rev-parse", "HEAD"), before)
+
+  def test_named_red_remote_poll_real_cli_and_negative_paths(self):
+    import json
+    import sys
+    from repo_workflow.remote_request import submit_request
+    from repo_workflow.test_cli import select_group
+    group = "issue-790-composite"
+    (self.root / ".ci").mkdir(exist_ok=True)
+    (self.root / "smoke_case.py").write_text(
+      "import unittest\nclass Smoke(unittest.TestCase):\n"
+      "  def test_red(self): self.fail('expected')\n", encoding="utf-8",
+    )
+    (self.root / ".ci/tests.json").write_text(json.dumps({
+      "test-harnesses": {
+        "unittest": {"command": "python", "layout": ["-m", "unittest", "$test"]},
+      },
+      "tests": [{"test-harness": "unittest", group: {
+        "type": "regression", "name": "smoke_case",
+        "expected-red": {"exit-code": 1, "output-contains": "expected"},
+      }}],
+      "aliases": {},
+    }), encoding="utf-8")
+    git(self.root, "add", ".ci/tests.json", "smoke_case.py")
+    git(self.root, "commit", "-m", "register composite RED")
+    # The test-only bare remote lives inside this fixture's work directory.
+    # Ignore its bookkeeping without weakening production cleanliness checks.
+    with (self.root / ".git/info/exclude").open(
+      "a", encoding="utf-8",
+    ) as exclusions:
+      exclusions.write("\nremote.git/\n")
+    select_group(self.root, group)
+    before = git(self.root, "rev-parse", "HEAD")
+    request = submit_request(
+      self.root, ["test", "RED", group, "--remote"],
+    )
+    self.assertFalse(request.reused)
+    git(self.root, "checkout", "-b", request.branch, request.request_sha)
+    (self.root / ".repoworkflow").mkdir(exist_ok=True)
+    (self.root / ".repoworkflow/result").write_text(
+      "7\nλ done\n", encoding="utf-8",
+    )
+    git(self.root, "add", ".repoworkflow/result")
+    git(self.root, "commit", "-m", "publish result",
+        "-m", f"RWF-Request: {request.request_sha}\nRWF-Retry: 0")
+    git(self.root, "push", "origin", f"HEAD:refs/heads/{request.branch}")
+    git(self.root, "checkout", "issue-790")
+    script = Path(__file__).resolve().parents[1] / "repo_workflow.py"
+    args = [sys.executable, str(script), "--root", str(self.root)]
+    result = subprocess.run([
+      *args, "test", "RED", group, "--remote", "--poll", "0",
+    ], capture_output=True, encoding="utf-8", errors="strict", check=False)
+    self.assertEqual(result.returncode, 7, result.stderr)
+    self.assertIn(f"CMD-1 {request.branch} REUSED", result.stdout)
+    self.assertIn(f"CMD-1 {request.branch} COMPLETED exit=7", result.stdout)
+    self.assertIn("λ done", result.stdout)
+    for suffix in (
+      ["test", "RED", "issue-790-unknown", "--remote", "--poll", "0"],
+      ["test", "RED", group, "--remote", "--poll", "-1"],
+      ["test", "RED", group, "--poll", "0", "--remote"],
+    ):
+      with self.subTest(suffix=suffix):
+        invalid = subprocess.run(
+          [*args, *suffix], capture_output=True, encoding="utf-8",
+          errors="strict", check=False,
+        )
+        self.assertNotEqual(invalid.returncode, 0)
+        self.assertNotIn("COMPLETED exit=", invalid.stdout)
+    self.assertEqual(git(self.root, "rev-parse", "HEAD"), before)
+    self.assertFalse((self.root / ".ci/run").exists())
+
   def test_poll_repeats_last_interval_and_never_submits(self):
     pending = CommandStatus(1, "CMD-1-issue-790", "a" * 40,
                             0, "running", None, 123)
