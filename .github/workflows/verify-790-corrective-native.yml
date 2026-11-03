@@ -40,3 +40,7 @@ jobs:
             if subprocess.call([sys.executable, "-m", "unittest", target]):
               raise SystemExit(1)
           PY
+          python -m unittest \
+            tests.test_bootstrap_cli.BootstrapCliTests.test_every_static_public_prefix_help_is_configuration_independent \
+            tests.test_test_launcher.ShippedTestLauncher.test_all_six_stage_help_commands_are_reachable \
+            tests.test_test_cli.TestCliContract.test_red_help_does_not_require_registered_issue_tests
