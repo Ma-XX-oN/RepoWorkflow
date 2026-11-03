@@ -56,7 +56,6 @@ def _source(root: Path) -> tuple[str, str]:
     raise RemoteRequestError("remote request cannot originate from a CMD branch")
   sha = _git(root, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}")
   assert _SHA.fullmatch(sha)
-  _git(root, "check-ref-format", "--branch", branch)
   if _git(root, "symbolic-ref", "--quiet", "--short", "HEAD") != branch:
     raise RemoteRequestError("source branch changed during request")
   return branch, sha
@@ -95,13 +94,16 @@ def _matches(
 ) -> bool | None:
   if not _inspect(root, remote, branch, tip):
     return None
-  history = _git(root, "rev-list", "--reverse", f"{source_sha}..{tip}").splitlines()
+  history = _git(
+    root, "rev-list", "--reverse", "--parents", f"{source_sha}..{tip}",
+  ).splitlines()
   if not history:
     return False
   prior = source_sha
   count = 0
-  for node in history:
-    if _git(root, "rev-list", "--parents", "-n", "1", node) != f"{node} {prior}":
+  for line in history:
+    node, *parents = line.split()
+    if parents != [prior]:
       return False
     prior = node
     paths = _git(
