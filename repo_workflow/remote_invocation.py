@@ -91,7 +91,7 @@ def _assert_committed_result(root: Path, commit: str) -> None:
     raw = completed.stdout.decode("utf-8", errors="strict")
   except UnicodeError as exc:
     raise RemoteInvocationError("CMD result must contain strict UTF-8") from exc
-  status, separator, _ = raw.partition("\\n")
+  status, separator, _ = raw.partition("\n")
   if not separator or re.fullmatch(r"-?[0-9]+", status) is None:
     raise RemoteInvocationError("CMD result must begin with decimal exit code")
 
