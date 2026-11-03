@@ -181,7 +181,7 @@ def submit_request(
       commit = _commit(root, source_sha, payload)
     result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
     if result.returncode == 0:
-      return SubmittedRequest(number, branch, source_sha, commit, False)
+      return SubmittedRequest(\n        number, branch, source_sha, commit,\n        "[up to date]" in result.stdout,\n      )
     # Only a genuine concurrent branch collision warrants retrying.
     if branch not in _remote_refs(root, remote):
       raise RemoteRequestError("CMD publication rejected: " + result.stderr.strip())
