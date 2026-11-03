@@ -12,7 +12,9 @@ import unittest
 from unittest.mock import patch
 
 from repo_workflow.remote_invocation import (
+  InvocationOutcome,
   RemoteInvocationError,
+  emit_outcome,
   invoke_numbered,
 )
 
@@ -279,6 +281,20 @@ class CmdFixture(unittest.TestCase):
     self.assertEqual(outcome.stdout, "π output\n")
     self.assertEqual(outcome.stderr, "δ failure\n")
     self.assertEqual(outcome.output, "π output\nδ failure\n")
+
+  def test_utf8_emission_ignores_host_text_codec(self):
+    out, err = io.BytesIO(), io.BytesIO()
+    stdout = io.TextIOWrapper(out, encoding="cp1252")
+    stderr = io.TextIOWrapper(err, encoding="cp1252")
+    result = InvocationOutcome(
+      self.cmd, "a" * 40, self.source_sha, 0, 7,
+      "π", "δ", "πδ",
+    )
+    with patch("repo_workflow.remote_invocation.sys.stdout", stdout):
+      with patch("repo_workflow.remote_invocation.sys.stderr", stderr):
+        emit_outcome(result)
+    self.assertEqual(out.getvalue(), "π".encode("utf-8"))
+    self.assertEqual(err.getvalue(), "δ".encode("utf-8"))
 
 if __name__ == "__main__":
   unittest.main()
