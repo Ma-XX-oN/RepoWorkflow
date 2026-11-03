@@ -124,7 +124,7 @@ class CMDSubmissionTests(unittest.TestCase):
     )
     git(clone, "config", "user.email", "test@example.invalid")
     git(clone, "config", "user.name", "Fixture")
-    (clone / "unrelated.txt").write_text("not allowed\\n")
+    (clone / "unrelated.txt").write_text("not allowed\n")
     git(clone, "add", "unrelated.txt")
     git(clone, "commit", "-m", "unexpected file")
     git(clone, "push", "origin", "HEAD")
@@ -143,7 +143,7 @@ class CMDSubmissionTests(unittest.TestCase):
   def test_source_preexisting_argument_file_preserves_source_identity(self):
     request = self.source / ".ci" / "rwf"
     request.parent.mkdir(parents=True)
-    request.write_text("old source data\\n")
+    request.write_text("old source data\n")
     git(self.source, "add", ".ci/rwf")
     git(self.source, "commit", "-m", "source already has .ci/rwf")
     first = self.submit()
@@ -165,7 +165,7 @@ class CMDSubmissionTests(unittest.TestCase):
     git(clone, "config", "user.name", "Fixture")
     result = clone / ".repoworkflow" / "result"
     result.parent.mkdir(parents=True)
-    result.write_text("0\\ncompleted\\n")
+    result.write_text("0\ncompleted\n")
     git(clone, "add", ".repoworkflow/result")
     git(clone, "commit", "-m", "provider published result")
     git(clone, "push", "origin", "HEAD")
