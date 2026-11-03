@@ -200,7 +200,7 @@ class GithubStatusTests(unittest.TestCase):
       self.assertIn("remote-rwf.yml", endpoint)
 
   def test_non_exhaustive_pagination_fails_closed(self):
-    full_page = {"total_count": 100, "workflow_runs": [
+    full_page = {"total_count": 10000, "workflow_runs": [
       github_run("completed", run_id=i + 1, head_sha="b" * 40)
       for i in range(100)
     ]}
