@@ -157,6 +157,12 @@ class CMDSubmissionTests(unittest.TestCase):
     recorded = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
     self.assertEqual([*args, "0"], shlex.split(recorded, posix=True))
 
+  def test_source_branch_with_slash_preserves_full_branch_name(self):
+    git(self.source, "branch", "-m", "feature/subtask")
+    first = self.submit()
+    self.assertEqual("CMD-1-feature/subtask", first.branch)
+    self.assertTrue(self.submit().reused)
+
   def test_preexisting_hook_path_does_not_block_submission(self):
     (self.source / ".rwf-empty-hooks").write_text("consumer data\n")
     git(self.source, "add", ".rwf-empty-hooks")
