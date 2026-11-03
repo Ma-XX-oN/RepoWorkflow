@@ -129,6 +129,12 @@ for path in sorted(base_files & new_files):
   if path.startswith(".repoworkflow/"):
     if original[path] != migrated[path]:
       failures.append(path + ": historical record changed")
+    # Historical records are immutable, but their existing links must
+    # still resolve after changes to target documents.
+    for href in links(migrated[path]):
+      target = destination(path, href, new_files, newheads)
+      if target is not None and target[0].startswith("INVALID"):
+        failures.append(path + " historical link broken: " + href)
     continue
   expected = [ORDER.sub("", title, count=1) for title in a]
   if expected != b:
@@ -138,32 +144,37 @@ for path in sorted(base_files & new_files):
     failures.append(path + ": presentation numbering remains")
   oldlinks = links(original[path])
   newlinks = links(migrated[path])
-  if len(oldlinks) != len(newlinks):
-    failures.append(path + ": link count changed " + str((len(oldlinks), len(newlinks))))
-    continue
-  for before, after in zip(oldlinks, newlinks):
+  for after in newlinks:
     link_count += 1
-    old = destination(path, before, base_files, oldheads)
     new = destination(path, after, new_files, newheads)
-    if before != after:
-      changed_links += 1
     if new is not None and new[0].startswith("INVALID"):
-      if old is not None and old[0].startswith("INVALID") and before == after:
-        warnings.append(path + " pre-existing: " + after + " " + str(new))
+      old = destination(path, after, base_files, oldheads)
+      if after in oldlinks and old is not None and old[0].startswith("INVALID"):
+        warnings.append(path + " pre-existing: " + after)
       else:
         failures.append(path + " broken link: " + after + " " + str(new))
-    if old is not None and new is not None and old[0] == "HEADING" and new[0] == "HEADING":
-      original_title = ORDER.sub("", old[2], count=1)
-      if original_title != new[2] or old[1] != new[1]:
-        failures.append(path + " link moved to wrong section: " + before + " -> " + after)
-    elif before != after and (old is None or new is None or old[0] != new[0]):
-      failures.append(path + " changed link lacks equivalent target: " + before + " -> " + after)
+  for before in oldlinks:
+    old = destination(path, before, base_files, oldheads)
+    if old is None or old[0].startswith("INVALID"):
+      continue
+    matches = []
+    for after in newlinks:
+      new = destination(path, after, new_files, newheads)
+      if old[0] == "HEADING" and new is not None and new[0] == "HEADING":
+        if old[1] == new[1] and ORDER.sub("", old[2], count=1) == new[2]:
+          matches.append(after)
+      elif before == after and old == new:
+        matches.append(after)
+    if not matches:
+      failures.append(path + " link lost semantic destination: " + before)
+    elif before not in matches:
+      changed_links += 1
 print("Potential numbered prose-section references:")
 for path in sorted(base_files & new_files):
   if path.startswith(".repoworkflow/"):
     continue
   for number, line in enumerate(active_lines(migrated[path]), 1):
-    if re.search(r"(?i)(?:\bsections?\s+|§\s*)\d+(?:\.\d+)*\b", line):
+    if re.search(r"(?i)(?:\bsections?\s+|§\s*)\d+(?:\.\d+)*\b", line) or re.search(r"\[\d+(?:\.\d+)*[.)]?\s+[^]]+\]\(", line):
       print("REFERENCE", path, number, line.strip()[:220])
 print("Markdown files:", len(base_files))
 print("Numbered headings migrated:", total_numbered)
