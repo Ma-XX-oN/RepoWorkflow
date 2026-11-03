@@ -187,3 +187,49 @@ def list_open_issues(root: Path, config: dict) -> dict[str, Any]:
       )
     prior = number
   return value
+
+_CI_STATES = {"queued", "running", "completed", "not-observed", "unknown"}
+
+
+def ci_invocation_status(
+  root: Path, config: dict, branch: str, request_revision: str, attempt: int
+) -> dict[str, Any]:
+  """Read a provider observation for one exact CMD marker commit."""
+  if not isinstance(branch, str) or re.fullmatch(
+    r"CMD-[1-9][0-9]*-[^\\s\\x00-\\x1f]+", branch
+  ) is None or branch.startswith("-"):
+    raise _fail("CMD branch")
+  if not isinstance(request_revision, str) or re.fullmatch(
+    r"[0-9a-fA-F]{40}", request_revision
+  ) is None:
+    raise _fail("request revision")
+  if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 0:
+    raise _fail("retry attempt")
+  value = _exact_object(
+    _invoke(root, config, [
+      "ci", "invocation", "status", branch, request_revision.lower(), str(attempt),
+    ]),
+    {
+      "schema_version", "branch", "request_revision", "attempt",
+      "state", "run_id", "detail",
+    },
+    "CI invocation status",
+  )
+  _schema(value, "CI invocation")
+  if value["branch"] != branch or value["request_revision"] != request_revision.lower():
+    raise RepoInfoError("repository information adapter returned mismatched request identity")
+  if type(value["attempt"]) is not int or value["attempt"] != attempt:
+    raise RepoInfoError("repository information adapter returned mismatched retry attempt")
+  if value["state"] not in _CI_STATES:
+    raise _fail("CI invocation state")
+  run_id = value["run_id"]
+  if run_id is not None and (type(run_id) is not int or run_id <= 0):
+    raise _fail("CI invocation run ID")
+  if value["state"] == "not-observed" and run_id is not None:
+    raise _fail("not-observed CI invocation")
+  detail = value["detail"]
+  if detail is not None and (not isinstance(detail, str) or not detail):
+    raise _fail("CI invocation detail")
+  if value["state"] == "unknown" and detail is None:
+    raise _fail("unknown CI invocation detail")
+  return value
