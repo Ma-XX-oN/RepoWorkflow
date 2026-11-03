@@ -103,8 +103,11 @@ def run(root: Path, environment: dict[str, str]) -> int:
     raise HostedForwardError("CMD branch identity was not restored")
   invoked_env = dict(environment)
   invoked_env["RWF_HOSTED_INVOCATION"] = "1"
+  engine = Path(_required(environment, "RWF_ENGINE_ROOT")).resolve()
+  if not (engine / "repo_workflow.py").is_file():
+    raise HostedForwardError("pinned RWF engine entry point is missing")
   result = subprocess.run(
-    [sys.executable, str(root / "repo_workflow.py"), "--root", str(root), *words],
+    [sys.executable, str(engine / "repo_workflow.py"), "--root", str(root), *words],
     cwd=root, env=invoked_env, stdin=subprocess.DEVNULL, check=False,
   )
   return result.returncode
