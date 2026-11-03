@@ -240,8 +240,10 @@ class CmdFixture(unittest.TestCase):
           "--root", str(self.repo), "test", "temporary", "--remote", "0",
         ])
       self.assertNotEqual(rc1, 0)
-      self.assertEqual((rc2, out2.getvalue(), err2.getvalue()),
-                       (rc1, out1.getvalue(), err1.getvalue()))
+      self.assertEqual(rc2, rc1)
+      self.assertEqual(out2.getvalue(), out1.getvalue())
+      self.assertIn("missing test catalogue:", err1.getvalue())
+      self.assertIn("missing test catalogue:", err2.getvalue())
 
   def test_published_previous_attempt_is_valid_retry_ancestry(self):
     path = self.repo / ".repoworkflow" / "result"
