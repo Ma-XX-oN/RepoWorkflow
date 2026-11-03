@@ -156,6 +156,33 @@ class StatusTest(unittest.TestCase):
       with self.assertRaisesRegex(RemoteStatusError, "provider unavailable"):
         command_status(self.root)
 
+  def test_unconfigured_github_discovery_integrates_with_command_status(self):
+    import sys
+    self.add_cmd(1)
+    git(self.root, "remote", "add", "github",
+        "git@github.com:Ma-XX-oN/Disposable-001.git")
+    self.assertFalse((self.root / ".ci/repoworkflow.json").exists())
+    with patch("repo_workflow.remote_status.ci_invocation_status",
+               return_value={"state": "not-observed", "run_id": None}) as query:
+      status = command_status(self.root)
+    self.assertEqual(status.state, "not-observed")
+    self.assertIsNone(status.result)
+    self.assertEqual(status.branch, "CMD-1-issue-790")
+    self.assertEqual(status.retry, 0)
+    self.assertEqual(query.call_count, 1)
+    root, config, branch, request_sha, retry = query.call_args.args
+    self.assertEqual(root, self.root)
+    self.assertEqual(branch, status.branch)
+    self.assertEqual(request_sha, status.request_sha)
+    self.assertEqual(retry, 0)
+    argv = config["infoCommand"]
+    self.assertEqual(argv[0], sys.executable)
+    self.assertTrue(argv[1].endswith("adapters/repo-info-ci-github.py"))
+    self.assertEqual(argv[2:], [
+      "--repository", "Ma-XX-oN/Disposable-001",
+      "--workflow", "remote-rwf.yml",
+    ])
+
   def test_unconfigured_reuse_before_and_after_threshold_is_safe(self):
     from repo_workflow.remote_request import submit_request
     from repo_workflow.repo_info_adapter import RepoInfoError
