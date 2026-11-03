@@ -1,0 +1,41 @@
+name: RWF 789 Native Catalogue Workbench
+on:
+  push:
+    branches: ['verify-789-native-20261103']
+    paths: ['.ci/run']
+permissions:
+  contents: read
+jobs:
+  issue-789:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f2b543d13af4e2310205b9ae75fd3ae53c2651ce
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install declared dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run official issue-789 catalogue group on pinned candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'f2b543d13af4e2310205b9ae75fd3ae53c2651ce'
+          git switch -c issue-789-cmd-results-20261102
+          python - <<'PY'
+          import subprocess
+          import sys
+          from pathlib import Path
+          from repo_workflow.self_ci import group_command
+          root = Path.cwd()
+          command = group_command(root, 'issue-789-cmd-results')
+          print('catalogue group: issue-789-cmd-results', flush=True)
+          print('command:', command, flush=True)
+          sys.exit(subprocess.run(command, cwd=root, check=False).returncode)
+          PY
