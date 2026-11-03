@@ -258,14 +258,18 @@ def invoke_numbered(
               raise TypeError("captured stdout must be bytes")
             if not isinstance(result.stderr, bytes):
               raise TypeError("captured stderr must be bytes")
-            stdout.write(result.stdout.decode("utf-8", errors="strict"))
-            stderr.write(result.stderr.decode("utf-8", errors="strict"))
-            combined.write(stdout.getvalue() + stderr.getvalue())
+            standard = result.stdout.decode("utf-8", errors="strict")
+            errors = result.stderr.decode("utf-8", errors="strict")
+            stdout.write(standard)
+            stderr.write(errors)
+            combined.write(standard + errors)
             status = result.returncode
           else:
             status = result
           if type(status) is not int:
             raise TypeError("local CLI returned a non-integer status")
+        except UnicodeError as exc:
+          raise RemoteInvocationError("command emitted non-UTF-8 output") from exc
         except Exception:
           traceback.print_exc()
           status = 1
