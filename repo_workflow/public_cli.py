@@ -160,6 +160,12 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
   # Public RED remote submission uses .ci/rwf. Legacy .ci/run stages
   # remain on their existing testing path until separately authorized.
   if words[:2] == ["test", "RED"] and "--remote" in words:
+    # Preserve the existing unconfigured RED/GREEN skip contract: a remote
+    # command with no committed RED selection has no test to execute.
+    if not (root / ".ci" / "red-green.txt").exists():
+      return run_test(
+        root, "RED", remote=True, engine_root=engine_root, group=None,
+      )
     offset = words.index("--poll") if "--poll" in words else len(words)
     if offset < words.index("--remote"):
       raise RemoteStatusError("--poll must follow --remote")
