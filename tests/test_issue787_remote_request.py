@@ -122,6 +122,9 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertEqual(
       1, submit_unpolled(self.source, ["test", "RED"]),
     )
+    self.assertEqual(
+      1, submit_unpolled(self.source, ["test", "RED", "--remote"], remote="-bad"),
+    )
     first = self.submit()
     with self.assertRaises(RemoteRequestError):
       retry_request(
