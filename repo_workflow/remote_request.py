@@ -130,12 +130,14 @@ def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
     _git(root, "worktree", "add", "--quiet", "--detach", str(checkout), parent)
     try:
       request = checkout / ".ci" / "rwf"
+      if request.parent.is_symlink() or request.is_symlink():
+        raise RemoteRequestError("request path must not be a symlink")
       request.parent.mkdir(parents=True, exist_ok=True)
       request.write_text(text + "\n", encoding="utf-8", newline="\n")
       _git(checkout, "add", "-f", "--", ".ci/rwf")
       if _git(checkout, "diff", "--cached", "--name-only") != ".ci/rwf":
         raise RemoteRequestError("request must change only .ci/rwf")
-      hooks = checkout / ".rwf-empty-hooks"
+      hooks = Path(directory) / "hooks"
       hooks.mkdir()
       _git(
         checkout, "-c", "user.name=RepoWorkflow",
