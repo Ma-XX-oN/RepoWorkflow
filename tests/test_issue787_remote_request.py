@@ -157,6 +157,14 @@ class CMDSubmissionTests(unittest.TestCase):
     recorded = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
     self.assertEqual([*args, "0"], shlex.split(recorded, posix=True))
 
+  def test_preexisting_hook_path_does_not_block_submission(self):
+    (self.source / ".rwf-empty-hooks").write_text("consumer data\n")
+    git(self.source, "add", ".rwf-empty-hooks")
+    git(self.source, "commit", "-m", "source hook path")
+    first = self.submit()
+    self.assertEqual(1, first.number)
+    self.assertEqual("consumer data", (self.source / ".rwf-empty-hooks").read_text().strip())
+
   def test_utf8_argument_embedded_newline_round_trip(self):
     args = ["test", "alpha\nbeta ü", "--remote"]
     result = self.submit(args)
