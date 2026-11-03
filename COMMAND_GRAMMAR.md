@@ -7,6 +7,11 @@ argument validation, completion candidates, completion help, normal `--help`,
 and shared diagnostics.  Shell adapters render that structure; they do not
 maintain independent command policy.
 
+For #660's planned internal numbered remote invocation syntax, see
+[REMOTE_INVOCATION_CONTRACT.md](REMOTE_INVOCATION_CONTRACT.md). The current
+public grammar does not yet implement that syntax: internal arguments must
+be hidden from completion/help without a second command dispatcher.
+
 ## 1. Static command tree
 
 The human-authored form remains a plain recursive dictionary.
