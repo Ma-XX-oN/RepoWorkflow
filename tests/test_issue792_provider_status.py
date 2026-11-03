@@ -84,6 +84,7 @@ class CoreStatusTests(unittest.TestCase):
       {"state": "not-observed", "run_id": 7},
       {"state": "unknown", "detail": None},
       {"state": "completed", "detail": 42},
+      {"state": "completed", "detail": "unexpected"},
       {"unexpected": "raw provider payload"},
     ]
     for change in invalid:
