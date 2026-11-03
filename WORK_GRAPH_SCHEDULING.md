@@ -8,7 +8,7 @@ naming and conversation-only worker launch conventions in
 Shared prompt revisions follow [PMD_AUTHORING.md](PMD_AUTHORING.md);
 launching a new worker never transfers an existing owner claim.
 
-## 13. Derive scheduling from the graph
+## Derive scheduling from the graph
 
 Do not maintain a separate manual work order when the dependency graph can
 answer the question.
@@ -30,7 +30,7 @@ Container tickets use the same direct-dependency readiness rule as every
 other ticket.  A descriptive Initiative/Epic/Feature prefix does not create
 separate container readiness, ownership, or child-blocking semantics.
 
-## 13.1 Published lane display notation
+## Published lane display notation
 
 Published lane naming, issue qualification, stability, and completion-display
 rules are defined in [PUBLISHED_LANES.md](PUBLISHED_LANES.md).
@@ -43,7 +43,7 @@ For RWF's formal six-state **Lifecycle Graph (LG)**, use
 [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  These are display names,
 not new dependency graphs, lifecycle transitions, or CLI commands.
 
-## 13.2 Finish dependency-complete work before switching tasks
+## Finish dependency-complete work before switching tasks
 
 The dependency graph and group structure exist so workers finish one meaningful
 outcome before beginning unrelated work.
@@ -65,7 +65,7 @@ A prerequisite may finish independently when it produces a real reusable
 interface.  Preparatory/reference work that knowingly leaves its own ticket
 contract unimplemented is not independently complete.
 
-## 13.3 Speculative work on serial dependencies
+## Speculative work on serial dependencies
 
 Speculative ticket work applies **only** when a downstream ticket has a real
 serial dependency on an unfinished prerequisite.  Independent tickets without
@@ -148,7 +148,7 @@ until this downstream ticket itself reaches DONE. Speculative preparation by
 further descendants follows the same rules independently; it is never a
 substitute for the immediate integrator's verified DONE.
 
-## 13.5 Standing authority for reviewed child-to-parent assembly
+## Standing authority for reviewed child-to-parent assembly
 
 A verified, exclusively assigned **parent-integration owner** has standing
 authority to import independently accepted, owner-reviewed child source
