@@ -381,6 +381,10 @@
       "invariant-ci-invocation-trigger": {
         "type": "invariant",
         "name": "tests.test_ci_invocation_trigger_contract"
+      },
+      "issue-792-provider-status": {
+        "type": "regression",
+        "name": "tests.test_issue792_provider_status"
       }
     },
     {
@@ -409,6 +413,9 @@
     "self-ci": [
       "issue-476-staged-self-ci",
       "invariant-self-ci-contract"
+    ],
+    "issue-792-provider-status": [
+      "issue-792-provider-status"
     ]
   }
 }
