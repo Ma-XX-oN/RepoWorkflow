@@ -25,8 +25,9 @@ Before generating an AGENT-CMD prompt, starting or resuming a worker, or declari
 
 ## Governor-specific pause labels
 
-Use one additive GitHub issue label per independent governing pause:
-`paused-by-<issue-number>` (for example `paused-by-660`). Do not use a
+Use one additive GitHub issue label per independent governing pause.
+The short name identifies the governing repository/project (for example, `rwf`):
+`paused-by-<short-name>-<ticket-id>` (for example `paused-by-rwf-660`). Do not use a
 single anonymous `paused` flag as the source of truth. A ticket may carry
 multiple governor labels. Preserve unrelated labels and existing issue ownership.
 
