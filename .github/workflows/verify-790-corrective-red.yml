@@ -1,0 +1,62 @@
+name: RED reproduce #790 first-use failures
+on:
+  push:
+    branches: [verify-790-corrective-red-20261103]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3ef4d666dbf5d995b99dfba08a36b28925ae2ef1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Reproduce three independent REDs before code changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from unittest.mock import patch
+          from repo_workflow.remote_status import command_status, submit_remote, CommandRef, SubmittedRequest
+          from repo_workflow.command_grammar import Context, parse_tokens
+          from repo_workflow.public_commands import COMMANDS
+          from repo_workflow.config import ConfigError
+          errors = []
+          with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cmd = CommandRef(1, "CMD-1-issue-1-demo", "c" * 40)
+            mocks = [
+              patch("repo_workflow.remote_status.resolve_command", return_value=cmd),
+              patch("repo_workflow.remote_status._marker", return_value=("a" * 40, 0)),
+              patch("repo_workflow.remote_status.read_result", return_value=None),
+              patch("repo_workflow.remote_status.ci_invocation_status", return_value={"state":"unknown","run_id":None}),
+              patch("repo_workflow.remote_status._tip_unchanged"),
+              patch("repo_workflow.remote_status.resolve_info_config", return_value={"infoCommand":["fake"]}),
+            ]
+            with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5]:
+              try:
+                command_status(root)
+              except Exception as exc:
+                errors.append(("unconfigured-status",type(exc).__name__,str(exc)))
+            req = SubmittedRequest(1, "CMD-1-issue-1-demo", "b"*40, "a"*40, True)
+            with patch("repo_workflow.remote_status.submit_request", return_value=req), patch("repo_workflow.remote_status._git",return_value="100"):
+              with mocks[0], mocks[1], mocks[2], mocks[3], mocks[4], mocks[5]:
+                try:
+                  value=submit_remote(root, ["test","RED","--remote"],clock=lambda:115,status_reader=command_status)
+                  if value != 0: errors.append(("reuse-after-15s","nonzero",str(value)))
+                except Exception as exc:
+                  errors.append(("reuse-after-15s",type(exc).__name__,str(exc)))
+            try:
+              parse_tokens(COMMANDS, Context(root,legal_only=False), ["test","RED","issue-1-rwf788-red","--remote","--poll","0"])
+            except Exception as exc:
+              errors.append(("named-RED-remote-poll",type(exc).__name__,str(exc)))
+          for name,kind,detail in errors:
+            print(f"RED {name}: {kind}: {detail}",flush=True)
+          assert {x[0] for x in errors} == {"unconfigured-status","reuse-after-15s","named-RED-remote-poll"}, errors
+          PY
