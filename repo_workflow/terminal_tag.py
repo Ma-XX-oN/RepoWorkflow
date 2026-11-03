@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
 import re
+import stat
 import subprocess
 
 from .phase_terminal import PhaseTransitionError, plan_phase
@@ -22,6 +24,19 @@ _SHA_RE = re.compile(r"[0-9a-f]{40}")
 
 class TerminalTagError(ValueError):
   pass
+
+
+def _reject_json_constant(value: str) -> None:
+  raise ValueError("non-standard JSON constant: " + value)
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict:
+  values = {}
+  for key, value in pairs:
+    if key in values:
+      raise ValueError("duplicate JSON key: " + key)
+    values[key] = value
+  return values
 
 
 def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
@@ -67,6 +82,52 @@ def _remote_target(root: Path, remote: str, tag: str) -> str | None:
   return target
 
 
+def _canonical_evidence_log(root: Path, supplied: Path) -> Path:
+  """Return the sole canonical evidence file after checking filesystem identity.
+
+  The repository root may be reached through any legitimate filesystem alias.
+  Directory and file identities are compared with Path.samefile, not textual
+  spellings. Components below that root cannot be links or reparse redirects.
+  """
+  invalid = "canonical test log must use repository validation path"
+  if ".." in supplied.parts:
+    raise TerminalTagError(invalid)
+  try:
+    repository = root.resolve(strict=True)
+    validation_root = repository / ".repoworkflow"
+    validation_dir = validation_root / "validation"
+    expected = validation_dir / supplied.name
+    parts = (
+      (supplied.parent.parent.parent, repository, True, False),
+      (supplied.parent.parent, validation_root, True, True),
+      (supplied.parent, validation_dir, True, True),
+      (supplied, expected, False, True),
+    )
+    for observed, trusted, is_directory, protected in parts:
+      # Once the parent identities are proven, a missing canonical log is
+      # unavailable evidence, not a foreign path.
+      if not is_directory and not expected.exists() and not expected.is_symlink():
+        raise TerminalTagError("canonical testing log is unavailable")
+      if not observed.samefile(trusted):
+        raise TerminalTagError(invalid)
+      if protected:
+        for path in (observed, trusted):
+          mode = path.lstat()
+          if (
+            stat.S_ISLNK(mode.st_mode)
+            or getattr(mode, "st_file_attributes", 0)
+            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+            or not (
+              stat.S_ISDIR(mode.st_mode)
+              if is_directory else stat.S_ISREG(mode.st_mode)
+            )
+          ):
+            raise TerminalTagError(invalid)
+    return expected
+  except (OSError, RuntimeError) as error:
+    raise TerminalTagError(invalid) from error
+
+
 def verify_phase_evidence(
   root: Path, canonical_log: Path, *, stage: str, version: str,
   candidate: str, outcome: str,
@@ -81,21 +142,36 @@ def verify_phase_evidence(
   expected_issue = version.split("-issue.", 1)[1].split(".", 1)[0]
   if issue.group(1) != expected_issue:
     raise TerminalTagError("test log issue differs from development version")
-  expected_path = (
-    root.resolve() / ".repoworkflow" / "validation" / canonical_log.name
-  )
-  if canonical_log.absolute() != expected_path or canonical_log.is_symlink():
-    raise TerminalTagError("canonical test log must use repository validation path")
+  canonical_file = _canonical_evidence_log(root, canonical_log)
   try:
-    lines = canonical_log.read_text(encoding="utf-8").splitlines()
+    with canonical_file.open("rb") as evidence:
+      # The pathname can change between validation and open. Bind the
+      # evidence to its opened filesystem object, and revalidate after read.
+      opened = os.fstat(evidence.fileno())
+      invalid = "canonical test log must use repository validation path"
+      if not os.path.samestat(opened, canonical_file.stat()):
+        raise TerminalTagError(invalid)
+      _canonical_evidence_log(root, canonical_log)
+      raw = evidence.read()
+      _canonical_evidence_log(root, canonical_log)
+      if not os.path.samestat(opened, canonical_file.stat()):
+        raise TerminalTagError(invalid)
+    lines = raw.decode("utf-8", errors="strict").split("\n")
+    if lines[-1] == "":
+      lines.pop()
+  except UnicodeError as error:
+    raise TerminalTagError("canonical testing log is malformed") from error
   except OSError as error:
     raise TerminalTagError("canonical testing log is unavailable") from error
   observed = []
   wrong_phase = False
   for line in lines:
     try:
-      record = json.loads(line)
-    except json.JSONDecodeError as error:
+      record = json.loads(
+        line, parse_constant=_reject_json_constant,
+        object_pairs_hook=_reject_duplicate_json_keys,
+      )
+    except (json.JSONDecodeError, ValueError, RecursionError) as error:
       raise TerminalTagError("canonical testing log is malformed") from error
     if not isinstance(record, dict):
       raise TerminalTagError("canonical testing log contains a non-object")
@@ -104,11 +180,17 @@ def verify_phase_evidence(
         observed.append(record)
       else:
         wrong_phase = True
+  if wrong_phase:
+    raise TerminalTagError("development version belongs to another phase")
   if not observed:
-    if wrong_phase:
-      raise TerminalTagError("development version belongs to another phase")
     raise TerminalTagError("no canonical evidence for development version")
+  terminal_seen = False
   for record in observed:
+    result = record.get("result")
+    if result == "incomplete" and terminal_seen:
+      raise TerminalTagError("incomplete evidence after terminal outcome")
+    if result in ("succeeded", "failed"):
+      terminal_seen = True
     branch = record.get("branch")
     if (not isinstance(branch, str)
         or re.fullmatch(
@@ -120,7 +202,7 @@ def verify_phase_evidence(
   expected = "succeeded" if outcome == "PASS" else "failed"
   terminal = {
     record.get("result") for record in observed
-    if record.get("result") in {"succeeded", "failed"}
+    if record.get("result") in ("succeeded", "failed")
   }
   if terminal != {expected}:
     raise TerminalTagError("canonical evidence has conflicting terminal outcome")
@@ -151,6 +233,10 @@ def publish_terminal_tag(
     raise TerminalTagError("terminal testing requires a development version")
   if _SHA_RE.fullmatch(candidate) is None:
     raise TerminalTagError("terminal tag requires a full original candidate SHA")
+  try:
+    root = root.resolve(strict=True)
+  except (OSError, RuntimeError) as error:
+    raise TerminalTagError("canonical repository root unavailable") from error
   resolved = _git(
     root, "rev-parse", "--verify", candidate + "^{commit}",
   ).stdout.strip()
@@ -177,15 +263,27 @@ def publish_terminal_tag(
   published = _remote_target(root, remote, tag) if push else None
   if local is not None and local != candidate:
     raise TerminalTagError("local terminal tag targets a different commit")
-  if published is not None:
-    if published != candidate:
-      raise TerminalTagError("remote terminal tag targets a different commit")
-    if local is None and not push:
-      _git(root, "tag", "-a", tag, candidate, "-m", tag)
-    return tag
-  if local is None:
-    _git(root, "tag", "-a", tag, candidate, "-m", tag)
-  if not push:
+  if published is not None and published != candidate:
+    raise TerminalTagError("remote terminal tag targets a different commit")
+  if local is not None and published is not None:
+    ref = "refs/tags/" + tag
+    response = _git(root, "ls-remote", "--tags", remote, ref).stdout.strip()
+    remote_parts = response.split()
+    if len(remote_parts) != 2 or remote_parts[1] != ref:
+      raise TerminalTagError("cannot verify authoritative remote tag object")
+    local_object = _git(root, "rev-parse", ref).stdout.strip()
+    if local_object != remote_parts[0]:
+      raise TerminalTagError("local annotated tag object differs from authoritative remote")
+  if local is None and published is not None:
+    fetched = _git(root, "fetch", "--no-tags", remote,
+                   "refs/tags/" + tag + ":refs/tags/" + tag, check=False)
+    if fetched.returncode or _local_target(root, tag) != candidate:
+      raise TerminalTagError("cannot restore authoritative remote tag object")
+  elif local is None:
+    created = _git(root, "tag", "-a", tag, candidate, "-m", tag, check=False)
+    if created.returncode and _local_target(root, tag) != candidate:
+      raise TerminalTagError("terminal tag creation failed")
+  if published is not None or not push:
     return tag
   pushed = _git(
     root, "push", remote, "refs/tags/" + tag, check=False,
@@ -194,4 +292,9 @@ def publish_terminal_tag(
     # Concurrent identical publication is harmless; a different target is not.
     if _remote_target(root, remote, tag) != candidate:
       raise TerminalTagError("terminal tag publication failed")
+  ref = "refs/tags/" + tag
+  remote_raw = _git(root, "ls-remote", "--tags", remote, ref).stdout.strip().split()
+  local_raw = _git(root, "rev-parse", ref).stdout.strip()
+  if len(remote_raw) != 2 or remote_raw[1] != ref or remote_raw[0] != local_raw:
+    raise TerminalTagError("remote terminal tag object differs from local")
   return tag
