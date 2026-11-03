@@ -23,7 +23,8 @@ jobs:
           from pathlib import Path
           from tempfile import TemporaryDirectory
           from unittest.mock import patch
-          from repo_workflow.remote_status import command_status, submit_remote, CommandRef, SubmittedRequest
+          from repo_workflow.remote_status import command_status, submit_remote, CommandRef
+          from repo_workflow.remote_request import SubmittedRequest
           from repo_workflow.command_grammar import Context, parse_tokens
           from repo_workflow.public_commands import COMMANDS
           from repo_workflow.config import ConfigError
