@@ -139,20 +139,16 @@ def _validate(root: Path, argv: list[str]) -> _Request:
         raise RemoteInvocationError("CMD marker retry mismatch")
       saw_request = True
       expected_retry -= 1
+      if retry == 0:
+        source_sha = parent
+        break
       current = parent
     elif paths == [_RESULT]:
       if first or not saw_request:
         raise RemoteInvocationError("latest CMD attempt already has a result")
       current = parent
     else:
-      if not saw_request:
-        raise RemoteInvocationError("CMD request commit is missing")
-      if expected_retry != -1:
-        raise RemoteInvocationError("CMD retry lineage must begin at zero")
-      if parent != current:
-        raise AssertionError("invalid source revision")
-      source_sha = current
-      break
+      raise RemoteInvocationError("unauthorized CMD history mutation")
     first = False
 
   if _SHA.fullmatch(source_sha) is None:
