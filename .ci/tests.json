@@ -446,6 +446,13 @@
         "type": "regression",
         "name": "tests.test_issue791_publisher_wiring"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-git-protocol-boundary": {
+        "type": "regression",
+        "name": "tests.test_git_protocol_boundary_p10"
+      }
     }
   ],
   "aliases": {
