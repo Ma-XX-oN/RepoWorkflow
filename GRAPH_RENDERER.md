@@ -11,7 +11,7 @@ The collaboration and review rules in
 [COLLABORATIVE_DESIGN_REVIEW.md](COLLABORATIVE_DESIGN_REVIEW.md) apply to this
 design.  Verification is subject to [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 1. Boundary
+## Boundary
 
 The architecture is:
 
@@ -38,7 +38,7 @@ The initial renderer always emits the complete graph from left to right.  It
 does not inspect terminal viewport width, wrap, truncate, or provide scrolling.
 A caller may use a pager such as `less -RS` for horizontal navigation.
 
-## 2. Node identity
+## Node identity
 
 Node text is node identity.
 
@@ -49,7 +49,7 @@ node identifier.
 A raw node string may contain both data text and annotations.  The renderer does
 not interpret either.
 
-## 3. GraphSiblings
+## GraphSiblings
 
 The public topology consists of sibling groups:
 
@@ -81,7 +81,7 @@ domain adapter may group nodes only when that cross-product is the exact
 semantic relationship and grouping is therefore lossless.  It must not use
 grouping merely to make a graph prettier.
 
-## 4. Direction
+## Direction
 
 Edges point from left to right.
 
@@ -91,7 +91,7 @@ dependant/root, but that meaning is outside the generic renderer.
 Cycles are invalid public input.  The renderer does not contain a cycle layout
 mode.
 
-## 5. Lanes
+## Lanes
 
 The graph receives a collection of lanes:
 
@@ -112,7 +112,7 @@ Hard invariants:
 
 Hidden layout nodes are not visible nodes and do not belong to lanes.
 
-## 6. Colour functions
+## Colour functions
 
 A colour function is opaque to the renderer:
 
@@ -132,7 +132,7 @@ Terminal capability discovery and construction of those functions occur outside
 this module and must use a capability-aware terminal styling library when
 styling is enabled.
 
-## 7. Node colour
+## Node colour
 
 Every visible node belongs to a lane.
 
@@ -143,7 +143,7 @@ visible-node case in valid final input.
 The formatter decides which portion of the raw string is data text and invokes
 the supplied lane colour function only for that data text.
 
-## 8. Edge colour
+## Edge colour
 
 Every semantic edge begins conceptually with the supplied default edge colour.
 
@@ -163,7 +163,7 @@ nodes inserted by layout.
 An edge can never legitimately acquire two lane colours because visible lane
 membership is pairwise disjoint.
 
-## 9. Column formatter
+## Column formatter
 
 The renderer calls a formatter once for the visible strings in a graph column.
 
@@ -190,7 +190,7 @@ width from encoded-string length.
 
 Different graph columns may have different widths.
 
-## 10. Column assignment
+## Column assignment
 
 The renderer assigns deterministic left-to-right columns from the validated DAG.
 
@@ -198,7 +198,7 @@ Input ordering must not affect the result.  Canonical tie-breaking is required.
 
 A semantic edge may span more than one assigned column.
 
-## 11. Hidden continuation nodes
+## Hidden continuation nodes
 
 A long semantic edge is normalized through one hidden continuation node for
 each skipped column.
@@ -221,7 +221,7 @@ Hidden continuations:
 - never become semantic dependency endpoints;
 - use the colour derived from their original semantic endpoints.
 
-## 12. Siblings and cousins
+## Siblings and cousins
 
 Sibling nodes within one `GraphSiblings` remain compact.
 
@@ -232,7 +232,7 @@ routing space.
 The renderer must never collapse distinct groups during layout merely because
 doing so would reduce width or crossings.
 
-## 13. Adjacent-column routing
+## Adjacent-column routing
 
 All relationships between one pair of adjacent columns are considered together.
 
@@ -255,7 +255,7 @@ share an endpoint elsewhere.
 
 A successful route must retain the identity of each original semantic edge.
 
-## 14. Route quality
+## Route quality
 
 Semantic correctness is a hard gate.  Among semantically valid layouts, the
 renderer uses deterministic route-quality preferences rather than preserving a
@@ -297,7 +297,7 @@ predecessor rows.  It must preserve each `GraphSiblings` object as an
 indivisible unit and may never trade semantic correctness for a lower quality
 score.
 
-## 15. Semantic validation
+## Semantic validation
 
 The router is not its own oracle.
 
@@ -316,7 +316,7 @@ edge and never appear as semantic endpoints.
 
 A candidate that cannot satisfy the semantic validator is not renderable.
 
-## 16. Unsupported layout
+## Unsupported layout
 
 The renderer must never emit an ambiguous graph merely to produce output.
 
@@ -324,7 +324,7 @@ If a valid supported layout cannot be constructed, it returns an explicit
 unsupported-layout error.  Domain callers may then render components,
 subgraphs, or a plain relationship list.
 
-## 17. Determinism
+## Determinism
 
 For the same semantic graph, lanes, formatter results, and rendering options,
 the renderer must produce the same logical layout and terminal text regardless
@@ -339,7 +339,7 @@ of:
 Platform-specific terminal styling may differ only where the supplied colour
 functions differ.
 
-## 18. RepoWorkflow adapter
+## RepoWorkflow adapter
 
 RepoWorkflow maps current relationship and lane-selection state into this
 generic contract.
@@ -363,7 +363,7 @@ The adapter owns:
 
 It does not supply columns, continuation nodes, routes, crossings, or glyphs.
 
-## 19. Verification
+## Verification
 
 Specification tests must cover at least:
 

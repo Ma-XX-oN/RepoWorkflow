@@ -3,7 +3,7 @@
 Status: authoritative contract for provider access during lane selection and
 inspection.
 
-## 1. Local-first default
+## Local-first default
 
 The canonical synchronized ticket state is the operational dependency source
 between synchronization boundaries.
@@ -20,7 +20,7 @@ provider reads.
 
 `lanes select remove` is entirely local without `--refresh`.
 
-## 2. Explicit refresh
+## Explicit refresh
 
 `--refresh` is the explicit provider reread boundary for lane commands.
 
@@ -43,7 +43,7 @@ During refresh:
 For `select remove ... --refresh`, the removed root is excluded from refresh
 unless it remains reachable from another selected root.
 
-## 3. Missing local data
+## Missing local data
 
 A missing requested node is not treated as stale or empty.  RWF queries the
 configured dependency provider for that node, validates the result, adds the
@@ -52,7 +52,7 @@ missing dependencies.
 
 Known portions of the component are reused without rereading the provider.
 
-## 4. Authority and failure
+## Authority and failure
 
 The provider is authoritative only at explicit synchronization/refresh
 boundaries or when local dependency data is genuinely absent.
@@ -62,7 +62,7 @@ Provider failure is never interpreted as an empty dependency set.
 Runtime never infers dependency edges from title prefixes, ticket-body grouping,
 or Git ancestry.
 
-## 5. Persisted traversal policy
+## Persisted traversal policy
 
 The worktree-local lane selection stores normalized traversal policy together
 with roots, closure, graph revision, and lane assignment.  This includes both
@@ -78,7 +78,7 @@ replacement traversal flags are supplied.  A stopped matching group may acquire
 and display one immediate adjacent layer for `--show-children`, but those
 display-only nodes never restart ordinary provider traversal.
 
-## 6. Verification obligations
+## Verification obligations
 
 Tests must distinguish requirements coverage from structural coverage and
 prove at the public CLI boundary:
