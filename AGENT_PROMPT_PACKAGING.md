@@ -44,6 +44,36 @@ common worker contract.  Each leaf ticket's distinct task, extra safeguards
 and start-specific decisions belong in its **launch prompt** and in its
 authoritative issue body, not in a duplicated PMD.
 
+## Leaf-only worker prompt eligibility
+
+**Generate AGENT-CMD ticket-worker prompts ONLY for executable leaf tickets.**
+An umbrella, controller, initiative, epic, feature container, or other ticket
+with unfinished constituent work must **never** receive an implementation or
+completion SPINUP prompt. The controller coordinates the graph, verifies
+handoffs, and records umbrella acceptance in its existing conversation or
+durable ticket; it is not an additional worker lane.
+
+A convergence/integration or certification ticket is eligible only when it is
+itself a genuine atomic leaf with an explicit owned outcome and its direct
+prerequisites satisfy the current scheduling rules. A serially blocked leaf
+must not be presented as READY or dispatched merely to reduce idle time.
+Authorized speculative work, if explicitly requested, follows
+[WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) and never supplies
+a false DONE handoff.
+
+Before emitting **each** ticket prompt, assert and record: actual ticket ID,
+leaf-versus-container classification, current direct dependencies, pause labels,
+readiness, owner/claim, and precise remaining acceptance. If classification
+or readiness is unresolved, do not emit its SPINUP; inspect the authoritative
+graph and issue first. Do not turn an EOD deadline into permission to prompt
+a controller or a blocked ticket.
+
+Example: in RWF #660, #660 is an umbrella and must **not** receive an
+`"issue"="660"` worker prompt. Only actual eligible leaves such as #792,
+then #790 after #792 acceptance, then #791 after its prerequisites, can receive
+ticket-worker prompts. A prompt **filename** may contain the coordinating
+umbrella number; its `"issue"` assignment must identify the eligible leaf.
+
 ## One independent fenced prompt per worker
 
 For every worker the controller proposes to launch, write **one separate
