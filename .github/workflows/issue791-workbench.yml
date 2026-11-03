@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_EVENT_BEFORE"
+          test "$(git rev-parse HEAD)" = '${{ github.event.before }}'
           test "$(git rev-parse HEAD:repo_workflow/remote_request.py)" = 'fc3478bc7d768b4e63f4d5fc4a8aacc10f604d38'
           python -m compileall -q repo_workflow.py repo_workflow scripts tests
       - name: Registered CMD and CLI acceptance modules
