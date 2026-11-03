@@ -53,26 +53,26 @@ completion SPINUP prompt. The controller coordinates the graph, verifies
 handoffs, and records umbrella acceptance in its existing conversation or
 durable ticket; it is not an additional worker lane.
 
-A convergence/integration or certification ticket is eligible only when it is
-itself a genuine atomic leaf with an explicit owned outcome and its direct
-prerequisites satisfy the current scheduling rules. A serially blocked leaf
-must not be presented as READY or dispatched merely to reduce idle time.
-Authorized speculative work, if explicitly requested, follows
-[WORK_GRAPH_SCHEDULING.md](WORK_GRAPH_SCHEDULING.md) and never supplies
-a false DONE handoff.
+A ticket is an **eligible executable leaf for dispatch** only when it is
+an atomic non-container ticket and **all its direct prerequisites are currently
+VERIFIED DONE** at accepted revisions. An unfinished, unknown or corrected
+prerequisite makes the downstream ticket ineligible. Its historical isolated
+test successes do not change eligibility.
 
-Before emitting **each** ticket prompt, assert and record: actual ticket ID,
-leaf-versus-container classification, current direct dependencies, pause labels,
-readiness, owner/claim, and precise remaining acceptance. If classification
-or readiness is unresolved, do not emit its SPINUP; inspect the authoritative
-graph and issue first. Do not turn an EOD deadline into permission to prompt
-a controller or a blocked ticket.
+MANDATORY PRE-DISPATCH ASSERTIONS for **each** proposed SPINUP:
+1. Read the current graph and live issue, not a remembered PG.
+2. Verify candidate is a real atomic leaf, never an umbrella/controller.
+3. Verify EVERY direct predecessor is CURRENT VERIFIED DONE.
+4. Verify no governing pause, and confirm current ownership/claim.
+5. If any assertion is false, missing or unresolved, **emit NO prompt**.
+   Do not issue advance, conditional, speculative or 'launch later' prompts.
+6. Recalculate eligibility after each leaf actually completes. A deadline
+   never overrides this gate.
 
-Example: in RWF #660, #660 is an umbrella and must **not** receive an
-`"issue"="660"` worker prompt. Only actual eligible leaves such as #792,
-then #790 after #792 acceptance, then #791 after its prerequisites, can receive
-ticket-worker prompts. A prompt **filename** may contain the coordinating
-umbrella number; its `"issue"` assignment must identify the eligible leaf.
+While RWF #792 is unfinished, #790 and #791 are **not** eligible for
+SPINUP prompts; #660 is an umbrella and is never eligible. Only #792 is
+eligible in that chain. The PMD filename can include the controller ID,
+but the `"issue"` argument must name the currently eligible leaf.
 
 ## One independent fenced prompt per worker
 
