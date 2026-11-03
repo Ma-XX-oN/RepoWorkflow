@@ -1,0 +1,29 @@
+name: Verify #788 with corrected #787 native
+on:
+  push:
+    branches: ['verify-788-corrected-787-native-20261103']
+    paths: ['.ci/native-run']
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2c30e68b615cef2113bdbee954f9c743d7434eff
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact candidate source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = 2c30e68b615cef2113bdbee954f9c743d7434eff
+      - name: Execute registered #788, #786 and #787 suites
+        shell: bash
+        run: |
+          python -m unittest -v tests.test_issue788_hosted_forward tests.test_remote_invocation_786 tests.test_issue787_remote_request tests.test_ci_invocation_trigger_contract
