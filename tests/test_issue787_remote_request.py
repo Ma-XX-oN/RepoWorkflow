@@ -196,6 +196,19 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertEqual(1, first.number)
     self.assertEqual("consumer data", (self.source / ".rwf-empty-hooks").read_text().strip())
 
+  def test_autocrlf_preserves_exact_argument_blob(self):
+    git(self.source, "config", "core.autocrlf", "true")
+    args = ["test", "alpha\nbeta ü", "--remote"]
+    first = self.submit(args)
+    git(self.source, "fetch", "origin", first.branch)
+    raw = subprocess.run(
+      ["git", "show", "FETCH_HEAD:.ci/rwf"], cwd=self.source,
+      capture_output=True, check=True,
+    ).stdout
+    self.assertNotIn(b"\r\n", raw)
+    import shlex
+    self.assertEqual([*args, "0"], shlex.split(raw.decode("utf-8")))
+
   def test_utf8_argument_embedded_newline_round_trip(self):
     args = ["test", "alpha\nbeta ü", "--remote"]
     result = self.submit(args)
