@@ -198,7 +198,11 @@ def submit_request(
     branch = f"CMD-{number}-{source_branch}"
     if commit is None:
       commit = _commit(root, source_sha, payload, source_sha=source_sha)
-    result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
+    result = _run(
+      root, "push", "--porcelain",
+      f"--force-with-lease=refs/heads/{branch}:",
+      remote, f"{commit}:refs/heads/{branch}",
+    )
     if result.returncode == 0:
       return SubmittedRequest(
         number, branch, source_sha, commit,
