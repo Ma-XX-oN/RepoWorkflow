@@ -105,6 +105,8 @@ def status(repository: str, workflow: str, branch: str, revision: str, attempt: 
       fail("GitHub CI invocation listing changed during pagination")
     expected_total = total
     enumerated += len(runs)
+    if enumerated > total:
+      fail("GitHub CI invocation listing exceeds reported count")
     for run in runs:
       if not isinstance(run, dict):
         fail("GitHub CI invocation run is malformed")
