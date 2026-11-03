@@ -52,6 +52,8 @@ def status(repository: str, workflow: str, branch: str, revision: str, attempt: 
     fail("invalid CI request identity")
   revision = revision.lower()
   matched: dict[int, dict] = {}
+  expected_total = None
+  enumerated = 0
   # GitHub Actions returns at most 100 runs per page. Never turn an
   # incompletely enumerated provider result into 'not-observed'.
   for page in range(1, 101):
@@ -64,6 +66,14 @@ def status(repository: str, workflow: str, branch: str, revision: str, attempt: 
     runs = data.get("workflow_runs")
     if not isinstance(runs, list):
       fail("GitHub CI invocation response lacks workflow_runs")
+    total = data.get("total_count")
+    if total is not None:
+      if type(total) is not int or total < 0:
+        fail("GitHub CI invocation count is malformed")
+      if expected_total is not None and total != expected_total:
+        fail("GitHub CI invocation listing changed during pagination")
+      expected_total = total
+    enumerated += len(runs)
     for run in runs:
       if not isinstance(run, dict):
         fail("GitHub CI invocation run is malformed")
@@ -75,6 +85,8 @@ def status(repository: str, workflow: str, branch: str, revision: str, attempt: 
         fail("GitHub CI invocation run ID is malformed")
       matched[run_id] = run
     if len(runs) < 100:
+      if expected_total is not None and enumerated != expected_total:
+        fail("GitHub CI invocation listing is incomplete")
       break
   else:
     fail("GitHub CI invocation pagination limit reached; status unverified")
