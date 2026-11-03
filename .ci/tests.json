@@ -502,6 +502,20 @@
         "type": "regression",
         "name": "tests.test_hosted_version_utf8"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-730-strict-unicode-output": {
+        "type": "regression",
+        "name": "tests.test_windows_unicode_output_p9"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-751-jsonl-unicode-delimiters": {
+        "type": "regression",
+        "name": "tests.test_local_terminal_jsonl_p16"
+      }
     }
   ],
   "aliases": {
