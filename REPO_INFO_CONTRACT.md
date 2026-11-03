@@ -186,9 +186,16 @@ retry; the request commit SHA is the unique execution marker. The extension
 delegates existing repository and issue operations to the current GitHub
 provider executable. It does not trigger or repair provider events.
 
-The #737 owner retains exclusive ownership of the existing default
-`adapters/repo-info-github.py` executable. Until its owner integrates this
-extension, automatic GitHub-remote discovery continues to select the legacy
-executable (which does not implement CI invocation status). Explicit
-`infoCommand` selection of the extension is supported and does not modify
-the existing provider.
+For first-use consumers without an explicit `infoCommand`,
+`resolve_info_config` discovers an unambiguous GitHub remote and selects this
+CI-capable extension with `--repository OWNER/NAME --workflow remote-rwf.yml`.
+The workflow filename is the GitHub CMD forwarding adapter; an absent or
+unauthorized workflow returns an explicit provider failure, not a fabricated
+`not-observed` status. An explicit `infoCommand` always takes precedence,
+including for non-GitHub providers. Unsupported/ambiguous remote discovery
+fails closed instead of selecting GitHub for another service.
+
+The #737 owner retains exclusive ownership of the existing legacy
+`adapters/repo-info-github.py` executable, which is unchanged. The CI extension
+delegates repository and issue information operations to that executable;
+no second provider implementation or change to the legacy adapter is needed.
