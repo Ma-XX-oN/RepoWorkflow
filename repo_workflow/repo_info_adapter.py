@@ -220,13 +220,15 @@ def ci_invocation_status(
     raise RepoInfoError("repository information adapter returned mismatched request identity")
   if type(value["attempt"]) is not int or value["attempt"] != attempt:
     raise RepoInfoError("repository information adapter returned mismatched retry attempt")
-  if value["state"] not in _CI_STATES:
+  if not isinstance(value["state"], str) or value["state"] not in _CI_STATES:
     raise _fail("CI invocation state")
   run_id = value["run_id"]
   if run_id is not None and (type(run_id) is not int or run_id <= 0):
     raise _fail("CI invocation run ID")
   if value["state"] == "not-observed" and run_id is not None:
     raise _fail("not-observed CI invocation")
+  if value["state"] in {"queued", "running", "completed"} and run_id is None:
+    raise _fail("observed CI invocation run ID")
   detail = value["detail"]
   if detail is not None and (not isinstance(detail, str) or not detail):
     raise _fail("CI invocation detail")
