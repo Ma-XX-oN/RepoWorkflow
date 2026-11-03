@@ -158,7 +158,7 @@ class HostedForwardTests(unittest.TestCase):
     self.assertIn("- '.ci/rwf'", workflow)
     self.assertNotIn("- '.ci/run'", workflow)
     self.assertIn("fetch-depth: 0", workflow)
-    self.assertIn("python scripts/hosted-rwf-forward.py", workflow)
+    self.assertIn('python "$RWF_ENGINE_ROOT/scripts/hosted-rwf-forward.py"', workflow)
     self.assertEqual(workflow.count("  forward:"), 1)
 
 
