@@ -79,7 +79,8 @@ def _inspect(root: Path, remote: str, branch: str, tip: str) -> bool:
   ref = f"refs/rwf/cmd-inspect/{uuid4().hex}"
   try:
     result = _run(
-      root, "fetch", "--no-tags", remote, f"refs/heads/{branch}:{ref}",
+      root, "fetch", "--no-tags", "--no-recurse-submodules",
+      remote, f"refs/heads/{branch}:{ref}",
     )
     if result.returncode:
       raise RemoteRequestError("cannot inspect existing CMD")
