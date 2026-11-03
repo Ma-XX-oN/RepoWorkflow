@@ -55,14 +55,14 @@ def github_run(status, run_id=11, **changes):
 
 class DiscoveredProviderTests(unittest.TestCase):
   def discovery(self, remotes, config=None):
-    with patch(
+    with tempfile.TemporaryDirectory() as td, patch(
       "repo_workflow.repo_info_adapter.run_command",
       side_effect=[
         SimpleNamespace(returncode=0, stdout="origin\n", stderr=""),
         SimpleNamespace(returncode=0, stdout=remotes + "\n", stderr=""),
       ],
     ):
-      return resolve_info_config(Path("."), config)
+      return resolve_info_config(Path(td), config)
 
   def test_unconfigured_github_selects_ci_capable_provider(self):
     result = self.discovery("https://github.com/example/consumer.git")
