@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import os
 import sys
 
 from repo_workflow.actions_policy import ActionsPolicyError, check_actions_policy
@@ -25,6 +26,7 @@ from repo_workflow.config import ConfigError, load_config
 from repo_workflow.git import (
   GitError,
   changed_files,
+  current_branch,
   head_sha,
   repository_state,
   restore_repository_state,
@@ -215,6 +217,15 @@ def main(argv: list[str] | None = None) -> int:
         return handle_completion(root, words, describe=describe)
       if mode == "help":
         return handle_help(root, words)
+      if (
+        os.environ.get("RWF_HOSTED_INVOCATION") == "1"
+        and current_branch(root).startswith("CMD-")
+        and words[:2] != ["test", "results"]
+        and not (len(words) >= 2 and words[-2] == "--remote")
+      ):
+        raise RemoteInvocationError(
+          "hosted CMD invocation requires numbered --remote suffix"
+        )
       if len(words) >= 2 and words[-2] == "--remote":
         outcome = invoke_numbered(
           root, words,
