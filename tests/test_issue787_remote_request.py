@@ -212,6 +212,24 @@ class CMDSubmissionTests(unittest.TestCase):
       if "CMD-" in branch
     ])
 
+  def test_source_tip_advance_during_request_preparation_fails_closed(self):
+    original = request_transport._commit
+
+    def advance(root, parent, text, *, source_sha):
+      candidate = original(root, parent, text, source_sha=source_sha)
+      (self.source / "file.txt").write_text("source changed after marker\n")
+      git(self.source, "commit", "-am", "move source after marker")
+      return candidate
+
+    with patch.object(request_transport, "_commit", side_effect=advance):
+      with self.assertRaisesRegex(RemoteRequestError, "source changed"):
+        self.submit()
+    self.assertFalse(any(
+      "CMD-" in line for line in git(
+        self.source, "ls-remote", "--heads", "origin"
+      ).splitlines()
+    ))
+
   def test_concurrent_distinct_requests_allocate_distinct_numbers(self):
     clones = []
     for index in range(2):
