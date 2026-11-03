@@ -230,10 +230,13 @@ def retry_request(
     raise RemoteRequestError("stale CMD retry tip")
   if not _inspect(root, remote, branch, expected_tip):
     raise RemoteRequestError("CMD changed during inspection")
-  lineage = _git(root, "rev-list", "--reverse", expected_tip).splitlines()
+  markers = _git(
+    root, "log", "--reverse", "--format=%H", "--fixed-strings",
+    "--grep=RWF-Source:", expected_tip,
+  ).splitlines()
   first = None
   source_sha = None
-  for node in lineage:
+  for node in markers:
     message = _git(root, "log", "-1", "--format=%B", node)
     match_source = re.search(r"^RWF-Source: ([0-9a-f]{40,64})$", message, re.M)
     if match_source is None:
@@ -241,6 +244,12 @@ def retry_request(
     if _git(
       root, "diff-tree", "--no-commit-id", "--name-only", "-r", node
     ) != ".ci/rwf":
+      continue
+    try:
+      marker_argv = shlex.split(_git(root, "show", f"{node}:.ci/rwf"))
+    except ValueError:
+      continue
+    if marker_argv != [*argv, "0"]:
       continue
     first = node
     source_sha = match_source.group(1)
