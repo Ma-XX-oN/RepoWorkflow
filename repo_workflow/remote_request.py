@@ -1,0 +1,238 @@
+"""Concurrent Git transport for numbered remote RWF requests.
+
+The public CLI owns grammar and the status ticket owns retry permission.
+This module only creates/reuses requests; it never executes commands.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+import re
+import shlex
+import subprocess
+import tempfile
+
+
+class RemoteRequestError(RuntimeError):
+  pass
+
+
+@dataclass(frozen=True)
+class SubmittedRequest:
+  number: int
+  branch: str
+  source_sha: str
+  request_sha: str
+  reused: bool
+
+
+_CMD = re.compile(r"CMD-([1-9][0-9]*)-(.+)\Z")
+_SHA = re.compile(r"[0-9a-f]{40,64}\Z")
+
+
+def _run(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+  try:
+    return subprocess.run(
+      ["git", *args], cwd=root, capture_output=True, text=True,
+      encoding="utf-8", errors="strict", check=False,
+    )
+  except OSError as exc:
+    raise RemoteRequestError(f"cannot execute git: {exc}") from exc
+
+
+def _git(root: Path, *args: str) -> str:
+  result = _run(root, *args)
+  if result.returncode:
+    raise RemoteRequestError(
+      f"git {args[0]} failed: {(result.stderr or result.stdout).strip()}"
+    )
+  return result.stdout.strip()
+
+
+def _source(root: Path) -> tuple[str, str]:
+  branch = _git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+  if _CMD.fullmatch(branch):
+    raise RemoteRequestError("remote request cannot originate from a CMD branch")
+  sha = _git(root, "rev-parse", "--verify", "HEAD^{commit}")
+  assert _SHA.fullmatch(sha)
+  _git(root, "check-ref-format", "--branch", branch)
+  return branch, sha
+
+
+def _remote_refs(root: Path, remote: str) -> dict[str, str]:
+  refs = {}
+  for line in _git(root, "ls-remote", "--heads", remote).splitlines():
+    sha, ref = line.split("\t", 1)
+    if not _SHA.fullmatch(sha) or not ref.startswith("refs/heads/"):
+      raise RemoteRequestError("malformed remote ref listing")
+    refs[ref.removeprefix("refs/heads/")] = sha
+  return refs
+
+
+def _inspect(root: Path, remote: str, branch: str, tip: str) -> bool:
+  result = _run(root, "fetch", "--no-tags", remote, f"refs/heads/{branch}")
+  if result.returncode:
+    raise RemoteRequestError("cannot inspect existing CMD")
+  return _git(root, "rev-parse", "FETCH_HEAD^{commit}") == tip
+
+
+def _matches(
+  root: Path, remote: str, branch: str, tip: str,
+  source_sha: str, argv: list[str],
+) -> bool | None:
+  if not _inspect(root, remote, branch, tip):
+    return None
+  history = _git(root, "rev-list", "--reverse", f"{source_sha}..{tip}").splitlines()
+  if not history:
+    return False
+  prior = source_sha
+  count = 0
+  for node in history:
+    if _git(root, "rev-list", "--parents", "-n", "1", node) != f"{node} {prior}":
+      return False
+    prior = node
+    paths = _git(
+      root, "diff-tree", "--no-commit-id", "--name-only", "-r", node
+    ).splitlines()
+    if paths == [".repoworkflow/result"]:
+      if count == 0:
+        return False
+      continue
+    if paths != [".ci/rwf"]:
+      return False
+    try:
+      words = shlex.split(_git(root, "show", f"{node}:.ci/rwf"), posix=True)
+    except ValueError:
+      return False
+    if words != [*argv, str(count)]:
+      return False
+    count += 1
+  return count > 0
+
+
+def _commit(root: Path, parent: str, text: str) -> str:
+  # A detached worktree keeps the source branch and user index untouched.
+  with tempfile.TemporaryDirectory(prefix="rwf-cmd-") as directory:
+    checkout = Path(directory) / "checkout"
+    _git(root, "worktree", "add", "--quiet", "--detach", str(checkout), parent)
+    try:
+      request = checkout / ".ci" / "rwf"
+      request.parent.mkdir(parents=True, exist_ok=True)
+      request.write_text(text + "\n", encoding="utf-8")
+      _git(checkout, "add", "--", ".ci/rwf")
+      if _git(checkout, "diff", "--cached", "--name-only") != ".ci/rwf":
+        raise RemoteRequestError("request must change only .ci/rwf")
+      _git(
+        checkout, "-c", "user.name=RepoWorkflow",
+        "-c", "user.email=rwf@localhost", "commit", "--quiet",
+        "-m", "rwf: submit remote command",
+      )
+      sha = _git(checkout, "rev-parse", "HEAD")
+      assert _SHA.fullmatch(sha)
+      return sha
+    finally:
+      _git(root, "worktree", "remove", "--force", str(checkout))
+
+
+def _argv(argv: list[str]) -> None:
+  if not argv or argv[-1] != "--remote" or argv.count("--remote") != 1:
+    raise RemoteRequestError("expected one terminal public --remote")
+  if "--poll" in argv or any("\0" in token for token in argv):
+    raise RemoteRequestError("poll or NUL is not valid request argv")
+
+
+def submit_request(
+  root: Path, argv: list[str], *, remote: str = "origin",
+  max_collisions: int = 100,
+) -> SubmittedRequest:
+  """Submit or reuse identical source revision and argument vector."""
+  _argv(argv)
+  if not re.fullmatch(r"[A-Za-z0-9._/-]+", remote) or remote.startswith("-"):
+    raise RemoteRequestError("invalid Git remote name")
+  root = Path(root)
+  source_branch, source_sha = _source(root)
+  payload = shlex.join([*argv, "0"])
+  assert shlex.split(payload, posix=True) == [*argv, "0"]
+  commit = None
+  for _ in range(max_collisions):
+    refs = _remote_refs(root, remote)
+    numbers = []
+    stale = False
+    for branch, tip in refs.items():
+      match = _CMD.fullmatch(branch)
+      if match is None:
+        continue
+      numbers.append(int(match.group(1)))
+      if match.group(2) != source_branch:
+        continue
+      matched = _matches(root, remote, branch, tip, source_sha, argv)
+      if matched is None:
+        stale = True
+        break
+      if matched:
+        return SubmittedRequest(
+          int(match.group(1)), branch, source_sha, tip, True,
+        )
+    if stale:
+      continue
+    number = max(numbers, default=0) + 1
+    branch = f"CMD-{number}-{source_branch}"
+    if commit is None:
+      commit = _commit(root, source_sha, payload)
+    result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
+    if result.returncode == 0:
+      return SubmittedRequest(number, branch, source_sha, commit, False)
+    # Only a genuine concurrent branch collision warrants retrying.
+    if branch not in _remote_refs(root, remote):
+      raise RemoteRequestError("CMD publication rejected: " + result.stderr.strip())
+  raise RemoteRequestError("CMD allocation did not converge")
+
+
+def retry_request(
+  root: Path, branch: str, expected_tip: str, argv: list[str], *,
+  permitted: bool, remote: str = "origin",
+) -> SubmittedRequest:
+  """Advance the existing CMD only after the status owner proves it safe."""
+  if not permitted:
+    raise RemoteRequestError("retry requires prior-attempt suppression evidence")
+  _argv(argv)
+  match = _CMD.fullmatch(branch)
+  if match is None or not _SHA.fullmatch(expected_tip):
+    raise RemoteRequestError("invalid CMD retry identity")
+  root = Path(root)
+  if _remote_refs(root, remote).get(branch) != expected_tip:
+    raise RemoteRequestError("stale CMD retry tip")
+  if not _inspect(root, remote, branch, expected_tip):
+    raise RemoteRequestError("CMD changed during inspection")
+  lineage = _git(root, "rev-list", "--reverse", expected_tip).splitlines()
+  first = next(
+    (node for node in lineage if _git(
+      root, "diff-tree", "--no-commit-id", "--name-only", "-r", node
+    ) == ".ci/rwf"), None,
+  )
+  if first is None:
+    raise RemoteRequestError("missing CMD request")
+  source_sha = _git(root, "rev-parse", f"{first}^")
+  if not _matches(root, remote, branch, expected_tip, source_sha, argv):
+    raise RemoteRequestError("invalid CMD retry lineage")
+  prior = shlex.split(_git(root, "show", f"{expected_tip}:.ci/rwf"), posix=True)
+  if len(prior) != len(argv) + 1 or prior[:-1] != argv:
+    raise RemoteRequestError("retry command mismatch")
+  count = int(prior[-1])
+  commit = _commit(root, expected_tip, shlex.join([*argv, str(count + 1)]))
+  result = _run(root, "push", "--porcelain", remote, f"{commit}:refs/heads/{branch}")
+  if result.returncode:
+    raise RemoteRequestError("CMD retry publication rejected: " + result.stderr.strip())
+  return SubmittedRequest(int(match.group(1)), branch, source_sha, commit, False)
+
+
+def submit_unpolled(root: Path, argv: list[str], *, remote: str = "origin") -> int:
+  """Return 0 for submission/reuse, 1 for invalid submission, not command status."""
+  try:
+    result = submit_request(root, argv, remote=remote)
+  except (RemoteRequestError, OSError, UnicodeError) as exc:
+    import sys
+    print(f"RepoWorkflow remote submission error: {exc}", file=sys.stderr)
+    return 1
+  print(f"CMD#{result.number} {result.branch}")
+  return 0
