@@ -404,6 +404,20 @@
         "type": "regression",
         "name": "tests.test_issue787_remote_request"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-786-cmd-wrapper": {
+        "type": "regression",
+        "name": "tests.test_remote_invocation_786"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-788-hosted-forward": {
+        "type": "regression",
+        "name": "tests.test_issue788_hosted_forward"
+      }
     }
   ],
   "aliases": {
