@@ -115,6 +115,11 @@ def _matches(
       continue
     if paths != [".ci/rwf"]:
       return False
+    message = _git(root, "log", "-1", "--format=%B", node)
+    if not re.search(
+      rf"^RWF-Source: {re.escape(source_sha)}$", message, re.M,
+    ):
+      return False
     try:
       words = shlex.split(_git(root, "show", f"{node}:.ci/rwf"), posix=True)
     except ValueError:
