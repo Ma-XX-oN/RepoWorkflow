@@ -181,7 +181,7 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       )
     _, declaration_error = red_declaration(root, selected)
     if declaration_error:
-      raise TestCommandError(declaration_error)
+      raise RemoteStatusError(declaration_error)
     submit_words = [*submitted, "--remote"]
     return submit_remote(root, submit_words, intervals=intervals)
 
