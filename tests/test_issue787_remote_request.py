@@ -48,6 +48,17 @@ class CMDSubmissionTests(unittest.TestCase):
       root or self.source, argv or ["test", "RED", "--remote"],
     )
 
+  def test_submission_preserves_staged_and_untracked_source_work(self):
+    (self.source / "staged.txt").write_text("staged but not committed\n")
+    (self.source / "untracked.txt").write_text("untracked\n")
+    git(self.source, "add", "staged.txt")
+    before_head = git(self.source, "rev-parse", "HEAD")
+    before_status = git(self.source, "status", "--porcelain=v1")
+    first = self.submit()
+    self.assertEqual(1, first.number)
+    self.assertEqual(before_head, git(self.source, "rev-parse", "HEAD"))
+    self.assertEqual(before_status, git(self.source, "status", "--porcelain=v1"))
+
   def test_source_fork_marker_and_idempotency(self):
     original = git(self.source, "rev-parse", "HEAD")
     first = self.submit()
