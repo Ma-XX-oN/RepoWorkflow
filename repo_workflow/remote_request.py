@@ -5,12 +5,15 @@ This module only creates/reuses requests; it never executes commands.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import re
 import shlex
 import subprocess
 import tempfile
+import time
 from uuid import uuid4
 
 
@@ -134,11 +137,35 @@ def _matches(
   return count > 0
 
 
+
+@contextmanager
+def _worktree_admin_lock(root: Path):
+  """Serialize Git worktree registration/removal across local processes."""
+  common = Path(_git(root, "rev-parse", "--git-common-dir"))
+  if not common.is_absolute():
+    common = root.resolve() / common
+  lock = common / "rwf-cmd-worktree.lock"
+  deadline = time.monotonic() + 30
+  while True:
+    try:
+      lock.mkdir()
+      break
+    except FileExistsError:
+      if time.monotonic() >= deadline:
+        raise RemoteRequestError("Git worktree administration lock timed out")
+      time.sleep(0.01)
+  try:
+    yield
+  finally:
+    lock.rmdir()
+
+
 def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
   # A detached worktree keeps the source branch and user index untouched.
   with tempfile.TemporaryDirectory(prefix="rwf-cmd-") as directory:
-    checkout = Path(directory) / "checkout"
-    _git(root, "worktree", "add", "--quiet", "--detach", str(checkout), parent)
+    checkout = Path(directory) / f"checkout-{uuid4().hex}"
+    with _worktree_admin_lock(root):
+      _git(root, "worktree", "add", "--quiet", "--detach", str(checkout), parent)
     try:
       request = checkout / ".ci" / "rwf"
       if request.parent.is_symlink() or request.is_symlink():
@@ -167,7 +194,8 @@ def _commit(root: Path, parent: str, text: str, *, source_sha: str) -> str:
         raise RemoteRequestError("CMD commit changed non-request paths")
       return sha
     finally:
-      _git(root, "worktree", "remove", "--force", str(checkout))
+      with _worktree_admin_lock(root):
+        _git(root, "worktree", "remove", "--force", str(checkout))
 
 
 def _argv(argv: list[str]) -> None:
