@@ -23,6 +23,32 @@ Before generating an AGENT-CMD prompt, starting or resuming a worker, or declari
 5.  Do not confuse a previously accepted leaf with the exact integrated candidate; preserve accepted SHA,
    changed file/blob hashes, run IDs, platform counts, skips and failing or unverified criteria.
 
+## Governor-specific pause labels
+
+Use one additive GitHub issue label per independent governing pause:
+`paused-by-<issue-number>` (for example `paused-by-660`). Do not use a
+single anonymous `paused` flag as the source of truth. A ticket may carry
+multiple governor labels. Preserve unrelated labels and existing issue ownership.
+
+On pause, add the governor label to each verified affected ticket, and record
+the governing issue, scope, original source revision and resume requirements
+in the issue body/checkpoint. A label is an external scheduling hold; it does
+not modify formal RWF lifecycle history.
+
+On verified governing-ticket DONE, discover all issues with that exact label,
+remove **only** that governor's label, update their durable checkpoint, and
+notify the user of every released ticket. Tickets retaining any other
+`paused-by-*` label remain PAUSED. Tickets with no remaining pause labels
+become UNPAUSED, not automatically READY. Before execution, refresh source
+(current Git: authorized rebase; future RWF: fresh copy at the authoritative
+tip), propagate required accepted fixes, and reverify all previously passing
+applicable tests against the new SHA. Only then mark READY and resume.
+
+If the label cannot be created, read back, or removed, the pause/unpause
+operation is INCOMPLETE and scheduling must fail closed. A written notice
+alone is not evidence that a label-based hold has been enforced. Pause
+release is not a merge, production activation, or ownership transfer.
+
 ## Fix once, propagate to every affected consumer
 
 Maintain a durable **propagation ledger** at the owning issue and at every paused/downstream consumer:
