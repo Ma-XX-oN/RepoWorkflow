@@ -212,6 +212,12 @@ class CMDSubmissionTests(unittest.TestCase):
     recorded = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
     self.assertEqual([*args, "0"], shlex.split(recorded, posix=True))
 
+  def test_global_allocation_observes_other_source_cmd_numbers(self):
+    git(self.source, "push", "origin", "HEAD:refs/heads/CMD-41-other-source")
+    submitted = self.submit()
+    self.assertEqual(42, submitted.number)
+    self.assertEqual("CMD-42-feature-test", submitted.branch)
+
   def test_source_branch_with_slash_preserves_full_branch_name(self):
     git(self.source, "branch", "-m", "feature/subtask")
     first = self.submit()
