@@ -30,6 +30,7 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
+from .remote_status import RemoteStatusError, parse_intervals, remote_status
 from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -205,6 +206,23 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     else:
       print(render_human(plan, state))
     return 0
+
+  if command == "remote-status":
+    tail = words[1:]
+    if "--poll" in tail:
+      offset = tail.index("--poll")
+      selectors = tail[:offset]
+      intervals = parse_intervals(tail[offset + 1:])
+    else:
+      selectors = tail
+      intervals = None
+    if len(selectors) > 1:
+      raise RemoteStatusError("expected at most one CMD selector")
+    try:
+      selector = int(selectors[0]) if selectors else None
+    except ValueError as exc:
+      raise RemoteStatusError("CMD selector must be an integer") from exc
+    return remote_status(root, selector, intervals=intervals)
 
   if command == "test":
     return run_test(

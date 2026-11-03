@@ -18,6 +18,13 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-790-remote-status": {
+        "type": "regression",
+        "name": "tests.test_remote_status_790"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-789-cmd-results": {
         "type": "regression",
         "name": "tests.test_remote_result_789"
@@ -423,6 +430,9 @@
     "self-ci": [
       "issue-476-staged-self-ci",
       "invariant-self-ci-contract"
+    ],
+    "issue-790-remote-status": [
+      "issue-790-remote-status"
     ]
   }
 }
