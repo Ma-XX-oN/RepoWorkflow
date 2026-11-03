@@ -14,7 +14,8 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 from repo_workflow.repo_info_adapter import (
-  RepoInfoError, ci_invocation_status, resolve_info_config, repository_info,\n)
+  RepoInfoError, ci_invocation_status, resolve_info_config, repository_info,
+)
 from tests.support import RepoFixture
 
 
