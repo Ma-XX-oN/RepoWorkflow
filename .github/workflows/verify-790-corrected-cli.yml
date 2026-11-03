@@ -1,0 +1,52 @@
+name: Verify #790 corrected CLI native
+on:
+  push:
+    branches:
+      - verify-790-corrected-cli-20261103
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d1da9d547095f6e5da1e47d0783f71d65b929878
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Compile and run registered and integration CLI regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'd1da9d547095f6e5da1e47d0783f71d65b929878'
+          python -m py_compile repo_workflow/public_cli.py tests/test_test_launcher.py
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          catalog = json.loads(Path(".ci/tests.json").read_text(encoding="utf-8"))
+          targets = []
+          for group in ("issue-790-remote-status", "issue-543-first-use-owner"):
+            entry = next(e for e in catalog["tests"] if group in e)
+            targets.append(entry[group]["name"])
+          targets.extend([
+            "tests.test_test_launcher.ShippedTestLauncher.test_selected_red_remote_request_uses_committed_selection",
+            "tests.test_test_launcher.ShippedTestLauncher.test_missing_red_declaration_prevents_remote_publication",
+            "tests.test_test_launcher.ShippedTestLauncher.test_all_six_stage_help_commands_are_reachable",
+            "tests.test_test_cli.TestCliContract.test_red_help_does_not_require_registered_issue_tests",
+            "tests.test_bootstrap_cli.BootstrapCliTests.test_every_static_public_prefix_help_is_configuration_independent",
+          ])
+          for target in targets:
+            print(f"RUN {target}", flush=True)
+            result = subprocess.call([sys.executable, "-m", "unittest", target])
+            if result:
+              raise SystemExit(result)
+          PY
