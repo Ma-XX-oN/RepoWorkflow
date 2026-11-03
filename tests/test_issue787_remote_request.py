@@ -101,6 +101,7 @@ class CMDSubmissionTests(unittest.TestCase):
   def test_invalid_argv_and_unauthorized_retry(self):
     for args in (
       ["test", "RED"], ["test", "RED", "--remote", "--poll"],
+      ["test", "RED", "--remote", "1"],
       ["test", "a\0b", "--remote"],
     ):
       with self.subTest(args=args), self.assertRaises(RemoteRequestError):
