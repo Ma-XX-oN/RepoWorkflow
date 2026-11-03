@@ -10,7 +10,7 @@ contracts, acceptance criteria, permissions, and ownership remain controlling.
 Start with [best practices](BEST_PRACTICES.md) for the general workflow, and
 [architecture](DESIGN.md) for RWF-specific component responsibilities.
 
-## 1. Keep one authoritative implementation
+## Keep one authoritative implementation
 
 - Implement a behavior once. Reuse the same parser, dispatcher, command handler,
   state transition, and result semantics from every supported entry point.
@@ -23,7 +23,7 @@ Start with [best practices](BEST_PRACTICES.md) for the general workflow, and
 - Avoid a new abstraction if an existing interface already expresses the
   required behavior. Extend the smallest suitable boundary.
 
-## 2. Separate mechanisms from policy and transport
+## Separate mechanisms from policy and transport
 
 - Keep mechanical state-transition rules, guards, and evidence authoritative
   in the RWF engine. Do not reimplement them in CI workflow files or adapters.
@@ -35,7 +35,7 @@ Start with [best practices](BEST_PRACTICES.md) for the general workflow, and
 - A command wrapper should preserve the original command's arguments,
   meaningful output, exit status, and observable state-transition behavior.
 
-## 3. Optimize for minimal change and minimal duplication
+## Optimize for minimal change and minimal duplication
 
 - Start by identifying existing functionality that already meets part of the
   requirement, then add only the missing capability.
@@ -49,7 +49,7 @@ Start with [best practices](BEST_PRACTICES.md) for the general workflow, and
 - Optimize for long-term readability and maintenance as well as line count.
   Fewer lines are beneficial only when behavior and invariants stay explicit.
 
-## 4. Make boundaries verifiable
+## Make boundaries verifiable
 
 - State preconditions, postconditions, identity, ownership, and failure behavior
   at the interface responsible for enforcing them.
@@ -62,7 +62,7 @@ Start with [best practices](BEST_PRACTICES.md) for the general workflow, and
   acceptance as different evidence. Do not claim a wrapper's tests prove every
   command's behavior or that historical evidence certifies a changed revision.
 
-## 5. Example: remote invocation without a second command engine
+## Example: remote invocation without a second command engine
 
 The planned `.ci/rwf` forwarding feature (issue #660) illustrates the design,
 but is **not** documented here as already implemented:
@@ -79,7 +79,7 @@ not the operation itself.** This resembles a decorator around command dispatch
 and an adapter at the provider boundary; the principle matters more than the
 design-pattern name.
 
-## 6. Portable semantics behind narrow capability boundaries
+## Portable semantics behind narrow capability boundaries
 
 OS-agnostic code must preserve the **same specified behavior** across native
 Windows, Linux, and macOS, rather than accumulating OS-name checks to make
@@ -119,7 +119,7 @@ through the workflow state machine or individual command handlers.
 For concrete portability requirements, continue with
 [best practices — portable behavior](BEST_PRACTICES.md).
 
-## 7. Optimize after correctness and measurement
+## Optimize after correctness and measurement
 
 **Optimization is normally the last engineering step**, not the organizing
 principle of initial implementation.

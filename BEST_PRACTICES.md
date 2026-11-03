@@ -10,7 +10,7 @@ installation fails, consult [EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.m
 for GitHub Actions as a controlled diagnostic workbench before declaring
 all verification blocked.
 
-## 1. Investigate before changing
+## Investigate before changing
 
 - State the required behavior and the observed departure from it, with exact source revision, environment and reproduction.
 - Follow the evidence-driven Problem / Hypothesis / Action / Learning cycle in [BUG_INVESTIGATION.md](BUG_INVESTIGATION.md).
@@ -19,7 +19,7 @@ all verification blocked.
 - Try the smallest officially supported configuration, invocation or API on the exact failing workflow before proposing architecture changes.
 - Prefer repairing the root cause to hiding symptoms. Preserve invariants, existing data, ownership, permissions, recovery and compatibility contracts.
 
-## 2. Design simple, reusable, maintainable code
+## Design simple, reusable, maintainable code
 
 Apply the [engineering design principles](DESIGN_PRINCIPLES.md) for shared
 command implementations, centralized wrappers, transport adapters, and
@@ -37,7 +37,7 @@ minimal code duplication.
 - For the 500-line rule's single-read/context purpose, limitations, and measured
   connector evidence, follow [SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md).
 
-## 3. Portable behavior first
+## Portable behavior first
 
 Portable code provides the **same specified behavior** across the supported environments, rather than merely making different platform test suites green.
 
@@ -51,7 +51,7 @@ Portable code provides the **same specified behavior** across the supported envi
 - Platform-specific code must have an identified capability reason, a narrow boundary and tests of its observable contract.
 - Avoid global test monkeypatches that obscure the real invocation boundary, hidden interpreter overrides and fake-service substitution when genuine provider acceptance is required.
 
-## 4. Test behavior, not implementation convenience
+## Test behavior, not implementation convenience
 
 - Derive expected outcomes independently from requirements and contracts, never simply from current code.
 - Reproduce a regression RED before fixing it; prove the same requirement GREEN afterward, including relevant negative paths.
@@ -62,7 +62,7 @@ Portable code provides the **same specified behavior** across the supported envi
 - Provider mocks verify isolated logic; they do not certify live authority, provider writes or durable independent readback.
 - Follow the authoritative adequacy and evidence requirements in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 5. Coordinate integration without causing regressions
+## Coordinate integration without causing regressions
 
 - Establish one owner for each modified shared file or interface; check active claims before writing.
 - Incorporate verified changes without overwriting other accepted work. Reconcile overlapping behavior semantically, not by indiscriminate copy or mechanical substitution.
@@ -76,7 +76,7 @@ Portable code provides the **same specified behavior** across the supported envi
   preparatory progress or upstream DONE alone. Follow the authoritative
   [work scheduling contract](WORK_GRAPH_SCHEDULING.md).
 
-## 6. Evidence-based review and completion
+## Evidence-based review and completion
 
 Before declaring work complete, answer:
 
@@ -90,11 +90,11 @@ Before declaring work complete, answer:
 
 State **I don't know** when evidence is absent. Do not call a documented recommendation an automatically enforced rule, or a green test proof of defect-free code. Record unresolved requirements and the next authorized owner rather than inventing completion.
 
-## 7. Applicability and discoverability
+## Applicability and discoverability
 
 This is the general engineering entry point for AI coding agents and humans examining RWF. Read it at task intake, then follow the linked authoritative specialist documents. Consumer projects should link to this document at their pinned RWF revision when applying its guidance; they retain their own more specific requirements. New guidance belongs here only if it is broadly applicable, while domain-specific contracts retain one authoritative home.
 
-## 8. Durable issue checkpoints and context recovery
+## Durable issue checkpoints and context recovery
 
 GitHub issues are the durable record for ongoing engineering work, not merely
 messages to other agents. Maintain each active issue so that a new engineer or

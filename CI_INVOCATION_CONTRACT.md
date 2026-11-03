@@ -27,7 +27,7 @@ For using a CI runner as a temporary diagnostic workbench, independent of
 normal stage invocation, see
 [EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md).
 
-## 1. Single invocation file
+## Single invocation file
 
 Use one tracked file, `.ci/run`. Its contents are exactly one testing
 stage followed by one space and the full commit SHA at the branch tip
@@ -86,7 +86,7 @@ traversing historical invocation/retry commits to recover the original
 tested source. The regression tests in `tests/test_ci_invocation.py`
 exercise both current and historical reads using real Git commits.
 
-## 2. Hosted execution without a dispatcher on routine pushes
+## Hosted execution without a dispatcher on routine pushes
 
 The implemented on-demand GitHub Actions push trigger uses a path filter confined to
 `.ci/run`. Ordinary pushes with no change to that path must not launch a
@@ -101,7 +101,7 @@ guarantee delivery: a missed event is retried with a new marker as above.
 No host runner is needed just to transition back to an idle selector: no
 such transition exists. Repeated requests use the new branch-tip SHA.
 
-## 3. Request marker versus test evidence
+## Request marker versus test evidence
 
 `.ci/run` is an invocation request and historical marker, not a test
 result. The existing RepoWorkflow **testing log** is the evidence of which
@@ -121,7 +121,7 @@ request or a claimed PASS in an unverified file does not by itself satisfy
 the protected integration gate: the verifier checks the testing log under
 the repository's existing evidence validity and integrity rules.
 
-## 4. Pre-merge verification, not post-merge retesting
+## Pre-merge verification, not post-merge retesting
 
 Regression and integration testing of the proposed combined result occur
 **before** integration to the protected target. Neither `main` nor
@@ -157,7 +157,7 @@ required when the candidate tree already represents the exact result.
 Ancestry alone does not replace the required PASS evidence in the testing
 log.
 
-## 5. Current implementation and independent acceptance boundaries
+## Current implementation and independent acceptance boundaries
 
 The on-demand development-branch adapter is implemented at
 `.github/workflows/on-demand-ci.yml`. It does not replace separate Self CI,

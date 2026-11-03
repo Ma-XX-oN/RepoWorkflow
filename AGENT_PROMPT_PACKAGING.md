@@ -5,7 +5,7 @@ separately started workers.  Applies to RepoWorkflow-managed agent workstreams.
 See [PMD_AUTHORING.md](PMD_AUTHORING.md) for how to write/version a PMD and
 [AGENT-CMD-PROTOCOL.md](AGENT-CMD-PROTOCOL.md) for runtime substitution rules.
 
-## 1. One PMD for shared instructions
+## One PMD for shared instructions
 
 `.pmd` means **Prompt Markdown**.  A controller produces **one shared PMD**
 for the coordinated group of workers.  Its purpose is to avoid duplicating
@@ -44,7 +44,7 @@ common worker contract.  Each leaf ticket's distinct task, extra safeguards
 and start-specific decisions belong in its **launch prompt** and in its
 authoritative issue body, not in a duplicated PMD.
 
-## 2. One independent fenced prompt per worker
+## One independent fenced prompt per worker
 
 For every worker the controller proposes to launch, write **one separate
 fenced text block in the conversation**.  Do not put these copy/paste launch
@@ -83,7 +83,7 @@ and mounted when pasting; a bare filename that is not accessible is not
 proof that a receiving worker has read its instructions.  A receiving worker
 must verify/read the exact attached file before executing.
 
-## 3. Literal substitution and validation
+## Literal substitution and validation
 
 The shared PMD may reference `$issue`, `$version`, or other explicitly
 declared assignment names.  `AGENT-CMD` substitution is **literal**, not
@@ -102,7 +102,7 @@ An issued command is **not** evidence of an agent having started.  Record
 workers as unstarted until a separate conversation actually executes and
 publishes an authorized ownership claim.
 
-## 4. Controller checklist and correction policy
+## Controller checklist and correction policy
 
 Before posting dispatch prompts:
 
