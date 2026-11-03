@@ -26,4 +26,4 @@ jobs:
       - name: Execute registered #788, #786 and #787 suites
         shell: bash
         run: |
-          python -m unittest -v tests.test_issue788_hosted_forward tests.test_remote_invocation_786 tests.test_issue787_remote_request
+          python -m unittest -v tests.test_issue788_hosted_forward tests.test_remote_invocation_786 tests.test_issue787_remote_request tests.test_ci_invocation_trigger_contract
