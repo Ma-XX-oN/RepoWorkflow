@@ -174,6 +174,37 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertTrue(again.reused)
     self.assertNotEqual(first.request_sha, again.request_sha)
 
+  def test_concurrent_distinct_requests_allocate_distinct_numbers(self):
+    clones = []
+    for index in range(2):
+      clone = Path(self.temp.name) / f"distinct{index}"
+      git(
+        Path(self.temp.name), "clone", "-b", "feature-test",
+        str(self.remote), str(clone),
+      )
+      clones.append(clone)
+    barrier = threading.Barrier(2)
+    results = []
+    errors = []
+
+    def worker(index):
+      try:
+        barrier.wait()
+        results.append(self.submit(
+          ["test", ("RED" if index == 0 else "GREEN"), "--remote"],
+          root=clones[index],
+        ))
+      except Exception as exc:
+        errors.append(exc)
+
+    jobs = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
+    for job in jobs:
+      job.start()
+    for job in jobs:
+      job.join()
+    self.assertEqual([], errors)
+    self.assertEqual([1, 2], sorted(result.number for result in results))
+
   def test_concurrent_allocation_reuses_same_number(self):
     paths = []
     for index in range(2):
