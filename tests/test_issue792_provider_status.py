@@ -11,8 +11,11 @@ from pathlib import Path
 import subprocess
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
-from repo_workflow.repo_info_adapter import RepoInfoError, ci_invocation_status
+from repo_workflow.repo_info_adapter import (
+  RepoInfoError, ci_invocation_status, resolve_info_config, repository_info,
+)
 from tests.support import RepoFixture
 
 
@@ -50,6 +53,63 @@ def github_run(status, run_id=11, **changes):
   result.update(changes)
   return result
 
+
+class DiscoveredProviderTests(unittest.TestCase):
+  def discovery(self, remotes, config=None):
+    with tempfile.TemporaryDirectory() as td, patch(
+      "repo_workflow.repo_info_adapter.run_command",
+      side_effect=[
+        SimpleNamespace(returncode=0, stdout="origin\n", stderr=""),
+        SimpleNamespace(returncode=0, stdout=remotes + "\n", stderr=""),
+      ],
+    ):
+      return resolve_info_config(Path(td), config)
+
+  def test_unconfigured_github_selects_ci_capable_provider(self):
+    result = self.discovery("https://github.com/example/consumer.git")
+    command = result["infoCommand"]
+    self.assertEqual(Path(command[1]).name, "repo-info-ci-github.py")
+    self.assertEqual(Path(command[1]).parent.name, "adapters")
+    self.assertEqual(command[-4:], [
+      "--repository", "example/consumer", "--workflow", "remote-rwf.yml",
+    ])
+
+  def test_existing_explicit_provider_configuration_is_unchanged(self):
+    config = {"infoCommand": [sys.executable, "fake-provider.py"]}
+    with patch("repo_workflow.repo_info_adapter.run_command") as invoked:
+      self.assertIs(resolve_info_config(Path("."), config), config)
+    invoked.assert_not_called()
+
+  def test_non_github_does_not_silently_select_github(self):
+    with self.assertRaisesRegex(RepoInfoError, "no GitHub remote"):
+      self.discovery("https://gitlab.com/example/consumer.git")
+    with patch("repo_workflow.repo_info_adapter.run_command") as invoked:
+      config = {"infoCommand": ["provider-neutral-command"]}
+      self.assertIs(resolve_info_config(Path("."), config), config)
+    invoked.assert_not_called()
+
+  def test_unconfigured_provider_not_supported_is_explicit_failure(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      RepoFixture(root)
+      with self.assertRaisesRegex(RepoInfoError, "not configured"):
+        ci_invocation_status(root, {}, BRANCH, SHA, 2)
+
+  def test_discovered_provider_reports_missing_credentials_and_api_failure(self):
+    config = self.discovery("git@github.com:example/consumer.git")
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      RepoFixture(root)
+      for diagnostic in ("authentication required", "HTTP 403"):
+        with self.subTest(diagnostic=diagnostic), patch(
+          "repo_workflow.repo_info_adapter.run_command",
+          return_value=SimpleNamespace(
+            returncode=2, stdout="", stderr=diagnostic,
+          ),
+        ):
+          # Provider errors must never become an empty/not-observed success.
+          with self.assertRaisesRegex(RepoInfoError, diagnostic):
+            ci_invocation_status(root, config, BRANCH, SHA, 2)
 
 class CoreStatusTests(unittest.TestCase):
   def read(self, payload):

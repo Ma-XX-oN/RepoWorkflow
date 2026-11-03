@@ -92,7 +92,7 @@ def resolve_info_config(root: Path, config: dict | None = None) -> dict:
     raise RepoInfoError("repository information provider discovery is ambiguous")
 
   adapter = (
-    Path(__file__).resolve().parents[1] / "adapters" / "repo-info-github.py"
+    Path(__file__).resolve().parents[1] / "adapters" / "repo-info-ci-github.py"
   )
   repository = next(iter(repositories))
   return {
@@ -101,6 +101,8 @@ def resolve_info_config(root: Path, config: dict | None = None) -> dict:
       str(adapter),
       "--repository",
       repository,
+      "--workflow",
+      "remote-rwf.yml",
     ],
   }
 

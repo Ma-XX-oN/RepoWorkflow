@@ -133,3 +133,69 @@ semantic requirement for them.
 
 Do not expose raw provider payload as an escape hatch.  Extend the normalized
 contract explicitly instead.
+
+
+## 9. Hosted CI invocation status (#792)
+
+The optional read-only operation is:
+
+```text
+repo-info ci invocation status CMD_BRANCH REQUEST_COMMIT_SHA RETRY_ATTEMPT
+```
+
+The caller must supply an authenticated CMD branch, exact 40-hex Git request
+commit (the marker-only commit for this attempt), and nonnegative integer retry
+attempt. This operation observes provider execution; it does not validate
+request ancestry or authorize retries. The adapter result is exactly:
+
+```json
+{
+  "schema_version": 1,
+  "branch": "CMD-12-issue-792-work",
+  "request_revision": "0123456789abcdef0123456789abcdef01234567",
+  "attempt": 0,
+  "state": "queued",
+  "run_id": 123456,
+  "detail": null
+}
+```
+
+Allowed `state` values: `queued` (requested/waiting/pending/queued),
+`running` (in progress), `completed` (CI finished regardless of command
+success), `not-observed` (no matching run in an exhaustively checked provider
+response), and `unknown` (an observed but unclassifiable/ambiguous state).
+`not-observed` is never proof of permanent non-invocation or safe retry.
+`run_id` is an optional positive provider run identifier, null if no
+unambiguous run exists. `detail` is null except for a meaningful diagnostic
+on `unknown`. Adapter execution/API errors retain the existing nonzero,
+stderr-only failure contract; they are never converted into `not-observed`.
+
+Core validation rejects malformed schema, unexpected keys, wrong CMD
+branch, request SHA, retry attempt, invalid states, malformed run IDs and
+missing unknown-state detail. No provider-specific fields reach core workflow.
+
+The optional GitHub extension executable is
+`adapters/repo-info-ci-github.py`, selected explicitly via `infoCommand`
+with `--repository OWNER/NAME --workflow WORKFLOW_FILE`. The workflow file
+selector is required so unrelated Actions runs cannot count as CMD invocation.
+The GitHub adapter queries workflow runs with branch, head SHA and push-event
+filters, rechecks each returned run's branch/SHA/event, exhausts pagination
+or fails closed, and treats multiple matching run identities as `unknown`.
+GitHub `run_attempt` is a different concept from RWF's numbered request
+retry; the request commit SHA is the unique execution marker. The extension
+delegates existing repository and issue operations to the current GitHub
+provider executable. It does not trigger or repair provider events.
+
+For first-use consumers without an explicit `infoCommand`,
+`resolve_info_config` discovers an unambiguous GitHub remote and selects this
+CI-capable extension with `--repository OWNER/NAME --workflow remote-rwf.yml`.
+The workflow filename is the GitHub CMD forwarding adapter; an absent or
+unauthorized workflow returns an explicit provider failure, not a fabricated
+`not-observed` status. An explicit `infoCommand` always takes precedence,
+including for non-GitHub providers. Unsupported/ambiguous remote discovery
+fails closed instead of selecting GitHub for another service.
+
+The #737 owner retains exclusive ownership of the existing legacy
+`adapters/repo-info-github.py` executable, which is unchanged. The CI extension
+delegates repository and issue information operations to that executable;
+no second provider implementation or change to the legacy adapter is needed.
