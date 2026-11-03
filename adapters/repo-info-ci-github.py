@@ -18,6 +18,13 @@ import sys
 from urllib.parse import quote
 
 
+def configure_output() -> None:
+  for stream in (sys.stdout, sys.stderr):
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+      reconfigure(encoding="utf-8", errors="strict")
+
+
 def fail(message: str) -> None:
   print(message, file=sys.stderr)
   raise SystemExit(2)
@@ -169,4 +176,5 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+  configure_output()
   raise SystemExit(main(sys.argv[1:]))
