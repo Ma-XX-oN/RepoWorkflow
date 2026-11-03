@@ -115,6 +115,31 @@ class CMDSubmissionTests(unittest.TestCase):
         ["test", "GREEN", "--remote"], permitted=True,
       )
 
+  def test_unauthorized_extra_file_history_is_not_reused(self):
+    first = self.submit()
+    clone = Path(self.temp.name) / "tamper"
+    git(
+      Path(self.temp.name), "clone", "-b", first.branch,
+      str(self.remote), str(clone),
+    )
+    git(clone, "config", "user.email", "test@example.invalid")
+    git(clone, "config", "user.name", "Fixture")
+    (clone / "unrelated.txt").write_text("not allowed\\n")
+    git(clone, "add", "unrelated.txt")
+    git(clone, "commit", "-m", "unexpected file")
+    git(clone, "push", "origin", "HEAD")
+    another = self.submit()
+    self.assertEqual(2, another.number)
+    self.assertFalse(another.reused)
+
+  def test_utf8_argument_round_trip(self):
+    args = ["test", "électricité ' ü \\ $HOME", "--remote"]
+    result = self.submit(args)
+    git(self.source, "fetch", "origin", result.branch)
+    import shlex
+    recorded = git(self.source, "show", "FETCH_HEAD:.ci/rwf")
+    self.assertEqual([*args, "0"], shlex.split(recorded, posix=True))
+
   def test_concurrent_allocation_reuses_same_number(self):
     paths = []
     for index in range(2):
