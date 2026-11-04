@@ -56,6 +56,17 @@ def main():
       "git_status_small_no_fsmonitor": [git, "-c", "core.fsmonitor=false",
                                         "-C", str(repo), "status", "--porcelain"]
     }
+    # Compare Git for Windows executable entry paths separately; launcher wrappers
+    # are a different variable from repository size or filesystem performance.
+    if os.name == "nt":
+      pf = os.environ.get("ProgramFiles", "C:\\Program Files")
+      for name, rel in (("cmd", "cmd/git.exe"), ("bin", "bin/git.exe"),
+                        ("mingw64", "mingw64/bin/git.exe")):
+        alternative = Path(pf) / "Git" / rel
+        if alternative.is_file() and str(alternative).lower() != str(git).lower():
+          commands[f"git_version_{name}"] = [str(alternative), "--version"]
+          commands[f"git_status_small_{name}"] = [
+            str(alternative), "-C", str(repo), "status", "--porcelain"]
     # Interleave operations to reduce monotonic thermal / contention bias.
     raw = {name: [] for name in commands}
     for repetition in range(120):
@@ -79,7 +90,9 @@ def main():
       "git_executable": git, "git_version": meta([git, "--version"]),
       "commit": meta([git, "rev-parse", "HEAD"]),
       "autocrlf": meta([git, "config", "--show-origin", "--get", "core.autocrlf"]),
-      "system": meta([git, "config", "--list", "--show-origin"]),
+      "config_allowlist": {k: meta([git, "config", "--show-origin", "--get", k])
+                          for k in ("core.autocrlf", "core.fsmonitor", "core.filemode",
+                                    "core.ignorecase")},
       "cpu_count": os.cpu_count(), "operations": {k:percentiles(v) for k,v in raw.items()},
       "filesystem_4k_write_read_unlink": percentiles(fs_raw), "samples_ms":raw,
       "fs_samples_ms":fs_raw,
