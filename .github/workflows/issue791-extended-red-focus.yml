@@ -38,4 +38,5 @@ jobs:
             tests.test_completion.BashCompletionTests.test_red_missing_groups_report_same_real_error \
             tests.test_test_launcher.ShippedTestLauncher.test_shipped_red_help_is_current_issue_aware \
             tests.test_provider_adapter_p11 \
-            tests.test_test_cli.TestCliContract.test_red_help_uses_registered_current_issue_and_error_parity
+            tests.test_test_cli.TestCliContract.test_red_help_uses_registered_current_issue_and_error_parity \
+            tests.test_lane_component_selection_cli.LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component
