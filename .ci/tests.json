@@ -18,6 +18,13 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-791-publisher-wiring": {
+        "type": "regression",
+        "name": "tests.test_issue791_publisher_wiring"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-786-cmd-wrapper": {
         "type": "regression",
         "name": "tests.test_remote_invocation_786"

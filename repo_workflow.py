@@ -66,6 +66,7 @@ from repo_workflow.repo_info_adapter import RepoInfoError
 from repo_workflow.remote_invocation import (
   RemoteInvocationError, emit_outcome, invoke_numbered,
 )
+from repo_workflow.remote_result import publish_result
 from repo_workflow.remote_status import RemoteStatusError
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
@@ -239,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
             cwd=source, stdin=subprocess.DEVNULL,
             capture_output=True, check=False,
           ),
+          publish=lambda value: publish_result(root, value),
         )
         emit_outcome(outcome)
         return outcome.exit_code
