@@ -84,6 +84,34 @@ def main():
         raise RuntimeError("filesystem read mismatch")
       p.unlink()
       fs_raw.append((time.perf_counter_ns() - start) / 1_000_000)
+    # Trace2 measures elapsed time from Git's internal startup clock. Comparing
+    # that with external subprocess wall time brackets loader/launcher overhead;
+    # tracing itself adds overhead, so residuals are diagnostic, not pure kernel time.
+    trace2 = {}
+    for command_name in sorted(k for k in commands if k.startswith("git_version")):
+      internal, external, residual = [], [], []
+      for i in range(24):
+        trace_file = Path(d) / f"trace-{command_name}-{i}.event"
+        trace_env = os.environ.copy()
+        trace_env["GIT_TRACE2_EVENT"] = str(trace_file)
+        wall_ms = run(commands[command_name], env=trace_env)
+        events = [json.loads(line) for line in
+                  trace_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+        end_times = [item["t_abs"] for item in events
+                     if item.get("event") == "atexit" and "t_abs" in item]
+        if len(end_times) != 1:
+          raise RuntimeError(f"unexpected Trace2 process count for {command_name}: {len(end_times)}")
+        inside_ms = float(end_times[0]) * 1000
+        internal.append(inside_ms)
+        external.append(wall_ms)
+        residual.append(wall_ms - inside_ms)
+      trace2[command_name] = {
+        "git_internal_ms": percentiles(internal),
+        "subprocess_wall_ms": percentiles(external),
+        "external_minus_git_internal_ms": percentiles(residual),
+        "samples": [{"git_internal_ms": a, "subprocess_wall_ms": b,
+                     "residual_ms": c} for a, b, c in zip(internal, external, residual)]
+      }
     data = {
       "experiment": "RWF-809-native-startup-1", "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
       "platform": platform.platform(), "os": os.name, "python": sys.version,
@@ -93,7 +121,7 @@ def main():
       "config_allowlist": {k: meta([git, "config", "--show-origin", "--get", k])
                           for k in ("core.autocrlf", "core.fsmonitor", "core.filemode",
                                     "core.ignorecase")},
-      "cpu_count": os.cpu_count(), "operations": {k:percentiles(v) for k,v in raw.items()},
+      "cpu_count": os.cpu_count(), "trace2": trace2, "operations": {k:percentiles(v) for k,v in raw.items()},
       "filesystem_4k_write_read_unlink": percentiles(fs_raw), "samples_ms":raw,
       "fs_samples_ms":fs_raw,
     }
