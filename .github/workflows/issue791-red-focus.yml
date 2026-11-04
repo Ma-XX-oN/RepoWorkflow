@@ -42,4 +42,6 @@ jobs:
             tests.test_test_launcher.ShippedTestLauncher.test_shipped_red_help_is_current_issue_aware \
             tests.test_ci_invocation_trigger_contract.ExplicitCiInvocationTests.test_push_workflows_have_explicit_paths \
             tests.test_workflow_transitions.WorkflowTransitionTests.test_regression_failure_from_zero_iteration_starts_first_iteration \
-            tests.test_hosted_version_identity.HostedIdentityTests.test_historical_collision_cannot_poison_new_iteration
+            tests.test_hosted_version_identity.HostedIdentityTests.test_historical_collision_cannot_poison_new_iteration \
+            tests.test_remote_status_790.StatusTest.test_named_red_remote_poll_real_cli_and_negative_paths \
+            tests.test_remote_status_790.StatusTest.test_cli_grammar_status_and_poll
