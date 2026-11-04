@@ -1,0 +1,24 @@
+name: RWF 791 Stale Test Loader Audit
+on:
+  push:
+    branches: [issue-791-native-*]
+    paths: [.ci/stale-loader-trigger]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cf135ce15293ab169ba66f28a81e14776fa10bb6
+      - name: Verify exact candidate contains no superseded P4 loader paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "cf135ce15293ab169ba66f28a81e14776fa10bb6"
+          if git grep -n 'FirstUseLanesTests' -- '*.py' '*.json'; then
+            echo 'FAIL: stale accepted P4 class reference exists'
+            exit 1
+          fi
+          echo 'PASS: no stale P4 class references in tracked Python/JSON files'
