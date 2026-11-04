@@ -71,19 +71,23 @@ def _refs(root: Path, remote: str) -> list[CommandRef]:
     r"[a-zA-Z0-9._/-]+", remote
   ) or remote.startswith("-"):
     raise RemoteStatusError("invalid remote name")
-  found: dict[int, CommandRef] = {}
+  # CMD-N is scoped to the complete originating source-branch identity.
+  source = _git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+  if _CMD.fullmatch(source):
+    raise RemoteStatusError("remote-status requires a source branch")
+  found: dict[str, CommandRef] = {}
   for line in _git(root, "ls-remote", "--heads", remote).splitlines():
     parts = line.split("\t")
     if len(parts) != 2 or not _SHA.fullmatch(parts[0]) or not parts[1].startswith("refs/heads/"):
       raise RemoteStatusError("invalid remote branch advertisement")
     branch = parts[1].removeprefix("refs/heads/")
     match = _CMD.fullmatch(branch)
-    if match is None:
+    if match is None or match.group(2) != source:
       continue
     number = int(match.group(1))
-    if number in found:
-      raise RemoteStatusError(f"ambiguous CMD number {number}")
-    found[number] = CommandRef(number, branch, parts[0])
+    if branch in found:
+      raise RemoteStatusError(f"duplicate CMD branch {branch}")
+    found[branch] = CommandRef(number, branch, parts[0])
   return sorted(found.values(), key=lambda item: item.number)
 
 
@@ -138,7 +142,7 @@ def _marker(root: Path, selected: CommandRef, remote: str) -> tuple[str, int]:
 
 def _tip_unchanged(root: Path, command: CommandRef, remote: str) -> None:
   current = next((item for item in _refs(root, remote)
-                  if item.number == command.number), None)
+                  if item.branch == command.branch), None)
   if current != command:
     raise RemoteStatusError("CMD changed while status was being read")
 
