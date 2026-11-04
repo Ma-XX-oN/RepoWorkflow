@@ -99,7 +99,7 @@ class WorkflowTransitionTests(unittest.TestCase):
 
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
-        "1.0.0-issue.1.4.0",
+        "1.0.0-issue.1.4.1",
       )
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
       facts = discover_facts(root)
