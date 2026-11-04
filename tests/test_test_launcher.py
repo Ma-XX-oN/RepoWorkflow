@@ -173,6 +173,34 @@ class ShippedTestLauncher(unittest.TestCase):
     self.assertEqual(after.split()[0], initial)
 
 
+  def test_missing_remote_red_declaration_preserves_prior_selection(self):
+    catalogue = self.root / ".ci/tests.json"
+    self._catalogue(catalogue, issue_group="issue-545-prior-selection")
+    data = json.loads(catalogue.read_text(encoding="utf-8"))
+    data["tests"].append({
+      "test-harness": "unittest",
+      "issue-545-missing-remote": {
+        "type": "regression", "name": "smoke_case",
+      },
+    })
+    catalogue.write_text(json.dumps(data), encoding="utf-8")
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "register both issue RED groups")
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-545-prior-selection\n", encoding="utf-8")
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-m", "explicitly select original RED group")
+    self.remote()
+    before = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "RED", "issue-545-missing-remote", "--remote")
+    self.assertEqual(out.returncode, 2, out.stderr)
+    self.assertIn("expected-failure-declaration-missing", out.stderr)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    self.assertEqual(selection.read_text(encoding="utf-8"),
+                     "issue-545-prior-selection\n")
+    self.assertEqual(self.git("status", "--porcelain"), "")
+    self.assertEqual(self.git("ls-remote", "origin", "refs/heads/CMD-*"), "")
+
   def test_temporary_remote_request_with_valid_manifest(self):
     self._catalogue(
       self.root / ".ci/temp-tests.json",
