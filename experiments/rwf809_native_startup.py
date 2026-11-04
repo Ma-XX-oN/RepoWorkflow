@@ -45,7 +45,7 @@ def main():
     run([git, "-C", str(repo), "add", "."])
     run([git, "-C", str(repo), "-c", "user.name=RWF", "-c", "user.email=rwf@example.invalid",
          "commit", "-qm", "fixture"])
-    launcher = ["cmd.exe", "/d", "/c", "exit", "0"] if os.name == "nt" else ["/bin/true"]
+    launcher = ["cmd.exe", "/d", "/c", "exit", "0"] if os.name == "nt" else [shutil.which("true") or "true"]
     commands = {
       "native_nop": launcher,
       "python_nop": [sys.executable, "-c", "pass"],
