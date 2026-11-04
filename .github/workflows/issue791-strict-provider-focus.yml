@@ -1,0 +1,38 @@
+name: RWF #791 strict provider portability native focus
+on:
+  push:
+    branches:
+      - issue-791-portability-gap-native-20261104
+    paths:
+      - .ci/issue791-portability-gap-trigger
+permissions:
+  contents: read
+jobs:
+  strict-provider:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 232d586c0d14aaa9173be3d483848d1721fbb2c2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify source and install
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 232d586c0d14aaa9173be3d483848d1721fbb2c2
+          python -m pip install -r requirements.txt
+      - name: Strict UTF-8 provider and RED regression focus
+        shell: bash
+        run: |
+          python -m unittest -v \
+            tests.test_provider_adapter_p11 \
+            tests.test_repo_info_adapter \
+            tests.test_expected_red_cli
