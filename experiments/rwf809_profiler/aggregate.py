@@ -17,18 +17,32 @@ def main():
   by_caller = collections.defaultdict(lambda: [0, 0.0])
   by_test = collections.defaultdict(lambda: [0, 0.0])
   git_count = 0
+  rows = []
   for p in sorted(source.glob("process-*.jsonl")):
     for line in p.read_text(encoding="utf-8").splitlines():
-      if not line.strip():
-        continue
-      x = json.loads(line)
+      if line.strip():
+        rows.append(json.loads(line))
+  parents = {r["child_pid"]: r["parent_pid"] for r in rows if r.get("child_pid")}
+  owner = {r["child_pid"]: r["test"] for r in rows if r.get("child_pid") and r.get("test")}
+  def owning_test(record):
+    if record.get("test"):
+      return record["test"]
+    pid = record.get("parent_pid")
+    seen = set()
+    while pid is not None and pid not in seen:
+      seen.add(pid)
+      if pid in owner:
+        return owner[pid]
+      pid = parents.get(pid)
+    return "setup-or-child-process"
+  for x in rows:
       kind = x["kind"]
       total[kind] += 1
       if kind != "git":
         continue
       git_count += 1
       for mapping, key in ((by_op, x["operation"]), (by_caller, x["caller"]),
-                           (by_test, x["test"] or "setup-or-child-process")):
+                           (by_test, owning_test(x))):
         record = mapping[key]
         record[0] += 1
         record[1] += float(x["elapsed_ms"])
