@@ -33,7 +33,7 @@ from .runtime_identity import runtime_writer_identity
 from .remote_status import (
   RemoteStatusError, parse_intervals, remote_status, submit_remote,
 )
-from .test_cli import read_selection, select_group
+from .test_cli import read_selection, validate_group
 from .test_red_declaration import red_declaration
 from .test_results_reader import TestCommandError
 from .ticket_merge import configure_ticket_merge_driver
@@ -181,7 +181,7 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     )
     submitted = [value for value in words[:offset] if value != "--remote"]
     group = next((value for value in submitted[2:] if value), None)
-    selected = select_group(root, group) if group is not None else read_selection(root)
+    selected = validate_group(root, group) if group is not None else read_selection(root)
     if selected is None:
       return run_test(
         root, "RED", remote=True, engine_root=engine_root, group=None,

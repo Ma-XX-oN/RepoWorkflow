@@ -133,6 +133,11 @@ def _skip_without_selection(
   return 0
 
 
+def validate_group(root: Path, name: str) -> str:
+  """Validate a RED/GREEN group without modifying repository state."""
+  return _validate_selection(root, name)
+
+
 def select_group(root: Path, name: str) -> str:
   name = _validate_selection(root, name)
   path = root / SELECTION
