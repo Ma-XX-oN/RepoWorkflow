@@ -89,7 +89,8 @@ class ProfiledPopen(_original_popen):
       return
     self._rwf809_recorded = True
     _write({
-      "parent_pid": os.getpid(), "child_pid": self.pid,\n      "kind": self._rwf809_kind, "operation": self._rwf809_operation,
+      "parent_pid": os.getpid(), "child_pid": self.pid,
+      "kind": self._rwf809_kind, "operation": self._rwf809_operation,
       "caller": self._rwf809_caller, "test": self._rwf809_test,
       "elapsed_ms": (time.perf_counter_ns() - self._rwf809_started) / 1e6,
       "returncode": self.returncode,
