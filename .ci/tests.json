@@ -18,6 +18,27 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-786-cmd-wrapper": {
+        "type": "regression",
+        "name": "tests.test_remote_invocation_786"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-788-hosted-forward": {
+        "type": "regression",
+        "name": "tests.test_issue788_hosted_forward"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-strict-provider-utf8": {
+        "type": "regression",
+        "name": "tests.test_provider_adapter_p11"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-792-provider-status": {
         "type": "regression",
         "name": "tests.test_issue792_provider_status"
