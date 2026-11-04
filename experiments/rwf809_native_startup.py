@@ -61,7 +61,7 @@ def main():
     if os.name == "nt":
       pf = os.environ.get("ProgramFiles", "C:\\Program Files")
       for name, rel in (("cmd", "cmd/git.exe"), ("bin", "bin/git.exe"),
-                        ("mingw64", "mingw64/bin/git.exe")):
+                        ("mingw64", "mingw64/bin/git.exe"), ("ucrt64", "ucrt64/bin/git.exe")):
         alternative = Path(pf) / "Git" / rel
         if alternative.is_file() and str(alternative).lower() != str(git).lower():
           commands[f"git_version_{name}"] = [str(alternative), "--version"]
