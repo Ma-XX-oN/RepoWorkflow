@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from .git import current_branch
 
@@ -39,12 +40,21 @@ def _red_group_values(context: Context) -> dict:
     except TestCatalogueError:
       pass
   if groups:
-    return {
-      "completions": [
-        {name: "Run current issue RED test group " + name}
-        for name in groups
-      ],
+    raw = json.loads(
+      (context.root / ".ci/tests.json").read_text(encoding="utf-8")
+    )
+    descriptions = {
+      name: entry["description"]
+      for block in raw["tests"]
+      for name, entry in block.items()
+      if (name in groups and isinstance(entry, dict)
+          and isinstance(entry.get("description"), str)
+          and entry["description"])
     }
+    return {"completions": [
+      {name: descriptions[name]} if name in descriptions else name
+      for name in groups
+    ]}
 
   def unavailable(request):
     return request.error(
