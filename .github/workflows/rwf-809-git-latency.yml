@@ -5,6 +5,7 @@ on:
       - issue-809-git-startup-probe
     paths:
       - .github/workflows/rwf-809-git-latency.yml
+      - experiments/rwf809_native_startup.py
   workflow_dispatch:
 permissions:
   contents: read
