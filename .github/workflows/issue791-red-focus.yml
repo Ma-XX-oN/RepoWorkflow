@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 9350c5beb560b6678113ee2a4d665eec681aa6c7
+          ref: bd563bfe19dde4cfc8a26f733ee7b179814d3b8c
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 9350c5beb560b6678113ee2a4d665eec681aa6c7
+          test "$(git rev-parse HEAD)" = bd563bfe19dde4cfc8a26f733ee7b179814d3b8c
           python -m pip install -r requirements.txt
           git switch -c issue-791-red-help-diagnostic-20261104
           git config user.name 'github-actions[bot]'
