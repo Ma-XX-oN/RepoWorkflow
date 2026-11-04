@@ -1,0 +1,40 @@
+name: RWF #791 extended RED and provider native diagnostic
+on:
+  push:
+    branches:
+      - issue-791-red-extended-native-20261104
+    paths:
+      - .ci/issue791-red-extended-trigger
+permissions:
+  contents: read
+jobs:
+  parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 836ed6a97c8052bdc38215c74828b208d31ebe54
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Prepare source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 836ed6a97c8052bdc38215c74828b208d31ebe54
+          python -m pip install -r requirements.txt
+      - name: Public RED help and strict provider regression
+        shell: bash
+        run: |
+          python -m unittest -v \
+            tests.test_bootstrap_cli.BootstrapCliTests.test_red_help_uses_current_issue_catalogue_and_errors \
+            tests.test_completion.BashCompletionTests.test_red_single_tab_and_double_tab_equal_direct_help \
+            tests.test_completion.BashCompletionTests.test_red_missing_groups_report_same_real_error \
+            tests.test_test_launcher.ShippedTestLauncher.test_shipped_red_help_is_current_issue_aware \
+            tests.test_provider_adapter_p11
