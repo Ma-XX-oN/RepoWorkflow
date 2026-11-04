@@ -1,0 +1,38 @@
+name: RWF #791 clean exact source 3OS regression
+on:
+  push:
+    branches:
+      - issue-791-native-clean-20261104
+    paths:
+      - '.ci/issue791-native-clean-trigger'
+permissions:
+  contents: read
+jobs:
+  native-regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d9a31fb70c90c9e904697f49b2353f8a3628739b
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Set exact source and Python
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = d9a31fb70c90c9e904697f49b2353f8a3628739b
+          python -m pip install -r requirements.txt
+          git switch -c issue-791-clean-native-fixture
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Full official registered regression
+        shell: bash
+        run: |
+          ./rwf test regression
