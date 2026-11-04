@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: cd1e02acabca0b8e93844a8693110ed91d8077ea
+          ref: 07be329b8d937c68ac038f8c6f5b9a583a81d8e9
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -26,7 +26,7 @@ jobs:
       - name: Assert exact accepted-source identity
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "cd1e02acabca0b8e93844a8693110ed91d8077ea"
+          test "$(git rev-parse HEAD)" = "07be329b8d937c68ac038f8c6f5b9a583a81d8e9"
           python --version
           git --version
       - name: Install declared dependencies
