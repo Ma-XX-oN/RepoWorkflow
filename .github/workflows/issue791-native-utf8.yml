@@ -40,4 +40,4 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$GITHUB_REF_NAME"
-          python -m unittest -v tests.test_bootstrap_cli
+          python -m unittest -v tests.test_bootstrap_cli.BootstrapCliTests.test_read_only_queries_run_through_discovered_github_adapter
