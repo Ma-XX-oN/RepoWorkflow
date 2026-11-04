@@ -138,14 +138,14 @@
           "id": "DL-1",
           "requirement": "fresh checkout acquires dependency closure and supports multiple roots",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
           ]
         },
         {
           "id": "DL-2",
           "requirement": "repeated selection extends an existing partial canonical graph with additional roots and overlapping state",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_repeated_selection_extends_existing_partial_graph"
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_repeated_selection_extends_existing_partial_graph"
           ]
         },
         {
@@ -166,8 +166,8 @@
           "id": "DL-5",
           "requirement": "lane list presents grouped issue/title inventory while lane view renders the same selection as title-free dependency topology",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure",
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
         },
         {
@@ -181,14 +181,14 @@
           "id": "DL-7",
           "requirement": "select replaces roots; select add unions roots and acquires missing closure; select remove subtracts roots",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_select_add_remove_preserve_distinct_root_semantics"
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_select_add_remove_preserve_distinct_root_semantics"
           ]
         },
         {
           "id": "DL-8",
           "requirement": "A repository carrying a reviewed native-dependency migration manifest must fail closed before lane bootstrap until the provider migration is certified against that exact manifest",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_repository_manifest_blocks_bootstrap_until_migration_certified",
+            "tests/test_first_use_lanes_state.py::FirstUseStateTests.test_repository_manifest_blocks_bootstrap_until_migration_certified",
             "tests/test_dependency_migration_certification.py::DependencyMigrationCertificationTests.test_certification_must_match_current_manifest_digest"
           ]
         },
@@ -196,8 +196,8 @@
           "id": "DL-9",
           "requirement": "pre-existing canonical dependency state is reconciled against certified ticket dependencies only at an explicit refresh boundary: empty destination copies source and non-empty disagreement fails closed",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_existing_empty_canonical_issue_reconciles_after_provider_migration",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_existing_nonempty_dependency_conflict_fails_closed"
+            "tests/test_first_use_lanes_state.py::FirstUseStateTests.test_existing_empty_canonical_issue_reconciles_after_provider_migration",
+            "tests/test_first_use_lanes_state.py::FirstUseStateTests.test_existing_nonempty_dependency_conflict_fails_closed"
           ]
         },
         {
@@ -221,27 +221,27 @@
           "verification": [
             "tests/test_lane_render.py::LaneRenderTests.test_independent_roots_are_each_rendered_once",
             "tests/test_lane_render.py::LaneRenderTests.test_titles_do_not_change_graph_geometry",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_human_select_renders_graph_and_list_uses_same_selection"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_human_select_renders_graph_and_list_uses_same_selection"
           ]
         },
         {
           "id": "DL-13",
           "requirement": "lane relationship acquisition is cache-first: repeated selection and remove perform zero dependency-provider reads for known closure; add reads only missing nodes; --refresh rereads only the relevant closure and provider failure preserves prior graph/selection",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_cached_selection_reuses_relationships_and_add_reads_only_missing",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_rereads_relevant_closure_only",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_cached_selection_succeeds_when_dependency_provider_is_unavailable",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_provider_failure_preserves_graph_and_selection"
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_cached_selection_reuses_relationships_and_add_reads_only_missing",
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_refresh_rereads_relevant_closure_only",
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_cached_selection_succeeds_when_dependency_provider_is_unavailable",
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_refresh_provider_failure_preserves_graph_and_selection"
           ]
         },
         {
           "id": "DL-14",
           "requirement": "lanes list and lanes view read synchronized local metadata without provider access; explicit --refresh is the provider reread boundary",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_and_view_are_offline_until_explicit_refresh",
+            "tests/test_first_use_lanes_provider.py::FirstUseProviderTests.test_lane_list_and_view_are_offline_until_explicit_refresh",
             "tests/test_lane_list.py::LaneListTests.test_list_groups_issues_by_lane_with_titles",
             "tests/test_lane_list.py::LaneListTests.test_links_are_optional",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_list_refresh_updates_cached_issue_metadata"
+            "tests/test_first_use_lanes_provider.py::FirstUseProviderTests.test_lane_list_refresh_updates_cached_issue_metadata"
           ]
         },
         {
@@ -252,8 +252,8 @@
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_error_record_and_concurrent_records_are_distinct",
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_diagnostic_write_failure_is_warning_not_command_failure",
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_debug_projection_reports_sources_timing_and_edges",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_failed_lane_refresh_writes_failure_diagnostics"
+            "tests/test_first_use_lanes_provider.py::FirstUseProviderTests.test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use",
+            "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_failed_lane_refresh_writes_failure_diagnostics"
           ]
         },
         {
@@ -268,7 +268,7 @@
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_multi_overlap_geometry_preserves_exact_edge_set",
             "tests/test_graph_layout_semantics.py::GraphLayoutSemanticTests.test_long_edge_variants_preserve_connected_routes",
             "tests/test_lane_render.py::LaneRenderTests.test_redundant_long_dependency_is_not_displayed",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_view_is_deterministic_across_fresh_processes",
+            "tests/test_first_use_lanes_provider.py::FirstUseProviderTests.test_lane_view_is_deterministic_across_fresh_processes",
             "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_fan_out_fan_in_bridge_does_not_create_false_reachability",
             "tests/test_generated_graph_semantics.py::GeneratedGraphSemanticTests.test_every_four_node_dag_preserves_rendered_reachability"
           ]
@@ -281,7 +281,7 @@
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_middle_seed_expands_both_dependency_directions",
             "tests/test_lane_selection.py::LaneSelectionTests.test_selected_dependency_is_focus_inside_complete_component",
             "tests/test_lane_component_selection_cli.py::LaneComponentSelectionCliTests.test_focus_seed_renders_complete_synchronized_component",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_leaf_focus_discovers_complete_component_from_provider"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_leaf_focus_discovers_complete_component_from_provider"
           ]
         },
         {
@@ -289,7 +289,7 @@
           "requirement": "assembled lane cache/list/view/refresh/diagnostics/routing workflow is certified against real GitHub data, and the current committed canonical typed-ticket graph is exercised through both full renderer projection and the shipped public CLI; local repeated inspection performs zero provider reads, explicit refresh performs provider reads, and displayed renderer routes preserve dependency reachability",
           "verification": [
             "tests/test_real_provider_lane_certification.py::RealProviderLaneCertificationTests.test_real_provider_cache_and_routing_certification",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_lane_flag_combinations_are_accepted_by_public_grammar",
+            "tests/test_first_use_lanes_provider.py::FirstUseProviderTests.test_lane_flag_combinations_are_accepted_by_public_grammar",
             "tests/test_canonical_lane_smoke.py::CanonicalLaneSmokeTests.test_current_typed_issue_smoke_renders_through_public_cli",
             "tests/test_lane_graph_adapter.py::LaneGraphAdapterTests.test_repository_typed_ticket_selection_projects_successfully"
           ]
@@ -352,8 +352,8 @@
             "tests/test_lane_decomposition.py::LaneDecompositionTests.test_same_node_can_be_reached_with_different_remaining_budget",
             "tests/test_lane_follow_grammar.py::LaneFollowGrammarTests.test_follow_forms_parse_through_public_grammar",
             "tests/test_lane_selection.py::LaneSelectionTests.test_follow_policy_is_persisted_with_selection",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_group_boundary_stops_provider_component_until_followed",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_refresh_preserves_consumed_follow_budget"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_group_boundary_stops_provider_component_until_followed",
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_refresh_preserves_consumed_follow_budget"
           ]
         },
         {
@@ -364,8 +364,8 @@
             "tests/test_lane_show_children.py::LaneShowChildrenTests.test_display_child_also_reached_normally_keeps_traversing",
             "tests/test_lane_show_children_grammar.py::LaneShowChildrenGrammarTests.test_show_children_forms_parse",
             "tests/test_lane_selection.py::LaneSelectionTests.test_show_children_policy_is_persisted_with_selection",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_fetches_one_hop_without_recursive_traversal",
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_show_children_support_fetch_does_not_expand_projection"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_show_children_fetches_one_hop_without_recursive_traversal",
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_show_children_support_fetch_does_not_expand_projection"
           ]
         },
         {
@@ -453,28 +453,28 @@
           "id": "SE-1",
           "requirement": "ordinary mutating invocation provisions identity without manual exports",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
+            "tests/test_first_use_lanes.py::FirstUseGraphTests.test_fresh_checkout_selects_and_renders_ticket_dependency_closure"
           ]
         },
         {
           "id": "SE-2",
           "requirement": "read-only paths do not create runtime identity",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_read_only_lane_failure_does_not_create_runtime_identity"
+            "tests/test_first_use_lanes_state.py::FirstUseStateTests.test_read_only_lane_failure_does_not_create_runtime_identity"
           ]
         },
         {
           "id": "SE-3",
           "requirement": "partial explicit identity fails without synthesizing the missing half",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_partial_explicit_identity_fails_without_synthesizing_other_half"
+            "tests/test_first_use_lanes_state.py::FirstUseStateTests.test_partial_explicit_identity_fails_without_synthesizing_other_half"
           ]
         },
         {
           "id": "SE-4",
           "requirement": "explicit agent identity is preserved",
           "verification": [
-            "tests/test_first_use_lanes.py::FirstUseLanesTests.test_explicit_agent_identity_is_preserved"
+            "tests/test_first_use_lanes_state.py::FirstUseStateTests.test_explicit_agent_identity_is_preserved"
           ]
         }
       ],
