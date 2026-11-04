@@ -360,7 +360,7 @@ class BootstrapCliTests(unittest.TestCase):
       self.assertEqual(info["infoCommand"][0], sys.executable)
       self.assertEqual(dependency["dependencyCommand"][0], sys.executable)
       self.assertEqual(
-        Path(info["infoCommand"][1]).name, "repo-info-github.py",
+        Path(info["infoCommand"][1]).name, "repo-info-ci-github.py",
       )
       self.assertEqual(
         Path(dependency["dependencyCommand"][1]).name,
