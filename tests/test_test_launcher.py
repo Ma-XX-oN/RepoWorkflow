@@ -26,14 +26,39 @@ class ShippedTestLauncher(unittest.TestCase):
       capture_output=True, text=True, check=False,
     )
 
-  def test_all_six_stage_help_commands_are_reachable(self):
+  def test_static_stage_help_commands_are_reachable(self):
     for name in (
-      "RED", "temporary", "GREEN", "regression", "integration", "results",
+      "temporary", "GREEN", "regression", "integration", "results",
     ):
       with self.subTest(stage=name):
         out = self.launcher("test", name, "--help")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("--remote", out.stdout + out.stderr)
+
+  def test_shipped_red_help_is_current_issue_aware(self):
+    missing = self.launcher("test", "RED", "--help")
+    tab = self.launcher("complete", "test", "RED", "")
+    double = self.launcher("complete", "--describe", "test", "RED", "")
+    for response in (missing, tab, double):
+      self.assertEqual(response.returncode, 2, response)
+      self.assertEqual(response.stdout, "")
+      self.assertIn("RED/GREEN tests do not exist", response.stderr)
+    self.assertEqual({x.stderr for x in (missing, tab, double)},
+                     {missing.stderr})
+
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-red-help",
+    )
+    described = self.launcher("test", "RED", "--help")
+    double = self.launcher(
+      "complete", "--describe", "test", "RED", "",
+    )
+    single = self.launcher("complete", "test", "RED", "")
+    for result in (described, double, single):
+      self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(described.stdout, double.stdout)
+    self.assertIn("issue-545-red-help", single.stdout)
+    self.assertIn("issue-545-red-help", described.stdout)
 
   def test_shipped_completion_lists_six_current_testing_stages(self):
     output = self.launcher("complete", "test", "")
