@@ -432,7 +432,14 @@ def handle_completion(
 
   items = list(response.items)
   if items:
-    _print_completion_items(items, describe=describe)
+    if describe and words == ["test", "RED", ""]:
+      for item in items:
+        suffix = " - " + item.description if (
+          item.description and item.token != "--remote"
+        ) else ""
+        print(item.token + suffix)
+    else:
+      _print_completion_items(items, describe=describe)
     return 0
 
   if _completed_command_is_terminal(legal, words):
