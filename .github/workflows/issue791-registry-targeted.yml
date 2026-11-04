@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: f9850887e848868ea658e96a2f6b1800ebabe1ca
+          ref: cf135ce15293ab169ba66f28a81e14776fa10bb6
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -24,6 +24,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = f9850887e848868ea658e96a2f6b1800ebabe1ca
+          test "$(git rev-parse HEAD)" = cf135ce15293ab169ba66f28a81e14776fa10bb6
           python -m pip install -r requirements.txt
-          python -m unittest tests.test_first_use_workflows tests.test_lane_diagnostics.LaneDiagnosticsTests.test_timing_accounting_is_internally_consistent tests.test_first_use_lanes.FirstUseGraphTests.test_diagnostic_record_survives_fresh_process_readback
+          python -m unittest tests.test_first_use_workflows tests.test_lane_diagnostics.LaneDiagnosticsTests.test_timing_accounting_is_internally_consistent tests.test_first_use_lanes.FirstUseGraphTests.test_diagnostic_record_survives_fresh_process_readback tests.test_lane_follow_verification tests.test_lane_show_children_verification
