@@ -1,0 +1,31 @@
+name: RWF 660 Full CMD Identity Native Probe
+on:
+  push:
+    branches:
+      - issue-660-cmd-full-identity-correction-20261104
+    paths:
+      - .github/workflows/issue-660-cmd-identity-probe.yml
+permissions:
+  contents: read
+jobs:
+  exact-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact source and compile Python
+        shell: bash
+        run: |
+          git rev-parse HEAD
+          python -m py_compile repo_workflow/remote_status.py tests/test_remote_status_790.py
+      - name: Execute unchanged status module and duplicate-number regression
+        shell: bash
+        run: python -m unittest tests.test_remote_status_790 -v
