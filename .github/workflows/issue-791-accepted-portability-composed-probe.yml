@@ -1,0 +1,46 @@
+name: RWF 791 accepted source-only portability composition test
+on:
+  push:
+    branches: [issue-791-accepted-portability-composed-20261104]
+    paths: [.github/workflows/issue-791-accepted-portability-composed-probe.yml]
+permissions:
+  contents: read
+jobs:
+  focused:
+    name: accepted-imports (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd2eb1bb61ad0f0d9300ef00d239dcb8b4b4477b
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - shell: bash
+        run: python -m pip install -r requirements.txt
+      - name: Exact source, portable CLI, P4 provider, migration (no skips)
+        shell: bash
+        env:
+          EXPECTED_SOURCE: cd2eb1bb61ad0f0d9300ef00d239dcb8b4b4477b
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          python - <<'PY'
+          import os, subprocess, sys, unittest
+          actual = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          assert actual == os.environ["EXPECTED_SOURCE"], (actual, os.environ["EXPECTED_SOURCE"])
+          names = ("tests.test_issue629_cli_acceptance",
+                   "tests.test_bootstrap_cli",
+                   "tests.test_first_use_lanes_state")
+          suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromName(x) for x in names)
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          print("SOURCE=%s OS=%s RUN=%s FAIL=%s ERR=%s SKIP=%s" %
+                (actual, sys.platform, result.testsRun, len(result.failures),
+                 len(result.errors), len(result.skipped)))
+          assert result.testsRun == 24, "all 24 known methods must execute"
+          assert not result.failures and not result.errors and not result.skipped
+          PY
