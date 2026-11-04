@@ -1,0 +1,38 @@
+name: RWF 791 CMD Chain Native Contract
+on:
+  push:
+    branches: [issue-791-native-*]
+    paths: [.ci/targeted-cmd-contract-trigger]
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cf135ce15293ab169ba66f28a81e14776fa10bb6
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact source registered wrapper transport publisher status and trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = cf135ce15293ab169ba66f28a81e14776fa10bb6
+          python -m pip install -r requirements.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python -m unittest \
+            tests.test_remote_invocation_786 \
+            tests.test_issue787_remote_request \
+            tests.test_issue788_hosted_forward \
+            tests.test_remote_result_789 \
+            tests.test_remote_status_790 \
+            tests.test_test_cli_remote \
+            tests.test_ci_invocation_trigger_contract
