@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: b335308cdb90cd1d1e084e1ddcaacbf5a7609310
+          ref: 5971257feeae855cb92688561810806750887d26
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -29,7 +29,7 @@ jobs:
       - name: Verify exact source and five methods without skips
         shell: bash
         env:
-          EXPECTED_SOURCE: b335308cdb90cd1d1e084e1ddcaacbf5a7609310
+          EXPECTED_SOURCE: 5971257feeae855cb92688561810806750887d26
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
           python - <<'PY'
