@@ -45,23 +45,27 @@ def main() -> int:
   evidence = []
   for group in groups:
     command = group_command(ROOT, group)
-    result = subprocess.run(
-      command,
-      cwd=ROOT,
-      text=True,
-      capture_output=True,
-      check=False,
-    )
+    try:
+      result = subprocess.run(
+        command, cwd=ROOT, capture_output=True, check=False,
+      )
+      stdout = result.stdout.decode("utf-8", "strict")
+      stderr = result.stderr.decode("utf-8", "strict")
+      code = result.returncode
+    except (OSError, UnicodeError):
+      stdout = ""
+      stderr = "selected test cannot execute or decode UTF-8 output"
+      code = 2
     evidence.append({
       "group": group,
       "command": list(command),
-      "returncode": result.returncode,
+      "returncode": code,
     })
-    if result.stdout:
-      print(result.stdout, end="")
-    if result.stderr:
-      print(result.stderr, end="", file=sys.stderr)
-    if result.returncode:
+    if stdout:
+      print(stdout, end="")
+    if stderr:
+      print(stderr, end="", file=sys.stderr)
+    if code:
       print(json.dumps({
         "tier": "issue",
         "groups": groups,

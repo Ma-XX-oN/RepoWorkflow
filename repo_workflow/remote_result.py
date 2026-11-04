@@ -49,10 +49,11 @@ def _run(root: Path, *args: str, data: bytes | None = None,
   except OSError as exc:
     raise RemoteResultError(f"Git invocation failed: {exc}") from exc
   if result.returncode:
-    raise RemoteResultError(
-      f"Git {args[0]} failed: " +
-      result.stderr.decode("utf-8", errors="replace").strip()
-    )
+    try:
+      diagnostic = result.stderr.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+      raise RemoteResultError("Git stderr is not valid UTF-8") from exc
+    raise RemoteResultError(f"Git {args[0]} failed: {diagnostic}")
   return result.stdout
 
 

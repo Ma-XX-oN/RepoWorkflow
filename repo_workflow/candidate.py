@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .git import changed_files, git, head_sha, repository_state, restore_repository_state
+from .git import changed_files, git, git_bytes, git_wire_path, head_sha, repository_state, restore_repository_state
 from .guard import Candidate, GuardError, validate_candidate
 from .version_adapter import (
   VersionAdapterError,
@@ -107,22 +107,18 @@ def _request_needs_refresh(root: Path, config: dict, version: str) -> bool:
   if ancestry.returncode:
     return True
   allowed = {
-    path.replace("\\", "/")
+    path
     for artifact in config.get("artifacts", [])
     if artifact.get("committed", True)
     for path in artifact.get("outputs", [])
   }
-  changed = {
-    line.strip().replace("\\", "/")
-    for line in git(
-      root,
-      "log",
-      "--format=",
-      "--name-only",
-      f"{request_commit}..{head}",
-    ).stdout.splitlines()
-    if line.strip()
-  }
+  raw = git_bytes(
+    root, "log", "--format=", "--name-only", "-z",
+    f"{request_commit}..{head}",
+  ).stdout
+  if raw and not raw.endswith(b"\0"):
+    raise GuardError("unterminated Git history path record")
+  changed = {git_wire_path(item) for item in raw.split(b"\0") if item}
   return bool(changed - allowed)
 
 

@@ -33,7 +33,7 @@ from .runtime_identity import runtime_writer_identity
 from .remote_status import (
   RemoteStatusError, parse_intervals, remote_status, submit_remote,
 )
-from .test_cli import read_selection, select_group
+from .test_cli import read_selection, validate_group
 from .test_red_declaration import red_declaration
 from .test_results_reader import TestCommandError
 from .ticket_merge import configure_ticket_merge_driver
@@ -125,22 +125,29 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # Keep RED group selection legal when switches follow its group name.
+  # A named RED group is a terminal grammar value. For client-only
+  # polling, validate the complete switch sequence with the shared grammar;
+  # select_group separately validates the actual registered group name.
+  grammar_words = words
   if (
     len(words) >= 4 and words[:2] == ["test", "RED"]
     and not words[2].startswith("--") and words[3] == "--remote"
   ):
-    words = [words[0], words[1], "--remote", words[2], *words[4:]]
+    if len(words) >= 5 and words[4] == "--poll":
+      grammar_words = [*words[:2], *words[3:]]
+    else:
+      words = [words[0], words[1], "--remote", words[2], *words[4:]]
+      grammar_words = words
   general, legal, facts, plan, state, failure = _diagnose(
     root,
-    words,
+    grammar_words,
     completion=False,
   )
   if failure is not None:
     return _print_failure(failure)
 
-  parse_tokens(COMMANDS, general, words)
-  parse_tokens(COMMANDS, legal, words)
+  parse_tokens(COMMANDS, general, grammar_words)
+  parse_tokens(COMMANDS, legal, grammar_words)
 
   # Status is read-only, including no ticket merge-driver configuration.
   if words[0] == "remote-status":
@@ -174,7 +181,7 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
     )
     submitted = [value for value in words[:offset] if value != "--remote"]
     group = next((value for value in submitted[2:] if value), None)
-    selected = select_group(root, group) if group is not None else read_selection(root)
+    selected = validate_group(root, group) if group is not None else read_selection(root)
     if selected is None:
       return run_test(
         root, "RED", remote=True, engine_root=engine_root, group=None,
@@ -387,12 +394,14 @@ def _completed_command_is_terminal(
   return True
 
 
-def _print_completion_items(items, *, describe: bool) -> None:
+def _print_completion_items(items, *, describe: bool, red_listing: bool = False) -> None:
   if describe:
     width = max(len(item.token) for item in items)
     for item in items:
       if item.description is None:
         print(item.token)
+      elif red_listing:
+        print(f"{item.token} - {item.description}")
       else:
         print(f"{item.token:<{width}}  {item.description}")
     return
@@ -425,7 +434,7 @@ def handle_completion(
 
   items = list(response.items)
   if items:
-    _print_completion_items(items, describe=describe)
+    _print_completion_items(items, describe=describe, red_listing=describe and words[:2] == ["test", "RED"])
     return 0
 
   if _completed_command_is_terminal(legal, words):
@@ -437,19 +446,7 @@ def handle_completion(
 
 
 def handle_help(root: Path, words: list[str]) -> int:
-  if words == ["test", "RED"]:
-    # RED help is unconditional; only interactive completion needs registered groups.
-    node = COMMANDS["test"]["RED"]
-    print(node["_description"])
-    print(node["_value_description"])
-    print("Register current issue-N- test groups in .ci/tests.json.")
-    for option, description in node["_switches"].items():
-      print(option + "  " + (
-        description if isinstance(description, str) else description[""]
-      ))
-    return 0
-  help_words = [*words, ""]
-  return handle_completion(root, help_words, describe=True)
+  return handle_completion(root, [*words, ""], describe=True)
 
 
 def is_public_command(word: str) -> bool:

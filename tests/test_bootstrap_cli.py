@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -66,11 +67,67 @@ class BootstrapCliTests(unittest.TestCase):
       prefixes = [(), *static_prefixes(COMMANDS)]
       prefixes.append(("test", "integration"))
       for prefix in prefixes:
+        if prefix == ("test", "RED"):
+          continue  # RED help requires a current issue and registered groups.
         with self.subTest(prefix=prefix):
           completed = self.run_cli(root, *prefix, "--help")
           self.assertEqual(completed.returncode, 0, completed.stderr)
           self.assertNotIn("repoworkflow.json", completed.stderr)
           self.assertNotIn("missing RepoWorkflow configuration", completed.stderr)
+
+
+  def test_red_help_uses_current_issue_catalogue_and_errors(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      # Absent started issue and catalogue: help must match shared completion.
+      missing = self.run_cli(root, "test", "RED", "--help")
+      missing_completion = self.run_cli(root, "complete", "test", "RED", "")
+      self.assertNotEqual(missing.returncode, 0)
+      self.assertEqual(missing.returncode, missing_completion.returncode)
+      self.assertEqual(missing.stderr, missing_completion.stderr)
+
+      subprocess.run(
+        ["git", "checkout", "-b", "issue-297-help-fixture"],
+        cwd=root, check=True, capture_output=True,
+      )
+      catalogue = root / ".ci" / "tests.json"
+      catalogue.parent.mkdir()
+      value = {
+        "test-harnesses": {
+          "unittest": {"command": "python", "layout": ["-m", "unittest", "$test"]},
+        },
+        "tests": [{
+          "test-harness": "unittest",
+          "issue-297-current": {
+            "type": "regression", "name": "tests.test_bootstrap_cli",
+          },
+          "issue-296-other": {
+            "type": "regression", "name": "tests.test_bootstrap_cli",
+          },
+        }],
+      }
+      catalogue.write_text(json.dumps(value), encoding="utf-8")
+      current = self.run_cli(root, "test", "RED", "--help")
+      single = self.run_cli(root, "complete", "test", "RED", "")
+      self.assertEqual(current.returncode, 0, current.stderr)
+      self.assertEqual(single.returncode, 0, single.stderr)
+      self.assertIn("issue-297-current", current.stdout)
+      self.assertNotIn("issue-296-other", current.stdout)
+      self.assertEqual(
+        [line.split(" - ", 1)[0] for line in current.stdout.splitlines()],
+        single.stdout.splitlines(),
+      )
+
+      value["tests"][0].pop("issue-297-current")
+      catalogue.write_text(json.dumps(value), encoding="utf-8")
+      absent = self.run_cli(root, "test", "RED", "--help")
+      absent_completion = self.run_cli(root, "complete", "test", "RED", "")
+      self.assertNotEqual(absent.returncode, 0)
+      self.assertEqual(absent.returncode, absent_completion.returncode)
+      self.assertEqual(absent.stderr, absent_completion.stderr)
+      self.assertIn("RED/GREEN tests do not exist", absent.stderr)
 
   def test_lanes_help_describes_nested_public_commands(self):
     with tempfile.TemporaryDirectory() as td:
