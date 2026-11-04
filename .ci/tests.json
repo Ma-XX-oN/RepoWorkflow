@@ -18,6 +18,83 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-786-cmd-wrapper": {
+        "type": "regression",
+        "name": "tests.test_remote_invocation_786"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-788-hosted-forward": {
+        "type": "regression",
+        "name": "tests.test_issue788_hosted_forward"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-791-publisher-wiring": {
+        "type": "regression",
+        "name": "tests.test_issue791_publisher_wiring"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-strict-provider-utf8": {
+        "type": "regression",
+        "name": "tests.test_provider_adapter_p11"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-git-protocol": {
+        "type": "regression",
+        "name": "tests.test_git_protocol_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-process-boundary": {
+        "type": "regression",
+        "name": "tests.test_process_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-719-launcher-discovery-utf8": {
+        "type": "regression",
+        "name": "tests.test_launcher_discovery_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-728-local-terminal-jsonl": {
+        "type": "regression",
+        "name": "tests.test_local_terminal_jsonl_p16"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-hosted-version-utf8": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-portable-subprocess": {
+        "type": "regression",
+        "name": "tests.test_portability_subprocess"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-windows-unicode-output": {
+        "type": "regression",
+        "name": "tests.test_windows_unicode_output_p9"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-792-provider-status": {
         "type": "regression",
         "name": "tests.test_issue792_provider_status"
