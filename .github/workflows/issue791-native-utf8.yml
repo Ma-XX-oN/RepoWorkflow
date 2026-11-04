@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: b437b37a35baee0483a4a9c1a0bd9b100a33c3f6
+          ref: 44006f61a0825d681c7470bfc1712a0259b63b2d
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -28,7 +28,7 @@ jobs:
       - name: Assert exact accepted-source identity
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "b437b37a35baee0483a4a9c1a0bd9b100a33c3f6"
+          test "$(git rev-parse HEAD)" = "44006f61a0825d681c7470bfc1712a0259b63b2d"
           python --version
           git --version
       - name: Install declared dependencies
@@ -40,4 +40,4 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$GITHUB_REF_NAME"
-          python -m unittest -v tests.test_bootstrap_cli
+          python -m unittest -v tests.test_bootstrap_cli tests.test_first_use_lanes_state
