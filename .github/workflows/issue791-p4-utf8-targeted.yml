@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d4115e44025eeb33e3fb5dbf6d232b8e776f2851
+          ref: 0a769f0a9793b64947edec01ef2615d07afa0bf0
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -24,12 +24,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = d4115e44025eeb33e3fb5dbf6d232b8e776f2851
+          test "$(git rev-parse HEAD)" = 0a769f0a9793b64947edec01ef2615d07afa0bf0
           python -m pip install -r requirements.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           python -m unittest \
-            tests.test_first_use_lanes.FirstUseLanesTests.test_existing_empty_canonical_issue_reconciles_after_provider_migration \
-            tests.test_first_use_lanes.FirstUseLanesTests.test_existing_nonempty_dependency_conflict_fails_closed \
-            tests.test_first_use_lanes.FirstUseLanesTests.test_repository_manifest_blocks_bootstrap_until_migration_certified \
-            tests.test_remote_result_789.ResultFixture.test_failed_git_with_invalid_utf8_stderr_fails_closed
+            tests.test_first_use_lanes \
+            tests.test_first_use_lanes_refresh \
+            tests.test_first_use_lanes_provider \
+            tests.test_first_use_lanes_state \
+            tests.test_remote_result_789
