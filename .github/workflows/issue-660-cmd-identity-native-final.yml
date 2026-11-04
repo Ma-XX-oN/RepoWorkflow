@@ -1,0 +1,43 @@
+name: RWF 660 Full CMD Identity Exact Native Regression
+on:
+  push:
+    branches: [issue-660-cmd-identity-native-final-20261104]
+    paths: [.github/workflows/issue-660-cmd-identity-native-final.yml]
+permissions:
+  contents: read
+jobs:
+  full-native:
+    name: full-native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 42008c5733e38eb699edd728e76521c6b6a2eed1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact candidate and environment
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "42008c5733e38eb699edd728e76521c6b6a2eed1"
+          python --version
+          git --version
+      - name: Install requirements
+        shell: bash
+        run: python -m pip install -r requirements.txt
+      - name: Run registered full regression
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$GITHUB_REF_NAME"
+          ./rwf test regression
