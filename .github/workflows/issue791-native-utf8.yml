@@ -4,7 +4,7 @@ on:
     branches:
       - issue-791-native-*
     paths:
-      - .ci/run
+      - .ci/native-rwf-791
 permissions:
   contents: read
   actions: read
@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 5aea7542ae1769a06b5d0eebf78224a93476ee5b
+          ref: 97e8df1ebbdb8ffa54f7e9308a286b7fb240041b
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -26,7 +26,7 @@ jobs:
       - name: Assert exact accepted-source identity
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "5aea7542ae1769a06b5d0eebf78224a93476ee5b"
+          test "$(git rev-parse HEAD)" = "97e8df1ebbdb8ffa54f7e9308a286b7fb240041b"
           python --version
           git --version
       - name: Install declared dependencies
