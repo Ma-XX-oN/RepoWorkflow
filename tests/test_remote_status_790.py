@@ -39,18 +39,18 @@ class StatusTest(unittest.TestCase):
     git(self.root, "add", "README")
     git(self.root, "commit", "-m", "source")
 
-  def add_cmd(self, number):
-    branch = f"CMD-{number}-issue-790"
-    git(self.root, "checkout", "-b", branch, "issue-790")
+  def add_cmd(self, number, source="issue-790"):
+    branch = f"CMD-{number}-{source}"
+    git(self.root, "checkout", "-b", branch, source)
     (self.root / ".ci").mkdir(exist_ok=True)
     (self.root / ".ci/rwf").write_text(
       "test RED --remote 0\n", encoding="utf-8",
     )
     git(self.root, "add", ".ci/rwf")
     git(self.root, "commit", "-m", "request",
-        "-m", f"RWF-Source: {git(self.root, 'rev-parse', 'issue-790')}")
+        "-m", f"RWF-Source: {git(self.root, 'rev-parse', source)}")
     git(self.root, "push", "origin", branch)
-    git(self.root, "checkout", "issue-790")
+    git(self.root, "checkout", source)
     return branch
 
   def test_default_explicit_and_negative_selection(self):
@@ -63,6 +63,26 @@ class StatusTest(unittest.TestCase):
     for value in (0, 1, 8, -3):
       with self.subTest(value=value), self.assertRaises(RemoteStatusError):
         resolve_command(self.root, value)
+
+  def test_full_source_branch_identity_disambiguates_same_cmd_number(self):
+    first = self.add_cmd(1)
+    git(self.root, "branch", "issue-791", "issue-790")
+    second = self.add_cmd(1, source="issue-791")
+    self.assertNotEqual(first, second)
+    self.assertEqual(resolve_command(self.root, 1).branch, second)
+    self.assertEqual(resolve_command(self.root, -1).branch, second)
+    with patch("repo_workflow.remote_status.read_result", return_value=None):
+      with patch("repo_workflow.remote_status.ci_invocation_status",
+                 return_value={"state": "not-observed", "run_id": None}):
+        status = command_status(
+          self.root, 1, info_config={"infoCommand": ["fake"]},
+        )
+    self.assertEqual(status.branch, second)
+    git(self.root, "checkout", "issue-790")
+    self.assertEqual(resolve_command(self.root, 1).branch, first)
+    git(self.root, "checkout", "-b", "issue-792")
+    with self.assertRaisesRegex(RemoteStatusError, "no numbered CMD"):
+      resolve_command(self.root, 1)
 
   def test_unobserved_is_pending_never_retry(self):
     self.add_cmd(1)
