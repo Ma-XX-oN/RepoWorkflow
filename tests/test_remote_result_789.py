@@ -4,6 +4,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
+from unittest.mock import patch
 import subprocess
 import tempfile
 import unittest
@@ -66,6 +67,15 @@ class ResultFixture(unittest.TestCase):
   def outcome(self, status=0, output="ok λ\n"):
     return Outcome(self.branch, self.request, self.source, 0,
                    status, output, "", output)
+
+  def test_failed_git_with_invalid_utf8_stderr_fails_closed(self):
+    from repo_workflow.remote_result import _run
+    invalid = subprocess.CompletedProcess(
+      ["git", "status"], 7, b"", b"\xffinvalid",
+    )
+    with patch("repo_workflow.remote_result.subprocess.run", return_value=invalid):
+      with self.assertRaisesRegex(RemoteResultError, "Git stderr is not valid UTF-8"):
+        _run(self.root, "status")
 
   def test_success_durable_readback_and_source_unchanged(self):
     self.assertIsNone(read_result(self.root, self.branch))
