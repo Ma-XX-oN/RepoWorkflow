@@ -34,17 +34,13 @@ jobs:
         run: python -m pip install -r target/requirements.txt
       - name: Compile profiler and aggregator
         shell: bash
-        run: python -m py_compile experiments/rwf809_profiler/sitecustomize.py experiments/rwf809_profiler/aggregate.py
+        run: python -m py_compile experiments/rwf809_profiler/sitecustomize.py experiments/rwf809_profiler/aggregate.py experiments/rwf809_profiler/launch.py
       - name: Execute focused exact-source remote invocation tests
         id: test
         shell: bash
-        env:
-          RWF809_TRACE_DIR: ${{ github.workspace }}/rwf809-process-logs
-          PYTHONPATH: ${{ github.workspace }}/experiments/rwf809_profiler:${{ github.workspace }}/target
         run: |
           set +e
-          cd target
-          python -m unittest tests.test_remote_invocation_786 -v
+          python experiments/rwf809_profiler/launch.py target module tests.test_remote_invocation_786
           code=$?
           echo "rc=$code" >> "$GITHUB_OUTPUT"
           exit 0
