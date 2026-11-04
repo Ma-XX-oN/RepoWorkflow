@@ -252,6 +252,8 @@
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_error_record_and_concurrent_records_are_distinct",
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_diagnostic_write_failure_is_warning_not_command_failure",
             "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_debug_projection_reports_sources_timing_and_edges",
+          "tests/test_lane_diagnostics.py::LaneDiagnosticsTests.test_timing_accounting_is_internally_consistent",
+          "tests/test_first_use_lanes.py::FirstUseGraphTests.test_diagnostic_record_survives_fresh_process_readback",
             "tests/test_first_use_lanes_provider.py::FirstUseProviderTests.test_lane_progress_debug_and_diagnostic_records_reflect_real_provider_use",
             "tests/test_first_use_lanes_refresh.py::FirstUseRefreshTests.test_failed_lane_refresh_writes_failure_diagnostics"
           ]
