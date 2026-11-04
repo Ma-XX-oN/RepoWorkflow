@@ -512,6 +512,13 @@
     },
     {
       "test-harness": "unittest",
+      "issue-737-strict-provider-utf8": {
+        "type": "regression",
+        "name": "tests.test_provider_adapter_p11"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-751-jsonl-unicode-delimiters": {
         "type": "regression",
         "name": "tests.test_local_terminal_jsonl_p16"
