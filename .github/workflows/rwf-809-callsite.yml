@@ -31,17 +31,13 @@ jobs:
       - name: Install declared runtime requirements
         run: python -m pip install -r target/requirements.txt
       - name: Validate tracer syntax
-        run: python -m py_compile experiments/rwf809_profiler/sitecustomize.py experiments/rwf809_profiler/aggregate.py
+        run: python -m py_compile experiments/rwf809_profiler/sitecustomize.py experiments/rwf809_profiler/aggregate.py experiments/rwf809_profiler/launch.py
       - name: Profile exact-source regression without product mutation
         id: profile
         shell: bash
-        env:
-          RWF809_TRACE_DIR: ${{ github.workspace }}/rwf809-process-logs
-          PYTHONPATH: ${{ github.workspace }}/experiments/rwf809_profiler:${{ github.workspace }}/target
         run: |
           set +e
-          cd target
-          python scripts/validate.py
+          python experiments/rwf809_profiler/launch.py target regression
           rc=$?
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           exit 0
