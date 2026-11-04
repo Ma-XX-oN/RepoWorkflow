@@ -1,0 +1,38 @@
+name: RWF 791 exact final PR macOS native recovery
+on:
+  push:
+    branches: [issue-791-pr803-macos-recovery-20261104]
+    paths: [.github/workflows/issue791-pr803-macos-recovery.yml]
+permissions:
+  contents: read
+jobs:
+  macos-regression:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5c83b7f8ef7def80932d02161a67452d1ca44881
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Assert exact source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "5c83b7f8ef7def80932d02161a67452d1ca44881"
+          python --version
+          git --version
+      - name: Install requirements
+        shell: bash
+        run: python -m pip install -r requirements.txt
+      - name: Execute unchanged full native regression
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$GITHUB_REF_NAME"
+          ./rwf test regression
