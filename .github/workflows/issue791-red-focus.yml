@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 655740a531863b648ea78f930cde7389f42b53a1
+          ref: 6c5b95781513851e5397b46d13dd47bf5aafa2f5
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 655740a531863b648ea78f930cde7389f42b53a1
+          test "$(git rev-parse HEAD)" = 6c5b95781513851e5397b46d13dd47bf5aafa2f5
           python -m pip install -r requirements.txt
           git switch -c issue-791-red-help-diagnostic-20261104
           git config user.name 'github-actions[bot]'
@@ -40,4 +40,6 @@ jobs:
             tests.test_completion.BashCompletionTests.test_red_single_tab_and_double_tab_equal_direct_help \
             tests.test_completion.BashCompletionTests.test_red_missing_groups_report_same_real_error \
             tests.test_test_launcher.ShippedTestLauncher.test_shipped_red_help_is_current_issue_aware \
-            tests.test_ci_invocation_trigger_contract.ExplicitCiInvocationTests.test_push_workflows_have_explicit_paths
+            tests.test_ci_invocation_trigger_contract.ExplicitCiInvocationTests.test_push_workflows_have_explicit_paths \
+            tests.test_workflow_transitions.WorkflowTransitionTests.test_regression_failure_from_zero_iteration_starts_first_iteration \
+            tests.test_hosted_version_identity.HostedIdentityTests.test_historical_collision_cannot_poison_new_iteration
