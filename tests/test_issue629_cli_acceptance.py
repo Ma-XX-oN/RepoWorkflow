@@ -49,7 +49,7 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
       with self.subTest(stage=stage):
         response = run_cli("test", stage, "--help")
         if stage == "RED" and response.returncode != 0:
-          self.assertIn(".ci/tests.json", response.stdout + response.stderr)
+          self.assertIn("RED tests require a current started issue branch", response.stdout + response.stderr)
         else:
           self.assertEqual(response.returncode, 0, response.stderr)
         self.assertTrue((response.stdout + response.stderr).strip())
@@ -69,7 +69,7 @@ class UnifiedCliSpecificationTests(unittest.TestCase):
       with self.subTest(stage=stage):
         response = run_cli("test", stage, "--help")
         if stage == "RED" and response.returncode != 0:
-          self.assertIn(".ci/tests.json", response.stdout + response.stderr)
+          self.assertIn("RED tests require a current started issue branch", response.stdout + response.stderr)
         else:
           self.assertEqual(response.returncode, 0, response.stderr)
           self.assertIn("--remote", response.stdout + response.stderr)
