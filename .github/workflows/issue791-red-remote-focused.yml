@@ -1,0 +1,31 @@
+name: RWF 791 RED Remote Focused Native Regression
+on:
+  push:
+    branches: [issue-791-native-*]
+    paths: [.ci/targeted-red-trigger]
+permissions:
+  contents: read
+jobs:
+  targeted:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8efac3e354270fffdcd648088ec35a1fe9b9c511
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Confirm exact source and run registered launcher regression module
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 8efac3e354270fffdcd648088ec35a1fe9b9c511
+          python -m pip install -r requirements.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python -m unittest tests.test_test_launcher
