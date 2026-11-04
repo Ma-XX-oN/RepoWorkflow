@@ -1,0 +1,29 @@
+name: RWF 791 Registry Locator Native Diagnostic
+on:
+  push:
+    branches: [issue-791-native-*]
+    paths: [.ci/targeted-registry-trigger]
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fcd487704cac3ce61a8000853259bcae45bdbbd9
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify acceptance registry and real split methods
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = fcd487704cac3ce61a8000853259bcae45bdbbd9
+          python -m pip install -r requirements.txt
+          python -m unittest tests.test_first_use_workflows
