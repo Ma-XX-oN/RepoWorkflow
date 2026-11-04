@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "repo_workflow.py"
@@ -179,7 +180,6 @@ def _route(kind, base, args):
   raise ValueError(f"unexpected provider arguments: {kind} {args!r}")
 
 
-
 def _discovered_info(base: Path, argv: list[str]) -> int:
   """Run the REAL default adapter; replace only its external GitHub call."""
   import importlib.util
@@ -344,7 +344,33 @@ class FirstUseFixture:
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
-    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    # A migration is certified only after its manifest is Git-committed.
+    # The earlier fixture wrote a worktree-only manifest, which correctly
+    # fails the production's immutable Git identity guard.
+    relative = ".repoworkflow/migrations/native-dependencies-v1.json"
+    subprocess.run(
+      ["git", "-C", str(root), "add", "-f", "--", relative],
+      check=True, capture_output=True,
+    )
+    subprocess.run(
+      ["git", "-C", str(root), "commit", "-m", "fixture migration manifest"],
+      check=True, capture_output=True,
+    )
+    # Materialize the real platform checkout (including CRLF/filters).
+    # checkout-index into the existing worktree may leave a same-index LF
+    # file untouched, so use an empty prefix as Git's checkout boundary.
+    with tempfile.TemporaryDirectory(prefix="fixture-migration-checkout-") as td:
+      subprocess.run(
+        ["git", "-C", str(root), "checkout-index", "--force",
+         "--prefix=" + td + os.sep, "--", relative],
+        check=True, capture_output=True,
+      )
+      shutil.copyfile(Path(td) / relative, target)
+    raw = subprocess.run(
+      ["git", "-C", str(root), "show", "HEAD:" + relative],
+      check=True, capture_output=True,
+    ).stdout
+    digest = hashlib.sha256(raw).hexdigest()
     certification = {
       "schema_version": 1,
       "migration_id": "repoworkflow-native-dependencies-v1",
