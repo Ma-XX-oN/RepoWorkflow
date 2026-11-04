@@ -68,12 +68,14 @@ def _write(record):
 class ProfiledPopen(_original_popen):
   def __init__(self, args, *other, **kwargs):
     frame = sys._getframe(1)
+    while frame is not None and Path(frame.f_code.co_filename).name in ("subprocess.py", "sitecustomize.py"):
+      frame = frame.f_back
     self._rwf809_started = time.perf_counter_ns()
     self._rwf809_recorded = False
-    self._rwf809_caller = Path(frame.f_code.co_filename).name + ":" + str(frame.f_lineno)
+    self._rwf809_caller = (Path(frame.f_code.co_filename).name + ":" + str(frame.f_lineno)) if frame is not None else "unknown"
     self._rwf809_test = getattr(_current_test, "test", None)
     executable = args[0] if isinstance(args, (list, tuple)) and args else args
-    binary = Path(os.fspath(executable)).name.lower() if isinstance(executable, (str, bytes, os.PathLike)) else "unknown"
+    binary = os.path.basename(os.fsdecode(os.fspath(executable))).lower() if isinstance(executable, (str, bytes, os.PathLike)) else "unknown"
     self._rwf809_kind = (
       "git" if binary in ("git", "git.exe") else
       "python" if binary.startswith("python") else
