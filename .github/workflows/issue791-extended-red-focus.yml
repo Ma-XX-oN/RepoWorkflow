@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 836ed6a97c8052bdc38215c74828b208d31ebe54
+          ref: a52c7c98d53f03ac259d8c6cd8387712cc244409
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 836ed6a97c8052bdc38215c74828b208d31ebe54
+          test "$(git rev-parse HEAD)" = a52c7c98d53f03ac259d8c6cd8387712cc244409
           python -m pip install -r requirements.txt
       - name: Public RED help and strict provider regression
         shell: bash
@@ -37,4 +37,5 @@ jobs:
             tests.test_completion.BashCompletionTests.test_red_single_tab_and_double_tab_equal_direct_help \
             tests.test_completion.BashCompletionTests.test_red_missing_groups_report_same_real_error \
             tests.test_test_launcher.ShippedTestLauncher.test_shipped_red_help_is_current_issue_aware \
-            tests.test_provider_adapter_p11
+            tests.test_provider_adapter_p11 \
+            tests.test_test_cli.TestCliContract.test_red_help_uses_registered_current_issue_and_error_parity
