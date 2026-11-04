@@ -9,6 +9,19 @@ from .workflow_state import derive_plan, discover_facts
 from .workspace_store import WorkspaceStore
 
 
+def _red_remote_switches(context: Context) -> dict:
+  switches = {"--remote": "Request RED tests through a numbered CMD"}
+  if "--remote" in context.words[:context.index]:
+    switches["--poll"] = {
+      "": "Poll the CMD result until completion",
+      "_params": [{
+        "<seconds>": "Polling delays in seconds (repeat final delay)",
+        "_quantifier": "*",
+      }],
+    }
+  return switches
+
+
 def _red_group_values(context: Context) -> dict:
   match = re.fullmatch(
     r"issue-([1-9][0-9]*)(?:-.*)?",
@@ -393,18 +406,8 @@ COMMANDS = {
     "RED": {
       "_description": "Run an issue-N- RED test group",
       "_values": _red_group_values,
-      "_value_description": "Current issue RED test-group name",
       "_quantifier": "?",
-      "_switches": {
-        "--remote": "Request RED tests through a numbered CMD",
-        "--poll": {
-          "": "Poll the CMD result until completion",
-          "_params": [{
-            "<seconds>": "Polling delays in seconds (repeat final delay)",
-            "_quantifier": "*",
-          }],
-        },
-      },
+      "_switches": _red_remote_switches,
     },
     "temporary": {
       "": "Run applicable temporary fidelity tests locally",
