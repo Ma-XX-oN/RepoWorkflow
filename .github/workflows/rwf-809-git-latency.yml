@@ -1,0 +1,33 @@
+name: RWF 809 isolated native Git latency probe
+on:
+  push:
+    branches:
+      - issue-809-git-startup-probe
+    paths:
+      - .github/workflows/rwf-809-git-latency.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  latency:
+    name: Native latency (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Probe native Git/launcher/file operations
+        shell: bash
+        run: python experiments/rwf809_native_startup.py
+      - name: Upload per-sample machine-readable results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rwf809-${{ matrix.os }}
+          path: rwf809-results/*.json
+          if-no-files-found: warn
