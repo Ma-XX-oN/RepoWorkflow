@@ -7,11 +7,11 @@ TEST_NAMES = (
   "tests.test_lane_selection",
   "tests.test_lane_traversal",
   (
-    "tests.test_first_use_lanes.FirstUseGraphTests."
+    "tests.test_first_use_lanes.FirstUseLanesTests."
     "test_show_children_fetches_one_hop_without_recursive_traversal"
   ),
   (
-    "tests.test_first_use_lanes.FirstUseGraphTests."
+    "tests.test_first_use_lanes.FirstUseLanesTests."
     "test_show_children_support_fetch_does_not_expand_projection"
   ),
 )
