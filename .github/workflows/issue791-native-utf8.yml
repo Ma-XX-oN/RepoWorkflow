@@ -1,4 +1,4 @@
-name: RWF 791 Accepted Launcher Native Focused Verification
+name: RWF 791 Accepted Portability Native Focused Verification
 on:
   push:
     branches:
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 4598ce6c12f294def1cce032c33204394364a774
+          ref: 4a6434f23a942abaeb1edb7a6c69309c9c4d1985
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -28,7 +28,7 @@ jobs:
       - name: Assert exact accepted-source identity
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "4598ce6c12f294def1cce032c33204394364a774"
+          test "$(git rev-parse HEAD)" = "4a6434f23a942abaeb1edb7a6c69309c9c4d1985"
           python --version
           git --version
       - name: Install declared dependencies
@@ -40,4 +40,4 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$GITHUB_REF_NAME"
-          python -m unittest -v tests.test_canonical_lane_smoke tests.test_issue629_selection_acceptance tests.test_issue629_stage_cardinality
+          python -m unittest -v tests.test_dependency_migration_tool tests.test_expected_red_cli tests.test_renderer_certification_binding
