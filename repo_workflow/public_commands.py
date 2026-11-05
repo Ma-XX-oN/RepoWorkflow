@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from .git import current_branch
+from .git import GitError, current_branch
 
 from .command_grammar import Context, validate_node
 from .test_catalogue import TestCatalogueError, load_test_catalogue
@@ -10,35 +10,63 @@ from .workspace_store import WorkspaceStore
 
 
 def _red_group_values(context: Context) -> dict:
-  match = re.fullmatch(
-    r"issue-([1-9][0-9]*)(?:-.*)?",
-    current_branch(context.root),
-  )
-  issue = match.group(1) if match else None
-  groups = ()
-  if issue is not None:
+  # The same resolver is used by Bash Tab, double-Tab, and --help.
+  # Never invent a description when the catalogue supplies only a name.
+  try:
+    branch = current_branch(context.root)
+  except (GitError, ValueError, OSError):
+    branch = ""
+  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch)
+  if match is None:
+    diagnostic = "RED tests require a current started issue branch"
+  else:
+    issue = match.group(1)
     try:
       catalogue = load_test_catalogue(context.root)
-      groups = tuple(sorted(
+    except TestCatalogueError as error:
+      if str(error).startswith("missing test catalogue:"):
+        diagnostic = (
+          "RED/GREEN tests do not exist for the current issue. "
+          "Build the tests and register them in .ci/tests.json "
+          "with a test name prefix of issue-N-."
+        )
+      else:
+        diagnostic = "RED test catalogue is unavailable: " + str(error)
+    else:
+      names = tuple(sorted(
         name for name in catalogue.groups
         if name.startswith("issue-" + issue + "-")
       ))
-    except TestCatalogueError:
-      pass
-  if groups:
-    return {
-      "completions": [
-        {name: "Run current issue RED test group " + name}
-        for name in groups
-      ],
-    }
+      if names:
+        # The catalogue is already validated. Keep optional separate
+        # descriptions, without manufacturing a description for string-only
+        # test-group registrations.
+        import json
+        path = context.root / ".ci" / "tests.json"
+        try:
+          records = json.loads(path.read_text(encoding="utf-8"))["tests"]
+        except (OSError, ValueError, KeyError, TypeError):
+          records = []
+        descriptions = {
+          name: definition.get("description")
+          for declaration in records if isinstance(declaration, dict)
+          for name, definition in declaration.items()
+          if name in names and isinstance(definition, dict)
+          and isinstance(definition.get("description"), str)
+          and bool(definition["description"].strip())
+        }
+        return {"completions": [
+          {name: descriptions[name]} if name in descriptions else name
+          for name in names
+        ]}
+      diagnostic = (
+        "RED/GREEN tests do not exist for the current issue. "
+        "Build the tests and register them in .ci/tests.json "
+        "with a test name prefix of issue-N-."
+      )
 
   def unavailable(request):
-    return request.error(
-      "RED/GREEN tests do not exist for the current issue. "
-      "Build the tests and register them in .ci/tests.json "
-      "with a test name prefix of issue-N-."
-    )
+    return request.error(diagnostic)
 
   return {"completions": [], "on-tab": unavailable}
 
@@ -50,6 +78,13 @@ def _plan(context: Context):
 def _issue_number(context: Context) -> list[str]:
   token = context.current_token
   if token and token.isdecimal():
+    return [token]
+  return []
+
+
+def _remote_cmd_selector(context: Context) -> list[str]:
+  token = context.current_token
+  if token and re.fullmatch(r"-?[1-9][0-9]*", token):
     return [token]
   return []
 
@@ -147,8 +182,41 @@ def _lane_select_switches(*, include_count: bool = False) -> dict:
   return switches
 
 
+
+def _with_remote_terminals(node: dict) -> dict:
+  """Project one remote transport switch onto every authored terminal command.
+
+  A terminal string is expanded into its normal command-node form, so the
+  existing parser/help/completion all see the same command surface.  No
+  command handler or hosted dispatcher is duplicated here.
+  """
+  projected = {}
+  for token, entry in node.items():
+    if token and not token.startswith("_"):
+      if isinstance(entry, str):
+        projected[token] = {
+          "": entry,
+          "_switches": {"--remote": "Execute through numbered CMD transport"},
+        }
+      elif isinstance(entry, dict):
+        projected[token] = _with_remote_terminals(entry)
+      else:
+        projected[token] = entry
+    else:
+      projected[token] = entry
+  if "" in projected or "_values" in projected or "_ordered" in projected:
+    switches = projected.get("_switches", {})
+    if callable(switches):
+      raise ValueError("dynamic public switches require explicit remote projection")
+    projected["_switches"] = dict(switches)
+    projected["_switches"].setdefault(
+      "--remote", "Execute through numbered CMD transport",
+    )
+  return projected
+
+
 def _dependency_direction_node() -> dict:
-  return {
+  return _with_remote_terminals({
     "to-tickets": {
       "": "Synchronize RWF title/dependencies to tickets",
       "_switches": {
@@ -165,7 +233,7 @@ def _dependency_direction_node() -> dict:
         "--replace-dependencies": "Replace local dependencies only",
       },
     },
-  }
+  })
 
 
 def _issue_sync_target_node() -> dict:
@@ -388,7 +456,16 @@ COMMANDS = {
       "_values": _red_group_values,
       "_value_description": "Current issue RED test-group name",
       "_quantifier": "?",
-      "_switches": {"--remote": "Request RED tests through hosted CI"},
+      "_switches": {
+        "--remote": "Request RED tests through a numbered CMD",
+        "--poll": {
+          "": "Poll the CMD result until completion",
+          "_params": [{
+            "<seconds>": "Polling delays in seconds (repeat final delay)",
+            "_quantifier": "*",
+          }],
+        },
+      },
     },
     "temporary": {
       "": "Run applicable temporary fidelity tests locally",
@@ -409,6 +486,23 @@ COMMANDS = {
     "results": {
       "": "Show recorded testing-log results",
       "_switches": {"--remote": "Retrieve recorded hosted test results"},
+    },
+  },
+  "remote-status": {
+    "": "Show the latest numbered CMD request status",
+    "_values": _remote_cmd_selector,
+    "_value_description": "CMD number (negative selects from latest)",
+    "_quantifier": "?",
+    "_switches": {
+      "--poll": {
+        "": "Poll read-only until completion (15-second default)",
+        "_params": [
+          {
+            "<seconds>": "Nonnegative polling delay in seconds",
+            "_quantifier": "*",
+          },
+        ],
+      },
     },
   },
   "version": {
@@ -432,6 +526,13 @@ COMMANDS = {
   },
 }
 
+
+# Include the same generic transport option in authored grammar/help/completion.
+# The read-only remote-status and test-results lookup retain their original
+# distinct semantics; they are not generic hosted submissions.
+for _command, _node in tuple(COMMANDS.items()):
+  if _command != "remote-status":
+    COMMANDS[_command] = _with_remote_terminals(_node)
 
 validate_node(COMMANDS)
 

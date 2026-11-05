@@ -6,6 +6,7 @@ from pathlib import Path
 from .current_work_store import CurrentWorkError, CurrentWorkStore
 from .lifecycle_store import LifecycleStore
 from .state_store import WriterIdentity
+from .owned_commit import commit_owned_files
 from .test_catalogue import load_test_catalogue
 
 
@@ -68,4 +69,8 @@ def associate_high_risk(
     cache_lifecycle_revision=updated.revision,
   )
   current_store.replace(current.revision, value, writer)
+  commit_owned_files(
+    root, [f".repoworkflow/state/issues/{reference.issue}/lifecycle.json"],
+    f"workflow: associate high-risk tests with issue {reference.issue}",
+  )
   return updated

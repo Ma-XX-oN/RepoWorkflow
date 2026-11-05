@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import subprocess
 import tempfile
 import unittest
 
@@ -80,6 +81,11 @@ class HighRiskTests(unittest.TestCase):
       result.lifecycle.high_risk_aliases,
       ("command-grammar", "high-risk"),
     )
+    changed = subprocess.run(
+      ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+      cwd=self.repo, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    self.assertEqual(changed, [".repoworkflow/state/issues/1/lifecycle.json"])
 
   def test_repeated_association_is_idempotent(self):
     first = associate_high_risk(

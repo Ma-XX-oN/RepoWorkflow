@@ -15,6 +15,7 @@ from .command_grammar import (
 )
 from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
+from .owned_commit import commit_owned_files
 from .high_risk import associate_high_risk
 from .issue_info_cli import show_issue_info
 from .invocation_identity import ensure_public_runtime_identity
@@ -30,6 +31,14 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
+from .remote_status import (
+  RemoteStatusError, parse_intervals, remote_status, submit_remote,
+)
+from .test_cli import read_selection, validate_group
+from .test_catalogue import load_test_catalogue
+from .self_ci import group_command
+from .test_red_declaration import red_declaration
+from .test_results_reader import TestCommandError
 from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -119,21 +128,77 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # Accept the documented RED group before its optional hosted switch.
-  # The grammar parser requires switches before dynamic values internally.
-  if (
-    len(words) == 4 and words[:2] == ["test", "RED"]
-    and words[3] == "--remote" and not words[2].startswith("--")
-  ):
-    words = [words[0], words[1], "--remote", words[2]]
+  # The public --remote switch is a transport option for every valid command,
+  # not a separate command implementation or a test-RED-only capability.
+  if words[0] == "remote-status":
+    general, legal, _, _, _, failure = _diagnose(root, words, completion=False)
+    if failure is not None:
+      return _print_failure(failure)
+    parse_tokens(COMMANDS, general, words)
+    parse_tokens(COMMANDS, legal, words)
+    tail = words[1:]
+    if "--poll" in tail:
+      offset = tail.index("--poll")
+      selectors = tail[:offset]
+      intervals = parse_intervals(tail[offset + 1:])
+    else:
+      selectors = tail
+      intervals = None
+    if len(selectors) > 1:
+      raise RemoteStatusError("expected at most one CMD selector")
+    try:
+      selector = int(selectors[0]) if selectors else None
+    except ValueError as exc:
+      raise RemoteStatusError("CMD selector must be an integer") from exc
+    return remote_status(root, selector, intervals=intervals)
+
+  # Keep test results --remote as the established read-only results lookup.
+  # It does not create a CMD request.
+  if words[:2] == ["test", "results"] and words == ["test", "results", "--remote"]:
+    return run_test(root, "results", remote=True, engine_root=engine_root)
+
+  if "--remote" in words:
+    if words.count("--remote") != 1:
+      raise RemoteStatusError("expected exactly one public --remote switch")
+    offset = words.index("--remote")
+    command_words = words[:offset]
+    if not command_words:
+      raise RemoteStatusError("remote submission requires a command")
+    if offset + 1 == len(words):
+      intervals = None
+    elif words[offset + 1] == "--poll":
+      intervals = parse_intervals(words[offset + 2:])
+    else:
+      raise RemoteStatusError("--remote must end the command or precede --poll")
+    general, legal, _, _, _, failure = _diagnose(
+      root, command_words, completion=False,
+    )
+    if failure is not None:
+      return _print_failure(failure)
+    parse_tokens(COMMANDS, general, command_words)
+    parse_tokens(COMMANDS, legal, command_words)
+    if command_words[:2] == ["test", "RED"]:
+      group = command_words[2] if len(command_words) == 3 else None
+      selected = validate_group(root, group) if group else read_selection(root)
+      if selected is not None:
+        _, declaration_error = red_declaration(root, selected)
+        if declaration_error:
+          raise RemoteStatusError(declaration_error)
+    if command_words[:2] == ["test", "temporary"]:
+      groups = tuple(sorted(load_test_catalogue(
+        root, catalogue_path=Path(".ci/temp-tests.json"),
+      ).groups))
+      if not groups:
+        raise TestCommandError("no temporary test groups in .ci/temp-tests.json")
+      for name in groups:
+        group_command(root, name, Path(".ci/temp-tests.json"))
+    return submit_remote(root, [*command_words, "--remote"], intervals=intervals)
+
   general, legal, facts, plan, state, failure = _diagnose(
-    root,
-    words,
-    completion=False,
+    root, words, completion=False,
   )
   if failure is not None:
     return _print_failure(failure)
-
   parse_tokens(COMMANDS, general, words)
   parse_tokens(COMMANDS, legal, words)
 
@@ -271,6 +336,10 @@ def _handle_lanes(
       raise ValueError("--current requires lanes view")
     if current_states:
       RelationshipStore(root).refresh_states(runtime_writer_identity())
+      commit_owned_files(
+        root, [".repoworkflow/tickets.csv"],
+        "tickets: commit current lifecycle state",
+      )
 
     started = time.perf_counter()
     if words[1] == "list":
@@ -339,12 +408,14 @@ def _completed_command_is_terminal(
   return True
 
 
-def _print_completion_items(items, *, describe: bool) -> None:
+def _print_completion_items(items, *, describe: bool, red_listing: bool = False) -> None:
   if describe:
     width = max(len(item.token) for item in items)
     for item in items:
       if item.description is None:
         print(item.token)
+      elif red_listing:
+        print(f"{item.token} - {item.description}")
       else:
         print(f"{item.token:<{width}}  {item.description}")
     return
@@ -377,7 +448,7 @@ def handle_completion(
 
   items = list(response.items)
   if items:
-    _print_completion_items(items, describe=describe)
+    _print_completion_items(items, describe=describe, red_listing=describe and words[:2] == ["test", "RED"])
     return 0
 
   if _completed_command_is_terminal(legal, words):
@@ -389,17 +460,7 @@ def handle_completion(
 
 
 def handle_help(root: Path, words: list[str]) -> int:
-  if words == ["test", "RED"]:
-    # RED help is unconditional; only interactive completion needs registered groups.
-    node = COMMANDS["test"]["RED"]
-    print(node["_description"])
-    print(node["_value_description"])
-    print("Register current issue-N- test groups in .ci/tests.json.")
-    for option, description in node["_switches"].items():
-      print(option + "  " + description)
-    return 0
-  help_words = [*words, ""]
-  return handle_completion(root, help_words, describe=True)
+  return handle_completion(root, [*words, ""], describe=True)
 
 
 def is_public_command(word: str) -> bool:

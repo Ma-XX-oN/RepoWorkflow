@@ -17,6 +17,7 @@ from .parent_branch import (
 from .repo_info_adapter import issue_info
 from .runtime_identity import runtime_writer_identity
 from .state_store import durable_store
+from .owned_commit import commit_owned_files
 from .transaction import (
   SemanticTransactionCoordinator,
   StateReference,
@@ -144,6 +145,16 @@ def start_issue(
   except Exception as error:
     raise IssueStartError(str(error)) from error
 
+  # The issue-start owner commits its exact durable workflow records;
+  # hosted transport is responsible only for pushing the resulting branch.
+  commit_owned_files(
+    root,
+    [
+      f".repoworkflow/state/issues/{issue_id}/lifecycle.json",
+      f".repoworkflow/state/transactions/{transaction_id}.json",
+    ],
+    f"workflow: record issue {issue_id} start",
+  )
   final_lifecycle = lifecycle_store.read(issue_id)
   if final_lifecycle.revision is None:
     raise IssueStartError("issue start did not materialize lifecycle state")

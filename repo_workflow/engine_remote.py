@@ -9,6 +9,7 @@ from .engine_version_adapter import (
   EngineVersionError, read_engine_version, transition_engine_version,
 )
 from .phase_terminal import plan_phase, PhaseTransitionError
+from .owned_commit import commit_owned_files
 
 
 class EnginePreparationError(ValueError):
@@ -74,8 +75,8 @@ def prepare_engine_request(
       )
   version = read_engine_version(root)
   if version != before:
-    _git(root, "add", "--", ".ci/engine-version")
-    _git(root, "commit", "--only", "-m",
-         "chore(test): prepare engine development version " + version,
-         "--", ".ci/engine-version")
+    commit_owned_files(
+      root, [".ci/engine-version"],
+      "chore(test): prepare engine development version " + version,
+    )
   return version

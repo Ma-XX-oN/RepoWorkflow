@@ -20,6 +20,11 @@ def snapshot():
 
 
 class DependencySyncCliTests(unittest.TestCase):
+  def setUp(self):
+    owned = patch("repo_workflow.dependency_sync_cli.commit_owned_files")
+    self.owned_commit = owned.start()
+    self.addCleanup(owned.stop)
+
   @patch("repo_workflow.dependency_sync_cli.load_config", return_value={})
   @patch("repo_workflow.dependency_sync_cli.RelationshipStore")
   @patch("repo_workflow.dependency_sync_cli.read_ticket_sync_state")

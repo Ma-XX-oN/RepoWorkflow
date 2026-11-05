@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
-import subprocess
+
+from .git import GitError, git_bytes
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _MARKER = re.compile(
@@ -26,15 +27,13 @@ class HostedVersionError(ValueError):
 
 def _git(root: Path, *args: str) -> str:
   try:
-    result = subprocess.run(
-      ["git", "-C", str(root), *args], capture_output=True,
-      text=True, check=False,
-    )
-  except (OSError, UnicodeError) as error:
+    result = git_bytes(root, *args, check=False)
+    decoded = result.stdout.decode("utf-8", "strict")
+  except (GitError, UnicodeError) as error:
     raise HostedVersionError("cannot decode hosted Git request") from error
   if result.returncode:
     raise HostedVersionError("cannot verify hosted Git request")
-  return result.stdout
+  return decoded
 
 
 def _single_parent(root: Path, sha: str) -> str:
@@ -186,6 +185,7 @@ def resolve_hosted_version(
     return identity
   versions = set()
   version_owners: dict[str, tuple[str, str]] = {}
+  conflicting_owners: set[tuple[str, str]] = set()
   terminal_outcomes: dict[str, str] = {}
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
@@ -221,7 +221,9 @@ def resolve_hosted_version(
     namespace = (version, kind)
     prior = version_owners.get(namespace)
     if prior is not None and prior != owner:
-      raise HostedVersionError("version evidence claimed by different candidate or phase")
+      # Preserve historical conflicted evidence without letting it allocate
+      # identity to this or any other candidate using that namespace.
+      conflicting_owners.add(namespace)
     version_owners[namespace] = owner
     terminal_result = record["result"]
     earlier_result = terminal_outcomes.get(namespace)
@@ -242,6 +244,11 @@ def resolve_hosted_version(
     if record.get("uncommittedChanges") != []:
       raise HostedVersionError("version evidence used dirty inputs")
     versions.add(version)
+  if any((version, identity["stage"]) in conflicting_owners
+         for version in versions):
+    raise HostedVersionError(
+      "version evidence claimed by different candidate or phase"
+    )
   if len(versions) > 1:
     raise HostedVersionError("conflicting development versions")
   identity["test_version"] = next(iter(versions)) if versions else None

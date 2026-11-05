@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import codecs
+import io
 import json
+import os
+import subprocess
 from pathlib import Path
 import sys
 
@@ -24,6 +28,7 @@ from repo_workflow.classification import (
 from repo_workflow.config import ConfigError, load_config
 from repo_workflow.git import (
   GitError,
+  current_branch,
   changed_files,
   head_sha,
   repository_state,
@@ -60,6 +65,11 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.remote_status import RemoteStatusError
+from repo_workflow.remote_invocation import (
+  RemoteInvocationError, emit_outcome, invoke_numbered,
+)
+from repo_workflow.remote_result import RemoteResultError, publish_result
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -82,6 +92,36 @@ from repo_workflow.workspace_worktree import WorktreeError
 
 
 ENGINE_ROOT = Path(__file__).resolve().parent
+
+
+def _configure_utf8_output() -> bool:
+  """Establish the same lossless text-output contract on every host."""
+  for name in ("stdout", "stderr"):
+    # In-process Unicode text capture has no byte encoding to configure.
+    try:
+      stream = getattr(sys, name)
+      if isinstance(stream, io.StringIO):
+        if stream.closed:
+          raise ValueError("closed Unicode text capture")
+        continue
+      stream.reconfigure(encoding="utf-8", errors="strict")
+      if codecs.lookup(stream.encoding).name != "utf-8":
+        raise ValueError("stdout/stderr codec did not change to UTF-8")
+      if stream.errors != "strict":
+        raise ValueError("stdout/stderr codec is not strict")
+    except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError):
+      diagnostic = f"RepoWorkflow error: cannot configure UTF-8 {name} output\n"
+      try:
+        if sys.__stderr__ is None:
+          raise OSError("original stderr is unavailable")
+        sys.__stderr__.write(diagnostic)
+      except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+        try:
+          os.write(2, diagnostic.encode("ascii"))
+        except (OSError, ValueError):
+          pass
+      return False
+  return True
 
 
 def _root(value: str) -> Path:
@@ -214,6 +254,28 @@ def main(argv: list[str] | None = None) -> int:
         return handle_completion(root, words, describe=describe)
       if mode == "help":
         return handle_help(root, words)
+      if (
+        os.environ.get("RWF_HOSTED_INVOCATION") == "1"
+        and current_branch(root).startswith("CMD-")
+        and words[:2] != ["test", "results"]
+        and not (len(words) >= 2 and words[-2] == "--remote")
+      ):
+        raise RemoteInvocationError(
+          "hosted CMD invocation requires numbered --remote suffix"
+        )
+      if len(words) >= 2 and words[-2] == "--remote":
+        outcome = invoke_numbered(
+          root, words,
+          lambda source, local: subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()),
+             "--root", str(source), *local],
+            cwd=source, stdin=subprocess.DEVNULL,
+            capture_output=True, check=False,
+          ),
+          publish=lambda completed: publish_result(root, completed),
+        )
+        emit_outcome(outcome)
+        return outcome.exit_code
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
     args = build_parser().parse_args(argv)
@@ -421,6 +483,9 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RemoteStatusError,
+    RemoteInvocationError,
+    RemoteResultError,
     ResultError,
     GitError,
     GuardError,
@@ -436,4 +501,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+  if not _configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main())

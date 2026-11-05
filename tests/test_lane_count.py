@@ -243,9 +243,14 @@ class LaneCountTests(unittest.TestCase):
         else ()
       )
 
-      result = subprocess.run(
+      launcher = (
+        [sys.executable, str(ROOT / "repo_workflow.py")]
+        if sys.platform == "win32"
+        else [str(RWF)]
+      )
+      process = subprocess.run(
         [
-          str(RWF),
+          *launcher,
           "--root",
           str(root),
           "lanes",
@@ -255,7 +260,13 @@ class LaneCountTests(unittest.TestCase):
         ],
         cwd=root,
         capture_output=True,
-        text=True,
+        check=False,
+      )
+      result = subprocess.CompletedProcess(
+        process.args,
+        process.returncode,
+        io.TextIOWrapper(io.BytesIO(process.stdout), encoding="utf-8", errors="strict", newline=None).read(),
+        io.TextIOWrapper(io.BytesIO(process.stderr), encoding="utf-8", errors="strict", newline=None).read(),
       )
       self.assertEqual(result.returncode, 0, result.stderr)
       self.assertEqual(result.stdout, f"{len(expected)}\n")

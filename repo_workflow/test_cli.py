@@ -27,6 +27,7 @@ from .terminal_tag import publish_terminal_tag
 from .local_terminal import publish_local_terminal, verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
+from .owned_commit import commit_owned_files
 from .test_worktree import tracked_input_changes
 
 STAGES = {
@@ -113,9 +114,12 @@ def _skip_without_selection(
   )
   if match is None:
     raise TestCommandError("testing evidence requires an issue branch")
+  path = root / ".repoworkflow" / "validation" / (
+    "testResults-" + match.group(1) + ".jsonl"
+  )
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
-    "testSHA": head_sha(root),
+    "testSHA": _evidence_source_sha(root, path),
     "kind": stage,
     "result": "SKIPPED",
     "runner": "local",
@@ -124,13 +128,15 @@ def _skip_without_selection(
     "reason": "selection-file-absent",
     "groups": [],
   }
-  path = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
-  )
   path.parent.mkdir(parents=True, exist_ok=True)
   with path.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   return 0
+
+
+def validate_group(root: Path, name: str) -> str:
+  """Validate a RED/GREEN group without modifying repository state."""
+  return _validate_selection(root, name)
 
 
 def select_group(root: Path, name: str) -> str:
@@ -216,6 +222,31 @@ def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
   return tracked_input_changes(root, evidence_path)
 
 
+def _evidence_source_sha(root: Path, evidence_path: Path) -> str:
+  """Source revision unchanged by command-owned test-result-only commits.
+
+  Those commits must not invalidate reusable evidence, but every source change
+  must.  Inspect actual committed paths; a commit message alone is insufficient.
+  """
+  sha = head_sha(root)
+  relative = evidence_path.relative_to(root).as_posix()
+  while True:
+    message = git(root, "show", "-s", "--format=%s", sha).stdout.strip()
+    if not re.fullmatch(
+      r"test: record (RED|GREEN|temporary|regression|integration) outcome",
+      message,
+    ):
+      return sha
+    paths = git(root, "diff-tree", "--no-commit-id", "--name-only",
+                "-r", "-z", sha).stdout
+    if paths != relative + "\0":
+      return sha
+    parents = git(root, "rev-list", "--parents", "-n", "1", sha).stdout.split()
+    if len(parents) != 2:
+      return sha
+    sha = parents[1]
+
+
 def _run_group_set(
   root: Path, stage: str, groups: tuple[str, ...], *,
   catalogue_path: Path = Path(".ci/tests.json"),
@@ -226,7 +257,6 @@ def _run_group_set(
       "issue-N- test groups in .ci/tests.json."
       if stage == "GREEN" else "no temporary test groups in .ci/temp-tests.json"
     )
-  revision = head_sha(root)
   fingerprint = _group_fingerprint(root, catalogue_path)
   match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
   if match is None:
@@ -234,6 +264,8 @@ def _run_group_set(
   path = root / ".repoworkflow" / "validation" / (
     "testResults-" + match.group(1) + ".jsonl"
   )
+  revision = _evidence_source_sha(root, path)
+  execution_head = head_sha(root)
   uncommitted_before = _uncommitted_inputs(root, path)
   reusable = set()
   if not uncommitted_before:
@@ -311,7 +343,7 @@ def _run_group_set(
   uncommitted = sorted(set(uncommitted_before) | set(
     _uncommitted_inputs(root, path)
   ))
-  head_changed = head_sha(root) != revision
+  head_changed = head_sha(root) != execution_head
   path.parent.mkdir(parents=True, exist_ok=True)
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -351,6 +383,27 @@ def _assert_no_temporary_issue_sandbox(root: Path) -> None:
 
 
 def run_test(
+  root: Path, stage: str, *, remote: bool, engine_root: Path,
+  group: str | None = None,
+) -> int:
+  """Own and commit the durable evidence created by this test command."""
+  status = _run_test_impl(
+    root, stage, remote=remote, engine_root=engine_root, group=group,
+  )
+  if stage in STAGES and not remote:
+    match = re.fullmatch(
+      r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
+    )
+    if match is not None:
+      relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+      if (root / relative).is_file():
+        commit_owned_files(
+          root, [relative], "test: record " + stage + " outcome",
+        )
+  return status
+
+
+def _run_test_impl(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
 ) -> int:
