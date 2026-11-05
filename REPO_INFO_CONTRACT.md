@@ -6,7 +6,7 @@ This contract defines the repository/ticket-manager information that core RWF
 may request without embedding GitHub-specific API, issue-body, label, or project
 logic.
 
-## 1. Boundary
+## Boundary
 
 Core RWF consumes semantic repository information through a configured
 `repo-info` adapter.
@@ -16,7 +16,7 @@ workflow decisions made from the normalized result.
 
 All operations in this contract are read-only.
 
-## 2. Invocation
+## Invocation
 
 The portable executable interface is:
 
@@ -33,7 +33,7 @@ value to stdout, and exit non-zero.
 
 Core RWF must not interpret provider-specific exit codes.
 
-## 3. Repository result
+## Repository result
 
 `repo-info repository` returns:
 
@@ -49,7 +49,7 @@ Core RWF must not interpret provider-specific exit codes.
 informational identity for diagnostics/configuration and must not be branched on
 by core workflow semantics.
 
-## 4. Issue result
+## Issue result
 
 `repo-info issue get ISSUE` returns:
 
@@ -75,7 +75,7 @@ The requested issue number must equal the returned `number`.
 
 A missing issue is an explicit failure, not a successful null/empty result.
 
-## 5. Open-issue list result
+## Open-issue list result
 
 `repo-info issue list-open` returns:
 
@@ -94,7 +94,7 @@ Duplicate issue numbers are invalid.
 An empty repository legitimately returns `"issues": []`.  Provider failure
 must never be normalized to that value.
 
-## 6. Consumer guarantees
+## Consumer guarantees
 
 The contract deliberately exposes only provider facts required by current core
 consumers.
@@ -111,7 +111,7 @@ Those facts are owned by their RWF stores/contracts.
 #120 owns invocation/dispatch of this contract and must forward semantic
 requests without changing their meaning.
 
-## 7. Validation
+## Validation
 
 The dispatcher/adapter implementation must prove at least:
 
@@ -126,7 +126,7 @@ The dispatcher/adapter implementation must prove at least:
 9. issue links are canonical browser URLs and malformed/missing links fail;
 10. core callers require no GitHub-specific fields.
 
-## 8. Evolution
+## Evolution
 
 Additional provider facts may be added only when a core consumer demonstrates a
 semantic requirement for them.
