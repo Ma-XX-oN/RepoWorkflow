@@ -498,6 +498,20 @@
     },
     {
       "test-harness": "unittest",
+      "issue-660-high-risk-remote-completion": {
+        "type": "regression",
+        "name": "tests.test_high_risk_cli"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-workspace-remote-completion": {
+        "type": "regression",
+        "name": "tests.test_workspace_cli"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-787-cmd-transport": {
         "type": "regression",
         "name": "tests.test_issue787_remote_request"
