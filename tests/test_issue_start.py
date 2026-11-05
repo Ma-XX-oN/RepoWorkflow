@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import os
 import subprocess
 import sys
@@ -98,6 +99,21 @@ class IssueStartTests(unittest.TestCase):
       "issue-7",
     )
     self.assertEqual(result.lifecycle_revision, 0)
+    changed = subprocess.run(
+      ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+      cwd=self.repo, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    self.assertEqual(changed, [
+      ".repoworkflow/state/issues/7/lifecycle.json",
+      ".repoworkflow/state/transactions/issue-start-7-"
+      + hashlib.sha256(b"session-1").hexdigest()[:16] + ".json",
+    ])
+    identity = subprocess.run(
+      ["git", "show", "-s", "--format=%B", "HEAD^"],
+      cwd=self.repo, capture_output=True, text=True, check=True,
+    ).stdout
+    self.assertIn("RWF-Branch: issue-7", identity)
+    self.assertIn("RWF-Parent: main", identity)
 
   def test_committed_replay_is_idempotent(self):
     environment = {

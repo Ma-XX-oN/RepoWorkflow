@@ -64,23 +64,28 @@ class DedicatedCommitTests(unittest.TestCase):
     before = self.git("rev-parse", "HEAD")
     result = self.cli("test", "regression", "--remote")
     self.assertEqual(result.returncode, 0, result.stderr)
-    self.assertEqual(
-      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
-      ".ci/run",
-    )
-    self.assertEqual(self.git("rev-parse", "HEAD^"), before)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
     self.assertIn(self._git_wire_path(path), self._staged_git_paths())
-    self.assertNotIn(
-      self._git_wire_path(path),
-      self.git("diff-tree", "--no-commit-id", "--name-only", "-r",
-               "HEAD").splitlines(),
-    )
+    self.assertFalse((self.root / ".ci/run").exists())
+    cmd = subprocess.check_output(
+      ["git", "--git-dir", str(server), "rev-parse",
+       "refs/heads/CMD-1-issue-545-fixture"], text=True,
+    ).strip()
+    self.assertEqual(self.git("rev-parse", cmd + "^"), before)
     self.assertEqual(
-      self.git("rev-parse", "HEAD"),
-      __import__("subprocess").check_output(
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", cmd),
+      ".ci/rwf",
+    )
+    self.assertEqual(self.git("show", cmd + ":.ci/rwf"),
+                     "test regression --remote 0")
+    self.assertNotIn(self._git_wire_path(path),
+                     self.git("diff-tree", "--no-commit-id", "--name-only",
+                              "-r", cmd).splitlines())
+    self.assertEqual(
+      before,
+      subprocess.check_output(
         ["git", "--git-dir", str(server), "rev-parse",
-         "refs/heads/issue-545-fixture"],
-        text=True,
+         "refs/heads/issue-545-fixture"], text=True,
       ).strip(),
     )
 

@@ -52,7 +52,13 @@ class CmdFixture(unittest.TestCase):
     _run(self.repo, "checkout", "-b", self.cmd)
     self.marker("test RED --remote 0")
     self.push()
-    self.hosted = patch.dict(os.environ, {"RWF_HOSTED_INVOCATION": "1"})
+    self.hosted = patch.dict(os.environ, {
+      "RWF_HOSTED_INVOCATION": "1",
+      "GIT_AUTHOR_NAME": "RWF Test",
+      "GIT_AUTHOR_EMAIL": "rwf-test@example.invalid",
+      "GIT_COMMITTER_NAME": "RWF Test",
+      "GIT_COMMITTER_EMAIL": "rwf-test@example.invalid",
+    })
     self.hosted.start()
     self.addCleanup(self.hosted.stop)
 
@@ -129,6 +135,42 @@ class CmdFixture(unittest.TestCase):
          wrapped_process.stderr),
         (local_process.returncode, local_process.stdout, local_process.stderr),
       )
+
+  def test_command_created_annotated_tag_is_published_and_read_back(self):
+    tag = "v0.1.122-issue.786.2.25"
+    def command(root, argv):
+      _run(root, "tag", "-a", tag, self.source_sha, "-m", tag)
+      return 0
+    outcome = self.invoke(handler=command)
+    self.assertEqual(outcome.exit_code, 0)
+    ref = "refs/tags/" + tag
+    self.assertEqual(
+      _run(self.repo, "ls-remote", "origin", ref).split()[1], ref,
+    )
+    self.assertEqual(
+      _run(self.repo, "ls-remote", "origin", ref + "^{}").split()[0],
+      self.source_sha,
+    )
+    self.assertEqual(
+      _run(self.repo, "ls-remote", "origin", "refs/heads/" + self.branch).split()[0],
+      self.source_sha,
+    )
+
+  def test_command_cannot_replace_existing_authoritative_tag(self):
+    tag = "v0.1.122-issue.786.2.25"
+    _run(self.repo, "tag", "-a", tag, self.source_sha, "-m", tag)
+    _run(self.repo, "push", "origin", "refs/tags/" + tag)
+    original = _run(self.repo, "rev-parse", "refs/tags/" + tag)
+    def command(root, argv):
+      _run(root, "tag", "-f", "-a", tag, self.source_sha, "-m", "replacement")
+      return 0
+    outcome = self.invoke(handler=command)
+    self.assertEqual(outcome.exit_code, 1)
+    self.assertIn("rewrote an existing Git tag", outcome.stderr)
+    self.assertEqual(
+      _run(self.repo, "ls-remote", "origin", "refs/tags/" + tag).split()[0],
+      original,
+    )
 
   def test_ordinary_branch_numbered_invocation_is_denied(self):
     _run(self.repo, "checkout", self.branch)
@@ -231,15 +273,79 @@ class CmdFixture(unittest.TestCase):
     self.marker(text)
     self.push()
 
+  def test_generic_non_test_command_can_run_read_only(self):
+    self.alternate_request("issue info --remote 0")
+    seen = []
+    def command(root, args):
+      seen.append(list(args))
+      print("issue detail: λ")
+      return 0
+    outcome = self.invoke("issue", "info", "--remote", "0", handler=command)
+    self.assertEqual(seen, [["issue", "info"]])
+    self.assertEqual(outcome.exit_code, 0)
+    self.assertEqual(outcome.stdout, "issue detail: λ\n")
+    self.assertEqual(_run(self.area, "--git-dir", str(self.remote),
+                          "rev-parse", self.branch), self.source_sha)
+
+  def test_hosted_command_pushes_its_own_commit_even_on_nonzero(self):
+    self.alternate_request("issue info --remote 0")
+    def command(root, args):
+      path = root / "owned.txt"
+      path.write_text("durable\n", encoding="utf-8")
+      from repo_workflow.owned_commit import commit_owned_files
+      commit_owned_files(root, ["owned.txt"], "issue: commit owned state")
+      print("command returned nine")
+      return 9
+    outcome = self.invoke("issue", "info", "--remote", "0", handler=command)
+    self.assertEqual(outcome.exit_code, 9)
+    self.assertEqual(outcome.stdout, "command returned nine\n")
+    tip = _run(self.area, "--git-dir", str(self.remote), "rev-parse", self.branch)
+    self.assertNotEqual(tip, self.source_sha)
+    self.assertEqual(
+      _run(self.area, "--git-dir", str(self.remote), "show", self.branch + ":owned.txt"),
+      "durable",
+    )
+
+  def test_hosted_command_publishes_new_command_created_branch(self):
+    self.alternate_request("issue info --remote 0")
+    def command(root, args):
+      _run(root, "checkout", "-b", "issue-787", self.source_sha)
+      (root / "issue.txt").write_text("durable issue state\n", encoding="utf-8")
+      from repo_workflow.owned_commit import commit_owned_files
+      commit_owned_files(root, ["issue.txt"], "issue: own durable state")
+      return 0
+    outcome = self.invoke("issue", "info", "--remote", "0", handler=command)
+    self.assertEqual(outcome.exit_code, 0, outcome.stderr)
+    tip = _run(self.area, "--git-dir", str(self.remote), "rev-parse", "issue-787")
+    self.assertEqual(_run(self.area, "--git-dir", str(self.remote),
+                          "rev-parse", tip + "^"), self.source_sha)
+    self.assertEqual(_run(self.area, "--git-dir", str(self.remote),
+                          "show", "issue-787:issue.txt"), "durable issue state")
+    self.assertEqual(_run(self.area, "--git-dir", str(self.remote),
+                          "rev-parse", self.branch), self.source_sha)
+
+  def test_hosted_command_rejects_uncommitted_mutations(self):
+    self.alternate_request("issue info --remote 0")
+    def command(root, args):
+      (root / "forgotten.txt").write_text("not committed\n")
+      return 0
+    outcome = self.invoke("issue", "info", "--remote", "0", handler=command)
+    self.assertEqual(outcome.exit_code, 1)
+    self.assertIn("uncommitted repository changes", outcome.stderr)
+    self.assertEqual(_run(self.area, "--git-dir", str(self.remote),
+                          "rev-parse", self.branch), self.source_sha)
+
   def test_unsupported_hosted_grammar_rejected(self):
-    self.alternate_request("version --remote 0")
-    with self.assertRaisesRegex(RemoteInvocationError, "not eligible"):
-      self.invoke("version", "--remote", "0")
+    self.alternate_request("version invalid --remote 0")
+    outcome = self.invoke("version", "invalid", "--remote", "0")
+    self.assertEqual(outcome.exit_code, 2)
+    self.assertIn("not eligible", outcome.stderr)
 
   def test_read_only_results_rejected(self):
     self.alternate_request("test results --remote 0")
-    with self.assertRaisesRegex(RemoteInvocationError, "read-only"):
-      self.invoke("test", "results", "--remote", "0")
+    outcome = self.invoke("test", "results", "--remote", "0")
+    self.assertEqual(outcome.exit_code, 2)
+    self.assertIn("read-only", outcome.stderr)
 
   def test_real_cli_nonzero_parity(self):
     import importlib.util

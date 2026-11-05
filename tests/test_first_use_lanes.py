@@ -150,6 +150,11 @@ class FirstUseGraphTests(FirstUseFixture, unittest.TestCase):
 
       tickets = root / ".repoworkflow" / "tickets.csv"
       self.assertTrue(tickets.is_file())
+      committed = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+        cwd=root, check=True, capture_output=True, text=True,
+      ).stdout.splitlines()
+      self.assertEqual(committed, [".repoworkflow/tickets.csv"])
       rows = self.ticket_rows(root)
       self.assertEqual(rows["203"]["dependencies"], "201")
       self.assertEqual(rows["203"]["title"], "Root 203")

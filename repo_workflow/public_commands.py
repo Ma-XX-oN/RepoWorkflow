@@ -182,8 +182,41 @@ def _lane_select_switches(*, include_count: bool = False) -> dict:
   return switches
 
 
+
+def _with_remote_terminals(node: dict) -> dict:
+  """Project one remote transport switch onto every authored terminal command.
+
+  A terminal string is expanded into its normal command-node form, so the
+  existing parser/help/completion all see the same command surface.  No
+  command handler or hosted dispatcher is duplicated here.
+  """
+  projected = {}
+  for token, entry in node.items():
+    if token and not token.startswith("_"):
+      if isinstance(entry, str):
+        projected[token] = {
+          "": entry,
+          "_switches": {"--remote": "Execute through numbered CMD transport"},
+        }
+      elif isinstance(entry, dict):
+        projected[token] = _with_remote_terminals(entry)
+      else:
+        projected[token] = entry
+    else:
+      projected[token] = entry
+  if "" in projected or "_values" in projected or "_ordered" in projected:
+    switches = projected.get("_switches", {})
+    if callable(switches):
+      raise ValueError("dynamic public switches require explicit remote projection")
+    projected["_switches"] = dict(switches)
+    projected["_switches"].setdefault(
+      "--remote", "Execute through numbered CMD transport",
+    )
+  return projected
+
+
 def _dependency_direction_node() -> dict:
-  return {
+  return _with_remote_terminals({
     "to-tickets": {
       "": "Synchronize RWF title/dependencies to tickets",
       "_switches": {
@@ -200,7 +233,7 @@ def _dependency_direction_node() -> dict:
         "--replace-dependencies": "Replace local dependencies only",
       },
     },
-  }
+  })
 
 
 def _issue_sync_target_node() -> dict:
@@ -493,6 +526,13 @@ COMMANDS = {
   },
 }
 
+
+# Include the same generic transport option in authored grammar/help/completion.
+# The read-only remote-status and test-results lookup retain their original
+# distinct semantics; they are not generic hosted submissions.
+for _command, _node in tuple(COMMANDS.items()):
+  if _command != "remote-status":
+    COMMANDS[_command] = _with_remote_terminals(_node)
 
 validate_node(COMMANDS)
 

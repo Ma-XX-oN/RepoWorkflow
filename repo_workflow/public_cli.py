@@ -15,6 +15,7 @@ from .command_grammar import (
 )
 from .config import load_config
 from .dependency_sync_cli import dependency_sync_command
+from .owned_commit import commit_owned_files
 from .high_risk import associate_high_risk
 from .issue_info_cli import show_issue_info
 from .invocation_identity import ensure_public_runtime_identity
@@ -34,6 +35,8 @@ from .remote_status import (
   RemoteStatusError, parse_intervals, remote_status, submit_remote,
 )
 from .test_cli import read_selection, validate_group
+from .test_catalogue import load_test_catalogue
+from .self_ci import group_command
 from .test_red_declaration import red_declaration
 from .test_results_reader import TestCommandError
 from .ticket_merge import configure_ticket_merge_driver
@@ -125,32 +128,14 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # A named RED group is a terminal grammar value. For client-only
-  # polling, validate the complete switch sequence with the shared grammar;
-  # select_group separately validates the actual registered group name.
-  grammar_words = words
-  if (
-    len(words) >= 4 and words[:2] == ["test", "RED"]
-    and not words[2].startswith("--") and words[3] == "--remote"
-  ):
-    if len(words) >= 5 and words[4] == "--poll":
-      grammar_words = [*words[:2], *words[3:]]
-    else:
-      words = [words[0], words[1], "--remote", words[2], *words[4:]]
-      grammar_words = words
-  general, legal, facts, plan, state, failure = _diagnose(
-    root,
-    grammar_words,
-    completion=False,
-  )
-  if failure is not None:
-    return _print_failure(failure)
-
-  parse_tokens(COMMANDS, general, grammar_words)
-  parse_tokens(COMMANDS, legal, grammar_words)
-
-  # Status is read-only, including no ticket merge-driver configuration.
+  # The public --remote switch is a transport option for every valid command,
+  # not a separate command implementation or a test-RED-only capability.
   if words[0] == "remote-status":
+    general, legal, _, _, _, failure = _diagnose(root, words, completion=False)
+    if failure is not None:
+      return _print_failure(failure)
+    parse_tokens(COMMANDS, general, words)
+    parse_tokens(COMMANDS, legal, words)
     tail = words[1:]
     if "--poll" in tail:
       offset = tail.index("--poll")
@@ -167,30 +152,55 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
       raise RemoteStatusError("CMD selector must be an integer") from exc
     return remote_status(root, selector, intervals=intervals)
 
-  # Public RED remote submission uses .ci/rwf. Legacy .ci/run stages
-  # remain on their existing testing path until separately authorized.
-  if words[:2] == ["test", "RED"] and "--remote" in words:
-    # Preserve the existing unconfigured RED/GREEN skip contract: a remote
-    # command with no committed RED selection has no test to execute.
-    offset = words.index("--poll") if "--poll" in words else len(words)
-    if offset < words.index("--remote"):
-      raise RemoteStatusError("--poll must follow --remote")
-    intervals = (
-      parse_intervals(words[offset + 1:])
-      if offset < len(words) else None
+  # Keep test results --remote as the established read-only results lookup.
+  # It does not create a CMD request.
+  if words[:2] == ["test", "results"] and words == ["test", "results", "--remote"]:
+    return run_test(root, "results", remote=True, engine_root=engine_root)
+
+  if "--remote" in words:
+    if words.count("--remote") != 1:
+      raise RemoteStatusError("expected exactly one public --remote switch")
+    offset = words.index("--remote")
+    command_words = words[:offset]
+    if not command_words:
+      raise RemoteStatusError("remote submission requires a command")
+    if offset + 1 == len(words):
+      intervals = None
+    elif words[offset + 1] == "--poll":
+      intervals = parse_intervals(words[offset + 2:])
+    else:
+      raise RemoteStatusError("--remote must end the command or precede --poll")
+    general, legal, _, _, _, failure = _diagnose(
+      root, command_words, completion=False,
     )
-    submitted = [value for value in words[:offset] if value != "--remote"]
-    group = next((value for value in submitted[2:] if value), None)
-    selected = validate_group(root, group) if group is not None else read_selection(root)
-    if selected is None:
-      return run_test(
-        root, "RED", remote=True, engine_root=engine_root, group=None,
-      )
-    _, declaration_error = red_declaration(root, selected)
-    if declaration_error:
-      raise RemoteStatusError(declaration_error)
-    submit_words = [*submitted, "--remote"]
-    return submit_remote(root, submit_words, intervals=intervals)
+    if failure is not None:
+      return _print_failure(failure)
+    parse_tokens(COMMANDS, general, command_words)
+    parse_tokens(COMMANDS, legal, command_words)
+    if command_words[:2] == ["test", "RED"]:
+      group = command_words[2] if len(command_words) == 3 else None
+      selected = validate_group(root, group) if group else read_selection(root)
+      if selected is not None:
+        _, declaration_error = red_declaration(root, selected)
+        if declaration_error:
+          raise RemoteStatusError(declaration_error)
+    if command_words[:2] == ["test", "temporary"]:
+      groups = tuple(sorted(load_test_catalogue(
+        root, catalogue_path=Path(".ci/temp-tests.json"),
+      ).groups))
+      if not groups:
+        raise TestCommandError("no temporary test groups in .ci/temp-tests.json")
+      for name in groups:
+        group_command(root, name, Path(".ci/temp-tests.json"))
+    return submit_remote(root, [*command_words, "--remote"], intervals=intervals)
+
+  general, legal, facts, plan, state, failure = _diagnose(
+    root, words, completion=False,
+  )
+  if failure is not None:
+    return _print_failure(failure)
+  parse_tokens(COMMANDS, general, words)
+  parse_tokens(COMMANDS, legal, words)
 
   configure_ticket_merge_driver(root, engine_root)
 
@@ -326,6 +336,10 @@ def _handle_lanes(
       raise ValueError("--current requires lanes view")
     if current_states:
       RelationshipStore(root).refresh_states(runtime_writer_identity())
+      commit_owned_files(
+        root, [".repoworkflow/tickets.csv"],
+        "tickets: commit current lifecycle state",
+      )
 
     started = time.perf_counter()
     if words[1] == "list":

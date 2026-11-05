@@ -8,6 +8,7 @@ import sys
 
 from .git import changed_files, git, git_bytes, git_wire_path, head_sha, repository_state
 from .process import run_command
+from .owned_commit import commit_owned_files
 
 
 ARTIFACT_ENVIRONMENT_ID = "__repoworkflow_artifacts__"
@@ -187,16 +188,6 @@ def commit_artifact_changes(
     raise ArtifactError("only a successful artifact result may be committed")
   if not result.changed_files:
     return head_sha(root)
-  git(root, "add", "--all", "--", *result.changed_files)
-  raw = git_bytes(root, "diff", "--cached", "--name-only", "-z").stdout
-  if raw and not raw.endswith(b"\0"):
-    raise ArtifactError("unterminated staged Git path record")
-  staged = sorted(git_wire_path(item) for item in raw.split(b"\0") if item)
-  expected = sorted(result.changed_files)
-  if staged != expected:
-    raise ArtifactError(
-      "staged artifact paths do not match verified changes: "
-      f"expected={expected}, staged={staged}"
-    )
-  git(root, "commit", "-m", message)
-  return head_sha(root)
+  # The verified artifact declaration owns these exact output paths. Preserve
+  # staged edits to unrelated files through the shared selective-commit helper.
+  return commit_owned_files(root, result.changed_files, message) or head_sha(root)

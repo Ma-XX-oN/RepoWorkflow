@@ -86,37 +86,46 @@ class TestCliRemoteContract(unittest.TestCase):
         self.assertFalse((self.root / ".ci/run").exists())
 
 
-  def test_remote_request_and_retry_use_previous_tip(self):
+  def test_remote_request_reuses_cmd_without_mutating_source(self):
     bare = self.remote()
-    for stage in ("regression", "regression"):
-      previous = self.git("rev-parse", "HEAD")
-      request = self.cli("test", stage, "--remote")
-      self.assertEqual(request.returncode, 0, request.stderr)
-      self.assertEqual(
-        (self.root / ".ci/run").read_text(),
-        "regression-testing " + previous + "\n",
-      )
-      head = self.git("rev-parse", "HEAD")
-      self.assertNotEqual(head, previous)
-      self.assertEqual(self.git("rev-parse", "HEAD^"), previous)
-      self.assertEqual(
-        self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
-        ".ci/run",
-      )
-      published = subprocess.run(
-        ["git", "--git-dir", str(bare), "rev-parse",
-         "refs/heads/issue-545-fixture"],
-        text=True, capture_output=True, check=True,
-      )
-      self.assertEqual(published.stdout.strip(), head)
+    previous = self.git("rev-parse", "HEAD")
+    first = self.cli("test", "regression", "--remote")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    self.assertIn("CMD-1-issue-545-fixture SUBMITTED", first.stdout)
+    second = self.cli("test", "regression", "--remote")
+    self.assertEqual(second.returncode, 0, second.stderr)
+    self.assertIn("CMD-1-issue-545-fixture REUSED", second.stdout)
+    self.assertEqual(self.git("rev-parse", "HEAD"), previous)
+    self.assertFalse((self.root / ".ci/run").exists())
+    request = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/CMD-1-issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", request + "^"), previous)
+    self.assertEqual(
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", request),
+      ".ci/rwf",
+    )
+    self.assertEqual(self.git("show", request + ":.ci/rwf"),
+                     "test regression --remote 0")
 
-  def test_dirty_tree_rejects_remote_without_commit(self):
-    self.remote()
+  def test_dirty_tree_is_preserved_and_request_uses_committed_tip(self):
+    bare = self.remote()
     (self.root / "README").write_text("edited\n")
+    status_before = self.git("status", "--porcelain")
     result = self.cli("test", "regression", "--remote")
-    self.assertEqual(result.returncode, 2)
-    self.assertIn("working tree must be clean", result.stderr)
+    self.assertEqual(result.returncode, 0, result.stderr)
     self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
+    self.assertEqual(self.git("status", "--porcelain"), status_before)
+    self.assertEqual((self.root / "README").read_text(), "edited\n")
+    self.assertEqual(
+      subprocess.run(
+        ["git", "--git-dir", str(bare), "rev-parse",
+         "refs/heads/CMD-1-issue-545-fixture^"],
+        text=True, capture_output=True, check=True,
+      ).stdout.strip(), self.source,
+    )
 
   def test_remote_results_fetches_existing_log_only(self):
     self.remote()
@@ -169,22 +178,24 @@ class TestCliRemoteContract(unittest.TestCase):
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "fixture catalogue")
-    self.remote()
+    bare = self.remote()
     self.assertEqual(
       self.cli("test", "RED", "issue-545-one").returncode, 2,
     )
-    self.assertEqual(
-      self.cli("test", "GREEN", "--remote").returncode, 0,
-    )
-    previous = self.git("rev-parse", "HEAD^")
-    self.assertEqual(
-      self.git("show", "HEAD^:.ci/red-green.txt"),
-      "issue-545-one",
-    )
-    self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "GREEN-testing " + previous + "\n",
-    )
+    self.assertEqual(self.git("show", "HEAD:.ci/red-green.txt"),
+                     "issue-545-one")
+    previous = self.git("rev-parse", "HEAD")
+    remote = self.cli("test", "GREEN", "--remote")
+    self.assertEqual(remote.returncode, 0, remote.stderr)
+    self.assertEqual(self.git("rev-parse", "HEAD"), previous)
+    request = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/CMD-1-issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", request + "^"), previous)
+    self.assertEqual(self.git("show", request + ":.ci/rwf"),
+                     "test GREEN --remote 0")
 
   def test_remote_temporary_requires_valid_nonempty_manifest(self):
     self.remote()

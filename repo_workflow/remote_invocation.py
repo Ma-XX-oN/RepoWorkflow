@@ -210,14 +210,138 @@ def _assert_hosted_grammar(source: Path, words: tuple[str, ...]) -> None:
   """Reuse the public parser; do not grant new remote command permissions."""
   if words[:2] == ("test", "results"):
     raise RemoteInvocationError("test results is read-only")
-  probe = [*words, "--remote"]
-  if len(probe) == 4 and probe[:2] == ["test", "RED"]:
-    probe = [probe[0], probe[1], "--remote", probe[2]]
   try:
-    parse_tokens(COMMANDS, Context(source, legal_only=False), probe)
-    parse_tokens(COMMANDS, Context(source, legal_only=True), probe)
+    parse_tokens(COMMANDS, Context(source, legal_only=False), list(words))
+    parse_tokens(COMMANDS, Context(source, legal_only=True), list(words))
   except CommandGrammarError as exc:
     raise RemoteInvocationError("command is not eligible for hosted execution") from exc
+
+
+
+def _local_branches(root: Path) -> dict[str, str]:
+  """Snapshot refs belonging to the command's isolated source repository."""
+  refs: dict[str, str] = {}
+  for line in _git(
+    root, "for-each-ref", "--format=%(refname:short) %(objectname)",
+    "refs/heads",
+  ).splitlines():
+    branch, separator, sha = line.rpartition(" ")
+    if not separator or not branch or _SHA.fullmatch(sha) is None:
+      raise RemoteInvocationError("invalid local branch advertisement")
+    if branch in refs:
+      raise RemoteInvocationError("duplicate local branch identity")
+    refs[branch] = sha
+  return refs
+
+
+
+def _local_tags(root: Path) -> dict[str, str]:
+  """Snapshot exact tag-object IDs, not peeled commit targets."""
+  refs: dict[str, str] = {}
+  for line in _git(
+    root, "for-each-ref", "--format=%(refname) %(objectname)", "refs/tags",
+  ).splitlines():
+    ref, separator, sha = line.rpartition(" ")
+    if (not separator or not ref.startswith("refs/tags/")
+        or not ref[len("refs/tags/"):] or _SHA.fullmatch(sha) is None
+        or ref in refs):
+      raise RemoteInvocationError("invalid local Git tag advertisement")
+    refs[ref] = sha
+  return refs
+
+
+def _remote_tag_oid(root: Path, ref: str) -> str | None:
+  advertised = git(root, "ls-remote", "--tags", "origin", ref, check=False)
+  if advertised.returncode:
+    raise RemoteInvocationError("cannot verify authoritative remote tag")
+  matches = []
+  for line in advertised.stdout.splitlines():
+    words = line.split()
+    if len(words) != 2:
+      raise RemoteInvocationError("invalid remote tag advertisement")
+    if words[1] == ref:
+      if _SHA.fullmatch(words[0]) is None:
+        raise RemoteInvocationError("invalid advertised tag object")
+      matches.append(words[0])
+  if len(matches) > 1:
+    raise RemoteInvocationError("ambiguous authoritative tag")
+  return matches[0] if matches else None
+
+
+def _publish_command_branches(
+  root: Path, request: _Request, before: dict[str, str],
+  before_tags: dict[str, str],
+) -> None:
+  """Push only refs the normal command committed; never stage command files."""
+  # A command that changed tracked files without committing them has not
+  # produced durable state and must not be reported as completed successfully.
+  dirty = _git(root, "status", "--porcelain", "--untracked-files=all")
+  if dirty:
+    raise RemoteInvocationError(
+      "command left uncommitted repository changes: " + dirty[:400]
+    )
+  after = _local_branches(root)
+  changes = []
+  for branch, revision in after.items():
+    old = before.get(branch)
+    if old == revision:
+      continue
+    if _CMD.fullmatch(branch):
+      raise RemoteInvocationError("normal command modified CMD branch identity")
+    base = old or request.source_sha
+    if git(root, "merge-base", "--is-ancestor", base, revision,
+           check=False).returncode:
+      raise RemoteInvocationError("command rewrote branch history: " + branch)
+    current = git(root, "ls-remote", "--heads", "origin",
+                  f"refs/heads/{branch}", check=False)
+    if current.returncode:
+      raise RemoteInvocationError("cannot check command destination: " + branch)
+    remote_sha = current.stdout.split()[0] if current.stdout.strip() else None
+    if remote_sha == revision:
+      # An existing command may have published the exact result already.
+      continue
+    if remote_sha != old:
+      raise RemoteInvocationError("command destination advanced: " + branch)
+    changes.append((branch, revision, old))
+  after_tags = _local_tags(root)
+  if set(before_tags) - set(after_tags):
+    raise RemoteInvocationError("command deleted an existing Git tag")
+  tag_changes: list[tuple[str, str]] = []
+  for ref, revision in after_tags.items():
+    old = before_tags.get(ref)
+    if old is not None:
+      if old != revision:
+        raise RemoteInvocationError("command rewrote an existing Git tag")
+      continue
+    published = _remote_tag_oid(root, ref)
+    if published == revision:
+      continue
+    if published is not None:
+      raise RemoteInvocationError("authoritative Git tag already exists: " + ref)
+    tag_changes.append((ref, revision))
+  if not changes and not tag_changes:
+    return
+  command = ["push", "--porcelain", "--atomic"]
+  for branch, _, old in changes:
+    command.append(f"--force-with-lease=refs/heads/{branch}:{old or ''}")
+  for ref, _ in tag_changes:
+    command.append(f"--force-with-lease={ref}:")
+  command.append("origin")
+  command.extend(
+    f"{revision}:refs/heads/{branch}" for branch, revision, _ in changes
+  )
+  command.extend(f"{revision}:{ref}" for ref, revision in tag_changes)
+  published = git(root, *command, check=False)
+  if published.returncode:
+    raise RemoteInvocationError(
+      "command branch publication failed: " + published.stderr.strip()
+    )
+  for branch, revision, _ in changes:
+    if _remote_tip(root, branch) != revision:
+      raise RemoteInvocationError("command branch readback mismatch: " + branch)
+  for ref, revision in tag_changes:
+    if _remote_tag_oid(root, ref) != revision:
+      raise RemoteInvocationError("command tag readback mismatch: " + ref)
 
 
 def emit_outcome(outcome: InvocationOutcome) -> None:
@@ -274,7 +398,21 @@ def invoke_numbered(
         request.source_branch, request.source_sha)
     origin = _git(root, "remote", "get-url", "origin")
     git(source, "remote", "set-url", "origin", origin)
-    _assert_hosted_grammar(source, request.argv)
+    try:
+      _assert_hosted_grammar(source, request.argv)
+    except RemoteInvocationError as exc:
+      # The CMD identity is authenticated, so a rejected command still gets
+      # a durable terminal result. Never invoke the invalid command handler.
+      diagnostic = str(exc) + "\n"
+      outcome = InvocationOutcome(
+        request.branch, request.request_sha, request.source_sha,
+        request.retry, 2, "", diagnostic, diagnostic,
+      )
+      if publish is not None:
+        publish(outcome)
+      return outcome
+    before_branches = _local_branches(source)
+    before_tags = _local_tags(source)
     if _remote_tip(root, request.branch) != request.request_sha:
       raise RemoteInvocationError("CMD attempt was superseded before execution")
     with redirect_stdout(_StreamCapture(stdout, combined)):
@@ -296,6 +434,7 @@ def invoke_numbered(
             status = result
           if type(status) is not int:
             raise TypeError("local CLI returned a non-integer status")
+          _publish_command_branches(source, request, before_branches, before_tags)
         except UnicodeError as exc:
           raise RemoteInvocationError("command emitted non-UTF-8 output") from exc
         except Exception:

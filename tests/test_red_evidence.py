@@ -78,6 +78,25 @@ class RedEvidenceTests(unittest.TestCase):
       "issue-545-second\n",
     )
 
+  def test_evidence_like_commit_with_source_change_invalidates_green(self):
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-green",
+    )
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "fixture catalogue")
+    self.cli("test", "RED", "issue-545-green")
+    first = self.cli("test", "GREEN")
+    self.assertEqual(first.returncode, 0, first.stderr)
+    (self.root / "README").write_text("new candidate source\n")
+    self.git("add", "README")
+    self.git("commit", "-m", "test: record GREEN outcome")
+    again = self.cli("test", "GREEN")
+    self.assertEqual(again.returncode, 0, again.stderr)
+    self.assertNotIn("Reusing valid PASS evidence", again.stdout)
+    log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+    actual = json.loads(log.read_text().splitlines()[-1])
+    self.assertFalse(actual["groups"][0]["reused"])
+
   def test_newer_green_failure_supersedes_earlier_pass(self):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-green",
