@@ -1,0 +1,48 @@
+name: RWF 660 Issue Start Version Commit RED Probe
+on:
+  push:
+    branches: ['issue-660-issue-start-version-probe-20261105']
+    paths: ['.ci/issue-start-version-probe-trigger']
+permissions:
+  contents: read
+jobs:
+  red:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 92caade912304cf4f2e18c86d39c1fcb8df25eaa
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Verify registered issue-start test exposes uncommitted version
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          from repo_workflow.self_ci import group_command
+          from repo_workflow.test_catalogue import load_test_catalogue
+          expected = "92caade912304cf4f2e18c86d39c1fcb8df25eaa"
+          actual = subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+          assert actual == expected
+          group = "issue-660-issue-start-version-commit"
+          assert group in load_test_catalogue(Path.cwd()).groups
+          result = subprocess.run(
+            group_command(Path.cwd(),group),
+            capture_output=True,check=False,
+          )
+          output = (result.stdout+result.stderr).decode("utf-8", "strict")
+          print("SOURCE_SHA",actual,"TEST_EXIT",result.returncode,flush=True)
+          print(output[-8000:],flush=True)
+          assert result.returncode != 0, "expected the new invariant to reproduce a RED failure"
+          assert "successful issue start must commit its canonical version state" in output
+          PY
