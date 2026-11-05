@@ -30,6 +30,29 @@ dependency edges are needed merely to select a Git integration parent.
 Git identity records the selected parent and preserves it even if the DAG
 or ticket titles subsequently change.
 
+## Umbrella starts versus umbrella work
+
+`rwf issue start <ticket-id>` **must reject a direct start** when the
+requested ticket is an umbrella (title begins with `Initiative:`,
+`Epic:`, or `Feature:`). The rejection is read-only: no branch, identity
+commit, claim or ticket-state mutation. For example, `rwf issue start 660`
+fails when #660 is an umbrella.
+
+Umbrella integration branches are **automatically created or reused** while
+starting a subordinate implementation ticket. Creating the necessary parent
+branch does not count as directly starting the umbrella. Existing umbrella
+branches remain usable: authorized workers may switch/check out an umbrella
+branch to integrate accepted child changes, resolve conflicts, run tests and
+perform the existing completion/PRELIM workflow. **Do not introduce an
+`rwf issue integrate` command**; existing RWF operations cover these tasks.
+A worker may also create the subordinate work branch directly from the
+verified umbrella commit without checking out the umbrella first.
+
+An umbrella with no subordinate implementation ticket remains a planning
+container without an automatically created work branch until a subordinate
+ticket is started. This policy does not forbid reading or planning the
+umbrella ticket.
+
 ## Starting a ticket and building its integration hierarchy
 
 A worker normally invokes `rwf issue start <ticket-id>`. RWF must validate
