@@ -145,7 +145,7 @@ class WorkspaceCliTests(unittest.TestCase):
       "complete", "--", "workspace", "claim", ""
     )
     self.assertEqual(completed.returncode, 0, completed.stderr)
-    self.assertEqual(completed.stdout.strip(), "RWF-140")
+    self.assertEqual(completed.stdout.splitlines(), ["--remote", "RWF-140"])
 
     helped = self.run_rwf("workspace", "--help")
     self.assertEqual(helped.returncode, 0, helped.stderr)
