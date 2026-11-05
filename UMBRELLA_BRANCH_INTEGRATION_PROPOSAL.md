@@ -1,11 +1,11 @@
-# Umbrella-centred Git integration — proposed RWF contract
+# Umbrella-centred Git integration — accepted RWF workflow contract
 
-Status: **DESIGN RECORDED; NOT IMPLEMENTED OR ACCEPTED** (discussion, 2026-11-04).
-This records agreed user requirements for subsequent implementation and tests.
-Until implementation and approval, existing [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md),
+Status: **ACCEPTED; IN USE MANUALLY; AUTOMATED RWF ENFORCEMENT NOT YET IMPLEMENTED OR VERIFIED** (owner clarification, 2026-11-05).
+The umbrella-centred branch and integration workflow is the accepted procedure **currently followed manually**. Its automated branch-selection, creation, validation, and enforcement mechanisms remain future RWF implementation work.
+Until those mechanisms are implemented and verified, [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md),
 [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md), [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md),
-and [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) describe current behaviour.
-Do not treat this proposal as a deployed feature or silently change existing branch identities.
+and [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) describe existing automated behaviour.
+Manual use does not establish software or server-side enforcement. Preserve existing branch identities and follow the agreed manual integration procedure; do not represent automatic enforcement as deployed.
 
 ## Objective and boundaries
 
