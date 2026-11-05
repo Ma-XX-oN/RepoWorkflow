@@ -87,6 +87,15 @@ class IssueStartTests(unittest.TestCase):
 
     self.assertEqual(result.issue, "7")
     self.assertEqual(result.version, "1.2.3-issue.7.0.1")
+    committed_version = subprocess.run(
+      ["git", "show", "HEAD:VERSION"],
+      cwd=self.repo, check=True, capture_output=True, text=True,
+    ).stdout
+    self.assertEqual(
+      committed_version,
+      (self.repo / "VERSION").read_text(encoding="utf-8"),
+      "successful issue start must commit its canonical version state",
+    )
     self.assertEqual(result.branch, "issue-7")
     self.assertEqual(
       subprocess.run(
