@@ -47,4 +47,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RWF_ENGINE_ROOT: ${{ runner.temp }}/rwf-engine
-        run: python "$RWF_ENGINE_ROOT/scripts/hosted-rwf-forward.py"
+        run: |
+          set -euo pipefail
+          # GitHub checkout credentials are repository-local. The central
+          # CMD wrapper also publishes from a separate source clone.
+          # Pass a credential helper through Git's documented environment
+          # configuration, without writing a token to repository files.
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=credential.helper
+          export GIT_CONFIG_VALUE_0='!f() { echo username=x-access-token; echo "password=$GITHUB_TOKEN"; }; f'
+          python "$RWF_ENGINE_ROOT/scripts/hosted-rwf-forward.py"
