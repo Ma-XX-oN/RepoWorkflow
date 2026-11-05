@@ -1,0 +1,96 @@
+name: RWF 660 Exact-SHA Native Catalogue Workbench
+
+on:
+  push:
+    branches:
+      - 'issue-791-660-native-catalogue-20261105'
+    paths:
+      - '.ci/660-native-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  registered-catalogue:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c1298714ddddeaa57f132d32082ab073061dae69
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install declared dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Execute only registered test catalogue entries
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import platform
+          from pathlib import Path
+          import subprocess
+          import sys
+          import time
+
+          from repo_workflow.self_ci import group_command
+          from repo_workflow.test_catalogue import load_test_catalogue
+
+          root = Path.cwd()
+          expected = "c1298714ddddeaa57f132d32082ab073061dae69"
+          actual = subprocess.check_output(["git", "rev-parse", "HEAD"], encoding="ascii").strip()
+          assert actual == expected, (actual, expected)
+          if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="strict")
+          catalogue = load_test_catalogue(root)
+          groups = sorted(catalogue.groups)
+          assert len(groups) == 109, f"unexpected registered group count: {len(groups)}"
+          results = []
+          print(f"EXACT_SHA={actual} OS={platform.system()} REGISTERED_GROUPS={len(groups)}", flush=True)
+          for name in groups:
+            started = time.monotonic()
+            try:
+              command = group_command(root, name)
+              execution = subprocess.run(
+                command, cwd=root, capture_output=True, check=False,
+              )
+              output = (execution.stdout + execution.stderr).decode("utf-8", "strict")
+              code = execution.returncode
+            except Exception as error:
+              output = repr(error)
+              code = 125
+            duration = round(time.monotonic() - started, 3)
+            print(f"GROUP {name} EXIT={code} SECONDS={duration}", flush=True)
+            if output:
+              print(output[-10000:], flush=True)
+            results.append({"group": name, "exit": code, "duration_seconds": duration})
+          payload = {
+            "source_sha": actual,
+            "os": platform.system(),
+            "python": platform.python_version(),
+            "registered_groups": len(groups),
+            "passed": sum(x["exit"] == 0 for x in results),
+            "failed": sum(x["exit"] != 0 for x in results),
+            "results": results,
+          }
+          Path("rwf660-native-catalogue-results.json").write_text(
+            json.dumps(payload, indent=2) + "\n", encoding="utf-8",
+          )
+          print("FINAL " + json.dumps({k: v for k, v in payload.items() if k != "results"}), flush=True)
+          sys.exit(0 if payload["failed"] == 0 else 1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rwf660-native-${{ matrix.os }}
+          path: rwf660-native-catalogue-results.json
+          if-no-files-found: warn
+          retention-days: 30
