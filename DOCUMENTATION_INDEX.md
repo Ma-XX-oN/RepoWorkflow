@@ -7,16 +7,32 @@ This map does not replace task acceptance, ticket ownership or approval gates.
 
 ## Solve a problem
 
+**Agents: start every repository run** with the
+[agent execution standard](AGENT_EXECUTION_STANDARD.md). It defines
+mandatory documentation/workbench discovery, recovery, acceptance tracking,
+authority and accountable termination; follow its specialist links.
+
+
 1. [Engineering overview](BEST_PRACTICES.md): investigate, design and verify.
    Follow [design principles](DESIGN_PRINCIPLES.md) for reuse, wrappers and
    separation of command logic from execution transport.
-2. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
-3. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
+2. [Dependency pause and fix propagation](DEPENDENCY_PAUSE_AND_PROPAGATION.md):
+   check operator holds, descendant closure and accepted-fix transfer before
+   scheduling or resuming workers.
+3. [Investigation procedure](BUG_INVESTIGATION.md): repeatable evidence cycle.
+4. [Execution environments](EXECUTION_ENVIRONMENTS.md): choose a runner or
    workbench on any authorised CI provider when local tools lack dependencies.
-4. [Testing and proof](TEST_ADEQUACY.md): distinguish fixtures, native runs,
+5. [Testing and proof](TEST_ADEQUACY.md): distinguish fixtures, native runs,
    hosted evidence and provider certification.
-5. [Current work](CURRENT_WORK_STATE.md): check active coordination context;
+6. [Current work](CURRENT_WORK_STATE.md): check active coordination context;
    confirm freshness against the actual issues and source revisions.
+
+**Cross-platform RED FLAG:** If the same test has divergent results on
+supported operating systems, follow the
+[portability investigation procedure](BUG_INVESTIGATION.md#cross-platform-test-divergence)
+before changing tests or adding OS exceptions. Review
+[portable behavior](BEST_PRACTICES.md#portable-behavior-first) and
+[verification adequacy](TEST_ADEQUACY.md#test-dimension-analysis).
 
 ## Understand the product
 
