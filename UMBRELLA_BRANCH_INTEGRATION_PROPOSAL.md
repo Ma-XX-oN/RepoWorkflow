@@ -1,8 +1,8 @@
 # Umbrella-centred Git integration — proposed RWF contract
 
-Status: **DESIGN RECORDED; NOT IMPLEMENTED OR ACCEPTED** (discussion, 2026-11-04).
-This records agreed user requirements for subsequent implementation and tests.
-Until implementation and approval, existing [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md),
+Status: **DESIGN ACCEPTED; NOT IMPLEMENTED OR VERIFIED** (accepted requirements, 2026-11-05).
+This records accepted user requirements for subsequent implementation and tests.
+Until implementation and verification, existing [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md),
 [RELATIONSHIP_GRAPH.md](RELATIONSHIP_GRAPH.md), [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md),
 and [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md) describe current behaviour.
 Do not treat this proposal as a deployed feature or silently change existing branch identities.
