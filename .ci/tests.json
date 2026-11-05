@@ -498,6 +498,13 @@
     },
     {
       "test-harness": "unittest",
+      "issue-660-issue-start-version-commit": {
+        "type": "regression",
+        "name": "tests.test_issue_start"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-660-high-risk-remote-completion": {
         "type": "regression",
         "name": "tests.test_high_risk_cli"
