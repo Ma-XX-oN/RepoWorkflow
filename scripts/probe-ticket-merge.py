@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 
@@ -11,16 +10,15 @@ if str(ROOT) not in sys.path:
   sys.path.insert(0, str(ROOT))
 
 from repo_workflow.ticket_merge import configure_ticket_merge_driver
+from repo_workflow.process import run_command
 
 
 def run(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", *args],
-    cwd=root,
-    check=True,
-    capture_output=True,
-    text=True,
-  )
+  result = run_command(["git", *args], root)
+  if result.returncode:
+    raise RuntimeError(
+      "git " + args[0] + " failed: " + result.stderr.strip()
+    )
   return result.stdout.strip()
 
 
