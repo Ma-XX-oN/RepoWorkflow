@@ -190,17 +190,7 @@ def _validate(root: Path, argv: list[str]) -> _Request:
   if source_result.returncode == 0:
     raise RemoteInvocationError("ordinary source branch contains CMD result")
   if source_sha != source_tip:
-    present = git(root, "cat-file", "-e", source_tip + "^{commit}",
-                  check=False)
-    if present.returncode:
-      git(root, "fetch", "--quiet", "--no-tags", "origin",
-          f"refs/heads/{source_branch}")
-    ancestor = git(
-      root, "merge-base", "--is-ancestor", source_sha, source_tip,
-      check=False,
-    )
-    if ancestor.returncode:
-      raise RemoteInvocationError("CMD source revision is not on source branch")
+    raise RemoteInvocationError("CMD source branch advanced since submission")
   return _Request(
     branch, source_branch, source_sha, tip, latest_retry, target_argv,
   )
