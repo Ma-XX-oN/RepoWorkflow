@@ -35,6 +35,9 @@ jobs:
             --report provider-readback.json \
             > provider-readback.stdout
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           from pathlib import Path
 
@@ -61,6 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           from pathlib import Path
           import subprocess
