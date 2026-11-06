@@ -3,16 +3,15 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import subprocess
 from typing import Callable
 
 from .github_artifact import verify_hosted_record
+from .process import run_command
 
 
 def hosted_cache_checker(root: Path, stage: str) -> Callable[[dict], bool] | None:
-  command = subprocess.run(
-    ["git", "-C", str(root), "remote", "get-url", "origin"],
-    text=True, capture_output=True, check=False,
+  command = run_command(
+    ["git", "-C", str(root), "remote", "get-url", "origin"], root,
   )
   if command.returncode:
     return None
@@ -50,15 +49,13 @@ def read_remote_published_log(
     relative,
   ) is None:
     return None
-  fetched = subprocess.run(
+  fetched = run_command(
     ["git", "-C", str(root), "fetch", "--no-tags", "origin",
-     "refs/heads/" + branch],
-    text=True, capture_output=True, check=False,
+     "refs/heads/" + branch], root,
   )
   if fetched.returncode:
     return None
-  showed = subprocess.run(
-    ["git", "-C", str(root), "show", "FETCH_HEAD:" + relative],
-    text=True, capture_output=True, check=False,
+  showed = run_command(
+    ["git", "-C", str(root), "show", "FETCH_HEAD:" + relative], root,
   )
   return showed.stdout if showed.returncode == 0 else None
