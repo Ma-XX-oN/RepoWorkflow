@@ -1,145 +1,44 @@
-name: RWF 660 actual parent-to-umbrella integration
+name: RWF 660 post-merge registered native verification
 on:
   push:
     branches: ['issue-660-legacy-merge-diagnostic-20261106']
     paths: ['.github/workflows/issue660-parent-merge-preview.yml']
 permissions:
-  contents: write
+  contents: read
 jobs:
-  integrate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          persist-credentials: true
+          ref: 9495b18dc3579acec135325db37bad5771f8a850
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Actual parent #785 merge into #660; review any overlap before accepting
+      - name: Verify exact integrated source and existing registered groups
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'RWF 660 integration'
-          git config user.email 'rwf@localhost'
-          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
-          parent=cccc406678da634024cfaa0148592b9b76456989
-          child=09ceb6ee5c52804c612e588ca313dfff5f65d1cd
-          test "$(git rev-parse refs/remotes/origin/issue-660-umbrella-integration-20261105)" = "$parent"
-          test "$(git rev-parse refs/remotes/origin/issue-785-rwf-contract-consolidation-20261102)" = "$child"
-          candidate=issue-660-final-hierarchical-integration-20261106
-          git switch --create "$candidate" "$parent"
-          for path in repo_workflow/process.py repo_workflow/git.py repo_workflow/launcher_discovery.py repo_workflow/output.py repo_workflow.py scripts/hosted-rwf-forward.py tests/test_canonical_lane_smoke.py tests/test_issue629_selection_acceptance.py tests/test_issue629_stage_cardinality.py tests/test_output_enforcement.py; do
-            echo "BEFORE_FIX_BLOB $path $(git rev-parse "HEAD:$path")"
-          done
-          set +e
-          git merge --no-ff --no-commit "$child"
-          rc=$?
-          set -e
-          echo "PARENT_MERGE_RC=$rc"
-          test "$rc" -eq 0 -o "$rc" -eq 1
-          echo 'UNMERGED_PATHS'
-          git diff --name-only --diff-filter=U
-          echo 'IMPLEMENTATION_CONFLICTS'
-          git diff -- repo_workflow.py repo_workflow/public_cli.py repo_workflow/remote_invocation.py repo_workflow/remote_result.py .ci/tests.json | head -350
-          python - <<'PY'
-          import ast,json,re,subprocess
-          from pathlib import Path
-          conflicts=set(subprocess.check_output(
-              ['git','diff','--name-only','--diff-filter=U'],text=True).splitlines())
-          allowed={'.ci/run','.ci/engine-version','.ci/tests.json','repo_workflow.py'}
-          assert conflicts<=allowed,('unexpected integration conflict',conflicts-allowed)
-          assert {'.ci/tests.json','repo_workflow.py'}<=conflicts,conflicts
-          cli=Path('repo_workflow.py')
-          source=cli.read_text(encoding='utf-8')
-          pat=re.compile(r'^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]+\n',re.M|re.S)
-          hunks=list(pat.finditer(source))
-          assert len(hunks)==2,('unexpected CLI hunks',len(hunks))
-          left,right=hunks[0].group(1),hunks[0].group(2)
-          for expected in (
-              'from repo_workflow.remote_status import RemoteStatusError',
-              'from repo_workflow.output import configure_utf8_output',
-              'from repo_workflow.remote_invocation import',
-              'from repo_workflow.remote_result import RemoteResultError, publish_result'):
-              assert expected in left,('lost existing accepted import',expected)
-          assert 'from repo_workflow.remote_invocation import' in right
-          assert 'from repo_workflow.remote_status import RemoteStatusError' in right
-          assert set(hunks[1].group(1).split()) >= set(hunks[1].group(2).split())
-          source=pat.sub(lambda m:m.group(1),source)
-          ast.parse(source)
-          cli.write_text(source,encoding='utf-8',newline='\n')
-          def stage(n):
-              return json.loads(subprocess.check_output(
-                  ['git','show',f':{n}:.ci/tests.json'],text=True))
-          ours,theirs=stage(2),stage(3)
-          merged=ours.copy()
-          h=dict(ours['test-harnesses'])
-          for name,value in theirs['test-harnesses'].items():
-              assert name not in h or h[name]==value,('harness mismatch',name)
-              h[name]=value
-          merged['test-harnesses']=h
-          def entries(doc):
-              for entry in doc['tests']:
-                  for name,val in entry.items():
-                      if name not in ('test-harness','command'):
-                          yield name,(entry.get('test-harness'),entry.get('command'),val),entry
-          known={name:payload for name,payload,_ in entries(ours)}
-          combined=list(ours['tests'])
-          for name,payload,entry in entries(theirs):
-              if name in known:
-                  assert known[name]==payload,('catalogue conflict',name)
-              else:
-                  combined.append({k:v for k,v in entry.items() if k in ('test-harness','command')}|{name:entry[name]})
-                  known[name]=payload
-          merged['tests']=combined
-          aliases=dict(ours.get('aliases',{}))
-          for name,members in theirs.get('aliases',{}).items():
-              aliases[name]=list(dict.fromkeys([*aliases.get(name,[]),*members]))
-          if aliases: merged['aliases']=aliases
-          from repo_workflow.test_catalogue import parse_test_catalogue
-          parsed=parse_test_catalogue(merged)
-          assert parsed.groups==frozenset(known)
-          Path('.ci/tests.json').write_text(
-              json.dumps(merged,indent=2,ensure_ascii=False)+'\n',
-              encoding='utf-8',newline='\n')
-          print('MERGED_CATALOGUE_GROUPS',len(parsed.groups),flush=True)
-          PY
-          git add -- repo_workflow.py .ci/tests.json
-          # #660 must not inherit #791's task version; preserve original source
-          # selector without triggering old .ci/run on-demand CI.
-          git restore --source=HEAD --staged --worktree -- .ci/run
-          git rm -f -- .ci/engine-version
-          test -z "$(git ls-files -u)"
-          python - <<'PY'
-          from pathlib import Path
-          from repo_workflow.engine_version_adapter import read_engine_version
-          assert read_engine_version(Path.cwd())=='0.1.122'
-          PY
-          echo 'AUTO_MERGE_STAGED_DIFF'
-          git diff --cached --stat
-          git diff --cached --check
-          git commit --no-edit
-          test "$(git rev-parse HEAD^1)" = "$parent"
-          test "$(git rev-parse HEAD^2)" = "$child"
-          sha=$(git rev-parse HEAD)
-          echo "MERGED_660_CANDIDATE=$sha"
-          for path in repo_workflow/process.py repo_workflow/git.py repo_workflow/launcher_discovery.py repo_workflow/output.py repo_workflow.py scripts/hosted-rwf-forward.py tests/test_canonical_lane_smoke.py tests/test_issue629_selection_acceptance.py tests/test_issue629_stage_cardinality.py tests/test_output_enforcement.py; do
-            echo "AFTER_FIX_BLOB $path $(git rev-parse "HEAD:$path")"
-          done
-          python -m compileall -q repo_workflow repo_workflow.py scripts
+          test "$(git rev-parse HEAD)" = '9495b18dc3579acec135325db37bad5771f8a850'
           python - <<'PY'
           from pathlib import Path
           from repo_workflow.self_ci import group_command
+          from repo_workflow.engine_version_adapter import read_engine_version
           import subprocess,sys
           root=Path.cwd()
-          for name in ('issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status','issue-660-utf8-output-enforcement','issue-719-launcher-discovery-utf8','issue-727-portable-subprocess'):
+          assert read_engine_version(root)=='0.1.122'
+          groups=('issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status','issue-660-utf8-output-enforcement','issue-719-launcher-discovery-utf8','issue-727-portable-subprocess')
+          for name in groups:
               cmd=group_command(root,name)
-              print('CATALOGUE_GROUP',name,flush=True)
+              print('RUNNING_REGISTERED_GROUP',name,cmd,flush=True)
               result=subprocess.run(cmd,cwd=root,check=False)
-              print('CATALOGUE_RESULT',name,result.returncode,flush=True)
+              print('REGISTERED_GROUP_OUTCOME',name,result.returncode,flush=True)
               if result.returncode: sys.exit(result.returncode)
+          print('REGISTERED_GROUPS_PASSED',len(groups),flush=True)
           PY
-          git push --porcelain origin "HEAD:refs/heads/$candidate"
-          test "$(git ls-remote origin refs/heads/$candidate | cut -f1)" = "$sha"
-          echo "PUBLISHED_660_CANDIDATE=$sha"
