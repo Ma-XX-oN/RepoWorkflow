@@ -19,7 +19,7 @@
     {
       "test-harness": "unittest",
       "issue-660-utf8-output-enforcement": {
-        "type": "regression",
+        "type": "invariant",
         "name": "tests.test_output_enforcement"
       }
     },
