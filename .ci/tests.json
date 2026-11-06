@@ -432,6 +432,13 @@
         "type": "regression",
         "name": "tests.test_remote_result_789"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-788-hosted-forward": {
+        "type": "regression",
+        "name": "tests.test_issue788_hosted_forward"
+      }
     }
   ],
   "aliases": {

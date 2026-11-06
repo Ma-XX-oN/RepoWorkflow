@@ -62,7 +62,10 @@ class ExplicitCiInvocationTests(unittest.TestCase):
         requested = push_paths(source)
         if requested is None:
           continue
-        if path.name in exceptions:
+        if path.name == "remote-rwf.yml":
+          self.assertEqual(requested, [".ci/rwf"])
+          self.assertIn("      - 'CMD-**'", lines)
+        elif path.name in exceptions:
           self.assertTrue(requested)
         else:
           self.assertEqual(requested, [".ci/run"])
