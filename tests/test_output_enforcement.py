@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+from contextlib import redirect_stderr, redirect_stdout
+import io
 from pathlib import Path
 import subprocess
 import sys
@@ -27,6 +29,63 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
     self.assertEqual(result.returncode, 0, result.stderr)
     self.assertEqual(result.stdout, "→ λ ✓\n".encode("utf-8"))
     self.assertEqual(result.stderr, "error → λ ✓\n".encode("utf-8"))
+
+  def test_unicode_native_capture_streams_remain_usable(self):
+    class FrameworkCapture(io.StringIO):
+      pass
+
+    stdout = FrameworkCapture()
+    stderr = FrameworkCapture()
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+      from repo_workflow.output import configure_utf8_output
+      self.assertTrue(configure_utf8_output())
+      print("captured → λ ✓")
+      print("diagnostic → λ ✓", file=sys.stderr)
+    self.assertEqual(stdout.getvalue(), "captured → λ ✓\\n".replace("\\\\n", "\\n"))
+    self.assertEqual(stderr.getvalue(), "diagnostic → λ ✓\\n".replace("\\\\n", "\\n"))
+
+  def test_already_strict_utf8_capture_without_reconfigure(self):
+    class FrameworkStream:
+      encoding = "utf-8"
+      errors = "strict"
+      closed = False
+
+      def __init__(self):
+        self.text = io.StringIO()
+
+      def write(self, value):
+        return self.text.write(value)
+
+    stdout = FrameworkStream()
+    stderr = FrameworkStream()
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+      from repo_workflow.output import configure_utf8_output
+      self.assertTrue(configure_utf8_output())
+      print("unicode λ ✓")
+      print("stderr λ ✓", file=sys.stderr)
+    self.assertEqual(stdout.text.getvalue(), "unicode λ ✓\\n".replace("\\\\n", "\\n"))
+    self.assertEqual(stderr.text.getvalue(), "stderr λ ✓\\n".replace("\\\\n", "\\n"))
+
+  def test_legacy_metadata_stream_without_reconfigure_fails_closed(self):
+    child = (
+      "import sys\\n"
+      "class Legacy:\\n"
+      "  encoding='cp1252'\\n"
+      "  errors='strict'\\n"
+      "  def write(self, data): return len(data)\\n"
+      "original = sys.stdout\\n"
+      "sys.stdout = Legacy()\\n"
+      "from repo_workflow.output import configure_utf8_output\\n"
+      "try:\\n"
+      "  assert not configure_utf8_output()\\n"
+      "finally:\\n"
+      "  sys.stdout = original\\n"
+    )
+    result = subprocess.run(
+      [sys.executable, "-c", child], cwd=ROOT, capture_output=True, check=False,
+    )
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertIn(b"cannot configure UTF-8 stdout output", result.stderr)
 
   def test_unconfigurable_output_fails_closed(self):
     child = (
