@@ -368,6 +368,12 @@ jobs:
           echo "MERGE_788_COMMIT=$(git rev-parse HEAD)"
           echo "MERGE_788_SOURCE_PATHS:"
           git diff --name-status HEAD^1 HEAD
+          # Unaccepted candidate ref is published for exact-source diagnostics.
+          # Never advance the recorded parent without successful acceptance.
+          git push --porcelain origin "HEAD:refs/heads/$candidate"
+          actual=$(git ls-remote origin "refs/heads/$candidate" | cut -f1)
+          test "$actual" = "$(git rev-parse HEAD)"
+          echo "PUBLISHED_UNACCEPTED_CANDIDATE=$candidate $actual"
           python - <<'PY'
           from pathlib import Path
           from repo_workflow.self_ci import group_command
@@ -382,7 +388,4 @@ jobs:
           PY
           echo "::endgroup::"
           python -m compileall -q repo_workflow repo_workflow.py scripts
-          git push --porcelain origin "HEAD:refs/heads/$candidate"
-          actual=$(git ls-remote origin "refs/heads/$candidate" | cut -f1)
-          test "$actual" = "$(git rev-parse HEAD)"
-          echo "PUBLISHED_PARENT_CANDIDATE=$candidate $actual"
+          echo "FINAL_CATALOGUE_TESTS_COMPLETED $(git rev-parse HEAD)"
