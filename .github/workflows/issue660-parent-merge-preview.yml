@@ -1,4 +1,4 @@
-name: RWF 660 exact-source macOS registered verification
+name: RWF 660 exact-source full catalogue matrix
 on:
   push:
     branches: ['issue-660-legacy-merge-diagnostic-20261106']
@@ -6,13 +6,13 @@ on:
 permissions:
   contents: read
 jobs:
-  native:
+  full-catalogue:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15]
+        os: [ubuntu-latest, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Verify exact integrated source and existing registered groups
+      - name: Run all official registered test catalogue groups, preserve failures
         shell: bash
         run: |
           set -euo pipefail
@@ -29,16 +29,26 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           from repo_workflow.self_ci import group_command
-          from repo_workflow.engine_version_adapter import read_engine_version
-          import subprocess,sys
+          from repo_workflow.test_catalogue import load_test_catalogue
+          import subprocess,sys,traceback
           root=Path.cwd()
-          assert read_engine_version(root)=='0.1.122'
-          groups=('issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status','issue-660-utf8-output-enforcement','issue-719-launcher-discovery-utf8','issue-727-portable-subprocess')
-          for name in groups:
-              cmd=group_command(root,name)
-              print('RUNNING_REGISTERED_GROUP',name,cmd,flush=True)
-              result=subprocess.run(cmd,cwd=root,check=False)
-              print('REGISTERED_GROUP_OUTCOME',name,result.returncode,flush=True)
-              if result.returncode: sys.exit(result.returncode)
-          print('REGISTERED_GROUPS_PASSED',len(groups),flush=True)
+          groups=sorted(load_test_catalogue(root).groups)
+          print('REGISTERED_GROUP_COUNT',len(groups),flush=True)
+          failures=[]
+          for index,name in enumerate(groups,1):
+              print('RUNNING_REGISTERED_GROUP',index,len(groups),name,flush=True)
+              try:
+                  argv=group_command(root,name)
+                  done=subprocess.run(argv,cwd=root,check=False)
+                  code=done.returncode
+              except Exception:
+                  traceback.print_exc()
+                  code=99
+              print('REGISTERED_GROUP_OUTCOME',name,code,flush=True)
+              if code:
+                  failures.append((name,code))
+          print('REGISTERED_GROUPS_TOTAL',len(groups),flush=True)
+          print('REGISTERED_GROUPS_FAILED',repr(failures),flush=True)
+          if failures:
+              sys.exit(1)
           PY
