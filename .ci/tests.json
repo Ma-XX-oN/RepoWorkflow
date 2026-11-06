@@ -447,6 +447,9 @@
     ],
     "issue-790-remote-status": [
       "issue-790-remote-status"
+    ],
+    "issue-792-provider-status": [
+      "issue-792-provider-status"
     ]
   }
 }
