@@ -169,8 +169,41 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
       ))
       command.assert_called_once()
 
+  def test_invalid_utf8_git_invocation_output_fails_closed(self):
+    from unittest.mock import patch
+    from repo_workflow.ci_invocation import CiInvocationError, _git
+    from repo_workflow.process import BinaryCommandResult
+
+    def raw(stdout: bytes, stderr: bytes, code: int):
+      return BinaryCommandResult(["git"], code, stdout, stderr, 0.0)
+
+    with patch("repo_workflow.ci_invocation.run_command_bytes",
+               return_value=raw(b"\\xff", b"", 0)):
+      with self.assertRaisesRegex(CiInvocationError, "invalid UTF-8 Git output"):
+        _git(ROOT, "rev-parse", "HEAD")
+      with self.assertRaisesRegex(CiInvocationError, "committed CI marker is not UTF-8"):
+        _git(ROOT, "show", "HEAD:.ci/run", raw=True)
+
+    with patch("repo_workflow.ci_invocation.run_command_bytes",
+               return_value=raw(b"", b"\\xff", 1)):
+      with self.assertRaisesRegex(CiInvocationError, "invalid UTF-8 Git diagnostic"):
+        _git(ROOT, "show", "HEAD:.ci/run", raw=True)
+
   def test_audited_git_consumers_cannot_reintroduce_locale_text_capture(self):
-    for name in ("repo_workflow/github_cache.py", "scripts/probe-ticket-merge.py"):
+    for name in (
+      "repo_workflow/github_cache.py",
+      "repo_workflow/ci_invocation.py",
+      "repo_workflow/pre_merge_gate.py",
+      "repo_workflow/engine_remote.py",
+      "repo_workflow/hosted_terminal_publication.py",
+      "repo_workflow/hosted_cache.py",
+      "repo_workflow/terminal_tag.py",
+      "repo_workflow/ticket_merge.py",
+      "repo_workflow/results.py",
+      "scripts/probe-ticket-merge.py",
+      "scripts/on-demand-ci-plan.py",
+      "scripts/publish-hosted-result.py",
+    ):
       source = ROOT / name
       tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
       for node in ast.walk(tree):
