@@ -1,0 +1,47 @@
+name: RWF 660 Version Transaction Rollback RED
+on:
+  push:
+    branches: ['issue-660-version-rollback-red-20261105']
+    paths: ['.ci/660-version-rollback-red-trigger']
+permissions:
+  contents: read
+jobs:
+  rollback:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9b10949e65529925ffd8df03f487190f0cce6f8e
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Require exact registered rollback RED assertion
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          from repo_workflow.test_catalogue import load_test_catalogue
+          from repo_workflow.self_ci import group_command
+          if hasattr(sys.stdout,"reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8",errors="strict")
+          sha="9b10949e65529925ffd8df03f487190f0cce6f8e"
+          assert subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()==sha
+          group="issue-660-issue-start-version-commit"
+          assert group in load_test_catalogue(Path.cwd()).groups
+          proc=subprocess.run(group_command(Path.cwd(),group),capture_output=True,check=False)
+          output=(proc.stdout+proc.stderr).decode("utf-8","strict")
+          print(output[-9000:],flush=True)
+          assert proc.returncode != 0
+          assert "test_commit_failure_restores_prior_canonical_version" in output
+          assert "failed issue start must restore consumer-owned version state" in output
+          print("EXPECTED_ROLLBACK_RED exact_sha="+sha,flush=True)
+          PY
