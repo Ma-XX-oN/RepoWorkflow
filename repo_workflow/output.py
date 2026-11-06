@@ -23,11 +23,20 @@ def configure_utf8_output() -> bool:
         if stream.closed:
           raise ValueError("closed Unicode text capture")
         continue
-      stream.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+      if getattr(stream, "closed", False):
+        raise ValueError("closed text output stream")
+      reconfigure = getattr(stream, "reconfigure", None)
+      if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="strict", newline="\n")
+      # An already strict-UTF-8 text capture requires no reconfiguration.
+      # Metadata-free custom streams must fail closed: their byte contract
+      # cannot be established without a supported reconfigure() operation.
       if codecs.lookup(stream.encoding).name != "utf-8":
-        raise ValueError("stdout/stderr codec did not change to UTF-8")
+        raise ValueError("stdout/stderr codec is not UTF-8")
       if stream.errors != "strict":
         raise ValueError("stdout/stderr codec is not strict")
+      if not callable(getattr(stream, "write", None)):
+        raise ValueError("stdout/stderr is not writable")
     except (AttributeError, LookupError, OSError, RuntimeError, TypeError, ValueError):
       diagnostic = f"RepoWorkflow error: cannot configure UTF-8 {name} output\n"
       try:
