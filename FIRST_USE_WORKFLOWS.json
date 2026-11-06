@@ -701,6 +701,79 @@
       "provider_contract_verification": [
         "tests/test_github_evidence.py::HostedIntegrationProviderTests.test_actual_completed_run_and_exact_marker_are_accepted"
       ]
+    },
+    {
+      "id": "FU-REMOTE-STATUS",
+      "status": "covered",
+      "scope": [
+        "rwf remote-status [CMD#] [--poll [interval...]]",
+        "provider-neutral CMD result, pending and retry reuse"
+      ],
+      "minimum_state": "numbered CMD branch bound to authenticated request marker",
+      "prohibited_shortcuts": [
+        "treating not-observed as non-execution proof",
+        "automatically retrying queued/running/unknown attempts",
+        "using stale published result"
+      ],
+      "tests": [
+        "tests/test_remote_status_790.py",
+        "tests/test_issue792_provider_status.py",
+        "tests/test_remote_result_789.py"
+      ],
+      "acceptance": [
+        {
+          "id": "RS-1",
+          "requirement": "latest, explicit, and Python-negative CMD selection",
+          "verification": [
+            "tests/test_remote_status_790.py::StatusTest.test_default_explicit_and_negative_selection"
+          ]
+        },
+        {
+          "id": "RS-2",
+          "requirement": "read-only pending and completed actual exit code including reserved-status collision",
+          "verification": [
+            "tests/test_remote_status_790.py::StatusTest.test_one_shot_pending_exit_is_distinctly_labeled",
+            "tests/test_remote_status_790.py::StatusTest.test_completed_code_and_output_preserved"
+          ]
+        },
+        {
+          "id": "RS-3",
+          "requirement": "poll intervals, default and repeats, no submission",
+          "verification": [
+            "tests/test_remote_status_790.py::StatusTest.test_poll_repeats_last_interval_and_never_submits",
+            "tests/test_remote_status_790.py::StatusTest.test_poll_intervals_reject_malformed"
+          ]
+        },
+        {
+          "id": "RS-4",
+          "requirement": "request reuse and stale-attempt rejection",
+          "verification": [
+            "tests/test_remote_status_790.py::StatusTest.test_submission_reuses_idempotently_without_retry_before_threshold",
+            "tests/test_remote_status_790.py::StatusTest.test_reuse_after_threshold_queries_provider_without_retry",
+            "tests/test_remote_status_790.py::StatusTest.test_stale_polled_attempt_is_not_accepted"
+          ]
+        },
+        {
+          "id": "RS-5",
+          "requirement": "provider errors fail closed and exact request/attempt authenticated",
+          "verification": [
+            "tests/test_issue792_provider_status.py::CoreStatusTests.test_all_normalized_states_and_identity",
+            "tests/test_remote_status_790.py::StatusTest.test_provider_errors_fail_closed"
+          ]
+        }
+      ],
+      "stateful": true,
+      "lifecycle_dimensions": {
+        "initial": "RS-1",
+        "pending": "RS-2",
+        "completed": "RS-2",
+        "repeat": "RS-4",
+        "invalid": "RS-5"
+      },
+      "provider_boundary": true,
+      "provider_contract_verification": [
+        "tests/test_issue792_provider_status.py::CoreStatusTests.test_all_normalized_states_and_identity"
+      ]
     }
   ],
   "audited_issue_count": 191,
@@ -716,7 +789,8 @@
     "what-next": "FU-LIFECYCLE",
     "issue": "FU-DEPS-LANES",
     "high-risk": "FU-HIGH-RISK",
-    "test": "FU-REMOTE-TEST"
+    "test": "FU-REMOTE-TEST",
+    "remote-status": "FU-REMOTE-STATUS"
   },
   "exempt_prefixes": {
     "version": "Temporary compatibility/internal surface; PUBLIC_WORKFLOW.md explicitly says normal public surface does not include rwf version."

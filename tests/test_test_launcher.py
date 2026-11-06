@@ -99,24 +99,37 @@ class ShippedTestLauncher(unittest.TestCase):
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "register declared RED test")
     bare = self.remote()
-    out = self.launcher("test", "RED", "issue-545-remote-red", "--remote")
-    self.assertEqual(out.returncode, 0, out.stderr)
-    head = self.git("rev-parse", "HEAD")
-    selected_commit = self.git("rev-parse", "HEAD^")
+    original_source = self.git("rev-parse", "HEAD")
+    result = self.launcher("test", "RED", "issue-545-remote-red", "--remote")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    selected_source = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(selected_source, original_source)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), original_source)
+    self.assertEqual(self.git("show", "HEAD:.ci/red-green.txt"),
+                     "issue-545-remote-red")
+    self.assertFalse((self.root / ".ci/run").exists())
+    branch = "CMD-1-issue-545-fixture"
+    self.assertIn(branch, result.stdout)
+    tip = subprocess.run(
+        ["git", "--git-dir", str(bare), "rev-parse",
+         f"refs/heads/{branch}"],
+        text=True, capture_output=True, check=True,
+      ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", f"{tip}^"), selected_source)
     self.assertEqual(
-      self.git("show", "HEAD^:.ci/red-green.txt"),
-      "issue-545-remote-red",
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", tip),
+      ".ci/rwf",
     )
     self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "RED-testing " + selected_commit + "\n",
+      self.git("show", f"{tip}:.ci/rwf"),
+      "test RED issue-545-remote-red --remote 0",
     )
-    remote_head = subprocess.run(
+    published_source = subprocess.run(
       ["git", "--git-dir", str(bare), "rev-parse",
        "refs/heads/issue-545-fixture"],
       text=True, capture_output=True, check=True,
     ).stdout.strip()
-    self.assertEqual(remote_head, head)
+    self.assertEqual(published_source, original_source)
 
   def test_missing_red_declaration_prevents_remote_publication(self):
     self._catalogue(

@@ -60,6 +60,7 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.remote_status import RemoteStatusError
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -421,6 +422,7 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RemoteStatusError,
     ResultError,
     GitError,
     GuardError,

@@ -54,6 +54,13 @@ def _issue_number(context: Context) -> list[str]:
   return []
 
 
+def _remote_cmd_selector(context: Context) -> list[str]:
+  token = context.current_token
+  if token and re.fullmatch(r"-?[1-9][0-9]*", token):
+    return [token]
+  return []
+
+
 def _lane_name(context: Context) -> list[str]:
   token = context.current_token
   if token and not token.startswith("--"):
@@ -388,7 +395,16 @@ COMMANDS = {
       "_values": _red_group_values,
       "_value_description": "Current issue RED test-group name",
       "_quantifier": "?",
-      "_switches": {"--remote": "Request RED tests through hosted CI"},
+      "_switches": {
+        "--remote": "Request RED tests through a numbered CMD",
+        "--poll": {
+          "": "Poll the CMD result until completion",
+          "_params": [{
+            "<seconds>": "Polling delays in seconds (repeat final delay)",
+            "_quantifier": "*",
+          }],
+        },
+      },
     },
     "temporary": {
       "": "Run applicable temporary fidelity tests locally",
@@ -409,6 +425,23 @@ COMMANDS = {
     "results": {
       "": "Show recorded testing-log results",
       "_switches": {"--remote": "Retrieve recorded hosted test results"},
+    },
+  },
+  "remote-status": {
+    "": "Show the latest numbered CMD request status",
+    "_values": _remote_cmd_selector,
+    "_value_description": "CMD number (negative selects from latest)",
+    "_quantifier": "?",
+    "_switches": {
+      "--poll": {
+        "": "Poll read-only until completion (15-second default)",
+        "_params": [
+          {
+            "<seconds>": "Nonnegative polling delay in seconds",
+            "_quantifier": "*",
+          },
+        ],
+      },
     },
   },
   "version": {
