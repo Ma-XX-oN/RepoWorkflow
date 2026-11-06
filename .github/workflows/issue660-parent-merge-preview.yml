@@ -41,7 +41,7 @@ jobs:
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
           if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo "UNEXPECTED_MERGE_CONFLICT_786"; exit 1
+            echo "UNEXPECTED_MERGE_CONFLICT_786"; git diff -- .ci/tests.json repo_workflow.py; git ls-files -u; exit 1
           fi
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
@@ -81,7 +81,7 @@ jobs:
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
           if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo "UNEXPECTED_MERGE_CONFLICT_787"; exit 1
+            echo "UNEXPECTED_MERGE_CONFLICT_787"; git diff -- .ci/tests.json repo_workflow.py; git ls-files -u; exit 1
           fi
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
@@ -121,7 +121,7 @@ jobs:
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
           if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo "UNEXPECTED_MERGE_CONFLICT_792"; exit 1
+            echo "UNEXPECTED_MERGE_CONFLICT_792"; git diff -- .ci/tests.json repo_workflow.py; git ls-files -u; exit 1
           fi
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
@@ -161,7 +161,7 @@ jobs:
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
           if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo "UNEXPECTED_MERGE_CONFLICT_788"; exit 1
+            echo "UNEXPECTED_MERGE_CONFLICT_788"; git diff -- .ci/tests.json repo_workflow.py; git ls-files -u; exit 1
           fi
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
