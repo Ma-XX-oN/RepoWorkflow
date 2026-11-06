@@ -66,6 +66,7 @@ from repo_workflow.repo_info_adapter import RepoInfoError
 from repo_workflow.remote_invocation import (
   RemoteInvocationError, emit_outcome, invoke_numbered,
 )
+from repo_workflow.remote_status import RemoteStatusError
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -449,6 +450,7 @@ def main(argv: list[str] | None = None) -> int:
     TicketDependencyError,
     RepoInfoError,
     RemoteInvocationError,
+    RemoteStatusError,
     ResultError,
     GitError,
     GuardError,
