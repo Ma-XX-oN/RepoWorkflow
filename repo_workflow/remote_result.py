@@ -198,7 +198,8 @@ def publish_result(root: Path, outcome: InvocationOutcome, *,
                         GIT_COMMITTER_NAME="RepoWorkflow",
                         GIT_COMMITTER_EMAIL="rwf@localhost")
     message = ("rwf: publish remote result\n\n"
-               f"RWF-Request: {marker}\nRWF-Retry: {retry}\n")
+               f"RWF-Request: {marker}\nRWF-Retry: {retry}\n"
+               f"RWF-Publisher: {uuid4().hex}\n")
     commit = _run(root, "commit-tree", tree, "-p", tip,
                   data=message.encode("utf-8"), env=identity_env).decode().strip()
     # Compare-and-swap the authoritative remote ref, never force over another attempt.
