@@ -41,8 +41,8 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
       self.assertTrue(configure_utf8_output())
       print("captured → λ ✓")
       print("diagnostic → λ ✓", file=sys.stderr)
-    self.assertEqual(stdout.getvalue(), "captured → λ ✓\n".replace("\\\n", "\n"))
-    self.assertEqual(stderr.getvalue(), "diagnostic → λ ✓\n".replace("\\\n", "\n"))
+    self.assertEqual(stdout.getvalue(), "captured → λ ✓\n")
+    self.assertEqual(stderr.getvalue(), "diagnostic → λ ✓\n")
 
   def test_already_strict_utf8_capture_without_reconfigure(self):
     class FrameworkStream:
@@ -63,8 +63,8 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
       self.assertTrue(configure_utf8_output())
       print("unicode λ ✓")
       print("stderr λ ✓", file=sys.stderr)
-    self.assertEqual(stdout.text.getvalue(), "unicode λ ✓\n".replace("\\\n", "\n"))
-    self.assertEqual(stderr.text.getvalue(), "stderr λ ✓\n".replace("\\\n", "\n"))
+    self.assertEqual(stdout.text.getvalue(), "unicode λ ✓\n")
+    self.assertEqual(stderr.text.getvalue(), "stderr λ ✓\n")
 
   def test_legacy_metadata_stream_without_reconfigure_fails_closed(self):
     child = (
