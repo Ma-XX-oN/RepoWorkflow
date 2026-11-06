@@ -82,6 +82,15 @@ jobs:
                     echo "HISTORICAL_RESULT_RETAINED_IN_MERGE_PARENT=$p"
                   fi
                   ;;
+                .github/workflows/issue792-native.yml)
+                  if git cat-file -e "$original:$p" 2>/dev/null; then
+                    echo "Current source already has this workflow: $p"
+                    exit 11
+                  fi
+                  git rm -qf --cached -- "$p"
+                  rm -f -- "$p"
+                  echo "HISTORICAL_NATIVE_WORKBENCH_RETAINED_IN_MERGE_PARENT=$p"
+                  ;;
                 *)
                   echo "UNRESOLVED_AUTOMERGE_CHANGE=$p"
                   exit 10
