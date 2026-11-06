@@ -1,0 +1,80 @@
+name: RWF 660 Explicit Version Ownership Native Proof
+on:
+  push:
+    branches: ['issue-660-version-clean-native-workbench-20261105']
+    paths: ['.ci/660-version-ownership-trigger']
+permissions:
+  contents: read
+jobs:
+  registered:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9f9d8cb53ef6ab3b30dc8cf5f19f1374995ac2bf
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run only declared catalogue groups
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import platform
+          from pathlib import Path
+          import subprocess
+          import sys
+          import time
+          from repo_workflow.test_catalogue import load_test_catalogue
+          from repo_workflow.self_ci import group_command
+
+          if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="strict")
+          root=Path.cwd()
+          sha="9f9d8cb53ef6ab3b30dc8cf5f19f1374995ac2bf"
+          assert subprocess.check_output(
+            ["git","rev-parse","HEAD"],text=True,
+          ).strip()==sha
+          selected=(
+            "issue-660-issue-start-version-commit",
+            "issue-660-workspace-remote-completion",
+            "issue-543-shared-hosted-cache",
+            "issue-572-engine-version-adapter",
+            "issue-790-remote-status",
+          )
+          catalogue=load_test_catalogue(root)
+          assert set(selected)<=set(catalogue.groups)
+          results=[]
+          for name in selected:
+            start=time.monotonic()
+            try:
+              p=subprocess.run(group_command(root,name),capture_output=True,check=False)
+              output=(p.stdout+p.stderr).decode("utf-8","strict")
+              code=p.returncode
+            except Exception as exc:
+              code=125
+              output=repr(exc)
+            results.append({"group":name,"exit":code,"elapsed":round(time.monotonic()-start,3)})
+            print(f"GROUP {name} EXIT={code}",flush=True)
+            if output:
+              print(output[-16000:],flush=True)
+          report={"source":sha,"os":platform.system(),"results":results}
+          Path("rwf660-version-native.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+          print("FINAL "+json.dumps(report),flush=True)
+          sys.exit(int(any(r["exit"] for r in results)))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: version-ownership-${{ matrix.os }}
+          path: rwf660-version-native.json
+          if-no-files-found: warn
+          retention-days: 30
