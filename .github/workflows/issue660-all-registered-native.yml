@@ -1,0 +1,30 @@
+name: RWF 660 All Registered Catalogue Groups
+on:
+  push:
+    branches: ['issue-660-full-catalogue-native-20261105']
+    paths: ['.ci/660-full-catalogue-trigger']
+permissions:
+  contents: read
+jobs:
+  catalogue:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3ee0fe00f3275c6c0b436c6cd771aecb23b21237
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run complete catalogue using existing registered runner
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "3ee0fe00f3275c6c0b436c6cd771aecb23b21237"
+          python scripts/validate-issue.py --groups-json '["issue-660-utf8-output-enforcement","issue-786-cmd-wrapper","issue-788-hosted-forward","issue-791-publisher-wiring","issue-737-strict-provider-utf8","issue-736-git-protocol","issue-736-process-boundary","issue-719-launcher-discovery-utf8","issue-728-local-terminal-jsonl","issue-737-hosted-version-utf8","issue-727-portable-subprocess","issue-727-windows-unicode-output","issue-792-provider-status","issue-790-remote-status","issue-789-cmd-results","issue-456-command-grammar","issue-475-high-risk","issue-476-staged-self-ci","invariant-self-ci-contract","issue-477-risk-scoped-ci","issue-452-lane-follow","issue-453-lane-show-children","issue-521-command-grammar-help","issue-521-public-help","issue-516-lane-count","issue-577-six-state-lifecycle","issue-579-lifecycle-contract","issue-580-lifecycle-transitions","issue-581-csv-state-projection","issue-582-graph-current","issue-583-lifecycle-certification","issue-582-geometry-regression","issue-540-on-demand-ci-marker","issue-108-done-readiness","issue-542-premerge-evidence-gate","issue-541-on-demand-workflow","issue-541-hosted-plan-binding","issue-541-hosted-result-evidence","issue-543-on-demand-ci-certification","issue-629-certification-matrix","issue-629-cli-acceptance","issue-629-provider-probe","issue-629-selection-acceptance","issue-629-invocation-acceptance","issue-629-cache-acceptance","issue-629-stage-cardinality","issue-629-expected-red","issue-629-red-outcome","issue-629-pending-provider","issue-543-local-integration","issue-543-hosted-publication","issue-543-provider-refresh-order","issue-543-bootstrap-help","issue-543-first-use-owner","issue-543-source-size","issue-543-lane-graph-adapter","issue-543-graph-layout-semantics","issue-543-rendered-graph","issue-543-generated-dag-semantics","issue-543-lane-display-reduction","issue-543-hosted-remote-result-workflow","issue-542-canonical-evidence","issue-542-github-provider-evidence","issue-543-github-cache-origin","issue-543-shared-hosted-cache","issue-543-committed-contract","issue-543-marker-integrity","issue-543-provider-retry-lineage","issue-543-authenticated-artifact-negative","issue-545-unified-test-cli","issue-545-workflow-cli-migration","issue-545-bash-completion-migration","issue-545-red-evidence","issue-545-integration-preflight","issue-545-local-integration","issue-545-regression-temporary","issue-545-dedicated-test-commits","issue-545-history-mutation","issue-545-engine-regression","issue-545-real-consumer-verify","issue-545-consumer-terminal-lifecycle","issue-545-terminal-tag","issue-545-cache-evidence","issue-545-results-metadata","issue-545-dirty-rename","issue-545-remote-cli","issue-545-selection-commit","issue-545-red-classification","issue-545-launch-failures","issue-545-shipped-launcher","issue-545-red-runner","issue-545-expected-red-cli","issue-545-all-acceptance","issue-541-hosted-publication","issue-541-hosted-cache-attestation","issue-569-consumer-retry-lifecycle","issue-572-hosted-terminal-binding","issue-572-engine-self-regression-evidence","issue-572-engine-remote-preparation","issue-572-engine-version-adapter","issue-572-assembled-contracts","issue-570-hosted-version-identity","issue-571-terminal-phase","issue-569-retry-evidence","issue-572-local-terminal-acceptance","invariant-ci-invocation-trigger","issue-583-authoritative-validate","issue-583-graph-platform-probe","issue-583-ticket-merge-probe","issue-660-issue-start-version-commit","issue-660-high-risk-remote-completion","issue-660-workspace-remote-completion","issue-787-cmd-transport"]'
