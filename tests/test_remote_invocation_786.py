@@ -219,6 +219,27 @@ class CmdFixture(unittest.TestCase):
       self.invoke(handler=lambda r, a: ran.append(1))
     self.assertEqual(ran, [])
 
+  def test_source_branch_advance_rejected_before_handler(self):
+    # The CMD request remains authentic, but its original source is stale.
+    _run(self.repo, "checkout", self.branch)
+    source_file = self.repo / "README.md"
+    source_file.write_text("source advanced\\n", encoding="utf-8")
+    _run(self.repo, "add", "README.md")
+    _run(self.repo, "commit", "-m", "advance original source branch")
+    advanced_sha = _run(self.repo, "rev-parse", "HEAD")
+    self.assertNotEqual(advanced_sha, self.source_sha)
+    _run(self.repo, "push", "origin", self.branch)
+    _run(self.repo, "checkout", self.cmd)
+
+    ran = []
+    with self.assertRaisesRegex(RemoteInvocationError, "source branch advanced"):
+      self.invoke(handler=lambda root, argv: ran.append((root, argv)))
+    self.assertEqual(ran, [])
+    self.assertEqual(
+      _run(self.area, "--git-dir", str(self.remote), "rev-parse", self.branch),
+      advanced_sha,
+    )
+
   def test_retry_chain_and_stale_attempt_denial(self):
     self.marker("test RED --remote 1")
     self.push()
