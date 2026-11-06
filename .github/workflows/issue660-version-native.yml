@@ -36,6 +36,8 @@ jobs:
           from repo_workflow.test_catalogue import load_test_catalogue
           from repo_workflow.self_ci import group_command
 
+          if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="strict")
           root=Path.cwd()
           sha="31eb1925175d254664a382019244ebfec2e5ea0c"
           assert subprocess.check_output(
