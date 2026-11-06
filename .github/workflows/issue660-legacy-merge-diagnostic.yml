@@ -17,46 +17,71 @@ jobs:
           ref: 41e678e7a0bd31f3494d74eac02c73f47b65a0bf
           fetch-depth: 0
           persist-credentials: false
-      - name: Preview Git automatic merges without modifying source
+      - name: Perform local-only manual merges and verify exact source-tree identity
         shell: bash
         run: |
           set -euo pipefail
-          echo "BASE=$(git rev-parse HEAD)"
-          echo "BASE_TREE=$(git rev-parse HEAD^{tree})"
-          git --version
+          git config user.name 'RWF migration diagnostic'
+          git config user.email 'rwf-migration@example.invalid'
+          original=41e678e7a0bd31f3494d74eac02c73f47b65a0bf
+          initial_tree=$(git rev-parse HEAD^{tree})
+          test "$(git rev-parse HEAD)" = "$original"
+          test "$initial_tree" = 95a5ca1efeb1d974f0b607ac5fa7f8b710f197f9
+          echo "ORIGINAL=$original"
+          echo "ORIGINAL_TREE=$initial_tree"
           declare -a workers=(
-            issue-785-rwf-contract-consolidation-20261102
-            issue-786-central-invocation-wrapper-20261102
             issue-787-cmd-request-transport-20261102
-            issue-788-hosted-rwf-forwarding-20261102
             issue-789-cmd-results-20261102
             issue-790-remote-status-polling-20261103
             issue-792-provider-status-v2-20261102
+            issue-786-central-invocation-wrapper-20261102
+            issue-788-hosted-rwf-forwarding-20261102
           )
           for b in "${workers[@]}"; do
-            echo "::group::MERGE_PREVIEW $b"
+            echo "::group::LOCAL_GIT_MERGE $b"
             git fetch --quiet --no-tags origin "refs/heads/$b:refs/remotes/origin/$b"
-            echo "WORKER=$(git rev-parse refs/remotes/origin/$b)"
+            worker=$(git rev-parse "refs/remotes/origin/$b")
+            old_tip=$(git rev-parse HEAD)
+            echo "PARENT_HEAD=$old_tip"
+            echo "WORKER_TIP=$worker"
             set +e
-            git merge-tree --write-tree HEAD "refs/remotes/origin/$b" > "$RUNNER_TEMP/merge-out" 2>&1
+            git merge --no-ff --no-commit -m "Manual historical source reconciliation $b" "$worker" > "$RUNNER_TEMP/mig.out" 2>&1
             rc=$?
             set -e
-            echo "GIT_MERGE_TREE_STATUS=$rc"
-            sed -n '1,70p' "$RUNNER_TEMP/merge-out"
-            tree=$(head -n 1 "$RUNNER_TEMP/merge-out")
-            if [[ "$tree" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "MERGED_TREE=$tree"
-              if [[ "$tree" = "$(git rev-parse HEAD^{tree})" ]]; then
-                echo "SOURCE_TREE_IDENTICAL=true"
-              else
-                echo "SOURCE_TREE_IDENTICAL=false"
-                echo "AUTOMERGE_CHANGE_PATHS:"
-                git diff --name-status HEAD "$tree" | head -80
-                echo "AUTOMERGE_CHANGE_STAT:"
-                git diff --stat HEAD "$tree" | tail -20
-              fi
+            echo "INITIAL_MERGE_EXIT=$rc"
+            sed -n '1,55p' "$RUNNER_TEMP/mig.out"
+            if test "$rc" -ne 0; then
+              mapfile -d '' conflicts < <(git diff --name-only --diff-filter=U -z)
+              echo "CONFLICT_PATHS=${conflicts[*]}"
+              test "${#conflicts[@]}" -gt 0
+              for p in "${conflicts[@]}"; do
+                case "$p" in
+                  .ci/run|.ci/engine-version|.ci/tests.json|repo_workflow.py|repo_workflow/remote_invocation.py|tests/test_remote_invocation_786.py|.github/workflows/remote-rwf.yml|scripts/hosted-rwf-forward.py) ;;
+                  *) echo "UNREVIEWED_CONFLICT=$p"; exit 7;;
+                esac
+                git restore --source=HEAD --staged --worktree -- "$p"
+                echo "PRESERVED_CURRENT_FILE=$p"
+              done
             fi
+            echo "INDEX_DELTA:"
+            git diff --cached --name-status
+            proposed_tree=$(git write-tree)
+            echo "PROPOSED_TREE=$proposed_tree"
+            if test "$proposed_tree" != "$initial_tree"; then
+              echo "STOP: merge introduces changes not proven present in accepted umbrella"
+              git diff --cached --stat
+              exit 8
+            fi
+            git commit --no-gpg-sign -m "merge(#660): preserve historical worker $b without source regression"
+            test "$(git rev-parse HEAD^{tree})" = "$initial_tree"
+            test "$(git rev-parse HEAD^1)" = "$old_tip"
+            test "$(git rev-parse HEAD^2)" = "$worker"
+            echo "VALIDATED_MERGE=$(git rev-parse HEAD)"
+            echo "VALIDATED_PARENTS=$old_tip $worker"
+            echo "TREE_UNCHANGED=true"
             echo "::endgroup::"
           done
-          echo "FINAL_HEAD=$(git rev-parse HEAD)"
-          test "$(git rev-parse HEAD)" = 41e678e7a0bd31f3494d74eac02c73f47b65a0bf
+          echo "FINAL_LOCAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_LOCAL_TREE=$(git rev-parse HEAD^{tree})"
+          test "$(git rev-parse HEAD^{tree})" = "$initial_tree"
+          echo "NO_REMOTE_PUSH=true"
