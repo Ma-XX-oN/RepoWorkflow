@@ -489,6 +489,13 @@
       }
     },
     {
+      "test-harness": "unittest",
+      "issue-660-renderer-certification-binding": {
+        "type": "invariant",
+        "name": "tests.test_renderer_certification_binding.RendererCertificationBindingTests.test_renderer_certification_matches_material_inputs"
+      }
+    },
+    {
       "test-harness": "script-runner",
       "issue-583-authoritative-validate": {
         "type": "regression",
