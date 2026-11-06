@@ -4,9 +4,9 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 
-from .config import load_config
+from .config import canonical_repository_path, load_config
 from .current_work_store import CurrentWorkStore
-from .git import git
+from .git import git, git_checkout_bytes
 from .lifecycle_store import LifecycleStore
 from .relationship_store import RelationshipStore
 from .parent_branch import (
@@ -77,6 +77,28 @@ def start_issue(
   current_store = CurrentWorkStore(root)
   current = current_store.read()
   version_before = read_version(root, config)
+  # The consumer, not core RWF, declares version-bearing storage. A task
+  # transition must not commit guessed paths or pre-existing user changes.
+  version_outputs: list[str] = []
+  if DEVELOPMENT_VERSION_RE.fullmatch(version_before) is None:
+    declared = config.get("versionOutputs")
+    if not isinstance(declared, list) or not declared:
+      raise IssueStartError(
+        "version mutation requires explicit consumer versionOutputs"
+      )
+    if any(not isinstance(item, str) for item in declared):
+      raise IssueStartError("invalid consumer versionOutputs")
+    try:
+      version_outputs = [canonical_repository_path(item) for item in declared]
+    except Exception as error:
+      raise IssueStartError("invalid consumer versionOutputs") from error
+    if len(set(version_outputs)) != len(version_outputs):
+      raise IssueStartError("duplicate consumer versionOutputs")
+    for name in version_outputs:
+      if git_checkout_bytes(root, name) is None:
+        raise IssueStartError("version output is not a tracked regular file: " + name)
+    if git(root, "status", "--porcelain", "--", *version_outputs).stdout:
+      raise IssueStartError("version outputs contain pre-existing changes")
   branch = f"issue-{issue_id}"
   parent = _parent_for_start(root, branch)
   base_sha = git(root, "rev-parse", parent).stdout.strip()
@@ -152,6 +174,7 @@ def start_issue(
     [
       f".repoworkflow/state/issues/{issue_id}/lifecycle.json",
       f".repoworkflow/state/transactions/{transaction_id}.json",
+      *version_outputs,
     ],
     f"workflow: record issue {issue_id} start",
   )
