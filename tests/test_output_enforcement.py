@@ -33,9 +33,11 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
       "import sys\n"
       "class Unconfigurable:\n"
       "  def write(self, s): return len(s)\n"
+      "original = sys.stdout\n"
       "sys.stdout = Unconfigurable()\n"
       "from repo_workflow.output import configure_utf8_output\n"
       "assert not configure_utf8_output()\n"
+      "sys.stdout = original\n"
     )
     result = subprocess.run(
       [sys.executable, "-c", child], cwd=ROOT, capture_output=True, check=False,
