@@ -11,9 +11,9 @@ import json
 import os
 import re
 import stat
-import subprocess
 
 from .phase_terminal import PhaseTransitionError, plan_phase
+from .process import CommandResult, run_command
 
 
 _VERSION_RE = re.compile(
@@ -39,11 +39,8 @@ def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict:
   return values
 
 
-def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    text=True, capture_output=True, check=False,
-  )
+def _git(root: Path, *args: str, check: bool = True) -> CommandResult:
+  result = run_command(["git", "-C", str(root), *args], root)
   if check and result.returncode:
     raise TerminalTagError(
       "git " + args[0] + " failed: " + result.stderr.strip()
