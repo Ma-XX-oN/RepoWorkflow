@@ -18,6 +18,13 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-786-cmd-wrapper": {
+        "type": "regression",
+        "name": "tests.test_remote_invocation_786"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
