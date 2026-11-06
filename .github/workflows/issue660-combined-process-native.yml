@@ -1,0 +1,26 @@
+name: RWF 660 Strict Process and CI Marker Native
+on:
+  push:
+    branches: ['issue-660-combined-process-native-20261105']
+    paths: ['.ci/660-combined-process-trigger']
+permissions:
+  contents: read
+jobs:
+  registered:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9033494d41fe558bc1465ec84a2073b495121dcb
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run registered CI and UTF8 process groups
+        run: python scripts/validate-issue.py --groups issue-660-utf8-output-enforcement issue-736-process-boundary issue-540-on-demand-ci-marker issue-542-premerge-evidence-gate issue-541-hosted-plan-binding issue-543-hosted-publication issue-545-results-metadata issue-572-hosted-terminal-binding issue-572-engine-remote-preparation issue-545-terminal-tag issue-543-github-cache-origin issue-583-ticket-merge-probe
