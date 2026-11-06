@@ -183,9 +183,73 @@ jobs:
           test "$rc" -eq 0 -o "$rc" -eq 1
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
-          if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo "UNEXPECTED_MERGE_CONFLICT_792"; git diff -- .ci/tests.json repo_workflow.py; git ls-files -u; exit 1
+          if grep -v -xE '^(\.ci/(run|engine-version|tests.json)|repo_workflow.py)$' "$RUNNER_TEMP/conflicts"; then
+            echo "UNEXPECTED_MERGE_CONFLICT_792"; git diff; git ls-files -u; exit 1
           fi
+          python - <<'PY'
+          import ast, json, re, subprocess
+          from pathlib import Path
+          conflicts=set(subprocess.check_output(
+              ['git','diff','--name-only','--diff-filter=U'],text=True).splitlines())
+          if 'repo_workflow.py' in conflicts:
+              path=Path('repo_workflow.py')
+              source=path.read_text(encoding='utf-8')
+              pattern=re.compile(r'^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]+\n',re.M|re.S)
+              matches=list(pattern.finditer(source))
+              assert len(matches)==2, ('unexpected CLI integration hunks',len(matches))
+              assert 'from repo_workflow.remote_invocation import' in matches[0].group(1)
+              assert 'from repo_workflow.remote_status import RemoteStatusError' in matches[0].group(2)
+              assert matches[1].group(1).strip()=='RemoteInvocationError,'
+              assert matches[1].group(2).strip()=='RemoteStatusError,'
+              source=pattern.sub(lambda m:m.group(1)+m.group(2),source)
+              ast.parse(source)
+              assert source.count('from repo_workflow.remote_status import RemoteStatusError')==1
+              path.write_text(source,encoding='utf-8',newline='\n')
+          if '.ci/tests.json' in conflicts:
+              def stage(n):
+                  return json.loads(subprocess.check_output(
+                      ['git','show',f':{n}:.ci/tests.json'],text=True))
+              ours,theirs=stage(2),stage(3)
+              merged=ours.copy()
+              harnesses=dict(ours['test-harnesses'])
+              for name,definition in theirs['test-harnesses'].items():
+                  if name in harnesses:
+                      assert harnesses[name]==definition,('harness collision',name)
+                  else: harnesses[name]=definition
+              merged['test-harnesses']=harnesses
+              groups={}
+              def members(data):
+                  for entry in data['tests']:
+                      for key,val in entry.items():
+                          if key not in ('test-harness','command'):
+                              yield key,(entry.get('test-harness'),entry.get('command'),val),entry
+              for name,payload,_ in members(ours): groups[name]=payload
+              collected=list(ours['tests'])
+              for name,payload,entry in members(theirs):
+                  if name in groups:
+                      assert groups[name]==payload,('group collision',name)
+                  else:
+                      collected.append({k:v for k,v in entry.items() if k in ('test-harness','command')}|{name:entry[name]})
+                      groups[name]=payload
+              merged['tests']=collected
+              aliases=dict(ours.get('aliases',{}))
+              for alias,values in theirs.get('aliases',{}).items():
+                  if alias in aliases:
+                      aliases[alias]=list(dict.fromkeys(aliases[alias]+values))
+                  else: aliases[alias]=values
+              if aliases: merged['aliases']=aliases
+              assert set(ours)|set(theirs)==set(merged), 'unexpected catalogue fields'
+              from repo_workflow.test_catalogue import parse_test_catalogue
+              parsed=parse_test_catalogue(merged)
+              assert parsed.groups==frozenset(groups)
+              Path('.ci/tests.json').write_text(
+                  json.dumps(merged,indent=2,ensure_ascii=False)+'\n',encoding='utf-8',newline='\n')
+              print('CATALOGUE_SEMANTIC_UNION_GROUPS',len(parsed.groups),flush=True)
+          PY
+          for p in repo_workflow.py .ci/tests.json; do
+            if grep -xF "$p" "$RUNNER_TEMP/conflicts" >/dev/null; then git add -- "$p"; fi
+          done
+
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
           test "$(git show HEAD:.ci/run | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/run | cut -d' ' -f1)"
@@ -223,9 +287,73 @@ jobs:
           test "$rc" -eq 0 -o "$rc" -eq 1
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
-          if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo "UNEXPECTED_MERGE_CONFLICT_788"; git diff -- .ci/tests.json repo_workflow.py; git ls-files -u; exit 1
+          if grep -v -xE '^(\.ci/(run|engine-version|tests.json)|repo_workflow.py)$' "$RUNNER_TEMP/conflicts"; then
+            echo "UNEXPECTED_MERGE_CONFLICT_788"; git diff; git ls-files -u; exit 1
           fi
+          python - <<'PY'
+          import ast, json, re, subprocess
+          from pathlib import Path
+          conflicts=set(subprocess.check_output(
+              ['git','diff','--name-only','--diff-filter=U'],text=True).splitlines())
+          if 'repo_workflow.py' in conflicts:
+              path=Path('repo_workflow.py')
+              source=path.read_text(encoding='utf-8')
+              pattern=re.compile(r'^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]+\n',re.M|re.S)
+              matches=list(pattern.finditer(source))
+              assert len(matches)==2, ('unexpected CLI integration hunks',len(matches))
+              assert 'from repo_workflow.remote_invocation import' in matches[0].group(1)
+              assert 'from repo_workflow.remote_status import RemoteStatusError' in matches[0].group(2)
+              assert matches[1].group(1).strip()=='RemoteInvocationError,'
+              assert matches[1].group(2).strip()=='RemoteStatusError,'
+              source=pattern.sub(lambda m:m.group(1)+m.group(2),source)
+              ast.parse(source)
+              assert source.count('from repo_workflow.remote_status import RemoteStatusError')==1
+              path.write_text(source,encoding='utf-8',newline='\n')
+          if '.ci/tests.json' in conflicts:
+              def stage(n):
+                  return json.loads(subprocess.check_output(
+                      ['git','show',f':{n}:.ci/tests.json'],text=True))
+              ours,theirs=stage(2),stage(3)
+              merged=ours.copy()
+              harnesses=dict(ours['test-harnesses'])
+              for name,definition in theirs['test-harnesses'].items():
+                  if name in harnesses:
+                      assert harnesses[name]==definition,('harness collision',name)
+                  else: harnesses[name]=definition
+              merged['test-harnesses']=harnesses
+              groups={}
+              def members(data):
+                  for entry in data['tests']:
+                      for key,val in entry.items():
+                          if key not in ('test-harness','command'):
+                              yield key,(entry.get('test-harness'),entry.get('command'),val),entry
+              for name,payload,_ in members(ours): groups[name]=payload
+              collected=list(ours['tests'])
+              for name,payload,entry in members(theirs):
+                  if name in groups:
+                      assert groups[name]==payload,('group collision',name)
+                  else:
+                      collected.append({k:v for k,v in entry.items() if k in ('test-harness','command')}|{name:entry[name]})
+                      groups[name]=payload
+              merged['tests']=collected
+              aliases=dict(ours.get('aliases',{}))
+              for alias,values in theirs.get('aliases',{}).items():
+                  if alias in aliases:
+                      aliases[alias]=list(dict.fromkeys(aliases[alias]+values))
+                  else: aliases[alias]=values
+              if aliases: merged['aliases']=aliases
+              assert set(ours)|set(theirs)==set(merged), 'unexpected catalogue fields'
+              from repo_workflow.test_catalogue import parse_test_catalogue
+              parsed=parse_test_catalogue(merged)
+              assert parsed.groups==frozenset(groups)
+              Path('.ci/tests.json').write_text(
+                  json.dumps(merged,indent=2,ensure_ascii=False)+'\n',encoding='utf-8',newline='\n')
+              print('CATALOGUE_SEMANTIC_UNION_GROUPS',len(parsed.groups),flush=True)
+          PY
+          for p in repo_workflow.py .ci/tests.json; do
+            if grep -xF "$p" "$RUNNER_TEMP/conflicts" >/dev/null; then git add -- "$p"; fi
+          done
+
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
           test "$(git show HEAD:.ci/run | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/run | cut -d' ' -f1)"
