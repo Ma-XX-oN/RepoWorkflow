@@ -1,0 +1,26 @@
+name: RWF 660 Fast Output Invariant Native
+on:
+  push:
+    branches: ['issue-660-output-fast-native-20261105']
+    paths: ['.ci/660-output-fast-trigger']
+permissions:
+  contents: read
+jobs:
+  invariant:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fc13257a9ac780cfd0d998e8c560b3f5a66ed0cf
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run registered invariant group
+        run: python scripts/validate-issue.py --groups issue-660-utf8-output-enforcement
