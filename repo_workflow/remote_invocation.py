@@ -333,8 +333,14 @@ def _publish_command_branches(
   command.extend(f"{revision}:{ref}" for ref, revision in tag_changes)
   published = git(root, *command, check=False)
   if published.returncode:
+    # With --porcelain, Git reports per-ref rejection reasons on stdout.
+    # Preserve both protocol streams; stderr alone loses the actual cause.
+    detail = "\n".join(
+      value for value in (published.stdout.strip(), published.stderr.strip())
+      if value
+    )
     raise RemoteInvocationError(
-      "command branch publication failed: " + published.stderr.strip()
+      "command branch publication failed: " + detail
     )
   for branch, revision, _ in changes:
     if _remote_tip(root, branch) != revision:
