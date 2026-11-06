@@ -135,6 +135,23 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
         checked += 1
     self.assertGreaterEqual(checked, 7)
 
+  def test_consumer_bootstrap_git_capture_is_explicit_strict_utf8(self):
+    import runpy
+    from unittest.mock import patch
+    launcher = runpy.run_path(
+      str(ROOT / "templates" / "local" / "repoworkflow.py"),
+      run_name="rwf-bootstrap-test",
+    )
+    import subprocess
+    with patch.object(subprocess, "run", return_value=subprocess.CompletedProcess(
+      args=["git", "--version"], returncode=0, stdout="git version 2", stderr="",
+    )) as child:
+      result = launcher["run"](["git", "--version"])
+    self.assertEqual(result.returncode, 0)
+    self.assertEqual(child.call_args.kwargs["encoding"], "utf-8")
+    self.assertEqual(child.call_args.kwargs["errors"], "strict")
+    self.assertIs(child.call_args.kwargs["text"], True)
+
   def test_main_and_all_scripts_initialize_the_shared_streams(self):
     paths = [ROOT / "repo_workflow.py", *sorted((ROOT / "scripts").glob("*.py"))]
     self.assertGreater(len(paths), 10)
