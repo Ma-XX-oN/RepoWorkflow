@@ -1,4 +1,4 @@
-name: RWF 660 exact-source full catalogue matrix
+name: RWF 660 corrected publication full catalogue matrix
 on:
   push:
     branches: ['issue-660-legacy-merge-diagnostic-20261106']
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 9495b18dc3579acec135325db37bad5771f8a850
+          ref: 60004a3c43f91477b07db5caaeeac0a9fd2cf8bd
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '9495b18dc3579acec135325db37bad5771f8a850'
+          test "$(git rev-parse HEAD)" = '60004a3c43f91477b07db5caaeeac0a9fd2cf8bd'
           python - <<'PY'
           from pathlib import Path
           from repo_workflow.self_ci import group_command
