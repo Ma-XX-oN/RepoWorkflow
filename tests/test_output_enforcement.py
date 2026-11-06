@@ -104,6 +104,37 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
     self.assertEqual(result.returncode, 0)
     self.assertIn(b"cannot configure UTF-8 stdout output", result.stderr)
 
+  def test_inline_workflow_python_blocks_use_shared_output_boundary(self):
+    workflows = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+    self.assertTrue(workflows)
+    checked = 0
+    for path in workflows:
+      lines = path.read_text(encoding="utf-8").splitlines()
+      for index, line in enumerate(lines):
+        if "python - <<'PY'" not in line:
+          continue
+        remaining = lines[index + 1:]
+        stop = next((n for n, value in enumerate(remaining)
+                     if value.strip() == "PY"), None)
+        self.assertIsNotNone(
+          stop, f"unclosed Python heredoc in {path}:{index + 1}",
+        )
+        body = "\n".join(remaining[:stop])
+        self.assertIn(
+          "from repo_workflow.output import configure_utf8_output",
+          body, f"unmanaged output in {path}:{index + 1}",
+        )
+        self.assertIn(
+          "if not configure_utf8_output():",
+          body, f"no fail-closed initialization in {path}:{index + 1}",
+        )
+        self.assertNotIn(
+          "text=True", body,
+          f"locale-default subprocess output in {path}:{index + 1}",
+        )
+        checked += 1
+    self.assertGreaterEqual(checked, 7)
+
   def test_main_and_all_scripts_initialize_the_shared_streams(self):
     paths = [ROOT / "repo_workflow.py", *sorted((ROOT / "scripts").glob("*.py"))]
     self.assertGreater(len(paths), 10)
