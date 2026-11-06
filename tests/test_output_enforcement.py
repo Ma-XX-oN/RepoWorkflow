@@ -178,14 +178,14 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
       return BinaryCommandResult(["git"], code, stdout, stderr, 0.0)
 
     with patch("repo_workflow.ci_invocation.run_command_bytes",
-               return_value=raw(b"\\xff", b"", 0)):
+               return_value=raw(b"\xff", b"", 0)):
       with self.assertRaisesRegex(CiInvocationError, "invalid UTF-8 Git output"):
         _git(ROOT, "rev-parse", "HEAD")
       with self.assertRaisesRegex(CiInvocationError, "committed CI marker is not UTF-8"):
         _git(ROOT, "show", "HEAD:.ci/run", raw=True)
 
     with patch("repo_workflow.ci_invocation.run_command_bytes",
-               return_value=raw(b"", b"\\xff", 1)):
+               return_value=raw(b"", b"\xff", 1)):
       with self.assertRaisesRegex(CiInvocationError, "invalid UTF-8 Git diagnostic"):
         _git(ROOT, "show", "HEAD:.ci/run", raw=True)
 
