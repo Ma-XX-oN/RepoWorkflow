@@ -18,6 +18,13 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-660-utf8-output-enforcement": {
+        "type": "invariant",
+        "name": "tests.test_output_enforcement"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-786-cmd-wrapper": {
         "type": "regression",
         "name": "tests.test_remote_invocation_786"
