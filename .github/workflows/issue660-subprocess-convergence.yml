@@ -1,0 +1,26 @@
+name: RWF 660 Process Convergence Native
+on:
+  push:
+    branches: ['issue-660-subprocess-convergence-native-20261105']
+    paths: ['.ci/660-process-convergence-trigger']
+permissions:
+  contents: read
+jobs:
+  catalogue:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a6778d1385a6b61214da53ee8a24d781720c0988
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run contract and negative catalogue groups
+        run: python scripts/validate-issue.py --groups issue-660-utf8-output-enforcement issue-736-process-boundary issue-543-github-cache-origin issue-583-ticket-merge-probe issue-542-premerge-evidence-gate issue-545-terminal-tag issue-545-results-metadata issue-572-hosted-terminal-binding issue-572-engine-remote-preparation issue-572-engine-version-adapter issue-541-hosted-cache-attestation
