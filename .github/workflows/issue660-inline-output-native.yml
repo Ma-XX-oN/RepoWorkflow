@@ -16,11 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 150c3441fcf0221b8a22394dd96aa6d4a27a2d48
+          ref: 3ee0fe00f3275c6c0b436c6cd771aecb23b21237
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - run: python -m pip install -r requirements.txt
       - name: Run registered enforcement and workflow interface tests
-        run: python scripts/validate-issue.py --groups issue-660-utf8-output-enforcement issue-736-process-boundary issue-540-on-demand-ci-marker issue-541-hosted-plan-binding issue-543-hosted-publication issue-572-hosted-terminal-binding invariant-ci-invocation-trigger
+        run: python scripts/validate-issue.py --groups issue-660-utf8-output-enforcement issue-736-process-boundary issue-540-on-demand-ci-marker issue-541-hosted-plan-binding issue-543-hosted-publication issue-572-hosted-terminal-binding invariant-ci-invocation-trigger issue-543-github-cache-origin issue-583-ticket-merge-probe issue-542-premerge-evidence-gate issue-545-results-metadata issue-572-engine-remote-preparation issue-545-terminal-tag
