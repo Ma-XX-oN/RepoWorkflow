@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 31eb1925175d254664a382019244ebfec2e5ea0c
+          ref: 702b310985aa85afdaefd6d28bfceae84926de6c
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
@@ -39,7 +39,7 @@ jobs:
           if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", errors="strict")
           root=Path.cwd()
-          sha="31eb1925175d254664a382019244ebfec2e5ea0c"
+          sha="702b310985aa85afdaefd6d28bfceae84926de6c"
           assert subprocess.check_output(
             ["git","rev-parse","HEAD"],text=True,
           ).strip()==sha
