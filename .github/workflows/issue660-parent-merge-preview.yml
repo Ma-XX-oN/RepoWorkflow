@@ -17,18 +17,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Actual Git merge #790 into recorded #789 parent; verify registered groups
+      - name: Merge accepted #789 including #790 into recorded #787 parent
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'RWF 660 integration'
           git config user.email 'rwf@localhost'
           git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
-          parent=3f577decd34b096d074e70c7a0d38c5aaa934b0e
-          child=665aadb32d7a415a161ca6b40099aaa66aba06d0
-          candidate=issue-660-parent-789-integration-20261106
-          test "$(git rev-parse refs/remotes/origin/issue-789-cmd-results-20261102)" = "$parent"
-          test "$(git rev-parse refs/remotes/origin/issue-790-remote-status-polling-20261103)" = "$child"
+          parent=adeee33df66c0eb95d454e2eb06ddee2c2de9cd6
+          child=b2a28fbda41deb20b0d307bf107859cd3ffc2372
+          candidate=issue-660-parent-787-integration-20261106
+          test "$(git rev-parse refs/remotes/origin/issue-787-cmd-request-transport-20261102)" = "$parent"
+          test "$(git rev-parse refs/remotes/origin/issue-789-cmd-results-20261102)" = "$child"
           git switch --create "$candidate" "$parent"
           set +e
           git merge --no-ff --no-commit "$child"
@@ -38,11 +38,9 @@ jobs:
           test "$rc" -eq 0 -o "$rc" -eq 1
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
-          if grep -v -xF '.ci/run' "$RUNNER_TEMP/conflicts"; then
+          if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
             echo 'UNEXPECTED_MERGE_CONFLICT'; exit 1
           fi
-          # These are PARENT-OWNED development-invocation and version identities.
-          # Git source changes and new registered tests remain truly merged.
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
           test "$(git show HEAD:.ci/run | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/run | cut -d' ' -f1)"
@@ -62,14 +60,13 @@ jobs:
           from repo_workflow.self_ci import group_command
           import subprocess, sys
           root=Path.cwd()
-          for name in ("issue-789-cmd-results","issue-790-remote-status","issue-792-provider-status"):
+          for name in ['issue-787-cmd-transport','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status']:
               cmd=group_command(root,name)
               print("CATALOGUE_GROUP",name,"COMMAND",cmd,flush=True)
               rc=subprocess.run(cmd,cwd=root,check=False).returncode
               print("CATALOGUE_RESULT",name,rc,flush=True)
               if rc: sys.exit(rc)
           PY
-          # Publish reviewed genuine Git merge candidate; do NOT move owner parent branch.
           git push --porcelain origin "HEAD:refs/heads/$candidate"
           actual=$(git ls-remote origin "refs/heads/$candidate" | cut -f1)
           test "$actual" = "$sha"
