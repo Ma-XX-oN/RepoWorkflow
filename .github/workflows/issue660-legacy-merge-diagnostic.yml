@@ -1,0 +1,62 @@
+name: RWF 660 historical worker Git merge preview
+on:
+  push:
+    branches:
+      - issue-660-legacy-merge-diagnostic-20261106
+    paths:
+      - .github/workflows/issue660-legacy-merge-diagnostic.yml
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 41e678e7a0bd31f3494d74eac02c73f47b65a0bf
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Preview Git automatic merges without modifying source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "BASE=$(git rev-parse HEAD)"
+          echo "BASE_TREE=$(git rev-parse HEAD^{tree})"
+          git --version
+          declare -a workers=(
+            issue-785-rwf-contract-consolidation-20261102
+            issue-786-central-invocation-wrapper-20261102
+            issue-787-cmd-request-transport-20261102
+            issue-788-hosted-rwf-forwarding-20261102
+            issue-789-cmd-results-20261102
+            issue-790-remote-status-polling-20261103
+            issue-792-provider-status-v2-20261102
+          )
+          for b in "${workers[@]}"; do
+            echo "::group::MERGE_PREVIEW $b"
+            git fetch --quiet --no-tags origin "refs/heads/$b:refs/remotes/origin/$b"
+            echo "WORKER=$(git rev-parse refs/remotes/origin/$b)"
+            set +e
+            git merge-tree --write-tree HEAD "refs/remotes/origin/$b" > "$RUNNER_TEMP/merge-out" 2>&1
+            rc=$?
+            set -e
+            echo "GIT_MERGE_TREE_STATUS=$rc"
+            sed -n '1,70p' "$RUNNER_TEMP/merge-out"
+            tree=$(head -n 1 "$RUNNER_TEMP/merge-out")
+            if [[ "$tree" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "MERGED_TREE=$tree"
+              if [[ "$tree" = "$(git rev-parse HEAD^{tree})" ]]; then
+                echo "SOURCE_TREE_IDENTICAL=true"
+              else
+                echo "SOURCE_TREE_IDENTICAL=false"
+                echo "AUTOMERGE_CHANGE_PATHS:"
+                git diff --name-status HEAD "$tree" | head -80
+                echo "AUTOMERGE_CHANGE_STAT:"
+                git diff --stat HEAD "$tree" | tail -20
+              fi
+            fi
+            echo "::endgroup::"
+          done
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = 41e678e7a0bd31f3494d74eac02c73f47b65a0bf
