@@ -87,18 +87,18 @@ jobs:
                   git show "$original:$p" > "$RUNNER_TEMP/current-catalogue.json"
                   git show "$worker:$p" > "$RUNNER_TEMP/worker-catalogue.json"
                   python -c '
-import json, os, pathlib
-root=pathlib.Path(os.environ["RUNNER_TEMP"])
-old=json.loads((root/"worker-catalogue.json").read_text(encoding="utf-8"))
-new=json.loads((root/"current-catalogue.json").read_text(encoding="utf-8"))
-def groups(data):
-  return {k:v for row in data["tests"] for k,v in row.items() if k not in ("test-harness","command")}
-a,b=groups(old),groups(new)
-assert len(a)==97 and len(b)==113
-assert all(k in b and b[k]==v for k,v in a.items())
-assert all(k in new["test-harnesses"] and new["test-harnesses"][k]==v for k,v in old["test-harnesses"].items())
-assert all(k in new["aliases"] and new["aliases"][k]==v for k,v in old["aliases"].items())
-'
+          import json, os, pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          old=json.loads((root/"worker-catalogue.json").read_text(encoding="utf-8"))
+          new=json.loads((root/"current-catalogue.json").read_text(encoding="utf-8"))
+          def groups(data):
+            return {k:v for row in data["tests"] for k,v in row.items() if k not in ("test-harness","command")}
+          a,b=groups(old),groups(new)
+          assert len(a)==97 and len(b)==113
+          assert all(k in b and b[k]==v for k,v in a.items())
+          assert all(k in new["test-harnesses"] and new["test-harnesses"][k]==v for k,v in old["test-harnesses"].items())
+          assert all(k in new["aliases"] and new["aliases"][k]==v for k,v in old["aliases"].items())
+          '
                   git restore --source="$original" --staged --worktree -- "$p"
                   echo "PRESERVED_AUTHORITATIVE_113_GROUP_CATALOGUE=$p"
                   ;;
