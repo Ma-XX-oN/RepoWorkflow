@@ -70,12 +70,17 @@ jobs:
               case "$p" in
                 .repoworkflow/validation/testResults-*.jsonl)
                   if git cat-file -e "$original:$p" 2>/dev/null; then
-                    echo "Existing canonical evidence must not be overwritten: $p"
-                    exit 9
+                    test "$p" = .repoworkflow/validation/testResults-790.jsonl || { echo "Unreviewed existing evidence $p"; exit 9; }
+                    git show "$original:$p" > "$RUNNER_TEMP/current-result"
+                    git show "$worker:$p" > "$RUNNER_TEMP/historical-result"
+                    python -c 'from pathlib import Path; import os; a=Path(os.environ["RUNNER_TEMP"]+"/current-result").read_bytes(); b=Path(os.environ["RUNNER_TEMP"]+"/historical-result").read_bytes(); assert b.startswith(a) and len(b)>len(a), "not append-only historical evidence"'
+                    git restore --source="$original" --staged --worktree -- "$p"
+                    echo "PRESERVED_CANONICAL_EVIDENCE_HISTORICAL_APPEND_IN_PARENT=$p"
+                  else
+                    git rm -qf --cached -- "$p"
+                    rm -f -- "$p"
+                    echo "HISTORICAL_RESULT_RETAINED_IN_MERGE_PARENT=$p"
                   fi
-                  git rm -qf --cached -- "$p"
-                  rm -f -- "$p"
-                  echo "HISTORICAL_RESULT_RETAINED_IN_MERGE_PARENT=$p"
                   ;;
                 *)
                   echo "UNRESOLVED_AUTOMERGE_CHANGE=$p"
