@@ -1,0 +1,44 @@
+name: RWF 660 parent-child real Git merge preview
+on:
+  push:
+    branches: ['issue-660-legacy-merge-diagnostic-20261106']
+    paths: ['.github/workflows/issue660-parent-merge-preview.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect actual original child-parent merges
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          declare -a pairs=(
+            'issue-789-cmd-results-20261102 issue-790-remote-status-polling-20261103'
+            'issue-787-cmd-request-transport-20261102 issue-789-cmd-results-20261102'
+            'issue-785-rwf-contract-consolidation-20261102 issue-786-central-invocation-wrapper-20261102'
+            'issue-785-rwf-contract-consolidation-20261102 issue-792-provider-status-v2-20261102'
+            'issue-785-rwf-contract-consolidation-20261102 issue-788-hosted-rwf-forwarding-20261102'
+            'issue-660-umbrella-integration-20261105 issue-785-rwf-contract-consolidation-20261102'
+          )
+          for pair in "${pairs[@]}"; do
+            read -r parent child <<< "$pair"
+            echo "::group::PAIR parent=$parent child=$child"
+            p=$(git rev-parse "refs/remotes/origin/$parent")
+            c=$(git rev-parse "refs/remotes/origin/$child")
+            echo "PARENT_SHA=$p CHILD_SHA=$c"
+            git merge-base "$p" "$c" | sed 's/^/MERGE_BASE=/'
+            set +e
+            git merge-tree --write-tree "$p" "$c" > "$RUNNER_TEMP/result.txt" 2>&1
+            rc=$?
+            set -e
+            echo "MERGE_RESULT=$rc"
+            sed -n '1,110p' "$RUNNER_TEMP/result.txt"
+            echo "::endgroup::"
+          done
