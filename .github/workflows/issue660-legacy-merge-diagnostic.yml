@@ -63,7 +63,27 @@ jobs:
                 echo "PRESERVED_CURRENT_FILE=$p"
               done
             fi
-            echo "INDEX_DELTA:"
+            echo "INDEX_DELTA_BEFORE_EVIDENCE_RESOLUTION:"
+            git diff --cached --name-status
+            mapfile -d '' changed < <(git diff --cached --name-only -z)
+            for p in "${changed[@]}"; do
+              case "$p" in
+                .repoworkflow/validation/testResults-*.jsonl)
+                  if git cat-file -e "$original:$p" 2>/dev/null; then
+                    echo "Existing canonical evidence must not be overwritten: $p"
+                    exit 9
+                  fi
+                  git rm -qf --cached -- "$p"
+                  rm -f -- "$p"
+                  echo "HISTORICAL_RESULT_RETAINED_IN_MERGE_PARENT=$p"
+                  ;;
+                *)
+                  echo "UNRESOLVED_AUTOMERGE_CHANGE=$p"
+                  exit 10
+                  ;;
+              esac
+            done
+            echo "INDEX_DELTA_AFTER_RECONCILIATION:"
             git diff --cached --name-status
             proposed_tree=$(git write-tree)
             echo "PROPOSED_TREE=$proposed_tree"
