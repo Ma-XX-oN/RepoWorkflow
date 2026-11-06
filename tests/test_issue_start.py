@@ -126,6 +126,23 @@ class IssueStartTests(unittest.TestCase):
     self.assertIn("RWF-Branch: issue-7", identity)
     self.assertIn("RWF-Parent: main", identity)
 
+  def test_commit_failure_restores_prior_canonical_version(self):
+    with patch.dict(
+      os.environ,
+      {"RWF_WRITER_ID": "agent-a", "RWF_SESSION_ID": "session-1"},
+    ):
+      with patch(
+        "repo_workflow.issue_start.commit_owned_files",
+        side_effect=RuntimeError("injected Git commit failure"),
+      ):
+        with self.assertRaisesRegex(RuntimeError, "injected Git commit failure"):
+          start_issue(self.repo, 7, config=self.config)
+    self.assertEqual(
+      (self.repo / "VERSION").read_text(encoding="utf-8"),
+      "1.2.3\n",
+      "failed issue start must restore consumer-owned version state",
+    )
+
   def test_missing_version_ownership_refuses_before_mutation(self):
     self.config.pop("versionOutputs")
     with patch.dict(
