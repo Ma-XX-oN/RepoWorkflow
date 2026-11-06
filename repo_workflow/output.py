@@ -23,7 +23,7 @@ def configure_utf8_output() -> bool:
         if stream.closed:
           raise ValueError("closed Unicode text capture")
         continue
-      stream.reconfigure(encoding="utf-8", errors="strict")
+      stream.reconfigure(encoding="utf-8", errors="strict", newline="\n")
       if codecs.lookup(stream.encoding).name != "utf-8":
         raise ValueError("stdout/stderr codec did not change to UTF-8")
       if stream.errors != "strict":
