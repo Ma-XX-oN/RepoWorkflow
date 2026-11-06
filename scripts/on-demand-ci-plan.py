@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 from pathlib import Path
 import sys
 
@@ -16,20 +15,24 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import (
   CiInvocationError, original_candidate, verify_invocation,
 )
+from repo_workflow.process import run_command
 
 
 def plan_invocation(root: Path) -> dict[str, str]:
-  branch = os.environ.get("GITHUB_REF_NAME") or subprocess.check_output(
-    ["git", "-C", str(root), "symbolic-ref", "--short", "HEAD"],
-    text=True,
-  ).strip()
+  branch = os.environ.get("GITHUB_REF_NAME")
+  if not branch:
+    resolved = run_command(["git", "-C", str(root),
+                            "symbolic-ref", "--short", "HEAD"], root)
+    if resolved.returncode:
+      raise CiInvocationError("cannot read current CI branch")
+    branch = resolved.stdout.strip()
   if re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", branch) is None:
     raise CiInvocationError("on-demand CI requires a valid issue branch")
   request = verify_invocation(root)
-  invocation_sha = subprocess.check_output(
-    ["git", "-C", str(root), "rev-parse", "HEAD"],
-    text=True,
-  ).strip()
+  observed = run_command(["git", "-C", str(root), "rev-parse", "HEAD"], root)
+  if observed.returncode:
+    raise CiInvocationError("cannot verify CI invocation revision")
+  invocation_sha = observed.stdout.strip()
   return {
     "stage": request.stage,
     "previous_tip": request.previous_tip,
