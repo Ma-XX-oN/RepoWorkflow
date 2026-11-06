@@ -44,6 +44,9 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           import os
           from pathlib import Path
