@@ -18,13 +18,6 @@ import sys
 from urllib.parse import quote
 
 
-def configure_output() -> None:
-  for stream in (sys.stdout, sys.stderr):
-    reconfigure = getattr(stream, "reconfigure", None)
-    if reconfigure is not None:
-      reconfigure(encoding="utf-8", errors="strict")
-
-
 def fail(message: str) -> None:
   print(message, file=sys.stderr)
   raise SystemExit(2)
@@ -177,5 +170,9 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-  configure_output()
+  # Use the same strict UTF-8 boundary as other RWF Python entry points.
+  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main(sys.argv[1:]))

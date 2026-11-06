@@ -353,17 +353,31 @@ class GithubStatusTests(unittest.TestCase):
       ), self.assertRaises(SystemExit):
         PROVIDER.verify_request_marker("o/r", SHA, 2)
 
-  def test_output_codec_uses_explicit_strict_utf8(self):
-    with patch.object(PROVIDER.sys, "stdout") as stdout, patch.object(
-      PROVIDER.sys, "stderr"
-    ) as stderr:
-      PROVIDER.configure_output()
-    stdout.reconfigure.assert_called_once_with(
-      encoding="utf-8", errors="strict"
-    )
-    stderr.reconfigure.assert_called_once_with(
-      encoding="utf-8", errors="strict"
-    )
+  def test_adapter_entrypoint_uses_shared_utf8_boundary(self):
+    import runpy
+    from repo_workflow.output import configure_utf8_output
+    with patch("repo_workflow.output.configure_utf8_output", return_value=False) as init:
+      with patch.object(sys, "argv", [str(SCRIPT), "--repository", "o/r", "repository"]):
+        with self.assertRaises(SystemExit) as stopped:
+          runpy.run_path(str(SCRIPT), run_name="__main__")
+    self.assertEqual(stopped.exception.code, 2)
+    init.assert_called_once()
+
+  def test_adapter_fails_closed_on_unconfigurable_output_before_dispatch(self):
+    import runpy
+    class UnsupportedStream:
+      encoding = "cp1252"
+      errors = "strict"
+      closed = False
+
+      def write(self, text):
+        raise AssertionError("must not emit through incompatible output")
+
+    with patch.object(sys, "stdout", UnsupportedStream()):
+      with patch.object(sys, "argv", [str(SCRIPT), "--repository", "o/r", "repository"]):
+        with self.assertRaises(SystemExit) as stopped:
+          runpy.run_path(str(SCRIPT), run_name="__main__")
+    self.assertEqual(stopped.exception.code, 2)
 
   def test_status_rejects_attempt_mismatch_before_workflow_lookup(self):
     payload = {
