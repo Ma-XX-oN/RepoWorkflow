@@ -43,10 +43,79 @@ jobs:
           git diff --name-only --diff-filter=U
           echo 'IMPLEMENTATION_CONFLICTS'
           git diff -- repo_workflow.py repo_workflow/public_cli.py repo_workflow/remote_invocation.py repo_workflow/remote_result.py .ci/tests.json | head -350
-          if test -n "$(git ls-files -u)"; then
-            echo 'NEEDS_EXPLICIT_SEMANTIC_RESOLUTION'
-            exit 3
-          fi
+          python - <<'PY'
+          import ast,json,re,subprocess
+          from pathlib import Path
+          conflicts=set(subprocess.check_output(
+              ['git','diff','--name-only','--diff-filter=U'],text=True).splitlines())
+          allowed={'.ci/run','.ci/engine-version','.ci/tests.json','repo_workflow.py'}
+          assert conflicts<=allowed,('unexpected integration conflict',conflicts-allowed)
+          assert {'.ci/tests.json','repo_workflow.py'}<=conflicts,conflicts
+          cli=Path('repo_workflow.py')
+          source=cli.read_text(encoding='utf-8')
+          pat=re.compile(r'^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]+\n',re.M|re.S)
+          hunks=list(pat.finditer(source))
+          assert len(hunks)==2,('unexpected CLI hunks',len(hunks))
+          left,right=hunks[0].group(1),hunks[0].group(2)
+          for expected in (
+              'from repo_workflow.remote_status import RemoteStatusError',
+              'from repo_workflow.output import configure_utf8_output',
+              'from repo_workflow.remote_invocation import',
+              'from repo_workflow.remote_result import RemoteResultError, publish_result'):
+              assert expected in left,('lost existing accepted import',expected)
+          assert 'from repo_workflow.remote_invocation import' in right
+          assert 'from repo_workflow.remote_status import RemoteStatusError' in right
+          assert set(hunks[1].group(1).split()) >= set(hunks[1].group(2).split())
+          source=pat.sub(lambda m:m.group(1),source)
+          ast.parse(source)
+          cli.write_text(source,encoding='utf-8',newline='\n')
+          def stage(n):
+              return json.loads(subprocess.check_output(
+                  ['git','show',f':{n}:.ci/tests.json'],text=True))
+          ours,theirs=stage(2),stage(3)
+          merged=ours.copy()
+          h=dict(ours['test-harnesses'])
+          for name,value in theirs['test-harnesses'].items():
+              assert name not in h or h[name]==value,('harness mismatch',name)
+              h[name]=value
+          merged['test-harnesses']=h
+          def entries(doc):
+              for entry in doc['tests']:
+                  for name,val in entry.items():
+                      if name not in ('test-harness','command'):
+                          yield name,(entry.get('test-harness'),entry.get('command'),val),entry
+          known={name:payload for name,payload,_ in entries(ours)}
+          combined=list(ours['tests'])
+          for name,payload,entry in entries(theirs):
+              if name in known:
+                  assert known[name]==payload,('catalogue conflict',name)
+              else:
+                  combined.append({k:v for k,v in entry.items() if k in ('test-harness','command')}|{name:entry[name]})
+                  known[name]=payload
+          merged['tests']=combined
+          aliases=dict(ours.get('aliases',{}))
+          for name,members in theirs.get('aliases',{}).items():
+              aliases[name]=list(dict.fromkeys([*aliases.get(name,[]),*members]))
+          if aliases: merged['aliases']=aliases
+          from repo_workflow.test_catalogue import parse_test_catalogue
+          parsed=parse_test_catalogue(merged)
+          assert parsed.groups==frozenset(known)
+          Path('.ci/tests.json').write_text(
+              json.dumps(merged,indent=2,ensure_ascii=False)+'\n',
+              encoding='utf-8',newline='\n')
+          print('MERGED_CATALOGUE_GROUPS',len(parsed.groups),flush=True)
+          PY
+          git add -- repo_workflow.py .ci/tests.json
+          # #660 must not inherit #791's task version; preserve original source
+          # selector without triggering old .ci/run on-demand CI.
+          git restore --source=HEAD --staged --worktree -- .ci/run
+          git rm -f -- .ci/engine-version
+          test -z "$(git ls-files -u)"
+          python - <<'PY'
+          from pathlib import Path
+          from repo_workflow.engine_version_adapter import read_engine_version
+          assert read_engine_version(Path.cwd())=='0.1.122'
+          PY
           echo 'AUTO_MERGE_STAGED_DIFF'
           git diff --cached --stat
           git diff --cached --check
