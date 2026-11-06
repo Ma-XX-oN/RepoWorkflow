@@ -303,10 +303,10 @@ jobs:
               pattern=re.compile(r'^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]+\n',re.M|re.S)
               matches=list(pattern.finditer(source))
               assert len(matches)==2, ('unexpected CLI integration hunks',len(matches))
-              assert 'from repo_workflow.remote_invocation import' in matches[0].group(1)
-              assert 'from repo_workflow.remote_status import RemoteStatusError' in matches[0].group(2)
-              assert matches[1].group(1).strip()=='RemoteInvocationError,'
-              assert matches[1].group(2).strip()=='RemoteStatusError,'
+              assert matches[0].group(1).strip()=='from repo_workflow.remote_status import RemoteStatusError'
+              assert matches[0].group(2).strip()==''
+              assert matches[1].group(1).strip()=='RemoteStatusError,'
+              assert matches[1].group(2).strip()==''
               source=pattern.sub(lambda m:m.group(1)+m.group(2),source)
               ast.parse(source)
               assert source.count('from repo_workflow.remote_status import RemoteStatusError')==1
