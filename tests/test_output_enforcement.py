@@ -144,6 +144,47 @@ class OutputBoundaryEnforcementTests(unittest.TestCase):
         if exits:
           self.assertLess(init[0].lineno, min(node.lineno for node in exits))
 
+  def test_hosted_cache_git_output_uses_shared_utf8_boundary(self):
+    from unittest.mock import patch
+    from repo_workflow.github_cache import (
+      hosted_cache_checker, read_remote_published_log,
+    )
+    from repo_workflow.process import CommandResult
+
+    def outcome(command, root, *, code=0, stdout="", stderr=""):
+      return CommandResult(
+        list(command), code, stdout, stderr, 0.0,
+      )
+
+    with patch("repo_workflow.github_cache.run_command") as command:
+      command.return_value = outcome(("git",), Path.cwd(), code=2,
+                                     stderr="invalid UTF-8 command output")
+      self.assertIsNone(hosted_cache_checker(ROOT, "GREEN"))
+      command.assert_called_once()
+    with patch("repo_workflow.github_cache.run_command") as command:
+      command.return_value = outcome(("git",), Path.cwd(), code=2,
+                                     stderr="invalid UTF-8 command output")
+      self.assertIsNone(read_remote_published_log(
+        ROOT, branch="issue-545-test", relative=".repoworkflow/validation/testResults-545.jsonl",
+      ))
+      command.assert_called_once()
+
+  def test_audited_git_consumers_cannot_reintroduce_locale_text_capture(self):
+    for name in ("repo_workflow/github_cache.py", "scripts/probe-ticket-merge.py"):
+      source = ROOT / name
+      tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+      for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+          continue
+        f = node.func
+        if isinstance(f, ast.Attribute) and f.attr in {"run", "check_output"}:
+          for kwarg in node.keywords:
+            if kwarg.arg == "text" and isinstance(kwarg.value, ast.Constant):
+              self.assertNotEqual(
+                kwarg.value.value, True,
+                f"locale-dependent subprocess capture in {name}:{node.lineno}",
+              )
+
   def test_no_direct_fd_writes_outside_approved_boundary(self):
     files = [
       ROOT / "repo_workflow.py",
