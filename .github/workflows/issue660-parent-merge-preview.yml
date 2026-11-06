@@ -290,6 +290,8 @@ jobs:
           if grep -v -xE '^(\.ci/(run|engine-version|tests.json)|repo_workflow.py)$' "$RUNNER_TEMP/conflicts"; then
             echo "UNEXPECTED_MERGE_CONFLICT_788"; git diff; git ls-files -u; exit 1
           fi
+          echo 'RWF_788_ACTUAL_CLI_CONFLICT'
+          git diff -- repo_workflow.py
           python - <<'PY'
           import ast, json, re, subprocess
           from pathlib import Path
