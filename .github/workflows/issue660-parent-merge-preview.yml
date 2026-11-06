@@ -1,4 +1,4 @@
-name: RWF 660 parent version authority and catalogue acceptance
+name: RWF 660 actual parent-to-umbrella integration
 on:
   push:
     branches: ['issue-660-legacy-merge-diagnostic-20261106']
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: write
 jobs:
-  verify:
+  integrate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -17,40 +17,60 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Remove inherited child version from accepted #785 parent candidate
+      - name: Actual parent #785 merge into #660; review any overlap before accepting
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'RWF 660 integration'
           git config user.email 'rwf@localhost'
-          candidate=issue-660-parent-785-integration-20261106
-          expected=78669eaabcf0b563c607d7bb388a9f251c194cd6
-          git fetch --no-tags origin "refs/heads/$candidate:refs/remotes/origin/$candidate"
-          test "$(git rev-parse refs/remotes/origin/$candidate)" = "$expected"
-          git switch --create "$candidate" "$expected"
-          test "$(cat .ci/engine-version)" = '0.1.122-issue.787.0.3'
-          # #785 originally had no issue-specific version; do not inherit #787's.
-          git rm -- .ci/engine-version
-          git commit -m 'chore(#785): restore parent-owned development version authority'
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          parent=cccc406678da634024cfaa0148592b9b76456989
+          child=09ceb6ee5c52804c612e588ca313dfff5f65d1cd
+          test "$(git rev-parse refs/remotes/origin/issue-660-umbrella-integration-20261105)" = "$parent"
+          test "$(git rev-parse refs/remotes/origin/issue-785-rwf-contract-consolidation-20261102)" = "$child"
+          candidate=issue-660-final-hierarchical-integration-20261106
+          git switch --create "$candidate" "$parent"
+          for path in repo_workflow/process.py repo_workflow/git.py repo_workflow/launcher_discovery.py repo_workflow/output.py repo_workflow.py scripts/hosted-rwf-forward.py tests/test_canonical_lane_smoke.py tests/test_issue629_selection_acceptance.py tests/test_issue629_stage_cardinality.py tests/test_output_enforcement.py; do
+            echo "BEFORE_FIX_BLOB $path $(git rev-parse "HEAD:$path")"
+          done
+          set +e
+          git merge --no-ff --no-commit "$child"
+          rc=$?
+          set -e
+          echo "PARENT_MERGE_RC=$rc"
+          test "$rc" -eq 0 -o "$rc" -eq 1
+          echo 'UNMERGED_PATHS'
+          git diff --name-only --diff-filter=U
+          echo 'IMPLEMENTATION_CONFLICTS'
+          git diff -- repo_workflow.py repo_workflow/public_cli.py repo_workflow/remote_invocation.py repo_workflow/remote_result.py .ci/tests.json | head -350
+          if test -n "$(git ls-files -u)"; then
+            echo 'NEEDS_EXPLICIT_SEMANTIC_RESOLUTION'
+            exit 3
+          fi
+          echo 'AUTO_MERGE_STAGED_DIFF'
+          git diff --cached --stat
+          git diff --cached --check
+          git commit --no-edit
+          test "$(git rev-parse HEAD^1)" = "$parent"
+          test "$(git rev-parse HEAD^2)" = "$child"
+          sha=$(git rev-parse HEAD)
+          echo "MERGED_660_CANDIDATE=$sha"
+          for path in repo_workflow/process.py repo_workflow/git.py repo_workflow/launcher_discovery.py repo_workflow/output.py repo_workflow.py scripts/hosted-rwf-forward.py tests/test_canonical_lane_smoke.py tests/test_issue629_selection_acceptance.py tests/test_issue629_stage_cardinality.py tests/test_output_enforcement.py; do
+            echo "AFTER_FIX_BLOB $path $(git rev-parse "HEAD:$path")"
+          done
+          python -m compileall -q repo_workflow repo_workflow.py scripts
           python - <<'PY'
           from pathlib import Path
-          from repo_workflow.engine_version_adapter import read_engine_version
           from repo_workflow.self_ci import group_command
-          import subprocess, sys
+          import subprocess,sys
           root=Path.cwd()
-          assert read_engine_version(root)==root.joinpath('VERSION').read_text(encoding='utf-8').strip()
-          print('VERSION_AUTHORITY',read_engine_version(root),flush=True)
-          for name in ('issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status'):
+          for name in ('issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status','issue-660-utf8-output-enforcement','issue-719-launcher-discovery-utf8','issue-727-portable-subprocess'):
               cmd=group_command(root,name)
               print('CATALOGUE_GROUP',name,flush=True)
               result=subprocess.run(cmd,cwd=root,check=False)
               print('CATALOGUE_RESULT',name,result.returncode,flush=True)
               if result.returncode: sys.exit(result.returncode)
           PY
-          git diff --check HEAD^ HEAD
-          sha=$(git rev-parse HEAD)
-          test "$(git rev-parse HEAD^)" = "$expected"
-          test "$(git ls-remote origin refs/heads/$candidate | cut -f1)" = "$expected"
           git push --porcelain origin "HEAD:refs/heads/$candidate"
           test "$(git ls-remote origin refs/heads/$candidate | cut -f1)" = "$sha"
-          echo "PARENT_785_VERSION_CORRECTED_CANDIDATE=$sha"
+          echo "PUBLISHED_660_CANDIDATE=$sha"
