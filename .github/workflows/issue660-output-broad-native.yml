@@ -1,0 +1,82 @@
+name: RWF 660 Output-Integrated Catalogue Native Matrix
+on:
+  push:
+    branches: ['issue-660-output-broad-native-20261105']
+    paths: ['.ci/660-output-broad-trigger']
+permissions:
+  contents: read
+jobs:
+  catalogue:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3ee0fe00f3275c6c0b436c6cd771aecb23b21237
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run exactly registered groups with strict portable UTF-8
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import platform
+          from pathlib import Path
+          import sys
+          import time
+          from repo_workflow.output import configure_utf8_output
+          from repo_workflow.process import run_command
+          from repo_workflow.self_ci import group_command
+          from repo_workflow.test_catalogue import load_test_catalogue
+          if not configure_utf8_output():
+            raise SystemExit(2)
+          sha = "3ee0fe00f3275c6c0b436c6cd771aecb23b21237"
+          root = Path.cwd()
+          observed = run_command(["git", "rev-parse", "HEAD"], root)
+          assert observed.returncode == 0 and observed.stdout.strip() == sha
+          groups = load_test_catalogue(root).groups
+          excluded = {"issue-583-authoritative-validate"}
+          assert excluded <= groups
+          selected = sorted(groups - excluded)
+          assert len(selected) == 112, (len(selected), len(groups))
+          print("CATALOGUE " + sha + " " + platform.system(), flush=True)
+          records = []
+          for group in selected:
+            start = time.monotonic()
+            result = run_command(group_command(root, group), root)
+            seconds = round(time.monotonic() - start, 3)
+            records.append({"group": group, "exit": result.returncode, "seconds": seconds})
+            print("GROUP " + group + " EXIT=" + str(result.returncode)
+                  + " SECONDS=" + str(seconds), flush=True)
+            if result.returncode:
+              print("STDOUT " + result.stdout[-5000:], flush=True)
+              print("STDERR " + result.stderr[-10000:], flush=True)
+          report = {
+            "candidate_sha": sha, "os": platform.system(),
+            "selected": len(selected), "excluded": sorted(excluded),
+            "passed": sum(record["exit"] == 0 for record in records),
+            "failed": sum(record["exit"] != 0 for record in records),
+            "results": records,
+          }
+          Path("rwf660-output-broad.json").write_text(
+            json.dumps(report, indent=2) + "\n", encoding="utf-8",
+          )
+          print("FINAL " + json.dumps({k:v for k,v in report.items()
+                                       if k != "results"}), flush=True)
+          raise SystemExit(int(report["failed"] != 0))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rwf660-output-broad-${{ matrix.os }}
+          path: rwf660-output-broad.json
+          if-no-files-found: warn
+          retention-days: 30
