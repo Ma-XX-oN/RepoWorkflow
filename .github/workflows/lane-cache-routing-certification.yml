@@ -44,10 +44,13 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           import os
           from pathlib import Path
-          import subprocess
+          from repo_workflow.process import run_command
 
           root = Path(".").resolve()
           evidence = []
@@ -56,13 +59,7 @@ jobs:
             env = dict(os.environ)
             if token is not None:
               env["GH_TOKEN"] = token
-            completed = subprocess.run(
-              ["./rwf", *args],
-              cwd=root,
-              env=env,
-              capture_output=True,
-              text=True,
-            )
+            completed = run_command(["./rwf", *args], root, env=env)
             item = {
               "command": ["./rwf", *args],
               "returncode": completed.returncode,

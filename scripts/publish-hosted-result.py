@@ -9,7 +9,6 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,13 +17,11 @@ sys.path.insert(0, str(ROOT))
 from repo_workflow.ci_invocation import (
   CiInvocationError, original_candidate, parse_invocation,
 )
+from repo_workflow.process import run_command
 
 
 def _git(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    text=True, capture_output=True, check=False,
-  )
+  result = run_command(["git", "-C", str(root), *args], root)
   if result.returncode:
     raise ValueError("git " + args[0] + " failed: " + result.stderr.strip())
   return result.stdout.rstrip("\n")
@@ -163,4 +160,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+  # All Python output, including print() and tracebacks, uses one UTF-8 boundary.
+  from pathlib import Path
+  import sys
+  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main())
