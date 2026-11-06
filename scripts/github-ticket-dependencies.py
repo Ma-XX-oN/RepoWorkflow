@@ -11,12 +11,6 @@ def fail(message: str) -> None:
   raise SystemExit(2)
 
 
-def configure_output() -> None:
-  for stream in (sys.stdout, sys.stderr):
-    reconfigure = getattr(stream, "reconfigure", None)
-    if reconfigure is not None:
-      reconfigure(encoding="utf-8", errors="strict")
-
 
 def decode_provider_output(data: bytes, stream: str) -> str:
   try:
@@ -111,7 +105,6 @@ def emit(issue: int, dependencies: tuple[int, ...]) -> None:
 
 
 def main(arguments: list[str]) -> int:
-  configure_output()
   if len(arguments) < 3 or arguments[:2] not in (
     ["dependency", "get"],
     ["dependency", "related"],
@@ -176,4 +169,11 @@ def main(arguments: list[str]) -> int:
 
 
 if __name__ == "__main__":
+  # All Python output, including print() and tracebacks, uses one UTF-8 boundary.
+  from pathlib import Path
+  import sys
+  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main(sys.argv[1:]))
