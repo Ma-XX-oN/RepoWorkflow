@@ -430,24 +430,28 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertEqual([1, 2], sorted(result.number for result in results))
 
   def test_two_threads_same_checkout_do_not_share_fetch_head(self):
-    barrier = threading.Barrier(2)
-    results = []
-    errors = []
+    # Distinct argv per round force real concurrent worktree registration.
+    for iteration in range(12):
+      barrier = threading.Barrier(2)
+      results = []
+      errors = []
+      argv = ["test", f"RED-{iteration}", "--remote"]
 
-    def worker():
-      try:
-        barrier.wait()
-        results.append(self.submit())
-      except Exception as exc:
-        errors.append(exc)
+      def worker():
+        try:
+          barrier.wait()
+          results.append(self.submit(argv))
+        except Exception as exc:
+          errors.append(exc)
 
-    tasks = [threading.Thread(target=worker) for _ in range(2)]
-    for task in tasks:
-      task.start()
-    for task in tasks:
-      task.join()
-    self.assertEqual([], errors)
-    self.assertEqual([1, 1], sorted(result.number for result in results))
+      tasks = [threading.Thread(target=worker) for _ in range(2)]
+      for task in tasks:
+        task.start()
+      for task in tasks:
+        task.join()
+      self.assertEqual([], errors, f"concurrency round {iteration}")
+      number = iteration + 1
+      self.assertEqual([number, number], sorted(x.number for x in results))
 
   def test_concurrent_allocation_reuses_same_number(self):
     paths = []

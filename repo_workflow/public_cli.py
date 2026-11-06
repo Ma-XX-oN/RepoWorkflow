@@ -30,6 +30,12 @@ from .lane_selection_cli import handle_lane_selection
 from .lane_render import render_lanes, set_color_setting
 from .relationship_store import RelationshipStore
 from .runtime_identity import runtime_writer_identity
+from .remote_status import (
+  RemoteStatusError, parse_intervals, remote_status, submit_remote,
+)
+from .test_cli import read_selection, select_group
+from .test_red_declaration import red_declaration
+from .test_results_reader import TestCommandError
 from .ticket_merge import configure_ticket_merge_driver
 from .issue_start import start_issue
 from .public_commands import COMMANDS, PUBLIC_COMMANDS
@@ -119,23 +125,72 @@ def _requires_public_runtime_identity(words: list[str]) -> bool:
 
 
 def handle_public(root: Path, words: list[str], *, engine_root: Path) -> int:
-  # Accept the documented RED group before its optional hosted switch.
-  # The grammar parser requires switches before dynamic values internally.
+  # A named RED group is a terminal grammar value. For client-only
+  # polling, validate the complete switch sequence with the shared grammar;
+  # select_group separately validates the actual registered group name.
+  grammar_words = words
   if (
-    len(words) == 4 and words[:2] == ["test", "RED"]
-    and words[3] == "--remote" and not words[2].startswith("--")
+    len(words) >= 4 and words[:2] == ["test", "RED"]
+    and not words[2].startswith("--") and words[3] == "--remote"
   ):
-    words = [words[0], words[1], "--remote", words[2]]
+    if len(words) >= 5 and words[4] == "--poll":
+      grammar_words = [*words[:2], *words[3:]]
+    else:
+      words = [words[0], words[1], "--remote", words[2], *words[4:]]
+      grammar_words = words
   general, legal, facts, plan, state, failure = _diagnose(
     root,
-    words,
+    grammar_words,
     completion=False,
   )
   if failure is not None:
     return _print_failure(failure)
 
-  parse_tokens(COMMANDS, general, words)
-  parse_tokens(COMMANDS, legal, words)
+  parse_tokens(COMMANDS, general, grammar_words)
+  parse_tokens(COMMANDS, legal, grammar_words)
+
+  # Status is read-only, including no ticket merge-driver configuration.
+  if words[0] == "remote-status":
+    tail = words[1:]
+    if "--poll" in tail:
+      offset = tail.index("--poll")
+      selectors = tail[:offset]
+      intervals = parse_intervals(tail[offset + 1:])
+    else:
+      selectors = tail
+      intervals = None
+    if len(selectors) > 1:
+      raise RemoteStatusError("expected at most one CMD selector")
+    try:
+      selector = int(selectors[0]) if selectors else None
+    except ValueError as exc:
+      raise RemoteStatusError("CMD selector must be an integer") from exc
+    return remote_status(root, selector, intervals=intervals)
+
+  # Public RED remote submission uses .ci/rwf. Legacy .ci/run stages
+  # remain on their existing testing path until separately authorized.
+  if words[:2] == ["test", "RED"] and "--remote" in words:
+    # Preserve the existing unconfigured RED/GREEN skip contract: a remote
+    # command with no committed RED selection has no test to execute.
+    offset = words.index("--poll") if "--poll" in words else len(words)
+    if offset < words.index("--remote"):
+      raise RemoteStatusError("--poll must follow --remote")
+    intervals = (
+      parse_intervals(words[offset + 1:])
+      if offset < len(words) else None
+    )
+    submitted = [value for value in words[:offset] if value != "--remote"]
+    group = next((value for value in submitted[2:] if value), None)
+    selected = select_group(root, group) if group is not None else read_selection(root)
+    if selected is None:
+      return run_test(
+        root, "RED", remote=True, engine_root=engine_root, group=None,
+      )
+    _, declaration_error = red_declaration(root, selected)
+    if declaration_error:
+      raise RemoteStatusError(declaration_error)
+    submit_words = [*submitted, "--remote"]
+    return submit_remote(root, submit_words, intervals=intervals)
 
   configure_ticket_merge_driver(root, engine_root)
 
@@ -396,7 +451,9 @@ def handle_help(root: Path, words: list[str]) -> int:
     print(node["_value_description"])
     print("Register current issue-N- test groups in .ci/tests.json.")
     for option, description in node["_switches"].items():
-      print(option + "  " + description)
+      print(option + "  " + (
+        description if isinstance(description, str) else description[""]
+      ))
     return 0
   help_words = [*words, ""]
   return handle_completion(root, help_words, describe=True)
