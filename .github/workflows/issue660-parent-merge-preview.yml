@@ -1,4 +1,4 @@
-name: RWF 660 actual child-parent integration candidate
+name: RWF 660 actual hierarchical child-parent integration
 on:
   push:
     branches: ['issue-660-legacy-merge-diagnostic-20261106']
@@ -17,29 +17,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Merge accepted #789 including #790 into recorded #787 parent
+      - name: Real Git merges #786 #787 #792 #788 into #785 with catalogue checks per merge
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'RWF 660 integration'
           git config user.email 'rwf@localhost'
           git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
-          parent=adeee33df66c0eb95d454e2eb06ddee2c2de9cd6
-          child=b2a28fbda41deb20b0d307bf107859cd3ffc2372
-          candidate=issue-660-parent-787-integration-20261106
-          test "$(git rev-parse refs/remotes/origin/issue-787-cmd-request-transport-20261102)" = "$parent"
-          test "$(git rev-parse refs/remotes/origin/issue-789-cmd-results-20261102)" = "$child"
+          parent=ac7e28c3490cec8e82cb6bf6045d57d9af9351c7
+          candidate=issue-660-parent-785-integration-20261106
+          test "$(git rev-parse refs/remotes/origin/issue-785-rwf-contract-consolidation-20261102)" = "$parent"
           git switch --create "$candidate" "$parent"
+          echo "::group::MERGE_786_INTO_785"
+          test "$(git rev-parse refs/remotes/origin/issue-786-central-invocation-wrapper-20261102)" = "791c91c126446df125a8a9271df4829f1b5e0e5d"
+          parent=$(git rev-parse HEAD)
+          child=791c91c126446df125a8a9271df4829f1b5e0e5d
           set +e
           git merge --no-ff --no-commit "$child"
           rc=$?
           set -e
-          echo "INITIAL_MERGE_RC=$rc"
+          echo "MERGE_786_INITIAL_RC=$rc"
           test "$rc" -eq 0 -o "$rc" -eq 1
           git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
           cat "$RUNNER_TEMP/conflicts"
           if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
-            echo 'UNEXPECTED_MERGE_CONFLICT'; exit 1
+            echo "UNEXPECTED_MERGE_CONFLICT_786"; exit 1
           fi
           git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
           test -z "$(git ls-files -u)"
@@ -47,27 +49,147 @@ jobs:
           test "$(git show HEAD:.ci/engine-version | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/engine-version | cut -d' ' -f1)"
           git diff --cached --check
           git commit --no-edit
-          sha=$(git rev-parse HEAD)
-          echo "MERGE_COMMIT=$sha"
-          echo "MERGE_PARENTS=$(git rev-list --parents -n 1 HEAD)"
           test "$(git rev-parse HEAD^1)" = "$parent"
           test "$(git rev-parse HEAD^2)" = "$child"
           git diff --check HEAD^1 HEAD
+          echo "MERGE_786_COMMIT=$(git rev-parse HEAD)"
+          echo "MERGE_786_SOURCE_PATHS:"
           git diff --name-status HEAD^1 HEAD
-          python -m compileall -q repo_workflow repo_workflow.py scripts
           python - <<'PY'
           from pathlib import Path
           from repo_workflow.self_ci import group_command
           import subprocess, sys
           root=Path.cwd()
-          for name in ['issue-787-cmd-transport','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status']:
+          for name in ['issue-786-cmd-wrapper']:
               cmd=group_command(root,name)
               print("CATALOGUE_GROUP",name,"COMMAND",cmd,flush=True)
               rc=subprocess.run(cmd,cwd=root,check=False).returncode
               print("CATALOGUE_RESULT",name,rc,flush=True)
               if rc: sys.exit(rc)
           PY
+          echo "::endgroup::"
+          echo "::group::MERGE_787_INTO_785"
+          test "$(git rev-parse refs/remotes/origin/issue-787-cmd-request-transport-20261102)" = "ab736bcccd94780d1ee25beeba988bbeac1f3f13"
+          parent=$(git rev-parse HEAD)
+          child=ab736bcccd94780d1ee25beeba988bbeac1f3f13
+          set +e
+          git merge --no-ff --no-commit "$child"
+          rc=$?
+          set -e
+          echo "MERGE_787_INITIAL_RC=$rc"
+          test "$rc" -eq 0 -o "$rc" -eq 1
+          git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
+          cat "$RUNNER_TEMP/conflicts"
+          if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
+            echo "UNEXPECTED_MERGE_CONFLICT_787"; exit 1
+          fi
+          git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
+          test -z "$(git ls-files -u)"
+          test "$(git show HEAD:.ci/run | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/run | cut -d' ' -f1)"
+          test "$(git show HEAD:.ci/engine-version | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/engine-version | cut -d' ' -f1)"
+          git diff --cached --check
+          git commit --no-edit
+          test "$(git rev-parse HEAD^1)" = "$parent"
+          test "$(git rev-parse HEAD^2)" = "$child"
+          git diff --check HEAD^1 HEAD
+          echo "MERGE_787_COMMIT=$(git rev-parse HEAD)"
+          echo "MERGE_787_SOURCE_PATHS:"
+          git diff --name-status HEAD^1 HEAD
+          python - <<'PY'
+          from pathlib import Path
+          from repo_workflow.self_ci import group_command
+          import subprocess, sys
+          root=Path.cwd()
+          for name in ['issue-786-cmd-wrapper','issue-787-cmd-transport','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status']:
+              cmd=group_command(root,name)
+              print("CATALOGUE_GROUP",name,"COMMAND",cmd,flush=True)
+              rc=subprocess.run(cmd,cwd=root,check=False).returncode
+              print("CATALOGUE_RESULT",name,rc,flush=True)
+              if rc: sys.exit(rc)
+          PY
+          echo "::endgroup::"
+          echo "::group::MERGE_792_INTO_785"
+          test "$(git rev-parse refs/remotes/origin/issue-792-provider-status-v2-20261102)" = "b5830919bb41662dbb76b077e08eb45575aa89d8"
+          parent=$(git rev-parse HEAD)
+          child=b5830919bb41662dbb76b077e08eb45575aa89d8
+          set +e
+          git merge --no-ff --no-commit "$child"
+          rc=$?
+          set -e
+          echo "MERGE_792_INITIAL_RC=$rc"
+          test "$rc" -eq 0 -o "$rc" -eq 1
+          git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
+          cat "$RUNNER_TEMP/conflicts"
+          if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
+            echo "UNEXPECTED_MERGE_CONFLICT_792"; exit 1
+          fi
+          git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
+          test -z "$(git ls-files -u)"
+          test "$(git show HEAD:.ci/run | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/run | cut -d' ' -f1)"
+          test "$(git show HEAD:.ci/engine-version | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/engine-version | cut -d' ' -f1)"
+          git diff --cached --check
+          git commit --no-edit
+          test "$(git rev-parse HEAD^1)" = "$parent"
+          test "$(git rev-parse HEAD^2)" = "$child"
+          git diff --check HEAD^1 HEAD
+          echo "MERGE_792_COMMIT=$(git rev-parse HEAD)"
+          echo "MERGE_792_SOURCE_PATHS:"
+          git diff --name-status HEAD^1 HEAD
+          python - <<'PY'
+          from pathlib import Path
+          from repo_workflow.self_ci import group_command
+          import subprocess, sys
+          root=Path.cwd()
+          for name in ['issue-786-cmd-wrapper','issue-787-cmd-transport','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status']:
+              cmd=group_command(root,name)
+              print("CATALOGUE_GROUP",name,"COMMAND",cmd,flush=True)
+              rc=subprocess.run(cmd,cwd=root,check=False).returncode
+              print("CATALOGUE_RESULT",name,rc,flush=True)
+              if rc: sys.exit(rc)
+          PY
+          echo "::endgroup::"
+          echo "::group::MERGE_788_INTO_785"
+          test "$(git rev-parse refs/remotes/origin/issue-788-hosted-rwf-forwarding-20261102)" = "8d5cad6d96f4a7c5a20f60a0a7fa6699534a6c9e"
+          parent=$(git rev-parse HEAD)
+          child=8d5cad6d96f4a7c5a20f60a0a7fa6699534a6c9e
+          set +e
+          git merge --no-ff --no-commit "$child"
+          rc=$?
+          set -e
+          echo "MERGE_788_INITIAL_RC=$rc"
+          test "$rc" -eq 0 -o "$rc" -eq 1
+          git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflicts"
+          cat "$RUNNER_TEMP/conflicts"
+          if grep -v -xE '^\.ci/(run|engine-version)$' "$RUNNER_TEMP/conflicts"; then
+            echo "UNEXPECTED_MERGE_CONFLICT_788"; exit 1
+          fi
+          git restore --source=HEAD --staged --worktree -- .ci/run .ci/engine-version
+          test -z "$(git ls-files -u)"
+          test "$(git show HEAD:.ci/run | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/run | cut -d' ' -f1)"
+          test "$(git show HEAD:.ci/engine-version | sha256sum | cut -d' ' -f1)" = "$(sha256sum .ci/engine-version | cut -d' ' -f1)"
+          git diff --cached --check
+          git commit --no-edit
+          test "$(git rev-parse HEAD^1)" = "$parent"
+          test "$(git rev-parse HEAD^2)" = "$child"
+          git diff --check HEAD^1 HEAD
+          echo "MERGE_788_COMMIT=$(git rev-parse HEAD)"
+          echo "MERGE_788_SOURCE_PATHS:"
+          git diff --name-status HEAD^1 HEAD
+          python - <<'PY'
+          from pathlib import Path
+          from repo_workflow.self_ci import group_command
+          import subprocess, sys
+          root=Path.cwd()
+          for name in ['issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-792-provider-status']:
+              cmd=group_command(root,name)
+              print("CATALOGUE_GROUP",name,"COMMAND",cmd,flush=True)
+              rc=subprocess.run(cmd,cwd=root,check=False).returncode
+              print("CATALOGUE_RESULT",name,rc,flush=True)
+              if rc: sys.exit(rc)
+          PY
+          echo "::endgroup::"
+          python -m compileall -q repo_workflow repo_workflow.py scripts
           git push --porcelain origin "HEAD:refs/heads/$candidate"
           actual=$(git ls-remote origin "refs/heads/$candidate" | cut -f1)
-          test "$actual" = "$sha"
-          echo "PUBLISHED_PARENT_CANDIDATE=$candidate $sha"
+          test "$actual" = "$(git rev-parse HEAD)"
+          echo "PUBLISHED_PARENT_CANDIDATE=$candidate $actual"
