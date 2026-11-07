@@ -151,7 +151,7 @@ def _tip_unchanged(root: Path, command: CommandRef, remote: str) -> None:
     raise RemoteStatusError("CMD changed while status was being read")
 
 
-def command_status(root: Path, selection: int | None = None, *,
+def _command_status_once(root: Path, selection: int | None = None, *,
                    remote: str = "origin",
                    info_config: dict | None = None) -> CommandStatus:
   """Resolve current numbered attempt, read result, then check CI if pending.
@@ -185,6 +185,24 @@ def command_status(root: Path, selection: int | None = None, *,
     cmd.number, cmd.branch, request_sha, retry,
     observation["state"], None, observation["run_id"],
   )
+
+
+def command_status(root: Path, selection: int | None = None, *,
+                   remote: str = "origin",
+                   info_config: dict | None = None) -> CommandStatus:
+  """Retry bounded read-only snapshots when a legitimate CMD tip advances."""
+  for attempt in range(3):
+    try:
+      return _command_status_once(
+        root, selection, remote=remote, info_config=info_config,
+      )
+    except RemoteStatusError as exc:
+      if (str(exc) not in (
+        "CMD advanced during request inspection",
+        "CMD changed while status was being read",
+      ) or attempt == 2):
+        raise
+  raise RemoteStatusError("CMD changed repeatedly during status inspection")
 
 
 def parse_intervals(values: list[str] | None) -> tuple[float, ...] | None:
