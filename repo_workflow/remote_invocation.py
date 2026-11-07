@@ -143,12 +143,12 @@ def _remote_tip(root: Path, branch: str) -> str:
   records = _lf_records(completed.stdout)
   if len(records) != 1:
     raise RemoteInvocationError(f"remote branch missing or ambiguous: {branch}")
-  parts = records[0].split()
-  if len(parts) != 2 or parts[1] != f"refs/heads/{branch}":
+  sha, sep, ref = records[0].partition("\t")
+  if not sep or ref != f"refs/heads/{branch}":
     raise RemoteInvocationError("invalid authoritative branch advertisement")
-  if _SHA.fullmatch(parts[0]) is None:
+  if _SHA.fullmatch(sha) is None:
     raise RemoteInvocationError("invalid advertised Git revision")
-  return parts[0]
+  return sha
 
 
 def _validate(root: Path, argv: list[str]) -> _Request:
@@ -264,13 +264,13 @@ def _remote_tag_oid(root: Path, ref: str) -> str | None:
     raise RemoteInvocationError("cannot verify authoritative remote tag")
   matches = []
   for line in _lf_records(advertised.stdout):
-    words = line.split()
-    if len(words) != 2:
+    sha, sep, advertised_ref = line.partition("\t")
+    if not sep or not advertised_ref.startswith("refs/tags/"):
       raise RemoteInvocationError("invalid remote tag advertisement")
-    if words[1] == ref:
-      if _SHA.fullmatch(words[0]) is None:
+    if advertised_ref == ref:
+      if _SHA.fullmatch(sha) is None:
         raise RemoteInvocationError("invalid advertised tag object")
-      matches.append(words[0])
+      matches.append(sha)
   if len(matches) > 1:
     raise RemoteInvocationError("ambiguous authoritative tag")
   return matches[0] if matches else None
