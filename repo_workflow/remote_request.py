@@ -47,13 +47,13 @@ def _run(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     raise RemoteRequestError(f"cannot execute or decode git: {exc}") from exc
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str, preserve_record: bool = False) -> str:
   result = _run(root, *args)
   if result.returncode:
     raise RemoteRequestError(
       f"git {args[0]} failed: {(result.stderr or result.stdout).strip()}"
     )
-  return result.stdout.strip()
+  return result.stdout if preserve_record else result.stdout.strip()
 
 
 def _source(root: Path) -> tuple[str, str]:
@@ -69,7 +69,11 @@ def _source(root: Path) -> tuple[str, str]:
 
 def _remote_refs(root: Path, remote: str) -> dict[str, str]:
   refs = {}
-  for line in _git(root, "ls-remote", "--heads", remote).splitlines():
+  listing = _git(root, "ls-remote", "--heads", remote,
+                 preserve_record=True)
+  if listing and not listing.endswith("\n"):
+    raise RemoteRequestError("unterminated remote ref listing")
+  for line in listing[:-1].split("\n") if listing else ():
     if "\t" not in line:
       raise RemoteRequestError("malformed remote ref listing")
     sha, ref = line.split("\t", 1)

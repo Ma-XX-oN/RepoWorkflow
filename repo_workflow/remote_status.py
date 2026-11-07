@@ -47,7 +47,7 @@ class CommandStatus:
   provider_run_id: int | None
 
 
-def _git(root: Path, *args: str) -> str:
+def _git(root: Path, *args: str, preserve_record: bool = False) -> str:
   try:
     done = subprocess.run(
       ["git", *args], cwd=root, capture_output=True, check=False,
@@ -63,7 +63,7 @@ def _git(root: Path, *args: str) -> str:
     raise RemoteStatusError(
       f"Git {args[0]} failed: {(stderr or stdout).strip()}"
     )
-  return stdout.strip()
+  return stdout if preserve_record else stdout.strip()
 
 
 def _refs(root: Path, remote: str) -> list[CommandRef]:
@@ -76,7 +76,11 @@ def _refs(root: Path, remote: str) -> list[CommandRef]:
   if _CMD.fullmatch(source):
     raise RemoteStatusError("remote-status requires a source branch")
   found: dict[str, CommandRef] = {}
-  for line in _git(root, "ls-remote", "--heads", remote).splitlines():
+  listing = _git(root, "ls-remote", "--heads", remote,
+                 preserve_record=True)
+  if listing and not listing.endswith("\n"):
+    raise RemoteStatusError("unterminated remote ref listing")
+  for line in listing[:-1].split("\n") if listing else ():
     parts = line.split("\t")
     if len(parts) != 2 or not _SHA.fullmatch(parts[0]) or not parts[1].startswith("refs/heads/"):
       raise RemoteStatusError("invalid remote branch advertisement")
