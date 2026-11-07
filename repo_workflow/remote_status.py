@@ -200,6 +200,7 @@ def command_status(root: Path, selection: int | None = None, *,
       if (str(exc) not in (
         "CMD advanced during request inspection",
         "CMD changed while status was being read",
+        "CMD branch advanced during result inspection",
       ) or attempt == 2):
         raise
   raise RemoteStatusError("CMD changed repeatedly during status inspection")
