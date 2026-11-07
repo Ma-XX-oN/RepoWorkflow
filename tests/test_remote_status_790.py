@@ -106,7 +106,7 @@ class StatusTest(unittest.TestCase):
         git(self.root, "checkout", command)
         target = self.root / ".repoworkflow" / "result"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("0\\nfinished\\n", encoding="utf-8")
+        target.write_text("0\nfinished\n", encoding="utf-8")
         git(self.root, "add", ".repoworkflow/result")
         git(self.root, "commit", "-m", "rwf: publish remote result",
             "-m", "RWF-Request: " + request,
@@ -128,7 +128,7 @@ class StatusTest(unittest.TestCase):
     self.assertEqual("completed", outcome.state)
     self.assertIsNotNone(outcome.result)
     self.assertEqual(0, outcome.result.exit_code)
-    self.assertEqual("finished\\n", outcome.result.output)
+    self.assertEqual("finished\n", outcome.result.output)
 
   def test_default_explicit_and_negative_selection(self):
     self.add_cmd(2)
