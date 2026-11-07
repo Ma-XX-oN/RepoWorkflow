@@ -140,7 +140,11 @@ def _matches(
 @contextmanager
 def _worktree_admin_lock(root: Path):
   """Serialize Git worktree registration/removal across local processes."""
-  common = Path(_git(root, "rev-parse", "--git-common-dir"))
+  result = _run(root, "rev-parse", "--git-common-dir")
+  # Git adds one LF record terminator; preserve path-ending whitespace.
+  if result.returncode or not result.stdout.endswith("\n") or len(result.stdout) == 1:
+    raise RemoteRequestError("cannot resolve Git common directory")
+  common = Path(result.stdout[:-1])
   if not common.is_absolute():
     common = root.resolve() / common
   lock = common / "rwf-cmd-worktree.lock"

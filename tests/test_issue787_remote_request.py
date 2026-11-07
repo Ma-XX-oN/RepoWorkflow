@@ -60,6 +60,26 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertEqual(before_head, git(self.source, "rev-parse", "HEAD"))
     self.assertEqual(before_status, git(self.source, "status", "--porcelain=v1"))
 
+  def test_separate_git_admin_trailing_unicode_path_is_preserved(self):
+    # A valid final U+2028 is part of the Git admin path, not whitespace.
+    base = Path(self.temp.name)
+    admin = base / "git-admin\u2028"
+    checkout = base / "separate-git-admin"
+    git(base, "clone", "--separate-git-dir", str(admin),
+        "-b", "feature-test", str(self.remote), str(checkout))
+    self.assertTrue(admin.is_dir())
+    record = subprocess.run(
+      ["git", "rev-parse", "--git-common-dir"], cwd=checkout,
+      capture_output=True, check=True,
+    ).stdout.decode("utf-8", errors="strict")
+    self.assertTrue(record.endswith("\u2028\n"), repr(record))
+    self.assertEqual(admin, Path(record[:-1]))
+    submitted = self.submit(root=checkout)
+    self.assertEqual(1, submitted.number)
+    self.assertEqual("CMD-1-feature-test", submitted.branch)
+    self.assertTrue(self.submit(root=checkout).reused)
+    self.assertFalse((admin / "rwf-cmd-worktree.lock").exists())
+
   def test_source_fork_marker_and_idempotency(self):
     original = git(self.source, "rev-parse", "HEAD")
     first = self.submit()
