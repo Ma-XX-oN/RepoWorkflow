@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "versionCommand": [
+    "python",
+    "scripts/workflow-version.py"
+  ],
+  "repository": {
+    "integrationBranch": "main",
+    "authoritativeRemote": "origin"
+  },
+  "environments": [
+    {
+      "id": "linux",
+      "required": true,
+      "platform": "linux",
+      "validationCommand": [
+        "python",
+        "scripts/validate.py"
+      ]
+    }
+  ],
+  "artifacts": []
+}
