@@ -1,0 +1,40 @@
+name: RWF 660 Unicode Git origin and ref exact-final wrapper GREEN
+on:
+  push:
+    branches: ['issue-660-wrapper-portability-final-focused-20261107']
+    paths: ['.github/workflows/issue660-wrapper-portability.yml']
+permissions:
+  contents: read
+jobs:
+  registered-wrapper:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5ec64cebcb14ccfb8aaa88f0bb5a5edb9c819033
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+        shell: bash
+      - name: Execute existing registered issue-786-cmd-wrapper group
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '5ec64cebcb14ccfb8aaa88f0bb5a5edb9c819033'
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          from repo_workflow.test_catalogue import load_test_catalogue
+          from repo_workflow.self_ci import group_command
+          root = Path.cwd()
+          group = "issue-786-cmd-wrapper"
+          assert group in load_test_catalogue(root).groups
+          raise SystemExit(subprocess.run(group_command(root,group),cwd=root).returncode)
+          PY
