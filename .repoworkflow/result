@@ -1,0 +1,19 @@
+1
+{"issue":660,"direction":"to-tickets","status":"SYNCHRONIZED","title":"Feature: Generalize hosted RepoWorkflow command invocation to .ci/rwf","dependencies":[791]}
+{"issue":785,"direction":"to-tickets","status":"MATCH","title":"#660: Consolidate #660 .ci/rwf contract and CLI argument semantics","dependencies":[]}
+{"issue":786,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Implement centralized remote invocation wrapper with CMD assertions","dependencies":[785]}
+{"issue":787,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Implement CMD branch request submission, allocation and idempotency","dependencies":[785]}
+{"issue":788,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Forward .ci/rwf argv through one hosted CI job and existing RWF CLI","dependencies":[786,787]}
+{"issue":789,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Publish and retrieve CMD-scoped .repoworkflow/result","dependencies":[786,787]}
+{"issue":790,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Add provider-neutral remote-status, polling and safe retry decisions","dependencies":[789,792]}
+{"issue":791,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Certify #660 integrated remote lifecycle and three-OS regression","dependencies":[788,790]}
+{"issue":792,"direction":"to-tickets","status":"SYNCHRONIZED","title":"#660: Expose normalized hosted CI invocation status through repo-info adapter","dependencies":[785]}
+Traceback (most recent call last):
+  File "/home/runner/work/_temp/rwf-engine/repo_workflow/remote_invocation.py", line 437, in invoke_numbered
+    _publish_command_branches(source, request, before_branches, before_tags)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_temp/rwf-engine/repo_workflow/remote_invocation.py", line 280, in _publish_command_branches
+    raise RemoteInvocationError(
+      "command left uncommitted repository changes: " + dirty[:400]
+    )
+repo_workflow.remote_invocation.RemoteInvocationError: command left uncommitted repository changes: ?? .repoworkflow/state/issues/metadata.json
