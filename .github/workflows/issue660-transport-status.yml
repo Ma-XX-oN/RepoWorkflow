@@ -1,0 +1,43 @@
+name: RWF 660 CMD transport and status Unicode RED
+on:
+  push:
+    branches: ['issue-660-transport-status-unicode-red-20261107']
+    paths: ['.github/workflows/issue660-transport-status.yml']
+permissions:
+  contents: read
+jobs:
+  catalogue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 97ee6488b628adca4bc80a15f845d86d95c61747
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Existing registered CMD transport and status catalogue groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '97ee6488b628adca4bc80a15f845d86d95c61747'
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          from repo_workflow.self_ci import group_command
+          from repo_workflow.test_catalogue import load_test_catalogue
+          root = Path.cwd()
+          groups = ("issue-787-cmd-transport", "issue-790-remote-status")
+          registered = load_test_catalogue(root).groups
+          assert all(group in registered for group in groups)
+          bad = []
+          for group in groups:
+            result = subprocess.run(group_command(root, group), cwd=root)
+            print(f"REGISTERED_GROUP_OUTCOME {group} {result.returncode}", flush=True)
+            if result.returncode:
+              bad.append(group)
+          print(f"REGISTERED_GROUPS_FAILED {bad}", flush=True)
+          raise SystemExit(bool(bad))
+          PY
