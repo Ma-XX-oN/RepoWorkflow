@@ -18,6 +18,111 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-660-utf8-output-enforcement": {
+        "type": "invariant",
+        "name": "tests.test_output_enforcement"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-786-cmd-wrapper": {
+        "type": "regression",
+        "name": "tests.test_remote_invocation_786"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-788-hosted-forward": {
+        "type": "regression",
+        "name": "tests.test_issue788_hosted_forward"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-791-publisher-wiring": {
+        "type": "regression",
+        "name": "tests.test_issue791_publisher_wiring"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-strict-provider-utf8": {
+        "type": "regression",
+        "name": "tests.test_provider_adapter_p11"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-git-protocol": {
+        "type": "regression",
+        "name": "tests.test_git_protocol_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-process-boundary": {
+        "type": "regression",
+        "name": "tests.test_process_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-719-launcher-discovery-utf8": {
+        "type": "regression",
+        "name": "tests.test_launcher_discovery_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-728-local-terminal-jsonl": {
+        "type": "regression",
+        "name": "tests.test_local_terminal_jsonl_p16"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-hosted-version-utf8": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-portable-subprocess": {
+        "type": "regression",
+        "name": "tests.test_portability_subprocess"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-windows-unicode-output": {
+        "type": "regression",
+        "name": "tests.test_windows_unicode_output_p9"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-792-provider-status": {
+        "type": "regression",
+        "name": "tests.test_issue792_provider_status"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-790-remote-status": {
+        "type": "regression",
+        "name": "tests.test_remote_status_790"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-789-cmd-results": {
+        "type": "regression",
+        "name": "tests.test_remote_result_789"
+      }
+    },
+    {
+      "test-harness": "unittest",
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
@@ -384,6 +489,13 @@
       }
     },
     {
+      "test-harness": "unittest",
+      "issue-660-renderer-certification-binding": {
+        "type": "invariant",
+        "name": "tests.test_renderer_certification_binding.RendererCertificationBindingTests.test_renderer_certification_matches_material_inputs"
+      }
+    },
+    {
       "test-harness": "script-runner",
       "issue-583-authoritative-validate": {
         "type": "regression",
@@ -397,6 +509,34 @@
         "type": "regression",
         "name": "scripts/probe-ticket-merge.py"
       }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-issue-start-version-commit": {
+        "type": "regression",
+        "name": "tests.test_issue_start"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-high-risk-remote-completion": {
+        "type": "regression",
+        "name": "tests.test_high_risk_cli"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-workspace-remote-completion": {
+        "type": "regression",
+        "name": "tests.test_workspace_cli"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-787-cmd-transport": {
+        "type": "regression",
+        "name": "tests.test_issue787_remote_request"
+      }
     }
   ],
   "aliases": {
@@ -409,6 +549,12 @@
     "self-ci": [
       "issue-476-staged-self-ci",
       "invariant-self-ci-contract"
+    ],
+    "issue-790-remote-status": [
+      "issue-790-remote-status"
+    ],
+    "issue-792-provider-status": [
+      "issue-792-provider-status"
     ]
   }
 }

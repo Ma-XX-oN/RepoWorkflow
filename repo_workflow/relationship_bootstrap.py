@@ -23,6 +23,7 @@ from .relationship_store import (
 from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import issue_info, resolve_info_config
 from .state_store import WriterIdentity
+from .owned_commit import commit_owned_files
 from .ticket_dependency_adapter import (
   TicketDependencyError,
   read_ticket_relationships,
@@ -217,6 +218,10 @@ def ensure_relationship_graph(
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
+    commit_owned_files(
+      root, [".repoworkflow/tickets.csv"],
+      "tickets: commit acquired relationship state",
+    )
   else:
     assert snapshot is not None
     graph = snapshot.graph

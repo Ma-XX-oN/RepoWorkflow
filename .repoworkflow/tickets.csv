@@ -268,3 +268,12 @@ issue,title,dependencies
 581,Project authoritative lifecycle state into synchronized tickets CSV,580
 582,Add cached-state graph glyphs and explicit --current refresh,581
 583,Certify six-state lifecycle CSV migration and graph status integration,582
+660,Feature: Generalize hosted RepoWorkflow command invocation to .ci/rwf,791
+785,#660: Consolidate #660 .ci/rwf contract and CLI argument semantics,
+786,#660: Implement centralized remote invocation wrapper with CMD assertions,785
+787,"#660: Implement CMD branch request submission, allocation and idempotency",785
+788,#660: Forward .ci/rwf argv through one hosted CI job and existing RWF CLI,786;787
+789,#660: Publish and retrieve CMD-scoped .repoworkflow/result,786;787
+790,"#660: Add provider-neutral remote-status, polling and safe retry decisions",789;792
+791,#660: Certify #660 integrated remote lifecycle and three-OS regression,788;790
+792,#660: Expose normalized hosted CI invocation status through repo-info adapter,785

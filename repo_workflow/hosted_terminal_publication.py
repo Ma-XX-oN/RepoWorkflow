@@ -3,17 +3,14 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import subprocess
 
 from .hosted_terminal_binding import bind_hosted_terminal, HostedTerminalError
 from .terminal_tag import publish_terminal_tag, TerminalTagError
+from .process import run_command
 
 
 def _git(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    text=True, capture_output=True, check=False,
-  )
+  result = run_command(["git", "-C", str(root), *args], root)
   if result.returncode:
     raise HostedTerminalError("cannot verify hosted remote publication")
   return result.stdout.strip()

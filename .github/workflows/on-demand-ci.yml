@@ -104,6 +104,9 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import os
           import re
           import subprocess
@@ -219,6 +222,9 @@ jobs:
           set -euo pipefail
           ./rwf test results --remote > "$RUNNER_TEMP/hosted-results.jsonl"
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           import os
           from pathlib import Path

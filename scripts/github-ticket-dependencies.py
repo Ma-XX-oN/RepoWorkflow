@@ -11,16 +11,30 @@ def fail(message: str) -> None:
   raise SystemExit(2)
 
 
+
+def decode_provider_output(data: bytes, stream: str) -> str:
+  try:
+    return data.decode("utf-8")
+  except UnicodeDecodeError:
+    fail(f"GitHub dependency operation failed: provider {stream} is not valid UTF-8")
+  raise AssertionError("unreachable")
+
+
 def gh(*arguments: str) -> str:
-  result = subprocess.run(
-    ["gh", *arguments],
-    capture_output=True,
-    text=True,
-  )
+  try:
+    result = subprocess.run(
+      ["gh", *arguments],
+      capture_output=True,
+    )
+  except OSError as exc:
+    fail(f"GitHub dependency operation failed: {exc}")
+
+  stdout = decode_provider_output(result.stdout, "stdout")
+  stderr = decode_provider_output(result.stderr, "stderr")
   if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
+    detail = (stderr or stdout).strip()
     fail("GitHub dependency operation failed" + (f": {detail}" if detail else ""))
-  return result.stdout
+  return stdout
 
 
 def _connection(value: dict, field: str) -> tuple[int, ...]:
@@ -123,10 +137,11 @@ def main(arguments: list[str]) -> int:
     }, separators=(",", ":")))
     return 0
 
+  if operation == "get" and len(arguments) != 3:
+    fail("dependency get accepts exactly one issue")
+
   current = read(issue)
   if operation == "get":
-    if len(arguments) != 3:
-      fail("dependency get accepts exactly one issue")
     emit(issue, current)
     return 0
 
@@ -154,4 +169,11 @@ def main(arguments: list[str]) -> int:
 
 
 if __name__ == "__main__":
+  # All Python output, including print() and tracebacks, uses one UTF-8 boundary.
+  from pathlib import Path
+  import sys
+  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main(sys.argv[1:]))

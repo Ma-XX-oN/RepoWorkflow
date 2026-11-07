@@ -39,4 +39,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main())
