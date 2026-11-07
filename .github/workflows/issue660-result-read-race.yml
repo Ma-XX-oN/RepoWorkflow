@@ -1,0 +1,35 @@
+name: RWF 660 result publication inspection race RED
+on:
+  push:
+    branches: ['issue-660-result-read-race-red-20261107']
+    paths: ['.github/workflows/issue660-result-read-race.yml']
+permissions:
+  contents: read
+jobs:
+  registered-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ca1f8f17106a5c45cd773435c2bcf4e4c9c6aeae
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run registered status group
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "ca1f8f17106a5c45cd773435c2bcf4e4c9c6aeae"
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          from repo_workflow.self_ci import group_command
+          from repo_workflow.test_catalogue import load_test_catalogue
+          root=Path.cwd()
+          group="issue-790-remote-status"
+          assert group in load_test_catalogue(root).groups
+          raise SystemExit(subprocess.run(group_command(root,group),cwd=root).returncode)
+          PY
