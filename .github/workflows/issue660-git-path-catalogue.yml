@@ -1,0 +1,40 @@
+name: RWF 660 Git common-dir Unicode catalogue regression
+on:
+  push:
+    branches: ['issue-660-git-common-dir-unicode-fix-20261107']
+    paths: ['.github/workflows/issue660-git-path-catalogue.yml']
+permissions:
+  contents: read
+jobs:
+  focused-catalogue:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6f78f10c395e3653dce6b27aea035840dbd749ce
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+        shell: bash
+      - name: Run authoritative registered CMD transport group
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 6f78f10c395e3653dce6b27aea035840dbd749ce
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          from repo_workflow.test_catalogue import load_test_catalogue
+          from repo_workflow.self_ci import group_command
+          root=Path.cwd()
+          group="issue-787-cmd-transport"
+          assert group in load_test_catalogue(root).groups
+          raise SystemExit(subprocess.run(group_command(root,group),cwd=root).returncode)
+          PY
