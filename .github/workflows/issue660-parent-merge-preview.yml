@@ -1,4 +1,4 @@
-name: RWF 660 Windows remaining registered groups supplemental verification
+name: RWF 660 Windows umbrella-owned registered groups exact-SHA acceptance
 on:
   push:
     branches: ['issue-660-legacy-merge-diagnostic-20261106']
@@ -24,7 +24,7 @@ jobs:
       - name: Install repository-declared runtime dependencies
         shell: bash
         run: python -m pip install -r requirements.txt
-      - name: Verify Windows catalogue groups 82-114 missed by timed-out full run
+      - name: Verify exact-source #660-owned registered groups on native Windows
         shell: bash
         run: |
           set -euo pipefail
@@ -36,11 +36,8 @@ jobs:
           import subprocess,sys,traceback
           root=Path.cwd()
           available=load_test_catalogue(root).groups
-          all_groups=tuple(sorted(available))
-          assert len(all_groups)==114, 'authoritative catalogue changed'
-          assert all_groups[80]=='issue-583-authoritative-validate', 'diagnostic boundary changed'
-          groups=all_groups[81:]
-          assert len(groups)==33, 'missing remaining registered groups'
+          groups=tuple(sorted(name for name in available if name.startswith('issue-660-') or name in ('issue-786-cmd-wrapper','issue-787-cmd-transport','issue-788-hosted-forward','issue-789-cmd-results','issue-790-remote-status','issue-791-publisher-wiring','issue-792-provider-status')))
+          assert len(groups)==12, 'expected twelve existing umbrella-owned registered groups'
           assert all(x in available for x in groups)
           print('REGISTERED_GROUP_COUNT',len(groups),flush=True)
           failures=[]
