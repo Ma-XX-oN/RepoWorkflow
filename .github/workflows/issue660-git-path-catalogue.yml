@@ -10,13 +10,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 6f78f10c395e3653dce6b27aea035840dbd749ce
+          ref: 63cda5462db12932d4a485adc6cdfd12d77babb8
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 6f78f10c395e3653dce6b27aea035840dbd749ce
+          test "$(git rev-parse HEAD)" = 63cda5462db12932d4a485adc6cdfd12d77babb8
           python - <<'PY'
           import subprocess
           from pathlib import Path
