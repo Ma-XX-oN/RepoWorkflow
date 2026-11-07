@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -170,6 +171,72 @@ class CmdFixture(unittest.TestCase):
     self.assertEqual(
       _run(self.repo, "ls-remote", "origin", "refs/tags/" + tag).split()[0],
       original,
+    )
+
+  def test_unicode_git_origin_is_not_redirected(self):
+    self.alternate_request("issue info --remote 0")
+    correct_remote = self.area / "remote.git\u2028"
+    self.remote.rename(correct_remote)
+    shutil.copytree(correct_remote, self.remote)
+    _run(self.repo, "remote", "set-url", "origin", str(correct_remote))
+    branch = "issue-786-origin-probe"
+
+    def command(root, argv):
+      _run(root, "checkout", "-b", branch, self.source_sha)
+      (root / "owned.txt").write_text("correct origin\n", encoding="utf-8")
+      from repo_workflow.owned_commit import commit_owned_files
+      commit_owned_files(root, ["owned.txt"], "issue: publish to correct origin")
+      return 0
+
+    outcome = self.invoke("issue", "info", "--remote", "0", handler=command)
+    self.assertEqual(0, outcome.exit_code, outcome.stderr)
+    self.assertEqual(
+      "correct origin",
+      _run(self.area, "--git-dir", str(correct_remote),
+           "show", "refs/heads/" + branch + ":owned.txt"),
+    )
+    self.assertNotEqual(
+      0, subprocess.run(
+        ["git", "--git-dir", str(self.remote), "show",
+         "refs/heads/" + branch + ":owned.txt"],
+        cwd=self.area, capture_output=True, check=False,
+      ).returncode,
+      "the clean remote must never receive the command-owned write",
+    )
+
+  def test_existing_unicode_tag_preserves_preexecution_snapshot(self):
+    tag = "v1.2\u2028unicode"
+    _run(self.repo, "tag", tag, self.source_sha)
+    _run(self.repo, "push", "origin", "refs/tags/" + tag)
+    called = []
+    outcome = self.invoke(handler=lambda root, argv: called.append(True) or 0)
+    self.assertEqual(0, outcome.exit_code, outcome.stderr)
+    self.assertEqual([True], called)
+
+  def test_command_unicode_branch_and_tag_are_published(self):
+    self.alternate_request("issue info --remote 0")
+    branch = "issue-786-unicode\u2028ref"
+    tag = "v1.2\u2028unicode"
+
+    def command(root, argv):
+      _run(root, "checkout", "-b", branch, self.source_sha)
+      (root / "unicode.txt").write_text("published\n", encoding="utf-8")
+      from repo_workflow.owned_commit import commit_owned_files
+      commit_owned_files(root, ["unicode.txt"], "issue: Unicode ref")
+      _run(root, "tag", tag)
+      return 0
+
+    outcome = self.invoke("issue", "info", "--remote", "0", handler=command)
+    self.assertEqual(0, outcome.exit_code, outcome.stderr)
+    self.assertEqual(
+      "published", _run(self.area, "--git-dir", str(self.remote),
+                         "show", "refs/heads/" + branch + ":unicode.txt"),
+    )
+    self.assertEqual(
+      _run(self.area, "--git-dir", str(self.remote),
+           "rev-parse", "refs/heads/" + branch),
+      _run(self.area, "--git-dir", str(self.remote),
+           "rev-parse", "refs/tags/" + tag),
     )
 
   def test_ordinary_branch_numbered_invocation_is_denied(self):
