@@ -80,6 +80,15 @@ class CMDSubmissionTests(unittest.TestCase):
     self.assertTrue(self.submit(root=checkout).reused)
     self.assertFalse((admin / "rwf-cmd-worktree.lock").exists())
 
+  def test_unrelated_unicode_remote_branch_does_not_block_cmd_submission(self):
+    unrelated = "issue-unrelated\u2028ref"
+    git(self.source, "branch", unrelated)
+    git(self.source, "push", "origin", "refs/heads/" + unrelated)
+    original = git(self.source, "rev-parse", "HEAD")
+    created = self.submit()
+    self.assertEqual("CMD-1-feature-test", created.branch)
+    self.assertEqual(original, git(self.source, "rev-parse", "HEAD"))
+
   def test_source_fork_marker_and_idempotency(self):
     original = git(self.source, "rev-parse", "HEAD")
     first = self.submit()

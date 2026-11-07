@@ -53,6 +53,14 @@ class StatusTest(unittest.TestCase):
     git(self.root, "checkout", source)
     return branch
 
+  def test_unrelated_unicode_remote_branch_does_not_block_cmd_status(self):
+    selected = self.add_cmd(1)
+    unrelated = "issue-unrelated\u2028ref"
+    git(self.root, "branch", unrelated, "issue-790")
+    git(self.root, "push", "origin", "refs/heads/" + unrelated)
+    self.assertEqual(selected, resolve_command(self.root, 1).branch)
+    self.assertEqual(selected, resolve_command(self.root).branch)
+
   def test_default_explicit_and_negative_selection(self):
     self.add_cmd(2)
     self.add_cmd(7)
