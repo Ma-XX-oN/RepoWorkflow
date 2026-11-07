@@ -61,6 +61,37 @@ class StatusTest(unittest.TestCase):
     self.assertEqual(selected, resolve_command(self.root, 1).branch)
     self.assertEqual(selected, resolve_command(self.root).branch)
 
+  def test_publication_advancing_cmd_during_inspection_is_retried(self):
+    command = self.add_cmd(1)
+    from repo_workflow import remote_status as status_module
+    original = status_module._marker
+    advanced = []
+
+    def publish_once(root, selected, remote):
+      if not advanced:
+        git(self.root, "checkout", command)
+        target = self.root / ".repoworkflow" / "result"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("0\n", encoding="utf-8")
+        git(self.root, "add", ".repoworkflow/result")
+        git(self.root, "commit", "-m", "publish request result")
+        git(self.root, "push", "origin", command)
+        git(self.root, "checkout", "issue-790")
+        advanced.append(True)
+      return original(root, selected, remote)
+
+    with patch("repo_workflow.remote_status._marker", side_effect=publish_once):
+      with patch("repo_workflow.remote_status.read_result", return_value=None):
+        with patch("repo_workflow.remote_status.ci_invocation_status",
+                   return_value={"state": "running", "run_id": 123}):
+          outcome = command_status(
+            self.root, 1, info_config={"infoCommand": ["fake"]},
+          )
+    self.assertEqual([True], advanced)
+    self.assertEqual(command, outcome.branch)
+    self.assertEqual("running", outcome.state)
+    self.assertEqual(123, outcome.provider_run_id)
+
   def test_default_explicit_and_negative_selection(self):
     self.add_cmd(2)
     self.add_cmd(7)
