@@ -93,6 +93,43 @@ class StatusTest(unittest.TestCase):
     self.assertEqual("running", outcome.state)
     self.assertEqual(123, outcome.provider_run_id)
 
+  def test_result_publication_between_ref_listing_and_fetch_is_retried(self):
+    command = self.add_cmd(1)
+    request = git(self.root, "rev-parse", command)
+    import importlib
+    result_module = importlib.import_module("repo_workflow.remote_result")
+    original_fetch = result_module._fetch
+    published = []
+
+    def publish_before_fetch(root, branch, remote, expected):
+      if not published:
+        git(self.root, "checkout", command)
+        target = self.root / ".repoworkflow" / "result"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("0\nfinished\n", encoding="utf-8")
+        git(self.root, "add", ".repoworkflow/result")
+        git(self.root, "commit", "-m", "rwf: publish remote result",
+            "-m", "RWF-Request: " + request,
+            "-m", "RWF-Retry: 0",
+            "-m", "RWF-Publisher: race-fixture")
+        git(self.root, "push", "origin", command)
+        git(self.root, "checkout", "issue-790")
+        published.append(True)
+      return original_fetch(root, branch, remote, expected)
+
+    with patch("repo_workflow.remote_result._fetch",
+               side_effect=publish_before_fetch):
+      outcome = command_status(
+        self.root, 1, info_config={"infoCommand": ["fake"]},
+      )
+    self.assertEqual([True], published)
+    self.assertEqual(command, outcome.branch)
+    self.assertEqual(request, outcome.request_sha)
+    self.assertEqual("completed", outcome.state)
+    self.assertIsNotNone(outcome.result)
+    self.assertEqual(0, outcome.result.exit_code)
+    self.assertEqual("finished\n", outcome.result.output)
+
   def test_default_explicit_and_negative_selection(self):
     self.add_cmd(2)
     self.add_cmd(7)
