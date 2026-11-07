@@ -1,0 +1,35 @@
+name: RWF 660 CMD publication transition RED
+on:
+  push:
+    branches: ['issue-660-cmd-publish-race-red-20261107']
+    paths: ['.github/workflows/issue660-cmd-publish-race.yml']
+permissions:
+  contents: read
+jobs:
+  registered-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2277c43a47e1326ef4eac3253ac41af6ae5d0d82
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Run registered issue-790-remote-status group
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 2277c43a47e1326ef4eac3253ac41af6ae5d0d82
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          from repo_workflow.test_catalogue import load_test_catalogue
+          from repo_workflow.self_ci import group_command
+          root=Path.cwd()
+          group="issue-790-remote-status"
+          assert group in load_test_catalogue(root).groups
+          raise SystemExit(subprocess.run(group_command(root,group),cwd=root).returncode)
+          PY
