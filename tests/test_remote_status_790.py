@@ -63,7 +63,8 @@ class StatusTest(unittest.TestCase):
 
   def test_publication_advancing_cmd_during_inspection_is_retried(self):
     command = self.add_cmd(1)
-    from repo_workflow import remote_status as status_module
+    import importlib
+    status_module = importlib.import_module("repo_workflow.remote_status")
     original = status_module._marker
     advanced = []
 
