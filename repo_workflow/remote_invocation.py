@@ -57,6 +57,24 @@ def _git(root: Path, *args: str) -> str:
   return git(root, *args).stdout.strip()
 
 
+def _lf_records(raw: str) -> list[str]:
+  """Separate only Git's physical LF records, never Unicode line characters."""
+  if not raw:
+    return []
+  if not raw.endswith("\n"):
+    raise RemoteInvocationError("unterminated Git ref advertisement")
+  return raw[:-1].split("\n")
+
+
+def _origin_url(root: Path) -> str:
+  """Preserve the exact URL rather than stripping valid trailing characters."""
+  raw = git(root, "remote", "get-url", "origin").stdout
+  if (not raw.endswith("\n") or len(raw) == 1
+      or "\n" in raw[:-1] or "\x00" in raw):
+    raise RemoteInvocationError("invalid Git origin URL record")
+  return raw[:-1]
+
+
 def _committed_marker(root: Path, commit: str) -> tuple[tuple[str, ...], int]:
   completed = subprocess.run(
     ["git", "show", f"{commit}:{_MARKER}"],
@@ -122,7 +140,7 @@ def _remote_tip(root: Path, branch: str) -> str:
   )
   if completed.returncode:
     raise RemoteInvocationError("cannot verify authoritative remote branch tip")
-  records = completed.stdout.splitlines()
+  records = _lf_records(completed.stdout)
   if len(records) != 1:
     raise RemoteInvocationError(f"remote branch missing or ambiguous: {branch}")
   parts = records[0].split()
@@ -211,10 +229,10 @@ def _assert_hosted_grammar(source: Path, words: tuple[str, ...]) -> None:
 def _local_branches(root: Path) -> dict[str, str]:
   """Snapshot refs belonging to the command's isolated source repository."""
   refs: dict[str, str] = {}
-  for line in _git(
+  for line in _lf_records(git(
     root, "for-each-ref", "--format=%(refname:short) %(objectname)",
     "refs/heads",
-  ).splitlines():
+  ).stdout):
     branch, separator, sha = line.rpartition(" ")
     if not separator or not branch or _SHA.fullmatch(sha) is None:
       raise RemoteInvocationError("invalid local branch advertisement")
@@ -228,9 +246,9 @@ def _local_branches(root: Path) -> dict[str, str]:
 def _local_tags(root: Path) -> dict[str, str]:
   """Snapshot exact tag-object IDs, not peeled commit targets."""
   refs: dict[str, str] = {}
-  for line in _git(
+  for line in _lf_records(git(
     root, "for-each-ref", "--format=%(refname) %(objectname)", "refs/tags",
-  ).splitlines():
+  ).stdout):
     ref, separator, sha = line.rpartition(" ")
     if (not separator or not ref.startswith("refs/tags/")
         or not ref[len("refs/tags/"):] or _SHA.fullmatch(sha) is None
@@ -245,7 +263,7 @@ def _remote_tag_oid(root: Path, ref: str) -> str | None:
   if advertised.returncode:
     raise RemoteInvocationError("cannot verify authoritative remote tag")
   matches = []
-  for line in advertised.stdout.splitlines():
+  for line in _lf_records(advertised.stdout):
     words = line.split()
     if len(words) != 2:
       raise RemoteInvocationError("invalid remote tag advertisement")
@@ -392,7 +410,7 @@ def invoke_numbered(
     git(root, "clone", "--quiet", "--no-hardlinks", str(root), str(source))
     git(source, "checkout", "--quiet", "-b",
         request.source_branch, request.source_sha)
-    origin = _git(root, "remote", "get-url", "origin")
+    origin = _origin_url(root)
     git(source, "remote", "set-url", "origin", origin)
     try:
       _assert_hosted_grammar(source, request.argv)
