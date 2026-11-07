@@ -73,7 +73,7 @@ class CMDSubmissionTests(unittest.TestCase):
       capture_output=True, check=True,
     ).stdout.decode("utf-8", errors="strict")
     self.assertTrue(record.endswith("\u2028\n"), repr(record))
-    self.assertEqual(admin, Path(record[:-1]))
+    self.assertTrue(admin.samefile(Path(record[:-1])))
     submitted = self.submit(root=checkout)
     self.assertEqual(1, submitted.number)
     self.assertEqual("CMD-1-feature-test", submitted.branch)
