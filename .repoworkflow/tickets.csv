@@ -277,3 +277,4 @@ issue,title,dependencies
 790,"#660: Add provider-neutral remote-status, polling and safe retry decisions",789;792
 791,#660: Certify #660 integrated remote lifecycle and three-OS regression,788;790
 792,#660: Expose normalized hosted CI invocation status through repo-info adapter,785
+826,Investigate repeated agent instruction violations and enforce execution consistency,
