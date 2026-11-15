@@ -164,7 +164,6 @@ def verify_phase_evidence(
   except OSError as error:
     raise TerminalTagError("canonical testing log is unavailable") from error
   observed = []
-  wrong_phase = False
   for line in lines:
     try:
       record = json.loads(
@@ -176,12 +175,9 @@ def verify_phase_evidence(
     if not isinstance(record, dict):
       raise TerminalTagError("canonical testing log contains a non-object")
     if record.get("testVersion") == version:
-      if record.get("kind") == stage:
-        observed.append(record)
-      else:
-        wrong_phase = True
-  if wrong_phase:
-    raise TerminalTagError("development version belongs to another phase")
+      if record.get("testSHA") != candidate:
+        raise TerminalTagError("development version belongs to another candidate")
+      observed.append(record)
   if not observed:
     raise TerminalTagError("no canonical evidence for development version")
   terminal_seen = False
@@ -197,14 +193,14 @@ def verify_phase_evidence(
           r"issue-" + re.escape(expected_issue) + r"(?:-.*)?", branch,
         ) is None):
       raise TerminalTagError("canonical evidence branch differs from issue")
-    if record.get("kind") != stage or record.get("testSHA") != candidate:
+    if record.get("testSHA") != candidate:
       raise TerminalTagError("development version belongs to another phase or candidate")
   expected = "succeeded" if outcome == "PASS" else "failed"
   terminal = {
     record.get("result") for record in observed
     if record.get("result") in ("succeeded", "failed")
   }
-  if terminal != {expected}:
+  if expected not in terminal or (outcome == "PASS" and "failed" in terminal):
     raise TerminalTagError("canonical evidence has conflicting terminal outcome")
   matching = [
     record for record in observed
@@ -222,7 +218,7 @@ def publish_terminal_tag(
   candidate: str, outcome: str, canonical_log: Path,
   push: bool = True,
 ) -> str | None:
-  """Publish exactly one immutable result, or reuse the identical result."""
+  """Publish a fixed-target result; later FAIL supersedes same-source PASS."""
   if stage not in {"regression", "integration"}:
     raise TerminalTagError("terminal tags require regression or integration")
   if outcome == "INCOMPLETE":
@@ -254,11 +250,11 @@ def publish_terminal_tag(
     ).terminal_tag
   except PhaseTransitionError as error:
     raise TerminalTagError("invalid terminal phase/version") from error
-  for other in (opposite,):
-    if _local_target(root, other) is not None:
-      raise TerminalTagError("opposite terminal outcome already exists")
-    if push and _remote_target(root, remote, other) is not None:
-      raise TerminalTagError("opposite remote terminal outcome already exists")
+  local_opposite = _local_target(root, opposite)
+  remote_opposite = _remote_target(root, remote, opposite) if push else None
+  for target in (local_opposite, remote_opposite):
+    if target is not None and (outcome != "FAIL" or target != candidate):
+      raise TerminalTagError("opposite terminal outcome already exists or targets another source")
   local = _local_target(root, tag)
   published = _remote_target(root, remote, tag) if push else None
   if local is not None and local != candidate:
@@ -283,6 +279,29 @@ def publish_terminal_tag(
     created = _git(root, "tag", "-a", tag, candidate, "-m", tag, check=False)
     if created.returncode and _local_target(root, tag) != candidate:
       raise TerminalTagError("terminal tag creation failed")
+  if push and remote_opposite is not None:
+    old_ref = "refs/tags/" + opposite
+    new_ref = "refs/tags/" + tag
+    old_object = _git(root, "ls-remote", "--tags", remote, old_ref).stdout.split()
+    if len(old_object) != 2 or old_object[1] != old_ref:
+      raise TerminalTagError("success tag changed before replacement; reconcile")
+    new_object = _git(root, "rev-parse", new_ref).stdout.strip() if published else ""
+    replaced = _git(
+      root, "push", "--atomic",
+      "--force-with-lease=" + old_ref + ":" + old_object[0],
+      "--force-with-lease=" + new_ref + ":" + new_object,
+      remote, new_ref + ":" + new_ref, ":" + old_ref, check=False,
+    )
+    if (replaced.returncode or _remote_target(root, remote, opposite) is not None
+        or _remote_target(root, remote, tag) != candidate):
+      raise TerminalTagError("terminal replacement UNKNOWN; reconcile provider state")
+    published = candidate
+  if local_opposite is not None:
+    old_ref = "refs/tags/" + opposite
+    old_object = _git(root, "rev-parse", old_ref).stdout.strip()
+    deleted = _git(root, "update-ref", "-d", old_ref, old_object, check=False)
+    if deleted.returncode:
+      raise TerminalTagError("local success tag changed before replacement")
   if published is not None or not push:
     return tag
   pushed = _git(

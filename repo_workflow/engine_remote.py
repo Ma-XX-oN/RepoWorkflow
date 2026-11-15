@@ -4,6 +4,9 @@ from __future__ import annotations
 from pathlib import Path
 import re
 import subprocess
+import json
+
+from .source_tip import source_tip
 
 from .engine_version_adapter import (
   EngineVersionError, read_engine_version, transition_engine_version,
@@ -58,20 +61,7 @@ def prepare_engine_request(
     if match is None or int(match.group(1)) != issue:
       raise EnginePreparationError("development version belongs to another issue")
     version = before
-    if _remote_tag(root, remote, plan_phase(
-      version, phase="integration", outcome="FAIL",
-    ).terminal_tag):
-      transition_engine_version(
-        root, operation="task --increment merge-integration-failed",
-      )
-    elif (
-      (stage == "regression" and any(_remote_tag(
-        root, remote, plan_phase(version, phase=phase, outcome=outcome).terminal_tag,
-      ) for phase, outcome in (("regression", "FAIL"), ("integration", "PASS"))))
-      or (stage == "integration" and any(_remote_tag(
-        root, remote, plan_phase(version, phase=phase, outcome="PASS").terminal_tag,
-      ) for phase in ("regression", "integration")))
-    ):
+    if _source_changed_since_testing(root, issue, version):
       transition_engine_version(
         root, operation="task --increment CI-iteration",
       )
@@ -82,3 +72,38 @@ def prepare_engine_request(
          "chore(test): prepare engine development version " + version,
          "--", ".ci/engine-version")
   return version
+
+
+def _source_changed_since_testing(root: Path, issue: int, version: str) -> bool:
+  """Compare verified report identities instead of consuming a terminal tag.
+
+  Parameters
+  ----------
+  root : Path
+      Engine repository.
+  issue : int
+      Current issue number.
+  version : str
+      Version being prepared for testing.
+
+  Returns
+  -------
+  bool
+      Whether this version was tested on different material source.
+  """
+  from .test_results_reader import parse_testing_log
+
+  log = root / ".repoworkflow/validation" / f"testResults-{issue}.jsonl"
+  raw = _git(root, "show", "HEAD:" + log.relative_to(root).as_posix(), check=False)
+  if raw.returncode:
+    return False
+  records = parse_testing_log(raw.stdout)
+  current = source_tip(root)
+  for record in records:
+    if record.get("testVersion") == version:
+      tested = record.get("testSHA")
+      if not isinstance(tested, str) or not re.fullmatch(r"[0-9a-f]{40}", tested):
+        raise EnginePreparationError("version report has no exact source identity")
+      if source_tip(root, tested) != current:
+        return True
+  return False

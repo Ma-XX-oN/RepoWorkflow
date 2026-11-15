@@ -98,6 +98,8 @@ def manual_case_completions(context) -> dict:
     {case.name: "Select manual integration test " + case.name}
     for case in cases
   ]
+  names.extend({str(index): "Select manual integration test " + case.name}
+               for index, case in enumerate(cases, 1))
 
   def legal_on_tab(request):
     if not request.context.legal_only:
@@ -122,7 +124,10 @@ def manual_case_completions(context) -> dict:
       pass
     return CompletionResponse(tuple(
       item for item in request.items
-      if not item.token.startswith("issue-") or item.token in permitted
+      if (not item.token.startswith("issue-") and not item.token.isdecimal())
+      or item.token in permitted
+      or (item.token.isdecimal() and 1 <= int(item.token) <= len(cases)
+          and cases[int(item.token) - 1].name in permitted)
     ))
 
   return {"completions": names, "on-tab": legal_on_tab}
@@ -196,6 +201,11 @@ def select_requested(root: Path, *, name: str | None, remote: bool) -> int:
       print("No outstanding manual integration tests.")
       return 0
   else:
+    if name.isdecimal():
+      index = int(name)
+      if not 1 <= index <= len(cases):
+        raise TestCommandError("manual test number is outside the declared case range")
+      name = cases[index - 1].name
     case = next((item for item in cases if item.name == name), None)
     if case is None:
       raise TestCommandError("requested manual test is not declared")
@@ -218,6 +228,7 @@ def select_requested(root: Path, *, name: str | None, remote: bool) -> int:
   print("Instructions: " + case.instructions)
   print("Expected result: " + case.expected_result)
   print("Record outcome using: rwf test succeeded | rwf test failed")
+  print(manual_prompt(root))
   return 0
 
 
@@ -253,6 +264,28 @@ def record_selected(root: Path, *, outcome: str) -> int:
   if isinstance(evidence, dict):
     print(json.dumps(evidence, sort_keys=True))
   return 1 if outcome == "failed" else 0
+
+
+def manual_prompt(root: Path) -> str:
+  """Return the current manual progress prefix for shell prompt adapters.
+
+  Parameters
+  ----------
+  root : Path
+      Repository whose canonical manual selection/results are queried.
+
+  Returns
+  -------
+  str
+      ``[MIT n/m]`` while manual work remains, otherwise an empty prefix.
+  """
+  _, _, cases, results, _ = _outstanding(root)
+  if not cases or "failed" in results.values():
+    return ""
+  for index, case in enumerate(cases, 1):
+    if results.get(case.name) != "succeeded":
+      return f"[MIT {index}/{len(cases)}]"
+  return ""
 
 
 def after_automatic_integration(root: Path) -> int:

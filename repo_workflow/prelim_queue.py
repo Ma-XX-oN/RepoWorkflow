@@ -101,3 +101,78 @@ def verify_immutable_prelims(
     if observed[ref] != original_sha:
       raise PrelimQueueError("published PRELIM commit changed")
   return ready
+
+
+@dataclass(frozen=True)
+class PrelimPosition:
+  """A submission's current, stale-latest, or superseded position."""
+
+  submission: ReadyPrelim
+  position: str
+  parent_sha: str
+
+
+def classify_prelims(submissions, *, current_parent_sha, bases, predecessors):
+  """Classify submissions using verified parent and predecessor records.
+
+  Parameters
+  ----------
+  submissions : tuple[ReadyPrelim, ...]
+      Published identities for one destination, including retained history.
+  current_parent_sha : str
+      Independently observed authoritative destination tip.
+  bases : Mapping[str, str]
+      Verified parent SHA indexed by PRELIM ref.
+  predecessors : Mapping[str, str | None]
+      Verified prior PRELIM ref, or None for the first submission.
+
+  Returns
+  -------
+  tuple[PrelimPosition, ...]
+      Positions in inventory order. Failed latest submissions remain latest.
+
+  Raises
+  ------
+  PrelimQueueError
+      Missing, foreign, cyclic or incomparable generation provenance.
+  """
+  if _SHA.fullmatch(current_parent_sha) is None:
+    raise PrelimQueueError("authoritative parent SHA required")
+  inventory = {}
+  for submission in submissions:
+    if not isinstance(submission, ReadyPrelim) or submission.ref in inventory:
+      raise PrelimQueueError("unique PRELIM submissions required")
+    inventory[submission.ref] = submission
+  if len({item.destination for item in inventory.values()}) > 1:
+    raise PrelimQueueError("classify one destination at a time")
+  superseded = set()
+  for ref, item in inventory.items():
+    if ref not in bases or not isinstance(bases[ref], str) or not _SHA.fullmatch(bases[ref]):
+      raise PrelimQueueError("PRELIM base identity missing")
+    if ref not in predecessors:
+      raise PrelimQueueError("PRELIM predecessor identity missing")
+    seen = {ref}
+    prior = predecessors[ref]
+    while prior is not None:
+      if prior in seen or prior not in inventory:
+        raise PrelimQueueError("cyclic or missing PRELIM predecessor")
+      older = inventory[prior]
+      if older.umbrella != item.umbrella or older.destination != item.destination:
+        raise PrelimQueueError("foreign PRELIM predecessor")
+      seen.add(prior)
+      superseded.add(prior)
+      if prior not in predecessors:
+        raise PrelimQueueError("PRELIM predecessor identity missing")
+      prior = predecessors[prior]
+  latest = {}
+  for ref, item in inventory.items():
+    if ref not in superseded:
+      if item.umbrella in latest:
+        raise PrelimQueueError("incomparable latest PRELIM submissions")
+      latest[item.umbrella] = ref
+  return tuple(
+    PrelimPosition(item, "superseded" if ref in superseded else
+                   "current" if bases[ref] == current_parent_sha else "stale",
+                   bases[ref])
+    for ref, item in inventory.items()
+  )
