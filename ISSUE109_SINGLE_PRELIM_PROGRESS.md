@@ -3,7 +3,7 @@
 Base: add058f5f4139f6e9cbe5103cbc84c760f6f0404.
 Branch: issue-109-single-prelim. Governing contract: SINGLE_PRELIM_WORKFLOW.md.
 Status: version-only implementation READY for review; focused native checks PASS.
-The uncommitted title/extra naming extension awaits operator scope clarification.
+The title/extra naming extension is explicitly deferred to follow-up #829.
 No full independent-ticket acceptance or production activation is claimed.
 
 ## Active continuation requirements
@@ -38,7 +38,7 @@ Historical prerequisite statements below are superseded by this active scope.
 - [x] Preserve the version after manual FAIL; prepare another only after source changes.
 - [x] Publish external manual verdicts from any matching checkout and resume pending CI.
 - [x] Exercise the actual default path and update current documentation.
-- [ ] Resolve the newly edited title/extra naming extension without overwriting operator WIP.
+- [x] Defer the new start/branch naming extension to #829; preserve operator WIP.
 
 ## Final version-only implementation verification
 
@@ -67,9 +67,11 @@ updated and no ticket was closed. RED selector repair #828 remains deferred.
 An operator edit discovered after verification changes the governing naming
 text to `PRELIM-issue-N.<rest-of-version>-<title>[-<extra>]` and refers to
 versioned issue branch names produced by `rwf start`. The edit is preserved
-unstaged. The verified code implements the prior version-only rule; the
-operator has been asked whether to extend both issue/PRELIM naming, only
-PRELIM naming, or handle the extension separately.
+unstaged. The verified code implements the prior version-only rule. The
+operator explicitly deferred both the optional start argument and issue/PRELIM
+branch naming changes to [#829](https://github.com/Ma-XX-oN/RepoWorkflow/issues/829).
+The new ticket is recorded in the canonical CSV without dependency edges;
+it does not block or expand this implementation.
 
 Expanded functional run: 16/16 PASS, including actual parent advancement at
 the atomic push boundary, successful publication with lost acknowledgement,

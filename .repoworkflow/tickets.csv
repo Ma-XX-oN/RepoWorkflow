@@ -282,3 +282,4 @@ issue,title,dependencies
 792,#660: Expose normalized hosted CI invocation status through repo-info adapter,785
 826,Investigate repeated agent instruction violations and enforce execution consistency,
 828,Bug: Reject invalid RED selections before mutation and exclude RED alias groups from issue CI,
+829,"Extend start and issue/PRELIM branch names with version, title and optional extra text",
