@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from repo_workflow.done_planner import GateObservation, plan_done
 from repo_workflow.prelim_queue import (
-  PrelimQueueError, ReadyPrelim, classify_prelims,
+  PrelimQueueError, ReadyPrelim, classify_prelims, parse_ready_prelim, latest_prelims,
 )
 from tests.test_done_planner import snapshot
 from repo_workflow.git import git
@@ -60,51 +60,45 @@ class SubmissionTests(unittest.TestCase):
 
 
 class PrelimGenerationTests(unittest.TestCase):
-  """Latest submission identity is independent of its eventual test result."""
+  """Numeric versions select the only issue submission the server considers."""
 
   def prelim(self, number, issue="109"):
-    """Construct a qualified immutable submission identity."""
-    guid = f"00000000-0000-0000-0000-{number:012d}"
-    return ReadyPrelim(f"refs/heads/PRELIM-issue-{issue}/main-{guid}",
-                       f"{number:040x}", "issue-" + issue, "main", guid)
+    """Construct a versioned submission with independently supplied parent."""
+    return parse_ready_prelim(f"refs/heads/PRELIM-issue-{issue}.0.{number}",
+                              f"{number:040x}", destination="main")
 
-  def test_three_categories_and_no_status_based_fallback(self):
-    """Only the newest generation can be current, even when it later fails."""
-    first, second, latest = (self.prelim(n) for n in (1, 2, 3))
-    bases = {first.ref: "a" * 40, second.ref: "b" * 40, latest.ref: "c" * 40}
-    predecessors = {first.ref: None, second.ref: first.ref, latest.ref: second.ref}
-    positions = classify_prelims((first, second, latest), current_parent_sha="c" * 40,
-                                bases=bases, predecessors=predecessors)
-    self.assertEqual([item.position for item in positions],
-                     ["superseded", "superseded", "current"])
-    stale = classify_prelims((first, second, latest), current_parent_sha="d" * 40,
-                            bases=bases, predecessors=predecessors)
-    self.assertEqual([item.position for item in stale],
-                     ["superseded", "superseded", "stale"])
+  def test_three_categories_and_numeric_order(self):
+    """Version 10 supersedes version 2 regardless of lexical inventory order."""
+    first, second, latest = (self.prelim(n) for n in (1, 2, 10))
+    items = (latest, first, second)
+    current = classify_prelims(items, current_parent_sha="c"*40,
+                              bases={latest.ref:"c"*40})
+    self.assertEqual([p.position for p in current], ["current","superseded","superseded"])
+    stale = classify_prelims(items, current_parent_sha="d"*40,
+                            bases={latest.ref:"c"*40})
+    self.assertEqual([p.position for p in stale], ["stale","superseded","superseded"])
 
-  def test_separate_issues_have_independent_latest_submissions(self):
-    """Different issues sharing one parent are not generations of one issue."""
-    items = (self.prelim(1), self.prelim(2, "110"))
-    result = classify_prelims(items, current_parent_sha="a" * 40,
-                             bases={p.ref: "a" * 40 for p in items},
-                             predecessors={p.ref: None for p in items})
-    self.assertEqual([p.position for p in result], ["current", "current"])
-
-  def test_ambiguous_generations_and_cycles_reject(self):
-    """Never infer ordering from names, GUIDs or inventory enumeration."""
-    a, b = self.prelim(1), self.prelim(2)
-    for prior in ({a.ref: None, b.ref: None}, {a.ref: b.ref, b.ref: a.ref}):
-      with self.subTest(prior=prior), self.assertRaises(PrelimQueueError):
-        classify_prelims((a, b), current_parent_sha="a" * 40,
-                         bases={a.ref: "a" * 40, b.ref: "a" * 40}, predecessors=prior)
-
-  def test_foreign_predecessor_rejects(self):
-    """A submission cannot supersede another issue's work."""
-    a, b = self.prelim(1), self.prelim(2, "110")
+  def test_failed_latest_never_falls_back(self):
+    """Selection occurs before outcomes; older metadata need not be read."""
+    older, newest = self.prelim(2), self.prelim(10)
+    self.assertEqual(latest_prelims((older,newest)), (newest,))
     with self.assertRaises(PrelimQueueError):
-      classify_prelims((a, b), current_parent_sha="a" * 40,
-                       bases={a.ref: "a" * 40, b.ref: "a" * 40},
-                       predecessors={a.ref: None, b.ref: a.ref})
+      classify_prelims((older,newest), current_parent_sha="a"*40,
+                       bases={older.ref:"a"*40})
+
+  def test_separate_issues_have_independent_latest_versions(self):
+    """A version from another issue cannot supersede this issue."""
+    items = (self.prelim(1), self.prelim(2,"110"))
+    result = classify_prelims(items, current_parent_sha="a"*40,
+                             bases={item.ref:"a"*40 for item in items})
+    self.assertEqual([p.position for p in result], ["current","current"])
+
+  def test_guid_and_parent_are_not_part_of_names(self):
+    """Reserved refs must contain canonical numeric issue-version suffixes."""
+    for name in ("PRELIM-issue-109/main-example", "PRELIM-issue-109.0.01",
+                 "PRELIM-issue-109.0.1/main", "PRELIM-issue-0.0.1"):
+      with self.subTest(name=name), self.assertRaises(PrelimQueueError):
+        parse_ready_prelim("refs/heads/"+name, "a"*40)
 
 
 class SourceTipTests(unittest.TestCase):
@@ -167,7 +161,7 @@ class SourceTipTests(unittest.TestCase):
 
   def test_prelim_and_arbitrary_branch_resolve_testing_issue(self):
     """Testing ownership survives changing the branch used for execution."""
-    self.assertEqual(testing_issue(self.root, branch="PRELIM-issue-109/main-example"), 109)
+    self.assertEqual(testing_issue(self.root, branch="PRELIM-issue-109.0.1"), 109)
     self.git_version = self.root / ".ci/engine-version"
     self.git_version.parent.mkdir()
     self.git_version.write_text("1.2.3-issue.109.0.1\n", encoding="utf-8")
@@ -190,11 +184,11 @@ class SubmissionPublicationTests(unittest.TestCase):
     git(self.root, "remote", "add", "origin", str(self.remote))
     (self.root / "source.txt").write_text("completed source\n", encoding="utf-8")
     self.candidate = self.commit()
-    self.guid = "44444444-4444-4444-8444-444444444444"
-    self.ref = f"refs/heads/PRELIM-issue-109/main-{self.guid}"
+    self.ref = "refs/heads/PRELIM-issue-109.0.1"
+    self.guid = parse_ready_prelim(self.ref, self.candidate).guid
     self.record = {"repository":"Org/Repo", "guid":self.guid, "prelim_ref":self.ref,
                    "source_sha":self.candidate, "candidate_sha":self.candidate,
-                   "parent_sha":self.original, "predecessor_ref":None,
+                   "parent_sha":self.original, "destination":"main", "version":"1.2.3-issue.109.0.1",
                    "inputs_sha256":"f"*64, "release":"patch"}
 
   def test_publication_and_unchanged_resume_keep_both_objects(self):
@@ -247,11 +241,11 @@ class SubmissionProviderTests(unittest.TestCase):
 
   def setUp(self):
     """Supply independently pinned provider object and ancestry responses."""
-    self.guid = "44444444-4444-4444-8444-444444444444"
+    self.guid = parse_ready_prelim("refs/heads/PRELIM-issue-109.0.1", "b"*40).guid
     self.record = {"repository":"Org/Repo", "guid":self.guid,
-                   "prelim_ref":f"refs/heads/PRELIM-issue-109/main-{self.guid}",
+                   "prelim_ref":"refs/heads/PRELIM-issue-109.0.1",
                    "source_sha":"a"*40, "candidate_sha":"b"*40,
-                   "parent_sha":"c"*40, "predecessor_ref":None,
+                   "parent_sha":"c"*40, "destination":"main", "version":"1.2.3-issue.109.0.1",
                    "inputs_sha256":"f"*64, "release":"patch"}
     self.response = {"ref":submission_ref(self.guid),
                      "object":{"type":"commit","sha":"d"*40}}

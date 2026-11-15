@@ -15,7 +15,7 @@ from .state_store import durable_store
 
 
 def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
-    destination: str, guid: str, request_id: str, backend,
+    destination: str, guid: str, version: str, request_id: str, backend,
     verify_parent_and_evidence,
     read_publication_record=None):
   """Bridge the exact recorded READY commit without modifying old refs.
@@ -68,7 +68,7 @@ def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
     return item["object"].get("sha")
 
   return publish_verified_attempt(
-    candidate, ticket=ticket, destination=destination,
+    candidate, ticket=ticket, destination=destination, version=version,
     request_id=request_id,
     verify_authoritative=verify_parent_and_evidence,
     read_remote=read,
@@ -80,7 +80,7 @@ def publish_recorded_ready(root: Path, config: dict, *, ticket: int,
 
 def publish_recorded_ready_certified(
     root: Path, config: dict, *, ticket: int, destination: str,
-    guid: str, request_id: str, backend, resolve_parent,
+    guid: str, version: str, request_id: str, backend, resolve_parent,
     read_publication_record=None,
 ):
   """Public recorded READY publisher using the real #102 PASS authority.
@@ -99,7 +99,7 @@ def publish_recorded_ready_certified(
     )
 
   return publish_recorded_ready(
-    root, config, ticket=ticket, destination=destination, guid=guid,
+    root, config, ticket=ticket, destination=destination, guid=guid, version=version,
     request_id=request_id, backend=backend,
     verify_parent_and_evidence=verify,
     read_publication_record=read_publication_record,

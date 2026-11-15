@@ -38,7 +38,7 @@ class HistoricalCollisionTests(unittest.TestCase):
       self.candidates.append(candidate)
       marker = self.root / ".ci/run"
       marker.parent.mkdir(exist_ok=True)
-      marker.write_text("regression-testing " + candidate + "\n")
+      marker.write_text("regression-testing " + candidate + "\n", newline="\n")
       self.git("add", ".ci/run")
       self.git("commit", "-qm", "request " + str(index))
       self.invocations.append(self.git("rev-parse", "HEAD"))
@@ -70,12 +70,11 @@ class HistoricalCollisionTests(unittest.TestCase):
       resolve_hosted_version(
         self.root, self.invocations[1], self.log)
 
-  def test_conflicting_current_version_outcome_is_still_denied(self):
+  def test_later_current_version_failure_governs_the_success(self):
     self.append(self.candidates[2], NEW, "failed")
-    with self.assertRaisesRegex(
-        HostedVersionError, "conflicting terminal version outcomes"):
-      resolve_hosted_version(
-        self.root, self.invocations[2], self.log)
+    proof = resolve_hosted_version(self.root, self.invocations[2], self.log)
+    self.assertEqual(proof["candidate_sha"], self.candidates[2])
+    self.assertEqual(proof["test_version"], NEW)
 
   def test_conflicting_new_version_owner_is_still_denied(self):
     self.append(self.candidates[1], NEW, "succeeded")

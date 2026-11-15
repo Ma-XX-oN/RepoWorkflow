@@ -93,7 +93,7 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
       raise TerminalProviderError("terminal GUID already bound to another result")
     return "unchanged", {"guid": guid, "record": existing}
   # A terminal record lives on a commit under a tag namespace.  It never
-  # advances main, PRELIM, INT-ATTEMPT or the destination.
+  # advances main, PRELIM or the destination.
   try:
     parent = backend.get("git/ref/heads/" +
                          record["destination_ref"].removeprefix("refs/heads/"))
@@ -111,7 +111,7 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
     raise TerminalProviderError("destination identity unavailable") from error
   if record["status"] == "integrated":
     # The provider, rather than a caller assertion, must confirm both the
-    # accepted INT-ATTEMPT and landed commit remain in destination history.
+    # accepted PRELIM and landed commit remain in destination history.
     for base, head in (
         (record["accepted_sha"], record["landed_sha"]),
         (record["landed_sha"], tip)):
@@ -147,7 +147,7 @@ def record_terminal(backend, record, *, authorized, verify_evidence):
 
 
 _RETIREMENT_FIELDS = (
-  "status", "prelim_ref", "prelim_sha", "int_attempt_ref",
+  "status", "prelim_ref", "prelim_sha", "candidate_ref",
   "accepted_sha", "destination_ref", "landed_sha",
   "integration_id", "terminal_evidence_ref",
 )
@@ -162,13 +162,15 @@ def retirement_terminal_reader(backend, landed):
   """
   try:
     prelim = landed.prelim_ref
-    attempt = landed.int_attempt_ref
-    guid = prelim[-36:]
-    if (not prelim.endswith("-" + guid)
-        or not attempt.endswith("-" + guid)
+    attempt = landed.candidate_ref
+    from repo_workflow.prelim_queue import parse_ready_prelim
+    ready = parse_ready_prelim(prelim, landed.prelim_sha)
+    if (ready is None or attempt != prelim
+        or landed.accepted_sha != landed.prelim_sha
         or not isinstance(landed.terminal_evidence_ref, str)
         or not landed.terminal_evidence_ref):
       raise TerminalProviderError("retirement attempt identity malformed")
+    guid = ready.guid
     _ref(guid)
   except (AttributeError, TypeError, ValueError) as error:
     raise TerminalProviderError("retirement identity unavailable") from error
@@ -182,7 +184,7 @@ def retirement_terminal_reader(backend, landed):
     expected = {
       "prelim_ref": landed.prelim_ref,
       "prelim_sha": landed.prelim_sha,
-      "int_attempt_ref": landed.int_attempt_ref,
+      "candidate_ref": landed.candidate_ref,
       "accepted_sha": landed.accepted_sha,
       "destination_ref": landed.destination_ref,
       "landed_sha": landed.landed_sha,

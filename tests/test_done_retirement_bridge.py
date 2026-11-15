@@ -1,4 +1,5 @@
 """Independent #681 provider terminal to #103 cleanup proof projections."""
+from repo_workflow.prelim_queue import parse_ready_prelim
 from dataclasses import replace
 import unittest
 
@@ -8,13 +9,13 @@ from repo_workflow.done_retirement_bridge import (
 from repo_workflow.done_terminal_v2 import IntegratedTerminal
 
 
-G = "11111111-1111-4111-8111-111111111111"
-P = f"refs/heads/PRELIM-issue-123/main-{G}"
-I = P.replace("PRELIM-", "INT-ATTEMPT-")
+G = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
+P = "refs/heads/PRELIM-issue-123.0.1"
+I = P.replace("PRELIM-", "PRELIM-")
 A, B, C, D = ("a" * 40, "b" * 40, "c" * 40, "d" * 40)
 TERMINAL = {
   "repository": "Org/Repo", "guid": G, "status": "integrated",
-  "prelim_ref": P, "prelim_sha": A, "int_attempt_ref": I,
+  "prelim_ref": P, "prelim_sha": C, "candidate_ref": I,
   "accepted_sha": C, "destination_ref": "refs/heads/main",
   "expected_destination_sha": B, "observed_destination_sha": D,
   "landed_sha": D, "integration_id": "merge-1",
@@ -46,7 +47,7 @@ class RetirementBridgeTests(unittest.TestCase):
     self.assertEqual(bridge.landed.prelim_ref, P)
     self.assertEqual(bridge.landed.accepted_sha, C)
     expected = {k: v for k, v in TERMINAL.items() if k in (
-      "status", "prelim_ref", "prelim_sha", "int_attempt_ref",
+      "status", "prelim_ref", "prelim_sha", "candidate_ref",
       "accepted_sha", "destination_ref", "landed_sha",
       "integration_id", "terminal_evidence_ref")}
     self.assertEqual(bridge.read_terminal("evidence-1"), expected)

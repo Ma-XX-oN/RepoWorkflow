@@ -1,4 +1,5 @@
 """Lifecycle revision CAS waits for live integration and exact evidence."""
+from repo_workflow.prelim_queue import parse_ready_prelim
 from dataclasses import replace, dataclass
 import unittest
 
@@ -18,9 +19,9 @@ from repo_workflow.state_store import WriterIdentity
 from tests.test_done_evidence_promotion import PromotionTests, B, D
 
 
-G="11111111-1111-4111-8111-111111111111"
-P=f"refs/heads/PRELIM-issue-123/main-{G}"
-I=P.replace("PRELIM-","INT-ATTEMPT-")
+G = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
+P="refs/heads/PRELIM-issue-123.0.1"
+I=P.replace("PRELIM-","PRELIM-")
 A="a"*40
 
 
@@ -59,13 +60,12 @@ class LifecycleHandoffTests(unittest.TestCase):
     self.promotion=p.make()
     self.record={
       "guid":G,"status":"integrated",
-      "prelim_ref":P,"prelim_sha":A,"int_attempt_ref":I,
+      "prelim_ref":P,"prelim_sha":B,"candidate_ref":I,
     }
     self.terminal=IntegratedTerminal(
       G,"Org/Repo","main",B,D,"integration-1",
       "integrate-123","evidence-1",self.record)
-    self.retires=(
-      RefRetirement(P,A,True),RefRetirement(I,B,True))
+    self.retires=(RefRetirement(P,B,True),)
     self.kwargs={
       "store":self.store,"issue":123,"expected_revision":5,
       "relationship_revision":3,"writer":WriterIdentity("rwf109","session1"),
@@ -110,7 +110,7 @@ class LifecycleHandoffTests(unittest.TestCase):
 
   def test_unretired_prelim_never_satisfies_lifecycle(self):
     altered=(
-      RefRetirement(P,A,False),RefRetirement(I,B,True))
+      RefRetirement(P,B,False),)
     with self.assertRaisesRegex(CompletionHandoffError,"retirement"):
       self.invoke(retirements=altered)
     self.assertEqual(self.store.transition_calls,0)

@@ -11,10 +11,9 @@ from repo_workflow.prelim_retirement import (
 from repo_workflow.prelim_retirement_remote import retire_verified_ref
 from repo_workflow.prelim_retirement_execute import retire_landed_attempt_ref
 
-P = ("refs/heads/PRELIM-issue-123/main-"
-     "11111111-1111-4111-8111-111111111111")
-I = ("refs/heads/INT-ATTEMPT-issue-123/main-"
-     "11111111-1111-4111-8111-111111111111")
+P = "refs/heads/PRELIM-issue-123.0.1"
+I = P
+OTHER = "refs/heads/PRELIM-issue-123.0.2"
 
 
 def git(root, *args):
@@ -74,7 +73,7 @@ class RemoteRetirementTests(unittest.TestCase):
     self.a = git(self.root, "rev-parse", "HEAD")
     git(self.root, "remote", "add", "origin", str(self.remote))
     git(self.root, "push", "origin", self.a + ":" + P)
-    git(self.root, "push", "origin", self.a + ":" + I)
+    git(self.root, "push", "origin", self.a + ":" + OTHER)
     git(self.root, "push", "origin", self.a + ":refs/heads/main")
     (self.root / "file").write_text("B\n")
     git(self.root, "commit", "-am", "B")
@@ -83,11 +82,11 @@ class RemoteRetirementTests(unittest.TestCase):
 
   def evidence(self, plan):
     landed = LandedIntegration(plan.prelim_ref, self.a,
-      plan.int_attempt_ref, self.a, "refs/heads/main", self.a,
+      plan.candidate_ref, self.a, "refs/heads/main", self.a,
       "op-123", plan.terminal_evidence_ref)
     terminal = {
       "status": "integrated", "prelim_ref": plan.prelim_ref,
-      "prelim_sha": self.a, "int_attempt_ref": plan.int_attempt_ref,
+      "prelim_sha": self.a, "candidate_ref": plan.candidate_ref,
       "accepted_sha": self.a, "destination_ref": "refs/heads/main",
       "landed_sha": self.a, "integration_id": "op-123",
       "terminal_evidence_ref": plan.terminal_evidence_ref,
@@ -107,16 +106,17 @@ class RemoteRetirementTests(unittest.TestCase):
     result = self.retire(self.plan, P, self.a)
     self.assertTrue(result.absent_after)
     self.assertIsNone(self.remote_sha(P))
-    self.assertEqual(self.remote_sha(I), self.a)
+    self.assertEqual(self.remote_sha(OTHER), self.a)
 
-  def test_generic_umbrella_ref_is_retired_only_with_its_pair(self):
+  def test_generic_non_issue_ref_is_not_retired(self):
     p=P.replace("issue-123", "team-X")
     i=I.replace("issue-123", "team-X")
     git(self.root, "push", "origin", self.a + ":" + p)
     git(self.root, "push", "origin", self.a + ":" + i)
     plan=RetirementPlan(p,i,self.a,"terminal-team-X",True)
-    self.assertTrue(self.retire(plan, p, self.a).absent_after)
-    self.assertIsNone(self.remote_sha(p))
+    with self.assertRaises(PrelimRetirementError):
+      self.retire(plan, p, self.a)
+    self.assertEqual(self.remote_sha(p),self.a)
     self.assertEqual(self.remote_sha(i),self.a)
     self.assertEqual(self.remote_sha(P),self.a)
 
@@ -138,21 +138,19 @@ class RemoteRetirementTests(unittest.TestCase):
 
   def test_foreign_attempt_cannot_be_retired(self):
     with self.assertRaises(PrelimRetirementError):
-      self.retire(replace(self.plan, int_attempt_ref=I.replace("issue-123", "issue-999")),
+      self.retire(replace(self.plan, candidate_ref=I.replace("issue-123", "issue-999")),
         P, self.a)
     self.assertEqual(self.remote_sha(P), self.a)
 
   def test_sibling_attempt_with_same_sha_is_never_deleted(self):
-    sibling = P.replace("11111111-1111-4111-8111-111111111111",
-                        "99999999-9999-4999-8999-999999999999")
-    sibling_int = I.replace("11111111-1111-4111-8111-111111111111",
-                            "88888888-8888-4888-8888-888888888888")
+    sibling = P.replace(".0.1", ".0.2")
+    sibling_int = I.replace(".0.1", ".0.3")
     git(self.root, "push", "origin", self.a + ":" + sibling)
     git(self.root, "push", "origin", self.a + ":" + sibling_int)
     result = self.retire(self.plan, P, self.a)
     self.assertTrue(result.absent_after)
     self.assertIsNone(self.remote_sha(P))
-    self.assertEqual(self.remote_sha(I), self.a)
+    self.assertIsNone(self.remote_sha(I))
     self.assertEqual(self.remote_sha(sibling), self.a)
     self.assertEqual(self.remote_sha(sibling_int), self.a)
 
@@ -162,9 +160,9 @@ class RemoteRetirementTests(unittest.TestCase):
         "refs/heads/main", self.a)
     self.assertEqual(self.remote_sha(P), self.a)
 
-  def test_both_attempt_refs_require_separate_exact_sha(self):
-    self.retire(self.plan, I, self.a)
-    self.assertIsNone(self.remote_sha(I))
+  def test_single_attempt_ref_requires_its_exact_sha(self):
+    with self.assertRaises(PrelimRetirementError):
+      self.retire(self.plan, I, self.b)
     self.assertEqual(self.remote_sha(P), self.a)
 
   def test_other_repository_with_identical_ref_and_sha_is_rejected(self):
@@ -243,7 +241,7 @@ class RemoteRetirementTests(unittest.TestCase):
     self.assertTrue(out.absent_after)
     self.assertEqual(calls[0], 2)
     self.assertIsNone(self.remote_sha(P))
-    self.assertEqual(self.remote_sha(I), self.a)
+    self.assertEqual(self.remote_sha(OTHER), self.a)
 
   def test_forged_eligible_plan_does_not_bypass_live_proof(self):
     forged = replace(self.plan, landed_sha="f"*40)
@@ -322,7 +320,7 @@ class RemoteRetirementTests(unittest.TestCase):
         self.retire(self.plan, I, self.a)
     self.assertTrue(raced[0])
     self.assertEqual(self.remote_sha(I), self.b)
-    self.assertEqual(self.remote_sha(P), self.a)
+    self.assertEqual(self.remote_sha(OTHER), self.a)
 
   def test_missing_authenticated_backend_is_rejected(self):
     with self.assertRaisesRegex(PrelimRetirementError, "repository"):

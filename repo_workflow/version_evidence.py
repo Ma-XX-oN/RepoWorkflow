@@ -35,6 +35,20 @@ def tested_source_changed(root: Path, issue: int, version: str,
   raw = _git(root, "show", "HEAD:" + log.relative_to(root).as_posix(), check=False)
   records = parse_testing_log(raw.stdout) if raw.returncode == 0 else []
   current = source_tip(root)
+  # A deferred submission already binds this version to material source,
+  # even when the server has not yet produced its first testing report.
+  from .prelim_queue import prelim_ref_for_version
+  ref = prelim_ref_for_version(version)
+  published = _git(root, "ls-remote", "--heads", remote, ref).stdout.split()
+  if published:
+    if (len(published) != 2 or published[1] != ref
+        or re.fullmatch(r"[0-9a-f]{40}", published[0]) is None):
+      raise TestCommandError("published version has ambiguous source identity")
+    tested = published[0]
+    if _git(root, "cat-file", "-e", tested + "^{commit}", check=False).returncode:
+      _git(root, "fetch", "--no-tags", remote, ref)
+    if source_tip(root, tested) != current:
+      return True
   for record in records:
     if record.get("testVersion") == version:
       tested = record.get("testSHA")

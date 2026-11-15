@@ -1,4 +1,5 @@
 """Contract tests for the #109 to #681 destination.accept bridge."""
+from repo_workflow.prelim_queue import parse_ready_prelim
 from dataclasses import replace
 import unittest
 
@@ -11,8 +12,8 @@ from repo_workflow.done_provider_acceptance import (
 A = "a" * 40
 B = "b" * 40
 C = "c" * 40
-G = "11111111-1111-4111-8111-111111111111"
-INT = f"refs/heads/INT-ATTEMPT-issue-123/main-{G}"
+G = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
+INT = "refs/heads/PRELIM-issue-123.0.1"
 
 
 class Host:
@@ -54,7 +55,7 @@ class ProviderAcceptTests(unittest.TestCase):
     self.assertEqual((operation, key), ("destination.accept", "op-1"))
     self.assertEqual(params["record"], {
       "repository": "owner/repo", "destination": "main",
-      "int_attempt_ref": INT, "accepted_sha": A,
+      "candidate_ref": INT, "accepted_sha": A,
       "expected_destination_sha": B, "proposed_sha": C,
       "guid": G, "lease_generation": 1, "holder": "coordinator-A",
       "authorization_ref": "grant-1", "evidence_ref": "evidence-1",
@@ -64,7 +65,7 @@ class ProviderAcceptTests(unittest.TestCase):
   def test_wrong_workspace_and_destination_refused_before_provider(self):
     for ref, destination in (
       (INT.replace("issue-123", "issue-124"), "main"),
-      (INT.replace("/main-", "/issue-9-"), "main"),
+      (INT.replace(".0.1", ".0.2"), "main"),
       (INT[:-36] + "forged", "main"),
       (INT, "issue-9"),
     ):

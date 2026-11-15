@@ -8,8 +8,8 @@ from repo_workflow.done_planner import DonePlan
 from repo_workflow.prelim_queue import parse_ready_prelim
 
 
-G = "11111111-1111-4111-8111-111111111111"
-REF = f"refs/heads/PRELIM-issue-123/main-{G}"
+G = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
+REF = "refs/heads/PRELIM-issue-123.0.1"
 A, B = ("a"*40, "b"*40)
 
 
@@ -30,7 +30,7 @@ class Host:
 class PolicyTests(unittest.TestCase):
   def setUp(self):
     self.host=Host()
-    self.ready=parse_ready_prelim(REF,A)
+    self.ready=parse_ready_prelim(REF, A, destination="main")
     self.plan=DonePlan(
       "123","patch","main",A,B,"ALLOWED",True,False,None,(),())
 

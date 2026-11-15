@@ -21,7 +21,7 @@ class VerifiedCompletion:
   operation_id: str
   landed_sha: str
   terminal: object
-  retired: tuple[object, object]
+  retired: tuple[object, ...]
   promotion: Promotion
   lifecycle: object
 
@@ -53,8 +53,7 @@ def complete_accepted_provider_attempt(
   landed=bridge.landed
   observed=[]
   for kind,ref,sha in (
-      ("PRELIM",landed.prelim_ref,landed.prelim_sha),
-      ("INT-ATTEMPT",landed.int_attempt_ref,landed.accepted_sha)):
+      ("PRELIM",landed.prelim_ref,landed.prelim_sha),):
     try:
       result=retire_ref(landed,bridge.read_terminal,kind)
     except Exception as error:

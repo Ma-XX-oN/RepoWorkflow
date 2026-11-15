@@ -46,7 +46,7 @@ def complete_after_provider(
     *, store: LifecycleStore, issue: int, expected_revision: int,
     relationship_revision: int, writer: WriterIdentity,
     terminal: IntegratedTerminal, promotions: Promotion,
-    retirements: tuple[RefRetirement, RefRetirement],
+    retirements: tuple[RefRetirement, ...],
     reread_terminal, reread_promotion,
 ):
   """Advance only accepted -> completed under durable lifecycle revision CAS."""
@@ -57,7 +57,7 @@ def complete_after_provider(
       or not isinstance(writer, WriterIdentity)
       or not isinstance(terminal, IntegratedTerminal)
       or not isinstance(promotions, Promotion)
-      or not isinstance(retirements, tuple) or len(retirements) != 2
+      or not isinstance(retirements, tuple) or len(retirements) != 1
       or not all(isinstance(r, RefRetirement) for r in retirements)
       or not callable(reread_terminal) or not callable(reread_promotion)
       or not callable(getattr(store, "transition", None))
@@ -69,12 +69,13 @@ def complete_after_provider(
       or terminal.record.get("status") != "integrated"
       or terminal.record.get("guid") != terminal.guid):
     raise CompletionHandoffError("provider landed and promoted SHA mismatch")
+  if (terminal.record.get("candidate_ref") != terminal.record.get("prelim_ref")
+      or terminal.record.get("prelim_sha") != terminal.accepted_sha):
+    raise CompletionHandoffError("accepted source differs from immutable PRELIM")
   expected={
     terminal.record.get("prelim_ref"):terminal.record.get("prelim_sha"),
-    terminal.record.get("int_attempt_ref"):terminal.accepted_sha,
   }
-  if (len(expected) != 2
-      or {r.ref for r in retirements} != set(expected)
+  if ({r.ref for r in retirements} != set(expected)
       or any(type(r.absent_after) is not bool or not r.absent_after
              or type(r.previously_observed_sha) is not str
              or r.previously_observed_sha != expected[r.ref]

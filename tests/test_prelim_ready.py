@@ -5,7 +5,7 @@ from repo_workflow.prelim_ready import (
   ReadyPublicationError, publish_ready_prelim,
 )
 
-GUID = "11111111-1111-4111-8111-111111111111"
+VERSION = "1.2.3-issue.123.0.1"
 SHA = "a"*40
 
 
@@ -14,7 +14,7 @@ class ReadyPublicationTests(unittest.TestCase):
     self.refs = {}
     self.created = []
     self.kw = {
-      "ticket": 123, "destination": "main", "guid": GUID,
+      "ticket": 123, "destination": "main", "version": VERSION,
       "candidate_sha": SHA, "request_id": "ready-123-1",
       "read_remote": lambda name: self.refs.get(name),
       "create_if_absent": self.create,
@@ -30,7 +30,7 @@ class ReadyPublicationTests(unittest.TestCase):
 
   def test_first_publication_is_ready_without_queue_file(self):
     result = self.publish()
-    self.assertEqual(result.ref, f"refs/heads/PRELIM-issue-123/main-{GUID}")
+    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-123.0.1")
     self.assertEqual(result.sha, SHA)
     self.assertEqual(len(self.refs), 1)
 
@@ -40,24 +40,24 @@ class ReadyPublicationTests(unittest.TestCase):
       self.publish()
     self.assertEqual(len(self.created), 1)
 
-  def test_different_destination_and_guid(self):
+  def test_destination_is_not_encoded_in_versioned_name(self):
     result = self.publish(destination="issue-100")
-    self.assertIn("/issue-100-", result.ref)
+    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-123.0.1")
 
   def test_two_umbrellas_submit_independently_to_same_destination(self):
     first = self.publish()
     second = self.publish(
       ticket=124,
-      guid="22222222-2222-4222-8222-222222222222",
+      version="1.2.3-issue.124.0.1",
       request_id="ready-124-1",
     )
     self.assertNotEqual(first.ref, second.ref)
     self.assertEqual(len(self.refs), 2)
-    self.assertTrue(all("/main-" in ref for ref in self.refs))
+    self.assertTrue(all(ref.endswith(".0.1") for ref in self.refs))
 
   def test_invalid_destination_and_sha_fail_before_mutation(self):
     for changes in ({"destination": "../main"}, {"candidate_sha": "bad"},
-                    {"ticket": 0}, {"guid": "not-a-guid"}):
+                    {"ticket": 0}, {"version": "invalid"}):
       with self.subTest(changes=changes):
         with self.assertRaises(ReadyPublicationError):
           self.publish(**changes)
@@ -87,7 +87,7 @@ class ReadyPublicationTests(unittest.TestCase):
       self.publish(read_publication_record=lambda request: record)
 
   def test_lost_response_requires_exact_durable_proof(self):
-    expected_ref = f"refs/heads/PRELIM-issue-123/main-{GUID}"
+    expected_ref = "refs/heads/PRELIM-issue-123.0.1"
     record = {"ref": expected_ref, "sha": SHA,
               "request_id": "ready-123-1", "status": "published"}
     def unknown(name, sha, request):

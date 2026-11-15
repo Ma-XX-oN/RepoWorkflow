@@ -43,7 +43,7 @@ class CanonicalLifecycleCompletion:
     if (not isinstance(accepted, AcceptedProviderAttempt)
         or not isinstance(accepted.terminal, IntegratedTerminal)
         or not isinstance(proof, Promotion)
-        or type(retirements) is not tuple or len(retirements)!=2):
+        or type(retirements) is not tuple or len(retirements)!=1):
       raise CanonicalLifecycleError("verified provider completion required")
     ready=accepted.ready
     terminal=accepted.terminal
@@ -52,23 +52,21 @@ class CanonicalLifecycleCompletion:
         or ready.destination!=terminal.destination
         or terminal.record.get("prelim_ref")!=ready.ref
         or terminal.record.get("prelim_sha")!=ready.sha
+        or terminal.record.get("candidate_ref")!=ready.ref
+        or terminal.accepted_sha!=ready.sha
         or terminal.accepted_sha!=proof.accepted_candidate_sha
         or terminal.landed_sha!=proof.landed_sha
         or terminal.operation_id!=proof.operation_id
         or terminal.operation_id!=accepted.accepted.operation_id
         or terminal.landed_sha!=accepted.accepted.landed_sha):
       raise CanonicalLifecycleError("provider and lifecycle issue identity differ")
-    expected={
-      terminal.record.get("prelim_ref"):ready.sha,
-      terminal.record.get("int_attempt_ref"):terminal.accepted_sha,
-    }
-    if (len(expected)!=2
-        or {getattr(r,"ref",None) for r in retirements}!=set(expected)
+    expected={ready.ref:ready.sha}
+    if ({getattr(r,"ref",None) for r in retirements}!=set(expected)
         or any(getattr(r,"absent_after",None) is not True
                or getattr(r,"previously_observed_sha",None)
                   !=expected.get(getattr(r,"ref",None))
                for r in retirements)):
-      raise CanonicalLifecycleError("both exact retirements required")
+      raise CanonicalLifecycleError("exact PRELIM retirement required")
     return terminal
 
   def _intent_payload(self, accepted, terminal):

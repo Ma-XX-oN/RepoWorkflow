@@ -64,9 +64,10 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
   except Exception as error:
     raise DoneRuntimeError("authoritative current plan UNKNOWN") from error
   if (not isinstance(plan,DonePlan)
-      or plan.release!=release or plan.allowed is not True
-      or plan.disposition not in {"ALLOWED","QUEUE_ELIGIBLE"}
-      or plan.missing_gates):
+      or plan.release!=release
+      or not (plan.submission_allowed is True
+              or (plan.allowed is True and not plan.missing_gates
+                  and plan.disposition in {"ALLOWED","QUEUE_ELIGIBLE"}))):
     raise DoneRuntimeError("current done plan is not executable")
   try:
     ready=select_ready(plan)
@@ -92,6 +93,15 @@ def execute_ready_done(*, release, read_current_plan, select_ready,
   if isinstance(attempt,AcceptedProviderAttempt):
     if attempt.ready!=ready:
       raise DoneRuntimeError("accepted attempt READY identity differs")
+    accepted_plan = attempt.plan if attempt.plan is not None else plan
+    if (not isinstance(accepted_plan, DonePlan)
+        or accepted_plan.allowed is not True or accepted_plan.missing_gates
+        or accepted_plan.disposition not in {"ALLOWED", "QUEUE_ELIGIBLE"}
+        or any(getattr(accepted_plan, field) != getattr(plan, field)
+               for field in ("issue", "release", "target", "candidate_sha",
+                             "expected_parent_sha"))):
+      raise DoneRuntimeError("accepted attempt lacks a fully validated merge plan")
+    plan = accepted_plan
     try:
       completed=complete_accepted(attempt)
     except Exception as error:

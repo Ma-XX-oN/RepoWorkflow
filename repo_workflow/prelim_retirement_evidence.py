@@ -31,7 +31,7 @@ def verify_retirement_evidence(
   if not isinstance(landed, LandedIntegration):
     raise PrelimRetirementError("landing record is required")
   if any(type(value) is not str or not value for value in (
-      landed.prelim_ref, landed.int_attempt_ref,
+      landed.prelim_ref, landed.candidate_ref,
       landed.destination_ref, landed.terminal_evidence_ref,
   )):
     raise PrelimRetirementError("landing references are invalid")
@@ -49,11 +49,11 @@ def verify_retirement_evidence(
   # The accepted integration candidate must be on the landed history.
   # Merely finding a landed commit on the destination proves nothing about
   # whether the purported accepted candidate was actually integrated.
-  observed_int = read_ref(landed.int_attempt_ref)
+  observed_int = read_ref(landed.candidate_ref)
   if observed_int is not None and (
       type(observed_int) is not str
       or observed_int != landed.accepted_sha):
-    raise PrelimRetirementError("INT-ATTEMPT changed after acceptance")
+    raise PrelimRetirementError("PRELIM changed after acceptance")
 
   def require_ancestor(base, head, label):
     comparison = compare_commits(base, head)
@@ -72,7 +72,7 @@ def verify_retirement_evidence(
     "status": "integrated",
     "prelim_ref": landed.prelim_ref,
     "prelim_sha": landed.prelim_sha,
-    "int_attempt_ref": landed.int_attempt_ref,
+    "candidate_ref": landed.candidate_ref,
     "accepted_sha": landed.accepted_sha,
     "destination_ref": landed.destination_ref,
     "landed_sha": landed.landed_sha,
@@ -82,7 +82,7 @@ def verify_retirement_evidence(
   if type(terminal) is not dict or terminal != expected:
     raise PrelimRetirementError("terminal evidence identity mismatch")
   return plan_retirement(
-    landed.prelim_ref, landed.prelim_sha, landed.int_attempt_ref,
+    landed.prelim_ref, landed.prelim_sha, landed.candidate_ref,
     landed.destination_ref, landed,
     observed_prelim_sha=observed_prelim,
     current_destination_sha=tip,

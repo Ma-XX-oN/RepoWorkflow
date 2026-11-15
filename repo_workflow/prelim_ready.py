@@ -1,10 +1,9 @@
-"""Publish immutable destination-qualified READY PRELIM without queue markers."""
+"""Publish immutable version-qualified READY PRELIM without queue markers."""
 from dataclasses import dataclass
 import re
+from .prelim_queue import prelim_ref_for_version, parse_ready_prelim
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_GUID = re.compile(
-  r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _DEST = re.compile(r"[A-Za-z0-9._/-]+\Z")
 
 
@@ -20,7 +19,7 @@ class PublishedReady:
 
 
 def publish_ready_prelim(
-    *, ticket: int, destination: str, guid: str, candidate_sha: str,
+    *, ticket: int, destination: str, version: str, candidate_sha: str,
     request_id: str, read_remote, create_if_absent,
     read_publication_record=None,
 ) -> PublishedReady:
@@ -34,13 +33,16 @@ def publish_ready_prelim(
   if (type(destination) is not str or _DEST.fullmatch(destination) is None
       or any(part in ("", ".", "..") for part in destination.split("/"))):
     raise ReadyPublicationError("invalid destination branch")
-  if type(guid) is not str or _GUID.fullmatch(guid) is None:
-    raise ReadyPublicationError("invalid attempt GUID")
   if type(candidate_sha) is not str or _SHA.fullmatch(candidate_sha) is None:
     raise ReadyPublicationError("invalid exact candidate SHA")
   if type(request_id) is not str or not request_id.strip():
     raise ReadyPublicationError("idempotent publication key is required")
-  ref = f"refs/heads/PRELIM-issue-{ticket}/{destination}-{guid}"
+  try:
+    ref = prelim_ref_for_version(version)
+    if parse_ready_prelim(ref, candidate_sha).umbrella != "issue-" + str(ticket):
+      raise ReadyPublicationError("version belongs to another issue")
+  except ValueError as error:
+    raise ReadyPublicationError("invalid PRELIM development version") from error
   def exact_replay():
     if read_publication_record is None:
       return False
@@ -78,13 +80,10 @@ def create_ready_ref_provider(backend, ref, sha, request_id):
   A Git push with an empty expected ref is unsafe: a same-SHA no-op can
   succeed even if the ref already exists. Never use push as creation proof.
   """
-  valid = (type(ref) is str and re.fullmatch(
-    r"refs/heads/PRELIM-issue-[1-9][0-9]*/"
-    r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
-    ref) is not None)
-  if valid:
-    dest = ref.split("/", 3)[3][:-37]
-    valid = all(part not in ("", ".", "..") for part in dest.split("/"))
+  try:
+    valid = parse_ready_prelim(ref, sha) is not None
+  except (ValueError, TypeError):
+    valid = False
   if (not valid or type(sha) is not str or _SHA.fullmatch(sha) is None
       or type(request_id) is not str or not request_id.strip()):
     raise ReadyPublicationError("invalid PRELIM create request")

@@ -7,11 +7,11 @@ from repo_workflow.prelim_retirement import (
 from repo_workflow.prelim_retirement_github import verify_github_retirement
 
 S="a"*40
-A="b"*40
+A=S
 L="c"*40
 T="d"*40
-P="refs/heads/PRELIM-issue-123/main-11111111-1111-4111-8111-111111111111"
-I="refs/heads/INT-ATTEMPT-issue-123/main-11111111-1111-4111-8111-111111111111"
+P="refs/heads/PRELIM-issue-123.0.1"
+I="refs/heads/PRELIM-issue-123.0.1"
 D="refs/heads/main"
 
 
@@ -57,7 +57,7 @@ class GithubRetirementTests(unittest.TestCase):
     self.landed=LandedIntegration(P,S,I,A,D,L,"op-123","terminal-123")
     self.terminal={
       "status":"integrated","prelim_ref":P,"prelim_sha":S,
-      "int_attempt_ref":I,"accepted_sha":A,
+      "candidate_ref":I,"accepted_sha":A,
       "destination_ref":D,"landed_sha":L,
       "integration_id":"op-123","terminal_evidence_ref":"terminal-123",
     }
@@ -75,13 +75,13 @@ class GithubRetirementTests(unittest.TestCase):
     self.assertIn("compare/"+A+"..."+L,self.backend.calls)
 
   def test_accepted_candidate_ancestry_denied_if_unrelated(self):
-    self.backend.accepted_merge_base=S
+    self.backend.accepted_merge_base="e"*40
     with self.assertRaises(PrelimRetirementError):
       self.verify()
 
   def test_changed_integration_workspace_denied(self):
-    self.backend.refs[I]=S
-    with self.assertRaisesRegex(PrelimRetirementError, "INT-ATTEMPT changed"):
+    self.backend.refs[I]="e"*40
+    with self.assertRaisesRegex(PrelimRetirementError, "PRELIM changed"):
       self.verify()
 
   def test_old_landed_commit_not_ancestor(self):

@@ -24,17 +24,27 @@ the append-only test history. INCOMPLETE is not a test failure.
 The tip is the authoritative parent-branch tip. A published PRELIM is a
 completion submission, not proof that all required tests have executed.
 
-1. A latest PRELIM rooted at the current parent tip is the merge candidate.
-2. A latest PRELIM rooted at an older parent tip must be copied/integrated
-   onto the current parent and tested before merge.
-3. An earlier PRELIM for the same issue is superseded and ignored for
-   scheduling and merge. Never fall back after the latest submission fails.
+Name branches `PRELIM-issue-N.<rest-of-version>`. The version identifies the
+submission; the name contains no GUID or parent branch. The issue's
+authoritative metadata determines its parent branch, and recorded source,
+parent SHA and relevant inputs bind the applicable test evidence.
 
-Use recorded authenticated predecessor identities to establish submission
-order; GUIDs, timestamps and ref enumeration are not ordering authority.
-Preserve historical PRELIM identities and evidence. Reconstructed candidates
-use new PRELIM identities; no separate INT-ATTEMPT branch type is created.
-Multiple incomparable submissions require explicit reconciliation, not a guess.
+For each issue, the server selects only the latest version according to the
+repository's version ordering, not lexical branch-name order, timestamps,
+GUIDs or predecessor chains. All older versions are ignored for scheduling
+and merge, even if the latest version fails; never fall back to an older one.
+
+1. If the selected PRELIM is based on the current parent tip, reuse applicable
+   passing tests already performed for that candidate at that tip. Run only
+   the remaining required tests before merge.
+2. If the selected PRELIM is not based on the current parent tip, copy/integrate
+   it onto that exact tip before testing. Results invalidated by the changed
+   source, parent or relevant inputs cannot be reused.
+3. Other PRELIM versions for the same issue are historical and ignored.
+
+Preserve historical version identities and evidence. A source change follows
+the repository's version rules before testing; unchanged retries and report
+commits reuse the same version. No separate INT-ATTEMPT branch type is created.
 
 ## Execution
 
@@ -59,6 +69,24 @@ and revalidation, never merge-then-rollback. Conflicts preserve the parent,
 record a durable owner handoff, and email the user for remote execution.
 After landing, independently verify retirement, append source-to-landed
 promotion, and read canonical lifecycle/results before reporting DONE.
+
+## Shell prompt integration
+
+The read-only `rwf manual-prompt` command prints the current `[MIT n/m]`
+prefix, or nothing when no manual cases remain. It does not select a case
+or record a result. Shell hooks preserve the existing prompt and process
+exit status. Load a hook in the current shell; no profile is edited:
+
+```powershell
+. C:/path/to/RepoWorkflow/scripts/rwf-prompt.ps1
+```
+
+```bash
+source /path/to/RepoWorkflow/scripts/rwf-prompt.bash /path/to/RepoWorkflow/repo_workflow.py
+```
+
+For Zsh, use `rwf-prompt.zsh` with the same engine argument. Loading a hook
+again replaces its installation instead of nesting another progress prefix.
 
 ## Ownership and acceptance
 

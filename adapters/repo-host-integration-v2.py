@@ -11,8 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from repo_host_github_authority import authorize
 from repo_host_github_integration import (
-  IntegrationProviderError, create_int_attempt, inventory_ready_refs,
-  cas_int_attempt_git,
+  IntegrationProviderError, inventory_ready_refs,
 )
 from repo_host_github_provider import GitHubBackend, ProviderError
 from repo_host_github_integration_terminal import (
@@ -30,7 +29,7 @@ from repo_host_github_integration_retirement import (
 
 
 _OPERATIONS = {
-  "destination.read", "destination.accept", "refs.list", "submission.read", "ref.create", "ref.cas",
+  "destination.read", "destination.accept", "refs.list", "submission.read",
   "attempt.read", "attempt.record", "lease.read", "lease.cas",
   "retirement.read", "retirement.record",
   "mit.deferred.read", "mit.deferred.record",
@@ -39,7 +38,7 @@ _OPERATIONS = {
 
 
 def process(request, *, backend_factory=GitHubBackend, verify=authorize,
-            cas_write=cas_int_attempt_git, config_reader=None,
+            config_reader=None,
             terminal_read=read_terminal, terminal_write=record_terminal,
             verify_terminal_evidence=None,
             lease_read=read_lease, lease_write=cas_lease,
@@ -146,7 +145,7 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
         "guid": params["guid"], "ref_kind": params["ref_kind"],
         "record": record,
       }
-    if operation in {"ref.cas", "lease.cas"}:
+    if operation == "lease.cas":
       root = Path.cwd().resolve()
       if config_reader is None:
         from repo_workflow.config import load_config
@@ -154,12 +153,9 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
       else:
         config = config_reader(root)
       remote = config["repository"]["authoritativeRemote"]
-      if operation == "lease.cas":
-        return lease_write(backend, value, root, remote)
-      endpoint = verify_remote_scope(root, remote, backend)
-      return "applied", cas_write(
-        root, endpoint, params["ref"], params["expected_sha"], params["sha"])
-    return create_int_attempt(backend, value, authorized=True)
+      verify_remote_scope(root, remote, backend)
+      return lease_write(backend, value, root, remote)
+    raise IntegrationHostError("unsupported provider mutation")
 
   state = {}
   def transport(value):

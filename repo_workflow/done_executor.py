@@ -1,4 +1,4 @@
-"""Guarded functional execution boundary for an already certified INT-ATTEMPT.
+"""Guarded functional execution boundary for an already certified PRELIM.
 
 Provider integrations must implement atomic expected-old destination SHA
 checking. This is not the complete #109 scheduler, publisher or CLI.
@@ -8,6 +8,7 @@ import re
 
 from .done_planner import DonePlan
 from .integration_admission import AdmissionDecision
+from .prelim_queue import parse_ready_prelim
 
 
 class DoneExecutionError(RuntimeError):
@@ -15,24 +16,22 @@ class DoneExecutionError(RuntimeError):
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_GUID = re.compile(
-  r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
-  r"[0-9a-f]{4}-[0-9a-f]{12}\Z"
-)
 
 
-def _matches_int_attempt(ref: str, issue: str, destination: str) -> bool:
-  """Bind the physical INT workspace to the approved ticket and parent."""
-  prefix = f"refs/heads/INT-ATTEMPT-issue-{issue}/{destination}-"
-  return (isinstance(ref, str) and ref.startswith(prefix)
-          and _GUID.fullmatch(ref[len(prefix):]) is not None)
+def _matches_prelim_candidate(ref: str, issue: str, destination: str) -> bool:
+  """Bind the immutable PRELIM candidate to the approved ticket and parent."""
+  try:
+    ready = parse_ready_prelim(ref, "0" * 40, destination=destination)
+    return ready is not None and ready.umbrella == "issue-" + issue
+  except (ValueError, TypeError):
+    return False
 
 
 
 @dataclass(frozen=True)
 class CertifiedAttempt:
   source_prelim_sha: str
-  int_attempt_ref: str
+  candidate_ref: str
   tested_candidate_sha: str
   expected_destination_sha: str
   evidence_ref: str
@@ -84,16 +83,16 @@ def execute_certified_done(
     raise DoneExecutionError("destination admission policy denied integration")
   attempt = prepare_and_certify(fresh)
   if not isinstance(attempt, CertifiedAttempt):
-    raise DoneExecutionError("INT-ATTEMPT certified result is absent")
+    raise DoneExecutionError("PRELIM certified result is absent")
   if (attempt.source_prelim_sha != fresh.candidate_sha
       or not isinstance(attempt.source_prelim_ref, str)
       or not attempt.source_prelim_ref.startswith("refs/heads/PRELIM-")
-      or not isinstance(attempt.int_attempt_ref, str)
-      or attempt.source_prelim_ref.removeprefix("refs/heads/PRELIM-")
-         != attempt.int_attempt_ref.removeprefix("refs/heads/INT-ATTEMPT-")
+      or not isinstance(attempt.candidate_ref, str)
+      or attempt.source_prelim_ref != attempt.candidate_ref
+      or attempt.tested_candidate_sha != attempt.source_prelim_sha
       or attempt.expected_destination_sha != fresh.expected_parent_sha
-      or not _matches_int_attempt(
-        attempt.int_attempt_ref, fresh.issue, fresh.target)
+      or not _matches_prelim_candidate(
+        attempt.candidate_ref, fresh.issue, fresh.target)
       or not isinstance(attempt.evidence_ref, str) or not attempt.evidence_ref
       or not isinstance(attempt.authorization_ref, str)
       or not attempt.authorization_ref
@@ -128,7 +127,7 @@ def execute_certified_done(
   # evidence under the exact preallocated operation identity.
   try:
     result = integrate_conditional(
-      attempt.int_attempt_ref, attempt.tested_candidate_sha,
+      attempt.candidate_ref, attempt.tested_candidate_sha,
       fresh.target, fresh.expected_parent_sha,
       attempt.evidence_ref, attempt.authorization_ref, attempt.operation_id,
     )

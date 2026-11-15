@@ -6,15 +6,15 @@ from repo_workflow.integration_admission import AdmissionError, decide_admission
 from repo_workflow.prelim_queue import parse_ready_prelim
 
 
-GUID = "11111111-1111-4111-8111-111111111111"
+GUID = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
 SOURCE = "a" * 40
 TARGET = "b" * 40
-REF = "refs/heads/PRELIM-issue-123/main-" + GUID
+REF = "refs/heads/PRELIM-issue-123.0.1"
 
 
 class IntegrationAdmissionTests(unittest.TestCase):
   def setUp(self):
-    self.candidate = parse_ready_prelim(REF, SOURCE)
+    self.candidate = parse_ready_prelim(REF, SOURCE, destination="main")
     self.parent = "main"
     self.policy = None
     self.reads = []

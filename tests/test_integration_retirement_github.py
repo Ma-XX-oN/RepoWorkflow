@@ -28,7 +28,7 @@ def audit(kind="PRELIM", **changes):
   value = {
     "repository": "Org/Repo", "guid": G, "ref_kind": kind,
     "retired_ref": REF if kind == "PRELIM" else INT,
-    "expected_sha": P if kind == "PRELIM" else C,
+    "expected_sha": C,
     "operation_id": "retirement-123-" + kind.lower(),
     "terminal_evidence_ref": "test-log-123",
     "destination_ref": "refs/heads/main", "landed_sha": D,
@@ -59,14 +59,14 @@ class RetirementAuditTests(unittest.TestCase):
     self.assertEqual(status, "unchanged")
     self.assertEqual(len(self.backend.writes), count)
 
-  def test_retirement_for_each_ref_keeps_independent_history(self):
+  def test_one_physical_ref_has_one_immutable_retirement_history(self):
     self.publish()
-    status, int_audit = self.publish(audit("INT-ATTEMPT"))
-    self.assertEqual(status, "applied")
+    status, int_audit = self.publish(audit("PRELIM"))
+    self.assertEqual(status, "unchanged")
     self.assertEqual(int_audit["retired_ref"], INT)
     self.assertEqual(read_retirement(self.backend, G, "PRELIM"), audit())
-    self.assertEqual(read_retirement(self.backend, G, "INT-ATTEMPT"),
-                     audit("INT-ATTEMPT"))
+    self.assertEqual(read_retirement(self.backend, G, "PRELIM"),
+                     audit("PRELIM"))
 
   def test_untrusted_deletion_cannot_publish(self):
     before = len(self.backend.writes)
@@ -82,8 +82,8 @@ class RetirementAuditTests(unittest.TestCase):
   def test_wrong_terminal_scope_and_sha_denied(self):
     for changes in (
       {"repository": "Other/Repo"},
-      {"retired_ref": INT},
-      {"expected_sha": C},
+      {"retired_ref": REF.replace(".0.1", ".0.2")},
+      {"expected_sha": "e"*40},
       {"destination_ref": "refs/heads/other"},
       {"landed_sha": "a"*40},
       {"terminal_evidence_ref": "made-up"},

@@ -65,6 +65,7 @@ jobs:
           from urllib.request import Request, urlopen
           from repo_workflow.done_host_transport import bind_native_integration_host
           from repo_workflow.done_host_coordinator import IntegrationHostCoordinator
+          from repo_workflow.prelim_queue import discover_ready_prelims, latest_prelims
 
           repository = "Ma-XX-oN/RepoWorkflow"
           def api(path):
@@ -84,7 +85,8 @@ jobs:
             "refs.list", "rwf109-accepted-read-only-independent-inventory",
             {"prefix": "refs/heads/PRELIM-"})
           assert type(inventory) is dict and "refs" in inventory
-          assert set(r.ref for r in ready) == set(inventory["refs"])
+          expected = latest_prelims(discover_ready_prelims(inventory["refs"]))
+          assert set(r.ref for r in ready) == set(r.ref for r in expected)
           lease = coordinator.read_destination_lease("main")
           assert lease.destination == "main" and lease.generation >= 0
           dest = host.request(

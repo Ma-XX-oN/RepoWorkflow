@@ -1,7 +1,7 @@
 """Read-only cooperative admission policy for immediate-child integration.
 
 The caller must supply a checkout of the authoritative current destination;
-PRELIM or INT-ATTEMPT copies are never policy authorities.
+PRELIM or PRELIM copies are never policy authorities.
 """
 
 from pathlib import Path, PurePosixPath

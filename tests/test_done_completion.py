@@ -9,12 +9,13 @@ from repo_workflow.done_completion import (
 from repo_workflow.done_evidence_promotion import Promotion
 RefRetirement = namedtuple(
   'RefRetirement', 'ref previously_observed_sha absent_after')
-from tests.test_done_provider_pipeline import PipelineTests, G, A, B, C, D
+from tests import test_done_provider_pipeline as pipeline_fixture
+from tests.test_done_provider_pipeline import G, A, B, C, D
 
 
 class CompletionTests(unittest.TestCase):
   def setUp(self):
-    base=PipelineTests("test_one_ready_end_to_end_local_provider_simulation")
+    base=pipeline_fixture.PipelineTests("test_one_ready_end_to_end_local_provider_simulation")
     base.setUp()
     self.accepted=base.invoke()
     self.host=base.host
@@ -42,7 +43,7 @@ class CompletionTests(unittest.TestCase):
   def retire(self,landed,read_terminal,kind):
     self.events.append(("retire",kind))
     read_terminal(landed.terminal_evidence_ref)
-    ref=landed.prelim_ref if kind=="PRELIM" else landed.int_attempt_ref
+    ref=landed.prelim_ref if kind=="PRELIM" else landed.candidate_ref
     sha=landed.prelim_sha if kind=="PRELIM" else landed.accepted_sha
     if self.fail==kind:
       return RefRetirement(ref,sha,False)
@@ -52,10 +53,10 @@ class CompletionTests(unittest.TestCase):
     self.events.append(("promote",accepted.accepted.operation_id))
     if self.fail=="promotion":
       raise TimeoutError("hosted stage unknown")
-    return Promotion("op-1",C,C,B,D,A,A,"context",())
+    return Promotion("op-1",A,A,B,D,A,A,"context",())
 
   def persist_lifecycle(self,accepted,proof,retirements):
-    assert len(retirements)==2 and all(r.absent_after for r in retirements)
+    assert len(retirements)==1 and all(r.absent_after for r in retirements)
     self.events.append(("lifecycle.record",G))
     if self.fail=="lifecycle.record":
       raise TimeoutError("write lost")
@@ -65,7 +66,7 @@ class CompletionTests(unittest.TestCase):
     }
 
   def read_lifecycle(self,accepted,proof,retirements):
-    assert len(retirements)==2
+    assert len(retirements)==1
     self.events.append(("lifecycle.read",G))
     return self.lifecycle
 
@@ -79,22 +80,22 @@ class CompletionTests(unittest.TestCase):
     }
     return complete_accepted_provider_attempt(**{**args,**changes})
 
-  def test_done_only_after_both_refs_and_provenance(self):
+  def test_done_only_after_prelim_retirement_and_provenance(self):
     final=self.invoke()
     self.assertEqual(final.operation_id,"op-1")
-    self.assertEqual(len(final.retired),2)
+    self.assertEqual(len(final.retired),1)
     self.assertEqual(final.lifecycle["result"],"done")
     self.assertEqual([kind for op,kind in self.events if op=="retire"],
-                     ["PRELIM","INT-ATTEMPT"])
+                     ["PRELIM"])
     self.assertLess(
-      self.events.index(("retirement.read","INT-ATTEMPT")),
+      self.events.index(("retirement.read","PRELIM")),
       self.events.index(("promote","op-1")))
     self.assertLess(
       self.events.index(("promote","op-1")),
       self.events.index(("lifecycle.record",G)))
 
   def test_incomplete_retirement_never_promotes(self):
-    for failed in ("PRELIM","INT-ATTEMPT"):
+    for failed in ("PRELIM",):
       self.events=[]
       self.host.retirements={}
       self.fail=failed
@@ -112,7 +113,7 @@ class CompletionTests(unittest.TestCase):
   def test_foreign_tested_source_cannot_be_promoted_as_done(self):
     old=self.promotion
     self.promotion=lambda accepted:Promotion(
-      "op-1",A,C,B,D,A,A,"context",())
+      "op-1",C,A,B,D,A,A,"context",())
     with self.assertRaisesRegex(CompletionError,"promotion provenance"):
       self.invoke()
     self.assertIsNone(self.lifecycle)

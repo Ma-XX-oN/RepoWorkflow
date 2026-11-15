@@ -9,7 +9,7 @@ from repo_workflow.prelim_ready import (
 )
 
 GUID = "11111111-1111-4111-8111-111111111111"
-REF = f"refs/heads/PRELIM-issue-123/main-{GUID}"
+REF = "refs/heads/PRELIM-issue-123.0.1"
 SHA = "a"*40
 
 

@@ -28,9 +28,12 @@ def select_ready_for_destination(
       or not callable(select_authorized)):
     raise ReadySelectionError("valid destination and selector required")
   provider=IntegrationHostCoordinator(host)
-  submissions=tuple(
-    ready for ready in provider.read_ready_prelims()
-    if ready.destination==destination)
+  try:
+    submissions=tuple(
+      ready for ready in provider.read_ready_prelims()
+      if ready.destination==destination)
+  except Exception as error:
+    raise ReadySelectionError("READY inventory changed or UNKNOWN") from error
   if not submissions:
     return DestinationInventory(destination,(),None)
   # Multiple umbrellas may share one destination. The authoritative
@@ -43,9 +46,12 @@ def select_ready_for_destination(
       or chosen not in submissions
       or chosen.destination != destination):
     raise ReadySelectionError("unverified selected READY or destination")
-  current=tuple(
-    ready for ready in provider.read_ready_prelims()
-    if ready.destination==destination)
+  try:
+    current=tuple(
+      ready for ready in provider.read_ready_prelims()
+      if ready.destination==destination)
+  except Exception as error:
+    raise ReadySelectionError("selected immutable READY changed or UNKNOWN") from error
   if chosen not in current:
     raise ReadySelectionError("selected immutable READY changed")
   return DestinationInventory(destination,current,chosen)

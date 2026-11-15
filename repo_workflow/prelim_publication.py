@@ -116,7 +116,7 @@ def _publish(root: Path, remote: str, ref: str, key: str,
         raise PrelimPublicationError("partial PRELIM state differs")
     else:
       path.write_text(json.dumps(record, sort_keys=True, indent=2)
-                      + "\n", encoding="utf-8")
+                      + "\n", encoding="utf-8", newline="\n")
     subject = git(workspace, "log", "-1", "--format=%s").stdout.strip()
     expected = "Durable PRELIM state " + workspace_id
     if subject != expected:

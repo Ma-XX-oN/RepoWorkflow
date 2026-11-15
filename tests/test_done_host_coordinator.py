@@ -8,9 +8,9 @@ from repo_workflow.integration_coordination import (
 from repo_workflow.prelim_queue import parse_ready_prelim
 
 
-GUID = "11111111-1111-4111-8111-111111111111"
-REF = f"refs/heads/PRELIM-issue-123/main-{GUID}"
+REF = "refs/heads/PRELIM-issue-123.0.1"
 A = "a" * 40
+GUID = parse_ready_prelim(REF, A).guid
 
 
 class FakeHost:
@@ -31,6 +31,15 @@ class FakeHost:
     if operation == "refs.list":
       assert params == {"prefix": "refs/heads/PRELIM-"}
       return {"refs": dict(self.refs)}
+    if operation == "submission.read":
+      ref = next(ref for ref, sha in self.refs.items()
+                 if parse_ready_prelim(ref, sha).guid == params["guid"])
+      sha = A if ref == REF else self.refs[ref]
+      return {"guid": params["guid"], "record": {
+        "repository": self.repository, "guid": params["guid"], "prelim_ref": ref,
+        "source_sha": sha, "candidate_sha": sha, "parent_sha": "f" * 40,
+        "destination": "main", "version": "1.2.3-" + ref.removeprefix("refs/heads/PRELIM-").replace("issue-", "issue.", 1),
+        "inputs_sha256": "f" * 64, "release": "patch"}}
     if operation == "lease.read":
       return dict(self.lease)
     if operation == "lease.cas":
@@ -61,7 +70,7 @@ class ProviderCoordinatorTests(unittest.TestCase):
   def setUp(self):
     self.host = FakeHost()
     self.coord = IntegrationHostCoordinator(self.host)
-    self.ready = parse_ready_prelim(REF, A)
+    self.ready = parse_ready_prelim(REF, A, destination="main")
 
   def test_provider_discovery_and_claim_release(self):
     self.assertEqual(self.coord.read_ready_prelims(), (self.ready,))
@@ -80,8 +89,8 @@ class ProviderCoordinatorTests(unittest.TestCase):
 
   def test_changed_original_prelim_inventory_refused(self):
     self.host.refs[REF] = "b" * 40
-    changed = self.coord.read_ready_prelims()
-    self.assertNotEqual(changed, (self.ready,))
+    with self.assertRaisesRegex(CoordinationError, "changed"):
+      self.coord.read_ready_prelims()
 
   def test_mit_timeout_restarts_after_exact_approval(self):
     first = claim_prelim(self.coord, self.ready, "worker-A")
@@ -149,7 +158,7 @@ class ProviderCoordinatorTests(unittest.TestCase):
 
     self.host.request=cache_read
     self.assertEqual(self.coord.read_ready_prelims(),(self.ready,))
-    other=self.ready.ref.replace(GUID,"22222222-2222-4222-8222-222222222222")
+    other="refs/heads/PRELIM-issue-124.0.1"
     self.host.refs[other]="b"*40
     fresh=self.coord.read_ready_prelims()
     self.assertEqual(len(fresh),2)

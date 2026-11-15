@@ -37,7 +37,7 @@ class DeferredHost(FakeHost):
 class MitDeferTests(unittest.TestCase):
   def setUp(self):
     self.host = DeferredHost()
-    self.ready = parse_ready_prelim(REF,A)
+    self.ready = parse_ready_prelim(REF,A,destination="main")
     self.provider = IntegrationHostCoordinator(self.host)
     self.claim = claim_prelim(self.provider,self.ready,"worker-A")
 

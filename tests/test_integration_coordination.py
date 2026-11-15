@@ -8,13 +8,15 @@ from repo_workflow.integration_coordination import (
 )
 from repo_workflow.prelim_queue import parse_ready_prelim
 
-GUID1 = "11111111-1111-4111-8111-111111111111"
-GUID2 = "22222222-2222-4222-8222-222222222222"
+GUID1 = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a"*40).guid
+GUID2 = parse_ready_prelim("refs/heads/PRELIM-issue-456.0.1", "a"*40).guid
 
 
 def candidate(issue, destination, guid):
-  return parse_ready_prelim(
-    f"refs/heads/PRELIM-issue-{issue}/{destination}-{guid}", "a"*40)
+  ready = parse_ready_prelim(
+    f"refs/heads/PRELIM-issue-{issue}.0.1", "a"*40, destination=destination)
+  assert ready.guid == guid
+  return ready
 
 
 class CasProvider:

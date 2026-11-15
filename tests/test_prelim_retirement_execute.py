@@ -7,18 +7,18 @@ from repo_workflow.prelim_retirement import (
 )
 from repo_workflow.prelim_retirement_execute import retire_landed_attempt_ref
 
-P="refs/heads/PRELIM-issue-123/main-11111111-1111-4111-8111-111111111111"
-I="refs/heads/INT-ATTEMPT-issue-123/main-11111111-1111-4111-8111-111111111111"
+P="refs/heads/PRELIM-issue-123.0.1"
+I="refs/heads/PRELIM-issue-123.0.1"
 D="refs/heads/main"
 S="a"*40
-A="b"*40
+A=S
 L="c"*40
 T="d"*40
 
 
 class Backend:
   def __init__(self):
-    self.refs={P:S,I:A,D:T}
+    self.refs={P:S,D:T}
     self.status="ahead"
 
   def get(self, route):
@@ -48,7 +48,7 @@ class RetirementExecuteTests(unittest.TestCase):
     self.landed=LandedIntegration(P,S,I,A,D,L,"op-1","terminal-1")
     self.terminal={
       "status":"integrated","prelim_ref":P,"prelim_sha":S,
-      "int_attempt_ref":I,"accepted_sha":A,"destination_ref":D,
+      "candidate_ref":I,"accepted_sha":A,"destination_ref":D,
       "landed_sha":L,"integration_id":"op-1",
       "terminal_evidence_ref":"terminal-1",
     }
@@ -68,7 +68,7 @@ class RetirementExecuteTests(unittest.TestCase):
 
   def test_int_attempt_delete_uses_exact_accepted_sha(self):
     with patch("repo_workflow.prelim_retirement_execute.retire_verified_ref") as do:
-      self.run_case(kind="INT-ATTEMPT")
+      self.run_case(kind="PRELIM")
     args=do.call_args.args
     self.assertEqual((args[3],args[4]),(I,A))
     self.assertIs(do.call_args.kwargs["backend"],self.backend)

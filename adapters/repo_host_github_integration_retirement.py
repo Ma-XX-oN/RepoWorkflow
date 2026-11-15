@@ -27,7 +27,7 @@ _FIELDS = {
 
 def _ref(guid, kind):
   if (type(guid) is not str or _GUID.fullmatch(guid) is None
-      or kind not in ("PRELIM", "INT-ATTEMPT")):
+      or kind != "PRELIM"):
     raise RetirementAuditError("invalid retirement audit identity")
   return ("refs/tags/rwf-integration-ref-retired-v2-" +
           guid + "-" + kind.lower())
@@ -61,10 +61,8 @@ def _validate(backend, record):
   terminal = read_terminal(backend, guid)
   if terminal is None or terminal["status"] != "integrated":
     raise RetirementAuditError("independent terminal landing absent")
-  retired_ref = terminal[
-    "prelim_ref" if kind == "PRELIM" else "int_attempt_ref"]
-  accepted = terminal[
-    "prelim_sha" if kind == "PRELIM" else "accepted_sha"]
+  retired_ref = terminal["prelim_ref"]
+  accepted = terminal["prelim_sha"]
   for key, value in (
       ("retired_ref", retired_ref), ("expected_sha", accepted),
       ("terminal_evidence_ref", terminal["terminal_evidence_ref"]),

@@ -24,7 +24,7 @@ class PreparedIdentity:
 
 
 def publish_verified_attempt(
-    attempt: PrelimAttempt, *, ticket: int, destination: str,
+    attempt: PrelimAttempt, *, ticket: int, destination: str, version: str,
     request_id: str,
     verify_authoritative: Callable[[PreparedIdentity], bool],
     read_remote, create_if_absent, read_publication_record=None,
@@ -53,7 +53,7 @@ def publish_verified_attempt(
     raise ReadyPublicationError("candidate/parent evidence not applicable")
   return publish_ready_prelim(
     ticket=ticket, destination=destination,
-    guid=attempt.attempt, candidate_sha=attempt.candidate_sha,
+    version=version, candidate_sha=attempt.candidate_sha,
     request_id=request_id, read_remote=read_remote,
     create_if_absent=create_if_absent,
     read_publication_record=read_publication_record,

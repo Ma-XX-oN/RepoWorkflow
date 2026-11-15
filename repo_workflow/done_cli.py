@@ -21,17 +21,28 @@ class DoneCommandError(ValueError):
   """No verified executor or legal integration result is available."""
 
 
-def execute_done_command(release, *, trusted_executor, emit):
+def execute_done_command(release, *, trusted_executor, emit, root=None, engine_root=None):
   """Dispatch patch/minor/major only to an authenticated provider executor."""
   if release not in {"patch","minor","major"} or type(release) is not str:
     raise DoneCommandError("done requires patch, minor, or major")
+  if trusted_executor is None and root is not None and engine_root is not None:
+    from .done_submission import submit_done
+    trusted_executor = lambda requested: submit_done(root, requested, engine_root=engine_root)
   if not callable(trusted_executor) or not callable(emit):
     raise DoneCommandError("independent done execution authority is unavailable")
   try:
     outcome=trusted_executor(release)
+  except ValueError as error:
+    raise DoneCommandError(str(error)) from error
   except Exception as error:
     raise DoneCommandError(
       "done provider outcome UNKNOWN; readback required") from error
+  from .done_submission import SubmittedDone
+  if isinstance(outcome, SubmittedDone):
+    emit(json.dumps({"result":"submitted","prelim_ref":outcome.ready.ref,
+                     "candidate_sha":outcome.ready.sha,"version":outcome.version,
+                     "parent_sha":outcome.parent_sha,"release":outcome.release}, sort_keys=True))
+    return 0
   if isinstance(outcome,VerifiedNativeDone):
     completed=outcome.completion
     shared=outcome.shared
@@ -73,7 +84,7 @@ def execute_done_command(release, *, trusted_executor, emit):
         or proof.accepted_candidate_sha != terminal.accepted_sha
         or terminal.operation_id != completed.operation_id
         or terminal.landed_sha != completed.landed_sha
-        or len(completed.retired)!=2
+        or len(completed.retired)!=1
         or any(getattr(r,"absent_after",None) is not True
                for r in completed.retired)
         or type(lifecycle) is not dict

@@ -307,7 +307,8 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path,
 
   if command == "done":
     return execute_done_command(
-      words[1], trusted_executor=done_executor, emit=print)
+      words[1], trusted_executor=done_executor, emit=print,
+      root=root, engine_root=engine_root)
 
   if command == "version":
     config = load_config(root)

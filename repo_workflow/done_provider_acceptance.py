@@ -4,6 +4,7 @@ This adapter prepares one exact request. It does not create a PRELIM,
 authorize a reviewer, attest test PASS, or certify the landed tree.
 """
 from dataclasses import dataclass
+from .prelim_queue import parse_ready_prelim
 import re
 
 from .done_executor import AcceptedIntegration, DoneExecutionError
@@ -55,14 +56,15 @@ def bind_v2_destination_accept(host, facts: DestinationAcceptanceFacts):
       or not callable(getattr(host, "request", None))):
     raise DoneExecutionError("authenticated v2 host binding missing")
 
-  expected_ref = (
-    f"refs/heads/INT-ATTEMPT-issue-{facts.ticket}/"
-    f"{facts.destination}-{facts.guid}"
-  )
-
-  def integrate(int_ref, accepted_sha, destination, old_sha,
+  def integrate(candidate_ref, accepted_sha, destination, old_sha,
                 evidence_ref, authorization_ref, operation_id):
-    if (int_ref != expected_ref or destination != facts.destination
+    try:
+      ready = parse_ready_prelim(candidate_ref, accepted_sha, destination=destination)
+    except (ValueError, TypeError) as error:
+      raise DoneExecutionError("invalid versioned PRELIM identity") from error
+    if (ready is None or ready.guid != facts.guid
+        or ready.umbrella != "issue-" + str(facts.ticket)
+        or destination != facts.destination
         or type(accepted_sha) is not str
         or _SHA.fullmatch(accepted_sha) is None
         or type(old_sha) is not str or _SHA.fullmatch(old_sha) is None
@@ -75,7 +77,7 @@ def bind_v2_destination_accept(host, facts: DestinationAcceptanceFacts):
     record = {
       "repository": facts.repository,
       "destination": destination,
-      "int_attempt_ref": int_ref,
+      "candidate_ref": candidate_ref,
       "accepted_sha": accepted_sha,
       "expected_destination_sha": old_sha,
       "proposed_sha": facts.proposed_landed_sha,

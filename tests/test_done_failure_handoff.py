@@ -10,7 +10,7 @@ from repo_workflow.done_failure_handoff import (
   FailureHandoff, HandoffError, publish_failure_handoff,
 )
 
-GUID="11111111-1111-4111-8111-111111111111"
+GUID=parse_ready_prelim("refs/heads/PRELIM-issue-109.0.1", "a"*40).guid
 A="a"*40
 B="b"*40
 C="c"*40
@@ -103,7 +103,7 @@ class HandoffTests(unittest.TestCase):
   def test_persisted_handoff_binds_failed_ready_outcome(self):
     persisted=self.invoke()
     ready=parse_ready_prelim(
-      "refs/heads/PRELIM-issue-109/main-"+GUID,A)
+      "refs/heads/PRELIM-issue-109.0.1",A,destination="main")
     outcome=failure_outcome_from_handoff(
       ready,"failed",persisted)
     self.assertEqual(outcome.guid,GUID)
@@ -113,7 +113,7 @@ class HandoffTests(unittest.TestCase):
   def test_foreign_persisted_handoff_never_advances_queue(self):
     persisted=self.invoke()
     ready=parse_ready_prelim(
-      "refs/heads/PRELIM-issue-109/main-"+GUID,B)
+      "refs/heads/PRELIM-issue-109.0.1",B,destination="main")
     with self.assertRaisesRegex(QueueCycleError,"differs"):
       failure_outcome_from_handoff(ready,"failed",persisted)
 

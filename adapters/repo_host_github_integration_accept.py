@@ -1,11 +1,12 @@
 """Atomic destination acceptance primitive, never an executor or approval issuer.
 
-An independently authorized, already-certified INT-ATTEMPT may be integrated
+An independently authorized, already-certified PRELIM may be integrated
 only against the exact provider-observed old destination ref SHA. The caller
 must independently certify tested source, current allow-policy and review.
 Ambiguous pushes reconcile only using durable exact-operation intent.
 """
 import re
+from repo_workflow.prelim_queue import parse_ready_prelim
 import subprocess
 
 from adapters.repo_host_github_integration_lease import (
@@ -28,7 +29,7 @@ _GUID=re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _DEST=re.compile(r"[A-Za-z0-9._/-]+\Z")
 _ID=re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 _FIELDS={
-  "repository","destination","int_attempt_ref","accepted_sha",
+  "repository","destination","candidate_ref","accepted_sha",
   "expected_destination_sha","proposed_sha","guid","lease_generation",
   "holder","authorization_ref","evidence_ref","operation_id",
 }
@@ -58,12 +59,12 @@ def _validate(request, repository):
     value=record[key]
     if type(value) is not str or not _SHA.fullmatch(value):
       raise AcceptanceProviderError("SHA identity invalid")
+  try:
+    ready = parse_ready_prelim(record["candidate_ref"], record["accepted_sha"], destination=dest)
+  except (ValueError, TypeError) as error:
+    raise AcceptanceProviderError("invalid versioned PRELIM") from error
   if (record["expected_destination_sha"]==record["proposed_sha"]
-      or type(record["int_attempt_ref"]) is not str
-      or not re.fullmatch(
-        r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
-        +re.escape(dest)+r"-"+re.escape(guid),
-        record["int_attempt_ref"])):
+      or ready is None or ready.guid != guid):
     raise AcceptanceProviderError("attempt/destination reference mismatch")
   if (type(record["operation_id"]) is not str
       or not _ID.fullmatch(record["operation_id"])
@@ -116,7 +117,7 @@ def accept_destination(backend, request, root, remote, *, verify_evidence):
            "holder": record["holder"], "guid": record["guid"]}
   if read_lease(backend, dest) != lease:
     raise AcceptanceProviderError("destination lease no longer authoritative")
-  if _sha(backend, record["int_attempt_ref"]) != record["accepted_sha"]:
+  if _sha(backend, record["candidate_ref"]) != record["accepted_sha"]:
     raise AcceptanceProviderError("certified attempt source changed")
   intent = read_intent(backend, request)
   snapshot = read_destination_snapshot(backend, dest)

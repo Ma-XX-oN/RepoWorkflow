@@ -14,8 +14,8 @@ from tests.test_done_queue_scheduler import QueueHost, ALT, REF, A, B
 
 
 C="c"*40
-GUID3="44444444-4444-4444-8444-444444444444"
-THIRD=f"refs/heads/PRELIM-issue-126/main-{GUID3}"
+THIRD="refs/heads/PRELIM-issue-126.0.1"
+GUID3=parse_ready_prelim(THIRD,C).guid
 Retired=namedtuple("Retired","absent_after")
 BASE="d"*40
 
@@ -45,7 +45,7 @@ class QueueCycleTests(unittest.TestCase):
         op,ready.sha,ready.sha,BASE,sha,sha,sha,
         "context",())
       return VerifiedCompletion(
-        op,sha,terminal,(Retired(True),Retired(True)),
+        op,sha,terminal,(Retired(True),),
         promotion,{"result":"done","guid":ready.guid,
                    "landed_sha":sha,"revision":1})
     if kind=="failure":
@@ -126,7 +126,7 @@ class QueueCycleTests(unittest.TestCase):
     def incomplete(ready):
       valid=self.result(ready,"success")
       from dataclasses import replace
-      return replace(valid,retired=(Retired(True),))
+      return replace(valid,retired=())
     with self.assertRaisesRegex(QueueCycleError,"completion identity"):
       self.invoke(incomplete,max_items=3)
     self.assertEqual(len(self.orders),1)

@@ -8,19 +8,20 @@ from adapters.repo_host_github_integration_accept import (
   AcceptanceProviderError, accept_destination, _validate,
 )
 from repo_workflow.integration_host_v2 import IntegrationHost, IntegrationHostError
+from repo_workflow.prelim_queue import parse_ready_prelim
 
 REPO="Org/Repo"
-GUID="11111111-1111-4111-8111-111111111111"
 OLD="a"*40
 NEW="b"*40
 SOURCE="c"*40
-REF="refs/heads/INT-ATTEMPT-issue-681/target-"+GUID
+REF="refs/heads/PRELIM-issue-681.0.1"
+GUID=parse_ready_prelim(REF,SOURCE).guid
 
 
 def record(**kw):
   data={
     "repository":REPO,"destination":"target",
-    "int_attempt_ref":REF,"accepted_sha":SOURCE,
+    "candidate_ref":REF,"accepted_sha":SOURCE,
     "expected_destination_sha":OLD,"proposed_sha":NEW,
     "guid":GUID,"lease_generation":9,"holder":"worker-one",
     "authorization_ref":"signed-approved","evidence_ref":"tested-source",
@@ -149,7 +150,7 @@ class DestinationAcceptanceTests(unittest.TestCase):
                {"destination":"../target"},
                {"lease_generation":True},
                {"operation_id":"wrong-id"},
-               {"int_attempt_ref":REF.replace("target","wrong")},
+               {"candidate_ref":REF.replace(".0.1",".0.2")},
                {"proposed_sha":OLD},
                {"evidence_ref":""},
                {"authorization_ref":""}):

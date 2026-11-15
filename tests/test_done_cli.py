@@ -29,7 +29,7 @@ from tests.test_done_completion import CompletionTests
 class CommandTests(unittest.TestCase):
   def setUp(self):
     self.fixture=CompletionTests(
-      "test_done_only_after_both_refs_and_provenance")
+      "test_done_only_after_prelim_retirement_and_provenance")
     self.fixture.setUp()
     self.messages=[]
     self.called=[]
@@ -79,7 +79,9 @@ class CommandTests(unittest.TestCase):
     with (patch("repo_workflow.public_cli._diagnose",
                 return_value=(general,general,None,None,None,None)),
           patch("repo_workflow.public_cli.configure_ticket_merge_driver"),
-          patch("repo_workflow.public_cli.ensure_public_runtime_identity")):
+          patch("repo_workflow.public_cli.ensure_public_runtime_identity"),
+          patch("repo_workflow.done_submission.submit_done",
+                side_effect=ValueError("authority unavailable"))):
       with self.assertRaisesRegex(DoneCommandError,"authority"):
         handle_public(root,["done","patch"],engine_root=root)
 
@@ -123,7 +125,7 @@ class CommandTests(unittest.TestCase):
   def test_forged_completion_without_retirement_refused(self):
     from dataclasses import replace
     original=self.fixture.invoke()
-    changed=replace(original,retired=original.retired[:1])
+    changed=replace(original,retired=())
     with self.assertRaisesRegex(
         DoneCommandError,"not certified"):
       self.run_command(outcome=self.native(changed))

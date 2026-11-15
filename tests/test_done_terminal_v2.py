@@ -8,9 +8,9 @@ from repo_workflow.done_terminal_v2 import (
 from repo_workflow.prelim_queue import parse_ready_prelim
 
 
-G = "11111111-1111-4111-8111-111111111111"
-REF = f"refs/heads/PRELIM-issue-123/main-{G}"
-INT = REF.replace("PRELIM-", "INT-ATTEMPT-")
+G = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
+REF = "refs/heads/PRELIM-issue-123.0.1"
+INT = REF.replace("PRELIM-", "PRELIM-")
 A, B, C, D = ("a" * 40, "b" * 40, "c" * 40, "d" * 40)
 
 
@@ -44,10 +44,10 @@ class Host:
 class TerminalV2Tests(unittest.TestCase):
   def setUp(self):
     self.host = Host()
-    self.ready = parse_ready_prelim(REF, A)
+    self.ready = parse_ready_prelim(REF, A, destination="main")
     self.params = {
-      "host": self.host, "ready": self.ready, "int_attempt_ref": INT,
-      "accepted_sha": C, "old_destination_sha": B, "landed_sha": D,
+      "host": self.host, "ready": self.ready, "candidate_ref": INT,
+      "accepted_sha": A, "old_destination_sha": B, "landed_sha": D,
       "operation_id": "op-1", "integration_id": "integration-1",
       "terminal_evidence_ref": "provider-verified-terminal-1",
       "record_request_id": "terminal-1",
@@ -61,7 +61,7 @@ class TerminalV2Tests(unittest.TestCase):
     terminal = self.publish()
     self.assertEqual(terminal.guid, G)
     self.assertEqual(terminal.record["prelim_sha"], A)
-    self.assertEqual(terminal.record["accepted_sha"], C)
+    self.assertEqual(terminal.record["accepted_sha"], A)
     self.assertEqual(terminal.record["landed_sha"], D)
     self.assertEqual(terminal.record["provider_operation_id"], "op-1")
     self.assertEqual([op for op, _ in self.host.calls],
@@ -106,7 +106,7 @@ class TerminalV2Tests(unittest.TestCase):
 
   def test_cross_submission_workspace_denied(self):
     with self.assertRaisesRegex(TerminalPublicationError,"scope"):
-      self.publish(int_attempt_ref=INT.replace("issue-123", "issue-124"))
+      self.publish(candidate_ref=INT.replace("issue-123", "issue-124"))
     self.assertEqual(self.host.calls, [])
 
   def test_foreign_terminal_readback_refused(self):

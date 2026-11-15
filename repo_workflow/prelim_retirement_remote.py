@@ -74,7 +74,7 @@ def retire_verified_ref(
   if (not isinstance(plan, RetirementPlan)
       or plan.eligible_for_ref_retirement is not True
       or type(ref) is not str
-      or ref not in (plan.prelim_ref, plan.int_attempt_ref)
+      or ref not in (plan.prelim_ref, plan.candidate_ref)
       or type(expected_sha) is not str or _SHA.fullmatch(expected_sha) is None
       or type(remote) is not str or not remote or remote.startswith("-")
       or not plan.terminal_evidence_ref):
@@ -92,9 +92,8 @@ def retire_verified_ref(
     landed.prelim_sha if ref == landed.prelim_ref else landed.accepted_sha)
   if expected_sha != authorised_sha:
     raise PrelimRetirementError("ref SHA differs from accepted integration proof")
-  verify_attempt_scope(plan.prelim_ref, plan.int_attempt_ref)
-  if not (ref.startswith("refs/heads/PRELIM-") or
-          ref.startswith("refs/heads/INT-ATTEMPT-")):
+  verify_attempt_scope(plan.prelim_ref, plan.candidate_ref)
+  if not ref.startswith("refs/heads/PRELIM-"):
     raise PrelimRetirementError("ref is outside the permitted attempt")
   root = Path(root)
   def run(*args):

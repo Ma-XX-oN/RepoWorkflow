@@ -61,7 +61,7 @@ class PrelimAttemptTests(unittest.TestCase):
       "repository": {"authoritativeRemote": "origin"},
     }
     git(self.root, "checkout", "-b", "issue-7")
-    (self.root / "accepted.txt").write_text("accepted work\n")
+    (self.root / "accepted.txt").write_text("accepted work\n", newline="\n")
     git(self.root, "add", "accepted.txt")
     git(self.root, "commit", "-m", "accepted source")
     self.source = git(self.root, "rev-parse", "HEAD").stdout.strip()

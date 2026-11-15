@@ -38,7 +38,7 @@ def decide_admission(
 
   `read_policy` accepts (destination_sha, relative_repo_path), returning
   None only when the file is absent from that exact destination commit.
-  The caller must not pass content taken from PRELIM or INT-ATTEMPT.
+  The caller must not pass policy content taken from a PRELIM candidate.
   """
   if not isinstance(candidate, ReadyPrelim):
     raise AdmissionError("READY PRELIM identity is required")

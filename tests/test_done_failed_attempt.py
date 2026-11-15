@@ -38,7 +38,7 @@ class FailedHost(FakeHost):
 class FailedTerminalTests(unittest.TestCase):
   def setUp(self):
     self.host=FailedHost()
-    self.ready=parse_ready_prelim(REF,A)
+    self.ready=parse_ready_prelim(REF,A,destination="main")
     self.coord=IntegrationHostCoordinator(self.host)
     self.lease=claim_prelim(self.coord,self.ready,"worker-A")
     self.evidence=FailedIntegrationEvidence(

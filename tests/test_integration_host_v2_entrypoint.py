@@ -1,4 +1,5 @@
 """Integration host v2 executable boundary smoke and denial tests."""
+from repo_workflow.prelim_queue import parse_ready_prelim
 import importlib.util
 from pathlib import Path
 import unittest
@@ -12,8 +13,8 @@ SPEC = importlib.util.spec_from_file_location("repo_host_integration_v2", PATH)
 MOD = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MOD)
 SHA = "a"*40
-GUID = "11111111-1111-4111-8111-111111111111"
-REF = "refs/heads/INT-ATTEMPT-issue-123/main-" + GUID
+GUID = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
+REF = "refs/heads/PRELIM-issue-123.0.1"
 
 
 class Backend:
@@ -49,20 +50,31 @@ class V2EntrypointTests(unittest.TestCase):
     self.verify = lambda request, backend: {"grant_id": "trusted"}
     self.request = {
       "schema_version": 2, "repository": "Org/Repo",
-      "operation": "ref.create", "request_id": "req-1",
-      "parameters": {"ref": REF, "sha": SHA},
+      "operation": "lease.cas", "request_id": "req-1",
+      "parameters": {"destination":"main","expected_generation":0,
+                     "expected_holder":None,"expected_guid":None,"holder":"worker","guid":GUID},
     }
 
   def call(self, request=None, verify=None):
     return MOD.process(self.request if request is None else request,
       backend_factory=self.factory,
-      verify=self.verify if verify is None else verify)
+      verify=self.verify if verify is None else verify,
+      config_reader=lambda root: {"repository":{"authoritativeRemote":"origin"}},
+      verify_remote_scope=lambda root, remote, backend: "https://github.com/Org/Repo.git",
+      lease_write=self.write_lease)
 
-  def test_create_result_identity(self):
+  def write_lease(self, backend, request, root, remote):
+    """Isolated writer fixture; provider authority remains separately checked."""
+    self.backend.calls.append("lease.cas")
+    p = request["parameters"]
+    return "applied", {"destination":p["destination"],"generation":p["expected_generation"]+1,
+                       "guid":p["guid"],"holder":p["holder"]}
+
+  def test_lease_result_identity(self):
     result = self.call()
     self.assertEqual(result["schema_version"], 2)
     self.assertEqual(result["status"], "applied")
-    self.assertEqual(result["result"]["sha"], SHA)
+    self.assertEqual(result["result"]["generation"], 1)
 
   def test_trusted_authorization_denial_prevents_write(self):
     def deny(request, backend):
@@ -84,45 +96,31 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(result["result"], {"refs": {}})
     self.assertFalse(self.backend.calls)
 
-  def test_authorized_ref_cas_uses_configured_remote(self):
-    calls = []
-    request = dict(self.request, operation="ref.cas",
-      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
-    def writer(root, remote, ref, expected, proposed):
-      calls.append((remote, ref, expected, proposed))
-      return {"ref": ref, "sha": proposed}
-    result = MOD.process(request, backend_factory=self.factory,
-      verify=self.verify, cas_write=writer,
-      config_reader=lambda root: {"repository": {
-        "authoritativeRemote": "origin"}},
-      verify_remote_scope=lambda root, remote, backend:
-        "https://github.com/Org/Repo.git")
-    self.assertEqual(result["result"]["sha"], SHA)
-    self.assertEqual(calls, [("https://github.com/Org/Repo.git",
-                              REF, "b"*40, SHA)])
+  def test_candidate_mutation_is_unsupported_even_with_authorization(self):
+    for operation, parameters in (
+        ("ref.create", {"ref":REF,"sha":SHA}),
+        ("ref.cas", {"ref":REF,"expected_sha":"b"*40,"sha":SHA})):
+      with self.subTest(operation=operation), self.assertRaisesRegex(RuntimeError,"unsupported"):
+        self.call(request=dict(self.request,operation=operation,parameters=parameters))
+    self.assertEqual(self.backend.calls, [])
 
-  def test_cas_rejects_repository_scope_failure_before_git(self):
-    request = dict(self.request, operation="ref.cas",
-      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
+  def test_lease_rejects_repository_scope_failure_before_git(self):
     attempted = []
     def reject(*args):
       raise IntegrationHostError("provider repository differs")
     with self.assertRaisesRegex(IntegrationHostError, "repository"):
-      MOD.process(request, backend_factory=self.factory, verify=self.verify,
-        cas_write=lambda *args: attempted.append(args),
+      MOD.process(self.request, backend_factory=self.factory, verify=self.verify,
+        lease_write=lambda *args: attempted.append(args),
         verify_remote_scope=reject,
-        config_reader=lambda root: {"repository": {
-          "authoritativeRemote": "origin"}})
+        config_reader=lambda root: {"repository":{"authoritativeRemote":"origin"}})
     self.assertEqual(attempted, [])
 
-  def test_denied_cas_never_reaches_git(self):
+  def test_denied_lease_never_reaches_git(self):
     called = []
-    request = dict(self.request, operation="ref.cas",
-      parameters={"ref": REF, "expected_sha": "b"*40, "sha": SHA})
     with self.assertRaises(IntegrationHostError):
-      MOD.process(request, backend_factory=self.factory,
+      MOD.process(self.request, backend_factory=self.factory,
         verify=lambda req, provider: None,
-        cas_write=lambda *args: called.append(args))
+        lease_write=lambda *args: called.append(args))
     self.assertEqual(called, [])
 
   def test_terminal_read_is_provider_bound_and_read_only(self):
@@ -290,7 +288,8 @@ class V2EntrypointTests(unittest.TestCase):
       with patch.object(MOD.Path, "cwd", return_value=project):
         result = MOD.process(
           request, backend_factory=self.factory, verify=self.verify,
-          config_reader=config_reader, lease_write=lease_write)
+          config_reader=config_reader, lease_write=lease_write,
+          verify_remote_scope=lambda *args: "https://github.com/Org/Repo.git")
       self.assertEqual(result["status"], "applied")
       self.assertEqual(observed["configured_root"], project)
       self.assertEqual(observed["mutation_root"], project)
@@ -333,6 +332,7 @@ class V2EntrypointTests(unittest.TestCase):
     self.assertEqual(calls, [])
     result = MOD.process(request, backend_factory=self.factory,
       verify=self.verify, lease_write=writer,
+      verify_remote_scope=lambda *args: "https://github.com/Org/Repo.git",
       config_reader=lambda root: {"repository": {
         "authoritativeRemote": "origin"}})
     self.assertEqual(result["result"]["generation"], 1)

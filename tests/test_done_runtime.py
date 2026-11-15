@@ -25,7 +25,7 @@ from tests.test_done_provider_pipeline import A,B,C,G
 
 class RuntimeTests(unittest.TestCase):
   def setUp(self):
-    self.fixture=CompletionTests("test_done_only_after_both_refs_and_provenance")
+    self.fixture=CompletionTests("test_done_only_after_prelim_retirement_and_provenance")
     self.fixture.setUp()
     self.ready=self.fixture.accepted.ready
     self.plan=DonePlan(

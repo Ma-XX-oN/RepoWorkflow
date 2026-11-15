@@ -5,45 +5,38 @@ a durable terminal record before separately authorized ref cleanup.
 """
 from dataclasses import dataclass
 import re
+from .prelim_queue import parse_ready_prelim
+from .ticket_admission import policy_path
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_GUID = r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}"
-_SCOPE = re.compile(rf"(?P<umbrella>[^/]+)/(?P<destination>.+)-(?P<guid>{_GUID})\Z")
 
 
 class PrelimRetirementError(ValueError):
   """Landing or durable completion proof is insufficient for retirement."""
 
 
-def verify_attempt_scope(prelim_ref: str, int_ref: str,
+def verify_attempt_scope(prelim_ref: str, candidate_ref: str,
     destination_ref: str | None = None) -> None:
   """Prevent one integration from retiring another umbrella/destination."""
-  refs = (
-    (prelim_ref, "refs/heads/PRELIM-"),
-    (int_ref, "refs/heads/INT-ATTEMPT-"),
-  )
-  matches = []
-  for ref, prefix in refs:
-    if type(ref) is not str or not ref.startswith(prefix):
-      raise PrelimRetirementError("attempt reference prefix is invalid")
-    match = _SCOPE.fullmatch(ref[len(prefix):])
-    if match is None:
+  if prelim_ref != candidate_ref:
+    raise PrelimRetirementError("one PRELIM ref must identify source and accepted candidate")
+  try:
+    ready = parse_ready_prelim(prelim_ref, "0"*40)
+    if ready is None:
       raise PrelimRetirementError("attempt reference identity is invalid")
-    matches.append((match["umbrella"], match["destination"],
-                    match["guid"].lower()))
-  if matches[0] != matches[1]:
-    raise PrelimRetirementError("attempt references belong to different scopes")
-  if destination_ref is not None and (
-      type(destination_ref) is not str
-      or destination_ref != "refs/heads/" + matches[0][1]):
-    raise PrelimRetirementError("attempt destination differs from landing")
+    if destination_ref is not None:
+      if not isinstance(destination_ref, str) or not destination_ref.startswith("refs/heads/"):
+        raise PrelimRetirementError("invalid authoritative destination ref")
+      policy_path(destination_ref.removeprefix("refs/heads/"))
+  except (ValueError, TypeError) as error:
+    raise PrelimRetirementError("attempt reference identity is invalid") from error
 
 
 @dataclass(frozen=True)
 class LandedIntegration:
   prelim_ref: str
   prelim_sha: str
-  int_attempt_ref: str
+  candidate_ref: str
   accepted_sha: str
   destination_ref: str
   landed_sha: str
@@ -54,7 +47,7 @@ class LandedIntegration:
 @dataclass(frozen=True)
 class RetirementPlan:
   prelim_ref: str
-  int_attempt_ref: str
+  candidate_ref: str
   landed_sha: str
   terminal_evidence_ref: str
   eligible_for_ref_retirement: bool
@@ -63,7 +56,7 @@ class RetirementPlan:
 def plan_retirement(
     submitted_ref: str,
     submitted_sha: str,
-    expected_int_attempt_ref: str,
+    expected_candidate_ref: str,
     destination_ref: str,
     landed: LandedIntegration,
     *,
@@ -82,7 +75,7 @@ def plan_retirement(
   if not isinstance(landed, LandedIntegration):
     raise PrelimRetirementError("provider landing record is required")
   if any(not isinstance(ref, str) for ref in (
-      submitted_ref, expected_int_attempt_ref, destination_ref)):
+      submitted_ref, expected_candidate_ref, destination_ref)):
     raise PrelimRetirementError("integration refs are invalid")
   for name, value in (
       ("submitted SHA", submitted_sha),
@@ -93,16 +86,18 @@ def plan_retirement(
     if not isinstance(value, str) or _SHA.fullmatch(value) is None:
       raise PrelimRetirementError(f"{name} is not a full Git SHA")
   if (not submitted_ref.startswith("refs/heads/PRELIM-")
-      or not expected_int_attempt_ref.startswith("refs/heads/INT-ATTEMPT-")
+      or not expected_candidate_ref.startswith("refs/heads/PRELIM-")
       or not destination_ref.startswith("refs/heads/")):
     raise PrelimRetirementError("integration refs are invalid")
   verify_attempt_scope(
-    submitted_ref, expected_int_attempt_ref, destination_ref)
+    submitted_ref, expected_candidate_ref, destination_ref)
   if (landed.prelim_ref != submitted_ref
       or landed.prelim_sha != submitted_sha
-      or landed.int_attempt_ref != expected_int_attempt_ref
+      or landed.candidate_ref != expected_candidate_ref
       or landed.destination_ref != destination_ref):
     raise PrelimRetirementError("landing provenance differs from submission")
+  if landed.accepted_sha != submitted_sha:
+    raise PrelimRetirementError("accepted source differs from immutable PRELIM")
   if not landed.integration_id or not landed.terminal_evidence_ref:
     raise PrelimRetirementError("durable integration/evidence identity is missing")
   if observed_prelim_sha is not None and observed_prelim_sha != submitted_sha:
@@ -113,6 +108,6 @@ def plan_retirement(
       or not terminal_record_readback):
     raise PrelimRetirementError("terminal evidence not durably confirmed")
   return RetirementPlan(
-    submitted_ref, expected_int_attempt_ref, landed.landed_sha,
+    submitted_ref, expected_candidate_ref, landed.landed_sha,
     landed.terminal_evidence_ref, True,
   )

@@ -14,7 +14,7 @@ A = "a" * 40
 B = "b" * 40
 C = "c" * 40
 D = "d" * 40
-INT = "refs/heads/INT-ATTEMPT-issue-123/main-11111111-1111-4111-8111-111111111111"
+INT = "refs/heads/PRELIM-issue-123.0.1"
 
 
 class ExecutionGuardTests(unittest.TestCase):
@@ -24,8 +24,8 @@ class ExecutionGuardTests(unittest.TestCase):
       True, False, None, (), (),
     )
     self.attempt = CertifiedAttempt(
-      A, INT, C, B, "evidence-1", "auth-1", "operation-1",
-      INT.replace("INT-ATTEMPT-", "PRELIM-"))
+      A, INT, A, B, "evidence-1", "auth-1", "operation-1",
+      INT)
     self.calls = []
 
   def execute(self, **changes):
@@ -54,7 +54,7 @@ class ExecutionGuardTests(unittest.TestCase):
     accepted = self.execute()
     self.assertEqual(accepted.landed_sha, D)
     self.assertEqual(self.calls[0][3], B)
-    self.assertEqual(self.calls[0][1], C)
+    self.assertEqual(self.calls[0][1], A)
 
   def test_policy_denied_after_candidate_preparation(self):
     calls={"read":0,"prepare":0}
@@ -136,36 +136,34 @@ class ExecutionGuardTests(unittest.TestCase):
       self.execute(attempt=replace(self.attempt,source_prelim_ref=None))
     self.assertEqual(self.calls, [])
 
-  def test_foreign_prelim_guid_is_rejected(self):
-    other=self.attempt.source_prelim_ref.replace(
-      "11111111-1111-4111-8111-111111111111",
-      "22222222-2222-4222-8222-222222222222")
+  def test_foreign_prelim_version_is_rejected(self):
+    other=self.attempt.source_prelim_ref.replace(".0.1", ".0.2")
     with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
       self.execute(attempt=replace(self.attempt,source_prelim_ref=other))
     self.assertEqual(self.calls, [])
 
   def test_foreign_prelim_ticket_is_rejected(self):
-    other=self.attempt.source_prelim_ref.replace("issue-123/", "issue-124/")
+    other=self.attempt.source_prelim_ref.replace("issue-123.", "issue-124.")
     with self.assertRaisesRegex(DoneExecutionError, "certification provenance"):
       self.execute(attempt=replace(self.attempt,source_prelim_ref=other))
     self.assertEqual(self.calls, [])
 
-  def test_foreign_int_attempt_ticket_is_rejected(self):
-    foreign=replace(self.attempt,int_attempt_ref=INT.replace(
-      "issue-123/", "issue-124/"))
+  def test_foreign_candidate_ticket_is_rejected(self):
+    foreign=replace(self.attempt,candidate_ref=INT.replace(
+      "issue-123.", "issue-124."))
     with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
       self.execute(attempt=foreign)
     self.assertEqual(self.calls, [])
 
-  def test_foreign_int_attempt_destination_is_rejected(self):
-    foreign=replace(self.attempt,int_attempt_ref=INT.replace(
-      "/main-", "/issue-456-"))
+  def test_foreign_candidate_version_is_rejected(self):
+    foreign=replace(self.attempt,candidate_ref=INT.replace(
+      ".0.1", ".0.2"))
     with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
       self.execute(attempt=foreign)
     self.assertEqual(self.calls, [])
 
   def test_invalid_int_attempt_guid_is_rejected(self):
-    foreign=replace(self.attempt,int_attempt_ref=INT[:-36]+"malformed")
+    foreign=replace(self.attempt,candidate_ref=INT[:-36]+"malformed")
     with self.assertRaisesRegex(DoneExecutionError,"certification provenance"):
       self.execute(attempt=foreign)
     self.assertEqual(self.calls, [])

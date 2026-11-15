@@ -22,11 +22,11 @@ def retire_landed_attempt_ref(
   """Refresh landing and durable evidence immediately before conditional push."""
   if not isinstance(landed, LandedIntegration):
     raise PrelimRetirementError("landing provenance required")
-  if ref_kind not in {"PRELIM", "INT-ATTEMPT"}:
+  if ref_kind != "PRELIM":
     raise PrelimRetirementError("unsupported attempted ref kind")
   plan = verify_github_retirement(backend, landed, read_terminal)
-  ref = landed.prelim_ref if ref_kind == "PRELIM" else landed.int_attempt_ref
-  old_sha = landed.prelim_sha if ref_kind == "PRELIM" else landed.accepted_sha
+  ref = landed.prelim_ref
+  old_sha = landed.prelim_sha
   # The provider proof validates the integrated candidate; git push uses
   # --force-with-lease for an atomic expected-old ref comparison.
   return retire_verified_ref(root, remote, plan, ref, old_sha, backend=backend, landed=landed, read_terminal=read_terminal)

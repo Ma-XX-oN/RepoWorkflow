@@ -1,4 +1,5 @@
 """Isolated GitHub-shaped terminal ledger acceptance for #681."""
+from repo_workflow.prelim_queue import parse_ready_prelim
 import json
 import unittest
 
@@ -8,20 +9,20 @@ from adapters.repo_host_github_integration_terminal import (
 )
 
 
-G = "11111111-1111-4111-8111-111111111111"
+G = parse_ready_prelim("refs/heads/PRELIM-issue-123.0.1", "a" * 40).guid
 C = "c"*40
 D = "d"*40
 P = "a"*40
 B = "b"*40
-REF = "refs/heads/PRELIM-issue-123/main-" + G
-INT = "refs/heads/INT-ATTEMPT-issue-123/main-" + G
+REF = "refs/heads/PRELIM-issue-123.0.1"
+INT = "refs/heads/PRELIM-issue-123.0.1"
 
 
 def terminal(**updates):
   value = {
     "repository": "Org/Repo", "guid": G,
-    "status": "integrated", "prelim_ref": REF, "prelim_sha": P,
-    "int_attempt_ref": INT, "accepted_sha": C,
+    "status": "integrated", "prelim_ref": REF, "prelim_sha": C,
+    "candidate_ref": INT, "accepted_sha": C,
     "destination_ref": "refs/heads/main",
     "expected_destination_sha": B,
     "observed_destination_sha": D, "landed_sha": D,
@@ -174,7 +175,7 @@ class TerminalLedgerTests(unittest.TestCase):
     landed = SimpleNamespace(**source)
     reader = retirement_terminal_reader(self.backend, landed)
     expected = {key: source[key] for key in (
-      "status", "prelim_ref", "prelim_sha", "int_attempt_ref",
+      "status", "prelim_ref", "prelim_sha", "candidate_ref",
       "accepted_sha", "destination_ref", "landed_sha",
       "integration_id", "terminal_evidence_ref")}
     self.assertEqual(reader(source["terminal_evidence_ref"]), expected)

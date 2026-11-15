@@ -7,11 +7,11 @@ from repo_workflow.prelim_retirement import (
 )
 from repo_workflow.prelim_retirement_evidence import verify_retirement_evidence
 
-P = "refs/heads/PRELIM-issue-123/main-11111111-1111-4111-8111-111111111111"
-I = "refs/heads/INT-ATTEMPT-issue-123/main-11111111-1111-4111-8111-111111111111"
+P = "refs/heads/PRELIM-issue-123.0.1"
+I = "refs/heads/PRELIM-issue-123.0.1"
 D = "refs/heads/main"
 S = "a"*40
-A = "b"*40
+A = S
 L = "c"*40
 T = "d"*40
 
@@ -20,14 +20,14 @@ class RetirementEvidenceTests(unittest.TestCase):
   def setUp(self):
     self.landed = LandedIntegration(
       P, S, I, A, D, L, "operation-1", "terminal-1")
-    self.refs = {P: S, I: A, D: T}
+    self.refs = {P: S, D: T}
     self.compare = {"base_sha": L, "head_sha": T,
                     "status": "ahead", "behind_by": 0}
     self.accepted_compare = {"base_sha": A, "head_sha": L,
                              "status": "ahead", "behind_by": 0}
     self.terminal = dict(
       status="integrated", prelim_ref=P, prelim_sha=S,
-      int_attempt_ref=I, accepted_sha=A, destination_ref=D,
+      candidate_ref=I, accepted_sha=A, destination_ref=D,
       landed_sha=L, integration_id="operation-1",
       terminal_evidence_ref="terminal-1")
 
@@ -76,13 +76,13 @@ class RetirementEvidenceTests(unittest.TestCase):
       self.check()
 
   def test_accepted_sha_must_be_actual_comparison_base(self):
-    self.accepted_compare["base_sha"] = S
+    self.accepted_compare["base_sha"] = "e" * 40
     with self.assertRaisesRegex(PrelimRetirementError, "accepted candidate"):
       self.check()
 
-  def test_int_attempt_changed_after_acceptance_is_rejected(self):
-    self.refs[I] = S
-    with self.assertRaisesRegex(PrelimRetirementError, "INT-ATTEMPT changed"):
+  def test_candidate_changed_after_acceptance_is_rejected(self):
+    self.refs[I] = "e" * 40
+    with self.assertRaisesRegex(PrelimRetirementError, "PRELIM changed"):
       self.check()
 
   def test_retired_int_attempt_requires_terminal_proof(self):
@@ -93,7 +93,7 @@ class RetirementEvidenceTests(unittest.TestCase):
       self.check()
 
   def test_wrong_candidate_or_evidence_id_denied(self):
-    for change in ({"accepted_sha": S},
+    for change in ({"accepted_sha": "e" * 40},
                    {"terminal_evidence_ref": "other"},
                    {"status": "deferred-mit"},
                    {"integration_id": "different"}):

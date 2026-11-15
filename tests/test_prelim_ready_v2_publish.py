@@ -89,7 +89,7 @@ class QualifiedPublishTests(unittest.TestCase):
   def test_accepted_nonmain_candidate_publishes_one_ready_ref(self):
     result = self.publish()
     self.assertEqual(result.sha, C)
-    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-7/issue-10-" + G)
+    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-7.0.1")
     self.assertEqual(len(self.backend.writes), 1)
     self.assertEqual(set(self.backend.refs), {result.ref})
 

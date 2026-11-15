@@ -15,7 +15,7 @@ from tests.test_done_completion import CompletionTests, RefRetirement
 
 class CanonicalLifecycleTests(unittest.TestCase):
   def setUp(self):
-    self.fixture=CompletionTests("test_done_only_after_both_refs_and_provenance")
+    self.fixture=CompletionTests("test_done_only_after_prelim_retirement_and_provenance")
     self.fixture.setUp()
     self.temp=tempfile.TemporaryDirectory()
     self.root=Path(self.temp.name)
@@ -57,7 +57,6 @@ class CanonicalLifecycleTests(unittest.TestCase):
     t=self.terminal
     return (
       RefRetirement(t.record["prelim_ref"],t.record["prelim_sha"],True),
-      RefRetirement(t.record["int_attempt_ref"],t.accepted_sha,True),
     )
 
   def test_real_canonical_store_completed_after_retirement_promotion(self):
@@ -125,8 +124,8 @@ class CanonicalLifecycleTests(unittest.TestCase):
 
   def test_unauthenticated_revised_retirement_refused(self):
     altered=list(self.retirements())
-    altered[1]=altered[1]._replace(absent_after=False)
-    with self.assertRaisesRegex(CanonicalLifecycleError,"retirements"):
+    altered[0]=altered[0]._replace(absent_after=False)
+    with self.assertRaisesRegex(CanonicalLifecycleError,"retirement"):
       self.bridge.persist_lifecycle(
         self.fixture.accepted,self.proof,tuple(altered))
     self.assertEqual(self.store.read(123).revision,2)

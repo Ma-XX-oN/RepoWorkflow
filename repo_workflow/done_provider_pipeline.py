@@ -1,4 +1,4 @@
-"""One guarded READY -> INT -> CAS -> immutable provider terminal.
+"""One guarded PRELIM -> certification -> CAS -> immutable provider terminal.
 
 Post-terminal #103 retirement, evidence promotion, queue scheduling and
 lifecycle completion are distinct required stages, not completed here.
@@ -9,12 +9,13 @@ import re
 from .done_executor import (
   CertifiedAttempt, DoneExecutionError, execute_certified_done,
 )
+from .done_planner import DonePlan
 from .done_host_coordinator import IntegrationHostCoordinator
 from .done_mit_defer_v2 import defer_mit_with_provider
 from .done_stage_certification import (
   MitTimedOut, StageFailed, CertifiedStages, VerifiedStage,
 )
-from .done_int_workspace import publish_int_workspace
+from .done_prelim_candidate import verify_prelim_candidate
 from .done_failed_attempt import FailedIntegrationEvidence, record_failed_attempt
 from .done_policy_admission import current_destination_admission
 from .done_provider_acceptance import (
@@ -47,13 +48,14 @@ class AcceptedProviderAttempt:
   accepted: object
   terminal: object
   released_generation: int
+  plan: DonePlan | None = None
 
 
 def accept_one_ready_submission(
     *, host, ready, holder, original_plan,
     refresh_plan, prepare_and_certify, admission_check,
     provider_facts, verify_provider_result,
-    create_id, update_id, integration_id,
+    integration_id,
     terminal_evidence_ref, terminal_request_id,
     reconcile_unknown=None,
     mit_event_request_id=None, mit_read_request_id=None,
@@ -62,6 +64,9 @@ def accept_one_ready_submission(
   """Bind actual provider operations; no implicit PASS or remote retry."""
   if not isinstance(ready, ReadyPrelim):
     raise DoneExecutionError("immutable published READY required")
+  if (not isinstance(original_plan, DonePlan)
+      or not (original_plan.allowed or original_plan.submission_allowed)):
+    raise DoneExecutionError("submission is not eligible for certification")
   if (not isinstance(provider_facts, DestinationAcceptanceFacts)
       or not isinstance(ready.umbrella, str)
       or re.fullmatch(r"issue-([1-9][0-9]*)", ready.umbrella) is None
@@ -121,14 +126,13 @@ def accept_one_ready_submission(
            != ({'ART', 'AIT', 'release', 'MIT'}
                if stages.mit_policy.required else {'ART', 'AIT', 'release'})):
       raise DoneExecutionError('authenticated stage identity differs')
-    workspace = publish_int_workspace(
+    candidate = verify_prelim_candidate(
       host=host, ready=ready,
       expected_parent_sha=plan.expected_parent_sha,
-      accepted_sha=attempt.tested_candidate_sha,
-      create_id=create_id, update_id=update_id)
-    if (attempt.int_attempt_ref != workspace.int_ref
-        or attempt.expected_destination_sha != workspace.expected_destination_sha):
-      raise DoneExecutionError("published INT differs from certified attempt")
+      accepted_sha=attempt.tested_candidate_sha)
+    if (attempt.candidate_ref != candidate.prelim_ref
+        or attempt.expected_destination_sha != candidate.expected_destination_sha):
+      raise DoneExecutionError("verified PRELIM differs from certified attempt")
     prepared_stages.append(stages)
     prepared.append(attempt)
     return attempt
@@ -145,7 +149,7 @@ def accept_one_ready_submission(
     if prepared:
       if len(prepared) != 1 or len(prepared_stages) != 1:
         raise DoneExecutionError("exact candidate stage history incomplete")
-      # Release or MIT permission may be revoked after INT preparation.
+      # Release or MIT permission may be revoked after candidate certification.
       # Confirm identical authenticated evidence immediately before CAS.
       try:
         current = stage_certify(
@@ -159,8 +163,22 @@ def accept_one_ready_submission(
     return decision
 
   try:
+    executable_plan = original_plan
+    certify = prepare
+    if not original_plan.allowed:
+      # Complete deferred certification before entering the strict merge
+      # executor. Its missing-gate, disposition and final CAS guards remain
+      # mandatory and unchanged.
+      certified = prepare(original_plan)
+      executable_plan = refresh_plan()
+      if (not isinstance(executable_plan, DonePlan)
+          or any(getattr(executable_plan, field) != getattr(original_plan, field)
+                 for field in ("issue", "release", "target", "candidate_sha",
+                               "expected_parent_sha"))):
+        raise DoneExecutionError("candidate changed during deferred certification")
+      certify = lambda plan: certified
     accepted = execute_certified_done(
-      original_plan, refresh_plan, prepare, current_admission,
+      executable_plan, refresh_plan, certify, current_admission,
       bind_v2_destination_accept(host, provider_facts),
       verify_provider_result, reconcile_unknown=reconcile_unknown)
   except StageFailed as failure:
@@ -200,10 +218,10 @@ def accept_one_ready_submission(
     return DeferredProviderAttempt(
       ready, deferred.evidence_ref, recorded.released_generation)
   if len(prepared) != 1:
-    raise DoneExecutionError("certified INT attempt is not unique")
+    raise DoneExecutionError("certified PRELIM candidate is not unique")
   terminal = publish_integrated_terminal(
     host=host, ready=ready,
-    int_attempt_ref=prepared[0].int_attempt_ref,
+    candidate_ref=prepared[0].candidate_ref,
     accepted_sha=prepared[0].tested_candidate_sha,
     old_destination_sha=original_plan.expected_parent_sha,
     landed_sha=accepted.landed_sha,
@@ -215,4 +233,4 @@ def accept_one_ready_submission(
   released = release_prelim(
     provider, lease, holder, terminal_result="integrated")
   return AcceptedProviderAttempt(
-    ready, accepted, terminal, released.generation)
+    ready, accepted, terminal, released.generation, executable_plan)

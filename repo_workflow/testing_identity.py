@@ -23,6 +23,10 @@ def testing_issue(root: Path, *, branch: str | None = None) -> int:
       tests need an issue identity, but need not run on an issue branch.
   """
   branch = current_branch(root) if branch is None else branch
+  if branch.startswith("PRELIM-"):
+    from .prelim_queue import parse_ready_prelim
+    submission = parse_ready_prelim("refs/heads/" + branch, "0" * 40)
+    return int(submission.umbrella.removeprefix("issue-"))
   match = re.fullmatch(r"(?:PRELIM-)?issue-([1-9][0-9]*)(?:[-/].*)?", branch)
   if match:
     return int(match.group(1))

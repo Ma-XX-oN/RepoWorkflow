@@ -5,27 +5,28 @@ from repo_workflow.done_ready_scheduler import (
   DestinationInventory, ReadySelectionError, select_ready_for_destination,
 )
 from repo_workflow.prelim_queue import parse_ready_prelim
+from tests.test_done_queue_scheduler import QueueHost
 
 
 A="a"*40
 B="b"*40
-G1="11111111-1111-4111-8111-111111111111"
-G2="22222222-2222-4222-8222-222222222222"
-ONE=f"refs/heads/PRELIM-issue-123/main-{G1}"
-TWO=f"refs/heads/PRELIM-issue-456/main-{G2}"
+ONE="refs/heads/PRELIM-issue-123.0.1"
+TWO="refs/heads/PRELIM-issue-456.0.1"
 
 
-class Host:
+class Host(QueueHost):
   repository="Org/Repo"
 
   def __init__(self):
+    super().__init__()
     self.refs={ONE:A,TWO:B}
+    self.submissions={parse_ready_prelim(ref,sha).guid:self.receipt(ref,sha)
+                      for ref,sha in self.refs.items()}
     self.calls=[]
 
   def request(self,op,key,args):
     self.calls.append(op)
-    if op != "refs.list": raise AssertionError(op)
-    return {"refs":dict(self.refs)}
+    return super().request(op,key,args)
 
 
 class ScheduleTests(unittest.TestCase):
@@ -46,7 +47,8 @@ class ScheduleTests(unittest.TestCase):
     self.assertEqual(len(seen),2)
     self.assertEqual(result.selected.umbrella,"issue-456")
     self.assertEqual(result.destination,"main")
-    self.assertEqual(self.host.calls,["refs.list","refs.list"])
+    self.assertEqual(self.host.calls.count("refs.list"),2)
+    self.assertEqual(set(self.host.calls),{"refs.list","submission.read"})
 
   def test_no_implicit_guid_priority(self):
     with self.assertRaisesRegex(ReadySelectionError,"unverified"):
@@ -58,7 +60,7 @@ class ScheduleTests(unittest.TestCase):
 
   def test_other_destination_candidate_refused(self):
     alien=parse_ready_prelim(
-      f"refs/heads/PRELIM-issue-123/issue-999-{G1}",A)
+      ONE,A,destination="issue-999")
     with self.assertRaisesRegex(ReadySelectionError,"unverified"):
       self.choose(lambda d,x:alien)
 
@@ -75,8 +77,11 @@ class ScheduleTests(unittest.TestCase):
       self.choose(fail)
 
   def test_multiple_destinations_do_not_share_claim_set(self):
-    self.host.refs[
-      f"refs/heads/PRELIM-issue-555/issue-999-{G2}"]=B
+    ref="refs/heads/PRELIM-issue-555.0.1"
+    self.host.refs[ref]=B
+    receipt=self.host.receipt(ref,B)
+    receipt["destination"]="issue-999"
+    self.host.submissions[receipt["guid"]]=receipt
     del self.host.refs[TWO]
     selection=self.choose(lambda d,r:r[0])
     self.assertEqual(len(selection.ready),1)

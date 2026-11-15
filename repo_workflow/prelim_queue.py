@@ -5,9 +5,11 @@ integration writes, or turns branch existence into merge authorization.
 """
 from dataclasses import dataclass
 import re
+from uuid import NAMESPACE_URL, uuid5
 from collections.abc import Mapping
 
 from .ticket_admission import TicketAdmissionError, policy_path
+from .version_adapter import DEVELOPMENT_VERSION_RE
 
 
 class PrelimQueueError(ValueError):
@@ -15,12 +17,27 @@ class PrelimQueueError(ValueError):
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
-_GUID = re.compile(
-  r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
-  r"[0-9a-f]{4}-[0-9a-f]{12}\Z"
-)
-_UMBRELLA = re.compile(r"issue-[1-9][0-9]*\Z")
+_VERSION = re.compile(r"issue-([1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 _PREFIX = "refs/heads/PRELIM-"
+
+
+def prelim_ref_for_version(version: str) -> str:
+  """Name a submission using the issue suffix of its development version.
+
+  Parameters
+  ----------
+  version : str
+      Full repository development version.
+
+  Returns
+  -------
+  str
+      PRELIM-issue-N.generation.iteration Git branch ref.
+  """
+  match = DEVELOPMENT_VERSION_RE.fullmatch(version) if isinstance(version, str) else None
+  if match is None:
+    raise PrelimQueueError("PRELIM requires a repository development version")
+  return _PREFIX + "issue-" + ".".join(match.groups()[3:])
 
 
 @dataclass(frozen=True)
@@ -29,48 +46,111 @@ class ReadyPrelim:
   sha: str
   umbrella: str
   destination: str
-  guid: str
+  version: str
+
+  @property
+  def guid(self):
+    """Return the deterministic correlation key required by provider protocol v2.
+
+    Returns
+    -------
+    str
+        Transport correlation UUID derived from version identity. It is not
+        stored in the branch name and never determines submission order.
+    """
+    return str(uuid5(NAMESPACE_URL, "rwf:prelim:" + self.version))
+
+  @property
+  def version_order(self):
+    """Return the repository's numeric generation/iteration ordering.
+
+    Returns
+    -------
+    tuple of int
+        Version components after the issue number.
+    """
+    match = _VERSION.fullmatch(self.version)
+    if match is None:
+      raise PrelimQueueError("invalid PRELIM version")
+    return int(match.group(2)), int(match.group(3))
 
 
-def parse_ready_prelim(ref: str, sha: str) -> ReadyPrelim | None:
-  """Ignore unrelated refs but fail closed for malformed reserved refs."""
+def parse_ready_prelim(ref: str, sha: str, *, destination: str = "") -> ReadyPrelim | None:
+  """Parse version identity; destination comes from authoritative metadata.
+
+  Parameters
+  ----------
+  ref, sha : str
+      Exact provider branch ref and commit.
+  destination : str
+      Independently resolved parent branch, when available.
+
+  Returns
+  -------
+  ReadyPrelim or None
+      Parsed submission, or None for an unrelated ref.
+  """
   if not isinstance(ref, str) or not isinstance(sha, str):
     raise PrelimQueueError("remote ref and SHA must be strings")
   if not ref.startswith(_PREFIX):
     return None
   if _SHA.fullmatch(sha) is None:
     raise PrelimQueueError("PRELIM ref has invalid SHA")
-  remainder = ref[len(_PREFIX):]
-  umbrella, separator, suffix = remainder.partition("/")
-  if not separator or _UMBRELLA.fullmatch(umbrella) is None:
-    raise PrelimQueueError("PRELIM umbrella is invalid")
-  if len(suffix) < 38 or suffix[-37] != "-":
-    raise PrelimQueueError("PRELIM GUID delimiter is missing")
-  destination, guid = suffix[:-37], suffix[-36:]
-  if _GUID.fullmatch(guid) is None:
-    raise PrelimQueueError("PRELIM GUID is invalid")
-  try:
-    policy_path(destination)
-  except TicketAdmissionError as error:
-    raise PrelimQueueError("PRELIM destination is invalid") from error
-  return ReadyPrelim(ref, sha, umbrella, destination, guid)
+  if not isinstance(destination, str):
+    raise PrelimQueueError("PRELIM destination metadata must be a branch name")
+  version = ref[len(_PREFIX):]
+  match = _VERSION.fullmatch(version)
+  if match is None:
+    raise PrelimQueueError("PRELIM must be named PRELIM-issue-N.generation.iteration")
+  if destination:
+    try:
+      policy_path(destination)
+    except TicketAdmissionError as error:
+      raise PrelimQueueError("PRELIM destination is invalid") from error
+  return ReadyPrelim(ref, sha, "issue-" + match.group(1), destination, version)
 
 
 def discover_ready_prelims(remote_refs: Mapping[str, str]) -> tuple[ReadyPrelim, ...]:
-  """Return a deterministic inventory, NOT queue priority or merge order."""
+  """Parse physical inventory without granting merge authority.
+
+  Parameters
+  ----------
+  remote_refs : Mapping[str, str]
+      Exact provider ref inventory.
+
+  Returns
+  -------
+  tuple of ReadyPrelim
+      All versioned submissions in deterministic display order.
+  """
   if not isinstance(remote_refs, Mapping):
     raise PrelimQueueError("remote refs must be a mapping")
-  seen_guids = set()
-  submissions = []
-  for ref, sha in remote_refs.items():
-    candidate = parse_ready_prelim(ref, sha)
-    if candidate is None:
-      continue
-    if candidate.guid in seen_guids:
-      raise PrelimQueueError("duplicate PRELIM attempt GUID")
-    seen_guids.add(candidate.guid)
-    submissions.append(candidate)
-  return tuple(sorted(submissions, key=lambda candidate: candidate.ref))
+  submissions = [parse_ready_prelim(ref, sha) for ref, sha in remote_refs.items()]
+  return tuple(sorted((item for item in submissions if item is not None),
+                      key=lambda item: (item.umbrella, item.version_order)))
+
+
+def latest_prelims(submissions):
+  """Select the highest numeric version of each issue before reading outcomes.
+
+  Parameters
+  ----------
+  submissions : iterable of ReadyPrelim
+      Physical versioned submissions.
+
+  Returns
+  -------
+  tuple of ReadyPrelim
+      Latest version per issue. Failure cannot cause an older fallback.
+  """
+  latest = {}
+  for item in submissions:
+    prior = latest.get(item.umbrella)
+    if prior is None or item.version_order > prior.version_order:
+      latest[item.umbrella] = item
+    elif item.version_order == prior.version_order and item != prior:
+      raise PrelimQueueError("one version identifies conflicting PRELIM submissions")
+  return tuple(latest.values())
 
 
 def verify_immutable_prelims(
@@ -112,67 +192,35 @@ class PrelimPosition:
   parent_sha: str
 
 
-def classify_prelims(submissions, *, current_parent_sha, bases, predecessors):
-  """Classify submissions using verified parent and predecessor records.
+def classify_prelims(submissions, *, current_parent_sha, bases):
+  """Classify latest versions against the independently observed parent tip.
 
   Parameters
   ----------
-  submissions : tuple[ReadyPrelim, ...]
-      Published identities for one destination, including retained history.
+  submissions : iterable of ReadyPrelim
+      Physical versioned submissions.
   current_parent_sha : str
-      Independently observed authoritative destination tip.
+      Authoritative parent tip.
   bases : Mapping[str, str]
-      Verified parent SHA indexed by PRELIM ref.
-  predecessors : Mapping[str, str | None]
-      Verified prior PRELIM ref, or None for the first submission.
+      Verified parent SHA for each selected latest version. Older versions
+      are ignored and require no provenance reads.
 
   Returns
   -------
-  tuple[PrelimPosition, ...]
-      Positions in inventory order. Failed latest submissions remain latest.
-
-  Raises
-  ------
-  PrelimQueueError
-      Missing, foreign, cyclic or incomparable generation provenance.
+  tuple of PrelimPosition
+      Current, stale or superseded positions in input order.
   """
-  if _SHA.fullmatch(current_parent_sha) is None:
+  if not isinstance(current_parent_sha, str) or _SHA.fullmatch(current_parent_sha) is None:
     raise PrelimQueueError("authoritative parent SHA required")
-  inventory = {}
-  for submission in submissions:
-    if not isinstance(submission, ReadyPrelim) or submission.ref in inventory:
-      raise PrelimQueueError("unique PRELIM submissions required")
-    inventory[submission.ref] = submission
-  if len({item.destination for item in inventory.values()}) > 1:
-    raise PrelimQueueError("classify one destination at a time")
-  superseded = set()
-  for ref, item in inventory.items():
-    if ref not in bases or not isinstance(bases[ref], str) or not _SHA.fullmatch(bases[ref]):
-      raise PrelimQueueError("PRELIM base identity missing")
-    if ref not in predecessors:
-      raise PrelimQueueError("PRELIM predecessor identity missing")
-    seen = {ref}
-    prior = predecessors[ref]
-    while prior is not None:
-      if prior in seen or prior not in inventory:
-        raise PrelimQueueError("cyclic or missing PRELIM predecessor")
-      older = inventory[prior]
-      if older.umbrella != item.umbrella or older.destination != item.destination:
-        raise PrelimQueueError("foreign PRELIM predecessor")
-      seen.add(prior)
-      superseded.add(prior)
-      if prior not in predecessors:
-        raise PrelimQueueError("PRELIM predecessor identity missing")
-      prior = predecessors[prior]
-  latest = {}
-  for ref, item in inventory.items():
-    if ref not in superseded:
-      if item.umbrella in latest:
-        raise PrelimQueueError("incomparable latest PRELIM submissions")
-      latest[item.umbrella] = ref
-  return tuple(
-    PrelimPosition(item, "superseded" if ref in superseded else
-                   "current" if bases[ref] == current_parent_sha else "stale",
-                   bases[ref])
-    for ref, item in inventory.items()
-  )
+  submissions = tuple(submissions)
+  latest = {item.ref for item in latest_prelims(submissions)}
+  result = []
+  for item in submissions:
+    if item.ref not in latest:
+      result.append(PrelimPosition(item, "superseded", ""))
+      continue
+    base = bases.get(item.ref)
+    if not isinstance(base, str) or _SHA.fullmatch(base) is None:
+      raise PrelimQueueError("latest PRELIM parent identity missing")
+    result.append(PrelimPosition(item, "current" if base == current_parent_sha else "stale", base))
+  return tuple(result)

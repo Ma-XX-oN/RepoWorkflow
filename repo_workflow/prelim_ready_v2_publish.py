@@ -105,7 +105,7 @@ def publish_destination_prelim(
   # Re-read immutable PASS after the provider write to catch any unexpected
   # state movement.  A write is never accepted as evidence of merge readiness.
   ready = publish_ready_prelim(
-    ticket=ticket, destination=destination, guid=guid,
+    ticket=ticket, destination=destination, version=value["test_version"],
     candidate_sha=value["candidate_sha"], request_id=request_id,
     read_remote=read,
     create_if_absent=lambda ref, sha, identity:

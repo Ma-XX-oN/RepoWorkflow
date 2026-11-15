@@ -34,9 +34,12 @@ def inventory_destination(host, destination):
   if type(destination) is not str or not destination:
     raise QueueAdmissionError("destination identity required")
   provider=IntegrationHostCoordinator(host)
-  submissions=tuple(
-    entry for entry in provider.read_ready_prelims()
-    if entry.destination==destination)
+  try:
+    submissions=tuple(
+      entry for entry in provider.read_ready_prelims()
+      if entry.destination==destination)
+  except Exception as error:
+    raise QueueAdmissionError("PRELIM inventory/provenance changed or UNKNOWN") from error
   lease=provider.read_destination_lease(destination)
   if lease.destination != destination:
     raise QueueAdmissionError("provider lease destination mismatch")
@@ -45,11 +48,10 @@ def inventory_destination(host, destination):
     if (type(parent) is not dict or parent.get("ref") != "refs/heads/" + destination
         or parent.get("destination") != destination):
       raise QueueAdmissionError("destination parent identity differs")
-    history, records = provider.read_submission_history(submissions)
+    records = {item.ref: provider.read_submission(item) for item in submissions}
     positions = classify_prelims(
-      history, current_parent_sha=parent.get("sha"),
-      bases={ref: value["parent_sha"] for ref, value in records.items()},
-      predecessors={ref: value["predecessor_ref"] for ref, value in records.items()})
+      submissions, current_parent_sha=parent.get("sha"),
+      bases={ref: value["parent_sha"] for ref, value in records.items()})
   except Exception as error:
     raise QueueAdmissionError("PRELIM inventory/provenance changed or UNKNOWN") from error
   by_ref = {item.submission.ref: item.position for item in positions}

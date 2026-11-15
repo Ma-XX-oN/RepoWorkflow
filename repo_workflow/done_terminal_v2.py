@@ -31,7 +31,7 @@ class IntegratedTerminal:
 
 
 def publish_integrated_terminal(
-    *, host, ready: ReadyPrelim, int_attempt_ref,
+    *, host, ready: ReadyPrelim, candidate_ref,
     accepted_sha, old_destination_sha, landed_sha, operation_id,
     integration_id, terminal_evidence_ref, record_request_id,
     accepted_integration,
@@ -39,10 +39,11 @@ def publish_integrated_terminal(
   """Append exactly once after provider-confirmed destination CAS."""
   if not isinstance(ready, ReadyPrelim):
     raise TerminalPublicationError("authenticated original PRELIM required")
-  expected_ref = ready.ref.replace("refs/heads/PRELIM-",
-                                   "refs/heads/INT-ATTEMPT-", 1)
-  if int_attempt_ref != expected_ref:
-    raise TerminalPublicationError("terminal INT attempt GUID/scope differs")
+  expected_ref = ready.ref
+  if candidate_ref != expected_ref:
+    raise TerminalPublicationError("terminal PRELIM GUID/scope differs")
+  if accepted_sha != ready.sha:
+    raise TerminalPublicationError("accepted source differs from immutable PRELIM")
   if any(type(v) is not str or _SHA.fullmatch(v) is None
          for v in (ready.sha, accepted_sha, old_destination_sha, landed_sha)):
     raise TerminalPublicationError("invalid accepted or landed SHA")
@@ -73,7 +74,7 @@ def publish_integrated_terminal(
     "status": "integrated",
     "prelim_ref": ready.ref,
     "prelim_sha": ready.sha,
-    "int_attempt_ref": int_attempt_ref,
+    "candidate_ref": candidate_ref,
     "accepted_sha": accepted_sha,
     "destination_ref": "refs/heads/" + ready.destination,
     "expected_destination_sha": old_destination_sha,

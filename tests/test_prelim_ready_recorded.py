@@ -63,7 +63,7 @@ class RecordedReadyTests(unittest.TestCase):
     ):
       return publish_recorded_ready(
         Path("."), {"repository":{"authoritativeRemote":"origin"}},
-        ticket=123,destination="main",guid=G,request_id="publish-123",
+        ticket=123,destination="main",guid=G,version="1.2.3-issue.123.0.1",request_id="publish-123",
         backend=self.backend,
         verify_parent_and_evidence=lambda info:self.authority)
 
@@ -71,7 +71,7 @@ class RecordedReadyTests(unittest.TestCase):
     result=self.publish()
     self.assertEqual(result.sha,C)
     self.assertEqual(len(self.backend.posts),1)
-    self.assertEqual(result.ref,"refs/heads/PRELIM-issue-123/main-"+G)
+    self.assertEqual(result.ref,"refs/heads/PRELIM-issue-123.0.1")
 
   def test_offline_publication_uses_historical_base_without_stale_gate(self):
     with (
@@ -85,7 +85,7 @@ class RecordedReadyTests(unittest.TestCase):
     ):
       result=publish_recorded_ready(
         Path("."),{"repository":{"authoritativeRemote":"origin"}},
-        ticket=123,destination="main",guid=G,request_id="offline-123",
+        ticket=123,destination="main",guid=G,version="1.2.3-issue.123.0.1",request_id="offline-123",
         backend=self.backend,
         verify_parent_and_evidence=lambda info:True)
     self.assertEqual(result.sha,C)
@@ -126,7 +126,7 @@ class RecordedReadyTests(unittest.TestCase):
       with self.assertRaises(ReadyPublicationError):
         publish_recorded_ready_certified(
           Path("."),{"repository":{"authoritativeRemote":"origin"}},
-          ticket=123,destination="main",guid=G,
+          ticket=123,destination="main",guid=G,version="1.2.3-issue.123.0.1",
           request_id="published-123",backend=self.backend,
           resolve_parent=lambda ticket:"main")
     self.assertTrue(verify.called)

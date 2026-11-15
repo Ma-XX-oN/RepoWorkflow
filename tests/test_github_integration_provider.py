@@ -1,15 +1,15 @@
-"""Isolated provider tests for GitHub PRELIM and INT-ATTEMPT primitives."""
+"""Read-only PRELIM provider inventory; execution refs are immutable."""
 import sys
 from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "adapters"))
 from repo_host_github_integration import (
-  IntegrationProviderError, create_int_attempt, inventory_ready_refs,
+  IntegrationProviderError, inventory_ready_refs,
 )
 
 SHA = "a"*40
-REF = ("refs/heads/INT-ATTEMPT-issue-123/"
+REF = ("refs/heads/PRELIM-issue-123/"
        "main-11111111-1111-4111-8111-111111111111")
 
 
@@ -57,49 +57,17 @@ class GithubIntegrationProviderTests(unittest.TestCase):
     self.backend.refs[name] = SHA
     self.assertEqual(inventory_ready_refs(self.backend), {name: SHA})
 
-  def test_create_is_read_back(self):
-    result = create_int_attempt(self.backend, self.request, authorized=True)
-    self.assertEqual(result[0], "applied")
-    self.assertEqual(self.backend.refs[REF], SHA)
-
-  def test_denied_actor_cannot_write(self):
-    with self.assertRaises(IntegrationProviderError):
-      create_int_attempt(self.backend, self.request, authorized=False)
-    self.assertEqual(self.backend.calls, [])
-
-  def test_reserved_retry_cannot_change_sha(self):
-    self.backend.fresh = False
-    self.backend.refs[REF] = "b"*40
-    with self.assertRaises(IntegrationProviderError):
-      create_int_attempt(self.backend, self.request, authorized=True)
-
-  def test_reservation_survives_crash_before_ref_creation(self):
-    self.backend.fresh = False
-    self.assertNotIn(REF, self.backend.refs)
-    status, result = create_int_attempt(
-      self.backend, self.request, authorized=True)
-    self.assertEqual(status, "applied")
-    self.assertEqual(result, {"ref": REF, "sha": SHA})
-    self.assertEqual(self.backend.refs[REF], SHA)
-    self.assertEqual(create_int_attempt(
-      self.backend, self.request, authorized=True)[0], "unchanged")
-
-  def test_reserved_idempotent_readback(self):
-    self.backend.fresh = False
-    self.backend.refs[REF] = SHA
-    self.assertEqual(create_int_attempt(
-      self.backend, self.request, authorized=True)[0], "unchanged")
-    self.assertEqual(self.backend.calls, [])
-
-  def test_lost_reply_can_reconcile_matching_ref(self):
-    self.backend.drop_reply = True
-    self.assertEqual(create_int_attempt(
-      self.backend, self.request, authorized=True)[0], "applied")
-
-  def test_ref_collision_does_not_write(self):
-    self.backend.refs[REF] = "b"*40
-    with self.assertRaises(IntegrationProviderError):
-      create_int_attempt(self.backend, self.request, authorized=True)
+  def test_provider_cannot_create_or_mutate_execution_refs(self):
+    """Candidate publication uses atomic immutable receipts, not host mutation."""
+    from repo_workflow.integration_host_v2 import IntegrationHost, IntegrationHostError
+    attempted = []
+    host = IntegrationHost("Org/Repo", lambda value: attempted.append(value))
+    for operation, parameters in (
+        ("ref.create", {"ref":REF,"sha":SHA}),
+        ("ref.cas", {"ref":REF,"expected_sha":"b"*40,"sha":SHA})):
+      with self.subTest(operation=operation), self.assertRaises(IntegrationHostError):
+        host.request(operation, "unsupported-candidate-mutation", parameters)
+    self.assertEqual(attempted, [])
     self.assertEqual(self.backend.calls, [])
 
   def test_inventory_across_two_pages(self):

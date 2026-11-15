@@ -2,6 +2,7 @@
 
 This is not authenticated provider certification or #103 ref cleanup.
 """
+from dataclasses import replace
 import unittest
 
 from repo_workflow.done_executor import CertifiedAttempt, DoneExecutionError
@@ -18,9 +19,9 @@ from repo_workflow.integration_admission import AdmissionDecision
 from repo_workflow.prelim_queue import parse_ready_prelim
 
 
-G = "11111111-1111-4111-8111-111111111111"
-P = f"refs/heads/PRELIM-issue-123/main-{G}"
-I = P.replace("PRELIM-", "INT-ATTEMPT-")
+P = "refs/heads/PRELIM-issue-123.0.1"
+G = parse_ready_prelim(P, "a" * 40).guid
+I = P
 A, B, C, D = ("a"*40, "b"*40, "c"*40, "d"*40)
 
 
@@ -39,6 +40,12 @@ class Provider:
     self.policy_text = None
     self.policy_reads = 0
   def request(self, operation, key, p):
+    if operation == "submission.read":
+      return {"guid": G, "record": {
+        "repository": self.repository, "guid": G, "prelim_ref": P,
+        "source_sha": A, "candidate_sha": A, "parent_sha": B,
+        "destination": "main", "version": "1.2.3-issue.123.0.1",
+        "inputs_sha256": "f" * 64, "release": "patch"}}
     self.calls.append(operation)
     if operation == self.fail:
       raise ConnectionError("UNKNOWN")
@@ -70,15 +77,8 @@ class Provider:
       return {"destination":"main","ref":"refs/heads/main",
               "sha":self.main,"policy_present":self.policy_present,
               "policy_text":self.policy_text}
-    if operation == "ref.create":
-      self.int_sha = p["sha"]
-      return {"ref":p["ref"],"sha":self.int_sha}
-    if operation == "ref.cas":
-      assert p["expected_sha"] == self.int_sha
-      self.int_sha = p["sha"]
-      return {"ref":p["ref"],"sha":self.int_sha}
     if operation == "destination.accept":
-      assert p["record"]["accepted_sha"] == self.int_sha
+      assert p["record"]["accepted_sha"] == A
       assert p["record"]["expected_destination_sha"] == self.main
       self.main = p["record"]["proposed_sha"]
       return {"destination":"main","expected_sha":B,
@@ -92,14 +92,14 @@ class Provider:
 class PipelineTests(unittest.TestCase):
   def setUp(self):
     self.host = Provider()
-    self.ready = parse_ready_prelim(P,A)
+    self.ready = parse_ready_prelim(P,A,destination="main")
     self.plan = DonePlan(
       "123","patch","main",A,B,"ALLOWED",True,False,None,(),())
     self.calls = {"prepare":0}
   def invoke(self, **overrides):
     def prepare(plan):
       self.calls["prepare"] += 1
-      return CertifiedAttempt(A,I,C,B,"tests-1","auth-1",
+      return CertifiedAttempt(A,I,A,B,"tests-1","auth-1",
                               "op-1",P)
     args = {
       "host":self.host,"ready":self.ready,"holder":"worker-A",
@@ -118,12 +118,27 @@ class PipelineTests(unittest.TestCase):
           "catalogue","config","inputs","2027-01-01T00:00:00Z",True)
           for name in ("ART","AIT","release")),
         VerifiedMitPolicy(source,parent,False,"policy-ref",True)),
-      "create_id":"create-1","update_id":"update-1",
       "integration_id":"integration-1",
       "terminal_evidence_ref":"terminal-proof-1",
       "terminal_request_id":"terminal-1",
     }
     return accept_one_ready_submission(**{**args,**overrides})
+
+  def test_deferred_tests_finish_before_entering_the_strict_merge_executor(self):
+    """Missing tests may run remotely; only a refreshed allowed plan merges."""
+    pending = replace(self.plan, allowed=False, submission_allowed=True,
+                      disposition="BLOCKED", missing_gates=("regression",))
+    result = self.invoke(original_plan=pending)
+    self.assertEqual(result.plan, self.plan)
+    self.assertEqual(self.host.main, D)
+
+  def test_unfinished_deferred_tests_cannot_merge(self):
+    """An unchanged missing gate remains blocked after stage preparation."""
+    pending = replace(self.plan, allowed=False, submission_allowed=True,
+                      disposition="BLOCKED", missing_gates=("regression",))
+    with self.assertRaisesRegex(DoneExecutionError, "not allowed"):
+      self.invoke(original_plan=pending, refresh_plan=lambda: pending)
+    self.assertEqual(self.host.main, B)
 
   def test_mit_timeout_persists_deferral_and_releases_lease(self):
     def timeout(plan):
@@ -151,7 +166,7 @@ class PipelineTests(unittest.TestCase):
   def test_one_ready_end_to_end_local_provider_simulation(self):
     result=self.invoke()
     self.assertEqual(result.accepted.landed_sha,D)
-    self.assertEqual(result.terminal.accepted_sha,C)
+    self.assertEqual(result.terminal.accepted_sha,A)
     self.assertEqual(self.host.terminal["status"],"integrated")
     self.assertEqual(self.host.main,D)
     self.assertEqual(self.host.lease["generation"],2)

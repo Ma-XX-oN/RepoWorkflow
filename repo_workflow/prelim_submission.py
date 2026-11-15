@@ -3,13 +3,13 @@ import json
 from pathlib import Path
 import re
 
-from .prelim_queue import parse_ready_prelim
+from .prelim_queue import parse_ready_prelim, prelim_ref_for_version
 from .git import git
 
 
 PREFIX = "RWF-PRELIM-SUBMISSION-V1 "
 FIELDS = {"repository", "guid", "prelim_ref", "source_sha", "candidate_sha",
-          "parent_sha", "predecessor_ref", "inputs_sha256", "release"}
+          "parent_sha", "destination", "version", "inputs_sha256", "release"}
 
 
 class SubmissionError(ValueError):
@@ -44,18 +44,14 @@ def validate_submission(record: dict, *, repository: str, guid: str) -> None:
       or re.fullmatch(r"[0-9a-f]{64}", record["inputs_sha256"]) is None):
     raise SubmissionError("submission needs an exact relevant-input digest")
   try:
-    ready = parse_ready_prelim(record["prelim_ref"], record["candidate_sha"])
-    predecessor = (parse_ready_prelim(record["predecessor_ref"], record["candidate_sha"])
-                   if record["predecessor_ref"] is not None else None)
+    ready = parse_ready_prelim(record["prelim_ref"], record["candidate_sha"],
+                                destination=record["destination"])
+    expected_ref = prelim_ref_for_version(record["version"])
   except (ValueError, TypeError) as error:
     raise SubmissionError("invalid submission ref identity") from error
-  if ready is None or ready.guid != guid:
-    raise SubmissionError("submission ref differs from GUID")
-  if record["predecessor_ref"] is not None and (
-      predecessor is None or predecessor.ref == ready.ref
-      or (predecessor.umbrella, predecessor.destination)
-         != (ready.umbrella, ready.destination)):
-    raise SubmissionError("predecessor must be another generation of the same issue and parent")
+  if (ready is None or ready.guid != guid or ready.ref != expected_ref
+      or not isinstance(record["destination"], str) or not record["destination"]):
+    raise SubmissionError("submission ref differs from version or parent metadata")
 
 
 def submission_message(record: dict) -> str:
@@ -204,5 +200,5 @@ def publish_submission(root: Path, record: dict, *, remote: str, push: bool = Tr
       raise SubmissionError("submission publication UNKNOWN; reconcile provider refs")
     if result.returncode:
       # A lost response is reconciled only by exact readback of both objects.
-      return parse_ready_prelim(ready_ref, candidate)
-  return parse_ready_prelim(ready_ref, candidate)
+      return parse_ready_prelim(ready_ref, candidate, destination=record["destination"])
+  return parse_ready_prelim(ready_ref, candidate, destination=record["destination"])

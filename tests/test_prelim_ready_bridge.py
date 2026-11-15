@@ -28,7 +28,7 @@ class BridgeTests(unittest.TestCase):
       self.refs[ref] = sha
       return True
     arguments = dict(
-      ticket=123, destination="main", request_id="publish-"+G,
+      ticket=123, destination="main", version="1.2.3-issue.123.0.1", request_id="publish-"+G,
       verify_authoritative=self.verify,
       read_remote=lambda ref:self.refs.get(ref),
       create_if_absent=create,
@@ -40,7 +40,7 @@ class BridgeTests(unittest.TestCase):
   def test_ready_ref_is_exact_candidate(self):
     result = self.publish()
     self.assertEqual(result.sha, C)
-    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-123/main-"+G)
+    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-123.0.1")
     self.assertEqual(self.seen[0].source_sha, S)
     self.assertEqual(self.seen[0].base_sha, B)
 
@@ -76,7 +76,7 @@ class BridgeTests(unittest.TestCase):
 
   def test_non_main_requires_explicit_authority(self):
     result = self.publish(destination="issue-100")
-    self.assertIn("/issue-100-", result.ref)
+    self.assertEqual(result.ref, "refs/heads/PRELIM-issue-123.0.1")
     self.assertEqual(self.seen[-1].destination, "issue-100")
 
 

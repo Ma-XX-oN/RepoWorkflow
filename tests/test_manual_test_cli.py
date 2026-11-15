@@ -239,6 +239,65 @@ class TestManualLauncher(unittest.TestCase):
     self.assertEqual(next_case.returncode, 0, next_case.stderr)
     self.assertIn("issue-702-manual--a-first", next_case.stdout)
 
+  def test_prompt_endpoint_tracks_selection_and_disappears_after_completion(self):
+    """Shell queries expose only progress and do not mutate manual state."""
+    self.assertEqual(self.cli("manual-prompt").stdout, "[MIT 1/2]")
+    self.assertEqual(self.cli("test", "integration", "--manual", "2").returncode, 0)
+    self.assertEqual(self.cli("manual-prompt").stdout, "[MIT 2/2]")
+    self.assertEqual(self.cli("test", "succeeded").returncode, 0)
+    self.assertEqual(self.cli("manual-prompt").stdout, "[MIT 1/2]")
+    self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
+    self.assertEqual(self.cli("test", "succeeded").returncode, 0)
+    result = self.cli("manual-prompt")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(result.stdout, "")
+
+  def test_bash_prompt_preserves_existing_prompt_exit_status_and_reinstallation(self):
+    """The actual Bash hook updates once and preserves the previous status."""
+    hook = self.engine / "scripts/rwf-prompt.bash"
+    script = '''
+source "$1" "$2"
+source "$1" "$2"
+PS1='existing> '
+false
+_rwf_manual_prompt
+rwf_result=$?
+printf '%s|%s|%s' "$rwf_result" "$PS1" "$PROMPT_COMMAND"
+'''
+    shell = Path(shutil.which("sh"))
+    bash = shell.with_name("bash" + shell.suffix)
+    result = subprocess.run([str(bash), "--noprofile", "--norc", "-c", script,
+                             "rwf-prompt-test", str(hook), str(self.engine / "repo_workflow.py")],
+                            cwd=self.root, capture_output=True, text=True, check=False)
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(result.stdout, "1|[MIT 1/2] existing> |_rwf_manual_prompt")
+
+  def test_native_prompt_preserves_the_process_exit_status(self):
+    """Execute the native platform hook with the same progress/status oracle."""
+    if sys.platform == "win32":
+      hook = (self.engine / "scripts/rwf-prompt.ps1").as_posix().replace("'", "''")
+      script = ("function global:prompt { 'existing> ' }; "
+                f". '{hook}'; . '{hook}'; "
+                "$global:LASTEXITCODE = 37; prompt; "
+                "[Console]::Write($global:LASTEXITCODE)")
+      command = [shutil.which("pwsh") or "powershell", "-NoProfile", "-Command", script]
+    else:
+      script = '''
+source "$1" "$2"
+PS1='existing> '
+(exit 37)
+_rwf_manual_prompt
+rwf_result=$?
+printf '%s%s' "$PS1" "$rwf_result"
+'''
+      command = ["bash", "--noprofile", "--norc", "-c", script, "rwf-native-prompt",
+                 str(self.engine / "scripts/rwf-prompt.bash"),
+                 str(self.engine / "repo_workflow.py")]
+    result = subprocess.run(command, cwd=self.root, capture_output=True,
+                            text=True, check=False)
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(result.stdout.replace("\n", ""), "[MIT 1/2] existing> 37")
+
   def test_pending_manual_result_must_not_complete_gate(self):
     self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
     pending = self.root / ".repoworkflow" / "manual" / "pending-702.json"

@@ -5,6 +5,7 @@ unchanged; callers must reject absent v2 capability.
 """
 from collections.abc import Callable
 import re
+from .prelim_queue import parse_ready_prelim
 
 
 class IntegrationHostError(RuntimeError):
@@ -14,16 +15,11 @@ class IntegrationHostError(RuntimeError):
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _GUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _ID = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
-_REF = re.compile(
-  r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
-  r"[A-Za-z0-9._/-]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 _OPERATIONS = {
   "destination.read": {"destination"},
   "destination.accept": {"record"},
   "refs.list": {"prefix"},
   "submission.read": {"guid"},
-  "ref.create": {"ref", "sha"},
-  "ref.cas": {"ref", "expected_sha", "sha"},
   "lease.read": {"destination"},
   "lease.cas": {"destination", "expected_generation",
                 "expected_holder", "expected_guid", "holder", "guid"},
@@ -39,7 +35,7 @@ _OPERATIONS = {
 _STATUSES = {"integrated", "failed", "rejected"}
 _TERMINAL_FIELDS = {
   "repository", "guid", "status", "prelim_ref", "prelim_sha",
-  "int_attempt_ref", "accepted_sha", "destination_ref",
+  "candidate_ref", "accepted_sha", "destination_ref",
   "expected_destination_sha", "observed_destination_sha",
   "landed_sha", "integration_id", "provider_operation_id", "umbrella",
   "terminal_evidence_ref",
@@ -58,6 +54,9 @@ def _valid_terminal(value, guid, repository=None):
     return False
   if repository is not None and value["repository"] != repository:
     return False
+  if (value["candidate_ref"] != value["prelim_ref"]
+      or value["accepted_sha"] != value["prelim_sha"]):
+    return False
   for name in ("prelim_sha", "accepted_sha", "expected_destination_sha",
                "observed_destination_sha"):
     if type(value[name]) is not str or _SHA.fullmatch(value[name]) is None:
@@ -71,26 +70,12 @@ def _valid_terminal(value, guid, repository=None):
   if (type(value["destination_ref"]) is not str
       or not value["destination_ref"].startswith("refs/heads/")):
     return False
-  scopes = []
-  for key, prefix in (("prelim_ref", "PRELIM-"),
-                      ("int_attempt_ref", "INT-ATTEMPT-")):
-    ref = value[key]
-    marker = "refs/heads/" + prefix
-    if type(ref) is not str or not ref.startswith(marker):
-      return False
-    if not ref.endswith("-" + guid):
-      return False
-    scope = ref[len(marker):-(len(guid) + 1)]
-    if "/" not in scope:
-      return False
-    umbrella, destination = scope.split("/", 1)
-    if (not umbrella or not destination
-        or any(x in ("", ".", "..") for x in destination.split("/"))):
-      return False
-    scopes.append((umbrella, destination))
-  if (scopes[0] != scopes[1] or
-      value["destination_ref"] != "refs/heads/" + scopes[0][1]
-      or value["umbrella"] != scopes[0][0]):
+  try:
+    ready = parse_ready_prelim(value["prelim_ref"], value["prelim_sha"],
+                              destination=value["destination_ref"].removeprefix("refs/heads/"))
+  except (ValueError, TypeError):
+    return False
+  if ready is None or ready.guid != guid or ready.umbrella != value["umbrella"]:
     return False
   if (type(value["integration_id"]) is not str
       or _ID.fullmatch(value["integration_id"]) is None
@@ -146,27 +131,28 @@ def _valid_retirement(record, guid, kind, repository):
       or record["ref_kind"] != kind or
       record["outcome"] != "retired"):
     return False
-  if kind not in {"PRELIM", "INT-ATTEMPT"}:
+  if kind != "PRELIM":
     return False
   if any(type(record[k]) is not str or _SHA.fullmatch(record[k]) is None
          for k in ("expected_sha", "landed_sha")):
     return False
-  marker = "refs/heads/" + kind + "-"
-  if (type(record["retired_ref"]) is not str
-      or not record["retired_ref"].startswith(marker)
-      or not record["retired_ref"].endswith("-" + guid)
-      or type(record["destination_ref"]) is not str
-      or not record["destination_ref"].startswith("refs/heads/")
-      or type(record["operation_id"]) is not str
-      or _ID.fullmatch(record["operation_id"]) is None
-      or type(record["terminal_evidence_ref"]) is not str
-      or not record["terminal_evidence_ref"].strip()):
+  try:
+    destination_ref = record["destination_ref"]
+    if not isinstance(destination_ref, str) or not destination_ref.startswith("refs/heads/"):
+      return False
+    ready = parse_ready_prelim(record["retired_ref"], record["expected_sha"],
+                              destination=destination_ref.removeprefix("refs/heads/"))
+  except (ValueError, TypeError):
     return False
-  return True
+  return (ready is not None and ready.guid == guid
+          and type(record["operation_id"]) is str
+          and _ID.fullmatch(record["operation_id"]) is not None
+          and type(record["terminal_evidence_ref"]) is str
+          and bool(record["terminal_evidence_ref"].strip()))
 
 
 _ACCEPT_FIELDS = {
-  "repository", "destination", "int_attempt_ref", "accepted_sha",
+  "repository", "destination", "candidate_ref", "accepted_sha",
   "expected_destination_sha", "proposed_sha", "guid", "lease_generation",
   "holder", "authorization_ref", "evidence_ref", "operation_id",
 }
@@ -189,26 +175,17 @@ def _valid_acceptance(v):
   for key in ("accepted_sha", "expected_destination_sha", "proposed_sha"):
     if type(v[key]) is not str or _SHA.fullmatch(v[key]) is None:
       return False
+  try:
+    ready = parse_ready_prelim(v["candidate_ref"], v["accepted_sha"], destination=v["destination"])
+  except (ValueError, TypeError):
+    return False
   if (v["expected_destination_sha"] == v["proposed_sha"]
-      or type(v["int_attempt_ref"]) is not str
-      or re.fullmatch(
-        r"refs/heads/INT-ATTEMPT-[A-Za-z0-9._-]+/"
-        + re.escape(v["destination"]) + "-" + re.escape(v["guid"]),
-        v["int_attempt_ref"]) is None
+      or ready is None or ready.guid != v["guid"]
       or type(v["operation_id"]) is not str
       or _ID.fullmatch(v["operation_id"]) is None):
     return False
   return all(type(v[k]) is str and bool(v[k].strip())
              for k in ("authorization_ref", "evidence_ref"))
-
-
-def _valid_ref(ref):
-  if type(ref) is not str or not _REF.fullmatch(ref):
-    return False
-  suffix = ref.split("/", 3)[3]
-  destination = suffix[:-37]
-  return all(part and part not in (".", "..")
-             for part in destination.split("/"))
 
 
 def _valid_params(op, values):
@@ -237,8 +214,6 @@ def _valid_params(op, values):
     return _valid_acceptance(values["record"])
   if op == "refs.list":
     return values["prefix"] == "refs/heads/PRELIM-"
-  if op in {"ref.create", "ref.cas"}:
-    return _valid_ref(values["ref"])
   if op == "lease.cas":
     return ((values["expected_guid"] is None) ==
             (values["expected_holder"] is None) and
@@ -255,7 +230,7 @@ def _valid_params(op, values):
       values[kind].get("repository") if type(values[kind]) is dict else None,
       resume=(kind == "authorization"))
   if op.startswith("retirement."):
-    if values["ref_kind"] not in ("PRELIM", "INT-ATTEMPT"):
+    if values["ref_kind"] != "PRELIM":
       return False
     if op == "retirement.record":
       record = values["record"]
@@ -306,10 +281,6 @@ def _valid_result(operation, request, result):
     except (SubmissionError, AttributeError, TypeError):
       return False
     return True
-  if operation in {"ref.create", "ref.cas"}:
-    return (set(result) == {"ref", "sha"} and
-            result["ref"] == request["ref"] and
-            result["sha"] == request["sha"])
   if operation in {"lease.read", "lease.cas"}:
     if set(result) != {"destination", "generation", "holder", "guid"}:
       return False

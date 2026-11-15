@@ -8,10 +8,6 @@ from repo_workflow.prelim_queue import (
   PrelimQueueError, discover_ready_prelims, verify_immutable_prelims,
 )
 
-A = "11111111-1111-4111-8111-111111111111"
-B = "22222222-2222-4222-8222-222222222222"
-
-
 def git(where, *args):
   result = subprocess.run(
     ["git", "-C", str(where), *args],
@@ -59,22 +55,22 @@ class OfflineGitPrelimTests(unittest.TestCase):
     return refs
 
   def test_two_offline_developers_can_submit_without_shared_queue(self):
-    for repo, issue, guid in [(self.a, 123, A), (self.b, 456, B)]:
+    for repo, issue in [(self.a, 123), (self.b, 456)]:
       (repo / f"issue-{issue}").write_text(f"issue-{issue}\n")
       git(repo, "add", f"issue-{issue}")
       git(repo, "commit", "-m", f"issue-{issue}")
-      name = f"PRELIM-issue-{issue}/main-{guid}"
+      name = f"PRELIM-issue-{issue}.0.1"
       git(repo, "branch", name)
       git(repo, "push", "origin", name)
     ready = discover_ready_prelims(self.published())
     self.assertEqual(len(ready), 2)
-    self.assertEqual({x.destination for x in ready}, {"main"})
+    self.assertEqual({x.destination for x in ready}, {""})
     self.assertEqual(
       {x.umbrella for x in ready}, {"issue-123", "issue-456"},
     )
 
   def test_unprotected_remote_update_is_detected_not_prevented(self):
-    name = f"PRELIM-issue-123/main-{A}"
+    name = "PRELIM-issue-123.0.1"
     git(self.a, "branch", name)
     git(self.a, "push", "origin", name)
     recorded = {

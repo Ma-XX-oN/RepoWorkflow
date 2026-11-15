@@ -37,7 +37,7 @@ def retirement_bridge_from_v2(host, terminal: IntegratedTerminal):
     raise RetirementBridgeError("stored terminal does not match landing")
   landed = LandedIntegration(
     record["prelim_ref"], record["prelim_sha"],
-    record["int_attempt_ref"], record["accepted_sha"],
+    record["candidate_ref"], record["accepted_sha"],
     record["destination_ref"], record["landed_sha"],
     record["integration_id"], record["terminal_evidence_ref"],
   )
@@ -57,7 +57,7 @@ def retirement_bridge_from_v2(host, terminal: IntegratedTerminal):
       raise RetirementBridgeError("terminal provider readback differs")
     keys = (
       "status", "prelim_ref", "prelim_sha",
-      "int_attempt_ref", "accepted_sha", "destination_ref",
+      "candidate_ref", "accepted_sha", "destination_ref",
       "landed_sha", "integration_id", "terminal_evidence_ref",
     )
     return {key: record[key] for key in keys}

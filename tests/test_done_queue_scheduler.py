@@ -9,10 +9,10 @@ from repo_workflow.prelim_queue import parse_ready_prelim
 
 
 B="b"*40
-OTHER="22222222-2222-4222-8222-222222222222"
-DIFFERENT="33333333-3333-4333-8333-333333333333"
-ALT=f"refs/heads/PRELIM-issue-124/main-{OTHER}"
-SIDE=f"refs/heads/PRELIM-issue-125/side-{DIFFERENT}"
+ALT="refs/heads/PRELIM-issue-124.0.1"
+SIDE="refs/heads/PRELIM-issue-125.0.1"
+OTHER=parse_ready_prelim(ALT, B).guid
+DIFFERENT=parse_ready_prelim(SIDE, A).guid
 
 
 class QueueHost(FakeHost):
@@ -26,11 +26,12 @@ class QueueHost(FakeHost):
     self.approvals={}
     self.inventory_reads=0
     self.change_ref_after_first=False
-  def receipt(self, ref, sha, predecessor=None):
+  def receipt(self, ref, sha):
     """Construct an explicit provider-provenance fixture, not test evidence."""
     return {"repository":self.repository, "guid":parse_ready_prelim(ref, sha).guid,
             "prelim_ref":ref, "source_sha":sha, "candidate_sha":sha,
-            "parent_sha":"f"*40, "predecessor_ref":predecessor,
+            "parent_sha":"f"*40, "destination":"side" if ref == SIDE else "main",
+            "version":"1.2.3-" + ref.removeprefix("refs/heads/PRELIM-").replace("issue-", "issue.", 1),
             "inputs_sha256":"f"*64, "release":"patch"}
   def request(self,operation,key,params):
     if operation=="refs.list":
@@ -65,29 +66,30 @@ class QueueTests(unittest.TestCase):
 
   def test_superseded_submission_never_reappears_after_latest_failure(self):
     """The latest generation, including its failure, governs this issue."""
-    guid = "44444444-4444-4444-8444-444444444444"
-    latest = f"refs/heads/PRELIM-issue-123/main-{guid}"
+    latest = "refs/heads/PRELIM-issue-123.0.10"
+    guid = parse_ready_prelim(latest, B).guid
     self.host.refs = {REF:A, latest:B}
-    self.host.submissions[guid] = self.host.receipt(latest, B, REF)
+    self.host.submissions[guid] = self.host.receipt(latest, B)
+    self.host.submissions.pop(GUID)
     self.host.terminals[guid] = {"repository":self.host.repository,
                                  "guid":guid,"status":"failed"}
     state = inventory_destination(self.host, "main")
     self.assertEqual(state.pending, ())
-    self.assertEqual([item.ref for item in state.superseded], [REF])
+    self.assertEqual(state.superseded, ())
     self.assertEqual([item.ref for item in state.terminal], [latest])
 
-  def test_missing_receipt_blocks_instead_of_guessing_order(self):
-    """Physical ref inventory alone does not establish generation order."""
+  def test_missing_latest_receipt_blocks_execution(self):
+    """Version orders refs, but execution still requires exact provenance."""
     self.host.submissions.pop(GUID)
-    with self.assertRaisesRegex(QueueAdmissionError, "provenance"):
+    with self.assertRaisesRegex(QueueAdmissionError, "metadata|provenance"):
       inventory_destination(self.host, "main")
 
-  def test_stale_latest_keeps_retired_predecessor_history(self):
-    """Historical receipt ancestry survives removing an old physical ref."""
-    guid = "44444444-4444-4444-8444-444444444444"
-    latest = f"refs/heads/PRELIM-issue-123/main-{guid}"
+  def test_stale_latest_does_not_require_old_receipts(self):
+    """Only selected version metadata participates in stale classification."""
+    latest = "refs/heads/PRELIM-issue-123.0.10"
+    guid = parse_ready_prelim(latest, B).guid
     self.host.refs = {latest:B}
-    self.host.submissions[guid] = self.host.receipt(latest, B, REF)
+    self.host.submissions = {guid: self.host.receipt(latest, B)}
     self.host.submissions[guid]["parent_sha"] = "e"*40
     state = inventory_destination(self.host, "main")
     self.assertEqual([item.ref for item in state.pending], [latest])

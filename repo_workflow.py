@@ -109,6 +109,8 @@ def build_parser() -> argparse.ArgumentParser:
   parser.add_argument("--root", default=".", help="consumer repository root")
   commands = parser.add_subparsers(dest="command", required=True)
 
+  commands.add_parser("manual-prompt", help="read the current [MIT n/m] prompt prefix")
+
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
 
@@ -256,6 +258,10 @@ def main(argv: list[str] | None = None) -> int:
 
     args = build_parser().parse_args(argv)
     root = _root(args.root)
+    if args.command == "manual-prompt":
+      from repo_workflow.manual_test_cli import manual_prompt
+      print(manual_prompt(root), end="")
+      return 0
     if args.command == "preflight":
       candidate = validate_candidate(
         root,
