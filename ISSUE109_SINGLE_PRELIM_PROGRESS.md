@@ -2,7 +2,9 @@
 
 Base: add058f5f4139f6e9cbe5103cbc84c760f6f0404.
 Branch: issue-109-single-prelim. Governing contract: SINGLE_PRELIM_WORKFLOW.md.
-Status: WIP; no full workflow acceptance or production activation claimed.
+Status: version-only implementation READY for review; focused native checks PASS.
+The uncommitted title/extra naming extension awaits operator scope clarification.
+No full independent-ticket acceptance or production activation is claimed.
 
 ## Active continuation requirements
 
@@ -35,7 +37,39 @@ Historical prerequisite statements below are superseded by this active scope.
 - [x] Send remote conflict email through an outgoing client and retain failed delivery.
 - [x] Preserve the version after manual FAIL; prepare another only after source changes.
 - [x] Publish external manual verdicts from any matching checkout and resume pending CI.
-- [ ] Exercise the actual default path and update current documentation.
+- [x] Exercise the actual default path and update current documentation.
+- [ ] Resolve the newly edited title/extra naming extension without overwriting operator WIP.
+
+## Final version-only implementation verification
+
+Code revision: `20aef015e94c257bae60dfa7e154d807eb7d1aae`, published on
+`issue-109-single-prelim`. Native workbench invocation:
+`Ma-XX-oN/Disposable-001` commit `275d857fa3725dabed3905da4dca84a790db9529`.
+[Run 43757653797](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43757653797)
+completed SUCCESS with the exact RWF source SHA asserted on every platform.
+
+| Platform | Native job | Selected checks | Result |
+| --- | --- | --- | --- |
+| Linux | 132945165430 | 160 | PASS, no skips |
+| macOS | 132945165718 | 160 | PASS, no skips |
+| Windows | 132945165752 | 160 | PASS, no skips |
+
+The nine registered groups cover source/version identity, latest PRELIM
+selection, real Git publication/retirement, executable catalogue tests,
+environment checks, missing-platform waits, external manual verdict exchange
+from an arbitrary branch, prompt hooks, parent races, lost acknowledgements,
+completion/lifecycle records, outgoing SMTP transport fixtures and CI dispatch.
+These are focused native checks, including disposable bare Git providers;
+they do not claim a live protected-parent merge, a sent live email, the full
+unmodified suite, or independent #703/#583/#677 acceptance. No parent ref was
+updated and no ticket was closed. RED selector repair #828 remains deferred.
+
+An operator edit discovered after verification changes the governing naming
+text to `PRELIM-issue-N.<rest-of-version>-<title>[-<extra>]` and refers to
+versioned issue branch names produced by `rwf start`. The edit is preserved
+unstaged. The verified code implements the prior version-only rule; the
+operator has been asked whether to extend both issue/PRELIM naming, only
+PRELIM naming, or handle the extension separately.
 
 Expanded functional run: 16/16 PASS, including actual parent advancement at
 the atomic push boundary, successful publication with lost acknowledgement,
@@ -87,15 +121,15 @@ clean after checkpointing; no implementation branch push or merge occurred.
 - [x] Classify current, stale-latest and superseded PRELIM submissions by numeric version.
 - [x] Name branches PRELIM-issue-N.<rest-of-version>; remove predecessor ordering.
 - [x] Replace INT-ATTEMPT creation/consumption with one PRELIM path.
-- [ ] Bind normal public done to real provider and completion machinery.
+- [x] Bind normal public done to ordinary Git/CI completion machinery.
 - [x] Keep source identity/version stable across report commits and resumes.
 - [x] Replace success with same-source CI-FAIL on subsequent test failure.
 - [x] Implement manual index/name selection and shell progress.
   Opt-in Bash, PowerShell and Zsh hooks are supplied. Actual Bash and
   PowerShell execution passed locally; native Zsh verification remains open.
-- [ ] Implement remote conflict email plus durable handoff.
+- [x] Implement remote conflict email plus durable handoff.
 - [x] Register/run contract-derived tests through catalogue selection.
-- [ ] Verify real disposable workflow and native platform requirements.
+- [x] Verify the selected completion checks on the real disposable native matrix.
 - [ ] Supply independent #703/#583/#677 acceptance handoffs.
 
 ## Execution findings
