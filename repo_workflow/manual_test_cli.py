@@ -258,12 +258,11 @@ def record_selected(root: Path, *, outcome: str) -> int:
     raise TestCommandError(
       "manual result readback mismatch; outcome is not accepted"
     )
-  from .done_manual_resume import resume_manual_done
-  from adapters.repo_host_github_provider import ProviderError
+  from .done_manual_resume import resume_manual_done, ManualReportDeliveryError
   try:
     resumed = resume_manual_done(root, issue, sha,
       complete=outcome == "failed" or all(verified.get(item.name) == "succeeded" for item in cases))
-  except (GitError, ProviderError):
+  except (GitError, ManualReportDeliveryError):
     print("Manual verdict saved locally; CI delivery is pending. Resume with rwf done.")
     resumed = None
   if resumed is not None:

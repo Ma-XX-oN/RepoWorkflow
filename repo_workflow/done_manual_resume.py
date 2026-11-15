@@ -9,6 +9,10 @@ from .prelim_queue import discover_ready_prelims, latest_prelims
 from .prelim_submission import PREFIX, decode_submission, submission_ref
 
 
+class ManualReportDeliveryError(RuntimeError):
+  """A saved verdict could not wake its submitted CI attempt."""
+
+
 def resume_manual_done(root: Path, issue: int, candidate: str, *, complete: bool) -> dict | None:
   """Deliver actual manual evidence for the latest matching submission.
 
@@ -48,5 +52,9 @@ def resume_manual_done(root: Path, issue: int, candidate: str, *, complete: bool
   report = publish_report(root, plan)
   if complete:
     from .done_workflow import dispatch_done
-    return dispatch_done(root, plan)
+    from adapters.repo_host_github_provider import ProviderError
+    try:
+      return dispatch_done(root, plan)
+    except ProviderError as error:
+      raise ManualReportDeliveryError("CI dispatch pending for recorded manual verdict") from error
   return {"status": "reported", "report_ref": report, "prelim_ref": ready.ref}

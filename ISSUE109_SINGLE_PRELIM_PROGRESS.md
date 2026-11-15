@@ -65,6 +65,11 @@ transport; production certificate verification and expected results are unchange
 No platform skip or alternate expectation was added. Final-source rerun follows
 the manual-verdict delivery handoff: each verdict publishes a real report;
 the final PASS or FAIL dispatches CI, and report-tag pushes also wake the worker.
+The updated arbitrary-branch manual report/acceptance check passed in the
+16-case functional group. Standalone CLI verification exposed an eager
+provider-adapter import; loading it only for an actual submitted CI attempt
+preserves standalone manual testing. Corrected reruns: manual CLI 17 PASS,
+native submission 7 PASS (Temp/rwf109-manual-cli-resume-fixed.log).
 
 Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972`.
 Post-commit catalogue verification at that SHA: 21 single-PRELIM checks,
