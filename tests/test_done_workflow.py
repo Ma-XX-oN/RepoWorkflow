@@ -158,18 +158,21 @@ class DoneWorkflowTests(unittest.TestCase):
 
   def test_external_manual_result_is_required_and_survives_report_exchange(self):
     """Missing manual work waits; a real recorded external verdict permits merge."""
-    from repo_workflow.done_results import publish_report
+    from repo_workflow.done_manual_resume import resume_manual_done
     from repo_workflow.manual_test_catalogue import read_manual_cases
     from repo_workflow.manual_test_state import select_manual_case
     from repo_workflow.manual_test_result import record_manual_result
     plan = {**self.prepared(manual=True), "platforms": [platform_name()]}
     run_done_tests(self.root, plan)
     self.assertEqual(accept_done(self.root, plan)["manual"], ["issue-51-manual--CHECK"])
+    git(self.root, "checkout", "-b", "external-tester")
     cases = read_manual_cases(self.root, 51)
     select_manual_case(self.root, 51, plan["candidate_sha"], cases[0], cases=cases)
     record_manual_result(self.root, 51, plan["candidate_sha"], "succeeded",
       operator="external-fixture-tester", cases=cases)
-    publish_report(self.root, plan)
+    with patch("repo_workflow.done_workflow.dispatch_done", return_value={"status": "submitted"}) as dispatch:
+      self.assertEqual(resume_manual_done(self.root, 51, plan["candidate_sha"], complete=True)["status"], "submitted")
+      dispatch.assert_called_once()
     self.assertEqual(accept_done(self.root, plan)["status"], "done")
 
   def test_parent_race_at_push_cannot_merge_or_roll_back(self):
@@ -232,6 +235,7 @@ class ConflictEmailTests(unittest.TestCase):
     with patch.dict("os.environ", {"SMTP_HOST": "smtp.example.com", "SMTP_FROM": "rwf@example.com",
         "SMTP_USERNAME": "rwf", "SMTP_PASSWORD": "fixture", "RWF_NOTIFICATION_EMAIL": "user@example.com"}, clear=True), \
         patch("repo_workflow.done_email.git") as configured, \
+        patch("repo_workflow.done_email.ssl.create_default_context"), \
         patch("repo_workflow.done_email.smtplib.SMTP") as smtp:
       configured.return_value.stdout = ""
       client = smtp.return_value
@@ -249,6 +253,7 @@ class ConflictEmailTests(unittest.TestCase):
     from repo_workflow.done_email import send_conflict_email
     with patch.dict("os.environ", {"SMTP_HOST": "smtp.example.com", "SMTP_FROM": "rwf@example.com"}, clear=True), \
         patch("repo_workflow.done_email.git") as configured, \
+        patch("repo_workflow.done_email.ssl.create_default_context"), \
         patch("repo_workflow.done_email.smtplib.SMTP", side_effect=OSError("private detail")):
       configured.return_value.stdout = ""
       result = send_conflict_email(Path.cwd(), {"to": "user@example.com", "subject": "Conflict", "body": "actual conflict"})

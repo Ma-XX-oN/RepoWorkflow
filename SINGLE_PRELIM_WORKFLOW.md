@@ -97,6 +97,10 @@ from FAIL, and an old verdict never applies to a different candidate.
 Manual FAIL retains the candidate version and publishes its matching local
 CI-FAIL tag from the recorded tester verdict; source repair precedes the next
 version preparation.
+Each recorded manual verdict is published for the latest matching PRELIM,
+regardless of the tester's checkout branch. The final PASS, or a FAIL, resumes
+its CI worker. Offline delivery remains pending while the local verdict stays
+recorded; `rwf done` retries delivery when repository access is available.
 
 Read current destination admission policy and require all applicable tests,
 MIT results and existing authority before merge. The provider write uses

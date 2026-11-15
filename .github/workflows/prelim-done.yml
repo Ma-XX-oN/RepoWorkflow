@@ -3,6 +3,7 @@ name: PRELIM completion
 on:
   push:
     branches: ['PRELIM-issue-*']
+    tags: ['rwf-prelim-results-v1-*']
   workflow_dispatch:
     inputs:
       prelim_ref:
@@ -50,6 +51,10 @@ jobs:
         run: |
           git config user.name 'RWF CI'
           git config user.email 'rwf-ci@users.noreply.github.com'
+          if [[ "$PRELIM_REF" == refs/tags/rwf-prelim-results-v1-* ]]; then
+            version="${PRELIM_REF#refs/tags/rwf-prelim-results-v1-}"
+            PRELIM_REF="refs/heads/PRELIM-${version%-*}"
+          fi
           python repo_workflow.py done-worker prepare --prelim-ref "$PRELIM_REF" --output "$RUNNER_TEMP/plan.json"
           python -c 'import json,os; p=json.load(open(os.environ["RUNNER_TEMP"]+"/plan.json")); print("status="+p["status"]); print("candidate="+p.get("candidate_sha",""))' >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4

@@ -153,6 +153,13 @@ def submit_done(root: Path, release: str, *, engine_root: Path) -> SubmittedDone
       raise DoneSubmissionError("completion testing log cannot be a symlink")
     for result in parse_testing_log(log.read_text(encoding="utf-8")):
       if result["result"] == "failed" and source_tip(root, result["testSHA"]) == material:
+        from .done_manual_resume import resume_manual_done
+        from .git import GitError
+        from adapters.repo_host_github_provider import ProviderError
+        try:
+          resume_manual_done(root, issue, material, complete=True)
+        except (GitError, ProviderError):
+          raise DoneSubmissionError("current source has a failed test; CI delivery pending; repair before done")
         raise DoneSubmissionError("current source has a failed test; repair before done")
     commit_owned_files(root, [relative], "test: record completion evidence")
   dirty = changed_files(root)

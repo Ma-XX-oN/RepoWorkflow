@@ -34,6 +34,7 @@ Historical prerequisite statements below are superseded by this active scope.
 - [x] Persist completion/lifecycle provenance without inventing test PASS.
 - [x] Send remote conflict email through an outgoing client and retain failed delivery.
 - [x] Preserve the version after manual FAIL; prepare another only after source changes.
+- [x] Publish external manual verdicts from any matching checkout and resume pending CI.
 - [ ] Exercise the actual default path and update current documentation.
 
 Expanded functional run: 16/16 PASS, including actual parent advancement at
@@ -55,6 +56,15 @@ failure handler and its canonical CI-FAIL evidence. Workflow dispatch has a
 dedicated empty-success response path; ordinary JSON endpoints retain their
 existing response requirement. Final catalogue and native matrix checks follow
 the resulting source revision rather than the earlier snapshot.
+
+Exact-source native run 43755561389 at `9d63970e`: Ubuntu and macOS passed all
+selected groups. Windows passed source classification, then failed two SMTP
+transport fixtures during real SSL-context initialization despite mocked SMTP.
+Those fixtures isolate SSL-context creation along with the mocked outgoing
+transport; production certificate verification and expected results are unchanged.
+No platform skip or alternate expectation was added. Final-source rerun follows
+the manual-verdict delivery handoff: each verdict publishes a real report;
+the final PASS or FAIL dispatches CI, and report-tag pushes also wake the worker.
 
 Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972`.
 Post-commit catalogue verification at that SHA: 21 single-PRELIM checks,
