@@ -433,7 +433,7 @@ def dispatch_done(root: Path, plan: dict) -> dict:
       Submitted disposition; dispatch does not claim tests or merge succeeded.
   """
   from adapters.repo_host_github_provider import GitHubBackend
-  GitHubBackend(plan["repository"]).post("actions/workflows/prelim-done.yml/dispatches", {
-    "ref": plan["prelim_ref"].removeprefix("refs/heads/"),
-    "inputs": {"prelim_ref": plan["prelim_ref"]}})
+  GitHubBackend(plan["repository"]).dispatch_workflow("prelim-done.yml",
+    plan["prelim_ref"].removeprefix("refs/heads/"),
+    {"prelim_ref": plan["prelim_ref"]})
   return {"status": "submitted", "prelim_ref": plan["prelim_ref"], "worker": "prelim-done.yml"}

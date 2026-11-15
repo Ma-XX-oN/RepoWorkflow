@@ -45,6 +45,17 @@ the corrected run passed all 16. Logs: Temp/rwf109-final-native.log and
 Temp/rwf109-final-native-corrected.log. Exact-source native matrix verification
 uses the authorized public Disposable-001 workbench and catalogue selection.
 
+Native workflow source snapshot `2e91618ed9d9928762b2245631b769ef48a414d0`
+is published on `issue-109-single-prelim`; no parent branch was updated.
+The subsequent shared-CLI sweep exposed uppercase SKIPPED reports being
+misclassified as material source. Report recognition accepts the canonical
+emitter's spelling; RED selector behavior remains outside this change.
+Manual-result checks: 30 PASS after completing the unchanged-version default
+failure handler and its canonical CI-FAIL evidence. Workflow dispatch has a
+dedicated empty-success response path; ordinary JSON endpoints retain their
+existing response requirement. Final catalogue and native matrix checks follow
+the resulting source revision rather than the earlier snapshot.
+
 Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972`.
 Post-commit catalogue verification at that SHA: 21 single-PRELIM checks,
 7 native submission checks and 2 concurrent bare-Git publication checks PASS

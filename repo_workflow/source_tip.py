@@ -54,7 +54,7 @@ def source_tip(root: Path, revision: str = "HEAD") -> str:
         valid_report = False
         break
       if not rows or any(not isinstance(row, dict)
-                         or row.get("result") not in {"succeeded", "failed", "incomplete", "skipped"}
+                         or row.get("result") not in {"succeeded", "failed", "incomplete", "skipped", "SKIPPED"}
                          or not re.fullmatch(r"[0-9a-f]{40}", str(row.get("testSHA", "")))
                          for row in rows):
         valid_report = False

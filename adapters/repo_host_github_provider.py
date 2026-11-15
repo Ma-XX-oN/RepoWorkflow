@@ -18,7 +18,8 @@ class ProviderError(Exception):
     self.code = code
 
 
-def _json_call(method: str, route: str, payload: dict | None = None):
+def _json_call(method: str, route: str, payload: dict | None = None, *, allow_empty: bool = False):
+  """Run the JSON transport; opt in explicitly for APIs with empty success bodies."""
   args = ["gh", "api", "--method", method, route]
   if payload is not None:
     args.extend(["--input", "-"])
@@ -44,6 +45,8 @@ def _json_call(method: str, route: str, payload: dict | None = None):
     else:
       category = "transport_failure" if method == "GET" else "unknown_outcome"
     raise ProviderError(category, "GitHub request failed")
+  if allow_empty and not p.stdout.strip():
+    return None
   try:
     return json.loads(p.stdout)
   except (TypeError, ValueError) as exc:
@@ -113,6 +116,21 @@ class GitHubBackend:
 
   def post(self, path: str, body: dict):
     return _json_call("POST", self.prefix + path, body)
+
+  def dispatch_workflow(self, workflow: str, ref: str, inputs: dict) -> None:
+    """Request a workflow, whose successful HTTP response has no JSON body.
+
+    Parameters
+    ----------
+    workflow : str
+        Installed workflow filename.
+    ref : str
+        Branch or tag supplying the workflow revision.
+    inputs : dict
+        Declared workflow inputs.
+    """
+    _json_call("POST", self.prefix + "actions/workflows/" + workflow + "/dispatches",
+      {"ref": ref, "inputs": inputs}, allow_empty=True)
 
   def patch(self, path: str, body: dict):
     return _json_call("PATCH", self.prefix + path, body)

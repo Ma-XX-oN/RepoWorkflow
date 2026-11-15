@@ -174,8 +174,10 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
     raise ManualResultError("manual FAIL has no recorded test observation")
   from .git import current_branch
   from .terminal_tag import publish_terminal_tag
+  _validate_current(root, candidate_sha)
   summary = {"kind": "integration", "runner": "manual",
     "result": "failed", "testSHA": candidate_sha, "testVersion": version,
+    "headChangedDuringTest": False, "uncommittedChanges": [],
     "branch": current_branch(root),
     "sourceManualEvidenceId": failures[-1]["manualEvidenceId"]}
   with log.open("a", encoding="utf-8", newline="\n") as handle:
