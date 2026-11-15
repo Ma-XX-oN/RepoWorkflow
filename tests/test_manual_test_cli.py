@@ -226,6 +226,19 @@ class TestManualLauncher(unittest.TestCase):
                      ["issue-702-manual--a-first",
                       "issue-702-manual--z-last"])
 
+  def test_numeric_selection_reports_active_case_and_advances_progress(self):
+    """One-based selection and progress agree with the declared case order."""
+    selected = self.cli("test", "integration", "--manual", "2")
+    self.assertEqual(selected.returncode, 0, selected.stderr)
+    self.assertIn("issue-702-manual--z-last", selected.stdout)
+    self.assertIn("[MIT 2/2]", selected.stdout)
+    succeeded = self.cli("test", "succeeded")
+    self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
+    self.assertIn("[MIT 1/2]", succeeded.stdout)
+    next_case = self.cli("test", "integration", "--manual")
+    self.assertEqual(next_case.returncode, 0, next_case.stderr)
+    self.assertIn("issue-702-manual--a-first", next_case.stdout)
+
   def test_pending_manual_result_must_not_complete_gate(self):
     self.assertEqual(self.cli("test", "integration", "--manual").returncode, 0)
     pending = self.root / ".repoworkflow" / "manual" / "pending-702.json"
@@ -409,7 +422,7 @@ class TestAutomaticIntegrationPresentation(unittest.TestCase):
       )
       with patch.dict(sys.modules, {"repo_workflow.manual_test_catalogue": None}):
         with patch("repo_workflow.manual_test_cli._issue", return_value=702):
-          with patch("repo_workflow.manual_test_cli.head_sha", return_value="a" * 40):
+          with patch("repo_workflow.manual_test_cli.source_tip", return_value="a" * 40):
             with self.assertRaisesRegex(Exception, "catalogue"):
               after_automatic_integration(root)
 

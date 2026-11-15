@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 import shlex
-import subprocess
 import sys
 
 from .relationship_store import _parse_ticket_csv, _render_csv, TicketState
 from .lifecycle_store import LifecycleStore
 from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import issue_info, resolve_info_config
+from .process import run_command
 
 
 class TicketMergeError(RuntimeError):
@@ -35,11 +35,9 @@ def configure_ticket_merge_driver(root: Path, engine_root: Path) -> None:
     ("merge.rwf-tickets.driver", driver),
   )
   for key, value in commands:
-    result = subprocess.run(
+    result = run_command(
       ["git", "-C", os.fspath(repository), "config", "--local", key, value],
-      capture_output=True,
-      text=True,
-      check=False,
+      repository,
     )
     if result.returncode:
       detail = (result.stderr or result.stdout).strip()

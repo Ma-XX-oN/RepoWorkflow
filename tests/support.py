@@ -62,6 +62,7 @@ class RepoFixture:
     config = {
       "schema": 1,
       "versionCommand": [sys.executable, "scripts/version.py"],
+      "versionOutputs": ["VERSION"],
       "repository": {
         "integrationBranch": "main",
         "authoritativeRemote": "origin",

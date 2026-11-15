@@ -79,7 +79,13 @@ class SharedHostedCacheTests(unittest.TestCase):
         self.root, "GREEN", remote=False, engine_root=self.root,
       )
     self.assertEqual(status, 0)
-    self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
+    committed_tip = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(committed_tip, candidate)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), candidate)
+    self.assertEqual(
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
+      ".repoworkflow/validation/testResults-545.jsonl",
+    )
     self.assertEqual(subprocess.check_output(
       ["git", "--git-dir", str(bare), "rev-parse",
        "refs/heads/issue-545-fixture"], text=True,
@@ -97,6 +103,7 @@ class SharedHostedCacheTests(unittest.TestCase):
         self.root, "GREEN", remote=False, engine_root=self.root,
       ), 0)
     self.assertEqual(log.read_text(), original_log)
+    self.assertEqual(self.git("rev-parse", "HEAD"), committed_tip)
 
   def test_committed_historical_log_does_not_block_verified_remote_reuse(self):
     self.prepare()

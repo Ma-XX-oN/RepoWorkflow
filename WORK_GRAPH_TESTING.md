@@ -9,7 +9,7 @@ direct-dependency model. It is repository-independent.
 Every issue remains subject to the universal test adequacy and verification
 gate in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 1. Testing consequences
+## Testing consequences
 
 Good decomposition should make tests nearly derivable from the issue contract.
 
@@ -29,7 +29,7 @@ Contract tests should precede provider implementations where practical.
 Provider implementations should be tested against the same semantic contract,
 not only against provider-specific examples.
 
-## 2. A practical decomposition procedure
+## A practical decomposition procedure
 
 When restructuring an existing backlog:
 
@@ -52,7 +52,7 @@ Descriptive `Initiative:`, `Epic:`, and `Feature:` tickets may document
 larger outcomes, but their prefixes and prose are not machine-readable graph
 relationships.
 
-## 3. Completion test for an executable ticket
+## Completion test for an executable ticket
 
 Before accepting a ticket as executable work, ask:
 
@@ -69,7 +69,7 @@ Before accepting a ticket as executable work, ask:
 
 If the final answer is no, the ticket likely needs another decomposition pass.
 
-## 4. Completion test for descriptive container tickets
+## Completion test for descriptive container tickets
 
 A descriptive Initiative, Epic, or Feature ticket is useful when it gives a
 human-readable view of a coherent larger outcome.
@@ -86,7 +86,7 @@ Before using one, ask:
 If the final answer is no, the decomposition is mixing presentation taxonomy
 with executable graph semantics.
 
-## 5. Dependency review
+## Dependency review
 
 For each direct edge A -> B, verify that A genuinely requires B's exact result.
 
@@ -96,7 +96,7 @@ independently consumes C's interface.
 When several consumers use the same prerequisite, keep one prerequisite ticket
 and add direct edges only from consumers that actually require it.
 
-## 6. Design principle
+## Design principle
 
 The target is not the maximum number of tickets.
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import os
 import subprocess
 import sys
@@ -40,6 +41,7 @@ class IssueStartTests(unittest.TestCase):
     )
     self.config = {
       "versionCommand": [sys.executable, str(self.version_adapter)],
+      "versionOutputs": ["VERSION"],
       "infoCommand": [sys.executable, str(self.info_adapter)],
     }
 
@@ -86,6 +88,15 @@ class IssueStartTests(unittest.TestCase):
 
     self.assertEqual(result.issue, "7")
     self.assertEqual(result.version, "1.2.3-issue.7.0.1")
+    committed_version = subprocess.run(
+      ["git", "show", "HEAD:VERSION"],
+      cwd=self.repo, check=True, capture_output=True, text=True,
+    ).stdout
+    self.assertEqual(
+      committed_version,
+      (self.repo / "VERSION").read_text(encoding="utf-8"),
+      "successful issue start must commit its canonical version state",
+    )
     self.assertEqual(result.branch, "issue-7")
     self.assertEqual(
       subprocess.run(
@@ -98,6 +109,51 @@ class IssueStartTests(unittest.TestCase):
       "issue-7",
     )
     self.assertEqual(result.lifecycle_revision, 0)
+    changed = subprocess.run(
+      ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+      cwd=self.repo, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    self.assertEqual(changed, [
+      ".repoworkflow/state/issues/7/lifecycle.json",
+      ".repoworkflow/state/transactions/issue-start-7-"
+      + hashlib.sha256(b"session-1").hexdigest()[:16] + ".json",
+      "VERSION",
+    ])
+    identity = subprocess.run(
+      ["git", "show", "-s", "--format=%B", "HEAD^"],
+      cwd=self.repo, capture_output=True, text=True, check=True,
+    ).stdout
+    self.assertIn("RWF-Branch: issue-7", identity)
+    self.assertIn("RWF-Parent: main", identity)
+
+  def test_missing_version_ownership_refuses_before_mutation(self):
+    self.config.pop("versionOutputs")
+    with patch.dict(
+      os.environ, {"RWF_WRITER_ID": "agent-a", "RWF_SESSION_ID": "session-1"},
+    ):
+      with self.assertRaisesRegex(IssueStartError, "explicit consumer versionOutputs"):
+        start_issue(self.repo, 7, config=self.config)
+    self.assertEqual((self.repo / "VERSION").read_text(), "1.2.3\n")
+
+  def test_preexisting_version_changes_are_not_committed(self):
+    (self.repo / "VERSION").write_text("1.2.4\n", encoding="utf-8")
+    with patch.dict(
+      os.environ, {"RWF_WRITER_ID": "agent-a", "RWF_SESSION_ID": "session-1"},
+    ):
+      with self.assertRaisesRegex(IssueStartError, "pre-existing changes"):
+        start_issue(self.repo, 7, config=self.config)
+    self.assertEqual((self.repo / "VERSION").read_text(), "1.2.4\n")
+
+  def test_invalid_version_outputs_fail_before_mutation(self):
+    for paths in (["VERSION", "VERSION"], ["../VERSION"], ["missing.version"]):
+      with self.subTest(paths=paths):
+        self.config["versionOutputs"] = paths
+        with patch.dict(
+          os.environ, {"RWF_WRITER_ID": "agent-a", "RWF_SESSION_ID": "session-1"},
+        ):
+          with self.assertRaises(IssueStartError):
+            start_issue(self.repo, 7, config=self.config)
+        self.assertEqual((self.repo / "VERSION").read_text(), "1.2.3\n")
 
   def test_committed_replay_is_idempotent(self):
     environment = {

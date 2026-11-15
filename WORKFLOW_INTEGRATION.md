@@ -1,6 +1,6 @@
 # Integration, Audit, and Release Lifecycle
 
-## 9. Validation audit trail
+## Validation audit trail
 
 The initial storage proposal is one append-only JSONL file per issue:
 
@@ -73,7 +73,7 @@ If same-issue JSONL merge handling is automated, correctness must not depend on
 GitHub having a locally configured custom merge driver.  A local union/custom
 driver may be an ergonomic aid, not the remote source of correctness.
 
-## 10. Local and hosted validation equivalence
+## Local and hosted validation equivalence
 
 Ordinary source pushes do not start paid test jobs.  Testing is requested
 explicitly through the public `rwf test` stages.  A local invocation runs
@@ -122,7 +122,7 @@ the same logical stage and catalogue selection, with provider-bound results.
 Protected server integration must independently recheck current candidate
 and destination-tip evidence at merge acceptance.
 
-## 11. Integration request/version intent
+## Integration request/version intent
 
 Version intent that cannot be reconstructed from Git must travel with the
 candidate in repository workflow state, for example a minimal request recording
@@ -141,7 +141,7 @@ Server validation independently checks that:
 - the consumer adapter derives the same literal version as the candidate;
 - the candidate version was not manually changed into an inconsistent state.
 
-## 12. Integration ticket/PR
+## Integration ticket/PR
 
 Task and integration claims are distinct.
 
@@ -162,7 +162,7 @@ policy.  `what-next` and completion expose it only when legal, and required-PR
 mode blocks transitions that would bypass the PR boundary.  PR creation itself
 never implies validation, acceptance, currency, or merge authorization.
 
-## 13. Protected server integration
+## Protected server integration
 
 The remote server is the hard boundary.
 
@@ -185,7 +185,7 @@ current-base requirement must ensure that a candidate tested against an older
 A guard failure is an authoritative STOP signal.  Do not merge first and repair
 versions or source state afterward.
 
-## 14. Stable finalization
+## Stable finalization
 
 Only after the accepted candidate reaches protected **server `main`** may the
 stable release be finalized.
@@ -201,7 +201,7 @@ The controlled finalizer must:
 The local machine may create PRELIM and task tags according to workflow rules,
 but it does not create the final stable tag before server integration.
 
-## 15. Major releases
+## Major releases
 
 Normal integration exposes only patch and minor increment intent.
 
@@ -216,7 +216,7 @@ resetting `Y` and `Z` as appropriate.  The resulting candidate still passes
 through the same exact-candidate validation, stale-base protection, protected
 server integration, and stable-finalization rules.
 
-## 16. Local Git guard layer
+## Local Git guard layer
 
 Consumer repositories should install local hooks that call centralized
 RepoWorkflow policy rather than duplicating policy in shell fragments.
@@ -236,7 +236,7 @@ Useful checks include:
 These hooks primarily prevent mistakes.  The server remains authoritative if a
 clone lacks the hooks or an operator deliberately bypasses them.
 
-## 17. Immutable evidence
+## Immutable evidence
 
 Task, PRELIM, and stable tags are unique immutable refs once created.
 
@@ -247,7 +247,7 @@ server integration is squashed.
 Audit records preserve semantic metadata; tags preserve durable Git object
 reachability.  Both are useful and serve different purposes.
 
-## 18. Implementation order
+## Implementation order
 
 Implementation is tracked by issue #14 and its child/related issues.
 

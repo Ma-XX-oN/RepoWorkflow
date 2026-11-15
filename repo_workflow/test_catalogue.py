@@ -83,10 +83,10 @@ def _group_keys(tests: object) -> frozenset[str]:
         )
       stage = value.get("type")
       if not isinstance(stage, str) or stage not in {
-        "regression", "integration", "manual"
+        "regression", "integration", "manual", "invariant"
       }:
         raise TestCatalogueError(
-          f"test group {key} must use regression, integration or manual type"
+          f"test group {key} must use regression, integration, manual or invariant type"
         )
       groups.add(key)
   return frozenset(groups)
@@ -109,6 +109,7 @@ def stage_groups(root: Path, stage: str) -> tuple[str, ...]:
   allowed = {"regression"} if stage == "regression" else {
     "regression", "integration"
   }
+  allowed.add("invariant")
   selected: dict[tuple[str, str], str] = {}
   for declaration in value["tests"]:
     harness = declaration["test-harness"]

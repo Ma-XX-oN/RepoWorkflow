@@ -12,7 +12,7 @@ provider integrations, generated artifacts, persistent state, and code review.
 A dimension that genuinely does not apply must be recorded as N/A rather than
 satisfied with a meaningless test.
 
-## 1. Meaning of GREEN
+## Meaning of GREEN
 
 GREEN means:
 
@@ -30,7 +30,7 @@ A test run with unexamined acceptance criteria, lifecycle states, boundaries,
 or provider assumptions is not adequate merely because every executed test
 passed.
 
-## 2. Independent test basis and oracles
+## Independent test basis and oracles
 
 Expected behaviour must be derived independently from the implementation under
 test.
@@ -54,7 +54,7 @@ it cannot establish that the path implements the correct requirement.
 When an external provider is involved, validate the provider behaviour or
 contract used by the test before treating a fake response as authoritative.
 
-## 3. Requirement and invariant traceability
+## Requirement and invariant traceability
 
 Every independently testable acceptance criterion and invariant must map to
 explicit verification evidence.
@@ -71,7 +71,7 @@ A requirement with no verification evidence is a failed closure gate.
 One test may verify several requirements when the mapping remains explicit.
 Several tests may verify one requirement when distinct dimensions are needed.
 
-## 4. Test-dimension analysis
+## Test-dimension analysis
 
 Analyse relevant test dimensions before or alongside implementation rather than
 choosing cases only after the code exists.
@@ -94,7 +94,7 @@ when the decision space is material.
 Exhaustive testing is normally impossible. Select representative cases
 deliberately and document the remaining risk when it matters.
 
-## 5. Stateful and lifecycle behaviour
+## Stateful and lifecycle behaviour
 
 A stateful feature must be tested as a sequence of transitions, not only as an
 isolated operation from an empty state.
@@ -117,7 +117,7 @@ events that change state. Test applicable lifecycle dimensions such as:
 
 Verify invariants after meaningful transitions, not only at the final state.
 
-## 6. State sufficiency
+## State sufficiency
 
 The existence of persisted, cached, generated, or derived state does not prove
 that the state is usable.
@@ -136,7 +136,7 @@ Tests must inspect the state future operations actually consume. A shallow
 assertion such as "file exists", "graph exists", or "cache populated" is not
 sufficient when later behaviour depends on its contents.
 
-## 7. Mocks, fixtures, fakes, and authoritative sources
+## Mocks, fixtures, fakes, and authoritative sources
 
 Mocks, fixtures, emulators, fake providers, and generated test data are part of
 the test system and require validation.
@@ -157,7 +157,7 @@ For provider-backed or externally synchronized behaviour:
 Correct synchronization code operating against an unpopulated authoritative
 source is not a complete implementation.
 
-## 8. Black-box, structural, and static verification
+## Black-box, structural, and static verification
 
 Requirements coverage and structural coverage are different obligations.
 
@@ -174,7 +174,7 @@ constructs, type/schema violations, and policy violations.
 Do not substitute statement/branch/path coverage percentages for requirement
 coverage. High structural coverage can still execute the wrong behaviour.
 
-## 9. Defect-fix discipline
+## Defect-fix discipline
 
 Every bug investigation must follow the evidence-driven experiment protocol in
 [BUG_INVESTIGATION.md](BUG_INVESTIGATION.md).  That protocol requires repeated:
@@ -205,7 +205,7 @@ An escaped defect is evidence about both the product and the verification
 process. Fixing only the local code without examining a reusable systemic
 testing gap is incomplete.
 
-## 10. Risk-based depth
+## Risk-based depth
 
 Test depth must reflect risk.
 
@@ -220,7 +220,7 @@ dimensions. Mark those dimensions N/A and keep the rationale clear.
 Defect clusters deserve additional scrutiny. Repeated defects in one component
 or contract are evidence that the existing suite is not yet sufficient there.
 
-## 11. Reproducibility and configuration
+## Reproducibility and configuration
 
 Verification evidence must be reproducible enough to identify what was actually
 tested.
@@ -240,7 +240,7 @@ Record or bind, as applicable:
 A result from one candidate, configuration, or provider contract must not be
 silently reused for a materially different one.
 
-## 12. Test-suite health
+## Test-suite health
 
 Existing tests must be challenged periodically rather than treated as permanent
 proof of adequacy.
@@ -261,7 +261,7 @@ Add new techniques or scenarios when existing tests stop exposing meaningful
 new failure classes. Preserve useful regression tests while avoiding redundant
 tests that add no independent evidence.
 
-## 12.1 Escaped-defect continuation and assembled-path coverage
+## Escaped-defect continuation and assembled-path coverage
 
 When a defect is discovered through an assembled workflow, fixing only the
 first failing layer is insufficient evidence of completion.
@@ -292,7 +292,7 @@ If the public/assembled path can be tested deterministically, at least one
 regression must enter through that boundary rather than only through internal
 helpers.
 
-## 12.2 Interacting dimensions require cross-product analysis
+## Interacting dimensions require cross-product analysis
 
 Testing individual dimensions independently does not establish correctness for
 their interactions.
@@ -315,7 +315,7 @@ Examples include:
 A test suite that covers each factor separately but omits a material
 combination has an identified adequacy gap.
 
-## 12.3 Generated and property-based testing for combinatorial systems
+## Generated and property-based testing for combinatorial systems
 
 When a component's valid state space is combinatorial and an independent oracle
 exists, generated/property-based testing should supplement example-based tests.
@@ -337,7 +337,7 @@ For every generated case, define an independent invariant such as:
 A generated case must either satisfy the invariant or fail through a documented
 unsupported/invalid-input path.  Silent semantic drift is never acceptable.
 
-## 12.4 Production-owned data as active test input
+## Production-owned data as active test input
 
 Repository-owned canonical data that materially drives behaviour is an active
 test fixture, not merely configuration.
@@ -350,7 +350,7 @@ behaviour.
 Examples include dependency graphs, migration manifests, policy tables,
 routing tables, compatibility matrices, and generated registries.
 
-## 12.5 Certification and evidence invalidation
+## Certification and evidence invalidation
 
 Historical certification evidence is valid only for the material inputs and
 candidate to which it is bound.
@@ -377,7 +377,7 @@ subset.  Refactoring that adds, removes, or splits material modules must then
 invalidate certification automatically instead of depending on a maintainer to
 remember every binding.
 
-## 12.6 Evidence categories must remain distinct
+## Evidence categories must remain distinct
 
 Platform coverage, semantic/topology coverage, integration coverage, and
 assembled public-workflow coverage establish different facts.
@@ -388,7 +388,7 @@ actually crosses the relevant boundary.
 
 Verification reporting must state which category each result establishes.
 
-## 12.7 Temporary transformation-fidelity tests
+## Temporary transformation-fidelity tests
 
 Some deterministic tests exist only to prove that a bounded transformation did
 not change behaviour outside its authorized change surface.  These are
@@ -462,4 +462,4 @@ The purpose of this lifecycle is to make broad deterministic fidelity testing
 cheap during a transformation without turning incidental observed behaviour or
 disposable scaffolding into permanent test-suite debt.
 
-Further sections: [13. Universal closure gate](TEST_ADEQUACY_CLOSURE.md).
+Further sections: [Universal closure gate](TEST_ADEQUACY_CLOSURE.md).

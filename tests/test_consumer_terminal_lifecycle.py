@@ -24,7 +24,15 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
       path = root / ".repoworkflow/validation/testResults-1.jsonl"
       record = json.loads(path.read_text().splitlines()[-1])
       self.assertEqual(record["sourceSHA"], initial)
-      self.assertEqual(record["testSHA"], fx.head())
+      evidence_head = fx.head()
+      self.assertNotEqual(record["testSHA"], evidence_head)
+      self.assertEqual(
+        fx._run("rev-parse", "HEAD^").stdout.strip(), record["testSHA"],
+      )
+      self.assertEqual(
+        fx._run("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").stdout.strip(),
+        ".repoworkflow/validation/testResults-1.jsonl",
+      )
       self.assertEqual(record["testVersion"], fx.version)
       self.assertEqual(record["result"], "succeeded")
       self.assertTrue(record["reusable"])
@@ -83,7 +91,16 @@ class ConsumerTerminalLifecycle(unittest.TestCase):
       observed = path.read_text().splitlines()
       self.assertEqual(observed[:len(original)], original)
       self.assertEqual(len(observed), len(original) + 1)
-      self.assertEqual(fx.head(), before)
+      self.assertNotEqual(fx.head(), before)
+      self.assertEqual(fx._run("rev-parse", "HEAD^^").stdout.strip(), before)
+      self.assertEqual(
+        fx._run("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").stdout.strip(),
+        ".repoworkflow/validation/testResults-1.jsonl",
+      )
+      self.assertEqual(
+        fx._run("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD^").stdout.strip(),
+        ".ci/run-ci-request",
+      )
       self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
       self.assertEqual(fx._run("tag", "--list").stdout.strip(), "")
 

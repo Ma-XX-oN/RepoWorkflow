@@ -8,9 +8,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 import re
-import subprocess
 
 from .results import collect_results, evaluate_results
+from .process import CommandResult, run_command
 from .github_evidence import verify_hosted_integration
 from .test_evidence_gate import (
   CanonicalEvidenceError, require_integration_evidence,
@@ -24,13 +24,8 @@ class PreMergeGateError(RuntimeError):
   pass
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-  return subprocess.run(
-    ["git", "-C", str(root), *args],
-    capture_output=True,
-    text=True,
-    check=False,
-  )
+def _git(root: Path, *args: str) -> CommandResult:
+  return run_command(["git", "-C", str(root), *args], root)
 
 
 def check_pre_merge_candidate(

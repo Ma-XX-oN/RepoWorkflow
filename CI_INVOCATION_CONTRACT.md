@@ -1,14 +1,38 @@
 # On-demand CI invocation contract
 
-Status: on-demand issue-branch invocation implemented in `.github/workflows/on-demand-ci.yml`; separate Self CI and protected production integration remain independent.
+Status: on-demand development-branch invocation implemented; protected integration
+and replacement of separate Self CI remain outside this claim.
 
-The implemented workflow triggers on `push` to `issue-*` branches with a
-`paths` filter matching only `.ci/run`. An ordinary source-only push or merge
-without a `.ci/run` change does not trigger this workflow. Other CI workflows
-have their own triggers. Issue #538 originally documented the design only;
-its historical status does not describe the present implementation.
+The implemented GitHub adapter is `.github/workflows/on-demand-ci.yml`:
+`push` on `issue-*` branches with a `paths` filter for `.ci/run` only.
+Source-only pushes and merges without a `.ci/run` change do not trigger
+**this workflow**. Other separately configured workflows are independent;
+inspect their event declarations before asserting that no CI run will occur.
+`rwf test <stage> --remote` creates the dedicated invocation commit.
+Issue #538 delivered the earlier documentation-only contract; it is not an
+accurate current implementation-status indicator. Protected-branch enforcement
+and complete integration acceptance must be verified independently.
 
-## 1. Single invocation file
+For the separately approved **planned** generic CMD-branch request protocol,
+see [REMOTE_INVOCATION_CONTRACT.md](REMOTE_INVOCATION_CONTRACT.md).
+That specification does not modify this implemented `.ci/run` trigger,
+commit format, or hosted test semantics until a separately authorized cutover.
+
+## Provider-neutral scope and planned migration
+
+RepoWorkflow is designed to operate across CI systems. GitHub Actions is an
+existing provider, not the definition of its workflow semantics. The
+**current** invocation path specified below is `.ci/run`. The **planned**
+future location is `.ci/rwf`; that migration is not implemented or accepted
+by this document. Until a newer authoritative contract is approved and
+verified, use the current path and semantics. The CI provider owns its
+trigger adapter, not the portable RWF lifecycle.
+
+For using a CI runner as a temporary diagnostic workbench, independent of
+normal stage invocation, see
+[EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md).
+
+## Single invocation file
 
 Use one tracked file, `.ci/run`. Its contents are exactly one testing
 stage followed by one space and the full commit SHA at the branch tip
@@ -67,7 +91,7 @@ traversing historical invocation/retry commits to recover the original
 tested source. The regression tests in `tests/test_ci_invocation.py`
 exercise both current and historical reads using real Git commits.
 
-## 2. Hosted execution without a dispatcher on routine pushes
+## Hosted execution without a dispatcher on routine pushes
 
 The implemented on-demand GitHub Actions push trigger uses a path filter confined to
 `.ci/run`. Ordinary pushes with no change to that path must not launch a
@@ -82,7 +106,7 @@ guarantee delivery: a missed event is retried with a new marker as above.
 No host runner is needed just to transition back to an idle selector: no
 such transition exists. Repeated requests use the new branch-tip SHA.
 
-## 3. Request marker versus test evidence
+## Request marker versus test evidence
 
 `.ci/run` is an invocation request and historical marker, not a test
 result. The existing RepoWorkflow **testing log** is the evidence of which
@@ -102,7 +126,7 @@ request or a claimed PASS in an unverified file does not by itself satisfy
 the protected integration gate: the verifier checks the testing log under
 the repository's existing evidence validity and integrity rules.
 
-## 4. Pre-merge verification, not post-merge retesting
+## Pre-merge verification, not post-merge retesting
 
 Regression and integration testing of the proposed combined result occur
 **before** integration to the protected target. Neither `main` nor
@@ -138,27 +162,27 @@ required when the candidate tree already represents the exact result.
 Ancestry alone does not replace the required PASS evidence in the testing
 log.
 
-## 5. Implementation and protection boundaries
+## Current implementation and independent acceptance boundaries
 
-The `.ci/run` on-demand trigger is implemented; the following items concern
-separate legacy Self CI, evidence/security acceptance and protected integration:
+The on-demand development-branch adapter is implemented at
+`.github/workflows/on-demand-ci.yml`. It does not replace separate Self CI,
+certification/migration workflows, or protected-branch enforcement. Consult
+[CI validation tiers](PUBLIC_WORKFLOW.md#ci-validation-tiers) for the Self CI
+distinction and [local and hosted validation equivalence](WORKFLOW_INTEGRATION.md#local-and-hosted-validation-equivalence)
+for evidence reuse.
 
-- `PUBLIC_WORKFLOW.md` section 10.1 (currently assigns issue-tier checks
-  to ordinary PRs and integration to `main` pushes);
-- `WORKFLOW_INTEGRATION.md` section 10 (currently requires automatic server
-  examination of every pushed candidate);
-- the GitHub Actions workflow, `repo_workflow/self_ci.py`, test catalogue,
-  and required-check/branch-protection settings;
-- GitHub path-filter limitations and required-check pending behaviour;
-- trusted verification of local/external testing-log evidence without
-  requiring hosted test execution on every push;
-- server-enforced current-base / stale-concurrent-candidate rejection.
+Do not confuse `.ci/run` (the **current hosted stage invocation file**) with
+`.ci/run-ci-request` (a distinct legacy exact-candidate bookkeeping file),
+with `.ci/rwf` (a **proposed**, not implemented rename), or with any
+`.repoworkflow/migrations/run-*` marker used by a separate migration workflow.
+Only `.ci/run` changes on `issue-*` branches trigger the implemented on-demand
+workflow. Any other workflow has its own trigger rules.
 
-The on-demand trigger must be tested for initial invocation, repeated same
-stage, missed event retry, source-only push, selector-only push, malformed
-selector, stale evidence, local/external evidence, current-base races, and
-restart or re-fetch behaviour before replacing the current CI policy.
-
+The invocation and evidence acceptance matrix includes first invocation,
+repeat/missed-event retry, source-only versus selector-changing pushes,
+malformed selectors, stale/forged evidence, local/external evidence, current-base
+races, and restart/re-fetch. Passing isolated workflow tests is not proof of
+protected production integration or full repository-wide CI policy migration.
 
 **Canonical file names:** `.ci/run` invokes on-demand hosted CI;
 `.ci/run-ci-request` is distinct legacy candidate bookkeeping, not its trigger;
@@ -169,7 +193,7 @@ restart or re-fetch behaviour before replacing the current CI policy.
 
 The source-level CI event-filter guard is
 `tests/test_ci_invocation_trigger_contract.py`, registered as
-`integration-ci-invocation-trigger` in `.ci/tests.json`. It rejects missing,
+`invariant-ci-invocation-trigger` in `.ci/tests.json`. It rejects missing,
 broadened or unsupported push-path declarations in the current checkout.
 On-demand and issue-specific native verification workflows require only
 `.ci/run`. The three separately scoped historic migration/certification

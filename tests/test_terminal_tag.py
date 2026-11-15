@@ -153,17 +153,33 @@ class TerminalTagTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "branch differs"):
       self.issue_tag("PASS")
     self.assertEqual(self.git("tag", "--list"), "")
-  def test_cross_phase_version_reuse_is_rejected(self):
+  def test_cross_phase_same_source_keeps_version_and_requires_phase_evidence(self):
+    """The operator contract versions source, rather than individual phases."""
     self.issue_tag("PASS")
+    with self.assertRaisesRegex(TerminalTagError, "establish"):
+      self.issue_tag("PASS", stage="integration")
     record = json.loads(self.log.read_text(encoding="utf-8"))
     record["kind"] = "integration"
     with self.log.open("a", encoding="utf-8") as file:
       file.write(json.dumps(record) + "\n")
-    with self.assertRaisesRegex(TerminalTagError, "another phase"):
-      self.issue_tag("PASS", stage="integration")
-    with self.assertRaisesRegex(TerminalTagError, "another phase"):
-      self.issue_tag("PASS", push=False)
-    self.assertEqual(len(self.git("tag", "--list").splitlines()), 1)
+    self.issue_tag("PASS", stage="integration")
+    self.issue_tag("PASS", push=False)
+    self.assertEqual(len(self.git("tag", "--list").splitlines()), 2)
+  def test_same_source_later_failure_replaces_published_success(self):
+    """Replace only the success ref; both outcomes remain in the log."""
+    success = self.issue_tag("PASS")
+    row = json.loads(self.log.read_text(encoding="utf-8"))
+    row["result"] = "failed"
+    with self.log.open("a", encoding="utf-8") as handle:
+      handle.write(json.dumps(row) + "\n")
+    failed = self.issue_tag("FAIL")
+    self.assertEqual(failed, success + "-CI-FAIL")
+    self.assertEqual(self.published(success), {})
+    self.assertEqual(self.published(failed)["refs/tags/" + failed + "^{}"], self.candidate)
+    self.assertEqual(self.git("tag", "--list"), failed)
+    self.assertEqual(len(self.log.read_text(encoding="utf-8").splitlines()), 2)
+    with self.assertRaises(TerminalTagError):
+      self.issue_tag("PASS")
   def test_false_pass_without_success_evidence_is_rejected(self):
     self.issue_tag("FAIL")
     with self.assertRaisesRegex(TerminalTagError, "outcome"):

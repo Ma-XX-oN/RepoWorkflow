@@ -1,8 +1,8 @@
-# 13. Universal closure gate — companion sections
+# Universal closure gate — companion sections
 
 Continued from [TEST_ADEQUACY.md](TEST_ADEQUACY.md).
 
-## 13. Universal closure gate
+## Universal closure gate
 
 Before declaring coding work complete, answer each applicable item.
 
@@ -87,7 +87,7 @@ Before declaring coding work complete, answer each applicable item.
 Any applicable unchecked item blocks an adequacy claim. A genuinely irrelevant
 item is N/A, not implicitly passed.
 
-## 14. Relationship to RepoWorkflow
+## Relationship to RepoWorkflow
 
 RepoWorkflow owns this portable adequacy policy. Consumer repositories own
 their repository-specific test commands, fixtures, provider adapters, and
@@ -103,7 +103,7 @@ exact-candidate evidence, provider-contract verification, and regression
 ownership. Human/agent analysis remains responsible for semantic questions that
 cannot be derived mechanically.
 
-## 15. Reference basis
+## Reference basis
 
 This policy generalizes established testing concepts rather than copying one
 project's historical failures.

@@ -5,19 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
-import re
 import sys
 
-from .git import GitError, current_branch, head_sha
+from .git import GitError, current_branch
 from .test_results_reader import TestCommandError
 from .invocation_identity import ensure_public_runtime_identity
+from .testing_identity import testing_issue
+from .source_tip import source_tip
 
 
 def _issue(root: Path) -> int:
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise TestCommandError("manual integration requires a current issue branch")
-  return int(match.group(1))
+  return testing_issue(root, branch=current_branch(root))
 
 
 def _catalogue(root: Path, issue: int):
@@ -143,7 +141,7 @@ def manual_result_completions(context) -> list:
     root = context.root
     issue = _issue(root)
     cases = _catalogue(root, issue)
-    sha = head_sha(root)
+    sha = source_tip(root)
     api = _result_api()
     case = _selected(api, root, issue, sha, cases)
     if case.name in _results(api, root, issue, sha, cases):
@@ -170,7 +168,7 @@ def _results(api, root: Path, issue: int, sha: str, cases):
 
 def _outstanding(root: Path):
   issue = _issue(root)
-  sha = head_sha(root)
+  sha = source_tip(root)
   cases = _catalogue(root, issue)
   if not cases:
     return issue, sha, cases, {}, None
@@ -236,7 +234,7 @@ def record_selected(root: Path, *, outcome: str) -> int:
   if outcome not in {"succeeded", "failed"}:
     raise AssertionError("unsupported manual result")
   issue = _issue(root)
-  sha = head_sha(root)
+  sha = source_tip(root)
   cases = _catalogue(root, issue)
   api = _result_api()
   case = _selected(api, root, issue, sha, cases)
@@ -261,6 +259,9 @@ def record_selected(root: Path, *, outcome: str) -> int:
       "manual result readback mismatch; outcome is not accepted"
     )
   print("Manual integration " + outcome.upper() + ": " + case.name)
+  progress = manual_prompt(root)
+  if progress:
+    print(progress)
   if isinstance(evidence, dict):
     print(json.dumps(evidence, sort_keys=True))
   return 1 if outcome == "failed" else 0
@@ -279,9 +280,14 @@ def manual_prompt(root: Path) -> str:
   str
       ``[MIT n/m]`` while manual work remains, otherwise an empty prefix.
   """
-  _, _, cases, results, _ = _outstanding(root)
+  issue, sha, cases, results, api = _outstanding(root)
   if not cases or "failed" in results.values():
     return ""
+  active = api.read_active_manual_selection(root, issue, sha)
+  if active is not None:
+    selected = _selected(api, root, issue, sha, cases)
+    if selected.name not in results:
+      return f"[MIT {cases.index(selected) + 1}/{len(cases)}]"
   for index, case in enumerate(cases, 1):
     if results.get(case.name) != "succeeded":
       return f"[MIT {index}/{len(cases)}]"

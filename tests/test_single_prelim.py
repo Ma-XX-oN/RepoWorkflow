@@ -1,5 +1,8 @@
 """Operator contract tests for deferred validation and PRELIM generations."""
 from dataclasses import replace
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
 from repo_workflow.done_planner import GateObservation, plan_done
@@ -7,6 +10,9 @@ from repo_workflow.prelim_queue import (
   PrelimQueueError, ReadyPrelim, classify_prelims,
 )
 from tests.test_done_planner import snapshot
+from repo_workflow.git import git
+from repo_workflow.source_tip import source_tip
+from repo_workflow.testing_identity import testing_issue
 
 
 class SubmissionTests(unittest.TestCase):
@@ -91,3 +97,71 @@ class PrelimGenerationTests(unittest.TestCase):
       classify_prelims((a, b), current_parent_sha="a" * 40,
                        bases={a.ref: "a" * 40, b.ref: "a" * 40},
                        predecessors={a.ref: None, b.ref: a.ref})
+
+
+class SourceTipTests(unittest.TestCase):
+  """Actual Git history distinguishes source from append-only reports."""
+
+  def setUp(self):
+    """Create an isolated repository containing material source."""
+    directory = tempfile.TemporaryDirectory()
+    self.addCleanup(directory.cleanup)
+    self.root = Path(directory.name)
+    git(self.root, "init", "-b", "issue-109-test")
+    git(self.root, "config", "user.name", "Test")
+    git(self.root, "config", "user.email", "test@example.invalid")
+    (self.root / "source.txt").write_text("source\n", encoding="utf-8")
+    self.original = self.commit()
+    self.log = self.root / ".repoworkflow/validation/testResults-109.jsonl"
+    self.log.parent.mkdir(parents=True)
+
+  def commit(self):
+    """Commit the fixture and return its exact SHA."""
+    git(self.root, "add", ".")
+    git(self.root, "commit", "-m", "fixture")
+    return git(self.root, "rev-parse", "HEAD").stdout.strip()
+
+  def report(self, candidate):
+    """Append a structurally valid report without asserting authenticity."""
+    with self.log.open("a", encoding="utf-8") as handle:
+      handle.write(json.dumps({"testSHA": candidate, "kind": "regression",
+                               "runner": "fixture", "result": "succeeded"}) + "\n")
+    return self.commit()
+
+  def test_reports_and_resumes_keep_material_source(self):
+    """Report commits may name the original source or an earlier report."""
+    first = self.report(self.original)
+    self.report(first)
+    self.assertEqual(source_tip(self.root), self.original)
+
+  def test_mixed_commit_is_source_even_with_report_subject(self):
+    """A changed source file prevents report-only peeling."""
+    (self.root / "source.txt").write_text("corrected\n", encoding="utf-8")
+    changed = self.report(self.original)
+    self.assertEqual(source_tip(self.root), changed)
+
+  def test_rewritten_and_foreign_reports_are_material(self):
+    """Neither rewriting history nor reporting another source hides a change."""
+    self.report(self.original)
+    self.log.write_text('{"result":"succeeded"}\n', encoding="utf-8")
+    rewritten = self.commit()
+    self.assertEqual(source_tip(self.root), rewritten)
+    foreign = self.report("a" * 40)
+    self.assertEqual(source_tip(self.root), foreign)
+
+  def test_duplicate_fields_cannot_hide_source_change(self):
+    """Malformed evidence is material, even if a permissive parser accepts it."""
+    self.log.write_text('{"testSHA":"' + self.original + '","kind":"regression",'
+                        '"runner":"fixture","result":"failed","result":"succeeded"}\n',
+                        encoding="utf-8")
+    malformed = self.commit()
+    self.assertEqual(source_tip(self.root), malformed)
+
+  def test_prelim_and_arbitrary_branch_resolve_testing_issue(self):
+    """Testing ownership survives changing the branch used for execution."""
+    self.assertEqual(testing_issue(self.root, branch="PRELIM-issue-109/main-example"), 109)
+    self.git_version = self.root / ".ci/engine-version"
+    self.git_version.parent.mkdir()
+    self.git_version.write_text("1.2.3-issue.109.0.1\n", encoding="utf-8")
+    git(self.root, "checkout", "-b", "platform-testing")
+    self.assertEqual(testing_issue(self.root), 109)

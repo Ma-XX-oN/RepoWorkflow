@@ -311,7 +311,7 @@ class BashCompletionTests(unittest.TestCase):
       self.assertEqual(completed.returncode, 0, completed.stderr)
       names = [x[4:] for x in completed.stdout.splitlines()
                if x.startswith("ONE:")]
-      self.assertEqual(names, ["--remote", "issue-1-a", "issue-1-z"])
+      self.assertEqual(names, ["--poll", "--remote", "issue-1-a", "issue-1-z"])
       self.assertIn("COUNT:0", completed.stdout)
       rendered = [x for x in completed.stdout.splitlines()
                   if not x.startswith(("ONE:", "COUNT:"))]

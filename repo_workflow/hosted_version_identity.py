@@ -228,7 +228,7 @@ def resolve_hosted_version(
     version_owners[namespace] = owner
     terminal_result = record["result"]
     earlier_result = terminal_outcomes.get(namespace)
-    if earlier_result is not None and earlier_result != terminal_result:
+    if earlier_result == "failed" and terminal_result == "succeeded":
       conflicting_outcomes.add(namespace)
     terminal_outcomes[namespace] = terminal_result
     if owner[0] != identity["candidate_sha"]:

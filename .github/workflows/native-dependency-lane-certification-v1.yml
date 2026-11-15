@@ -35,6 +35,9 @@ jobs:
             --report provider-readback.json \
             > provider-readback.stdout
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           from pathlib import Path
 
@@ -61,9 +64,12 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          from repo_workflow.output import configure_utf8_output
+          if not configure_utf8_output():
+            raise SystemExit(2)
           import json
           from pathlib import Path
-          import subprocess
+          from repo_workflow.process import run_command
 
           root = Path(".").resolve()
           manifest = json.loads(
@@ -90,12 +96,7 @@ jobs:
 
           def run(*args):
             command = ["./rwf", *args]
-            completed = subprocess.run(
-              command,
-              cwd=root,
-              capture_output=True,
-              text=True,
-            )
+            completed = run_command(command, root)
             evidence.append({
               "command": command,
               "returncode": completed.returncode,

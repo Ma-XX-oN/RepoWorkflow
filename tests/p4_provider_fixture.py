@@ -227,11 +227,15 @@ def run_discovered_cli(base: Path, root: Path, *words: str):
     "def bounded(command, root):\n"
     "  if command and Path(command[0]).name.lower() in ('gh','gh.exe'):\n"
     "    raise RuntimeError('direct gh invocation forbidden')\n"
-    "  if len(command)>1 and Path(command[1]).name=='repo-info-github.py':\n"
+    "  if len(command)>5 and Path(command[1]).name=='repo-info-ci-github.py':\n"
     "    if Path(command[1]).resolve()!=Path(os.environ['RWF_DEFAULT_ADAPTER']):\n"
     "      raise RuntimeError('wrong discovered adapter')\n"
+    "    if command[2:6]!=['--repository','Ma-XX-oN/RepoWorkflow',\n"
+    "                     '--workflow','remote-rwf.yml']:\n"
+    "      raise RuntimeError('wrong discovered adapter arguments')\n"
     "    return original([sys.executable,os.environ['RWF_FIXTURE'],"
-    "'discovered-info',os.environ['RWF_DISCOVERY_BASE'],*command[2:]],root)\n"
+    "'discovered-info',os.environ['RWF_DISCOVERY_BASE'],\n"
+    "*command[2:4],*command[6:]],root)\n"
     "  return original(command,root)\n"
     "ria.run_command=bounded\n"
     "sys.argv=[os.environ['RWF_PUBLIC_CLI'],*sys.argv[1:]]\n"
@@ -243,7 +247,7 @@ def run_discovered_cli(base: Path, root: Path, *words: str):
     env.pop(key, None)
   env.update({
     "RWF_SOURCE_ROOT": str(ROOT), "RWF_PUBLIC_CLI": str(CLI),
-    "RWF_DEFAULT_ADAPTER": str(ROOT / "adapters" / "repo-info-github.py"),
+    "RWF_DEFAULT_ADAPTER": str(ROOT / "adapters" / "repo-info-ci-github.py"),
     "RWF_FIXTURE": str(FIXTURE), "RWF_DISCOVERY_BASE": str(base),
   })
   return subprocess.run(

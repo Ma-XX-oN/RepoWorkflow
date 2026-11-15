@@ -150,35 +150,46 @@ class TestCliContract(unittest.TestCase):
 
   def test_remote_request_and_retry_use_previous_tip(self):
     bare = self.remote()
-    for stage in ("regression", "regression"):
-      previous = self.git("rev-parse", "HEAD")
-      request = self.cli("test", stage, "--remote")
+    previous = self.git("rev-parse", "HEAD")
+    for _ in range(2):
+      request = self.cli("test", "regression", "--remote")
       self.assertEqual(request.returncode, 0, request.stderr)
+      self.assertEqual(self.git("rev-parse", "HEAD"), previous)
+      self.assertFalse((self.root / ".ci/run").exists())
+      cmd = subprocess.run(
+        ["git", "--git-dir", str(bare), "rev-parse",
+         "refs/heads/CMD-1-issue-545-fixture"],
+        capture_output=True, text=True, check=True,
+      ).stdout.strip()
+      self.assertEqual(self.git("rev-parse", cmd + "^"), previous)
       self.assertEqual(
-        (self.root / ".ci/run").read_text(),
-        "regression-testing " + previous + "\n",
+        self.git("diff-tree", "--no-commit-id", "--name-only", "-r", cmd),
+        ".ci/rwf",
       )
-      head = self.git("rev-parse", "HEAD")
-      self.assertNotEqual(head, previous)
-      self.assertEqual(self.git("rev-parse", "HEAD^"), previous)
-      self.assertEqual(
-        self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
-        ".ci/run",
-      )
+      self.assertEqual(self.git("show", cmd + ":.ci/rwf"),
+                       "test regression --remote 0")
       published = subprocess.run(
         ["git", "--git-dir", str(bare), "rev-parse",
          "refs/heads/issue-545-fixture"],
         text=True, capture_output=True, check=True,
       )
-      self.assertEqual(published.stdout.strip(), head)
+      self.assertEqual(published.stdout.strip(), previous)
 
-  def test_dirty_tree_rejects_remote_without_commit(self):
-    self.remote()
+  def test_dirty_tree_remote_submits_committed_source_without_mutating_worktree(self):
+    server = self.remote()
     (self.root / "README").write_text("edited\n")
     result = self.cli("test", "regression", "--remote")
-    self.assertEqual(result.returncode, 2)
-    self.assertIn("working tree must be clean", result.stderr)
+    self.assertEqual(result.returncode, 0, result.stderr)
     self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
+    self.assertEqual((self.root / "README").read_text(), "edited\n")
+    cmd_sha = subprocess.run(
+      ["git", "--git-dir", str(server), "rev-parse",
+       "refs/heads/CMD-1-issue-545-fixture"],
+      capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", cmd_sha + "^"), self.source)
+    self.assertEqual(self.git("show", cmd_sha + ":.ci/rwf"),
+                     "test regression --remote 0")
 
   def test_remote_results_fetches_existing_log_only(self):
     self.remote()
@@ -272,11 +283,14 @@ class TestCliContract(unittest.TestCase):
     self.git("commit", "-m", "fixture catalogue")
     selected = self.cli("test", "RED", "issue-545-green")
     self.assertEqual(selected.returncode, 2)
+    # The RED evidence-only commit did not change the tested source revision.
+    source_revision = self.git("rev-parse", "HEAD")
     result = self.cli("test", "GREEN")
     self.assertEqual(result.returncode, 0, result.stderr)
     audit = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     record = json.loads(audit.read_text().splitlines()[-1])
-    self.assertEqual(record["testSHA"], self.git("rev-parse", "HEAD"))
+    self.assertEqual(record["testSHA"], source_revision)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), source_revision)
     self.assertEqual(record["kind"], "GREEN")
     self.assertEqual(record["result"], "succeeded")
     self.assertEqual(record["groups"][0]["group"], "issue-545-green")
@@ -317,7 +331,15 @@ class TestCliContract(unittest.TestCase):
     second = self.cli("test", "GREEN")
     self.assertEqual(second.returncode, 1, second.stderr)
     self.assertNotIn("Reusing valid PASS evidence", second.stdout)
-    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    # The command owns and commits its evidence, but not the dirty source.
+    after = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(after, before)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), before)
+    self.assertEqual(
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
+      ".repoworkflow/validation/testResults-545.jsonl",
+    )
+    self.assertIn("smoke_case.py", self.git("status", "--short"))
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     records = [json.loads(line) for line in log.read_text().splitlines()]
     self.assertEqual(records[-1]["result"], "failed")
@@ -508,31 +530,43 @@ class TestCliContract(unittest.TestCase):
     self._catalogue(
       self.root / ".ci/tests.json", issue_group="issue-545-one",
     )
-    for command in ("RED", "GREEN"):
-      for remote in (False, True):
-        with self.subTest(command=command, remote=remote):
-          args = ("test", command, "--remote") if remote else ("test", command)
-          missing = self.cli(*args)
-          self.assertEqual(missing.returncode, 0, missing.stderr)
-          self.assertIn("Warning:", missing.stderr)
-          self.assertIn("testing skipped", missing.stdout)
-          log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
-          self.assertTrue(log.exists())
-          records = [json.loads(line) for line in log.read_text().splitlines()]
-          self.assertEqual(len(records), (
-            ("RED", "GREEN").index(command) * 2 + int(remote) + 1
-          ))
-          record = records[-1]
-          self.assertEqual(record["result"], "SKIPPED")
-          self.assertEqual(record["kind"], command)
-          self.assertEqual(record["testSHA"], self.source)
-          self.assertEqual(record["warning"], missing.stderr.strip())
-          self.assertEqual(record["reason"], "selection-file-absent")
-          self.assertEqual(record["requested_remote"], remote)
-          self.assertEqual(record["groups"], [])
-          self.assertTrue(all(x["result"] != "succeeded" for x in records))
-          self.assertFalse((self.root / ".ci/run").exists())
-          self.assertEqual(self.git("rev-parse", "HEAD"), self.source)
+    # Local invocations write and commit SKIPPED evidence; CMD submission
+    # must not claim a hosted outcome before the hosted worker has run.
+    for index, command in enumerate(("RED", "GREEN"), start=1):
+      missing = self.cli("test", command)
+      self.assertEqual(missing.returncode, 0, missing.stderr)
+      self.assertIn("Warning:", missing.stderr)
+      self.assertIn("testing skipped", missing.stdout)
+      log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
+      records = [json.loads(line) for line in log.read_text().splitlines()]
+      self.assertEqual(len(records), index)
+      record = records[-1]
+      self.assertEqual(record["result"], "SKIPPED")
+      self.assertEqual(record["kind"], command)
+      self.assertEqual(record["testSHA"], self.source)
+      self.assertEqual(record["warning"], missing.stderr.strip())
+      self.assertEqual(record["reason"], "selection-file-absent")
+      self.assertEqual(record["requested_remote"], False)
+      self.assertEqual(record["groups"], [])
+      self.assertEqual(
+        self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
+        ".repoworkflow/validation/testResults-545.jsonl",
+      )
+    server = self.remote()
+    before = self.git("rev-parse", "HEAD")
+    for number, command in enumerate(("RED", "GREEN"), start=1):
+      submitted = self.cli("test", command, "--remote")
+      self.assertEqual(submitted.returncode, 0, submitted.stderr)
+      self.assertEqual(self.git("rev-parse", "HEAD"), before)
+      cmd = subprocess.run(
+        ["git", "--git-dir", str(server), "rev-parse",
+         f"refs/heads/CMD-{number}-issue-545-fixture"],
+        capture_output=True, text=True, check=True,
+      ).stdout.strip()
+      self.assertEqual(self.git("rev-parse", cmd + "^"), before)
+      self.assertEqual(self.git("show", cmd + ":.ci/rwf"),
+                       f"test {command} --remote 0")
+    self.assertFalse((self.root / ".ci/run").exists())
     selection = self.root / ".ci/red-green.txt"
     for raw in ("", "issue-545-one\nissue-545-two\n",
                 "issue-544-other\n", "issue-545-unlisted\n"):
@@ -547,22 +581,26 @@ class TestCliContract(unittest.TestCase):
     )
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "fixture catalogue")
-    self.remote()
+    bare = self.remote()
     self.assertEqual(
       self.cli("test", "RED", "issue-545-one").returncode, 2,
     )
+    source = self.git("rev-parse", "HEAD")
     self.assertEqual(
       self.cli("test", "GREEN", "--remote").returncode, 0,
     )
-    previous = self.git("rev-parse", "HEAD^")
-    self.assertEqual(
-      self.git("show", "HEAD^:.ci/red-green.txt"),
-      "issue-545-one",
-    )
-    self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "GREEN-testing " + previous + "\n",
-    )
+    self.assertEqual(self.git("rev-parse", "HEAD"), source)
+    self.assertEqual(self.git("show", "HEAD:.ci/red-green.txt"),
+                     "issue-545-one")
+    cmd = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/CMD-1-issue-545-fixture"],
+      capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", cmd + "^"), source)
+    self.assertEqual(self.git("show", cmd + ":.ci/rwf"),
+                     "test GREEN --remote 0")
+    self.assertFalse((self.root / ".ci/run").exists())
 
   def test_temporary_catalogue_runs_identical_harness_format(self):
     self._catalogue(

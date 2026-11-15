@@ -88,6 +88,42 @@ class LaneDiagnosticsTests(unittest.TestCase):
       )
       self.assertNotIn("must-not-be-logged", path.read_text(encoding="utf-8"))
 
+  def test_timing_accounting_is_internally_consistent(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      self.make_repo(root)
+      diagnostics = LaneDiagnostics(
+        root,
+        ("lanes", "view", "--refresh"),
+        started=10.0,
+      )
+
+      with mock.patch(
+        "repo_workflow.lane_diagnostics.time.perf_counter",
+        side_effect=[11.0, 12.0, 13.0, 15.0],
+      ):
+        diagnostics.provider("dependencies", 203, lambda: None)
+        diagnostics.phase("render", 12.5)
+        path = diagnostics.finish()
+
+      self.assertIsNotNone(path)
+      record = json.loads(path.read_text(encoding="utf-8"))
+      self.assertEqual(record["provider_calls"], {"dependencies": 1})
+      self.assertEqual(record["provider_seconds"], {"dependencies": 1.0})
+      self.assertEqual(record["phase_seconds"], {"render": 0.5})
+      self.assertEqual(record["elapsed_seconds"], 5.0)
+      self.assertLessEqual(
+        sum(record["provider_seconds"].values()),
+        record["elapsed_seconds"],
+      )
+      self.assertTrue(
+        all(
+          seconds <= record["elapsed_seconds"]
+          for seconds in record["phase_seconds"].values()
+        )
+      )
+
   def test_error_record_and_concurrent_records_are_distinct(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"

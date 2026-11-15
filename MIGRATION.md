@@ -4,7 +4,7 @@ Status: planning document for issue #1.  It records the responsibilities that
 must be preserved when existing repositories adopt RepoWorkflow.  It is not an
 implementation checklist authorizing removal of existing validation.
 
-## 1. Migration rule
+## Migration rule
 
 No existing workflow or validation path is removed merely because it appears
 redundant.  For every migration:
@@ -17,7 +17,7 @@ redundant.  For every migration:
 
 The target is common orchestration, not reduced validation coverage.
 
-## 2. Intended consumers
+## Intended consumers
 
 Initial consumers are:
 
@@ -30,7 +30,7 @@ Initial consumers are:
 Each should consume RepoWorkflow as a Git submodule named `RepoWorkflow` and
 retain repository-specific facts under `.ci` plus repository-owned scripts.
 
-## 3. Common target shape
+## Common target shape
 
 ```text
 Consumer/
@@ -49,34 +49,34 @@ Repositories with committed generated artifacts additionally declare generator,
 verifier, and output allow-list information.  They should not require a
 repository-specific copy of the common lifecycle engine.
 
-## 4. Responsibilities to consolidate
+## Responsibilities to consolidate
 
-### 4.1 CI contract duplication
+### CI contract duplication
 
 Existing repositories contain similar but divergent request, matrix, result,
 and tagging engines.  These responsibilities should move to RepoWorkflow while
 consumer configuration/scripts preserve repository-specific behaviour.
 
-### 4.2 Actions/repository policy
+### Actions/repository policy
 
 Common enforcement for workflow allow-lists, write permissions, source/document
 mutation restrictions, and generated-artifact publication boundaries should be
 implemented once in RepoWorkflow.
 
-### 4.3 Branch policy
+### Branch policy
 
 The branch-parent/dependency-history checker currently arose from
 AIConversationCore lineage problems, but the invariant is general.  Every
 consumer should be able to declare its branch topology and use the same checker.
 
-### 4.4 Test orchestration
+### Test orchestration
 
 Individual tests should not be enumerated as GitHub jobs or as a shared JSON
 program.  Each required environment exposes one repository-owned authoritative
 validation script.  That script may compose repository tests serially or in
 parallel, using shared helpers when useful.
 
-## 5. Known existing workflow responsibilities
+## Known existing workflow responsibilities
 
 The following are responsibilities that must be reconciled rather than simply
 deleted.
@@ -144,7 +144,7 @@ GitHub Actions in DownloadConversation through 2026-09-30.  Migration planning
 and local validation may continue, but any DC Actions acceptance run must wait
 until that restriction expires unless the user explicitly changes it.
 
-## 6. Version migration
+## Version migration
 
 Each consumer should replace format-specific logic in the common engine with a
 repository-owned version script.  That script is responsible for reconciling
@@ -154,7 +154,7 @@ version only when they agree.
 RepoWorkflow then compares the emitted version to `.ci/run-ci-request` and
 checks terminal-tag eligibility.
 
-## 7. Environment migration
+## Environment migration
 
 Current GitHub runner labels should not automatically become the permanent
 cross-platform contract.  Consumers should declare required platform/capability
@@ -165,7 +165,7 @@ A separate environment is warranted for a genuinely different required
 platform/capability set.  Test-level parallelism remains inside the repository's
 single validation script for that environment.
 
-## 8. Artifact migration
+## Artifact migration
 
 For each committed generated artifact:
 
@@ -179,7 +179,7 @@ For each committed generated artifact:
 
 Repos without committed generated artifacts should have no artifact hook.
 
-## 9. Pilot strategy
+## Pilot strategy
 
 Before migrating all consumers, select one repository whose required behaviours
 exercise enough of the design to validate the contracts without maximizing
@@ -201,7 +201,7 @@ If the selected pilot has a generated committed artifact, artifact lifecycle can
 be proven in the same pilot; otherwise that contract requires a second focused
 consumer validation before broad rollout.
 
-## 10. Completion condition for a consumer
+## Completion condition for a consumer
 
 A consumer is not considered migrated until:
 

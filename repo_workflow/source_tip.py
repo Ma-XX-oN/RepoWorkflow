@@ -3,11 +3,11 @@
 Report recognition establishes source identity only. It does not authenticate
 the reported PASS; evidence consumers must still verify their own authorities.
 """
-import json
 from pathlib import Path
 import re
 
 from .git import git
+from .test_results_reader import TestCommandError, parse_testing_log
 
 _REPORT = re.compile(r"\.repoworkflow/validation/testResults-[1-9][0-9]*\.jsonl\Z")
 
@@ -39,23 +39,29 @@ def source_tip(root: Path, revision: str = "HEAD") -> str:
     if not paths or any(_REPORT.fullmatch(path) is None for path in paths):
       break
     additions = []
+    valid_report = True
     for path in paths:
       before = git(root, "show", parent + ":" + path, check=False)
       after = git(root, "show", cursor + ":" + path).stdout
       old = before.stdout if before.returncode == 0 else ""
       if (before.returncode not in (0, 128) or not after.startswith(old)
           or old and not old.endswith("\n") or not after.endswith("\n")):
-        return cursor
+        valid_report = False
+        break
       try:
-        rows = [json.loads(line) for line in after[len(old):].split("\n") if line]
-      except (ValueError, TypeError):
-        return cursor
+        rows = parse_testing_log(after[len(old):])
+      except (TestCommandError, ValueError, TypeError, RecursionError):
+        valid_report = False
+        break
       if not rows or any(not isinstance(row, dict)
                          or row.get("result") not in {"succeeded", "failed", "incomplete", "skipped"}
                          or not re.fullmatch(r"[0-9a-f]{40}", str(row.get("testSHA", "")))
                          for row in rows):
-        return cursor
+        valid_report = False
+        break
       additions.extend(rows)
+    if not valid_report:
+      break
     reports.append((cursor, parent, additions))
     cursor = parent
   # Every report must refer to the material tip or a prior report in this

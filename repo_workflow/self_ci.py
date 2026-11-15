@@ -109,6 +109,8 @@ def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
     owned,
     lifecycle.high_risk_aliases,
   ))
+  selected.update(name for name, (_, metadata) in records.items()
+                  if metadata.get("type") == "invariant")
   return tuple(sorted(selected))
 
 

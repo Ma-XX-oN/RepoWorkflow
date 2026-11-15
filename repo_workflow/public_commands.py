@@ -83,6 +83,13 @@ def _issue_number(context: Context) -> list[str]:
   return []
 
 
+def _remote_cmd_selector(context: Context) -> list[str]:
+  token = context.current_token
+  if token and re.fullmatch(r"-?[1-9][0-9]*", token):
+    return [token]
+  return []
+
+
 def _lane_name(context: Context) -> list[str]:
   token = context.current_token
   if token and not token.startswith("--"):
@@ -176,8 +183,41 @@ def _lane_select_switches(*, include_count: bool = False) -> dict:
   return switches
 
 
+
+def _with_remote_terminals(node: dict) -> dict:
+  """Project one remote transport switch onto every authored terminal command.
+
+  A terminal string is expanded into its normal command-node form, so the
+  existing parser/help/completion all see the same command surface.  No
+  command handler or hosted dispatcher is duplicated here.
+  """
+  projected = {}
+  for token, entry in node.items():
+    if token and not token.startswith("_"):
+      if isinstance(entry, str):
+        projected[token] = {
+          "": entry,
+          "_switches": {"--remote": "Execute through numbered CMD transport"},
+        }
+      elif isinstance(entry, dict):
+        projected[token] = _with_remote_terminals(entry)
+      else:
+        projected[token] = entry
+    else:
+      projected[token] = entry
+  if "" in projected or "_values" in projected or "_ordered" in projected:
+    switches = projected.get("_switches", {})
+    if callable(switches):
+      raise ValueError("dynamic public switches require explicit remote projection")
+    projected["_switches"] = dict(switches)
+    projected["_switches"].setdefault(
+      "--remote", "Execute through numbered CMD transport",
+    )
+  return projected
+
+
 def _dependency_direction_node() -> dict:
-  return {
+  return _with_remote_terminals({
     "to-tickets": {
       "": "Synchronize RWF title/dependencies to tickets",
       "_switches": {
@@ -194,7 +234,7 @@ def _dependency_direction_node() -> dict:
         "--replace-dependencies": "Replace local dependencies only",
       },
     },
-  }
+  })
 
 
 def _issue_sync_target_node() -> dict:
@@ -418,7 +458,16 @@ COMMANDS = {
       "_values": _red_group_values,
       "_value_description": "Current issue RED test-group name",
       "_quantifier": "?",
-      "_switches": {"--remote": "Request RED tests through hosted CI"},
+      "_switches": {
+        "--remote": "Request RED tests through a numbered CMD",
+        "--poll": {
+          "": "Poll the CMD result until completion",
+          "_params": [{
+            "<seconds>": "Polling delays in seconds (repeat final delay)",
+            "_quantifier": "*",
+          }],
+        },
+      },
     },
     "temporary": {
       "": "Run applicable temporary fidelity tests locally",
@@ -452,6 +501,23 @@ COMMANDS = {
     "minor": "Complete an authorized minor integration",
     "major": "Complete an authorized major integration",
   },
+  "remote-status": {
+    "": "Show the latest numbered CMD request status",
+    "_values": _remote_cmd_selector,
+    "_value_description": "CMD number (negative selects from latest)",
+    "_quantifier": "?",
+    "_switches": {
+      "--poll": {
+        "": "Poll read-only until completion (15-second default)",
+        "_params": [
+          {
+            "<seconds>": "Nonnegative polling delay in seconds",
+            "_quantifier": "*",
+          },
+        ],
+      },
+    },
+  },
   "version": {
     "": "Show the repository version",
     "_switches": {
@@ -473,6 +539,13 @@ COMMANDS = {
   },
 }
 
+
+# Include the same generic transport option in authored grammar/help/completion.
+# The read-only remote-status and test-results lookup retain their original
+# distinct semantics; they are not generic hosted submissions.
+for _command, _node in tuple(COMMANDS.items()):
+  if _command != "remote-status":
+    COMMANDS[_command] = _with_remote_terminals(_node)
 
 validate_node(COMMANDS)
 

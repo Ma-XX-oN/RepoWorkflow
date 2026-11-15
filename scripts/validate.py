@@ -50,8 +50,13 @@ def selected_modules(root: Path, stage: str) -> tuple[str, ...]:
     if key not in {"test-harness", "command"}
     and item["type"] != "manual"
   }
-  unclassified = shipped - registered
-  dangling = registered - shipped
+  registered_modules = {name for name in shipped
+                        if any(target == name or target.startswith(name + ".")
+                               for target in registered)}
+  unclassified = shipped - registered_modules
+  dangling = {target for target in registered
+              if not any(target == name or target.startswith(name + ".")
+                         for name in shipped)}
   if unclassified or dangling:
     raise ValueError(
       "unclassified or missing unittest modules: "
@@ -126,6 +131,12 @@ def main(stage: str = "regression") -> int:
 
 
 if __name__ == "__main__":
+  from pathlib import Path
+  import sys
+  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   if len(sys.argv) != 2 or sys.argv[1] not in {"regression", "integration"}:
     raise SystemExit("usage: validate.py regression|integration")
   raise SystemExit(main(sys.argv[1]))

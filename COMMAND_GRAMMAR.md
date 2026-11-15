@@ -7,7 +7,7 @@ argument validation, completion candidates, completion help, normal `--help`,
 and shared diagnostics.  Shell adapters render that structure; they do not
 maintain independent command policy.
 
-## 1. Static command tree
+## Static command tree
 
 The human-authored form remains a plain recursive dictionary.
 
@@ -112,7 +112,7 @@ occurrences without changing whether the switch is otherwise selected.
 Quantifier syntax is regex-style: `?`, `*`, `+`, `{n}`, `{n,}`, and
 `{n,m}`.
 
-## 2. Ordered parameters and switch parameters
+## Ordered parameters and switch parameters
 
 An ordered slot is one dictionary of alternatives.  Literal keys match
 themselves.  Angle-bracket parameter keys describe positional values.  A
@@ -161,7 +161,7 @@ cardinality:
 
 Parser, completion, help, and diagnostics consume these exact structures.
 
-## 3. Dynamic provider result contracts
+## Dynamic provider result contracts
 
 The quantified value form introduced by #456 is the simple catalogue/value
 provider:
@@ -202,7 +202,7 @@ Provider results must be validated according to the provider form being used;
 callers must not infer unrelated semantics merely from an arbitrary Python
 container type.
 
-## 4. Dynamic state projection
+## Dynamic state projection
 
 There is no separate `_for-states` field.
 
@@ -229,7 +229,7 @@ General-syntax diagnosis may evaluate a general projection while legal
 completion evaluates the current-state projection, but both come from the same
 authored command tree/providers.
 
-## 5. Catalogue completion
+## Catalogue completion
 
 Repository-owned catalogues remain authoritative for their identifiers and
 metadata.  The grammar does not duplicate those definitions.
@@ -264,7 +264,7 @@ Test catalogue:
 
 That runtime diagnosis is distinct from descriptive help.
 
-## 6. First Tab, double Tab, and --help
+## First Tab, double Tab, and --help
 
 One Tab performs ordinary completion or a contextual completion diagnostic.
 
@@ -288,7 +288,7 @@ while single Tab inserts/completes issue numbers.
 Contextual first-Tab/runtime errors must be actionable.  `--help` should
 explain command usage/configuration rather than merely repeat the runtime error.
 
-## 7. Executable nodes and <last-terminal>
+## Executable nodes and <last-terminal>
 
 When a node is executable as-is and also has continuations, completion may
 present its current-node action as:
@@ -300,7 +300,7 @@ present its current-node action as:
 The sentinel is display-only.  It is never inserted into the command line and
 is rejected if typed manually.
 
-## 8. Shared diagnostics
+## Shared diagnostics
 
 Parsing, manual execution, and completion use one command-path analyser.
 
@@ -342,9 +342,10 @@ Legal transitions:
 ```
 
 Catalogue/custom handlers may instead provide domain-specific diagnostics, such
-as the missing issue-scoped TDD group error in section 4.
+as the missing issue-scoped TDD group error in
+[catalogue completion](#catalogue-completion).
 
-## 9. Shell adapters
+## Shell adapters
 
 Bash, zsh, and other supported shells are presentation adapters.
 
@@ -360,7 +361,7 @@ rwf init zsh
 
 The platform-neutral Python engine remains authoritative.
 
-## 10. Read-only completion invariant
+## Read-only completion invariant
 
 Completion/help/diagnostic paths must not:
 
@@ -373,7 +374,7 @@ Completion/help/diagnostic paths must not:
 Tests must prove that failed and successful completion leave workflow/repository
 state unchanged.
 
-## 11. Implementation ownership
+## Implementation ownership
 
 Issue #52 owns migration from the return-shape-coupled provider model to the
 explicit completion specification.  Issue #456 owns the quantified command,

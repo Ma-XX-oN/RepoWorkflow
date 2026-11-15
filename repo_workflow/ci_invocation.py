@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from .process import run_command_bytes
 import re
-import subprocess
 
 
 STAGES = frozenset({
@@ -43,23 +43,22 @@ def parse_invocation(text: str) -> CiInvocation:
 
 
 def _git(root: Path, *args: str, raw: bool = False) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    capture_output=True,
-    text=not raw,
-    check=False,
-  )
+  result = run_command_bytes(["git", "-C", str(root), *args], root)
   if result.returncode:
-    stderr = result.stderr.decode("utf-8", "replace") if raw else result.stderr
-    raise CiInvocationError(
-      f"cannot verify CI invocation commit: {stderr.strip()}"
-    )
-  if raw:
     try:
-      return result.stdout.decode("utf-8", "strict")
+      diagnostic = result.stderr.decode("utf-8", "strict")
     except UnicodeDecodeError as error:
-      raise CiInvocationError("committed CI marker is not UTF-8") from error
-  return result.stdout.strip()
+      raise CiInvocationError("invalid UTF-8 Git diagnostic") from error
+    raise CiInvocationError(
+      "cannot verify CI invocation commit: " + diagnostic.strip()
+    )
+  try:
+    output = result.stdout.decode("utf-8", "strict")
+  except UnicodeDecodeError as error:
+    raise CiInvocationError(
+      "committed CI marker is not UTF-8" if raw else "invalid UTF-8 Git output"
+    ) from error
+  return output if raw else output.strip()
 
 
 def verify_invocation(root: Path) -> CiInvocation:

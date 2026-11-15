@@ -4,7 +4,7 @@ Status: design specification for issue #14.  This document records the agreed
 workflow model before implementation so the invariants do not depend on
 conversation history or operator memory.
 
-## 1. Goals
+## Goals
 
 The workflow is designed primarily to prevent accidental repository damage,
 not to defend against a malicious developer.  Where practical, however, remote
@@ -26,7 +26,7 @@ The workflow must:
 - ensure stable `main` and stable tags are created only through the protected
   server-side path.
 
-## 2. Responsibility boundaries
+## Responsibility boundaries
 
 RepoWorkflow owns portable workflow semantics.  Consumer repositories retain
 repository/provider-specific mechanics behind explicit adapters.
@@ -47,7 +47,7 @@ The enforcement layers remain:
 
 The same semantic state/evidence rules apply locally and on hosted providers.
 
-## 3. User-facing command model
+## User-facing command model
 
 The authoritative human-facing command synopsis is
 [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
@@ -73,7 +73,7 @@ Low-level CI/provider commands may remain temporarily for machine compatibility
 while #55 moves provider mechanics behind `repo-ci`; they do not define the
 normal human workflow.
 
-## 4. Guidance, help, and completion
+## Guidance, help, and completion
 
 `rwf status` reports the current workflow/evidence state.
 
@@ -94,9 +94,9 @@ optional `on-tab`.
 
 Completion/help/diagnostic paths are read-only.
 
-## 5. Version namespaces
+## Version namespaces
 
-### 5.1 Stable releases
+### Stable releases
 
 ```text
 vX.Y.Z
@@ -114,7 +114,7 @@ derives the literal next version from the current authoritative parent.
 
 Major is reserved for the explicit major-release workflow.
 
-### 5.2 Task versions
+### Task versions
 
 ```text
 vX.Y.Z-issue-P.Q.R
@@ -141,7 +141,7 @@ the next development candidate.
 
 Users should not manually manage these counters.
 
-### 5.3 Preliminary stable candidates
+### Preliminary stable candidates
 
 ```text
 vX.Y.Z-PRELIM-<issue>.<integration-generation>.<validation-iteration>
@@ -159,7 +159,7 @@ PRELIM tags:
 - may point to a tree whose source already contains proposed stable `X.Y.Z`;
 - never become or move to the final stable `vX.Y.Z` tag.
 
-## 6. Task lifecycle and test classes
+## Task lifecycle and test classes
 
 The workflow distinguishes three test classes.  The distinction is about what
 is being tested and who supplies the result, not merely whether a test happens
@@ -260,7 +260,7 @@ required ART and then its required AIT/MIT against that exact integrated SHA.
 Only that accepted integrated candidate may proceed toward protected server
 `main`.
 
-## 6.1 Ticket classification and dependency ordering
+## Ticket classification and dependency ordering
 
 Ticket creators may prefix titles with `Initiative:`, `Epic:`, or
 `Feature:` to make large bodies of work easier for humans to navigate.
@@ -291,7 +291,7 @@ Branch-parent identity is a separate Git fact recorded and recovered under
 [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md). It is never stored in
 the ticket dependency graph.
 
-## 7. Local `main` and ephemeral `prelim-main-<GUID>`
+## Local `main` and ephemeral `prelim-main-<GUID>`
 
 Local `main` is tracking state.  It should remain synchronized with the
 authoritative server `main` and should not be used as a local integration
@@ -353,7 +353,7 @@ The local machine may construct and completely validate a proposed stable
 candidate, but it does not create the stable release tag and should not bypass
 the protected server integration step.
 
-## 8. Reintegration when server `main` moves
+## Reintegration when server `main` moves
 
 Suppose a prelim candidate was constructed from server `main` at `A`, producing
 candidate `B'`, and the server later advances `main` to `B`.
@@ -381,7 +381,7 @@ A ----- B ---------------- C
 
 Old GREEN evidence never transfers to a changed candidate.
 
-## 9. Integration, audit, and release continuation
+## Integration, audit, and release continuation
 
 The remaining lifecycle contract is maintained in
 [WORKFLOW_INTEGRATION.md](WORKFLOW_INTEGRATION.md).  It covers validation

@@ -126,9 +126,10 @@ def _cases(root: Path, issue: int, cases):
 
 
 def _validate_current(root: Path, candidate_sha: str) -> None:
-  from .git import changed_files, head_sha
-  if head_sha(root) != _sha(candidate_sha):
-    raise ManualSelectionError("manual candidate is not current HEAD")
+  from .git import changed_files
+  from .source_tip import source_tip
+  if source_tip(root) != _sha(candidate_sha):
+    raise ManualSelectionError("manual candidate is not current source HEAD")
   runtime_prefixes = (
     ".repoworkflow/manual/",
     ".repoworkflow/validation/",

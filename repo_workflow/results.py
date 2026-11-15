@@ -5,7 +5,6 @@ from pathlib import Path
 import platform
 import re
 import shutil
-import subprocess
 import sys
 from typing import Any
 
@@ -61,7 +60,7 @@ def _tool_version(tool: str) -> tuple[str | None, str | None]:
     if executable is None:
       return None, f"required capability tool is unavailable: {tool}"
     command = [executable, "--version"]
-  completed = subprocess.run(command, capture_output=True, text=True, check=False)
+  completed = run_command(command, Path.cwd())
   output = (completed.stdout or completed.stderr).strip()
   if completed.returncode:
     return None, (

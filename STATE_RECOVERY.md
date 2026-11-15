@@ -8,7 +8,7 @@ This document extends [STATE_LAYOUT.md](STATE_LAYOUT.md) and
 reconstructed after local-state loss or interruption and how RWF responds to
 stale or incomplete state.
 
-## 1. Recovery principle
+## Recovery principle
 
 Recovery derives convenience/execution state from authoritative facts.  It does
 not manufacture authoritative facts.
@@ -19,7 +19,7 @@ must produce the same semantic result.
 When required authority is missing, contradictory, unsupported, or ambiguous,
 recovery fails closed with the facts that prevent a unique result.
 
-## 2. Authority order
+## Authority order
 
 Recovery evaluates state by its declared scope:
 
@@ -34,7 +34,7 @@ A lower scope cannot override a newer or contradictory higher-scope fact.
 Git branch/worktree topology may corroborate operational context but cannot
 create issue relationships or workflow history.
 
-## 3. Reconstructable local state
+## Reconstructable local state
 
 Local state is reconstructable only when durable and observable repository
 facts determine one valid local projection.
@@ -60,7 +60,7 @@ Reconstruction must not recreate:
 If several valid local contexts are possible, RWF reports the ambiguity rather
 than selecting one.
 
-## 4. Stale-state detection
+## Stale-state detection
 
 A local record that references durable state must retain enough source identity
 to detect staleness.
@@ -78,7 +78,7 @@ disappeared, become unsupported, or no longer validates.
 Staleness is semantic, not timestamp-based.  File modification time, wall-clock
 age, and process lifetime do not prove freshness.
 
-## 5. Stale local state
+## Stale local state
 
 Stale local state is never silently promoted or written back into durable
 state.
@@ -92,7 +92,7 @@ uniquely reconstructed, RWF preserves it for diagnosis and stops actionably.
 A stale workspace claim remains governed by the clone-local claim contract; it
 cannot be renewed merely because durable state still mentions the same issue.
 
-## 6. Missing local state
+## Missing local state
 
 Deleting clone-common or worktree-local state does not erase durable workflow
 history.
@@ -109,7 +109,7 @@ After local-state loss:
 A fresh clone therefore starts without inheriting another clone's claims or
 sessions.
 
-## 7. Obsolete schema/state
+## Obsolete schema/state
 
 Unsupported durable schema fails closed.  Recovery must not guess a migration.
 
@@ -120,7 +120,7 @@ explicit migration/recovery action is required.
 Migration changes are semantic mutations and must obey the concurrency contract
 when they affect durable records.
 
-## 8. Interrupted single-record writes
+## Interrupted single-record writes
 
 Atomic durable replacement means an interruption leaves either the prior
 authoritative record or the complete successor.
@@ -133,7 +133,7 @@ work.
 
 A malformed authoritative record is not treated as an empty/missing record.
 
-## 9. Interrupted multi-record transactions
+## Interrupted multi-record transactions
 
 A recoverable multi-record transaction has a durable transaction identity and
 declared read/write set.
@@ -160,7 +160,7 @@ Recovery rules:
 No partially materialized write set is exposed as a successful workflow
 transition.
 
-## 10. Idempotent recovery
+## Idempotent recovery
 
 Recovery operations must be safe to repeat after another interruption.
 
@@ -172,7 +172,7 @@ If another writer advances authority during recovery, the recovery attempt
 detects the changed identity/revision and restarts from a fresh read rather
 than overwriting it.
 
-## 11. Actionable failure
+## Actionable failure
 
 An unrecoverable/ambiguous result reports, where applicable:
 
@@ -186,7 +186,7 @@ An unrecoverable/ambiguous result reports, where applicable:
 The diagnostic must not suggest destructive cleanup when doing so could erase
 the only copy of local work.
 
-## 12. Git and repository history
+## Git and repository history
 
 Git history can establish exact committed file/candidate identity and whether a
 durable state version exists in a particular repository revision.
@@ -201,7 +201,7 @@ It cannot by itself infer:
 
 Recovery uses Git only for facts Git actually records.
 
-## 13. Local-only mode
+## Local-only mode
 
 In `rwf init local-only`, the same authority ordering applies inside the local
 footprint, but there is intentionally no shared durable repository authority.
@@ -211,7 +211,7 @@ cross-clone/shared truth.
 
 Loss of the only local-only copy of a non-reconstructable fact is unrecoverable.
 
-## 14. Required implementation coverage
+## Required implementation coverage
 
 The generic state store/recovery support in #101 and its consumers must prove:
 

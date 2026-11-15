@@ -2,7 +2,22 @@
 
 Status: implementation contract for #577, specified in #579.
 
-## 1. Source of truth
+## Graph naming
+
+**Lifecycle Graph (LG)** names the six-state RWF dependency view described
+here and in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  Lifecycle Graph
+status comes from the authoritative lifecycle store, with explicit cached
+or current-state projection semantics.
+
+**Progress Graph (PG)** instead names the four-status, human-facing
+**Mermaid** dependency view in
+[WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md).
+The views share dependency relationships but not state labels or colours.
+The state-transition diagram in [Transitions](#transitions) documents legal
+transitions;
+it is distinct from the Lifecycle Graph of issue dependencies.
+
+## Source of truth
 
 The canonical lifecycle store and its append-only transition history are the
 sole authority for issue lifecycle state and dependency satisfaction.
@@ -23,7 +38,7 @@ GitHub issue `open` / `closed` is separate provider status; it cannot
 overwrite or satisfy an RWF lifecycle. Worktree-local `current` or selected
 issue is navigation state, not the state of every graph node.
 
-## 2. States and status glyphs
+## States and status glyphs
 
 | State | Glyph | Meaning |
 | --- | --- | --- |
@@ -40,7 +55,7 @@ of `not_started` or `aborted` from direct dependency state; they are not
 additional lifecycle states. Glyphs must be one terminal cell, in a
 monochrome-compatible presentation, tested on supported platforms.
 
-## 3. Transitions
+## Transitions
 
 The Mermaid diagram and the transition table below specify the same eight
 legal state changes. Labels T01–T08 link to the independent acceptance
@@ -113,7 +128,7 @@ as a successful start. The normal lifecycle remains six-state; any
 proposal for a separate persistent `starting` state would require a
 new approved contract, transition table and matching diagram.
 
-## 4. Schema upgrade and history
+## Schema upgrade and history
 
 Define lifecycle schema version 3 to represent the six states.
 Versions 1 and 2 remain readable. Project old `unstarted` to
@@ -130,7 +145,7 @@ All writes check the expected revision and fail closed on stale inputs.
 Missing a record that previously existed is corruption/recovery, not
 `not_started`.
 
-## 5. CSV state projection
+## CSV state projection
 
 Current three-column CSV format:
 `issue,title,dependencies`.
@@ -156,7 +171,7 @@ Three-way ticket-CSV merges preserve semantic title/dependency rules and
 reject divergent state projections unless they reconcile against authoritative
 lifecycle revisions. No last-writer-wins state merges.
 
-## 6. Graph `--current`
+## Graph `--current`
 
 Normal graph commands render every visible ticket's stored state and glyph
 from tickets.csv without a lifecycle refresh, provider call or write.
@@ -168,7 +183,27 @@ or commit the full refresh leaves the original CSV intact and reports an error.
 A valid historical absence proven by the lifecycle store is not_started.
 Do not infer fresh lifecycle truth from a stale cached CSV snapshot.
 
-## 7. Verification gates
+## Completed umbrella presentation in the Lifecycle Graph
+
+The human-facing **Lifecycle Graph (LG)** follows the same default umbrella
+collapse rule as the PG in
+[WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md):
+the umbrella ticket is always shown as a **ticket node**, including in the
+expanded view. Show its constituent sub-ticket nodes while any constituent
+is not verified `completed`, the membership set is uncertain, or the
+umbrella's own completion remains unverified. When all constituents and
+the umbrella are verified `completed`, hide the constituent nodes by default
+and show the umbrella alone. Explicit expansion restores all original
+tickets and dependency edges.
+
+Preserve external connections by projecting hidden constituent dependency
+edges onto the umbrella for display only, with original edge provenance
+available in expanded detail. Never create new canonical dependencies.
+The LG continues to use its **six lifecycle states and corresponding glyphs**;
+do not substitute PG's five work-progress statuses. This presentation rule
+does not modify the terminal renderer `rwf lanes view` or its lane colours.
+
+## Verification gates
 
 [SIX_STATE_ACCEPTANCE_MATRIX.md](SIX_STATE_ACCEPTANCE_MATRIX.md) is the
 independent, criterion-to-observable-result acceptance oracle for #579–#583.

@@ -135,13 +135,23 @@ def load_config(root: Path) -> dict[str, Any]:
   if not isinstance(data, dict) or data.get("schema") != 1:
     raise ConfigError("repoworkflow.json must declare schema 1")
   allowed_top = {
-    "schema", "versionCommand", "infoCommand", "dependencyCommand",
+    "schema", "versionCommand", "versionOutputs", "infoCommand", "dependencyCommand",
     "hostCommand", "repository", "environments", "artifacts"
   }
   unknown = sorted(set(data) - allowed_top)
   if unknown:
     raise ConfigError("configuration contains unsupported fields: " + ", ".join(unknown))
   version_command = _command(data.get("versionCommand"), "versionCommand")
+  version_outputs = data.get("versionOutputs", [])
+  if not isinstance(version_outputs, list):
+    raise ConfigError("versionOutputs must be an array")
+  if any(not isinstance(item, str) for item in version_outputs):
+    raise ConfigError("versionOutputs entries must be strings")
+  version_outputs = [
+    canonical_repository_path(item) for item in version_outputs
+  ]
+  if len(set(version_outputs)) != len(version_outputs):
+    raise ConfigError("versionOutputs must not contain duplicates")
   info_command = data.get("infoCommand")
   if info_command is not None:
     info_command = _command(info_command, "infoCommand")
@@ -189,6 +199,7 @@ def load_config(root: Path) -> dict[str, Any]:
       output_owners[output] = artifact["id"]
   result = dict(data)
   result["versionCommand"] = version_command
+  result["versionOutputs"] = version_outputs
   if info_command is not None:
     result["infoCommand"] = info_command
   if dependency_command is not None:
