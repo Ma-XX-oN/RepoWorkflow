@@ -4,6 +4,39 @@ Authoritative operator-approved contract for #108/#109/#681/#683/#103/#677.
 This contract supersedes conflicting two-branch, test-before-submission and
 terminal-version-consumption rules. Historical contracts remain as evidence.
 
+Functional completion uses Git repository access, actual catalogue-selected
+test results, externally recorded manual results and outgoing email.
+Separate authorization/evidence verifier programs and adversarial security
+certification are deferred; they are not prerequisites of this workflow.
+Source identity, result applicability and expected-parent CAS remain required
+for correct execution.
+
+## CI worker and outgoing mail
+
+`.github/workflows/prelim-done.yml` consumes versioned PRELIM submissions.
+Its prepare job selects the latest version and reconstructs stale inputs;
+Linux, Windows and macOS workers execute remaining registered tests and
+publish immutable report refs. Acceptance collects those reports, waits for
+missing platform/manual results and atomically updates the expected parent,
+records completion and retires the selected PRELIM. Parent advancement
+schedules preparation and testing again. A waiting result retains PRELIM.
+
+The internal `done-worker prepare|test|accept|dispatch` commands implement
+those phases. A prepared JSON plan carries the exact source, parent and
+relevant-input identity between jobs. Completion receipts preserve the latest
+version after retirement so older submissions cannot become eligible again.
+
+Remote integration conflicts retain the actual merge diagnostic and email
+the configured user through an existing outgoing SMTP account. Configure
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_ENCRYPTION` (`tls`, `ssl` or `none`),
+`SMTP_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD` and optionally
+`RWF_NOTIFICATION_EMAIL`; the equivalent Git `sendemail.smtp*`,
+`sendemail.from` and `rwf.notificationEmail` settings also work locally.
+The default recipient is the source commit's author. Hosted workflows read
+mail settings from repository variables and username/password from secrets.
+Delivery failure is recorded in the conflict receipt; it does not change the
+parent or turn the conflict into a successful completion.
+
 ## Usage and outcomes
 
 `rwf done patch|minor|major [--remote]` finishes an issue. Tests may have
@@ -61,6 +94,9 @@ or its issue-qualified name. Return to the prompt after presenting the case.
 `rwf test succeeded` records its result and advances progress;
 `rwf test failed` stops testing for developer repair. Timeout is distinct
 from FAIL, and an old verdict never applies to a different candidate.
+Manual FAIL retains the candidate version and publishes its matching local
+CI-FAIL tag from the recorded tester verdict; source repair precedes the next
+version preparation.
 
 Read current destination admission policy and require all applicable tests,
 MIT results and existing authority before merge. The provider write uses

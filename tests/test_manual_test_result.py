@@ -129,7 +129,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
     _selected(root, sha, cases, 1)
     def handoff(*args):
       return FailureHandoff("active", False, "1.2.3-issue.701.2.8",
-                            "1.2.3-issue.701.3.0", "repair-team")
+                            "1.2.3-issue.701.2.8", "repair-team")
     failed = _record(root, sha, cases, "failed", on_failure=handoff)
     self.assertEqual(failed.result, "failed")
     self.assertEqual(failed.case, cases[1].name)
@@ -220,7 +220,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
     def verified(*args):
       calls.append(args)
       return FailureHandoff("active", False, "1.2.3-issue.701.2.8",
-                            "1.2.3-issue.701.3.0", "repair-team")
+                            "1.2.3-issue.701.2.8", "repair-team")
     out = _record(root, sha, cases, "failed", on_failure=verified)
     assert out.result == "failed" and len(calls) == 1
     with self.assertRaisesRegex(ManualResultError, "MIT FAIL"):
@@ -306,7 +306,8 @@ class ManualIntegrationResultTests(unittest.TestCase):
       require_manual_completion(root, 701, sha, cases=cases)
 
 
-  def test_failed_handoff_requires_q_plus_one_r_zero(self):
+  def test_failed_handoff_requires_unchanged_source_version(self):
+    """A test failure cannot consume a new version without a source change."""
     root, sha, cases = self._fixture
     _selected(root, sha, cases)
     def wrong(*args):
@@ -361,7 +362,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
     _selected(root, prepared_sha, cases)
     def handoff(*args):
       return FailureHandoff("active", False, "1.2.3-issue.701.2.1",
-                            "1.2.3-issue.701.3.0", "repair-owner")
+                            "1.2.3-issue.701.2.1", "repair-owner")
     _record(root, prepared_sha, cases, "failed", on_failure=handoff)
     assert subprocess.check_output(
       ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip() == prepared_sha
@@ -441,7 +442,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
       assert after.lifecycle.history[-1].transition == "reject/reopen"
       return FailureHandoff(
         "active", False, "1.2.3-issue.701.5.9",
-        "1.2.3-issue.701.6.0", "repair-team",
+        "1.2.3-issue.701.5.9", "repair-team",
       )
 
     outcome = _record(root, sha, cases, "failed", on_failure=canonical_reject)
@@ -454,6 +455,30 @@ class ManualIntegrationResultTests(unittest.TestCase):
       require_manual_completion(root, 701, sha, cases=cases)
     with self.assertRaisesRegex(ManualSelectionError, "failed candidate"):
       _selected(root, sha, cases, 1)
+
+  def test_default_failure_preserves_engine_version(self):
+    """The actual failure adapter reopens work without incrementing its version."""
+    from unittest.mock import patch
+    from repo_workflow.lifecycle_store import LifecycleStore
+    from repo_workflow.state_store import WriterIdentity
+    root, sha, cases = self._fixture
+    path = root / ".ci/engine-version"
+    path.parent.mkdir()
+    path.write_text("1.2.3-issue.701.2.8\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(root), "add", ".ci/engine-version"], check=True)
+    subprocess.run(["git", "-C", str(root), "commit", "-qm", "chore: prepare test version"], check=True)
+    sha = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+    store = LifecycleStore(root)
+    writer = WriterIdentity("worker-701", "version-session")
+    store.transition(701, "start", None, None, writer, None)
+    _selected(root, sha, cases)
+    with patch.dict("os.environ", {"RWF_WRITER_ID": writer.writer_id,
+        "RWF_SESSION_ID": writer.session_id}):
+      result = _record(root, sha, cases, "failed")
+    self.assertEqual(result.result, "failed")
+    self.assertEqual(path.read_text(), "1.2.3-issue.701.2.8\n")
+    tags = subprocess.check_output(["git", "-C", str(root), "tag"], text=True)
+    self.assertIn("CI-FAIL", tags)
 
 
   def test_legitimate_lifecycle_state_allowed_not_arbitrary_worktree(self):

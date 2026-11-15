@@ -4,6 +4,47 @@ Base: add058f5f4139f6e9cbe5103cbc84c760f6f0404.
 Branch: issue-109-single-prelim. Governing contract: SINGLE_PRELIM_WORKFLOW.md.
 Status: WIP; no full workflow acceptance or production activation claimed.
 
+## Active continuation requirements
+
+The operator explicitly deferred adversarial security work. External verifier
+programs and symlink attack certification do not block functional completion.
+
+Continuation implementation includes the default native dispatch, ordinary
+three-platform Actions worker, immutable report exchange, configured consumer
+environment adapter, exact-parent atomic acceptance, canonical lifecycle and
+completion receipts. Existing provider verifier hooks remain available to
+their original callers; native completion does not require installing them.
+The operator approved outgoing SMTP implementation after automatic approval
+review rejected the initial addition. The client is implemented; delivery
+failures are retained in the immutable conflict receipt. No live email has
+been sent during implementation checks.
+
+Latest completed functional run: 10 checks PASS (actual local bare Git,
+executable catalogue tests, public worker CLI, SMTP transport fixtures).
+Further checks cover push-time parent races, lost acknowledgements,
+configured environments, and durable conflict notification idempotence.
+These results do not claim live GitHub or native three-platform acceptance.
+Historical prerequisite statements below are superseded by this active scope.
+
+- [x] Connect native hosted done to actual catalogue execution and Git acceptance.
+- [x] Select the latest numeric submission, rebuild stale parent inputs before tests.
+- [x] Reuse applicable group/platform PASS; stop current-source failures.
+- [x] Retain per-platform reports and require externally recorded manual results.
+- [x] Complete parent update and PRELIM retirement with expected-old Git leases.
+- [x] Persist completion/lifecycle provenance without inventing test PASS.
+- [x] Send remote conflict email through an outgoing client and retain failed delivery.
+- [x] Preserve the version after manual FAIL; prepare another only after source changes.
+- [ ] Exercise the actual default path and update current documentation.
+
+Expanded functional run: 16/16 PASS, including actual parent advancement at
+the atomic push boundary, successful publication with lost acknowledgement,
+external manual-result exchange, configured environment execution/reuse and
+durable conflict notification idempotence. The first expanded run had one
+test-fixture error from treating subprocess.CompletedProcess as a dataclass;
+the corrected run passed all 16. Logs: Temp/rwf109-final-native.log and
+Temp/rwf109-final-native-corrected.log. Exact-source native matrix verification
+uses the authorized public Disposable-001 workbench and catalogue selection.
+
 Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972`.
 Post-commit catalogue verification at that SHA: 21 single-PRELIM checks,
 7 native submission checks and 2 concurrent bare-Git publication checks PASS

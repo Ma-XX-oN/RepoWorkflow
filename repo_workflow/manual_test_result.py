@@ -51,7 +51,7 @@ def _verified_handoff(value: object) -> None:
   before = _version_components(value.version_before)
   after = _version_components(value.version_after)
   if (value.lifecycle != "active" or value.dependency_satisfied is not False
-      or before is None or after != (before[0] + 1, 0)
+      or before is None or after != before or value.version_after != value.version_before
       or not isinstance(value.repair_owner, str) or not value.repair_owner.strip()):
     raise ManualResultError("manual FAIL handoff contract rejected")
 
@@ -136,10 +136,13 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
 
   The current repository adapter returns R=1 after rejection. The expected
   R=0 contract therefore needs an adapter fix outside this ticket's files.
+
+  The single-PRELIM contract supersedes that historical version transition:
+  a failed test retains its version until source is changed before testing.
   """
   from .lifecycle_store import LifecycleStore
   from .state_store import WriterIdentity
-  from .version_adapter import run_transition, read_development_version
+  from .version_adapter import read_development_version
   from .config import load_config
 
   writer_id, session_id = os.environ.get("RWF_WRITER_ID"), os.environ.get("RWF_SESSION_ID")
@@ -159,19 +162,27 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
   observed = store.read(issue).lifecycle
   if observed.state != "active" or observed.dependency_satisfied:
     raise ManualResultError("manual FAIL lifecycle rejection readback UNKNOWN")
-  config = load_config(root)
-  before = read_development_version(root, config)
-  transition = run_transition(root, config, "task", "--increment",
-                              "merge-integration-failed")
-  after = read_development_version(root, config)
-  previous, current = _version_components(before), _version_components(after)
-  if (transition.before != before or transition.after != after
-      or previous is None or current != (previous[0] + 1, 0)):
-    raise ManualResultError(
-      "version adapter transition does not satisfy Q += 1, R = 0; "
-      f"observed {before} -> {after}; repair handoff required"
-    )
-  return FailureHandoff(observed.state, False, before, after,
+  if (root / ".ci/repoworkflow.json").is_file():
+    version = read_development_version(root, load_config(root))
+  else:
+    from .engine_version_adapter import read_engine_version
+    version = read_engine_version(root)
+  log = _evidence_path(root, issue)
+  failures = [row for row in _events(log) if row.get("kind") == "manual-integration"
+    and row.get("testSHA") == candidate_sha and row.get("result") == "failed"]
+  if not failures:
+    raise ManualResultError("manual FAIL has no recorded test observation")
+  from .git import current_branch
+  from .terminal_tag import publish_terminal_tag
+  summary = {"kind": "integration", "runner": "manual",
+    "result": "failed", "testSHA": candidate_sha, "testVersion": version,
+    "branch": current_branch(root),
+    "sourceManualEvidenceId": failures[-1]["manualEvidenceId"]}
+  with log.open("a", encoding="utf-8", newline="\n") as handle:
+    handle.write(json.dumps(summary, sort_keys=True) + "\n")
+  publish_terminal_tag(root, stage="integration", remote="origin", version=version,
+    candidate=candidate_sha, outcome="FAIL", canonical_log=log, push=False)
+  return FailureHandoff(observed.state, False, version, version,
                         writer_id)
 
 

@@ -231,7 +231,29 @@ def _evidence_source_sha(root: Path, evidence_path: Path) -> str:
 def _run_group_set(
   root: Path, stage: str, groups: tuple[str, ...], *,
   catalogue_path: Path = Path(".ci/tests.json"),
+  reuse: bool = True,
 ) -> int:
+  """Run selected groups, optionally leaving reuse selection to the caller.
+
+  Parameters
+  ----------
+  root : Path
+      Repository containing the registered catalogue.
+  stage : str
+      Recorded test stage.
+  groups : tuple of str
+      Registered groups selected for this execution.
+  catalogue_path : Path
+      Repository-relative catalogue.
+  reuse : bool
+      Consult the general local cache. Platform-aware completion workers select
+      applicable results first and disable this second cache lookup.
+
+  Returns
+  -------
+  int
+      Zero for success, one for failure, two for incomplete execution.
+  """
   if not groups:
     raise TestCommandError(
       "RED/GREEN tests do not exist. Build and register "
@@ -239,17 +261,15 @@ def _run_group_set(
       if stage == "GREEN" else "no temporary test groups in .ci/temp-tests.json"
     )
   fingerprint = _group_fingerprint(root, catalogue_path)
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise TestCommandError("testing log requires an issue branch")
+  issue = testing_issue(root)
   path = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
+    "testResults-" + str(issue) + ".jsonl"
   )
   revision = _evidence_source_sha(root, path)
   execution_head = head_sha(root)
   uncommitted_before = _uncommitted_inputs(root, path)
   reusable = set()
-  if not uncommitted_before:
+  if reuse and not uncommitted_before:
     checker = hosted_cache_checker(root, stage)
     remote_raw = (
       read_remote_published_log(

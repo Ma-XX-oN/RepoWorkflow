@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: rwf-cmd-${{ github.ref }}
@@ -39,13 +40,25 @@ jobs:
         run: |
           set -euo pipefail
           git clone --quiet https://github.com/Ma-XX-oN/RepoWorkflow.git "$RWF_ENGINE_ROOT"
-          git -C "$RWF_ENGINE_ROOT" checkout --quiet --detach 4b9782e3280e50b406d0b78afce344f242aa38fd
-          test "$(git -C "$RWF_ENGINE_ROOT" rev-parse HEAD)" = 4b9782e3280e50b406d0b78afce344f242aa38fd
+          engine_sha=4b9782e3280e50b406d0b78afce344f242aa38fd
+          if [ "$GITHUB_REPOSITORY" = 'Ma-XX-oN/RepoWorkflow' ]; then
+            engine_sha="$GITHUB_SHA"
+            git -C "$RWF_ENGINE_ROOT" fetch --no-tags origin "$engine_sha"
+          fi
+          git -C "$RWF_ENGINE_ROOT" checkout --quiet --detach "$engine_sha"
+          test "$(git -C "$RWF_ENGINE_ROOT" rev-parse HEAD)" = "$engine_sha"
           python -m pip install -r "$RWF_ENGINE_ROOT/requirements.txt"
       - name: Forward authenticated CMD argv through normal CLI
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_ENCRYPTION: ${{ vars.SMTP_ENCRYPTION }}
+          SMTP_FROM: ${{ vars.SMTP_FROM }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          RWF_NOTIFICATION_EMAIL: ${{ vars.RWF_NOTIFICATION_EMAIL }}
           RWF_ENGINE_ROOT: ${{ runner.temp }}/rwf-engine
         run: |
           set -euo pipefail

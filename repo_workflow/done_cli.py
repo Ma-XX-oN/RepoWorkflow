@@ -26,8 +26,8 @@ def execute_done_command(release, *, trusted_executor, emit, root=None, engine_r
   if release not in {"patch","minor","major"} or type(release) is not str:
     raise DoneCommandError("done requires patch, minor, or major")
   if trusted_executor is None and root is not None and engine_root is not None:
-    from .done_submission import submit_done
-    trusted_executor = lambda requested: submit_done(root, requested, engine_root=engine_root)
+    from .done_native import execute_native_done
+    trusted_executor = lambda requested: execute_native_done(root, requested, engine_root=engine_root)
   if not callable(trusted_executor) or not callable(emit):
     raise DoneCommandError("independent done execution authority is unavailable")
   try:
@@ -38,6 +38,12 @@ def execute_done_command(release, *, trusted_executor, emit, root=None, engine_r
     raise DoneCommandError(
       "done provider outcome UNKNOWN; readback required") from error
   from .done_submission import SubmittedDone
+  from .done_native import FunctionalDone
+  if isinstance(outcome, FunctionalDone):
+    value = outcome.value
+    emit(json.dumps(value, sort_keys=True))
+    return {"done": 0, "submitted": 0, "ignored": 0, "waiting": 3,
+            "stale": 3, "conflict": 4, "failed": 1}[value["status"]]
   if isinstance(outcome, SubmittedDone):
     emit(json.dumps({"result":"submitted","prelim_ref":outcome.ready.ref,
                      "candidate_sha":outcome.ready.sha,"version":outcome.version,

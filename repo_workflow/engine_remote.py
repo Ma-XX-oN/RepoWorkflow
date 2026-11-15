@@ -46,10 +46,11 @@ def prepare_engine_request(
     if match is None or int(match.group(1)) != issue:
       raise EnginePreparationError("development version belongs to another issue")
     version = before
-    if tested_source_changed(root, issue, version, remote=remote):
+    while tested_source_changed(root, issue, version, remote=remote):
       transition_engine_version(
         root, operation="task --increment CI-iteration",
       )
+      version = read_engine_version(root)
   version = read_engine_version(root)
   if version != before:
     commit_owned_files(

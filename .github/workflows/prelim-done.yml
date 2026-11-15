@@ -1,0 +1,120 @@
+name: PRELIM completion
+
+on:
+  push:
+    branches: ['PRELIM-issue-*']
+  workflow_dispatch:
+    inputs:
+      prelim_ref:
+        description: Exact versioned PRELIM ref
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  SMTP_HOST: ${{ vars.SMTP_HOST }}
+  SMTP_PORT: ${{ vars.SMTP_PORT }}
+  SMTP_ENCRYPTION: ${{ vars.SMTP_ENCRYPTION }}
+  SMTP_FROM: ${{ vars.SMTP_FROM }}
+  SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+  SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+  RWF_NOTIFICATION_EMAIL: ${{ vars.RWF_NOTIFICATION_EMAIL }}
+
+# Coalesce duplicate submissions; expected-old leases serialize parent updates.
+concurrency:
+  group: rwf-done-${{ github.repository }}-${{ inputs.prelim_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.plan.outputs.status }}
+      candidate: ${{ steps.plan.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - name: Prepare latest submission at current parent
+        id: plan
+        shell: bash
+        env:
+          PRELIM_REF: ${{ inputs.prelim_ref || github.ref }}
+        run: |
+          git config user.name 'RWF CI'
+          git config user.email 'rwf-ci@users.noreply.github.com'
+          python repo_workflow.py done-worker prepare --prelim-ref "$PRELIM_REF" --output "$RUNNER_TEMP/plan.json"
+          python -c 'import json,os; p=json.load(open(os.environ["RUNNER_TEMP"]+"/plan.json")); print("status="+p["status"]); print("candidate="+p.get("candidate_sha",""))' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: done-plan
+          path: ${{ runner.temp }}/plan.json
+
+  test:
+    needs: prepare
+    if: needs.prepare.outputs.status == 'prepared'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.candidate }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: done-plan
+          path: ${{ runner.temp }}/done-plan
+      - name: Run remaining tests and publish actual reports
+        shell: bash
+        run: |
+          git config user.name 'RWF CI'
+          git config user.email 'rwf-ci@users.noreply.github.com'
+          python repo_workflow.py done-worker test --plan "$RUNNER_TEMP/done-plan/plan.json"
+
+  accept:
+    needs: [prepare, test]
+    if: ${{ always() && needs.prepare.outputs.status == 'prepared' && needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.candidate }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: done-plan
+          path: ${{ runner.temp }}/done-plan
+      - name: Recheck evidence and update expected parent atomically
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name 'RWF CI'
+          git config user.email 'rwf-ci@users.noreply.github.com'
+          python repo_workflow.py done-worker accept --plan "$RUNNER_TEMP/done-plan/plan.json" --output "$RUNNER_TEMP/result.json"
+          if python -c 'import json,os,sys; sys.exit(json.load(open(os.environ["RUNNER_TEMP"]+"/result.json"))["status"] != "stale")'; then
+            python repo_workflow.py done-worker dispatch --plan "$RUNNER_TEMP/done-plan/plan.json"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: done-result
+          path: ${{ runner.temp }}/result.json

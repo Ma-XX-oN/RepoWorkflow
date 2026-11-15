@@ -19,6 +19,7 @@ from .testing_identity import testing_issue
 
 class DoneSubmissionError(ValueError):
   """Source, version, parent or completion submission could not be established."""
+  submission: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -157,7 +158,7 @@ def submit_done(root: Path, release: str, *, engine_root: Path) -> SubmittedDone
   dirty = changed_files(root)
   if dirty:
     raise DoneSubmissionError("commit source changes before done: " + ", ".join(dirty))
-  _prepare_version(root, engine_root, config, issue)
+  version = _prepare_version(root, engine_root, config, issue)
   source = source_tip(root)
   parent_ref = "refs/heads/" + parent
   observed = git(root, "ls-remote", "--heads", remote, parent_ref).stdout.split()
@@ -166,8 +167,14 @@ def submit_done(root: Path, release: str, *, engine_root: Path) -> SubmittedDone
     raise DoneSubmissionError("authoritative parent tip unavailable")
   parent_sha = observed[0]
   git(root, "fetch", "--no-tags", remote, parent_ref)
-  candidate, version = prepare_submission_candidate(
-    root, source, parent_sha, config, issue, engine_root)
+  try:
+    candidate, version = prepare_submission_candidate(
+      root, source, parent_sha, config, issue, engine_root)
+  except DoneSubmissionError as error:
+    error.submission = {"issue": issue, "remote": remote, "repository": info["repository"],
+      "source_sha": source, "candidate_sha": source, "parent_sha": parent_sha,
+      "destination": parent, "prelim_ref": prelim_ref_for_version(version), "release": release}
+    raise
   ref = prelim_ref_for_version(version)
   ready = parse_ready_prelim(ref, candidate, destination=parent)
   inputs = json.dumps({"tree":git(root, "rev-parse", candidate + "^{tree}").stdout.strip(),

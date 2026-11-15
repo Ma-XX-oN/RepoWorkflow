@@ -111,6 +111,12 @@ def build_parser() -> argparse.ArgumentParser:
 
   commands.add_parser("manual-prompt", help="read the current [MIT n/m] prompt prefix")
 
+  done_worker = commands.add_parser("done-worker", help="execute a PRELIM CI worker phase")
+  done_worker.add_argument("phase", choices=("prepare", "test", "accept", "dispatch"))
+  done_worker.add_argument("--prelim-ref")
+  done_worker.add_argument("--plan")
+  done_worker.add_argument("--output")
+
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
 
@@ -258,6 +264,23 @@ def main(argv: list[str] | None = None) -> int:
 
     args = build_parser().parse_args(argv)
     root = _root(args.root)
+    if args.command == "done-worker":
+      from repo_workflow.done_workflow import prepare_done, run_done_tests, accept_done, dispatch_done
+      if args.phase == "prepare":
+        if not args.prelim_ref:
+          raise ValueError("done-worker prepare requires --prelim-ref")
+        value = prepare_done(root, args.prelim_ref, engine_root=ENGINE_ROOT)
+      else:
+        if not args.plan:
+          raise ValueError("done-worker phase requires --plan")
+        plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+        if plan.get("status") != "prepared":
+          raise ValueError("done-worker requires a prepared execution plan")
+        value = {"test": run_done_tests, "accept": accept_done, "dispatch": dispatch_done}[args.phase](root, plan)
+      if args.output:
+        Path(args.output).write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+      print(json.dumps(value, sort_keys=True))
+      return 1 if value["status"] in {"failed", "conflict"} else 0
     if args.command == "manual-prompt":
       from repo_workflow.manual_test_cli import manual_prompt
       print(manual_prompt(root), end="")
