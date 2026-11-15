@@ -177,18 +177,14 @@ def verify_phase_evidence(
       observed.append(record)
   if not observed:
     raise TerminalTagError("no canonical evidence for development version")
-  terminal_seen = False
   for record in observed:
-    result = record.get("result")
-    if result == "incomplete" and terminal_seen:
-      raise TerminalTagError("incomplete evidence after terminal outcome")
-    if result in ("succeeded", "failed"):
-      terminal_seen = True
     branch = record.get("branch")
-    if (not isinstance(branch, str)
-        or re.fullmatch(
-          r"issue-" + re.escape(expected_issue) + r"(?:-.*)?", branch,
-        ) is None):
+    branch_issue = re.fullmatch(
+      r"(?:PRELIM-)?issue-([1-9][0-9]*)(?:[-/].*)?", branch,
+    ) if isinstance(branch, str) else None
+    if (not isinstance(branch, str) or not branch.strip()
+        or any(ord(character) < 32 for character in branch)
+        or branch_issue is not None and branch_issue.group(1) != expected_issue):
       raise TerminalTagError("canonical evidence branch differs from issue")
     if record.get("testSHA") != candidate:
       raise TerminalTagError("development version belongs to another phase or candidate")
@@ -240,6 +236,31 @@ def publish_terminal_tag(
     root, canonical_log, stage=stage, version=version,
     candidate=candidate, outcome=outcome,
   )
+  return _publish_fixed_tag(root, stage=stage, remote=remote, version=version,
+                            candidate=candidate, outcome=outcome, push=push)
+
+
+def _publish_fixed_tag(root: Path, *, stage: str, remote: str, version: str,
+                       candidate: str, outcome: str, push: bool,
+                       additional_refspecs: tuple[str, ...] = ()) -> str:
+  """Publish after the caller verifies canonical or aggregate test evidence.
+
+  Parameters
+  ----------
+  root : Path
+      Verified repository.
+  stage, remote, version, candidate, outcome : str
+      Validated phase, authority, version, exact source and terminal result.
+  push : bool
+      Whether to publish the result remotely.
+  additional_refspecs : tuple of str
+      Branch updates to include in the same atomic remote transaction.
+
+  Returns
+  -------
+  str
+      Fixed-target tag name after authoritative readback.
+  """
   try:
     tag = plan_phase(version, phase=stage, outcome=outcome).terminal_tag
     opposite_outcome = "FAIL" if outcome == "PASS" else "PASS"
@@ -288,7 +309,8 @@ def publish_terminal_tag(
       root, "push", "--atomic",
       "--force-with-lease=" + old_ref + ":" + old_object[0],
       "--force-with-lease=" + new_ref + ":" + new_object,
-      remote, new_ref + ":" + new_ref, ":" + old_ref, check=False,
+      remote, new_ref + ":" + new_ref, ":" + old_ref,
+      *additional_refspecs, check=False,
     )
     if (replaced.returncode or _remote_target(root, remote, opposite) is not None
         or _remote_target(root, remote, tag) != candidate):
@@ -300,12 +322,15 @@ def publish_terminal_tag(
     deleted = _git(root, "update-ref", "-d", old_ref, old_object, check=False)
     if deleted.returncode:
       raise TerminalTagError("local success tag changed before replacement")
-  if published is not None or not push:
+  if not push or published is not None and not additional_refspecs:
     return tag
   pushed = _git(
-    root, "push", remote, "refs/tags/" + tag, check=False,
+    root, "push", "--atomic", remote, "refs/tags/" + tag,
+    *additional_refspecs, check=False,
   )
   if pushed.returncode:
+    if additional_refspecs:
+      raise TerminalTagError("atomic branch/result publication UNKNOWN; reconcile")
     # Concurrent identical publication is harmless; a different target is not.
     if _remote_target(root, remote, tag) != candidate:
       raise TerminalTagError("terminal tag publication failed")

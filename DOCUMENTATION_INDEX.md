@@ -48,6 +48,7 @@ before changing tests or adding OS exceptions. Review
   [testing](WORK_GRAPH_TESTING.md) ->
   [visual conventions](WORK_GRAPH_VISUAL_CONVENTIONS.md).
 - [Integration](WORKFLOW_INTEGRATION.md) ->
+  [approved single-PRELIM completion contract](SINGLE_PRELIM_WORKFLOW.md) ->
   [done planner](DONE_PLANNER_CONTRACT.md) ->
   [release](STABLE_RELEASE.md).
 

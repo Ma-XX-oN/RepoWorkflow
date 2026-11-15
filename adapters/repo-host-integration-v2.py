@@ -20,6 +20,7 @@ from repo_host_github_integration_terminal import (
 )
 from repo_host_github_integration_lease import read_lease, cas_lease, _remote_scope
 from repo_host_github_integration_destination import read_destination_snapshot
+from repo_host_github_prelim_submission import read_submission
 from repo_host_github_integration_mit import read_mit, record_mit
 from repo_host_github_integration_evidence import make_evidence_verifier
 from adapters.repo_host_github_integration_accept import accept_destination
@@ -29,7 +30,7 @@ from repo_host_github_integration_retirement import (
 
 
 _OPERATIONS = {
-  "destination.read", "destination.accept", "refs.list", "ref.create", "ref.cas",
+  "destination.read", "destination.accept", "refs.list", "submission.read", "ref.create", "ref.cas",
   "attempt.read", "attempt.record", "lease.read", "lease.cas",
   "retirement.read", "retirement.record",
   "mit.deferred.read", "mit.deferred.record",
@@ -65,6 +66,9 @@ def process(request, *, backend_factory=GitHubBackend, verify=authorize,
     params = value["parameters"]
     if operation == "refs.list":
       return "unchanged", {"refs": inventory_ready_refs(backend)}
+    if operation == "submission.read":
+      return "unchanged", {"guid": params["guid"],
+                           "record": read_submission(backend, params["guid"])}
     if operation == "destination.read":
       return "unchanged", destination_read(backend, params["destination"])
     if operation == "attempt.read":

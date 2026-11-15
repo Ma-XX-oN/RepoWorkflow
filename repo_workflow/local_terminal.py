@@ -9,15 +9,13 @@ from .local import verify_local
 from typing import Callable
 from .retry_evidence import isolate_retry_evidence
 from .terminal_tag import publish_terminal_tag, TerminalTagError
+from .testing_identity import testing_issue
 
 def verify_consumer_retry(
   root: Path, engine_root: Path, prepared: list[tuple[str, str]],
   verifier: Callable = verify_local,
 ) -> str:
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise TerminalTagError("consumer regression requires an issue branch")
-  with isolate_retry_evidence(root, int(match.group(1))):
+  with isolate_retry_evidence(root, testing_issue(root)):
     return verifier(
       root, engine_root=engine_root, push=False, tag_result=False,
       candidate_observer=lambda sha, version: prepared.append((sha, version)),
@@ -26,11 +24,8 @@ def verify_consumer_retry(
 def publish_local_terminal(root: Path, *, stage: str) -> str | None:
   if stage not in {"regression", "integration"}:
     raise TerminalTagError("unsupported local terminal stage")
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise TerminalTagError("terminal log requires issue branch")
   log = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
+    f"testResults-{testing_issue(root)}.jsonl"
   )
   try:
     # JSONL records are delimited only by physical LF, not Unicode U+2028/U+2029.

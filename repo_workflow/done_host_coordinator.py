@@ -10,7 +10,8 @@ from .integration_coordination import (
   CoordinationError, DestinationLease, MitDeferredEvent,
   MitResumeAuthorization,
 )
-from .prelim_queue import discover_ready_prelims
+from .prelim_queue import discover_ready_prelims, parse_ready_prelim
+from .prelim_submission import validate_submission
 
 
 def _request_id(kind: str, *parts) -> str:
@@ -41,6 +42,47 @@ class IntegrationHostCoordinator:
     if type(result) is not dict or set(result) != {"refs"}:
       raise CoordinationError("remote PRELIM inventory unverified")
     return discover_ready_prelims(result["refs"])
+
+  def read_submission_history(self, submissions):
+    """Recover exact predecessor receipts, including retired historical refs.
+
+    Parameters
+    ----------
+    submissions : iterable of ReadyPrelim
+        Independently observed physical PRELIM inventory.
+
+    Returns
+    -------
+    tuple
+        Complete immutable generation identities and their receipt map.
+        Missing provenance rejects scheduling rather than guessing order.
+    """
+    pending = [(item.ref, item.guid, item.sha) for item in submissions]
+    identities, records = {}, {}
+    while pending:
+      ref, guid, expected = pending.pop()
+      if ref in records:
+        if expected is not None and records[ref]["candidate_sha"] != expected:
+          raise CoordinationError("PRELIM inventory changed from its receipt")
+        continue
+      if len(records) >= 512:
+        raise CoordinationError("PRELIM predecessor history exceeds scheduling bound")
+      result = self._read("submission.read", {"guid": guid})
+      if (type(result) is not dict or set(result) != {"guid", "record"}
+          or result["guid"] != guid or type(result["record"]) is not dict):
+        raise CoordinationError("PRELIM submission provenance unavailable; migration required")
+      record = result["record"]
+      validate_submission(record, repository=self.host.repository, guid=guid)
+      if (record["prelim_ref"] != ref
+          or expected is not None and record["candidate_sha"] != expected):
+        raise CoordinationError("PRELIM inventory changed from its submission receipt")
+      ready = parse_ready_prelim(ref, record["candidate_sha"])
+      identities[ref], records[ref] = ready, record
+      predecessor = record["predecessor_ref"]
+      if predecessor is not None:
+        prior = parse_ready_prelim(predecessor, record["candidate_sha"])
+        pending.append((prior.ref, prior.guid, None))
+    return tuple(identities.values()), records
 
   def read_destination_lease(self, destination):
     result = self._read("lease.read", {"destination": destination})

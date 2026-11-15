@@ -20,6 +20,8 @@ from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
 from .test_catalogue import stage_groups
 from .test_worktree import tracked_input_changes
+from .testing_identity import testing_issue
+from .source_tip import source_tip
 
 PROBES = (
   ("argv-limits", "probe-argv-limits.py"),
@@ -59,13 +61,10 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
     raise ValueError(
       "consumer integration requires an authoritative environment adapter"
     )
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise ValueError("integration requires a current issue branch")
   log = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
+    f"testResults-{testing_issue(root)}.jsonl"
   )
-  candidate = head_sha(root)
+  candidate = source_tip(root)
   before_dirty = _dirty(root, log)
   regression = self_regression(root, stage="integration")
   observations = [{
@@ -83,7 +82,7 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
           "group": name, "exit_code": future.result(),
         })
   dirty = sorted(set(before_dirty) | set(_dirty(root, log)))
-  history_changed = head_sha(root) != candidate
+  history_changed = source_tip(root) != candidate
   success = (
     regression == "PASS"
     and len(observations) == len(PROBES) + 1

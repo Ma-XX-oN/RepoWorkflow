@@ -216,8 +216,6 @@ def resolve_hosted_version(
     if record.get("result") not in {"succeeded", "failed", "incomplete"}:
       raise HostedVersionError("version evidence has no valid result")
     if record.get("result") == "incomplete":
-      if (version, kind) in terminal_outcomes:
-        raise HostedVersionError("incomplete result after terminal outcome")
       continue  # No terminal allocation and no version consumed.
     namespace = (version, kind)
     prior = version_owners.get(namespace)
@@ -234,9 +232,12 @@ def resolve_hosted_version(
     if owner[0] != identity["candidate_sha"]:
       continue
     source_branch = record.get("branch")
-    if not isinstance(source_branch, str) or re.fullmatch(
-      "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
-    ) is None:
+    branch_issue = re.fullmatch(
+      r"(?:PRELIM-)?issue-([1-9][0-9]*)(?:[-/].*)?", source_branch,
+    ) if isinstance(source_branch, str) else None
+    if (not isinstance(source_branch, str) or not source_branch.strip()
+        or any(ord(character) < 32 for character in source_branch)
+        or branch_issue is not None and branch_issue.group(1) != match.group(1)):
       raise HostedVersionError("version evidence belongs to another branch")
     if kind != identity["stage"]:
       continue

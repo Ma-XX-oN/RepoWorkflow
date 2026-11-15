@@ -5,6 +5,8 @@ import re
 
 from .git import changed_files, git, git_bytes, git_wire_path, head_sha, repository_state, restore_repository_state
 from .guard import Candidate, GuardError, validate_candidate
+from .source_tip import source_tip
+from .version_evidence import tested_source_changed
 from .version_adapter import (
   VersionAdapterError,
   read_development_version,
@@ -16,27 +18,6 @@ _VERSION_PARTS_RE = re.compile(
   r"^(?P<base>\d+\.\d+\.\d+)-issue\."
   r"(?P<issue>\d+)\.(?P<generation>\d+)\.(?P<iteration>\d+)$"
 )
-
-
-def _terminal_tag(root: Path, remote: str, version: str) -> str | None:
-  remote_result = git(root, "remote", "get-url", remote, check=False)
-  if remote_result.returncode or not remote_result.stdout.strip():
-    raise GuardError(f"authoritative remote is unavailable: {remote}")
-  tags = (f"v{version}", f"v{version}-CI-FAIL")
-  refs = [f"refs/tags/{tag}" for tag in tags]
-  result = git(root, "ls-remote", "--tags", remote, *refs, check=False)
-  if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
-    raise GuardError(f"cannot establish authoritative tag state: {detail}")
-  present = {
-    line.split("\t", 1)[1].strip()
-    for line in result.stdout.splitlines()
-    if "\t" in line
-  }
-  for tag, ref in zip(tags, refs):
-    if ref in present:
-      return tag
-  return None
 
 
 def _assert_ci_iteration_advanced(before: str, after: str) -> None:
@@ -96,6 +77,8 @@ def _request_needs_refresh(root: Path, config: dict, version: str) -> bool:
   head = head_sha(root)
   if request_commit == head:
     return False
+  if source_tip(root) == source_tip(root, request_commit):
+    return False
   ancestry = git(
     root,
     "merge-base",
@@ -154,7 +137,8 @@ def prepare_development_candidate(
       version = read_development_version(root, config)
     except VersionAdapterError as exc:
       raise GuardError(str(exc)) from exc
-    while _terminal_tag(root, remote, version) is not None:
+    issue = int(_VERSION_PARTS_RE.fullmatch(version).group("issue"))
+    while tested_source_changed(root, issue, version, remote=remote):
       version = _advance_ci_iteration(root, config, version)
       prepared = True
 

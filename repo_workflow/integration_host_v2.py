@@ -21,6 +21,7 @@ _OPERATIONS = {
   "destination.read": {"destination"},
   "destination.accept": {"record"},
   "refs.list": {"prefix"},
+  "submission.read": {"guid"},
   "ref.create": {"ref", "sha"},
   "ref.cas": {"ref", "expected_sha", "sha"},
   "lease.read": {"destination"},
@@ -293,6 +294,18 @@ def _valid_result(operation, request, result):
       and all(type(ref) is str and ref.startswith("refs/heads/PRELIM-")
               and type(sha) is str and _SHA.fullmatch(sha)
               for ref, sha in result["refs"].items()))
+  if operation == "submission.read":
+    if set(result) != {"guid", "record"} or result["guid"] != request["guid"]:
+      return False
+    if result["record"] is None:
+      return True
+    from .prelim_submission import SubmissionError, validate_submission
+    try:
+      validate_submission(result["record"], repository=result["record"].get("repository"),
+                          guid=request["guid"])
+    except (SubmissionError, AttributeError, TypeError):
+      return False
+    return True
   if operation in {"ref.create", "ref.cas"}:
     return (set(result) == {"ref", "sha"} and
             result["ref"] == request["ref"] and
@@ -412,13 +425,16 @@ class IntegrationHost:
         reply["status"] not in {"applied", "unchanged"} or
         type(reply["status"]) is not str):
       raise IntegrationHostError("integration provider response identity mismatch")
-    if (operation in {"destination.read", "refs.list", "lease.read",
+    if (operation in {"destination.read", "refs.list", "submission.read", "lease.read",
                       "attempt.read", "retirement.read",
                       "mit.deferred.read", "mit.resume.read"}
         and reply["status"] != "unchanged"):
       raise IntegrationHostError("read-only provider operation claimed mutation")
     if not _valid_result(operation, parameters, reply["result"]):
       raise IntegrationHostError("invalid integration provider result")
+    if (operation == "submission.read" and reply["result"]["record"] is not None
+        and reply["result"]["record"]["repository"] != self.repository):
+      raise IntegrationHostError("submission provider repository mismatch")
     if operation.startswith("mit."):
       key = "authorization" if operation.startswith("mit.resume") else "event"
       event = reply["result"][key]

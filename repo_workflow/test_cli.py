@@ -13,6 +13,8 @@ import subprocess
 import sys
 
 from .git import changed_files, current_branch, git, head_sha
+from .testing_identity import testing_issue
+from .source_tip import source_tip
 from .local import verify_local
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
@@ -346,12 +348,7 @@ def _run_group_set(
   return 2 if launch_missing else 1 if failures else 0
 
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
-  match = re.fullmatch(
-    r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
-  )
-  if match is None:
-    raise TestCommandError("integration requires a current issue branch")
-  sandbox = root / ".ci" / "temp-tests" / match.group(1)
+  sandbox = root / ".ci" / "temp-tests" / str(testing_issue(root, branch=current_branch(root)))
   if sandbox.exists() or sandbox.is_symlink():
     raise TestCommandError(
       "integration requires complete removal of temporary test sandbox "
@@ -368,15 +365,18 @@ def run_test(
     root, stage, remote=remote, engine_root=engine_root, group=group,
   )
   if stage in STAGES and not remote:
-    match = re.fullmatch(
-      r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
-    )
-    if match is not None:
-      relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+    if stage in {"regression", "integration"}:
+      relative = f".repoworkflow/validation/testResults-{testing_issue(root, branch=current_branch(root))}.jsonl"
       if (root / relative).is_file():
         commit_owned_files(
           root, [relative], "test: record " + stage + " outcome",
         )
+    else:
+      match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
+      if match is not None:
+        relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+        if (root / relative).is_file():
+          commit_owned_files(root, [relative], "test: record " + stage + " outcome")
   return status
 
 
@@ -444,10 +444,7 @@ def _run_test_impl(
     _assert_no_temporary_issue_sandbox(root)
     if (root.resolve() == engine_root.resolve() and (root / "VERSION").is_file()
         and not hosted_candidate_bound(root)):
-      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
-      if match is None:
-        raise TestCommandError("integration requires issue branch")
-      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+      prepare_engine_request(root, stage=stage, issue=testing_issue(root, branch=current_branch(root)))
     if root.resolve() != engine_root.resolve():
       from .test_consumer_integration import run_consumer_integration
       return run_consumer_integration(
@@ -477,11 +474,9 @@ def _run_test_impl(
       and (root / "VERSION").is_file()
       and not hosted_candidate_bound(root)
     ):
-      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
-      if match is None:
-        raise TestCommandError("regression requires issue branch")
-      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+      prepare_engine_request(root, stage=stage, issue=testing_issue(root, branch=current_branch(root)))
     before = head_sha(root)
+    before_source = source_tip(root)
     prepared: list[tuple[str, str]] = []
     outcome = (
       self_regression(root)
@@ -494,15 +489,12 @@ def _run_test_impl(
         root, "temporary", selected, catalogue_path=temporary,
       )
       outcome = {0: "PASS", 1: "FAIL", 2: "INCOMPLETE"}[temporary_rc]
-    match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
-    if match is None:
-      raise TestCommandError("regression evidence requires an issue branch")
     path = root / ".repoworkflow" / "validation" / (
-      "testResults-" + match.group(1) + ".jsonl"
+      f"testResults-{testing_issue(root, branch=current_branch(root))}.jsonl"
     )
     uncommitted = _uncommitted_inputs(root, path)
-    tested_sha = prepared[0][0] if prepared else before
-    head_changed = head_sha(root) != tested_sha
+    tested_sha = prepared[0][0] if prepared else before_source
+    head_changed = after != before
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
       "uncommittedChanges": uncommitted,

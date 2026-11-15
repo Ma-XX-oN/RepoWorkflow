@@ -302,67 +302,6 @@ def evaluate_results(
 
 
 
-def assert_terminal_tag_available(
-  root: Path,
-  candidate: Candidate,
-  tag: str,
-  *,
-  push: bool,
-) -> None:
-  local = git(root, "show-ref", "--verify", "--quiet", f"refs/tags/{tag}", check=False)
-  if local.returncode == 0:
-    raise ResultError(f"terminal tag already exists and is immutable: {tag}")
-  if local.returncode not in {0, 1}:
-    raise ResultError(f"cannot establish local terminal-tag state: {tag}")
-  opposite = (
-    f"v{candidate.version}-CI-FAIL"
-    if tag == f"v{candidate.version}"
-    else f"v{candidate.version}"
-  )
-  for value in (opposite,):
-    result = git(
-      root,
-      "show-ref",
-      "--verify",
-      "--quiet",
-      f"refs/tags/{value}",
-      check=False,
-    )
-    if result.returncode == 0:
-      raise ResultError(
-        f"candidate already has immutable terminal result: {value}"
-      )
-    if result.returncode not in {0, 1}:
-      raise ResultError(f"cannot establish local terminal-tag state: {value}")
-  refs = [
-    f"refs/tags/{tag}",
-    f"refs/tags/{opposite}",
-  ]
-  remote = git(
-    root,
-    "ls-remote",
-    "--tags",
-    candidate.remote,
-    *refs,
-    check=False,
-  )
-  if remote.returncode:
-    detail = (remote.stderr or remote.stdout).strip()
-    raise ResultError(
-      "cannot establish authoritative terminal-tag state"
-      + (f": {detail}" if detail else "")
-    )
-  present = {
-    line.split("\t", 1)[1].strip()
-    for line in remote.stdout.splitlines()
-    if "\t" in line
-  }
-  for ref in refs:
-    if ref in present:
-      raise ResultError(
-        "candidate already has immutable terminal result: "
-        + ref.removeprefix("refs/tags/")
-      )
 
 def finalize_results(
   root: Path,
@@ -392,28 +331,10 @@ def finalize_results(
   if outcome == "INCOMPLETE":
     return outcome
   if do_tag and tag:
-    assert_terminal_tag_available(
-      root,
-      candidate,
-      tag,
-      push=push,
-    )
-    git(root, "tag", "-a", tag, candidate.commit, "-m", tag)
-    if push:
-      pushed = git(
-        root,
-        "push",
-        candidate.remote,
-        f"refs/tags/{tag}",
-        check=False,
-      )
-      if pushed.returncode:
-        git(root, "tag", "-d", tag)
-        detail = (pushed.stderr or pushed.stdout).strip()
-        raise ResultError(
-          f"failed to publish immutable terminal tag {tag}"
-          + (f": {detail}" if detail else "")
-        )
+    from .terminal_tag import _publish_fixed_tag
+    _publish_fixed_tag(root, stage="regression", remote=candidate.remote,
+                       version=candidate.version, candidate=candidate.commit,
+                       outcome=outcome, push=push)
   return outcome
 
 

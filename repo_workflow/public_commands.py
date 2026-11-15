@@ -488,7 +488,7 @@ COMMANDS = {
       "_quantifier": "?",
       "_switches": {
         "--remote": "Request automated integration tests through hosted CI",
-        "--manual": "Select the first outstanding manual integration test",
+        "--manual": "Select the first outstanding manual test, or the named/numbered case",
       },
     },
     "results": {

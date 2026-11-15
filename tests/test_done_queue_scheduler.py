@@ -5,6 +5,7 @@ from repo_workflow.done_queue_scheduler import (
   QueueAdmissionError, choose_submission, inventory_destination,
 )
 from tests.test_done_host_coordinator import FakeHost, GUID, REF, A
+from repo_workflow.prelim_queue import parse_ready_prelim
 
 
 B="b"*40
@@ -18,11 +19,19 @@ class QueueHost(FakeHost):
   def __init__(self):
     super().__init__()
     self.refs={REF:A,ALT:B,SIDE:A}
+    self.submissions={parse_ready_prelim(ref, sha).guid:self.receipt(ref, sha)
+                      for ref, sha in self.refs.items()}
     self.deferred={}
     self.terminals={}
     self.approvals={}
     self.inventory_reads=0
     self.change_ref_after_first=False
+  def receipt(self, ref, sha, predecessor=None):
+    """Construct an explicit provider-provenance fixture, not test evidence."""
+    return {"repository":self.repository, "guid":parse_ready_prelim(ref, sha).guid,
+            "prelim_ref":ref, "source_sha":sha, "candidate_sha":sha,
+            "parent_sha":"f"*40, "predecessor_ref":predecessor,
+            "inputs_sha256":"f"*64, "release":"patch"}
   def request(self,operation,key,params):
     if operation=="refs.list":
       self.inventory_reads += 1
@@ -30,6 +39,11 @@ class QueueHost(FakeHost):
       if self.change_ref_after_first and self.inventory_reads==1:
         self.refs[ALT]=A
       return result
+    if operation=="submission.read":
+      return {"guid":params["guid"],"record":self.submissions.get(params["guid"])}
+    if operation=="destination.read":
+      return {"destination":params["destination"],
+              "ref":"refs/heads/"+params["destination"],"sha":"f"*40}
     if operation=="lease.read" and params["destination"]=="side":
       return {"destination":"side","generation":0,
               "guid":None,"holder":None}
@@ -48,6 +62,37 @@ class QueueHost(FakeHost):
 class QueueTests(unittest.TestCase):
   def setUp(self):
     self.host=QueueHost()
+
+  def test_superseded_submission_never_reappears_after_latest_failure(self):
+    """The latest generation, including its failure, governs this issue."""
+    guid = "44444444-4444-4444-8444-444444444444"
+    latest = f"refs/heads/PRELIM-issue-123/main-{guid}"
+    self.host.refs = {REF:A, latest:B}
+    self.host.submissions[guid] = self.host.receipt(latest, B, REF)
+    self.host.terminals[guid] = {"repository":self.host.repository,
+                                 "guid":guid,"status":"failed"}
+    state = inventory_destination(self.host, "main")
+    self.assertEqual(state.pending, ())
+    self.assertEqual([item.ref for item in state.superseded], [REF])
+    self.assertEqual([item.ref for item in state.terminal], [latest])
+
+  def test_missing_receipt_blocks_instead_of_guessing_order(self):
+    """Physical ref inventory alone does not establish generation order."""
+    self.host.submissions.pop(GUID)
+    with self.assertRaisesRegex(QueueAdmissionError, "provenance"):
+      inventory_destination(self.host, "main")
+
+  def test_stale_latest_keeps_retired_predecessor_history(self):
+    """Historical receipt ancestry survives removing an old physical ref."""
+    guid = "44444444-4444-4444-8444-444444444444"
+    latest = f"refs/heads/PRELIM-issue-123/main-{guid}"
+    self.host.refs = {latest:B}
+    self.host.submissions[guid] = self.host.receipt(latest, B, REF)
+    self.host.submissions[guid]["parent_sha"] = "e"*40
+    state = inventory_destination(self.host, "main")
+    self.assertEqual([item.ref for item in state.pending], [latest])
+    self.assertEqual([item.ref for item in state.stale], [latest])
+    self.assertEqual(state.superseded, ())
 
   def test_different_umbrellas_share_destination_and_no_guid_priority(self):
     state=inventory_destination(self.host,"main")

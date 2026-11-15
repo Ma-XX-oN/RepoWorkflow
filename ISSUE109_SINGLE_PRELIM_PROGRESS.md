@@ -16,6 +16,8 @@ Status: WIP; no full workflow acceptance or production activation claimed.
 - [ ] Keep source identity/version stable across report commits and resumes.
 - [ ] Replace success with same-source CI-FAIL on subsequent test failure.
 - [ ] Implement manual index/name selection and shell progress.
+  Numeric/name selection and progress output are implemented; actual shell
+  prompt installation remains incomplete.
 - [ ] Implement remote conflict email plus durable handoff.
 - [ ] Register/run contract-derived tests through catalogue selection.
 - [ ] Verify real disposable workflow and native platform requirements.
@@ -23,10 +25,10 @@ Status: WIP; no full workflow acceptance or production activation claimed.
 
 ## Execution findings
 
-The assembly lacks AGENTS.md, AGENT_EXECUTION_STANDARD.md and BEST_PRACTICES.md;
+At the initial assembly revision, AGENTS.md, AGENT_EXECUTION_STANDARD.md and BEST_PRACTICES.md were absent;
 their current origin/main copies were read through Git. The public CLI has
 only injected done_executor support. The planner blocks on missing validation.
-Provider modules assume separate immutable PRELIM/mutable INT-ATTEMPT refs.
+Provider execution modules still assume separate immutable PRELIM/mutable INT-ATTEMPT refs.
 The catalogue and accepted main disagree about invariant stage semantics;
 source refresh must preserve both required coverage and manual/RED behavior.
 
@@ -34,3 +36,20 @@ Initial contract/classification checks: 9 new and 28 existing planner tests PASS
 through registered groups. Repeated after resolving the origin/main merge,
 with the same counts and results. This proves isolated policy only; concrete
 provider scheduling and full native/disposable acceptance remain incomplete.
+
+Accepted main was reconciled in merge commit 40abaa4f. Engine/consumer
+preparation share version_evidence.py; generic aggregate result publication
+shares fixed-target terminal publication. Registered consumer verifier checks:
+16 PASS; local terminal checks: 6 PASS. Tag group: 39 executed, 1 existing
+Windows symlink privilege error and 3 skips; remaining behavior passed.
+
+Provider generation scheduling reads immutable receipts through submission.read.
+Receipt publication atomically creates PRELIM plus provenance, retains source
+objects on unchanged retry and does not assert test PASS. Registered checks:
+21 policy/source/publication/provider cases, 11 scheduling cases and 7 queue
+cycle cases PASS. These include actual local bare-Git publication fixtures,
+not genuine remote provider certification.
+
+A GitHub checkpoint comment was rejected by automatic approval review because
+it contained internal implementation status and a local filesystem path.
+No comment was posted; do not retry that disclosure through another tool.

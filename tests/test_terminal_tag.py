@@ -220,9 +220,9 @@ class TerminalTagTests(unittest.TestCase):
     original = self.log.read_text(encoding="utf-8")
     lines = original.split("\n")
     self.log.write_text(lines[1] + "\n" + lines[0] + "\n", encoding="utf-8")
-    with self.assertRaisesRegex(TerminalTagError, "incomplete evidence after terminal"):
-      self.issue_tag("PASS", push=False)
-    self.assertEqual(self.git("tag", "--list"), "")
+    # Additional unfinished work does not change the version or erase PASS.
+    self.issue_tag("PASS", push=False)
+    self.assertEqual(self.git("tag", "--list"), "v" + VERSION)
     self.log.write_text(original, encoding="utf-8")
     tag = self.issue_tag("PASS")
     self.assertEqual(self.published(tag)["refs/tags/" + tag + "^{}"], self.candidate)

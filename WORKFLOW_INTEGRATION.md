@@ -1,5 +1,9 @@
 # Integration, Audit, and Release Lifecycle
 
+The [approved single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md) governs
+completion submission, deferred validation and generation selection. It
+supersedes conflicting two-branch requirements retained below for audit.
+
 ## Validation audit trail
 
 The initial storage proposal is one append-only JSONL file per issue:

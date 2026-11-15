@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from subprocess import CompletedProcess
+from types import SimpleNamespace
 
 from repo_workflow.done_planner import GateObservation, plan_done
 from repo_workflow.prelim_queue import (
@@ -13,6 +16,11 @@ from tests.test_done_planner import snapshot
 from repo_workflow.git import git
 from repo_workflow.source_tip import source_tip
 from repo_workflow.testing_identity import testing_issue
+from repo_workflow.prelim_submission import (
+  SubmissionError, decode_submission, publish_submission, submission_message, submission_ref,
+)
+from repo_workflow.integration_host_v2 import IntegrationHost, IntegrationHostError
+from adapters.repo_host_github_prelim_submission import read_submission
 
 
 class SubmissionTests(unittest.TestCase):
@@ -165,3 +173,125 @@ class SourceTipTests(unittest.TestCase):
     self.git_version.write_text("1.2.3-issue.109.0.1\n", encoding="utf-8")
     git(self.root, "checkout", "-b", "platform-testing")
     self.assertEqual(testing_issue(self.root), 109)
+
+
+class SubmissionPublicationTests(unittest.TestCase):
+  """Exercise actual atomic Git publication, preserving uncertain local receipts."""
+
+  commit = SourceTipTests.commit
+
+  def setUp(self):
+    """Build a source, its parent and an isolated bare provider."""
+    SourceTipTests.setUp(self)
+    provider = tempfile.TemporaryDirectory()
+    self.addCleanup(provider.cleanup)
+    self.remote = Path(provider.name)
+    git(self.remote, "init", "--bare")
+    git(self.root, "remote", "add", "origin", str(self.remote))
+    (self.root / "source.txt").write_text("completed source\n", encoding="utf-8")
+    self.candidate = self.commit()
+    self.guid = "44444444-4444-4444-8444-444444444444"
+    self.ref = f"refs/heads/PRELIM-issue-109/main-{self.guid}"
+    self.record = {"repository":"Org/Repo", "guid":self.guid, "prelim_ref":self.ref,
+                   "source_sha":self.candidate, "candidate_sha":self.candidate,
+                   "parent_sha":self.original, "predecessor_ref":None,
+                   "inputs_sha256":"f"*64, "release":"patch"}
+
+  def test_publication_and_unchanged_resume_keep_both_objects(self):
+    """Publication creates PRELIM and provenance; retry moves neither ref."""
+    ready = publish_submission(self.root, self.record, remote="origin")
+    self.assertEqual(ready.sha, self.candidate)
+    receipt = git(self.remote, "rev-parse", submission_ref(self.guid)).stdout.strip()
+    publish_submission(self.root, self.record, remote="origin")
+    self.assertEqual(git(self.remote, "rev-parse", submission_ref(self.guid)).stdout.strip(), receipt)
+    self.assertEqual(git(self.remote, "rev-parse", self.ref).stdout.strip(), self.candidate)
+    self.assertEqual(git(self.root, "rev-parse", "HEAD").stdout.strip(), self.candidate)
+
+  def test_rejected_publication_retains_original_receipt_for_retry(self):
+    """A failed transport cannot claim submission, and retry reuses its receipt."""
+    real_git = git
+    def reject(root, *args, **kwargs):
+      if args[0] == "push":
+        return CompletedProcess(args, 1, "", "rejected")
+      return real_git(root, *args, **kwargs)
+    with patch("repo_workflow.prelim_submission.git", side_effect=reject):
+      with self.assertRaisesRegex(SubmissionError, "UNKNOWN"):
+        publish_submission(self.root, self.record, remote="origin")
+    receipt = git(self.root, "rev-parse", submission_ref(self.guid)).stdout.strip()
+    self.assertEqual(git(self.remote, "show-ref", check=False).stdout, "")
+    publish_submission(self.root, self.record, remote="origin")
+    self.assertEqual(git(self.remote, "rev-parse", submission_ref(self.guid)).stdout.strip(), receipt)
+
+  def test_false_parent_and_changed_receipt_reject_without_moving_refs(self):
+    """Metadata cannot rewrite ancestry or the identity of a published generation."""
+    bad = {**self.record, "parent_sha":"a"*40}
+    with self.assertRaises(SubmissionError):
+      publish_submission(self.root, bad, remote="origin")
+    publish_submission(self.root, self.record, remote="origin")
+    with self.assertRaises(SubmissionError):
+      publish_submission(self.root, {**self.record, "release":"minor"}, remote="origin")
+    self.assertEqual(git(self.remote, "rev-parse", self.ref).stdout.strip(), self.candidate)
+
+  def test_canonical_receipt_rejects_duplicate_fields_and_result_claims(self):
+    """Submission metadata has no test-result or merge-authorization field."""
+    message = submission_message(self.record)
+    self.assertEqual(decode_submission(message, repository="Org/Repo", guid=self.guid), self.record)
+    for invalid in (message[:-1] + ',"release":"minor"}',
+                    submission_message({**self.record, "outcome":"PASS"})):
+      with self.assertRaises(SubmissionError):
+        decode_submission(invalid, repository="Org/Repo", guid=self.guid)
+
+
+class SubmissionProviderTests(unittest.TestCase):
+  """Provider fixtures check receipt scope without asserting live certification."""
+
+  def setUp(self):
+    """Supply independently pinned provider object and ancestry responses."""
+    self.guid = "44444444-4444-4444-8444-444444444444"
+    self.record = {"repository":"Org/Repo", "guid":self.guid,
+                   "prelim_ref":f"refs/heads/PRELIM-issue-109/main-{self.guid}",
+                   "source_sha":"a"*40, "candidate_sha":"b"*40,
+                   "parent_sha":"c"*40, "predecessor_ref":None,
+                   "inputs_sha256":"f"*64, "release":"patch"}
+    self.response = {"ref":submission_ref(self.guid),
+                     "object":{"type":"commit","sha":"d"*40}}
+    self.receipt = {"sha":"d"*40, "message":submission_message(self.record),
+                    "parents":[{"sha":"b"*40}], "tree":{"sha":"e"*40}}
+    self.routes = {"git/ref/"+submission_ref(self.guid).removeprefix("refs/"):self.response,
+                   "git/commits/"+"d"*40:self.receipt,
+                   "git/commits/"+"b"*40:{"sha":"b"*40,"tree":{"sha":"e"*40}},
+                   "compare/"+"c"*40+"..."+"b"*40:{"merge_base_commit":{"sha":"c"*40}}}
+    self.backend = SimpleNamespace(repository="Org/Repo", get=self.routes.__getitem__)
+
+  def test_provider_record_binds_candidate_tree_and_parent(self):
+    """Receipt provenance is checked against physical provider objects."""
+    self.assertEqual(read_submission(self.backend, self.guid), self.record)
+    self.receipt["tree"]["sha"] = "f"*40
+    with self.assertRaisesRegex(SubmissionError, "inputs"):
+      read_submission(self.backend, self.guid)
+
+  def test_false_historical_parent_and_foreign_repository_reject(self):
+    """Reported roots and namespaces cannot substitute for provider ancestry."""
+    route = "compare/"+"c"*40+"..."+"b"*40
+    self.routes[route] = {"merge_base_commit":{"sha":"a"*40}}
+    with self.assertRaisesRegex(SubmissionError, "ancestry"):
+      read_submission(self.backend, self.guid)
+    self.backend.repository = "Other/Repo"
+    with self.assertRaises(SubmissionError):
+      read_submission(self.backend, self.guid)
+
+  def test_host_read_is_scoped_and_cannot_claim_mutation(self):
+    """The v2 transport enforces repository and read-only result identity."""
+    status, record = "unchanged", self.record
+    def transport(request):
+      return {**{key:request[key] for key in
+                 ("schema_version","repository","operation","request_id")},
+              "status":status, "result":{"guid":self.guid,"record":record}}
+    host = IntegrationHost("Org/Repo", transport)
+    self.assertEqual(host.request("submission.read", "read-1", {"guid":self.guid})["record"], record)
+    status = "applied"
+    with self.assertRaises(IntegrationHostError):
+      host.request("submission.read", "read-2", {"guid":self.guid})
+    status, record = "unchanged", {**self.record,"repository":"Other/Repo"}
+    with self.assertRaises(IntegrationHostError):
+      host.request("submission.read", "read-3", {"guid":self.guid})

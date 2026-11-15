@@ -24,6 +24,7 @@ class QueueCycleTests(unittest.TestCase):
   def setUp(self):
     self.host=QueueHost()
     self.host.refs[THIRD]=C
+    self.host.submissions[GUID3]=self.host.receipt(THIRD,C)
     self.orders=[]
     self.handoffs=[]
   def selector(self,snapshot):

@@ -1,5 +1,10 @@
 # RepoWorkflow Public Workflow
 
+For `rwf done` and its manual-test progression, use the
+[approved single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md). Conflicting
+historical two-branch and test-before-submission descriptions below are
+retained for audit; implementation acceptance is tracked in #109.
+
 Status: authoritative public-workflow synopsis for issue #51.
 
 This document defines the intended human-facing `rwf` workflow.  It supersedes

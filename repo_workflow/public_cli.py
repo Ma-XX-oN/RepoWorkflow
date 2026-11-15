@@ -295,10 +295,6 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path,
       )
     ):
       names = [token for token in words[2:] if not token.startswith("--")]
-      if "--manual" in words and names:
-        raise CommandGrammarError(
-          "--manual cannot be combined with an explicit test name"
-        )
       return select_requested(
         root, name=names[0] if names else None, remote=remote,
       )

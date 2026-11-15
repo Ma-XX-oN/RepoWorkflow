@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from .done_host_coordinator import IntegrationHostCoordinator
 from .integration_coordination import MitResumeAuthorization
-from .prelim_queue import ReadyPrelim
+from .prelim_queue import ReadyPrelim, classify_prelims
 
 
 class QueueAdmissionError(RuntimeError):
@@ -24,6 +24,9 @@ class DestinationSnapshot:
   terminal: tuple[ReadyPrelim, ...]
   current_generation: int
   busy: bool
+  stale: tuple[ReadyPrelim, ...] = ()
+  superseded: tuple[ReadyPrelim, ...] = ()
+  parent_sha: str | None = None
 
 
 def inventory_destination(host, destination):
@@ -37,8 +40,25 @@ def inventory_destination(host, destination):
   lease=provider.read_destination_lease(destination)
   if lease.destination != destination:
     raise QueueAdmissionError("provider lease destination mismatch")
+  try:
+    parent = provider._read("destination.read", {"destination": destination})
+    if (type(parent) is not dict or parent.get("ref") != "refs/heads/" + destination
+        or parent.get("destination") != destination):
+      raise QueueAdmissionError("destination parent identity differs")
+    history, records = provider.read_submission_history(submissions)
+    positions = classify_prelims(
+      history, current_parent_sha=parent.get("sha"),
+      bases={ref: value["parent_sha"] for ref, value in records.items()},
+      predecessors={ref: value["predecessor_ref"] for ref, value in records.items()})
+  except Exception as error:
+    raise QueueAdmissionError("PRELIM inventory/provenance changed or UNKNOWN") from error
+  by_ref = {item.submission.ref: item.position for item in positions}
+  superseded = tuple(item for item in submissions if by_ref[item.ref] == "superseded")
+  stale = tuple(item for item in submissions if by_ref[item.ref] == "stale")
   pending,deferred,terminal=[],[],[]
   for item in submissions:
+    if by_ref[item.ref] == "superseded":
+      continue
     try:
       result=provider.read_attempt_result(item.guid)
       event=provider.read_mit_deferred_event(item.guid,destination)
@@ -69,7 +89,8 @@ def inventory_destination(host, destination):
       pending.append(item)
   return DestinationSnapshot(
     destination,tuple(pending),tuple(deferred),tuple(terminal),
-    lease.generation,lease.active_guid is not None or lease.holder is not None)
+    lease.generation,lease.active_guid is not None or lease.holder is not None,
+    stale, superseded, parent["sha"])
 
 
 def choose_submission(*, host, destination, select_authorized):
@@ -98,6 +119,7 @@ def choose_submission(*, host, destination, select_authorized):
   # treated as stale, never silently substituted with another attempt.
   fresh=inventory_destination(host,destination)
   if (fresh.busy or chosen not in fresh.pending
-      or snapshot.current_generation != fresh.current_generation):
+      or snapshot.current_generation != fresh.current_generation
+      or snapshot.parent_sha != fresh.parent_sha):
     raise QueueAdmissionError("READY inventory or lease changed during selection")
   return chosen

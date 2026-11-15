@@ -102,10 +102,17 @@ class LocalVerifyTests(unittest.TestCase):
         f"v{fx.version}",
       )
 
-  def test_local_verify_advances_consumed_iteration_automatically(self):
+  def publish_tested_version(self, fx, tag):
+    """Publish a fixed-source annotated result in the consumer fixture."""
+    fx._run("tag", "-a", tag, "-m", tag)
+    fx._run("push", "origin", "refs/tags/" + tag)
+
+  def test_local_verify_advances_version_after_source_correction(self):
     td, root, fx = self.make_consumer()
     with td:
-      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+      self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
+      (root / "source.txt").write_text("corrected source\n")
+      fx.commit("fix: correct tested source")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
       next_version = "1.0.0-issue.1.0.2"
@@ -119,8 +126,10 @@ class LocalVerifyTests(unittest.TestCase):
   def test_local_verify_skips_consecutive_consumed_iterations(self):
     td, root, fx = self.make_consumer()
     with td:
-      fx.tag_remote(f"v{fx.version}-CI-FAIL")
-      fx.tag_remote("v1.0.0-issue.1.0.2")
+      self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
+      self.publish_tested_version(fx, "v1.0.0-issue.1.0.2")
+      (root / "source.txt").write_text("corrected source\n")
+      fx.commit("fix: correct tested source")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
       next_version = "1.0.0-issue.1.0.3"
@@ -272,7 +281,9 @@ class LocalVerifyTests(unittest.TestCase):
       (root / ".ci" / "run-ci-request").write_text(fx.version + "\n")
       fx.commit("make semantic CI increment fail")
       fx.push()
-      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+      self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
+      (root / "source.txt").write_text("corrected source\n")
+      fx.commit("fix: correct tested source")
       before = fx.head()
 
       with self.assertRaisesRegex(GuardError, "version adapter failed"):
@@ -310,7 +321,7 @@ class LocalVerifyTests(unittest.TestCase):
           raise GitError("injected atomic publication failure")
         return git_command(path, *args, **kwargs)
 
-      with patch("repo_workflow.local.git", side_effect=reject_branch_push):
+      with patch("repo_workflow.terminal_tag._git", side_effect=reject_branch_push):
         with self.assertRaisesRegex(GitError, "injected atomic publication failure"):
           verify_local(root, engine_root=root / "RepoWorkflow", push=True)
 

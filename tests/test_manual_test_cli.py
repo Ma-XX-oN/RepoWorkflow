@@ -235,7 +235,7 @@ class TestManualLauncher(unittest.TestCase):
     succeeded = self.cli("test", "succeeded")
     self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
     self.assertIn("[MIT 1/2]", succeeded.stdout)
-    next_case = self.cli("test", "integration", "--manual")
+    next_case = self.cli("test", "integration", "--manual", "issue-702-manual--a-first")
     self.assertEqual(next_case.returncode, 0, next_case.stderr)
     self.assertIn("issue-702-manual--a-first", next_case.stdout)
 
@@ -296,7 +296,6 @@ class TestManualLauncher(unittest.TestCase):
     for args in (
       ("test", "integration", "--manual", "--remote"),
       ("test", "integration", "issue-702-manual--a-first", "--remote"),
-      ("test", "integration", "--manual", "issue-702-manual--a-first"),
       ("test", "integration", "issue-702-manual--not-registered"),
     ):
       with self.subTest(args=args):

@@ -43,7 +43,7 @@ def bind_native_integration_host(*, repository, engine_root,
 
   def transport(request):
     # A read-only provider observation needs no local checkout. Writes do.
-    read_only = {"refs.list", "destination.read", "lease.read",
+    read_only = {"refs.list", "submission.read", "destination.read", "lease.read",
                  "attempt.read", "retirement.read",
                  "mit.deferred.read", "mit.resume.read"}
     if request.get("operation") not in read_only and project_root is None:
