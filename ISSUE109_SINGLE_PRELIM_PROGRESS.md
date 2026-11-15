@@ -4,6 +4,13 @@ Base: add058f5f4139f6e9cbe5103cbc84c760f6f0404.
 Branch: issue-109-single-prelim. Governing contract: SINGLE_PRELIM_WORKFLOW.md.
 Status: WIP; no full workflow acceptance or production activation claimed.
 
+Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972`.
+Post-commit catalogue verification at that SHA: 21 single-PRELIM checks,
+7 native submission checks and 2 concurrent bare-Git publication checks PASS
+(30 total), captured in local Temp/rwf109-committed-source.log. This following
+checkpoint commit changes documentation only. The isolated worktree is
+clean after checkpointing; no implementation branch push or merge occurred.
+
 - [x] Read current source, operator decisions and execution rules.
 - [x] Create deferred independent RED-selector issue #828; leave repairs out.
 - [x] Record #828 in canonical ticket state, commit and read back (767f8f27).
@@ -66,6 +73,10 @@ notification service. Authorization and integration-evidence verifier commands
 are both absent from this checkout's environment. A workbench/configuration
 reference has been requested; no secrets, production activation or fabricated
 authority are required. Independent #703/#583/#677 acceptance remains open.
+The historical handoff and acceptance ledger confirm that the independent
+release/MIT issuer and trusted server runtime were not installed. They also
+identify public Disposable-001 as a historical native testing workbench;
+its old tests and triggers do not certify this unpublished implementation.
 
 Latest operator corrections govern this continuation: branch names contain
 the issue-version suffix only, with no destination or GUID. Select the highest

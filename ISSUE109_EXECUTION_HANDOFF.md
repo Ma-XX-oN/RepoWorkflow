@@ -1,3 +1,14 @@
+# Current single-PRELIM continuation — 2026-11-15
+
+Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972` on
+`issue-109-single-prelim`. Read [the current checklist](ISSUE109_SINGLE_PRELIM_PROGRESS.md)
+and [the approved workflow](SINGLE_PRELIM_WORKFLOW.md) before the historical
+checkpoint below. Local public done publishes versioned PRELIM submissions;
+the strict provider executor consumes one physical candidate. Hosted public
+coordinator binding, server reconstruction loop, remote conflict email and
+live acceptance remain incomplete. No DONE, production activation or stable
+release is claimed.
+
 # #109 Functional executor checkpoint — 2026-10-17
 
 Status: **PARTIAL / NOT CERTIFIED** as of 2026-10-31. Do not merge or
