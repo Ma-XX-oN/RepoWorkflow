@@ -62,6 +62,9 @@ submission; the name contains no GUID or parent branch. The issue's
 authoritative metadata determines its parent branch, and recorded source,
 parent SHA and relevant inputs bind the applicable test evidence.
 
+The following naming proposal is deferred to #829; it does not change the
+version-only branch names implemented by this contract:
+
 UPDATE: `PRELIM-issue-N.<rest-of-version>` is now `PRELIM-issue-N.<rest-of-version>-<title>[-<extra>]`, where `issue-N.<rest-of-version>-<title>[-<extra>]` is the the name of the branch being merged and `[-<extra>]` is the optional parameter when doing a `start` command.  E.g. `rwf start 123 extra-text`.
 
 For each issue, the server selects only the latest version according to the

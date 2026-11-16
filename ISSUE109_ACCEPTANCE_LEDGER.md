@@ -1,5 +1,12 @@
 # RWF #109 — exact-source executor acceptance ledger
 
+**Historical evidence ledger.** The dated criteria and statuses below preserve
+earlier contracts and observations. The operator-approved single-PRELIM/Q/R
+contract and the [current completion checkpoint](ISSUE109_SINGLE_PRELIM_PROGRESS.md)
+govern functional #109 completion. #583/#677 are downstream certification;
+#703 retains its own provider-verification scope. Their closure and deferred
+production security are not prerequisites for the approved #109 implementation.
+
 Current status (2026-10-31): NOT CERTIFIED. The October 20 matrix and
 October 21 evidence below are historical checkpoints; read the latest
 October 31 addenda for live current-source and provider evidence. Owner:

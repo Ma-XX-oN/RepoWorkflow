@@ -1,5 +1,10 @@
 # Current single-PRELIM continuation — 2026-11-15
 
+**Superseded checkpoint:** use [the final completion record](ISSUE109_SINGLE_PRELIM_PROGRESS.md)
+for the accepted scope, exact source and current verification. The dated notes
+below remain historical evidence and do not reinstate downstream certification
+or deferred security as #109 blockers.
+
 Implementation snapshot: `934131a70176fd2cb9753258faa2011eb20ce972` on
 `issue-109-single-prelim`. Read [the current checklist](ISSUE109_SINGLE_PRELIM_PROGRESS.md)
 and [the approved workflow](SINGLE_PRELIM_WORKFLOW.md) before the historical

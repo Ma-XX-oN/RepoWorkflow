@@ -2,16 +2,40 @@
 
 ## Final completion — 2026-11-16
 
-- [ ] Preserve the supplied nonblank MIT operator and evidence-reference values exactly; verify the registered result suite.
-- [ ] Update obsolete completion/INT-ATTEMPT expectations to the approved grammar and single-PRELIM model without dropping negative assertions.
-- [ ] Commit and publish the Q/R implementation and documentation, preserving deferred #828/#829 scope.
-- [ ] Verify the final exact source through catalogue-selected native Linux/macOS/Windows checks.
-- [ ] Record source/results and downstream handoffs on #109; close #109 when its functional scope is verified.
+**Status: #109 CLOSED — approved functional scope verified.** #701/#702 are
+also closed after resolving their audited gaps. #700 was already closed;
+#703 remains open only for its separately owned live-provider certification.
+
+- [x] Preserve the supplied nonblank MIT operator and evidence-reference values exactly; verify the registered result suite.
+- [x] Update obsolete completion/INT-ATTEMPT expectations to the approved grammar and single-PRELIM model without dropping negative assertions.
+- [x] Commit and publish the Q/R implementation and documentation, preserving deferred #828/#829 scope.
+- [x] Verify the final exact source through catalogue-selected native Linux/macOS/Windows checks.
+- [x] Record source/results and downstream handoffs on #109; close #109 when its functional scope is verified.
 
 The separate #703/#583/#677 certification tickets do not block #109 completion.
 Existing adversarial-security deferrals remain in force. No production merge or deployment is part of this completion.
 
-## Q/R implementation alignment
+Published source: `372ec0e46c8b52f90d312edc0bd8688b28f48036` on
+`issue-109-single-prelim`. Local catalogue-selected correction checks: 31 MIT
+result, 4 real Bash completion and 13 MIT negative checks PASS. The preservation
+regression was observed failing before the two-value persistence fix.
+
+Final native matrix: [43887650727](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43887650727),
+workbench commit `dba47fa12680252492ad5ff84041d6ef9597c888`, pins that exact
+RWF source and resolves all 52 selected groups through `.ci/tests.json`.
+All three native jobs completed SUCCESS: Linux, macOS and Windows each ran
+52 catalogue groups / 703 test executions, with zero failures, errors or skips
+(2,109 executions across the matrix). Job IDs: Linux `133370021813`, macOS
+`133370021196`, Windows `133370021594`. Terminal job logs and all 52 successful
+group return codes were read back. Only documentation checkpoints changed
+after the tested source; no implementation or test code changed.
+
+The source/results handoff is published on #109 and the covered MIT tickets.
+#583/#677 consume this completed implementation for downstream certification;
+their closure is not a #109 prerequisite. #828/#829 remain deferred. No
+production main merge, protected release, live email or deployment is claimed.
+
+## Q/R implementation alignment — earlier local checkpoint
 
 - [x] Prepare first implementation as Q=1/R=0; changed implementation advances Q and resets R.
 - [x] Advance R only for the same implementation reconstructed against a newer parent.
@@ -35,7 +59,7 @@ performed for this update. Deferred naming work remains owned by #829.
 
 Base: add058f5f4139f6e9cbe5103cbc84c760f6f0404.
 Branch: issue-109-single-prelim. Governing contract: SINGLE_PRELIM_WORKFLOW.md.
-Status: version-only implementation READY for review; focused native checks PASS.
+Earlier checkpoint status: version-only implementation READY for review; focused native checks PASS.
 The title/extra naming extension is explicitly deferred to follow-up #829.
 No full independent-ticket acceptance or production activation is claimed.
 
@@ -165,7 +189,7 @@ clean after checkpointing; no implementation branch push or merge occurred.
 - [x] Implement remote conflict email plus durable handoff.
 - [x] Register/run contract-derived tests through catalogue selection.
 - [x] Verify the selected completion checks on the real disposable native matrix.
-- [ ] Supply independent #703/#583/#677 acceptance handoffs.
+- [x] Supply the #109 implementation/evidence handoff for separately owned #703/#583/#677 certification; their independent acceptance remains downstream.
 
 ## Execution findings
 
