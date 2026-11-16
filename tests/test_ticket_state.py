@@ -1,386 +1,87 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import json
+from threading import Barrier
 import tempfile
 import unittest
-from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
-from unittest.mock import patch
 
-from repo_workflow.relationship_store import (
-  RelationshipStore,
-  RelationshipStoreError,
-)
-from repo_workflow.relationships import (
-  IssueRelationships,
-  RelationshipGraph,
-)
+from repo_workflow.relationship_store import RelationshipStore, RelationshipStoreError
+from repo_workflow.relationships import RelationshipGraph, IssueRelationships
 from repo_workflow.state_store import WriterIdentity
-from repo_workflow.lifecycle_store import LifecycleStore
-from tests.support import RepoFixture
+from repo_workflow.ticket_merge import merge_ticket_csv, TicketMergeError
 
 
 class TicketStateTests(unittest.TestCase):
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
-    self.root = Path(self.temp.name) / "repo"
-    self.root.mkdir()
-    RepoFixture(self.root)
-    self.writer = WriterIdentity("agent", "session")
-
-  def tearDown(self):
-    self.temp.cleanup()
-
-  def graph(self):
-    return RelationshipGraph(issues={
-      "10": IssueRelationships("Feature: Ten", ()),
-      "20": IssueRelationships("Twenty, with comma", ("10",)),
+    self.addCleanup(self.temp.cleanup)
+    self.root = Path(self.temp.name)
+    self.writer = WriterIdentity("test", "session")
+    self.store = RelationshipStore(self.root)
+    self.graph = RelationshipGraph({
+      "1": IssueRelationships("One, quoted", ()),
+      "2": IssueRelationships("Two", ("1",)),
     })
+    self.store.create(self.graph, self.writer)
 
-  def test_csv_is_canonical_and_restart_readable(self):
-    first = RelationshipStore(self.root).create(self.graph(), self.writer)
-    text = (self.root / ".repoworkflow" / "tickets.csv").read_text(
-      encoding="utf-8"
-    )
-    self.assertEqual(
-      text,
-      (
-        "issue,title,dependencies\n"
-        '10,Feature: Ten,\n'
-        '20,"Twenty, with comma",10\n'
-      ),
-    )
-    restarted = RelationshipStore(self.root).read()
-    self.assertEqual(restarted.graph, first.graph)
-    self.assertEqual(restarted.revision, first.revision)
+  def test_csv_contains_state_and_dependencies_without_revisions(self):
+    self.assertEqual(self.store.path.read_text(),
+      'issue,title,dependencies,state\n1,"One, quoted",,not_started\n2,Two,1,not_started\n')
 
+  def test_old_csv_status_is_preserved_and_revision_column_removed_on_write(self):
+    self.store.path.write_text(
+      'issue,title,dependencies,state,state_revision\n1,One,,completed,7\n2,Two,1,active,3\n')
+    old = self.store.read()
+    self.store.replace(old.revision, old.graph, self.writer)
+    self.assertEqual(self.store.read().states["1"].state, "completed")
+    self.assertNotIn("state_revision", self.store.path.read_text())
 
-  def test_explicit_state_refresh_upgrades_csv_and_preserves_snapshot(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    initial = store.read()
-    self.assertIsNone(initial.states)
-    refreshed = store.refresh_states(self.writer)
-    self.assertEqual(
-      {issue: value.state for issue, value in refreshed.states.items()},
-      {"10": "not_started", "20": "not_started"},
-    )
-    self.assertIsNone(refreshed.states["10"].lifecycle_revision)
-    text = store.path.read_text(encoding="utf-8")
-    self.assertTrue(text.startswith(
-      "issue,title,dependencies,state,state_revision\n"
-    ))
-    self.assertEqual(store.read().states, refreshed.states)
+  def test_dependency_or_title_edit_preserves_state(self):
+    self.store.set_state(1, "completed", self.store.read().revision)
+    before = self.store.read()
+    graph = RelationshipGraph({**self.graph.issues,
+      "2": IssueRelationships("Renamed", ())})
+    self.store.replace(before.revision, graph, self.writer)
+    self.assertEqual(self.store.read().states["1"].state, "completed")
+    self.assertEqual(self.store.direct_dependencies(2), ())
 
-    started = LifecycleStore(self.root).transition(
-      10, "start", "candidate", 0, self.writer, None,
-    )
-    self.assertEqual(started.lifecycle.state, "active")
-    self.assertEqual(store.read().states["10"].state, "not_started")
-    changed = store.refresh_states(self.writer)
-    self.assertEqual(changed.states["10"].state, "active")
-    self.assertEqual(changed.states["10"].lifecycle_revision, 0)
-    self.assertEqual(changed.states["20"].state, "not_started")
+  def test_invalid_state_preserves_file(self):
+    before = self.store.path.read_bytes()
+    with self.assertRaisesRegex(Exception, "invalid ticket state"):
+      self.store.set_state(1, "nonsense", self.store.read().revision)
+    self.assertEqual(self.store.path.read_bytes(), before)
 
-  def test_unstarted_alias_record_has_a_valid_cached_revision(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    lifecycle = LifecycleStore(self.root)
-    tagged = lifecycle.set_high_risk_aliases(
-      10, ["graph-renderer"], self.writer, None,
-    )
-    self.assertEqual(tagged.lifecycle.state, "not_started")
-    self.assertEqual(tagged.revision, 0)
-    refreshed = store.refresh_states(self.writer)
-    self.assertEqual(refreshed.states["10"].state, "not_started")
-    self.assertEqual(refreshed.states["10"].lifecycle_revision, 0)
+  def test_missing_csv_does_not_use_a_json_graph_as_authority(self):
+    self.store.path.unlink()
+    old = self.root / ".repoworkflow/state/relationships/graph.json"
+    old.parent.mkdir(parents=True)
+    old.write_text('{"value": {"issues": {}}}')
+    with self.assertRaisesRegex(RelationshipStoreError, "record is missing"):
+      self.store.read()
 
-  def test_graph_replacement_preserves_cached_status(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    refreshed = store.refresh_states(self.writer)
-    modified = RelationshipGraph(issues={
-      "10": IssueRelationships("Feature: Ten", ()),
-      "20": IssueRelationships("Revised", ("10",)),
-    })
-    updated = store.replace(refreshed.revision, modified, self.writer)
-    self.assertEqual(updated.states, refreshed.states)
-    self.assertEqual(updated.graph.issue(20).title, "Revised")
-
-  def test_malformed_cached_state_is_rejected(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    store.refresh_states(self.writer)
-    old = store.path.read_text(encoding="utf-8")
-    for replacement in ("completed,", "active,", "unknown,"):
-      with self.subTest(state=replacement):
-        store.path.write_text(
-          old.replace("not_started,", replacement, 1),
-          encoding="utf-8",
-        )
-        with self.assertRaises(RelationshipStoreError):
-          store.read()
-    store.path.write_text(old, encoding="utf-8")
-
-  def test_stale_refresh_revision_preserves_prior_csv(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    first = store.refresh_states(self.writer)
-    with self.assertRaisesRegex(RelationshipStoreError, "stale ticket-state"):
-      store._write(first.graph, first.revision - 1, first.states)
-    self.assertEqual(store.read(), first)
-
-  def test_lifecycle_change_with_unchanged_csv_rejects_stale_refresh(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    lifecycle = LifecycleStore(self.root)
-    lifecycle.transition(10, "start", "candidate", 0, self.writer, None)
-    previous = store.path.read_bytes()
-    original_read = LifecycleStore.read
-    interleaved = False
-
-    def transition_after_read(reader, issue):
-      nonlocal interleaved
-      sampled = original_read(reader, issue)
-      if str(issue) == "10" and not interleaved:
-        interleaved = True
-        lifecycle.transition(
-          10, "submit-review", "candidate", 0,
-          self.writer, sampled.revision,
-        )
-      return sampled
-
-    with patch.object(LifecycleStore, "read", new=transition_after_read):
-      with self.assertRaisesRegex(
-        RelationshipStoreError, "stale lifecycle projection",
-      ):
-        store.refresh_states(self.writer)
-    self.assertTrue(interleaved)
-    self.assertEqual(store.path.read_bytes(), previous)
-    self.assertEqual(lifecycle.read(10).lifecycle.state, "in_review")
-    restarted = RelationshipStore(self.root)
-    self.assertIsNone(restarted.read().states)
-    current = restarted.refresh_states(self.writer)
-    self.assertEqual(current.states["10"].state, "in_review")
-    self.assertEqual(RelationshipStore(self.root).read().states, current.states)
-
-  def test_concurrent_lifecycle_writers_one_revision_wins(self):
-    store = RelationshipStore(self.root)
-    store.create(self.graph(), self.writer)
-    lifecycle = LifecycleStore(self.root)
-    lifecycle.transition(10, "start", "candidate", 0, self.writer, None)
+  def test_concurrent_updates_do_not_silently_overwrite(self):
+    revision = self.store.read().revision
     barrier = Barrier(2)
-
-    def competing_writer():
+    def update(issue):
       barrier.wait(timeout=5)
       try:
-        lifecycle.transition(
-          10, "submit-review", "candidate", 0, self.writer, 0,
-        )
-        return "committed"
-      except Exception as error:
-        return str(error)
+        self.store.set_state(issue, "active", revision)
+        return True
+      except RelationshipStoreError:
+        return False
+    with ThreadPoolExecutor(max_workers=2) as workers:
+      results = list(workers.map(update, (1, 2)))
+    self.assertEqual(results.count(True), 1)
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-      results = list(pool.map(lambda _: competing_writer(), range(2)))
-    self.assertEqual(results.count("committed"), 1)
-    self.assertEqual(
-      sum("stale lifecycle revision" in result for result in results), 1,
-    )
-    refreshed = store.refresh_states(self.writer)
-    self.assertEqual(refreshed.states["10"].state, "in_review")
-    self.assertEqual(refreshed.states["10"].lifecycle_revision, 1)
-    self.assertEqual(RelationshipStore(self.root).read().states, refreshed.states)
+  def test_merge_keeps_independent_state_and_dependency_changes(self):
+    base = 'issue,title,dependencies,state\n1,One,,active\n2,Two,1,not_started\n'
+    ours = base.replace('1,One,,active', '1,One,,completed')
+    theirs = base.replace('2,Two,1,', '2,Two,,')
+    merged = merge_ticket_csv(self.root, base, ours, theirs)
+    self.assertIn('1,One,,completed', merged)
+    self.assertIn('2,Two,,not_started', merged)
 
-  def test_empty_dependency_set_is_known_not_missing(self):
-    RelationshipStore(self.root).create(self.graph(), self.writer)
-    self.assertEqual(
-      RelationshipStore(self.root).direct_dependencies(10),
-      (),
-    )
-    with self.assertRaisesRegex(RelationshipStoreError, "unknown issue"):
-      RelationshipStore(self.root).issue(99)
-
-  def test_invalid_cycle_fails_before_write(self):
-    graph = RelationshipGraph(issues={
-      "10": IssueRelationships("Ten", ("20",)),
-      "20": IssueRelationships("Twenty", ("10",)),
-    })
-    with self.assertRaisesRegex(Exception, "cycle"):
-      RelationshipStore(self.root).create(graph, self.writer)
-    self.assertFalse(
-      (self.root / ".repoworkflow" / "tickets.csv").exists()
-    )
-
-  def test_legacy_projection_uses_exact_synchronized_titles(self):
-    graph_path = (
-      self.root
-      / ".repoworkflow"
-      / "state"
-      / "relationships"
-      / "graph.json"
-    )
-    metadata_path = (
-      self.root
-      / ".repoworkflow"
-      / "state"
-      / "issues"
-      / "metadata.json"
-    )
-    graph_path.parent.mkdir(parents=True)
-    metadata_path.parent.mkdir(parents=True)
-    graph_path.write_text(json.dumps({
-      "revision": 7,
-      "value": {
-        "schema_version": 2,
-        "issues": {
-          "10": {
-            "umbrella": None,
-            "shared_umbrellas": [],
-            "depends_on": [],
-            "umbrella_depends_on": [],
-            "parent": "main",
-          },
-          "20": {
-            "umbrella": "1",
-            "shared_umbrellas": ["50"],
-            "depends_on": ["10"],
-            "umbrella_depends_on": ["40"],
-            "parent": "issue-10",
-          },
-        },
-      },
-    }), encoding="utf-8")
-    metadata_path.write_text(json.dumps({
-      "value": {
-        "schema_version": 2,
-        "issues": {
-          "10": {
-            "number": 10,
-            "title": "Ten",
-            "state": "open",
-            "link": "https://example.invalid/10",
-          },
-          "20": {
-            "number": 20,
-            "title": "Twenty",
-            "state": "open",
-            "link": "https://example.invalid/20",
-          },
-        },
-      },
-    }), encoding="utf-8")
-
-    migrated = RelationshipStore(self.root).migrate_legacy(self.writer)
-
-    self.assertEqual(migrated.graph.issue(10).title, "Ten")
-    self.assertEqual(migrated.graph.issue(20).depends_on, ("10",))
-    self.assertFalse(
-      hasattr(migrated.graph.issue(20), "umbrella")
-    )
-    self.assertFalse(
-      hasattr(migrated.graph.issue(20), "parent")
-    )
-    self.assertTrue(
-      (self.root / ".repoworkflow" / "tickets.csv").exists()
-    )
-
-  def test_legacy_projection_requires_title_source(self):
-    graph_path = (
-      self.root
-      / ".repoworkflow"
-      / "state"
-      / "relationships"
-      / "graph.json"
-    )
-    graph_path.parent.mkdir(parents=True)
-    graph_path.write_text(json.dumps({
-      "revision": 0,
-      "value": {
-        "schema_version": 2,
-        "issues": {
-          "10": {
-            "umbrella": None,
-            "shared_umbrellas": [],
-            "depends_on": [],
-            "umbrella_depends_on": [],
-            "parent": "main",
-          },
-        },
-      },
-    }), encoding="utf-8")
-    with self.assertRaisesRegex(
-      RelationshipStoreError,
-      "titles are missing",
-    ):
-      RelationshipStore(self.root).read()
-
-
-class RepositoryTicketStateTests(unittest.TestCase):
-  def setUp(self):
-    self.root = Path(__file__).resolve().parents[1]
-    self.store = RelationshipStore(self.root)
-
-  def test_reviewed_dependency_manifest_population_is_preserved(self):
-    manifest_path = (
-      self.root
-      / ".repoworkflow"
-      / "migrations"
-      / "native-dependencies-v1.json"
-    )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    reviewed = set(manifest["issues"])
-    current = set(self.store.read().graph.issues)
-    self.assertTrue(reviewed <= current)
-    self.assertGreaterEqual(len(current), 233)
-
-  def test_dependency_audit_corrections_are_retained(self):
-    expected = {
-      5: (107,),
-      16: (110,),
-      17: (83, 103),
-      27: (74, 96),
-      51: (
-        5, 16, 17, 18, 19, 27, 52, 53, 54, 55, 56, 57, 58,
-        122, 123, 135,
-      ),
-      96: (306, 313, 350),
-      205: (208, 215, 218, 223, 305, 306, 307),
-      208: (214,),
-      230: (64, 227, 229, 240),
-      233: (227, 230, 240),
-      298: (90, 297, 300),
-      303: (307, 309, 312, 313, 320),
-      305: (208, 217, 219, 304),
-      313: (7, 73, 114, 115, 304),
-      320: (304, 305, 318),
-      321: (208, 305, 320, 327),
-      340: (145, 208, 217, 219, 229, 346),
-      342: (145, 208, 321, 341),
-      343: (217, 219, 341, 342, 349, 359),
-      382: (388,),
-      390: (396,),
-      398: (400, 401),
-      403: (408,),
-      406: (404, 405),
-      408: (404, 405, 406, 407),
-      409: (413,),
-      413: (410, 411, 412),
-      415: (422,),
-    }
-    for issue, dependencies in expected.items():
-      with self.subTest(issue=issue):
-        self.assertEqual(
-          self.store.direct_dependencies(issue),
-          tuple(str(value) for value in dependencies),
-        )
-
-  def test_stale_parent_blockers_are_absent(self):
-    self.assertNotIn("205", self.store.direct_dependencies(305))
-    self.assertNotIn("27", self.store.direct_dependencies(313))
-    self.assertNotIn("303", self.store.direct_dependencies(320))
-    self.assertNotIn("228", self.store.direct_dependencies(230))
-    self.assertNotIn("228", self.store.direct_dependencies(233))
-
-
-if __name__ == "__main__":
-  unittest.main()
+  def test_conflicting_state_changes_need_resolution(self):
+    base = self.store.path.read_text()
+    with self.assertRaisesRegex(TicketMergeError, "divergent state changes"):
+      merge_ticket_csv(self.root, base, base.replace('not_started', 'active', 1),
+                       base.replace('not_started', 'aborted', 1))

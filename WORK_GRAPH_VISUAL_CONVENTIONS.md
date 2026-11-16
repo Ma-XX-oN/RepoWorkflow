@@ -23,7 +23,7 @@ view specified in [SIX_STATE_LIFECYCLE.md](SIX_STATE_LIFECYCLE.md) and
 [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  Its six glyphs are
 `○ not_started`, `● active`, `◎ in_review`, `✓ accepted`, `♥ completed`,
 and `✕ aborted`.  The `rwf lanes view` terminal graph uses lane-based
-colours; `--current` refreshes authoritative lifecycle projections.  The
+colours and reads ticket state directly from the CSV. The
 separate six-state transition diagram in the lifecycle specification shows
 legal state transitions; it is not a replacement for the dependency graph.
 

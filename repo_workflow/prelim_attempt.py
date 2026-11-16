@@ -151,10 +151,6 @@ def _trusted_inputs(root: Path, remote: str, issue: str,
     raise PrelimError("accepted lifecycle revision changed")
   if lifecycle.lifecycle.state != "accepted":
     raise PrelimError("issue lifecycle is not accepted")
-  if not lifecycle.lifecycle.history or (
-    lifecycle.lifecycle.history[-1].candidate != source_sha
-  ):
-    raise PrelimError("accepted lifecycle does not identify exact source SHA")
 
 
 def _persist(store: JsonRecordStore, record: dict, writer,

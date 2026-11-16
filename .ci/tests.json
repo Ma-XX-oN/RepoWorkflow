@@ -426,10 +426,6 @@
         "type": "regression",
         "name": "tests.test_done_prelim_candidate"
       },
-      "issue-109-lifecycle-binding": {
-        "type": "regression",
-        "name": "tests.test_done_lifecycle_binding"
-      },
       "issue-109-landed-results": {
         "type": "regression",
         "name": "tests.test_done_landed_results"
@@ -485,14 +481,6 @@
       "issue-109-completion": {
         "type": "regression",
         "name": "tests.test_done_completion"
-      },
-      "issue-109-canonical-lifecycle": {
-        "type": "regression",
-        "name": "tests.test_done_canonical_lifecycle"
-      },
-      "issue-109-shared-lifecycle": {
-        "type": "regression",
-        "name": "tests.test_done_shared_lifecycle"
       },
       "issue-109-check-issuer": {
         "type": "regression",
@@ -1104,18 +1092,6 @@
         "type": "regression",
         "name": "tests.test_lifecycle_clone_publish"
       },
-      "issue-583-legacy-migration": {
-        "type": "regression",
-        "name": "tests.test_legacy_lifecycle_migration"
-      },
-      "issue-583-candidate-revalidation": {
-        "type": "regression",
-        "name": "tests.test_six_state_candidate_revalidation"
-      },
-      "issue-583-clone-recovery": {
-        "type": "regression",
-        "name": "tests.test_six_state_clone_recovery"
-      },
       "issue-583-layout-stability": {
         "type": "regression",
         "name": "tests.test_six_state_layout_stability"
@@ -1131,10 +1107,6 @@
       "issue-583-terminal-accessibility": {
         "type": "regression",
         "name": "tests.test_six_state_terminal_accessibility"
-      },
-      "issue-583-transaction-recovery": {
-        "type": "regression",
-        "name": "tests.test_six_state_transaction_recovery"
       },
       "issue-583-live-provider-title": {
         "type": "integration",

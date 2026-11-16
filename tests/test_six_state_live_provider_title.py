@@ -39,28 +39,26 @@ class LiveProviderTitleMergeAcceptance(unittest.TestCase):
       self.assertTrue(observed["title"])
 
       writer = WriterIdentity("live-verifier", "independent-583")
-      life = LifecycleStore(root)
-      snapshot = life.transition(
-        583, "start", "p12-candidate", 0, writer, None,
-      )
-      record = root / ".repoworkflow/state/issues/583/lifecycle.json"
-      before = record.read_bytes()
       base = (
-        "issue,title,dependencies,state,state_revision\n"
-        "583,Previously cached,,active,0\n"
+        "issue,title,dependencies,state\n"
+        "583,Previously cached,,active\n"
       )
+      record = root / ".repoworkflow/tickets.csv"
+      record.parent.mkdir(exist_ok=True)
+      record.write_text(base)
+      before = record.read_bytes()
+      snapshot = LifecycleStore(root).read(583)
       ours = base.replace("Previously cached", "Local divergent title")
       theirs = base.replace("Previously cached", "Other divergent title")
       result = merge_ticket_csv(root, base, ours, theirs)
       self.assertEqual(
         result,
-        "issue,title,dependencies,state,state_revision\n"
-        f"583,{observed['title']},,active,0\n",
+        "issue,title,dependencies,state\n"
+        f"583,{observed['title']},,active\n",
       )
       self.assertEqual(record.read_bytes(), before)
       self.assertEqual(LifecycleStore(root).read(583), snapshot)
       self.assertEqual(snapshot.lifecycle.state, "active")
-      self.assertEqual(snapshot.revision, 0)
 
 
 if __name__ == "__main__":

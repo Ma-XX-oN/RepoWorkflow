@@ -11,7 +11,7 @@ from repo_workflow.ticket_merge import (
 
 
 def csv(*rows: str) -> str:
-  return "issue,title,dependencies\n" + "\n".join(rows) + "\n"
+  return "issue,title,dependencies,state\n" + "\n".join(row + ",not_started" for row in rows) + "\n"
 
 
 class TicketMergeTests(unittest.TestCase):
@@ -113,12 +113,12 @@ class TicketMergeTests(unittest.TestCase):
 
   def test_status_snapshot_preserved_in_semantic_merge(self):
     base = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Ten,,not_started,\n"
+      "issue,title,dependencies,state\n"
+      "10,Ten,,not_started\n"
     )
     ours = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Ten,,active,0\n"
+      "issue,title,dependencies,state\n"
+      "10,Ten,,active\n"
     )
     theirs = base
     self.assertEqual(
@@ -128,18 +128,18 @@ class TicketMergeTests(unittest.TestCase):
 
   def test_divergent_status_snapshots_conflict(self):
     base = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Ten,,not_started,\n"
+      "issue,title,dependencies,state\n"
+      "10,Ten,,not_started\n"
     )
     ours = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Ten,,active,0\n"
+      "issue,title,dependencies,state\n"
+      "10,Ten,,active\n"
     )
     theirs = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Ten,,completed,1\n"
+      "issue,title,dependencies,state\n"
+      "10,Ten,,completed\n"
     )
-    with self.assertRaisesRegex(TicketMergeError, "divergent lifecycle"):
+    with self.assertRaisesRegex(TicketMergeError, "divergent state"):
       merge_ticket_csv(self.root, base, ours, theirs)
 
   def test_same_addition_is_idempotent(self):

@@ -10,9 +10,6 @@ from .done_completion import VerifiedCompletion
 from .done_runtime import (
   VerifiedNativeDone,VerifiedDeferredDone,VerifiedFailedDone,
 )
-from .done_shared_lifecycle import (
-  SharedLifecycleEvidence,SharedAuthorityObservation,
-)
 from .done_planner import DonePlan
 from .done_source_identity import EffectiveSource
 
@@ -51,8 +48,6 @@ def execute_done_command(release, *, trusted_executor, emit, root=None, engine_r
     return 0
   if isinstance(outcome,VerifiedNativeDone):
     completed=outcome.completion
-    shared=outcome.shared
-    authority=outcome.authority
     plan=outcome.plan
     source=outcome.source
     if (not isinstance(plan,DonePlan)
@@ -64,24 +59,9 @@ def execute_done_command(release, *, trusted_executor, emit, root=None, engine_r
         or not isinstance(source,EffectiveSource)
         or source.tested_source_sha!=plan.candidate_sha
         or not isinstance(completed,VerifiedCompletion)
-        or not isinstance(shared,SharedLifecycleEvidence)
-        or not isinstance(authority,SharedAuthorityObservation)
-        or shared.issue!=int(plan.issue)
-        or shared.independently_authenticated is not True
-        or authority.independently_authenticated is not True
-        or shared.repository!=authority.repository
-        or shared.branch!=authority.branch
-        or shared.commit_sha!=authority.commit_sha
-        or shared.operation_id!=completed.operation_id
-        or shared.accepted_sha!=completed.terminal.accepted_sha
-        or shared.landed_sha!=completed.landed_sha
-        or shared.revision!=completed.lifecycle.get("revision")
-        or type(shared.lifecycle_digest) is not str
-        or len(shared.lifecycle_digest)!=64
-        or type(shared.intent_digest) is not str
-        or len(shared.intent_digest)!=64):
+        or completed.terminal.record.get("umbrella") != "issue-" + plan.issue):
       raise DoneCommandError(
-        "shared canonical authority was not certified before native DONE")
+        "completion does not match the tested source and integration plan")
     terminal=completed.terminal
     proof=completed.promotion
     lifecycle=completed.lifecycle
@@ -105,8 +85,6 @@ def execute_done_command(release, *, trusted_executor, emit, root=None, engine_r
       "landed_sha":completed.landed_sha,
       "operation_id":completed.operation_id,
       "evidence":"source-tested-accepted-at-destination",
-      "canonical_commit_sha":shared.commit_sha,
-      "canonical_lifecycle_revision":shared.revision,
     },sort_keys=True))
     return 0
   if isinstance(outcome,VerifiedDeferredDone):

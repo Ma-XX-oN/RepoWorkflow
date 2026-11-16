@@ -108,17 +108,16 @@ class IssueStartTests(unittest.TestCase):
       ).stdout.strip(),
       "issue-7",
     )
-    self.assertEqual(result.lifecycle_revision, 0)
     changed = subprocess.run(
       ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
       cwd=self.repo, capture_output=True, text=True, check=True,
     ).stdout.splitlines()
     self.assertEqual(changed, [
-      ".repoworkflow/state/issues/7/lifecycle.json",
-      ".repoworkflow/state/transactions/issue-start-7-"
-      + hashlib.sha256(b"session-1").hexdigest()[:16] + ".json",
+      ".repoworkflow/tickets.csv",
       "VERSION",
     ])
+    self.assertEqual(RelationshipStore(self.repo).read().states["7"].state, "active")
+    self.assertFalse((self.repo / ".repoworkflow/state").exists())
     identity = subprocess.run(
       ["git", "show", "-s", "--format=%B", "HEAD^"],
       cwd=self.repo, capture_output=True, text=True, check=True,

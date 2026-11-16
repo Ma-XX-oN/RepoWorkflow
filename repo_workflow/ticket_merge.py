@@ -7,7 +7,6 @@ import shlex
 import sys
 
 from .relationship_store import _parse_ticket_csv, _render_csv, TicketState
-from .lifecycle_store import LifecycleStore
 from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import issue_info, resolve_info_config
 from .process import run_command
@@ -87,7 +86,6 @@ def merge_ticket_csv(
   all_states = None
   if any(x is not None for x in (base_states, ours_states, theirs_states)):
     all_states = {}
-    lifecycle = LifecycleStore(root)
     for issue in sorted(issues, key=int):
       def lookup(values):
         return None if values is None else values.get(issue)
@@ -98,8 +96,7 @@ def merge_ticket_csv(
         lookup(theirs_states),
       )
       if value is None:
-        current = lifecycle.read(issue)
-        value = TicketState(current.lifecycle.state, current.revision)
+        value = TicketState("not_started")
       all_states[issue] = value
   return _render_csv(RelationshipGraph(issues), all_states)
 
@@ -121,7 +118,7 @@ def _merge_state(
   if theirs is None:
     return ours
   raise TicketMergeError(
-    f'ticket #{issue} has divergent lifecycle projections'
+    f'ticket #{issue} has divergent state changes'
   )
 
 

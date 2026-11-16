@@ -6,8 +6,7 @@ Status: implementation contract for #577, specified in #579.
 
 **Lifecycle Graph (LG)** names the six-state RWF dependency view described
 here and in [LANE_GRAPH_DISPLAY.md](LANE_GRAPH_DISPLAY.md).  Lifecycle Graph
-status comes from the authoritative lifecycle store, with explicit cached
-or current-state projection semantics.
+status comes directly from the ticket state in `.repoworkflow/tickets.csv`.
 
 **Progress Graph (PG)** instead names the four-status, human-facing
 **Mermaid** dependency view in
@@ -19,24 +18,11 @@ it is distinct from the Lifecycle Graph of issue dependencies.
 
 ## Source of truth
 
-The canonical lifecycle store and its append-only transition history are the
-sole authority for issue lifecycle state and dependency satisfaction.
-`.repoworkflow/tickets.csv` contains a materialized, validated state
-projection for offline graphing. It must not independently advance state.
-
-Normal graph rendering reads stored state from tickets.csv without refreshing
-lifecycle records. This is an intentional offline snapshot, which can be older
-than canonical lifecycle history. The CSV projection carries the revision of
-the lifecycle snapshot it represents; malformed or internally inconsistent
-snapshots fail closed. Only an explicit --current operation refreshes each
-displayed ticket state from authoritative lifecycle records and updates CSV.
-Refresh is transactional: either the entire requested state snapshot is written
-and verified, or the previous CSV snapshot is preserved. No partial update
-counts as successful refresh.
-
-GitHub issue `open` / `closed` is separate provider status; it cannot
-overwrite or satisfy an RWF lifecycle. Worktree-local `current` or selected
-issue is navigation state, not the state of every graph node.
+`.repoworkflow/tickets.csv` records each ticket's identity, title, dependencies
+and current state. Workflow commands update the state cell directly. Readiness
+looks up the prerequisite tickets in the same CSV. Git and ticket activity
+provide history. Test selection remains in `.ci/tests.json`; existing testing
+and integration records identify candidates and results.
 
 ## States and status glyphs
 
@@ -57,7 +43,7 @@ monochrome-compatible presentation, tested on supported platforms.
 
 ## Transitions
 
-The Mermaid diagram and the transition table below specify the same eight
+The Mermaid diagram and the transition table below specify the same nine
 legal state changes. Labels T01–T08 link to the independent acceptance
 matrix. The initial and terminal markers describe presentation, not extra
 public transition operations.
@@ -81,7 +67,7 @@ stateDiagram-v2
     A --> AB: T06 abort
     AB --> A: T07 re-enter
     AC --> C: T08 complete
-    C --> [*]
+    C --> A: T09 explicit reopen
 ```
 
 | ID | From | Event | To |
@@ -94,6 +80,7 @@ stateDiagram-v2
 | T06 | `active` | `abort` | `aborted` |
 | T07 | `aborted` | `re-enter` | `active` |
 | T08 | `accepted` | `complete` | `completed` |
+| T09 | `completed` | `reject/reopen` | `active` |
 
 Only these transitions are legal. A validation failure during active work
 records validation evidence without making a fictitious same-state lifecycle
@@ -105,83 +92,20 @@ requires the separately defined integration and authorization gates.
 An interrupted review must use `reject/reopen` to return to active before
 aborting; a new abort transition from `in_review` is not implicit.
 
-### Start-operation preparation is not an extra lifecycle state
+## Storage and updates
 
-The `T01` row and arrow describe the **durable lifecycle outcome**:
-`not_started --start--> active`. They do not mean that the public
-`rwf issue start N` command is one unguarded state assignment.
+The CSV columns are `issue,title,dependencies,state`. There is no separate
+lifecycle record, revision column, dependency-satisfied flag or transition log.
+Updates reject intervening CSV edits and replace the file atomically. Semantic
+merging preserves independent edits and reports divergent changes to a state.
 
-Issue #64 defines start as a coordinated operation: validate the issue
-and registered relationships, establish an issue-qualified task version,
-create/verify the branch, update durable lifecycle history, and establish
-this clone's current-work context. Issue #187 and
-[STATE_CONCURRENCY.md](STATE_CONCURRENCY.md) require a recoverable
-multi-record semantic transaction when those domains cannot publish
-atomically. A transaction may be **prepared**, **committed** or
-**aborted/recoverable**; these are *transaction statuses*, not additional
-ticket lifecycle states.
+Start establishes the branch and version, updates the CSV to `active`, and
+selects the issue in the worktree. Completion validates the candidate and
+existing test evidence before committing `completed` in the landed CSV.
+An already completed ticket requires explicit reopening before another completion.
 
-Until the operation is durably committed, the ticket must not be reported
-as newly `active` based only on preparatory writes or worktree state.
-Interrupted preparation must be recovered or failed closed, never counted
-as a successful start. The normal lifecycle remains six-state; any
-proposal for a separate persistent `starting` state would require a
-new approved contract, transition table and matching diagram.
-
-## Schema upgrade and history
-
-Define lifecycle schema version 3 to represent the six states.
-Versions 1 and 2 remain readable. Project old `unstarted` to
-`not_started` only after the canonical reader proves that no successful
-start or lost historical record exists. Preserve original append-only history
-and original event names for pre-migration records; presentation normalization
-must not silently rewrite history. A successful version-3 write retains the
-historical event sequence and emits the new version. Older `active -> accepted`
-records remain valid historical transitions, but new version-3 transitions
-follow the table above. No invented `submit-review` event is inserted into
-legacy history.
-
-All writes check the expected revision and fail closed on stale inputs.
-Missing a record that previously existed is corruption/recovery, not
-`not_started`.
-
-## CSV state projection
-
-Current three-column CSV format:
-`issue,title,dependencies`.
-
-New format:
-`issue,title,dependencies,state,state_revision`.
-
-The fourth field must be one of the six canonical state identifiers; the fifth
-records the lifecycle revision sampled during explicit refresh (empty only
-for a provably not-started issue). No
-empty or unrecognized value is accepted for fully migrated records. Migration
-must read canonical lifecycle authority for each ticket, refuse inconsistent
-history or unreadable state, and write a complete verified snapshot. The
-refresh binds the projection to the lifecycle revisions sampled during that
-refresh. The stored state does not promise live freshness between refreshes.
-
-Title remains provider-owned; dependency synchronization retains its existing
-explicit authority by direction. Neither `from-tickets` nor `to-tickets`
-may treat provider open/closed state as the RWF lifecycle or push a lifecycle
-transition by copying the CSV status cell.
-
-Three-way ticket-CSV merges preserve semantic title/dependency rules and
-reject divergent state projections unless they reconcile against authoritative
-lifecycle revisions. No last-writer-wins state merges.
-
-## Graph `--current`
-
-Normal graph commands render every visible ticket's stored state and glyph
-from tickets.csv without a lifecycle refresh, provider call or write.
-The --current switch explicitly reads canonical lifecycle state, refreshes
-the corresponding CSV state projection, verifies the persisted update and then
-renders the refreshed values. It must not modify relationships, titles,
-worktree selection or lifecycle transitions. Failure to read canonical state
-or commit the full refresh leaves the original CSV intact and reports an error.
-A valid historical absence proven by the lifecycle store is not_started.
-Do not infer fresh lifecycle truth from a stale cached CSV snapshot.
+Graph rendering reads CSV state directly. `--current` no longer copies state
+between repository stores. Provider synchronization remains an explicit operation.
 
 ## Completed umbrella presentation in the Lifecycle Graph
 
@@ -203,26 +127,8 @@ The LG continues to use its **six lifecycle states and corresponding glyphs**;
 do not substitute PG's five work-progress statuses. This presentation rule
 does not modify the terminal renderer `rwf lanes view` or its lane colours.
 
-## Verification gates
+## Verification
 
-[SIX_STATE_ACCEPTANCE_MATRIX.md](SIX_STATE_ACCEPTANCE_MATRIX.md) is the
-independent, criterion-to-observable-result acceptance oracle for #579–#583.
-The matrix does not claim executable acceptance has passed.  Its IDs must be
-bound to exact-candidate test and persisted-state evidence by implementers.
-
-
-Independent black-box tests derive all transitions and rejected transitions
-from this table; use distinct structural/implementation tests. Cover legacy
-history with and without prior accepted events, all six states, exact candidate
-and stale revisions, restart, abort/re-entry and review rejection, invalid
-transition recovery, and dependency satisfaction.
-
-CSV tests cover zero/one/many tickets, strict schema versions, migration,
-round-trip, atomic failure/retry, provider sync independence, concurrent
-updates, three-way merge, cross-clone refresh and authoritative revision
-binding. Graph tests cover all glyphs, terminal widths/platforms, no-colour,
-normal-mode read-only behaviour, explicit --current update/readback/failure
-atomicity, and all supported graph layouts.
-
-Do not certify until issue-focused, regression, integration and repository CI
-checks are GREEN for the exact implementation candidate.
+Verify CSV state updates, dependency readiness, restart/clone readback,
+conflicting edits, semantic merges, graph presentation and real Git completion.
+Candidate evidence reuse remains covered by the testing/integration tests.

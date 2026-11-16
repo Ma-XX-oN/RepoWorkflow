@@ -137,6 +137,14 @@ def _validate_current(root: Path, candidate_sha: str) -> None:
   )
   dirty = [path for path in changed_files(root)
            if not path.startswith(runtime_prefixes)]
+  if ".repoworkflow/tickets.csv" in dirty:
+    from .git import git
+    from .relationship_store import RelationshipStore, _parse_csv
+    before = git(root, "show", "HEAD:.repoworkflow/tickets.csv", check=False)
+    # A test failure can change ticket state without changing tested inputs.
+    # Titles/dependencies still invalidate the candidate when edited.
+    if before.returncode == 0 and _parse_csv(before.stdout) == RelationshipStore(root).read().graph:
+      dirty.remove(".repoworkflow/tickets.csv")
   if dirty:
     raise ManualSelectionError("manual candidate has changed source inputs")
 

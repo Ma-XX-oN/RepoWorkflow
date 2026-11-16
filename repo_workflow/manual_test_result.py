@@ -39,7 +39,6 @@ class ManualOutcome:
 @dataclass(frozen=True)
 class FailureHandoff:
   lifecycle: str
-  dependency_satisfied: bool
   version_before: str
   version_after: str
   repair_owner: str
@@ -50,7 +49,7 @@ def _verified_handoff(value: object) -> None:
     raise ManualResultError("manual FAIL has no verified repair handoff")
   before = _version_components(value.version_before)
   after = _version_components(value.version_after)
-  if (value.lifecycle != "active" or value.dependency_satisfied is not False
+  if (value.lifecycle != "active"
       or before is None or after != before or value.version_after != value.version_before
       or not isinstance(value.repair_owner, str) or not value.repair_owner.strip()):
     raise ManualResultError("manual FAIL handoff contract rejected")
@@ -150,14 +149,12 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
   state = snapshot.lifecycle.state
   if state in {"in_review", "accepted"}:
     store.transition(
-      issue, "reject/reopen", candidate_sha,
-      snapshot.lifecycle.relationship_revision,
-      WriterIdentity(writer_id, session_id), snapshot.revision,
+      issue, "reject/reopen", snapshot.revision,
     )
   elif state != "active":
     raise ManualResultError("manual FAIL cannot reopen lifecycle state " + state)
   observed = store.read(issue).lifecycle
-  if observed.state != "active" or observed.dependency_satisfied:
+  if observed.state != "active":
     raise ManualResultError("manual FAIL lifecycle rejection readback UNKNOWN")
   if (root / ".ci/repoworkflow.json").is_file():
     version = read_development_version(root, load_config(root))
@@ -181,7 +178,7 @@ def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
     handle.write(json.dumps(summary, sort_keys=True) + "\n")
   publish_terminal_tag(root, stage="integration", remote="origin", version=version,
     candidate=candidate_sha, outcome="FAIL", canonical_log=log, push=False)
-  return FailureHandoff(observed.state, False, version, version,
+  return FailureHandoff(observed.state, version, version,
                         writer_id)
 
 

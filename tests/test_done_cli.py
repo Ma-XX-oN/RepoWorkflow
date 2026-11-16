@@ -13,9 +13,6 @@ from repo_workflow.done_provider_pipeline import (
 from repo_workflow.done_runtime import (
   VerifiedNativeDone,VerifiedDeferredDone,VerifiedFailedDone,
 )
-from repo_workflow.done_shared_lifecycle import (
-  SharedLifecycleEvidence,SharedAuthorityObservation,
-)
 from repo_workflow.done_failure_handoff import (
   FailureHandoff,PersistedFailureHandoff,
 )
@@ -35,20 +32,13 @@ class CommandTests(unittest.TestCase):
     self.called=[]
 
   def native(self,completion,release="patch"):
-    shared=SharedLifecycleEvidence(
-      "Org/Repo","authoritative-state","a"*40,123,
-      completion.lifecycle["revision"],completion.operation_id,
-      completion.terminal.accepted_sha,completion.landed_sha,
-      "b"*64,"c"*64,True)
-    authority=SharedAuthorityObservation(
-      "Org/Repo","authoritative-state","a"*40,True)
     plan=DonePlan(
       "123",release,"main",completion.terminal.accepted_sha,
       "b"*40,"ALLOWED",True,False,None,(),())
     source=EffectiveSource(
       completion.terminal.accepted_sha,
       completion.terminal.accepted_sha,())
-    return VerifiedNativeDone(completion,shared,authority,plan,source)
+    return VerifiedNativeDone(completion,plan,source)
 
   def run_command(self,release="patch",outcome=None):
     if outcome is None:
@@ -134,10 +124,10 @@ class CommandTests(unittest.TestCase):
   def test_different_command_release_cannot_reuse_completed_plan(self):
     from dataclasses import replace
     valid=self.native(self.fixture.invoke(),release="patch")
-    with self.assertRaisesRegex(DoneCommandError,"shared canonical authority"):
+    with self.assertRaisesRegex(DoneCommandError,"completion does not match"):
       self.run_command(release="minor",outcome=valid)
     changed=replace(valid,plan=replace(valid.plan,issue="124"))
-    with self.assertRaisesRegex(DoneCommandError,"shared canonical authority"):
+    with self.assertRaisesRegex(DoneCommandError,"completion does not match"):
       self.run_command(outcome=changed)
     self.assertEqual(self.messages,[])
 
@@ -146,7 +136,7 @@ class CommandTests(unittest.TestCase):
     valid=self.native(self.fixture.invoke())
     changed=replace(
       valid,source=EffectiveSource("f"*40,"f"*40,()))
-    with self.assertRaisesRegex(DoneCommandError,"shared canonical authority"):
+    with self.assertRaisesRegex(DoneCommandError,"completion does not match"):
       self.run_command(outcome=changed)
     self.assertEqual(self.messages,[])
 
@@ -155,21 +145,6 @@ class CommandTests(unittest.TestCase):
       self.run_command(outcome=self.fixture.invoke())
     self.assertEqual(self.messages,[])
 
-  def test_mismatched_shared_lifecycle_proof_cannot_claim_done(self):
-    from dataclasses import replace
-    outcome=self.native(self.fixture.invoke())
-    for altered in (
-      replace(outcome,authority=replace(
-        outcome.authority,commit_sha="f"*40)),
-      replace(outcome,shared=replace(
-        outcome.shared,operation_id="other-operation")),
-      replace(outcome,shared=replace(
-        outcome.shared,independently_authenticated=False))):
-      with self.subTest(altered=altered):
-        with self.assertRaisesRegex(DoneCommandError,
-                                    "shared canonical authority"):
-          self.run_command(outcome=altered)
-    self.assertEqual(self.messages,[])
 
   def test_failed_or_deferred_never_return_done(self):
     ready=self.fixture.accepted.ready

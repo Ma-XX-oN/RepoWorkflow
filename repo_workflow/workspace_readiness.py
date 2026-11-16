@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .lifecycle_store import LifecycleStore
 from .relationship_store import RelationshipStore
 
 
@@ -23,12 +22,9 @@ class ReadinessResult:
 
 
 def workspace_readiness(repository_root) -> tuple[ReadinessResult, ...]:
-  graph = RelationshipStore(repository_root).read().graph
-  lifecycle_store = LifecycleStore(repository_root)
-  lifecycles = {
-    issue: lifecycle_store.read(issue).lifecycle
-    for issue in graph.issues
-  }
+  tickets = RelationshipStore(repository_root).read()
+  graph = tickets.graph
+  lifecycles = tickets.states
 
   results = []
   for issue in sorted(graph.issues, key=int):
@@ -46,7 +42,7 @@ def workspace_readiness(repository_root) -> tuple[ReadinessResult, ...]:
       blockers = tuple(
         dependency
         for dependency in graph.issue(issue).depends_on
-        if not lifecycles[dependency].dependency_satisfied
+        if lifecycles[dependency].state != "completed"
       )
       status = "blocked" if blockers else "ready"
     results.append(

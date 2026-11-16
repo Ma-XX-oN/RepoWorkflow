@@ -63,8 +63,7 @@ def checkout_candidate(root: Path, candidate: str, *, purpose: str = "tests") ->
     git(root, "worktree", "add", "--detach", str(workspace), candidate)
   if purpose.startswith("accept-") and source_tip(workspace) != candidate:
     issue = int(purpose.split("-")[1])
-    allowed = {f".repoworkflow/validation/testResults-{issue}.jsonl",
-               f".repoworkflow/state/issues/{issue}/lifecycle.json", ".repoworkflow/tickets.csv"}
+    allowed = {f".repoworkflow/validation/testResults-{issue}.jsonl", ".repoworkflow/tickets.csv"}
     modified = git(workspace, "diff", "--name-only", candidate, "HEAD").stdout.splitlines()
     if changed_files(workspace) or not set(modified).issubset(allowed):
       raise TestCommandError("prepared acceptance checkout has changed source")
@@ -331,7 +330,6 @@ def _require_dependencies(root: Path, plan: dict) -> None:
   plan : dict
       Issue being integrated.
   """
-  from .lifecycle_store import LifecycleStore
   from .relationship_store import RelationshipStore
   if not (root / ".repoworkflow/tickets.csv").exists():
     return  # Repositories without a synchronized graph declare no CSV dependencies.
@@ -340,9 +338,7 @@ def _require_dependencies(root: Path, plan: dict) -> None:
   if issue is None:
     raise TestCommandError("issue is missing from synchronized ticket state")
   for dependency in issue.depends_on:
-    canonical = LifecycleStore(root).read(dependency).lifecycle.state
-    projected = (graph.states or {}).get(str(dependency))
-    if canonical != "completed" and (projected is None or projected.state != "completed"):
+    if graph.states[str(dependency)].state != "completed":
       raise TestCommandError("incomplete dependency: issue-" + str(dependency))
 
 
@@ -389,29 +385,17 @@ def _complete_lifecycle(root: Path, plan: dict) -> str:
   str
       Proposed landed commit containing reports and lifecycle state.
   """
-  from .invocation_identity import ensure_public_runtime_identity
-  from .lifecycle_store import LifecycleStore
   from .relationship_store import RelationshipStore
-  store = LifecycleStore(root)
-  writer = ensure_public_runtime_identity(root)
-  state = store.read(plan["issue"])
-  if state.lifecycle.state == "completed":
+  store = RelationshipStore(root)
+  tickets = store.read()
+  state = tickets.states[str(plan["issue"])].state
+  if state == "completed":
     raise TestCommandError("completed issue requires explicit reopening before new completion")
-  if (state.lifecycle.state in {"in_review", "accepted"}
-      and state.lifecycle.history[-1].candidate != plan["candidate_sha"]):
-    state = store.transition(plan["issue"], "reject/reopen", None,
-      state.lifecycle.relationship_revision, writer, state.revision)
-  transitions = {"not_started": "start", "active": "submit-review", "in_review": "accept", "accepted": "complete"}
-  while state.lifecycle.state != "completed":
-    transition = transitions.get(state.lifecycle.state)
-    if transition is None:
-      raise TestCommandError("issue lifecycle does not permit completion")
-    state = store.transition(plan["issue"], transition, plan["candidate_sha"],
-      state.lifecycle.relationship_revision, writer, state.revision)
-  paths = [f".repoworkflow/state/issues/{plan['issue']}/lifecycle.json"]
-  if (root / ".repoworkflow/tickets.csv").exists():
-    RelationshipStore(root).refresh_states(writer)
-    paths.append(".repoworkflow/tickets.csv")
+  if state == "aborted":
+    raise TestCommandError("aborted issue must be restarted before completion")
+  # The caller has already validated the exact candidate and its test evidence.
+  store.set_state(plan["issue"], "completed", tickets.revision)
+  paths = [".repoworkflow/tickets.csv"]
   git(root, "add", "--force", "--", *paths)
   commit_owned_files(root, paths, f"workflow: complete issue {plan['issue']}")
   return git(root, "rev-parse", "HEAD").stdout.strip()

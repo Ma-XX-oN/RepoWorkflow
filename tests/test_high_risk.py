@@ -52,21 +52,8 @@ class HighRiskTests(unittest.TestCase):
       }),
       self.writer,
     )
-    lifecycle = LifecycleStore(self.repo).transition(
-      1,
-      "start",
-      "candidate",
-      relationship.revision,
-      self.writer,
-      None,
-    )
-    CurrentWorkStore(self.repo).project_start(
-      1,
-      lifecycle.revision,
-      relationship.revision,
-      self.writer,
-      None,
-    )
+    lifecycle = LifecycleStore(self.repo).transition(1, "start", LifecycleStore(self.repo).read(1).revision)
+    CurrentWorkStore(self.repo).project_start(1, self.writer, None)
 
   def tearDown(self):
     self.temp.cleanup()
@@ -78,14 +65,14 @@ class HighRiskTests(unittest.TestCase):
       self.writer,
     )
     self.assertEqual(
-      result.lifecycle.high_risk_aliases,
-      ("command-grammar", "high-risk"),
+      result["groups"],
+      ["issue-456-grammar", "issue-475-high-risk"],
     )
     changed = subprocess.run(
       ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
       cwd=self.repo, capture_output=True, text=True, check=True,
     ).stdout.splitlines()
-    self.assertEqual(changed, [".repoworkflow/state/issues/1/lifecycle.json"])
+    self.assertEqual(changed, [".ci/tests.json"])
 
   def test_repeated_association_is_idempotent(self):
     first = associate_high_risk(
@@ -101,7 +88,7 @@ class HighRiskTests(unittest.TestCase):
     )
     current_after = CurrentWorkStore(self.repo).read()
 
-    self.assertEqual(second.revision, first.revision)
+    self.assertEqual(second, first)
     self.assertEqual(current_after.revision, current_before.revision)
 
   def test_changed_association_adds_without_losing_existing(self):
@@ -116,8 +103,8 @@ class HighRiskTests(unittest.TestCase):
       self.writer,
     )
     self.assertEqual(
-      result.lifecycle.high_risk_aliases,
-      ("command-grammar", "high-risk"),
+      result["groups"],
+      ["issue-456-grammar", "issue-475-high-risk"],
     )
 
   def test_all_aliases_are_validated_before_mutation(self):
@@ -130,21 +117,16 @@ class HighRiskTests(unittest.TestCase):
       )
     self.assertEqual(LifecycleStore(self.repo).read(1), before)
 
-  def test_current_work_reference_tracks_new_lifecycle_revision(self):
+  def test_test_selection_does_not_change_current_issue_or_ticket_state(self):
+    before = RelationshipStore(self.repo).path.read_bytes()
     result = associate_high_risk(
       self.repo,
       ["command-grammar"],
       self.writer,
     )
     current = CurrentWorkStore(self.repo).read(validate_durable=True)
-    self.assertEqual(
-      current.value.current.lifecycle_revision,
-      result.revision,
-    )
-    self.assertEqual(
-      current.value.cache_lifecycle_revision,
-      result.revision,
-    )
+    self.assertEqual(current.value.current.issue, "1")
+    self.assertEqual(RelationshipStore(self.repo).path.read_bytes(), before)
 
   def test_requires_active_current_issue(self):
     current_store = CurrentWorkStore(self.repo)

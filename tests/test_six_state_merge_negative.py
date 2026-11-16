@@ -25,16 +25,15 @@ class CanonicalCsvMergeAcceptance(unittest.TestCase):
 
   def test_provider_title_authority_does_not_mutate_lifecycle(self):
     # P12: provider title wins; lifecycle stays authoritative and unchanged.
-    lifecycle = LifecycleStore(self.root)
-    started = lifecycle.transition(
-      10, "start", "candidate", 0, self.writer, None,
-    )
-    path = self.root / ".repoworkflow/state/issues/10/lifecycle.json"
-    original_bytes = path.read_bytes()
     base = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Old,,active,0\n"
+      "issue,title,dependencies,state\n"
+      "10,Old,,active\n"
     )
+    path = self.root / ".repoworkflow/tickets.csv"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(base)
+    original_bytes = path.read_bytes()
+    started = LifecycleStore(self.root).read(10)
     ours = base.replace("Old", "Ours")
     theirs = base.replace("Old", "Theirs")
     with patch(
@@ -48,8 +47,8 @@ class CanonicalCsvMergeAcceptance(unittest.TestCase):
     info.assert_called_once()
     self.assertEqual(
       merged,
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Provider authoritative title,,active,0\n",
+      "issue,title,dependencies,state\n"
+      "10,Provider authoritative title,,active\n",
     )
     self.assertEqual(LifecycleStore(self.root).read(10), started)
     self.assertEqual(path.read_bytes(), original_bytes)
@@ -57,16 +56,15 @@ class CanonicalCsvMergeAcceptance(unittest.TestCase):
   def test_merge_rejects_malformed_remote_schemas_without_changing_ours(self):
     # P16: unsupported remote schema/revision/status never silently wins.
     base = (
-      "issue,title,dependencies,state,state_revision\n"
-      "10,Ten,,active,0\n"
+      "issue,title,dependencies,state\n"
+      "10,Ten,,active\n"
     )
     ours = base.replace("Ten", "Ours")
     malformed = (
       "issue,title,dependencies,unknown,revision\n10,Ten,,active,0\n",
-      "issue,title,dependencies,state,state_revision\n10,Ten,,forged,0\n",
-      "issue,title,dependencies,state,state_revision\n10,Ten,,active,-1\n",
-      "issue,title,dependencies,state,state_revision\n10,Ten,,active,01\n",
-      "issue,title,dependencies,state,state_revision\n10,Ten,,active\n",
+      "issue,title,dependencies,state\n10,Ten,,unknown\n",
+      "issue,title,dependencies,state\n10,Ten,,active,extra\n",
+      "issue,title,dependencies,state\n10,Ten,\n",
     )
     for text in malformed:
       with self.subTest(remote=text):

@@ -46,18 +46,11 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
         self.git(root, "clone", "--branch", "main", str(remote), str(clone))
         self.git(clone, "config", "user.name", "Test Agent")
         self.git(clone, "config", "user.email", "test@example.invalid")
-        snapshot = LifecycleStore(clone).transition(
-          1, "start", name, 0, WriterIdentity(name, "session"), None,
-        )
-        self.assertEqual(snapshot.revision, 0)
+        snapshot = LifecycleStore(clone).transition(1, "start", LifecycleStore(clone).read(1).revision)
         self.assertEqual(snapshot.lifecycle.state, "active")
-        cached = RelationshipStore(clone).refresh_states(
-          WriterIdentity(name, "session"),
-        )
+        cached = RelationshipStore(clone).read()
         self.assertEqual(cached.states["1"].state, "active")
-        self.assertEqual(cached.states["1"].lifecycle_revision, 0)
-        self.git(clone, "add", ".repoworkflow/state/issues/1/lifecycle.json",
-                 ".repoworkflow/tickets.csv")
+        self.git(clone, "add", ".repoworkflow/tickets.csv")
         self.git(clone, "commit", "-m", name + " lifecycle start")
         clones.append(clone)
 
@@ -73,21 +66,14 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
       witness = root / "witness"
       self.git(root, "clone", "--branch", "main", str(remote), str(witness))
       authority = LifecycleStore(witness).read(1)
-      self.assertEqual(authority.revision, 0)
-      self.assertEqual(authority.lifecycle.history[0].candidate, "first")
       self.assertEqual(authority.lifecycle.state, "active")
       # P17: a fresh independent clone reads exactly the committed cache.
       projected = RelationshipStore(witness).read()
       self.assertEqual(projected.graph.issue(1).title, "One")
       self.assertEqual(projected.states["1"].state, "active")
-      self.assertEqual(projected.states["1"].lifecycle_revision, authority.revision)
       self.assertEqual(
         RelationshipStore(witness).path.read_bytes(),
         RelationshipStore(clones[0]).path.read_bytes(),
-      )
-      self.assertNotEqual(
-        authority.lifecycle.history[0].candidate,
-        LifecycleStore(clones[1]).read(1).lifecycle.history[0].candidate,
       )
 
 

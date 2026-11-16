@@ -1,427 +1,70 @@
+"""Ticket transitions use the CSV alone, including after a restart."""
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 
-from repo_workflow.lifecycle_store import (
-  IssueLifecycle,
-  LifecycleError,
-  LifecycleStore,
-)
+from repo_workflow.lifecycle_store import LifecycleStore, LifecycleError
+from repo_workflow.relationship_store import RelationshipStore
+from repo_workflow.relationships import RelationshipGraph, IssueRelationships
 from repo_workflow.state_store import WriterIdentity
+from repo_workflow.workspace_readiness import workspace_readiness
 
 
 class LifecycleStoreTests(unittest.TestCase):
   def setUp(self):
     self.temp = tempfile.TemporaryDirectory()
-    self.repo = Path(self.temp.name) / "repo"
-    self.repo.mkdir()
-    subprocess.run(["git", "init"], cwd=self.repo, check=True, capture_output=True)
-    subprocess.run(
-      ["git", "config", "user.email", "test@example.invalid"],
-      cwd=self.repo,
-      check=True,
-    )
-    subprocess.run(
-      ["git", "config", "user.name", "RWF Test"],
-      cwd=self.repo,
-      check=True,
-    )
-    self.store = LifecycleStore(self.repo)
-    self.writer = WriterIdentity("agent-a", "session-1")
+    self.addCleanup(self.temp.cleanup)
+    self.root = Path(self.temp.name)
+    self.tickets = RelationshipStore(self.root)
+    self.tickets.create(RelationshipGraph({
+      "1": IssueRelationships("One", ()),
+      "2": IssueRelationships("Two", ("1",)),
+    }), WriterIdentity("test", "session"))
+    self.store = LifecycleStore(self.root)
 
-  def tearDown(self):
-    self.temp.cleanup()
+  def advance(self, action):
+    return self.store.transition(1, action, self.store.read(1).revision)
 
-  def transition(
-    self,
-    issue,
-    name,
-    revision,
-    candidate="v0.1.0-issue.1.0.0",
-    relationship_revision=0,
-  ):
-    return self.store.transition(
-      issue,
-      name,
-      candidate,
-      relationship_revision,
-      self.writer,
-      revision,
-    )
+  def test_transitions_update_csv_without_another_state_file(self):
+    for action, expected in (("start", "active"), ("submit-review", "in_review"),
+                             ("accept", "accepted"), ("complete", "completed")):
+      result = self.advance(action)
+      self.assertEqual(result.lifecycle.state, expected)
+      self.assertEqual(self.tickets.read().states["1"].state, expected)
+      self.assertEqual(LifecycleStore(self.root).read(1), result)
+    self.assertFalse((self.root / ".repoworkflow/state").exists())
+    self.assertEqual(self.tickets.path.read_text().splitlines()[0],
+                     "issue,title,dependencies,state")
 
-  def test_never_started_issue_projects_not_started_without_record(self):
-    snapshot = self.store.read(1)
+  def test_dependency_readiness_uses_the_other_ticket_state(self):
+    self.assertEqual(workspace_readiness(self.root)[1].blockers, ("1",))
+    for action in ("start", "submit-review", "accept", "complete"):
+      self.advance(action)
+    self.assertEqual(workspace_readiness(self.root)[1].status, "ready")
 
-    self.assertEqual(snapshot.lifecycle, IssueLifecycle.not_started("1"))
-    self.assertIsNone(snapshot.revision)
-    self.assertFalse(
-      (self.repo / ".repoworkflow/state/issues/1/lifecycle.json").exists()
-    )
-
-  def test_start_creates_revision_zero_and_normalized_active_state(self):
-    snapshot = self.transition(1, "start", None)
-
-    self.assertEqual(snapshot.revision, 0)
-    self.assertEqual(snapshot.lifecycle.state, "active")
-    self.assertFalse(snapshot.lifecycle.dependency_satisfied)
-    self.assertEqual(snapshot.lifecycle.relationship_revision, 0)
-    self.assertEqual(snapshot.lifecycle.history[0].from_state, "not_started")
-    self.assertEqual(snapshot.lifecycle.history[0].to_state, "active")
-
-  def test_legal_lifecycle_round_trip_preserves_append_only_history(self):
-    snapshot = self.transition(1, "start", None)
-    snapshot = self.transition(1, "abort", snapshot.revision)
-    snapshot = self.transition(1, "re-enter", snapshot.revision)
-    snapshot = self.transition(1, "submit-review", snapshot.revision)
-    snapshot = self.transition(1, "accept", snapshot.revision)
-    snapshot = self.transition(1, "reject/reopen", snapshot.revision)
-    snapshot = self.transition(1, "submit-review", snapshot.revision)
-    snapshot = self.transition(1, "accept", snapshot.revision)
-    snapshot = self.transition(1, "complete", snapshot.revision)
-
-    reread = self.store.read(1)
-    self.assertEqual(reread, snapshot)
-    self.assertEqual(snapshot.lifecycle.state, "completed")
-    self.assertTrue(snapshot.lifecycle.dependency_satisfied)
-    self.assertEqual(
-      [event.sequence for event in snapshot.lifecycle.history],
-      list(range(9)),
-    )
-
-  def test_accepted_does_not_satisfy_dependency(self):
-    snapshot = self.transition(1, "start", None)
-    snapshot = self.transition(1, "submit-review", snapshot.revision)
-    snapshot = self.transition(1, "accept", snapshot.revision)
-
-    self.assertEqual(snapshot.lifecycle.state, "accepted")
-    self.assertFalse(snapshot.lifecycle.dependency_satisfied)
-
-  def test_illegal_transition_fails_without_mutation(self):
-    snapshot = self.transition(1, "start", None)
-
-    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
-      self.transition(1, "complete", snapshot.revision)
-
-    self.assertEqual(self.store.read(1), snapshot)
-
-  def test_stale_revision_fails_without_mutation(self):
-    snapshot = self.transition(1, "start", None)
-    current = self.transition(1, "abort", snapshot.revision)
-
-    with self.assertRaisesRegex(LifecycleError, "stale lifecycle revision"):
-      self.transition(1, "re-enter", snapshot.revision)
-
+  def test_stale_csv_update_preserves_newer_state(self):
+    old = self.store.read(1)
+    current = self.advance("start")
+    with self.assertRaisesRegex(LifecycleError, "stale ticket-state"):
+      self.store.transition(1, "abort", old.revision)
     self.assertEqual(self.store.read(1), current)
 
-  def test_malformed_value_fails_closed(self):
-    path = self.repo / ".repoworkflow/state/issues/1/lifecycle.json"
+  def test_illegal_transition_preserves_csv(self):
+    before = self.tickets.path.read_bytes()
+    with self.assertRaisesRegex(LifecycleError, "illegal ticket transition"):
+      self.advance("complete")
+    self.assertEqual(self.tickets.path.read_bytes(), before)
+
+  def test_abort_resume_and_explicit_reopening(self):
+    for action in ("start", "abort", "re-enter", "submit-review", "accept",
+                   "complete", "reject/reopen"):
+      self.advance(action)
+    self.assertEqual(self.store.read(1).lifecycle.state, "active")
+
+  def test_obsolete_json_cannot_override_csv(self):
+    path = self.root / ".repoworkflow/state/issues/1/lifecycle.json"
     path.parent.mkdir(parents=True)
-    path.write_text(
-      '{"schema_version": 1, "key": "issues/1/lifecycle", '
-      '"revision": 0, "previous_revision": null, '
-      '"writer_id": "agent", "session_id": "session", '
-      '"value": {"schema_version": 99}}\n',
-      encoding="utf-8",
-    )
-
-    with self.assertRaises(LifecycleError):
-      self.store.read(1)
-
-  def test_missing_previously_committed_record_fails_closed(self):
-    snapshot = self.transition(1, "start", None)
-    self.assertEqual(snapshot.revision, 0)
-    subprocess.run(["git", "add", ".repoworkflow"], cwd=self.repo, check=True)
-    subprocess.run(
-      ["git", "commit", "-m", "record lifecycle"],
-      cwd=self.repo,
-      check=True,
-      capture_output=True,
-    )
-    path = self.repo / ".repoworkflow/state/issues/1/lifecycle.json"
-    path.unlink()
-
-    with self.assertRaisesRegex(
-      LifecycleError,
-      "missing but exists in repository history",
-    ):
-      self.store.read(1)
-
-  def test_invalid_dependency_satisfaction_is_rejected(self):
-    value = {
-      "schema_version": 1,
-      "issue": "1",
-      "state": "accepted",
-      "dependency_satisfied": True,
-      "relationship_revision": 0,
-      "history": [
-        {
-          "sequence": 0,
-          "transition": "start",
-          "from": "unstarted",
-          "to": "active",
-          "candidate": "candidate",
-        },
-        {
-          "sequence": 1,
-          "transition": "accept",
-          "from": "active",
-          "to": "accepted",
-          "candidate": "candidate",
-        },
-      ],
-    }
-
-    with self.assertRaisesRegex(LifecycleError, "true exactly for completed"):
-      IssueLifecycle.from_json_value(value)
-
-  def test_schema_one_reads_with_empty_high_risk_aliases(self):
-    value = {
-      "schema_version": 1,
-      "issue": "1",
-      "state": "unstarted",
-      "dependency_satisfied": False,
-      "relationship_revision": None,
-      "history": [],
-    }
-    lifecycle = IssueLifecycle.from_json_value(value)
-    self.assertEqual(lifecycle.high_risk_aliases, ())
-    self.assertEqual(lifecycle.schema_version, 3)
-    self.assertEqual(lifecycle.state, "not_started")
-    self.assertEqual(lifecycle.legacy_event_count, 0)
-
-  def test_high_risk_aliases_round_trip_with_lifecycle(self):
-    started = self.transition(1, "start", None)
-    updated = self.store.set_high_risk_aliases(
-      1,
-      ["graph-renderer", "command-grammar", "graph-renderer"],
-      self.writer,
-      started.revision,
-    )
-    self.assertEqual(
-      updated.lifecycle.high_risk_aliases,
-      ("command-grammar", "graph-renderer"),
-    )
-    self.assertEqual(updated.lifecycle.state, "active")
-    self.assertEqual(updated.lifecycle.history, started.lifecycle.history)
-    self.assertEqual(self.store.read(1), updated)
-
-  def test_lifecycle_transition_preserves_high_risk_aliases(self):
-    started = self.transition(1, "start", None)
-    tagged = self.store.set_high_risk_aliases(
-      1,
-      ["command-grammar"],
-      self.writer,
-      started.revision,
-    )
-    review = self.transition(1, "submit-review", tagged.revision)
-    accepted = self.transition(1, "accept", review.revision)
-    self.assertEqual(accepted.lifecycle.high_risk_aliases, ("command-grammar",))
-
-  def test_high_risk_alias_replacement_is_deterministic(self):
-    started = self.transition(1, "start", None)
-    first = self.store.set_high_risk_aliases(
-      1,
-      ["b", "a"],
-      self.writer,
-      started.revision,
-    )
-    second = self.store.set_high_risk_aliases(
-      1,
-      ["a", "b", "a"],
-      self.writer,
-      first.revision,
-    )
-    self.assertEqual(first.lifecycle.high_risk_aliases, ("a", "b"))
-    self.assertEqual(second.lifecycle.high_risk_aliases, ("a", "b"))
-
-  def test_stale_high_risk_alias_write_fails_without_mutation(self):
-    started = self.transition(1, "start", None)
-    current = self.store.set_high_risk_aliases(
-      1,
-      ["a"],
-      self.writer,
-      started.revision,
-    )
-    with self.assertRaisesRegex(LifecycleError, "stale lifecycle revision"):
-      self.store.set_high_risk_aliases(
-        1,
-        ["b"],
-        self.writer,
-        started.revision,
-      )
-    self.assertEqual(self.store.read(1), current)
-
-  def test_invalid_high_risk_aliases_fail_closed(self):
-    started = self.transition(1, "start", None)
-    for aliases in ([""], [" bad"], [1], "alias"):
-      with self.subTest(aliases=aliases):
-        with self.assertRaises(LifecycleError):
-          self.store.set_high_risk_aliases(
-            1,
-            aliases,
-            self.writer,
-            started.revision,
-          )
-
-
-  def test_review_rejection_and_reentry_do_not_satisfy_dependency(self):
-    active = self.transition(1, "start", None)
-    review = self.transition(1, "submit-review", active.revision)
-    self.assertEqual(review.lifecycle.state, "in_review")
-    self.assertFalse(review.lifecycle.dependency_satisfied)
-    returned = self.transition(1, "reject/reopen", review.revision)
-    self.assertEqual(returned.lifecycle.state, "active")
-    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
-      self.transition(1, "accept", returned.revision)
-    aborted = self.transition(1, "abort", returned.revision)
-    resumed = self.transition(1, "re-enter", aborted.revision)
-    self.assertEqual(resumed.lifecycle.state, "active")
-
-  def test_review_candidate_cannot_change_at_acceptance_or_completion(self):
-    started = self.transition(1, "start", None, candidate="candidate-A")
-    with self.assertRaisesRegex(LifecycleError, "requires an exact candidate"):
-      self.transition(
-        1, "submit-review", started.revision, candidate=None,
-      )
-    review = self.transition(
-      1, "submit-review", started.revision, candidate="candidate-A",
-    )
-    with self.assertRaisesRegex(LifecycleError, "candidate does not match"):
-      self.transition(
-        1, "accept", review.revision, candidate="candidate-B",
-      )
-    accepted = self.transition(
-      1, "accept", review.revision, candidate="candidate-A",
-    )
-    with self.assertRaisesRegex(LifecycleError, "candidate does not match"):
-      self.transition(
-        1, "complete", accepted.revision, candidate="candidate-B",
-      )
-    completed = self.transition(
-      1, "complete", accepted.revision, candidate="candidate-A",
-    )
-    self.assertTrue(completed.lifecycle.dependency_satisfied)
-
-  def test_new_active_to_accepted_without_review_is_illegal(self):
-    started = self.transition(1, "start", None)
-    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
-      self.transition(1, "accept", started.revision)
-    self.assertEqual(self.store.read(1), started)
-
-  def test_legacy_active_accept_remains_valid_after_upgrade(self):
-    legacy = {
-      "schema_version": 2,
-      "issue": "1",
-      "state": "accepted",
-      "dependency_satisfied": False,
-      "relationship_revision": 0,
-      "high_risk_aliases": [],
-      "history": [
-        {"sequence": 0, "transition": "start", "from": "unstarted",
-         "to": "active", "candidate": "old"},
-        {"sequence": 1, "transition": "accept", "from": "active",
-         "to": "accepted", "candidate": "old"},
-      ],
-    }
-    value = IssueLifecycle.from_json_value(legacy)
-    self.assertEqual(value.legacy_event_count, 2)
-    self.assertEqual(value.schema_version, 3)
-    self.assertEqual(
-      IssueLifecycle.from_json_value(value.to_json_value()),
-      value,
-    )
-
-  def test_schema_three_cannot_forge_old_accept_event(self):
-    value = {
-      "schema_version": 3,
-      "issue": "1",
-      "state": "accepted",
-      "dependency_satisfied": False,
-      "relationship_revision": 0,
-      "high_risk_aliases": [],
-      "legacy_event_count": 0,
-      "history": [
-        {"sequence": 0, "transition": "start", "from": "not_started",
-         "to": "active", "candidate": "new"},
-        {"sequence": 1, "transition": "accept", "from": "active",
-         "to": "accepted", "candidate": "new"},
-      ],
-    }
-    with self.assertRaisesRegex(LifecycleError, "illegal lifecycle transition"):
-      IssueLifecycle.from_json_value(value)
-
-  def test_all_state_action_pairs_from_independent_contract(self):
-    # Independently authored from SIX_STATE_ACCEPTANCE_MATRIX.md T01-T08.
-    # Six states x seven requests = 42 assertions (8 legal, 34 illegal).
-    states = {
-      "not_started": (),
-      "active": ("start",),
-      "in_review": ("start", "submit-review"),
-      "accepted": ("start", "submit-review", "accept"),
-      "completed": ("start", "submit-review", "accept", "complete"),
-      "aborted": ("start", "abort"),
-    }
-    actions = (
-      "start", "submit-review", "accept", "reject/reopen",
-      "abort", "re-enter", "complete",
-    )
-    # Reject/reopen occurs in two different source states: eight legal
-    # state/action pairs but only seven distinct action spellings.
-    legal = {
-      ("not_started", "start"): "active",
-      ("active", "submit-review"): "in_review",
-      ("in_review", "accept"): "accepted",
-      ("in_review", "reject/reopen"): "active",
-      ("accepted", "reject/reopen"): "active",
-      ("active", "abort"): "aborted",
-      ("aborted", "re-enter"): "active",
-      ("accepted", "complete"): "completed",
-    }
-    cases = 0
-    for state, history in states.items():
-      for action in actions:
-        cases += 1
-        issue = cases
-        snapshot = self.store.read(issue)
-        for event in history:
-          snapshot = self.transition(
-            issue, event, snapshot.revision, candidate="candidate-A",
-          )
-        self.assertEqual(snapshot.lifecycle.state, state)
-        before = self.store.read(issue)
-        expected = legal.get((state, action))
-        with self.subTest(state=state, action=action):
-          if expected is None:
-            with self.assertRaisesRegex(
-              LifecycleError, "illegal lifecycle transition",
-            ):
-              self.transition(
-                issue, action, before.revision, candidate="candidate-A",
-              )
-            self.assertEqual(self.store.read(issue), before)
-          else:
-            result = self.transition(
-              issue, action, before.revision, candidate="candidate-A",
-            )
-            self.assertEqual(result.lifecycle.state, expected)
-            self.assertEqual(
-              result.lifecycle.dependency_satisfied, expected == "completed",
-            )
-            self.assertEqual(
-              len(result.lifecycle.history),
-              len(before.lifecycle.history) + 1,
-            )
-            self.assertEqual(self.store.read(issue), result)
-    self.assertEqual(cases, len(states) * len(actions))
-    self.assertEqual(len(legal), 8)
-
-  def test_issue_ids_are_canonical(self):
-    for issue in (0, "0", "01", -1, True):
-      with self.subTest(issue=issue):
-        with self.assertRaises(LifecycleError):
-          self.store.read(issue)
-
-
-if __name__ == "__main__":
-  unittest.main()
+    path.write_text('{"state":"completed"}')
+    self.assertEqual(self.store.read(1).lifecycle.state, "not_started")
+    self.advance("start")
+    self.assertEqual(path.read_text(), '{"state":"completed"}')

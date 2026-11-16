@@ -57,14 +57,7 @@ class SelfCiTierTests(unittest.TestCase):
       }),
       self.writer,
     )
-    self.lifecycle = LifecycleStore(self.repo).transition(
-      476,
-      "start",
-      "candidate",
-      relationship.revision,
-      self.writer,
-      None,
-    )
+    self.lifecycle = LifecycleStore(self.repo).transition(476, "start", LifecycleStore(self.repo).read(476).revision)
 
   def tearDown(self):
     self.temp.cleanup()
@@ -108,13 +101,10 @@ class SelfCiTierTests(unittest.TestCase):
     )
 
   def test_high_risk_alias_adds_groups_without_replacing_owned_group(self):
-    lifecycle = LifecycleStore(self.repo).set_high_risk_aliases(
-      476,
-      ["command-grammar"],
-      self.writer,
-      self.lifecycle.revision,
-    )
-    self.assertEqual(lifecycle.lifecycle.high_risk_aliases, ("command-grammar",))
+    path = self.repo / ".ci/tests.json"
+    value = json.loads(path.read_text())
+    value["aliases"]["issue-476"] = ["issue-456-command-grammar"]
+    path.write_text(json.dumps(value))
     groups = issue_verification_groups(self.repo, "476")
     self.assertEqual(
       groups,

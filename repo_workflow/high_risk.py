@@ -1,76 +1,33 @@
-from __future__ import annotations
-
-from dataclasses import replace
+"""Associate existing catalogue groups with an issue in that same catalogue."""
 from pathlib import Path
+import json
 
-from .current_work_store import CurrentWorkError, CurrentWorkStore
-from .lifecycle_store import LifecycleStore
-from .state_store import WriterIdentity
+from .current_work_store import CurrentWorkStore
 from .owned_commit import commit_owned_files
-from .test_catalogue import load_test_catalogue
+from .test_catalogue import CATALOGUE_PATH, load_test_catalogue
 
 
 class HighRiskError(RuntimeError):
   pass
 
 
-def associate_high_risk(
-  root: Path,
-  aliases,
-  writer: WriterIdentity,
-):
+def associate_high_risk(root: Path, aliases, writer):
   root = Path(root).resolve()
-  catalogue = load_test_catalogue(root)
-
   requested = tuple(aliases)
   if not requested:
-    raise HighRiskError("at least one high-risk section is required")
-
-  for name in requested:
-    if not isinstance(name, str) or not name:
-      raise HighRiskError("high-risk section names must be non-empty strings")
-
-  # Validate all names before mutating any state.
-  catalogue.expand_aliases(requested)
-
-  current_store = CurrentWorkStore(root)
-  current = current_store.read(validate_durable=True)
-  reference = current.value.current
+    raise HighRiskError("at least one catalogue alias is required")
+  catalogue = load_test_catalogue(root)
+  groups = catalogue.expand_aliases(requested)
+  reference = CurrentWorkStore(root).read().value.current
   if reference is None:
     raise HighRiskError("rwf high-risk requires an active current issue")
-
-  lifecycle_store = LifecycleStore(root)
-  lifecycle = lifecycle_store.read(reference.issue)
-  if lifecycle.revision != reference.lifecycle_revision:
-    raise CurrentWorkError(
-      f"stale current lifecycle revision for issue {reference.issue}: "
-      f"expected {reference.lifecycle_revision}, current {lifecycle.revision!r}"
-    )
-
-  merged = tuple(sorted(set(lifecycle.lifecycle.high_risk_aliases) | set(requested)))
-  if merged == lifecycle.lifecycle.high_risk_aliases:
-    return lifecycle
-
-  updated = lifecycle_store.set_high_risk_aliases(
-    reference.issue,
-    merged,
-    writer,
-    lifecycle.revision,
-  )
-
-  updated_reference = replace(
-    reference,
-    lifecycle_revision=updated.revision,
-  )
-  value = replace(
-    current.value,
-    current=updated_reference,
-    selected_issue=reference.issue,
-    cache_lifecycle_revision=updated.revision,
-  )
-  current_store.replace(current.revision, value, writer)
-  commit_owned_files(
-    root, [f".repoworkflow/state/issues/{reference.issue}/lifecycle.json"],
-    f"workflow: associate high-risk tests with issue {reference.issue}",
-  )
-  return updated
+  key = "issue-" + reference.issue
+  selected = sorted(set(catalogue.aliases.get(key, ())) | set(groups))
+  path = root / CATALOGUE_PATH
+  value = json.loads(path.read_text(encoding="utf-8"))
+  if value.setdefault("aliases", {}).get(key) != selected:
+    value["aliases"][key] = selected
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8", newline="\n")
+    commit_owned_files(root, [CATALOGUE_PATH.as_posix()],
+                       f"test: select additional groups for issue {reference.issue}")
+  return {"issue": reference.issue, "groups": selected}

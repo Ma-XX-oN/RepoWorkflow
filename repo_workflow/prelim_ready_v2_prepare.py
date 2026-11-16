@@ -31,8 +31,6 @@ def _accepted(root, issue, source_ref):
     raise PrelimError("accepted issue branch missing")
   lifecycle = LifecycleStore(root).read(issue)
   if (lifecycle.lifecycle.state != "accepted"
-      or not lifecycle.lifecycle.history
-      or lifecycle.lifecycle.history[-1].candidate != source
       or type(lifecycle.revision) is not int):
     raise PrelimError("accepted lifecycle source is unavailable")
   return source, lifecycle.revision

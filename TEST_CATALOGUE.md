@@ -45,11 +45,16 @@ short-lived tests into retained suites without verifying their ownership
 and value.
 
 `aliases` are **named associations of already registered group keys**,
-used for durable high-risk group expansion and other named selections.
+used for additional issue coverage and other named selections.
 They do not define the regression or integration stages; stage membership
 is defined by per-group `type`. An integration stage includes the
 applicable broad regression obligations and integration-only probes as
 specified in `TEST_STRATEGY.md`.
+
+Additional coverage for issue N is recorded as the `issue-N` alias in this
+same catalogue. `rwf high-risk` expands the requested catalogue aliases and
+unions their groups into that issue alias. It updates the catalogue only;
+ticket state remains in tickets.csv.
 
 
 

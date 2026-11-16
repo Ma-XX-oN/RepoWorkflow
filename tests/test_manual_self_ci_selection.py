@@ -48,9 +48,7 @@ class ManualSelfCiTests(unittest.TestCase):
     )
 
   def select(self):
-    with patch("repo_workflow.self_ci.LifecycleStore") as lifecycle:
-      lifecycle.return_value.read.return_value.lifecycle.high_risk_aliases = ()
-      return issue_verification_groups(self.root, "699")
+    return issue_verification_groups(self.root, "699")
 
   def test_manual_case_and_integration_group_excluded_from_issue_verification(self):
     self.catalogue()

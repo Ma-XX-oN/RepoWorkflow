@@ -54,21 +54,8 @@ class HighRiskCliTests(unittest.TestCase):
       }),
       self.writer,
     )
-    lifecycle = LifecycleStore(self.repo).transition(
-      1,
-      "start",
-      "candidate",
-      relationship.revision,
-      self.writer,
-      None,
-    )
-    CurrentWorkStore(self.repo).project_start(
-      1,
-      lifecycle.revision,
-      relationship.revision,
-      self.writer,
-      None,
-    )
+    lifecycle = LifecycleStore(self.repo).transition(1, "start", LifecycleStore(self.repo).read(1).revision)
+    CurrentWorkStore(self.repo).project_start(1, self.writer, None)
 
   def tearDown(self):
     self.temp.cleanup()
@@ -102,12 +89,12 @@ class HighRiskCliTests(unittest.TestCase):
       json.loads(result.stdout),
       {
         "issue": "1",
-        "high_risk_aliases": ["command-grammar", "high-risk"],
+        "groups": ["issue-456-grammar", "issue-475-high-risk"],
       },
     )
     self.assertEqual(
-      LifecycleStore(self.repo).read(1).lifecycle.high_risk_aliases,
-      ("command-grammar", "high-risk"),
+      json.loads((self.repo / ".ci/tests.json").read_text())["aliases"]["issue-1"],
+      ["issue-456-grammar", "issue-475-high-risk"],
     )
 
   def test_repeated_and_changed_invocations_are_additive_and_idempotent(self):
@@ -122,8 +109,8 @@ class HighRiskCliTests(unittest.TestCase):
     changed = self.run_rwf("high-risk", "high-risk")
     self.assertEqual(changed.returncode, 0, changed.stderr)
     self.assertEqual(
-      json.loads(changed.stdout)["high_risk_aliases"],
-      ["command-grammar", "high-risk"],
+      json.loads(changed.stdout)["groups"],
+      ["issue-456-grammar", "issue-475-high-risk"],
     )
 
   def test_help_exposes_catalogue_sections(self):

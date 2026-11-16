@@ -71,11 +71,11 @@ class LaneRenderTests(unittest.TestCase):
   def test_status_annotations_touch_identifier_and_lane_letters_align(self):
     lines = render_lanes(self.root)
     line_9 = next(line for line in lines if "A 9" in line)
-    line_54 = next(line for line in lines if "?B54" in line)
+    line_54 = next(line for line in lines if "○B54" in line)
     self.assertEqual(line_9.index("A"), line_54.index("B"))
-    self.assertIn("?A 9", line_9)
-    self.assertIn("?B54", line_54)
-    self.assertTrue(any("*?A107" in line for line in lines))
+    self.assertIn("○A 9", line_9)
+    self.assertIn("○B54", line_54)
+    self.assertTrue(any("*○A107" in line for line in lines))
     graph = "\n".join(lines)
     self.assertIn("─", graph)
     self.assertTrue(any(char in graph for char in "┬┐┴┘├┤┼"))
@@ -104,8 +104,8 @@ class LaneRenderTests(unittest.TestCase):
     })
 
     rendered = "\n".join(render_lanes(self.root))
-    self.assertEqual(rendered.count("*?A63"), 1)
-    self.assertEqual(rendered.count("*?B65"), 1)
+    self.assertEqual(rendered.count("*○A63"), 1)
+    self.assertEqual(rendered.count("*○B65"), 1)
     self.assertNotIn("─", rendered)
 
   def test_titles_do_not_change_graph_geometry(self):
@@ -153,7 +153,7 @@ class LaneRenderTests(unittest.TestCase):
 
     rendered = "\n".join(render_lanes(self.root))
     self.assertLess(rendered.index("A1"), rendered.index("A2"))
-    self.assertLess(rendered.index("A2"), rendered.index("*?A3"))
+    self.assertLess(rendered.index("A2"), rendered.index("*○A3"))
     self.assertGreaterEqual(rendered.count("─"), 2)
 
   def test_fan_out_does_not_duplicate_source(self):
@@ -183,8 +183,8 @@ class LaneRenderTests(unittest.TestCase):
 
     rendered = "\n".join(render_lanes(self.root))
     self.assertEqual(rendered.count("A1"), 1)
-    self.assertIn("*?A2", rendered)
-    self.assertIn("*?B3", rendered)
+    self.assertIn("*○A2", rendered)
+    self.assertIn("*○B3", rendered)
 
   def test_redundant_long_dependency_is_not_displayed(self):
     graph_store = RelationshipStore(self.root)
@@ -218,7 +218,7 @@ class LaneRenderTests(unittest.TestCase):
     rendered = "\n".join(
       render_lanes(self.root, diagnostics=diagnostics)
     )
-    for value in ("A145", "A185", "*?A216"):
+    for value in ("A145", "A185", "*○A216"):
       self.assertIn(value, rendered)
     routes = {
       (item["source"], item["target"])
@@ -234,7 +234,7 @@ class LaneRenderTests(unittest.TestCase):
       render_lanes(self.root, titles=True)
 
   def test_single_lane_filter_preserves_node_label(self):
-    self.assertEqual(render_lanes(self.root, lane="B"), ("?B54",))
+    self.assertEqual(render_lanes(self.root, lane="B"), ("○B54",))
 
   def test_color_setting_defaults_and_persists(self):
     self.assertEqual(color_setting(self.root), "auto")
@@ -267,18 +267,16 @@ class LaneRenderTests(unittest.TestCase):
 
   def test_default_graph_reads_saved_status_and_ignores_provider_closed(self):
     store = RelationshipStore(self.root)
-    store.refresh_states(self.writer)
+    store.read()
     before = "\\n".join(render_lanes(self.root))
     self.assertIn("○A 9", before)
     self.assertIn("○B54", before)
     self.assertIn("*○A107", before)
     lifecycle = LifecycleStore(self.root)
-    started = lifecycle.transition(
-      9, "start", "candidate-9", 0, self.writer, None,
-    )
+    started = lifecycle.transition(9, "start", lifecycle.read(9).revision)
     self.assertEqual(started.lifecycle.state, "active")
-    self.assertEqual("\\n".join(render_lanes(self.root)), before)
-    store.refresh_states(self.writer)
+    self.assertNotEqual("\\n".join(render_lanes(self.root)), before)
+    store.read()
     refreshed = "\\n".join(render_lanes(self.root))
     self.assertIn("●A 9", refreshed)
     self.assertIn("○B54", refreshed)

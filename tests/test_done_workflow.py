@@ -26,6 +26,9 @@ class DoneWorkflowTests(unittest.TestCase):
 
   def prepared(self, *, fail=False, manual=False):
     """Commit two executable checks and prepare their genuine submission."""
+    (self.root / ".repoworkflow").mkdir(exist_ok=True)
+    (self.root / ".repoworkflow/tickets.csv").write_text(
+      "issue,title,dependencies,state\n51,Issue 51,,active\n", encoding="utf-8")
     for stage in ("regression", "integration"):
       (self.root / (stage + ".py")).write_text(
         "from pathlib import Path\nassert Path('feature').read_text() == 'issue work\\n'\n"
@@ -65,8 +68,9 @@ class DoneWorkflowTests(unittest.TestCase):
     self.assertNotIn(plan["prelim_ref"], self.refs())
     self.assertEqual(result["tested_source_sha"], plan["candidate_sha"])
     self.assertNotEqual(original, result["landed_sha"])
-    lifecycle = git(self.root, "show", result["landed_sha"] + ":.repoworkflow/state/issues/51/lifecycle.json").stdout
-    self.assertEqual(json.loads(lifecycle)["value"]["state"], "completed")
+    tickets = git(self.root, "show", result["landed_sha"] + ":.repoworkflow/tickets.csv").stdout
+    self.assertIn("51,Issue 51,,completed", tickets)
+    self.assertNotIn("lifecycle.json", git(self.root, "ls-tree", "-r", "--name-only", result["landed_sha"]).stdout)
     self.assertEqual(accept_done(self.root, plan), result)
     self.assertEqual(completed_submission(self.root, 51), result)
 

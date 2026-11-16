@@ -32,6 +32,9 @@ class PrelimAttemptTests(unittest.TestCase):
     git(self.root, "config", "user.name", "RepoWorkflow fixture")
     git(self.root, "config", "user.email", "test@example.invalid")
     (self.root / "VERSION").write_text("1.2.3\n")
+    (self.root / ".repoworkflow").mkdir()
+    (self.root / ".repoworkflow/tickets.csv").write_text(
+      "issue,title,dependencies,state\n7,Issue 7,,accepted\n")
     scripts = self.root / "scripts"
     scripts.mkdir()
     (scripts / "version.py").write_text(
@@ -66,12 +69,6 @@ class PrelimAttemptTests(unittest.TestCase):
     git(self.root, "commit", "-m", "accepted source")
     self.source = git(self.root, "rev-parse", "HEAD").stdout.strip()
     self.writer = WriterIdentity("test-worker", "fixture-session")
-    lifecycle = LifecycleStore(self.root)
-    first = lifecycle.transition("7", "start", None, 0, self.writer, None)
-    review = lifecycle.transition("7", "submit-review", self.source,
-                                  0, self.writer, first.revision)
-    lifecycle.transition("7", "accept", self.source, 0, self.writer,
-                         review.revision)
     self.identity = patch.dict(os.environ, {
       "RWF_WRITER_ID": "test-worker", "RWF_SESSION_ID": "fixture-session",
     })
@@ -122,10 +119,10 @@ class PrelimAttemptTests(unittest.TestCase):
       construct_prelim(self.root, "7", "refs/heads/issue-70-feature",
                        self.config)
 
-  def test_lifecycle_and_ref_must_identify_accepted_source(self):
-    git(self.root, "commit", "--allow-empty", "-m", "unaccepted mutation")
-    with self.assertRaisesRegex(PrelimError, "accepted lifecycle"):
-      self.construct()
+  def test_new_source_is_identified_from_issue_ref(self):
+    git(self.root, "commit", "--allow-empty", "-m", "new source")
+    current = git(self.root, "rev-parse", "HEAD").stdout.strip()
+    self.assertEqual(self.construct().source_sha, current)
 
   def test_remote_main_not_fetched_uses_server_tip_without_moving_local_main(self):
     local_before = git(self.root, "rev-parse", "main").stdout.strip()
@@ -165,12 +162,9 @@ class PrelimAttemptTests(unittest.TestCase):
     new_source = git(self.root, "rev-parse", "HEAD").stdout.strip()
     lifecycle = LifecycleStore(self.root)
     old = lifecycle.read("7")
-    reopened = lifecycle.transition("7", "reject/reopen", None, 0,
-                                    self.writer, old.revision)
-    review = lifecycle.transition("7", "submit-review", new_source,
-                                  0, self.writer, reopened.revision)
-    lifecycle.transition("7", "accept", new_source, 0,
-                         self.writer, review.revision)
+    reopened = lifecycle.transition("7", "reject/reopen", old.revision)
+    review = lifecycle.transition("7", "submit-review", reopened.revision)
+    lifecycle.transition("7", "accept", review.revision)
     with self.assertRaisesRegex(PrelimError, "explicit resolution"):
       self.construct()
     self.assertFalse(git(self.root, "show-ref", "--verify",
@@ -182,12 +176,9 @@ class PrelimAttemptTests(unittest.TestCase):
     new_source = git(self.root, "rev-parse", "HEAD").stdout.strip()
     lifecycle = LifecycleStore(self.root)
     old = lifecycle.read("7")
-    reopened = lifecycle.transition("7", "reject/reopen", None, 0,
-                                    self.writer, old.revision)
-    review = lifecycle.transition("7", "submit-review", new_source,
-                                  0, self.writer, reopened.revision)
-    lifecycle.transition("7", "accept", new_source, 0,
-                         self.writer, review.revision)
+    reopened = lifecycle.transition("7", "reject/reopen", old.revision)
+    review = lifecycle.transition("7", "submit-review", reopened.revision)
+    lifecycle.transition("7", "accept", review.revision)
     with self.assertRaises(PrelimError):
       self.construct()
     records = list((self.root / ".repoworkflow" / "state" /
@@ -265,12 +256,9 @@ class PrelimAttemptTests(unittest.TestCase):
     git(self.root, "update-ref", "refs/heads/issue-7", base)
     lifecycle = LifecycleStore(self.root)
     old = lifecycle.read("7")
-    reopened = lifecycle.transition("7", "reject/reopen", None, 0,
-                                    self.writer, old.revision)
-    review = lifecycle.transition("7", "submit-review", base, 0,
-                                  self.writer, reopened.revision)
-    lifecycle.transition("7", "accept", base, 0, self.writer,
-                         review.revision)
+    reopened = lifecycle.transition("7", "reject/reopen", old.revision)
+    review = lifecycle.transition("7", "submit-review", reopened.revision)
+    lifecycle.transition("7", "accept", review.revision)
     result = self.construct()
     self.assertEqual(result.proposed_version, "1.2.4")
     self.assertEqual(result.state, "ready")
@@ -348,11 +336,7 @@ class PrelimAttemptTests(unittest.TestCase):
                     str(fresh)], check=True, capture_output=True)
     git(fresh, "checkout", "-b", "issue-7", "origin/issue-7")
     restored = LifecycleStore(fresh)
-    initial = restored.transition("7", "start", None, 0, self.writer, None)
-    review = restored.transition("7", "submit-review", self.source, 0,
-                                 self.writer, initial.revision)
-    restored.transition("7", "accept", self.source, 0, self.writer,
-                        review.revision)
+    self.assertEqual(restored.read("7").lifecycle.state, "accepted")
     result = construct_prelim(fresh, "7", "refs/heads/issue-7",
                               self.config, attempt_id=original.attempt)
     self.assertEqual(result, original)

@@ -34,7 +34,10 @@ def _setup(tmp_path):
   subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "test@example.org"], check=True)
   subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "Fixture"], check=True)
   (tmp_path / "sample.txt").write_text("original\n")
-  subprocess.run(["git", "-C", str(tmp_path), "add", "sample.txt"], check=True)
+  (tmp_path / ".repoworkflow").mkdir()
+  (tmp_path / ".repoworkflow/tickets.csv").write_text(
+    "issue,title,dependencies,state\n701,Manual test issue,,not_started\n")
+  subprocess.run(["git", "-C", str(tmp_path), "add", "sample.txt", ".repoworkflow/tickets.csv"], check=True)
   subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "fixture"], check=True)
   sha = subprocess.check_output(["git", "-C", str(tmp_path), "rev-parse", "HEAD"], text=True).strip()
   cases = (Case("issue-701-manual--ONE", "a" * 64),
@@ -142,7 +145,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
 
     _selected(root, sha, cases, 1)
     def handoff(*args):
-      return FailureHandoff("active", False, "1.2.3-issue.701.2.8",
+      return FailureHandoff("active", "1.2.3-issue.701.2.8",
                             "1.2.3-issue.701.2.8", "repair-team")
     failed = _record(root, sha, cases, "failed", on_failure=handoff)
     self.assertEqual(failed.result, "failed")
@@ -233,7 +236,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
     calls = []
     def verified(*args):
       calls.append(args)
-      return FailureHandoff("active", False, "1.2.3-issue.701.2.8",
+      return FailureHandoff("active", "1.2.3-issue.701.2.8",
                             "1.2.3-issue.701.2.8", "repair-team")
     out = _record(root, sha, cases, "failed", on_failure=verified)
     assert out.result == "failed" and len(calls) == 1
@@ -325,7 +328,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
     root, sha, cases = self._fixture
     _selected(root, sha, cases)
     def wrong(*args):
-      return FailureHandoff("active", False, "1.2.3-issue.701.2.8",
+      return FailureHandoff("active", "1.2.3-issue.701.2.8",
                             "1.2.3-issue.701.3.1", "repair-team")
     with self.assertRaisesRegex(ManualResultError, "contract rejected"):
       _record(root, sha, cases, "failed", on_failure=wrong)
@@ -375,7 +378,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
       ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     _selected(root, prepared_sha, cases)
     def handoff(*args):
-      return FailureHandoff("active", False, "1.2.3-issue.701.2.1",
+      return FailureHandoff("active", "1.2.3-issue.701.2.1",
                             "1.2.3-issue.701.2.1", "repair-owner")
     _record(root, prepared_sha, cases, "failed", on_failure=handoff)
     assert subprocess.check_output(
@@ -434,28 +437,20 @@ class ManualIntegrationResultTests(unittest.TestCase):
     root, sha, cases = self._fixture
     store = LifecycleStore(root)
     writer = WriterIdentity("worker-701", "lifecycle-session")
-    started = store.transition(701, "start", None, None, writer, None)
-    review = store.transition(
-      701, "submit-review", sha, None, writer, started.revision,
-    )
-    accepted = store.transition(
-      701, "accept", sha, None, writer, review.revision,
-    )
+    started = store.transition(701, "start", store.read(701).revision)
+    review = store.transition(701, "submit-review", started.revision)
+    accepted = store.transition(701, "accept", review.revision)
     assert accepted.lifecycle.state == "accepted"
-    assert not accepted.lifecycle.dependency_satisfied
 
     _selected(root, sha, cases)
 
     def canonical_reject(path, issue, candidate):
       before = store.read(issue)
       assert before.lifecycle.state == "accepted"
-      after = store.transition(
-        issue, "reject/reopen", candidate, None, writer, before.revision,
-      )
+      after = store.transition(issue, "reject/reopen", before.revision)
       assert after.lifecycle.state == "active"
-      assert after.lifecycle.history[-1].transition == "reject/reopen"
       return FailureHandoff(
-        "active", False, "1.2.3-issue.701.5.9",
+        "active", "1.2.3-issue.701.5.9",
         "1.2.3-issue.701.5.9", "repair-team",
       )
 
@@ -463,8 +458,6 @@ class ManualIntegrationResultTests(unittest.TestCase):
     assert outcome.result == "failed"
     persisted = LifecycleStore(root).read(701).lifecycle
     assert persisted.state == "active"
-    assert not persisted.dependency_satisfied
-    assert persisted.history[-1].transition == "reject/reopen"
     with self.assertRaisesRegex(ManualResultError, "MIT FAIL"):
       require_manual_completion(root, 701, sha, cases=cases)
     with self.assertRaisesRegex(ManualSelectionError, "failed candidate"):
@@ -484,7 +477,7 @@ class ManualIntegrationResultTests(unittest.TestCase):
     sha = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
     store = LifecycleStore(root)
     writer = WriterIdentity("worker-701", "version-session")
-    store.transition(701, "start", None, None, writer, None)
+    store.transition(701, "start", store.read(701).revision)
     _selected(root, sha, cases)
     with patch.dict("os.environ", {"RWF_WRITER_ID": writer.writer_id,
         "RWF_SESSION_ID": writer.session_id}):

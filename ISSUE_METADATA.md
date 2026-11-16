@@ -50,7 +50,7 @@ an empty title or empty display value.
 - ticket number identity is exact;
 - provider title is always authoritative;
 - display metadata cannot introduce a ticket absent from canonical state;
-- display metadata never replaces dependency or lifecycle authority;
+- display metadata never replaces the state or dependencies in tickets.csv;
 - offline title reads never contact the provider;
 - malformed/missing provider values fail closed.
 

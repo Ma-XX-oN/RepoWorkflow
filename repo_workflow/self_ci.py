@@ -6,7 +6,6 @@ from pathlib import Path
 import re
 import sys
 
-from .lifecycle_store import LifecycleStore
 from .test_catalogue import load_test_catalogue
 
 
@@ -104,10 +103,9 @@ def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
       f"issue {issue} has no verification group in .ci/tests.json"
     )
 
-  lifecycle = LifecycleStore(root).read(issue).lifecycle
   selected = set(catalogue.verification_groups(
     owned,
-    lifecycle.high_risk_aliases,
+    ("issue-" + issue,) if "issue-" + issue in catalogue.aliases else (),
   ))
   selected.update(name for name, (_, metadata) in records.items()
                   if metadata.get("type") == "invariant")
@@ -151,7 +149,7 @@ def plan_self_ci(
       "issue",
       issue,
       issue_verification_groups(root, issue),
-      f"issue {issue} verification plus durable high-risk associations",
+      f"issue {issue} verification selected by the test catalogue",
     )
 
   return SelfCiPlan(

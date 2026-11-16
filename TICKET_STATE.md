@@ -12,6 +12,7 @@ The synchronized record for each ticket contains exactly:
 - positive ticket number;
 - exact provider title;
 - exact direct dependency set.
+- current ticket state.
 
 The canonical file is:
 
@@ -22,38 +23,27 @@ The canonical file is:
 with columns:
 
 ```text
-issue,title,dependencies
+issue,title,dependencies,state
 ```
 
 Rows are ordered by issue number. Dependencies are sorted positive issue
 numbers separated by semicolons. An empty dependency field means the ticket is
 known to have no direct dependencies.
 
-## Cached lifecycle state (six-state migration)
-
-A first explicit graph `--current` refresh migrates the canonical CSV to:
-
-```text
-issue,title,dependencies,state,state_revision
-```
+## Ticket state
 
 `state` is one of `not_started`, `active`, `in_review`, `accepted`,
-`completed`, or `aborted`. `state_revision` is the authoritative durable
-lifecycle-record revision sampled by that refresh. It is empty only for a
-`not_started` issue proven to have no prior durable lifecycle record.
+`completed`, or `aborted`. Workflow commands update this cell directly.
+Dependency readiness looks up each prerequisite ticket's state in this CSV;
+only `completed` satisfies a dependency.
 
-The lifecycle store remains the sole authority for state transitions.
-The CSV is an intentionally cached projection, not an independent lifecycle
-mutation source. Ordinary graph rendering reads this cached state without
-contacting lifecycle storage or any remote provider. `rwf lanes view --current`
-explicitly refreshes the saved state snapshot, verifies the update, and
-renders it. The snapshot is allowed to become older than the lifecycle store
-until the next explicit refresh.
+Git and ticket activity retain history. Test selection belongs in the existing
+`.ci/tests.json` catalogue. Test results and integration evidence retain their
+existing records. None of those records is a second ticket-state authority.
 
-For migration, legacy three-column CSV remains parseable. Graphing without
-cached state renders the explicit unknown-state indicator `?`; it must not
-infer RWF completion from the provider's open/closed status. A failed
-refresh must not partially rewrite a state snapshot.
+CSV writes use atomic replacement and reject intervening edits. The content
+fingerprint used for that check is computed in memory, not stored in a column.
+Three-way merges preserve independent edits and report conflicting state edits.
 
 
 ## Authority

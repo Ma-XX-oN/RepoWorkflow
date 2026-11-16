@@ -270,10 +270,7 @@ def handle_public(root: Path, words: list[str], *, engine_root: Path,
       words[1:],
       runtime_writer_identity(),
     )
-    print(json.dumps({
-      "issue": result.lifecycle.issue,
-      "high_risk_aliases": list(result.lifecycle.high_risk_aliases),
-    }, separators=(",", ":")))
+    print(json.dumps(result, separators=(",", ":")))
     return 0
 
   if command == "what-next":
@@ -366,13 +363,6 @@ def _handle_lanes(
 
     if current_states and words[1] != "view":
       raise ValueError("--current requires lanes view")
-    if current_states:
-      RelationshipStore(root).refresh_states(runtime_writer_identity())
-      commit_owned_files(
-        root, [".repoworkflow/tickets.csv"],
-        "tickets: commit current lifecycle state",
-      )
-
     started = time.perf_counter()
     if words[1] == "list":
       if debug:

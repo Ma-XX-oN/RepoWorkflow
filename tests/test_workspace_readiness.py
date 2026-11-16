@@ -52,14 +52,9 @@ class WorkspaceReadinessTests(unittest.TestCase):
     self.temp.cleanup()
 
   def transition(self, issue, name, revision):
-    return self.lifecycle.transition(
-      issue,
-      name,
-      "candidate",
-      RelationshipStore(self.repo).read().revision,
-      self.writer,
-      revision,
-    )
+    if revision is None:
+      revision = self.lifecycle.read(issue).revision
+    return self.lifecycle.transition(issue, name, revision)
 
   def test_projection_distinguishes_dependencies_and_lifecycle_states(self):
     one = self.transition(1, "start", None)
