@@ -31,6 +31,9 @@ class FreshCloneLifecycleAcceptance(unittest.TestCase):
       self.git(first, "config", "user.name", "Actor A")
       self.git(first, "config", "user.email", "actor-a@example.invalid")
       (first / "README.md").write_text("fixture\n", encoding="utf-8")
+      (first / ".gitattributes").write_text(
+        ".repoworkflow/tickets.csv text eol=lf\n", encoding="utf-8",
+      )
       old = WriterIdentity("actor-a", "session-a")
       RelationshipStore(first).create(
         RelationshipGraph(issues={
