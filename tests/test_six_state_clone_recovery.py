@@ -1,7 +1,6 @@
 """#583 L15 detached-client loss and fresh clone identity acceptance."""
 
 from pathlib import Path
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -25,8 +24,9 @@ class FreshCloneLifecycleAcceptance(unittest.TestCase):
       root = Path(temp)
       origin = root / "bare.git"
       self.git(root, "init", "--bare", str(origin))
-      first = root / "first"
-      first.mkdir()
+      first_directory = tempfile.TemporaryDirectory(dir=root, prefix="first-")
+      self.addCleanup(first_directory.cleanup)
+      first = Path(first_directory.name)
       self.git(first, "init", "-b", "main")
       self.git(first, "config", "user.name", "Actor A")
       self.git(first, "config", "user.email", "actor-a@example.invalid")
@@ -48,7 +48,8 @@ class FreshCloneLifecycleAcceptance(unittest.TestCase):
       self.git(first, "push", "origin", "main")
 
       # The writer's worktree and process/session become unavailable.
-      shutil.rmtree(first)
+      first_directory.cleanup()
+      self.assertFalse(first.exists())
       replacement = root / "replacement"
       self.git(root, "clone", "-b", "main", str(origin), str(replacement))
       self.git(replacement, "config", "user.name", "Actor B")
