@@ -14,6 +14,16 @@ is preserved as history; it does not license new schema-3 shortcuts.
 
 ## How to read this specification
 
+For #583 functional certification, the operator-approved
+[single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md) governs completion.
+External authorization/evidence verifier programs are not required.
+Adversarial attack investigation, implementation and certification are excluded.
+The transition table still requires ordinary authorized actions, recorded review
+outcomes, applicable test results and exact candidate/parent/input matching.
+Missing tests may be deferred to CI; they must pass before integration.
+Candidate reconstruction after parent advancement invalidates affected results
+and requires revalidation. It does not require immutable submission contents.
+
 This is a **test plan**, not a report of executed tests. Each ID names one
 requirement-derived acceptance scenario. The **Expected result** column
 describes the required behaviour; it must never be filled in from the code
@@ -70,7 +80,7 @@ stateDiagram-v2
 | T05 | accepted | reject/reopen | active | Acceptance invalidation or rejection recorded |
 | T06 | active | abort | aborted | Authorized abandonment; durable reason/evidence |
 | T07 | aborted | re-enter | active | Authorized new work generation; history retained |
-| T08 | accepted | complete | completed | Current exact-candidate acceptance and separate integration/authorization gates |
+| T08 | accepted | complete | completed | Current exact-candidate acceptance, applicable passing tests and expected-parent integration |
 
 All other state/request pairs, including same-state repeats, fail closed
 without appending a lifecycle transition.  An exact replay of an already
@@ -80,12 +90,12 @@ candidate, expected revision or underlying evidence is not that replay.
 Completion is terminal; there is no implicit reopen from completed.
 Abort from in_review first requires a legal return to active.
 
-**Matrix test method:** execute each of the eight requests against each
-of the six initial states: 48 pairs.  T01–T08 must produce the listed
-successors; the other 40 must preserve state, history and revision and return
+**Matrix test method:** execute each of the seven distinct requests against each
+of the six initial states: 42 pairs.  T01–T08 must produce the listed
+successors; the other 34 must preserve state, history and revision and return
 a rejected/explicitly proven idempotent outcome.  Test the complete request
 shape, including mandatory evidence, in each positive row; reject missing,
-stale, mismatched and forged inputs independently.  Verify the authoritative
+stale and mismatched inputs. Verify the authoritative
 persisted record after each attempt, not only the return code.
 
 ## Lifecycle history and evidence oracle
@@ -226,7 +236,7 @@ and a stable evidence URL or artifact identifier.
 
 Independent execution on #580–#583 must trace each applicable expected
 observation to its result. Important cross-products: initial state × request
-(48 combinations); provider open/closed × lifecycle state; cached revision ×
+(42 combinations); provider open/closed × lifecycle state; cached revision ×
 concurrent update; schema version × event cardinality; graph mode × output.
 
 #579 is specification-only. Accepting the matrix does not authorize

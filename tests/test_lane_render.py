@@ -331,6 +331,31 @@ class LaneRenderTests(unittest.TestCase):
       "\n" + expected + "\n"
     ))
 
+  def test_legend_rejects_json_and_count_without_mutation(self):
+    # G10: legend cannot be mixed with non-graph selection output.
+    from repo_workflow.lane_selection_cli import handle_lane_selection
+
+    relationship_path = RelationshipStore(self.root).path
+    original = relationship_path.read_bytes()
+    selection = LaneSelectionStore(self.root).read()
+    for mode in ("--json", "--count"):
+      with self.subTest(mode=mode):
+        output = StringIO()
+        with patch(
+          "repo_workflow.lane_selection_cli.runtime_writer_identity",
+          return_value=self.writer,
+        ):
+          with redirect_stdout(output):
+            with self.assertRaisesRegex(
+              ValueError, "--legend requires graphical output",
+            ):
+              handle_lane_selection(
+                self.root, ["lanes", "select", "107", "--legend", mode],
+              )
+        self.assertEqual(output.getvalue(), "")
+        self.assertEqual(relationship_path.read_bytes(), original)
+        self.assertEqual(LaneSelectionStore(self.root).read(), selection)
+
   def test_invalid_color_fails(self):
     with self.assertRaisesRegex(Exception, "auto, always, or never"):
       set_color_setting(self.root, "sometimes", self.writer)

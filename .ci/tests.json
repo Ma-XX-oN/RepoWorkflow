@@ -1095,6 +1095,50 @@
         "type": "regression",
         "lifecycle": "GREEN",
         "name": "tests.test_manual_mit_version_contract"
+      },
+      "issue-583-lifecycle-cross-product": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_store"
+      },
+      "issue-583-clone-publication": {
+        "type": "regression",
+        "name": "tests.test_lifecycle_clone_publish"
+      },
+      "issue-583-legacy-migration": {
+        "type": "regression",
+        "name": "tests.test_legacy_lifecycle_migration"
+      },
+      "issue-583-candidate-revalidation": {
+        "type": "regression",
+        "name": "tests.test_six_state_candidate_revalidation"
+      },
+      "issue-583-clone-recovery": {
+        "type": "regression",
+        "name": "tests.test_six_state_clone_recovery"
+      },
+      "issue-583-layout-stability": {
+        "type": "regression",
+        "name": "tests.test_six_state_layout_stability"
+      },
+      "issue-583-csv-merge": {
+        "type": "regression",
+        "name": "tests.test_six_state_merge_negative"
+      },
+      "issue-583-csv-freshness": {
+        "type": "regression",
+        "name": "tests.test_six_state_negative_csv"
+      },
+      "issue-583-terminal-accessibility": {
+        "type": "regression",
+        "name": "tests.test_six_state_terminal_accessibility"
+      },
+      "issue-583-transaction-recovery": {
+        "type": "regression",
+        "name": "tests.test_six_state_transaction_recovery"
+      },
+      "issue-583-live-provider-title": {
+        "type": "integration",
+        "name": "tests.test_six_state_live_provider_title"
       }
     },
     {

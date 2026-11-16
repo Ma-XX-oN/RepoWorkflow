@@ -131,6 +131,37 @@ def main() -> int:
   if styler.display_width("界") != 2:
     raise SystemExit("wide-character width is incorrect")
 
+  # #583 G13: platform-native monochrome width, unknown marker, and
+  # accessible six-state labels. This probe runs on Linux, macOS, Windows.
+  status_pairs = (
+    ("○", "not_started"),
+    ("●", "active"),
+    ("◎", "in_review"),
+    ("✓", "accepted"),
+    ("♥", "completed"),
+    ("✕", "aborted"),
+    ("?", "unknown"),
+  )
+  status_labels = tuple(
+    f"{glyph} {state}"
+    for glyph, state in status_pairs
+  )
+  for glyph, state in status_pairs:
+    if styler.display_width(glyph) != 1:
+      raise SystemExit(f"status glyph {state} does not occupy one cell")
+  status_graph = Graph(
+    tuple(GraphSiblings((label,)) for label in status_labels),
+    tuple(Lane((label,), plain) for label in status_labels),
+    plain,
+    formatter,
+  )
+  monochrome = "\n".join(render_graph(status_graph).lines)
+  if "\x1b[" in monochrome:
+    raise SystemExit("monochrome glyph rendering injected ANSI colour")
+  for label in status_labels:
+    if label not in monochrome:
+      raise SystemExit(f"accessible state label is absent: {label}")
+
   print("graph renderer probe ok")
   return 0
 
