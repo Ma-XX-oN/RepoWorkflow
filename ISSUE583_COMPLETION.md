@@ -15,8 +15,8 @@
 
 - [x] Assemble #583 PR #666 with completed #109, retaining #660 fixes.
 - [x] Reconcile the certification scope in SIX_STATE_ACCEPTANCE_MATRIX.md.
-- [ ] Verify the 14 historical partial cases against functional requirements.
-- [ ] Run lifecycle, CSV, graph, renderer binding and #109 workflow checks.
+- [x] Verify the 14 historical partial cases against functional requirements.
+- [x] Run lifecycle, CSV, graph, renderer binding and #109 workflow checks.
 - [ ] Record exact-source native platform results.
 - [ ] Publish the final evidence and close #583.
 
@@ -40,3 +40,45 @@ production issuer deployment, attack simulation or exhaustive forgery testing.
 The original provider-title and shared-GitHub concurrency evidence is retained
 in the historical crosswalk. Current native results must identify their own
 source and scope; historical provider runs are not relabelled as fresh runs.
+
+## Exact-source execution evidence
+
+Tested source: `62223b89eb4f1b78fb52f107190c76703c4282b0`, version
+`0.1.122-issue.583.3.0`. It assembles #583 PR #666 source `c08d5260`,
+#109 checkpoint `e1342a7b`, and accepted #660 `c5e258db` (verified ancestor).
+
+| Environment | Result | Evidence |
+| --- | --- | --- |
+| Linux / Python 3.13 | PASS: 27 groups, 258 test executions and three platform probes, no failures/errors/skips | [run 43901040091, job 133417388248](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43901040091/job/133417388248) |
+| Windows / Python 3.13 | PASS: same 27 groups, 258 test executions and three platform probes, no failures/errors/skips | [run 43901040091, job 133417388741](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43901040091/job/133417388741) |
+| macOS / Python 3.13 | Pending native runner | [matrix run](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43901040091), [explicit macOS run](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43902479353) |
+| Read-only GitHub provider-title merge | PASS: one real-provider test; lifecycle bytes unchanged | [run 43902175486](https://github.com/Ma-XX-oN/Disposable-001/actions/runs/43902175486) |
+
+The selected regression covers lifecycle transitions/migration, independent clone
+publication/recovery, CSV concurrency/freshness/merging, graph layout/accessibility,
+renderer binding, version/source identity, functional PRELIM completion and manual
+test catalogue/results/CLI. The three native probes cover graph rendering,
+ticket merging and process argument limits. This is scoped functional regression,
+not execution of unrelated legacy security/verifier suites.
+
+## Corrected failures
+
+- Original Windows recovery fixture could not remove read-only Git objects;
+  TemporaryDirectory cleanup now removes the lost clone and asserts its absence.
+- Native Windows clone checkout converted canonical CSV to CRLF; fixtures now
+  commit `text eol=lf` Git attributes. Exact-byte assertions are preserved.
+- The renderer manifest retained an older CSV blob. It now binds actual blob
+  `3a1fe3fd40b0103365f332f3f54b10f9fc49e86e`; the other 17 material inputs
+  remain unchanged. Native checks passed this binding on Linux and Windows.
+
+Earlier failed run `43900388320` is historical and not passing evidence.
+No production parent/main merge, stable tag or production deployment is claimed.
+
+## Native runner availability
+
+Linux and Windows terminal logs were independently read back. Both macOS jobs
+remain queued with no executed test steps. GitHub's
+[status incident](https://www.githubstatus.com/incidents/2zfqmghmg3s3) reports
+degraded Actions performance as of 2026-11-16 15:33 UTC. This is an observed
+provider incident, not proof of the precise queue cause. No macOS PASS is
+claimed until a native job finishes. #583 remains open pending that result.
