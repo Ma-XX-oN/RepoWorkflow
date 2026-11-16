@@ -124,27 +124,68 @@ vX.Y.Z-issue-P.Q.R-CI-FAIL
 Where:
 
 - `P` is the issue number;
-- `Q` is the number of times merge/integration/acceptance rejected the task and
-  sent it back to development;
-- `R` is the regression-validation iteration.
+- `Q` identifies the revision of the issue's own implementation prepared for testing;
+- `R` counts reintegrations of that same implementation against a newer parent tip.
 
-`R` is the automated regression/CI iteration.  It is consumed by a genuine
-failure in automated regression testing (ART).  RepoWorkflow records the
-failed exact candidate and internally asks the consumer `repo-version` adapter
-to advance the regression-validation iteration.
+Prepare the first implementation for testing as `Q=1, R=0`. When the issue's
+implementation changes, advance `Q` once and reset `R` to zero when preparing
+the changed implementation for testing. Several source edits before that
+preparation produce one increment. If both implementation and parent changed,
+prepare the new implementation against that parent with the new `Q` and `R=0`.
 
-`Q` is the integration/acceptance rejection generation.  A failed integration
-test advances `Q` whether that integration test is automated (AIT) or manual
-(MIT).  RepoWorkflow records the rejected exact candidate, asks the consumer
-adapter to advance the merge/integration-failed generation, and resets `R` for
-the next development candidate.
+Only reintegrating the same implementation against a newer parent advances
+`R`, leaving `Q` unchanged. Prepare and version that candidate before testing.
+Count each prepared reintegration once; a failed copy, merge conflict or
+transport retry does not itself increment either counter. If conflict repair
+changes the issue's implementation, apply the implementation-change rule.
+
+For example, `Q.R=3.0` identifies the third implementation prepared for testing.
+Reintegrating it against successive newer parent tips produces `3.1`, then
+`3.2`. Preparing a changed implementation after `3.2` produces `4.0`.
+
+Additional tests, remaining platforms, unchanged retries/resumes, MIT pauses
+and testing-report commits leave both counters unchanged. Changed test
+environments or other relevant inputs can invalidate evidence without changing
+`Q` or `R`; the repository's test log records those inputs and results.
+The version is a convenient candidate identifier, not a replacement for exact
+source, parent, relevant-input and test-result evidence stored in the repository.
+
+A test failure records the outcome for that candidate and blocks its merge;
+it does not itself increment either counter. Preserve the failure evidence,
+inform the originator of a failed PRELIM, and prepare any repaired implementation
+under the next `Q` before testing it. Applicable evidence for the corrected
+candidate governs completion, rather than a historical failure on older source.
+
+Runtime candidate preparation uses these rules through the repository-owned
+adapter. Consumer adapters must implement the linked adapter contract.
 
 Users should not manually manage these counters.
+
+This section is the single definition of `Q` and `R`.  These locations apply
+it and must reference this section rather than restating it:
+
+- [REPO_VERSION_ADAPTER.md: Semantic mutation requests](REPO_VERSION_ADAPTER.md#semantic-mutation-requests)
+  -- the adapter requests that perform each counter transition;
+- [SINGLE_PRELIM_WORKFLOW.md: Usage and outcomes](SINGLE_PRELIM_WORKFLOW.md#usage-and-outcomes)
+  and [Execution](SINGLE_PRELIM_WORKFLOW.md#execution) -- when `rwf done`
+  and the PRELIM server run invoke those transitions;
+- [CONFIGURATION.md: `versionCommand`](CONFIGURATION.md#versioncommand) and
+  [Local `verify` bookkeeping](CONFIGURATION.md#local-verify-bookkeeping)
+  -- the configured adapter and local `verify` preparation;
+- [README.md: Authoritative local verification](README.md#authoritative-local-verification)
+  -- local `verify` overview;
+- [WORKFLOW_INTEGRATION.md: Consumer integration execution and evidence](WORKFLOW_INTEGRATION.md#19-consumer-integration-execution-and-evidence)
+  -- version reuse between regression and integration results;
+- [TEST_STRATEGY.md: Stage 7](TEST_STRATEGY.md#stage-7---consumer-pilot-and-full-lifecycle-certification)
+  -- failure-and-recovery scenarios that verify the counters;
+- [COMMAND_GRAMMAR_TESTS.md](COMMAND_GRAMMAR_TESTS.md) (AIT/MIT transition
+  list) and its [Workflow CLI and version forwarding](COMMAND_GRAMMAR_TESTS.md#workflow-cli-and-version-forwarding)
+  section -- state-machine and adapter forwarding tests for the counters.
 
 ### Preliminary stable candidates
 
 ```text
-vX.Y.Z-PRELIM-<issue>.<integration-generation>.<validation-iteration>
+vX.Y.Z-PRELIM-<issue>.<implementation-revision>.<parent-reintegration>
 ```
 
 A PRELIM tag identifies an exact proposed stable candidate before it reaches
@@ -175,13 +216,12 @@ to be executable by a program.
   integration tests, such as required UI, network, security, hardware, or
   other observational acceptance.
 
-ART failure is a regression/CI failure.  It records immutable failure evidence
-for the exact candidate, advances `R`, and returns to development without
-advancing `Q`.
+A failed ART, AIT or MIT records immutable failure evidence for the exact
+candidate. Failure alone leaves the counters unchanged, regardless of test
+class or execution location; see [Task versions](#task-versions).
 
-AIT and MIT are both integration/acceptance testing.  A failed AIT or MIT
-rejects the task at the integration boundary, advances `Q`, resets `R`, and
-returns to development.  The difference is how the result transition occurs:
+AIT and MIT are both integration/acceptance testing.  The difference is how
+the result transition occurs:
 
 - AIT invokes the integration-result transition automatically from its runner.
 - MIT waits for the human result and exposes that result transition to the
@@ -193,8 +233,7 @@ succeeded, failed or incomplete evidence without public result-entry aliases.
 Any separately required MIT remains a distinct human acceptance boundary,
 not something the automated command silently marks PASS.  The state machine
 must distinguish AIT from MIT: AIT PASS proceeds to MIT when required, while
-MIT PASS completes that manual boundary.  Either genuine integration failure
-has the documented version consequence: `Q += 1` and `R` resets.
+MIT PASS completes that manual boundary.
 
 The task lifecycle is:
 
@@ -205,12 +244,12 @@ The task lifecycle is:
 4. Implement the task.
 5. When the implementation is ready for full regression validation, explicitly
    run `rwf test regression`.  Local RWF does not start ART merely
-   because it guesses development is finished.
+   because it guesses development is finished.  RWF first prepares the version when
+   required ([Task versions](#task-versions)).
 6. On ART genuine FAIL:
    - record/tag the failed exact candidate;
    - append audit evidence;
-   - advance `R` through the repository adapter;
-   - return to development.
+   - return to development ([version consequence](#task-versions)).
 7. On ART INCOMPLETE:
    - create no terminal PASS/FAIL tag;
    - permit retry only while the exact candidate is unchanged.
@@ -226,9 +265,7 @@ The task lifecycle is:
 10. On AIT FAIL:
     - record the integration rejection for the exact candidate;
     - append audit evidence;
-    - advance `Q`;
-    - reset `R`;
-    - return to development.
+    - return to development ([version consequence](#task-versions)).
 11. On AIT INCOMPLETE:
     - create no terminal PASS/FAIL result for that stage;
     - permit retry only while the exact candidate is unchanged.
@@ -241,9 +278,7 @@ The task lifecycle is:
     separate task acceptance process; this is not a `rwf test` PASS.
 14. On MIT FAIL:
     - record the manual integration rejection;
-    - advance `Q`;
-    - reset `R`;
-    - return to development.
+    - return to development ([version consequence](#task-versions)).
 15. On MIT PASS, mark the required manual acceptance complete.
 16. The task is accepted only after every required ART, AIT, and MIT stage for
     the exact candidate has succeeded.  A repository with no required MIT does
@@ -258,7 +293,8 @@ parent creates a new physical tree, so prior task-candidate evidence cannot by
 itself validate the integrated result.  The prelim candidate must run the
 required ART and then its required AIT/MIT against that exact integrated SHA.
 Only that accepted integrated candidate may proceed toward protected server
-`main`.
+`main`.  For the counter effects of that run, see
+[Task versions](#task-versions).
 
 ## Ticket classification and dependency ordering
 

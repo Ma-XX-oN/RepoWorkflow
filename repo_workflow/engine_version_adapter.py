@@ -57,14 +57,14 @@ def transition_engine_version(
   if operation == "task --issue":
     if stable is None or isinstance(issue, bool) or not isinstance(issue, int) or issue < 1:
       raise EngineVersionError("task start requires stable version and positive issue")
-    after = f"{before}-issue.{issue}.0.1"
+    after = f"{before}-issue.{issue}.1.0"
   elif operation == "task --increment CI-iteration":
     if task is None or issue is not None:
-      raise EngineVersionError("CI iteration requires a task development version")
+      raise EngineVersionError("parent reintegration requires a task development version")
     after = f"{'.'.join(task.groups()[:3])}-issue.{task.group(4)}.{task.group(5)}.{int(task.group(6)) + 1}"
   elif operation == "task --increment merge-integration-failed":
     if task is None or issue is not None:
-      raise EngineVersionError("integration rejection requires a task development version")
+      raise EngineVersionError("implementation revision requires a task development version")
     after = f"{'.'.join(task.groups()[:3])}-issue.{task.group(4)}.{int(task.group(5)) + 1}.0"
   else:
     raise EngineVersionError("unsupported engine version transition")

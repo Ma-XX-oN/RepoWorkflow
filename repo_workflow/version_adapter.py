@@ -160,7 +160,7 @@ def _expected_transition(
       return False
     major, minor, patch = stable_before
     issue = int(arguments[2])
-    return development_after == (major, minor, patch, issue, 0, 1)
+    return development_after == (major, minor, patch, issue, 1, 0)
 
   if arguments == ("task", "--increment", "CI-iteration"):
     if development_before is None or development_after is None:

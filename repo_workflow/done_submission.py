@@ -9,8 +9,8 @@ from .config import load_config
 from .git import changed_files, current_branch, git
 from .owned_commit import commit_owned_files
 from .parent_branch import recover_parent_branch
-from .prelim_queue import parse_ready_prelim, prelim_ref_for_version
-from .prelim_submission import publish_submission
+from .prelim_queue import discover_ready_prelims, latest_prelims, parse_ready_prelim, prelim_ref_for_version
+from .prelim_submission import decode_submission, publish_submission, submission_ref
 from .repo_info_adapter import repository_info, resolve_info_config
 from .source_tip import source_tip
 from .test_results_reader import parse_testing_log
@@ -30,7 +30,8 @@ class SubmittedDone:
   release: str
 
 
-def prepare_submission_candidate(root, source, parent_sha, config, issue, engine_root):
+def prepare_submission_candidate(root, source, parent_sha, config, issue, engine_root,
+                                 *, parent_reintegration=True):
   """Copy stale source to the parent and prepare its version before testing.
 
   Parameters
@@ -43,6 +44,9 @@ def prepare_submission_candidate(root, source, parent_sha, config, issue, engine
       Repository-owned version adapter configuration.
   issue : int
       Owning issue.
+  parent_reintegration : bool
+      Whether reconstruction retains an already prepared implementation.
+      A newly prepared implementation keeps its new Q and R=0.
 
   Returns
   -------
@@ -87,11 +91,15 @@ def prepare_submission_candidate(root, source, parent_sha, config, issue, engine
     git(root, "worktree", "add", "--detach", str(workspace), candidate)
   if changed_files(workspace):
     raise DoneSubmissionError("prepared candidate has changed inputs; reconcile before resuming")
-  version = _prepare_version(workspace, engine_root, config, issue)
+  parents = git(workspace, "rev-list", "--parents", "-n", "1", source_tip(workspace)).stdout.split()
+  needs_reintegration = (not at_tip and parent_reintegration
+                         and len(parents) == 3 and parents[1:] == [parent_sha, source])
+  version = _prepare_version(workspace, engine_root, config, issue,
+                             parent_reintegration=needs_reintegration)
   return source_tip(workspace), version
 
 
-def _prepare_version(root, engine_root, config, issue):
+def _prepare_version(root, engine_root, config, issue, *, parent_reintegration=False):
   """Prepare repository-owned version state once per changed source.
 
   Parameters
@@ -102,6 +110,8 @@ def _prepare_version(root, engine_root, config, issue):
       Consumer configuration, or None for engine self-testing.
   issue : int
       Owning issue.
+  parent_reintegration : bool
+      Advance R for a newly reconstructed parent candidate, without advancing Q.
 
   Returns
   -------
@@ -110,10 +120,41 @@ def _prepare_version(root, engine_root, config, issue):
   """
   if config is None:
     from .engine_remote import prepare_engine_request
-    return prepare_engine_request(root, stage="regression", issue=issue)
+    return prepare_engine_request(root, stage="regression", issue=issue,
+                                   parent_reintegration=parent_reintegration)
   from .candidate import prepare_development_candidate
-  candidate, _ = prepare_development_candidate(root, config)
+  candidate, _ = prepare_development_candidate(root, config,
+                                               parent_reintegration=parent_reintegration)
   return candidate.version
+
+
+def _latest_submission(root, remote, issue, repository):
+  """Read the latest physical PRELIM and its immutable provenance.
+
+  Parameters
+  ----------
+  root : Path
+      Repository checkout.
+  remote, repository : str
+      Configured provider and repository identity.
+  issue : int
+      Owning issue.
+
+  Returns
+  -------
+  dict or None
+      Latest submission, independent of test outcome.
+  """
+  raw = git(root, "ls-remote", "--heads", remote, f"refs/heads/PRELIM-issue-{issue}.*").stdout
+  refs = {line.split()[1]: line.split()[0] for line in raw.splitlines()}
+  latest = latest_prelims(discover_ready_prelims(refs))
+  if not latest:
+    return None
+  ready = latest[0]
+  git(root, "fetch", "--no-tags", remote, ready.ref)
+  git(root, "fetch", "--no-tags", remote, submission_ref(ready.guid))
+  message = git(root, "show", "-s", "--format=%B", "FETCH_HEAD").stdout.rstrip("\n")
+  return decode_submission(message, repository=repository, guid=ready.guid)
 
 
 def submit_done(root: Path, release: str, *, engine_root: Path) -> SubmittedDone:
@@ -164,8 +205,19 @@ def submit_done(root: Path, release: str, *, engine_root: Path) -> SubmittedDone
   dirty = changed_files(root)
   if dirty:
     raise DoneSubmissionError("commit source changes before done: " + ", ".join(dirty))
+  if config is None:
+    from .engine_version_adapter import read_engine_version
+    before_version = read_engine_version(root)
+  else:
+    from .version_adapter import read_version
+    before_version = read_version(root, config)
   version = _prepare_version(root, engine_root, config, issue)
+  new_implementation = version != before_version
   source = source_tip(root)
+  latest = _latest_submission(root, remote, issue, info["repository"])
+  integration_source = source
+  if latest is not None and latest["source_sha"] == source:
+    integration_source = latest["candidate_sha"]
   parent_ref = "refs/heads/" + parent
   observed = git(root, "ls-remote", "--heads", remote, parent_ref).stdout.split()
   if (len(observed) != 2 or observed[1] != parent_ref
@@ -175,7 +227,8 @@ def submit_done(root: Path, release: str, *, engine_root: Path) -> SubmittedDone
   git(root, "fetch", "--no-tags", remote, parent_ref)
   try:
     candidate, version = prepare_submission_candidate(
-      root, source, parent_sha, config, issue, engine_root)
+      root, integration_source, parent_sha, config, issue, engine_root,
+      parent_reintegration=not new_implementation)
   except DoneSubmissionError as error:
     error.submission = {"issue": issue, "remote": remote, "repository": info["repository"],
       "source_sha": source, "candidate_sha": source, "parent_sha": parent_sha,

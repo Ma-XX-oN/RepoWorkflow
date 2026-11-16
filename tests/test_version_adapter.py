@@ -110,7 +110,7 @@ class VersionAdapterTests(unittest.TestCase):
       (root / "VERSION").write_text("1.2.3\n")
       config = load_config(root)
       run_transition(root, config, "task", "--issue", "27")
-      self.assertEqual(read_development_version(root, config), "1.2.3-issue.27.0.1")
+      self.assertEqual(read_development_version(root, config), "1.2.3-issue.27.1.0")
 
   def test_stable_transitions_are_derived_by_consumer_adapter(self):
     with tempfile.TemporaryDirectory() as td:

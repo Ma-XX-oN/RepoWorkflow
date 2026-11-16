@@ -29,7 +29,10 @@ On success it must:
   refs unchanged.
 
 All numeric components are canonical decimal integers without leading zeros.
-`P` (task issue) is positive; `R` may be zero after an integration failure.
+`P` (task issue) is positive; prepared implementation revisions have positive
+`Q`, and `R` starts at zero. The
+meaning of `Q` and `R` is defined in
+[WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
 RWF treats the reported value as canonical repository version state.
 
 ## Semantic mutation requests
@@ -51,16 +54,17 @@ The adapter derives and applies the literal successor.  Core RWF must not know
 the consumer's version file, manifest, source constant, generator, or other
 storage mechanism.
 
-Successful transitions have these semantic effects:
+Successful transitions have these semantic effects.  When RWF requests the
+`Q`/`R` transitions is defined in
+[WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
 
 - `task --issue N`: stable `X.Y.Z` becomes
-  `X.Y.Z-issue.N.0.1`;
+  `X.Y.Z-issue.N.1.0` when the first implementation is prepared for testing;
 - `task --increment CI-iteration`: development `R` increments by one while
   `X.Y.Z`, `P`, and `Q` remain unchanged;
 - `task --increment merge-integration-failed`: development `Q` increments
   by one, `R` resets to **zero**, and `X.Y.Z` and `P` remain unchanged.
-  The next `CI-iteration` advances `R` from zero to one; integration failure
-  does not itself count as a completed regression iteration;
+  This request prepares a changed implementation, rather than recording a failure;
 - `integrate --increment patch`: stable patch increments by one;
 - `integrate --increment minor`: stable minor increments by one and patch
   resets to zero;
@@ -69,6 +73,13 @@ Successful transitions have these semantic effects:
 
 A request in the wrong source namespace is invalid and must fail rather than
 guessing or repairing the state.
+
+The schema-1 request spellings are retained here as an existing interface:
+`CI-iteration` is used only for parent reintegration, and
+`merge-integration-failed` for a changed implementation prepared for testing,
+according to the linked lifecycle rules. Their names do not define the trigger.
+Initial issue-version preparation uses Q=1/R=0. Consumer adapters must implement
+these successor relations; the schema-1 interface spellings remain unchanged.
 
 ## Mutation postconditions
 
@@ -123,9 +134,9 @@ direct #118 implementation consumer and the known direct consumers of #118:
 Their required operations are covered by this contract:
 
 - issue start uses `task --issue N`;
-- verification iteration uses `task --increment CI-iteration`;
-- integration rejection uses
-  `task --increment merge-integration-failed`;
+- advancing `R` uses `task --increment CI-iteration`;
+- advancing `Q` uses `task --increment merge-integration-failed`
+  ([when](WORKFLOW_LIFECYCLE.md#task-versions));
 - preliminary/done integration uses patch/minor or major release intent;
 - guards, PRELIM identity, and finalization can use canonical reads; and
 - #105 can include a successful version mutation in its outer rollback

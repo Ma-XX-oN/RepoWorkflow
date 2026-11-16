@@ -60,7 +60,7 @@ class IssueStartTests(unittest.TestCase):
       "  if args[:2] != ['task', '--issue']:\n"
       "    raise SystemExit(2)\n"
       "  major, minor, patch = value.split('.')\n"
-      "  value = f'{major}.{minor}.{patch}-issue.{args[2]}.0.1'\n"
+      "  value = f'{major}.{minor}.{patch}-issue.{args[2]}.1.0'\n"
       "  path.write_text(value + '\\n')\n"
       "print(value)\n",
       encoding="utf-8",
@@ -87,7 +87,7 @@ class IssueStartTests(unittest.TestCase):
       result = start_issue(self.repo, 7, config=self.config)
 
     self.assertEqual(result.issue, "7")
-    self.assertEqual(result.version, "1.2.3-issue.7.0.1")
+    self.assertEqual(result.version, "1.2.3-issue.7.1.0")
     committed_version = subprocess.run(
       ["git", "show", "HEAD:VERSION"],
       cwd=self.repo, check=True, capture_output=True, text=True,

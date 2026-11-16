@@ -369,24 +369,47 @@ an explicit human-result transition.
 Verify every intermediate branch, version, SHA, tag, audit record, legal next
 action, and cleanup result.
 
+The expected `Q`/`R` outcomes in the following failure scenarios verify the
+definition in [WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
+
 ### ART failure and recovery
 
-ART FAIL -> immutable failure evidence -> automatic `R` increment ->
-development fix -> new candidate -> PASS.  Prove failed evidence remains
-reachable and cannot validate the replacement candidate.
+ART FAIL -> immutable failure evidence -> version unchanged -> development
+fix -> preparation advances `Q` once and resets `R` to zero -> new candidate -> PASS. Prove failed
+evidence remains reachable and cannot validate the replacement candidate, and
+that source edits before preparation do not each advance the version.
 
 ### AIT failure and recovery
 
-AIT FAIL -> immutable integration-rejection evidence -> automatic `Q`
-increment and `R` reset -> return to development -> new ART/AIT validation ->
-AIT succeeds.  Prove no user result entry is required and that AIT failure is
-not misclassified as an ART/CI iteration.
+AIT FAIL during development -> immutable integration-rejection evidence ->
+version unchanged -> development fix -> preparation advances `Q` once and resets `R` -> new
+ART/AIT validation -> AIT succeeds.  Prove no user result entry is required and
+that a development AIT failure alone does not advance either counter.
 
 ### MIT failure and recovery
 
-MIT FAIL -> manual rejection evidence -> automatic `Q` increment and `R` reset
--> return to development -> fresh automated validation -> required MIT -> MIT
-succeeds.
+MIT FAIL during development -> manual rejection evidence -> version unchanged
+-> development fix -> preparation advances `Q` once and resets `R` -> fresh automated
+validation -> required MIT -> MIT succeeds.
+
+### PRELIM integration failure and recovery
+
+PRELIM server run -> any ART, AIT or MIT FAIL -> immutable failure evidence ->
+version unchanged -> originator informed -> repair from that PRELIM -> prepare
+the changed implementation with the next `Q` and `R=0` -> new PRELIM -> PASS.
+Prove the same holds for each test class. A merge conflict alone leaves the
+counters unchanged; preparing a successfully reconstructed candidate applies
+the task-version rules.
+
+### Implementation revisions and parent reintegration
+
+Exercise `Q.R=3.0 -> 3.1 -> 3.2` by reintegrating the same implementation
+against successive newer parent tips. Prepare changed issue code as `4.0`,
+including when its parent also changed. Prove that repeated preparation of the
+same candidate does not increment again, and that additional tests, remaining
+platforms, unchanged retries, MIT pauses and report commits preserve the version.
+Changed relevant test inputs must invalidate the affected evidence without
+advancing either counter unless an implementation or parent transition applies.
 
 ### INCOMPLETE and retry
 

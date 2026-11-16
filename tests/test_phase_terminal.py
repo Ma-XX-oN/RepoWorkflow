@@ -74,14 +74,14 @@ class PhaseTerminalTests(unittest.TestCase):
     first = plan_phase(VERSION, phase="regression", outcome="FAIL")
     self.assertEqual(first.terminal_tag, "v" + VERSION + "-CI-FAIL")
     # Source corrections, rather than terminal outcomes, prepare these versions.
-    second = plan_phase("1.2.3-issue.571.2.8", phase="regression", outcome="PASS")
-    self.assertEqual(second.next_version, "1.2.3-issue.571.2.8")
+    second = plan_phase("1.2.3-issue.571.3.0", phase="regression", outcome="PASS")
+    self.assertEqual(second.next_version, "1.2.3-issue.571.3.0")
     third = plan_phase(second.next_version, phase="integration", outcome="FAIL")
-    self.assertEqual(third.terminal_tag, "v1.2.3-PRELIM-571.2.8-CI-FAIL")
+    self.assertEqual(third.terminal_tag, "v1.2.3-PRELIM-571.3.0-CI-FAIL")
     self.assertEqual(third.next_version, second.next_version)
-    fourth = plan_phase("1.2.3-issue.571.3.0", phase="regression", outcome="PASS")
+    fourth = plan_phase("1.2.3-issue.571.4.0", phase="regression", outcome="PASS")
     fifth = plan_phase(fourth.next_version, phase="integration", outcome="PASS")
-    self.assertEqual(fifth.terminal_tag, "v1.2.3-PRELIM-571.3.0")
+    self.assertEqual(fifth.terminal_tag, "v1.2.3-PRELIM-571.4.0")
     self.assertEqual(fifth.next_version, fourth.next_version)
     self.assertEqual(len({
       first.terminal_tag, second.terminal_tag,

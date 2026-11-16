@@ -151,7 +151,7 @@ class RedCompletionCliTests(unittest.TestCase):
                      repr(observed.stdout) + repr(observed.stderr))
     names = [line[4:] for line in observed.stdout.splitlines()
              if line.startswith("ONE:")]
-    self.assertEqual(names, ["--remote", "issue-702-red-a", "issue-702-red-z"])
+    self.assertEqual(names, ["--poll", "--remote", "issue-702-red-a", "issue-702-red-z"])
     rendered = "\n".join(line for line in observed.stdout.splitlines()
                          if not line.startswith("ONE:")) + "\n"
     self.assertEqual(rendered, self.fx.cli("test", "RED", "--help").stdout)

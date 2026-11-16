@@ -85,7 +85,7 @@ class DoneSubmissionTests(unittest.TestCase):
     parent = self.refs()["refs/heads/main"]
     result = self.invoke()
     self.assertEqual(result["result"], "submitted")
-    self.assertEqual(result["prelim_ref"], "refs/heads/PRELIM-issue-51.0.1")
+    self.assertEqual(result["prelim_ref"], "refs/heads/PRELIM-issue-51.1.0")
     self.assertEqual(self.refs()[result["prelim_ref"]], result["candidate_sha"])
     self.assertEqual(self.refs()["refs/heads/main"], parent)
     self.assertFalse(any(name.startswith("refs/tags/v") for name in self.refs()))
@@ -104,7 +104,7 @@ class DoneSubmissionTests(unittest.TestCase):
     (self.root / "feature").write_text("corrected issue work\n", encoding="utf-8")
     self.commit("source correction")
     second = self.invoke()
-    self.assertEqual(second["prelim_ref"], "refs/heads/PRELIM-issue-51.0.2")
+    self.assertEqual(second["prelim_ref"], "refs/heads/PRELIM-issue-51.2.0")
     self.assertEqual(self.refs()[first["prelim_ref"]], first["candidate_sha"])
 
   def test_stale_source_is_copied_to_parent_and_versioned_before_testing(self):
@@ -114,12 +114,45 @@ class DoneSubmissionTests(unittest.TestCase):
     parent = self.advance_parent()
     result = self.invoke()
     self.assertEqual(result["parent_sha"], parent)
-    self.assertEqual(result["prelim_ref"], "refs/heads/PRELIM-issue-51.0.2")
+    self.assertEqual(result["prelim_ref"], "refs/heads/PRELIM-issue-51.1.1")
     for ancestor in (source, parent):
       self.assertEqual(git(self.root, "merge-base", "--is-ancestor", ancestor,
                            result["candidate_sha"], check=False).returncode, 0)
     self.assertEqual(git(self.root, "rev-parse", "HEAD").stdout.strip(), source)
     self.assertEqual(self.refs()["refs/heads/main"], parent)
+
+  def test_parent_reintegration_resumes_without_another_increment(self):
+    """Rebuilding an unchanged implementation versions once per parent tip."""
+    self.invoke()
+    parent = self.advance_parent()
+    first = self.invoke()
+    self.assertEqual(first["version"], "0.1.0-issue.51.1.1")
+    self.assertEqual(self.invoke(), first)
+    git(self.root, "checkout", "main")
+    (self.root / "next-parent").write_text("next\n", encoding="utf-8")
+    self.commit("second parent advance")
+    git(self.root, "push", "origin", "main")
+    git(self.root, "checkout", "issue-51-work")
+    second = self.invoke()
+    self.assertEqual(second["version"], "0.1.0-issue.51.1.2")
+    self.assertNotEqual(second["parent_sha"], parent)
+
+  def test_changed_implementation_and_parent_reset_reintegration_counter(self):
+    """A new implementation starts at R=0 even when the parent also moved."""
+    self.invoke()
+    (self.root / "feature").write_text("new implementation\n", encoding="utf-8")
+    self.commit("implementation revision")
+    self.advance_parent()
+    result = self.invoke()
+    self.assertEqual(result["version"], "0.1.0-issue.51.2.0")
+    self.assertEqual(self.invoke(), result)
+
+  def test_first_submission_on_new_parent_keeps_first_implementation_on_resume(self):
+    """Initial preparation and parent copying share Q=1/R=0."""
+    self.advance_parent()
+    first = self.invoke()
+    self.assertEqual(first["version"], "0.1.0-issue.51.1.0")
+    self.assertEqual(self.invoke(), first)
 
   def test_current_candidate_can_be_prepared_from_a_different_checkout(self):
     """Checkout location alone cannot change the pinned source or version."""

@@ -46,8 +46,8 @@ and must pass before merge. External manual results remain tester-supplied.
 
 Testing-report commits do not change effective source identity. Recognize
 them by verified contents and provenance, never their subjects alone.
-Increment the candidate version before testing only when source changes;
-report commits, unchanged retries and MIT pauses do not increment it.
+Version counters follow
+[WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
 Tags never move. A later failure for the same source/version replaces its
 success tag with the corresponding CI-FAIL tag at that same source, keeping
 the append-only test history. INCOMPLETE is not a test failure.
@@ -62,6 +62,8 @@ submission; the name contains no GUID or parent branch. The issue's
 authoritative metadata determines its parent branch, and recorded source,
 parent SHA and relevant inputs bind the applicable test evidence.
 
+UPDATE: `PRELIM-issue-N.<rest-of-version>` is now `PRELIM-issue-N.<rest-of-version>-<title>[-<extra>]`, where `issue-N.<rest-of-version>-<title>[-<extra>]` is the the name of the branch being merged and `[-<extra>]` is the optional parameter when doing a `start` command.  E.g. `rwf start 123 extra-text`.
+
 For each issue, the server selects only the latest version according to the
 repository's version ordering, not lexical branch-name order, timestamps,
 GUIDs or predecessor chains. All older versions are ignored for scheduling
@@ -75,18 +77,20 @@ and merge, even if the latest version fails; never fall back to an older one.
    source, parent or relevant inputs cannot be reused.
 3. Other PRELIM versions for the same issue are historical and ignored.
 
-Preserve historical version identities and evidence. A source change follows
-the repository's version rules before testing; unchanged retries and report
-commits reuse the same version. No separate INT-ATTEMPT branch type is created.
+Preserve historical version identities and evidence
+([version rules](WORKFLOW_LIFECYCLE.md#task-versions)). No separate
+INT-ATTEMPT branch type is created.
 
 ## Execution
 
-Verify current-source results, prepare the version if source changed, and run
-remaining required catalogue-selected tests. Local completion leaves a PRELIM
-submission; remote completion consumes it and runs remaining platform checks.
-On stale parent, reconstruct against its exact current tip and rerun tests
-whose source, parent or relevant inputs changed. Repeat version preparation
-only if effective source changed. Tests are not restricted by branch name.
+Verify current-source results, prepare the version when
+[required](WORKFLOW_LIFECYCLE.md#task-versions), and run remaining required
+catalogue-selected tests. Local completion leaves a PRELIM submission; remote
+completion consumes it and runs remaining platform checks. On stale parent,
+reconstruct against its exact current tip and rerun tests whose source, parent
+or relevant inputs changed. Apply the linked version rules to the reconstructed
+candidate before testing. Tests are not
+restricted by branch name.
 
 For pending manual cases, show `[MIT n/m]` in the shell prompt. Select the
 first case with `rwf test integration --manual`, a one-based case number,
@@ -94,9 +98,9 @@ or its issue-qualified name. Return to the prompt after presenting the case.
 `rwf test succeeded` records its result and advances progress;
 `rwf test failed` stops testing for developer repair. Timeout is distinct
 from FAIL, and an old verdict never applies to a different candidate.
-Manual FAIL retains the candidate version and publishes its matching local
-CI-FAIL tag from the recorded tester verdict; source repair precedes the next
-version preparation.
+Manual FAIL publishes its matching local CI-FAIL tag from the recorded tester
+verdict; its version consequence is the same as any other test failure
+([Task versions](WORKFLOW_LIFECYCLE.md#task-versions)).
 Each recorded manual verdict is published for the latest matching PRELIM,
 regardless of the tester's checkout branch. The final PASS, or a FAIL, resumes
 its CI worker. Offline delivery remains pending while the local verdict stays

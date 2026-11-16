@@ -1,7 +1,7 @@
 """Independent required Q/R version contract probes for RWF #703.
 
-These are deliberate RED acceptance tests against unresolved #109 adapters.
-A real repair must make all three ordinary assertions PASS.
+These probes verify the implementation-revision transition used when preparing
+repairs after manual rejection. Recording the rejection itself keeps the version.
 """
 import tempfile
 from pathlib import Path
@@ -22,16 +22,16 @@ class ManualMitVersionContractTests(unittest.TestCase):
   def test_development_version_parser_accepts_r_zero(self):
     self.assertIsNotNone(
       _TASK.fullmatch(EXPECTED),
-      "MIT FAIL Q+1/R=0 must be representable in canonical version grammar",
+      "prepared repair Q+1/R=0 must be representable in canonical version grammar",
     )
 
-  def test_version_adapter_accepts_required_failure_transition(self):
+  def test_version_adapter_accepts_implementation_revision_transition(self):
     self.assertTrue(
       _expected_transition(BEFORE, EXPECTED, OPERATION),
-      "MIT FAIL version gate must certify Q+1 and R=0",
+      "implementation revision gate must certify Q+1 and R=0",
     )
 
-  def test_real_engine_failure_transition_resets_iteration_to_zero(self):
+  def test_real_engine_implementation_revision_resets_reintegration_to_zero(self):
     with tempfile.TemporaryDirectory() as temp:
       root = Path(temp)
       path = root / ".ci" / "engine-version"

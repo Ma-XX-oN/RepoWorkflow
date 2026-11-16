@@ -51,7 +51,7 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
     self.assertEqual(result.failed_stage, "MIT")
     self.assertEqual(result.evidence_ref, "mit-fail-actual")
     self.assertEqual(self.host.terminal["status"], "failed")
-    self.assertEqual(self.host.terminal["accepted_sha"], "c" * 40)
+    self.assertEqual(self.host.terminal["accepted_sha"], fixture_module.A)
     self.assertEqual(self.host.terminal["expected_destination_sha"], fixture_module.B)
     self.assertIsNone(self.host.terminal["landed_sha"])
     self.assertIsNone(self.host.int_sha)
@@ -71,7 +71,7 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
     self.assertEqual(result.failed_stage, "MIT")
     self.assertEqual(result.evidence_ref, "mit-fail-after-preparation")
     self.assertEqual(self.host.terminal["status"], "failed")
-    self.assertEqual(self.host.int_sha, "c" * 40)
+    self.assertIsNone(self.host.int_sha)
     self.assert_no_landing()
 
   def test_foreign_failure_provenance_rejects_without_terminal(self):
@@ -255,7 +255,7 @@ class ManualMitNegativeAcceptanceTests(unittest.TestCase):
 
   def test_no_mit_policy_does_not_invent_required_manual_case(self):
     result = self.fixture.invoke()
-    self.assertEqual(result.terminal.accepted_sha, "c" * 40)
+    self.assertEqual(result.terminal.accepted_sha, fixture_module.A)
     self.assertEqual(self.host.terminal["status"], "integrated")
     self.assertEqual(self.host.main, "d" * 40)
 

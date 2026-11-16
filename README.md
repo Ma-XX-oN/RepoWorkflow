@@ -78,7 +78,7 @@ conversation SPINUP blocks per worker, not issue-comment launch queues.
 RepoWorkflow owns common lifecycle and invariant machinery:
 
 - `.ci/run-ci-request` candidate binding and refresh;
-- automatic development-iteration advancement after a consumed terminal result;
+- automatic candidate version preparation under the task-version rules;
 - authoritative remote terminal-tag checks;
 - exact-candidate and clean-checkout validation;
 - PASS / FAIL / INCOMPLETE semantics and result aggregation;
@@ -160,10 +160,11 @@ The launcher first establishes the pinned engine as described above. The engine
 then owns candidate bookkeeping. The caller does not manually refresh
 `.ci/run-ci-request`, reorder bookkeeping commits, or opt into terminal tagging.
 Before validation, `verify` rebinds the request after ordinary source commits
-when necessary. If the current development iteration is already consumed
-remotely, RepoWorkflow invokes the repository-owned semantic version adapter
-with `task --increment CI-iteration`, verifies that only `R` advanced by one,
-and records the resulting version/request change in one bookkeeping commit.
+when necessary. When a version transition is required
+([rule](WORKFLOW_LIFECYCLE.md#task-versions)), RepoWorkflow invokes the
+repository-owned semantic version adapter, verifies the requested successor,
+and records the resulting
+version/request change in one bookkeeping commit.
 
 A completed development result always creates a local terminal tag:
 

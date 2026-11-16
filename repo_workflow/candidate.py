@@ -20,7 +20,8 @@ _VERSION_PARTS_RE = re.compile(
 )
 
 
-def _assert_ci_iteration_advanced(before: str, after: str) -> None:
+def _assert_implementation_advanced(before: str, after: str) -> None:
+  """Require Q+1/R=0 while preserving the stable base and issue identity."""
   before_match = _VERSION_PARTS_RE.fullmatch(before)
   after_match = _VERSION_PARTS_RE.fullmatch(after)
   if before_match is None or after_match is None:
@@ -28,24 +29,25 @@ def _assert_ci_iteration_advanced(before: str, after: str) -> None:
   expected = {
     "base": before_match.group("base"),
     "issue": before_match.group("issue"),
-    "generation": before_match.group("generation"),
-    "iteration": str(int(before_match.group("iteration")) + 1),
+    "generation": str(int(before_match.group("generation")) + 1),
+    "iteration": "0",
   }
   actual = {name: after_match.group(name) for name in expected}
   if actual != expected:
     raise GuardError(
-      "repository version adapter did not perform exactly one CI-iteration increment: "
+      "repository version adapter did not prepare exactly one implementation revision: "
       f"{before} -> {after}"
     )
 
 
-def _advance_ci_iteration(root: Path, config: dict, version: str) -> str:
+def _advance_implementation(root: Path, config: dict, version: str) -> str:
+  """Prepare the next implementation revision through the consumer adapter."""
   try:
-    run_transition(root, config, "task", "--increment", "CI-iteration")
+    run_transition(root, config, "task", "--increment", "merge-integration-failed")
     advanced = read_development_version(root, config)
   except VersionAdapterError as exc:
     raise GuardError(str(exc)) from exc
-  _assert_ci_iteration_advanced(version, advanced)
+  _assert_implementation_advanced(version, advanced)
   return advanced
 
 
@@ -123,6 +125,7 @@ def prepare_development_candidate(
   config: dict,
   *,
   push: bool = False,
+  parent_reintegration: bool = False,
 ) -> tuple[Candidate, bool]:
   root = root.resolve()
   if changed_files(root):
@@ -138,8 +141,12 @@ def prepare_development_candidate(
     except VersionAdapterError as exc:
       raise GuardError(str(exc)) from exc
     issue = int(_VERSION_PARTS_RE.fullmatch(version).group("issue"))
-    while tested_source_changed(root, issue, version, remote=remote):
-      version = _advance_ci_iteration(root, config, version)
+    if parent_reintegration:
+      run_transition(root, config, "task", "--increment", "CI-iteration")
+      version = read_development_version(root, config)
+      prepared = True
+    while not parent_reintegration and tested_source_changed(root, issue, version, remote=remote):
+      version = _advance_implementation(root, config, version)
       prepared = True
 
     if _request_needs_refresh(root, config, version):

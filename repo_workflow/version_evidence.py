@@ -1,5 +1,6 @@
 """Version preparation follows tested source identity, never tag consumption."""
 from pathlib import Path
+import json
 import re
 
 from .git import git as _git
@@ -48,7 +49,18 @@ def tested_source_changed(root: Path, issue: int, version: str,
     if _git(root, "cat-file", "-e", tested + "^{commit}", check=False).returncode:
       _git(root, "fetch", "--no-tags", remote, ref)
     if source_tip(root, tested) != current:
-      return True
+      from .prelim_queue import parse_ready_prelim
+      from .prelim_submission import PREFIX, decode_submission, submission_ref
+      ready = parse_ready_prelim(ref, tested)
+      receipt = submission_ref(ready.guid)
+      if not _git(root, "ls-remote", remote, receipt).stdout.strip():
+        return True
+      _git(root, "fetch", "--no-tags", remote, receipt)
+      message = _git(root, "show", "-s", "--format=%B", "FETCH_HEAD").stdout.rstrip("\n")
+      repository = json.loads(message.removeprefix(PREFIX))["repository"]
+      saved = decode_submission(message, repository=repository, guid=ready.guid)
+      if saved["candidate_sha"] != tested or saved["source_sha"] != current:
+        return True
   for record in records:
     if record.get("testVersion") == version:
       tested = record.get("testSHA")

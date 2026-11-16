@@ -118,6 +118,20 @@ class ManualIntegrationResultTests(unittest.TestCase):
       _record(root, sha, cases)
     assert require_manual_completion(root, 701, sha, cases=cases) == tuple(sorted(c.name for c in cases))
 
+  def test_supplied_operator_and_evidence_reference_are_preserved(self):
+    """Nonblank evidence identifiers retain the exact caller-supplied value."""
+    for suffix in ("", " ", "\u2028", "\u2029", "\u0085", "\u00a0"):
+      with self.subTest(suffix=repr(suffix)), tempfile.TemporaryDirectory() as directory:
+        root, sha, cases = _setup(Path(directory))
+        _selected(root, sha, cases)
+        operator = "tester" + suffix
+        evidence_ref = "fixture://observed" + suffix
+        record_manual_result(root, 701, sha, "succeeded", operator=operator,
+                             evidence_ref=evidence_ref, cases=cases)
+        event = json.loads(_log(root).read_text(encoding="utf-8"))
+        self.assertEqual(event["operator"], operator)
+        self.assertEqual(event["evidenceRef"], evidence_ref)
+
 
   def test_first_manual_case_pass_second_fail_denies_same_candidate(self):
     root, sha, cases = self._fixture

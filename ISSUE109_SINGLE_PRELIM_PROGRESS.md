@@ -1,5 +1,38 @@
 # RWF #109 single-PRELIM implementation checklist
 
+## Final completion — 2026-11-16
+
+- [ ] Preserve the supplied nonblank MIT operator and evidence-reference values exactly; verify the registered result suite.
+- [ ] Update obsolete completion/INT-ATTEMPT expectations to the approved grammar and single-PRELIM model without dropping negative assertions.
+- [ ] Commit and publish the Q/R implementation and documentation, preserving deferred #828/#829 scope.
+- [ ] Verify the final exact source through catalogue-selected native Linux/macOS/Windows checks.
+- [ ] Record source/results and downstream handoffs on #109; close #109 when its functional scope is verified.
+
+The separate #703/#583/#677 certification tickets do not block #109 completion.
+Existing adversarial-security deferrals remain in force. No production merge or deployment is part of this completion.
+
+## Q/R implementation alignment
+
+- [x] Prepare first implementation as Q=1/R=0; changed implementation advances Q and resets R.
+- [x] Advance R only for the same implementation reconstructed against a newer parent.
+- [x] Preserve counters on failures, unchanged resumes, report commits and additional test runs.
+- [x] Verify source correction, parent-only progression, combined changes and resume behavior with registered tests.
+- [x] Preserve deferred #829 naming work and existing documentation edits.
+
+Scope: issue-109-single-prelim worktree; no branch-naming extension or unrelated selector repairs.
+
+Source: uncommitted Q/R changes over b69565a810f0f52ed5da069888d1e967d56649d6.
+Native Windows checks: 10 submission tests PASS; adapter/failure transitions
+34 PASS and one existing unsupported-symlink SKIP; engine/manual-result checks
+46 PASS; 34 issue-start/terminal/completion workflow checks PASS; 17 consumer
+checks PASS, including parent-reintegration/resume. Total: 141 PASS, one
+existing unsupported-symlink SKIP. Python compilation and whitespace checks PASS.
+Logs: rwf-qr-submission-final.log, rwf-qr-adapters.log,
+rwf-qr-manual-engine.log, rwf-qr-consumer-final.log and rwf-qr-workflow.log
+under the system temporary directory. Q/R alignment is complete in this
+working tree; changes remain uncommitted. Native Linux/macOS runs were not
+performed for this update. Deferred naming work remains owned by #829.
+
 Base: add058f5f4139f6e9cbe5103cbc84c760f6f0404.
 Branch: issue-109-single-prelim. Governing contract: SINGLE_PRELIM_WORKFLOW.md.
 Status: version-only implementation READY for review; focused native checks PASS.

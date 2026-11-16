@@ -115,7 +115,7 @@ class LocalVerifyTests(unittest.TestCase):
       fx.commit("fix: correct tested source")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
-      next_version = "1.0.0-issue.1.0.2"
+      next_version = "1.0.0-issue.1.1.0"
       self.assertEqual((root / "VERSION").read_text().strip(), next_version)
       self.assertEqual((root / ".ci" / "run-ci-request").read_text().strip(), next_version)
       self.assertEqual(
@@ -123,16 +123,36 @@ class LocalVerifyTests(unittest.TestCase):
         f"v{next_version}",
       )
 
+  def test_consumer_parent_reintegration_preserves_q_and_resumes(self):
+    """A real consumer adapter prepares R+1 once for a reconstructed parent."""
+    from repo_workflow.config import load_config
+    from repo_workflow.done_submission import prepare_submission_candidate
+
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "VERSION").write_text("1.0.0-issue.1.3.0\n", encoding="utf-8")
+      (root / ".ci/run-ci-request").write_text("1.0.0-issue.1.3.0\n", encoding="utf-8")
+      source = fx.commit("third implementation prepared")
+      fx._run("checkout", "main")
+      (root / "parent-source").write_text("new parent\n", encoding="utf-8")
+      parent = fx.commit("parent advances")
+      fx._run("checkout", "issue-1-test")
+      config = load_config(root)
+      first = prepare_submission_candidate(root, source, parent, config, 1, root / "RepoWorkflow")
+      self.assertEqual(first[1], "1.0.0-issue.1.3.1")
+      self.assertEqual(prepare_submission_candidate(
+        root, source, parent, config, 1, root / "RepoWorkflow"), first)
+
   def test_local_verify_skips_consecutive_consumed_iterations(self):
     td, root, fx = self.make_consumer()
     with td:
       self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
-      self.publish_tested_version(fx, "v1.0.0-issue.1.0.2")
+      self.publish_tested_version(fx, "v1.0.0-issue.1.1.0")
       (root / "source.txt").write_text("corrected source\n")
       fx.commit("fix: correct tested source")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
-      next_version = "1.0.0-issue.1.0.3"
+      next_version = "1.0.0-issue.1.2.0"
       self.assertEqual((root / "VERSION").read_text().strip(), next_version)
       self.assertEqual(
         (root / ".ci" / "run-ci-request").read_text().strip(),

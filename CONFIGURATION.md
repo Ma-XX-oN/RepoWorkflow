@@ -38,9 +38,8 @@ arguments it must:
 
 - exit zero only when the repository's version state is internally valid;
 - print exactly one canonical version to stdout;
-- report task versions as `x.y.z-issue.P.Q.R`, where `P` is the issue,
-  `Q` is the integration-failure generation, and `R` is the
-  regression-validation iteration;
+- report task versions as `x.y.z-issue.P.Q.R`, where `P` is the issue
+  ([`Q`/`R` definition](WORKFLOW_LIFECYCLE.md#task-versions));
 - report stable versions as plain `x.y.z`;
 - leave the worktree, candidate history, symbolic `HEAD`, and local Git refs
   unchanged.
@@ -209,8 +208,8 @@ The command:
 
 1. reads the repository's development version;
 2. checks authoritative terminal-tag state;
-3. advances a consumed iteration through
-   `versionCommand task --increment CI-iteration` when necessary;
+3. prepares the candidate version through `versionCommand` when
+   required ([rule](WORKFLOW_LIFECYCLE.md#task-versions));
 4. refreshes `.ci/run-ci-request` after ordinary source commits when necessary;
 5. commits only the bookkeeping/version changes it performed;
 6. validates that prepared candidate through the normal guard;

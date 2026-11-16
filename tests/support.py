@@ -47,7 +47,7 @@ class RepoFixture:
       "  path.write_text(f'{task.group(1)}-issue.{task.group(2)}.{int(task.group(3)) + 1}.0\\n')\n"
       "elif len(args) == 3 and args[:2] == ['task', '--issue'] and stable:\n"
       "  int(args[2])\n"
-      "  path.write_text(f'{value}-issue.{args[2]}.0.1\\n')\n"
+      "  path.write_text(f'{value}-issue.{args[2]}.1.0\\n')\n"
       "elif args == ['integrate', '--increment', 'patch'] and stable:\n"
       "  path.write_text(f'{stable.group(1)}.{stable.group(2)}.{int(stable.group(3)) + 1}\\n')\n"
       "elif args == ['integrate', '--increment', 'minor'] and stable:\n"

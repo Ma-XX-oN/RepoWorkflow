@@ -28,10 +28,11 @@ Required state-machine tests:
 - server examination automatically runs missing ART/AIT only; it never creates
   MIT evidence;
 - AIT PASS, FAIL, and INCOMPLETE transitions, including automatic result
-  recording and that AIT FAIL advances `Q` and resets `R`;
+  recording and the AIT FAIL version consequence
+  ([Task versions](WORKFLOW_LIFECYCLE.md#task-versions));
 - MIT-required state only when manual integration testing is declared;
-- MIT succeeded and failed human-result transitions, including that MIT FAIL
-  advances `Q` and resets `R`;
+- MIT succeeded and failed human-result transitions, including the MIT FAIL
+  version consequence ([Task versions](WORKFLOW_LIFECYCLE.md#task-versions));
 - AIT PASS -> MIT-required when MIT is declared, versus AIT PASS -> accepted
   integration requirement when no MIT is declared;
 - acceptance with AIT but no MIT, proving no unnecessary user test gate is
@@ -292,11 +293,13 @@ These tests source the shipped Bash script and directly set `COMP_WORDS`,
 55. `version release-major` forwards `release-major`.
 56. RepoWorkflow never constructs a literal target version for those semantic
     mutations.
-57. ART FAIL advances only `R` by exactly one through
+57. Preparing reintegration against a newer parent advances only `R`, by exactly one, through
     `task --increment CI-iteration`.
-58. Integration FAIL advances `Q`, resets `R`, and leaves the issue
-    component `P` unchanged through
-    `task --increment merge-integration-failed`.
+58. Preparing a changed implementation advances `Q`, resets `R` to zero and leaves `P` unchanged
+    through `task --increment merge-integration-failed`.
+
+Items 57-58 test the adapter forwarding; when each transition occurs is
+defined in [WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
 59. Adapter query/mutation may change only the documented worktree state and
     must not move HEAD, create commits, or mutate Git refs.
 60. `repo-workflow` and `rwf` execute equivalent public commands.

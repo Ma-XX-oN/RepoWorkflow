@@ -132,13 +132,10 @@ def _version_components(value: str) -> tuple[int, int] | None:
 
 
 def apply_manual_failure(root: Path, issue: int, candidate_sha: str):
-  """Use canonical lifecycle and version adapters; fail on partial handoff.
+  """Record the canonical lifecycle handoff without changing the version.
 
-  The current repository adapter returns R=1 after rejection. The expected
-  R=0 contract therefore needs an adapter fix outside this ticket's files.
-
-  The single-PRELIM contract supersedes that historical version transition:
-  a failed test retains its version until source is changed before testing.
+  Failure preserves Q and R. Preparing a repaired implementation advances Q
+  and resets R to zero; only reintegration against a newer parent advances R.
   """
   from .lifecycle_store import LifecycleStore
   from .state_store import WriterIdentity
@@ -226,7 +223,7 @@ def record_manual_result(
       "testSHA": candidate_sha, "kind": "manual-integration",
       "result": result, "runner": "local", "manualCase": current.name,
       "definitionDigest": current.definition_digest,
-      "operator": operator.strip(), "evidenceRef": evidence_ref.strip(),
+      "operator": operator, "evidenceRef": evidence_ref,
       "manualEvidenceId": evidence_id,
     }
     _atomic(pending, {"schema": 1, "phase": "append", "event": event})

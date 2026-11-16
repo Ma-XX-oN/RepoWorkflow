@@ -25,6 +25,7 @@ def _git(root: Path, *args: str, check: bool = True) -> CommandResult:
 
 def prepare_engine_request(
   root: Path, *, stage: str, issue: int, remote: str = "origin",
+  parent_reintegration: bool = False,
 ) -> str:
   """Commit a repo-owned version transition before .ci/run, or replay it."""
   if stage not in {"regression", "integration"}:
@@ -46,9 +47,12 @@ def prepare_engine_request(
     if match is None or int(match.group(1)) != issue:
       raise EnginePreparationError("development version belongs to another issue")
     version = before
-    while tested_source_changed(root, issue, version, remote=remote):
+    if parent_reintegration:
+      transition_engine_version(root, operation="task --increment CI-iteration")
+      version = read_engine_version(root)
+    while not parent_reintegration and tested_source_changed(root, issue, version, remote=remote):
       transition_engine_version(
-        root, operation="task --increment CI-iteration",
+        root, operation="task --increment merge-integration-failed",
       )
       version = read_engine_version(root)
   version = read_engine_version(root)

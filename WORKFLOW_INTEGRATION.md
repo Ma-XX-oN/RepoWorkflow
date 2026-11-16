@@ -304,20 +304,18 @@ publication. Automatic group observations use a nonterminal
 append-only `integration` terminal record be written. Results are append-only, bound to the exact candidate and
 canonical development version.
 
-Regression and integration terminal results use **distinct development
-versions**. A regression result under a version does not authorize publishing
-integration evidence under that same version: the repository-owned version
-adapter must make a fresh `task --increment CI-iteration` transition and
-commit that change before the integration candidate is validated. The new
-candidate is retested. A local one-platform consumer PASS is not a substitute
+Regression and integration results for unchanged inputs share one development
+version; when either counter advances is defined in
+[WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
+Any required version transition is committed before the
+candidate is validated. A local one-platform consumer PASS is not a substitute
 for required hosted environments, provider-stage acceptance, or an authorized
 `rwf done` executor.
 
 The engine checkout continues to use its own integration probes; consumer
 adapters must not silently substitute those probes for consumer tests.
 
-The engine's on-demand version preparation likewise advances an iteration
-when a prior regression PASS or integration PASS consumed that version for the
-opposite phase; immutable terminal evidence cannot be reassigned across
-phases or source candidates. The transition is made by the engine version
-adapter before the dedicated `.ci/run` request, not by moving terminal tags.
+The engine's on-demand version preparation follows the same
+[task-version rules](WORKFLOW_LIFECYCLE.md#task-versions); terminal evidence cannot be
+reassigned across source candidates. The transition is made by the engine version adapter before the
+dedicated `.ci/run` request, not by moving terminal tags.
