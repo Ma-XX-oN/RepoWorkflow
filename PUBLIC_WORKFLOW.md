@@ -1,12 +1,17 @@
 # RepoWorkflow Public Workflow
 
+For `rwf done` and its manual-test progression, use the
+[approved single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md). Conflicting
+historical two-branch and test-before-submission descriptions below are
+retained for audit; implementation acceptance is tracked in #109.
+
 Status: authoritative public-workflow synopsis for issue #51.
 
 This document defines the intended human-facing `rwf` workflow.  It supersedes
 older public-command proposals in closed issues #14/#15 while preserving useful
 lower-level implementation machinery behind internal/adapter boundaries.
 
-## 1. Public command surface
+## Public command surface
 
 ```text
 rwf
@@ -48,7 +53,7 @@ The normal public surface does not include `rwf version`,
 capabilities may remain temporarily available to machine callers while their
 adapter replacements are implemented.
 
-## 2. Help and completion
+## Help and completion
 
 The authored command grammar is the single source for parsing, completion,
 diagnostics, double-Tab descriptions, and `--help`.
@@ -76,7 +81,7 @@ checkout can still explain its public command surface.
 
 Issue #52 owns implementation of this contract.
 
-## 3. Repository initialization
+## Repository initialization
 
 The canonical state directory is:
 
@@ -121,7 +126,7 @@ in the platform-neutral Python workflow model.
 
 Issue #27 owns implementation.
 
-## 4. High-risk verification sections
+## High-risk verification sections
 
 `rwf high-risk <SECTION> [<SECTION> ...]` associates one or more semantic
 test-catalogue alias sections from `.ci/tests.json` with the active current
@@ -141,7 +146,7 @@ High-risk sections add targeted issue-verification coverage.  They never replace
 the issue's own required groups and do not by themselves imply complete
 regression or integration evidence.
 
-## 5. Repository-owned adapters
+## Repository-owned adapters
 
 RepoWorkflow owns workflow semantics; consumer repositories own facts and
 provider-specific mechanics through explicit adapters.
@@ -154,7 +159,7 @@ repo-info
 repo-ci
 ```
 
-### 5.1 repo-version
+### repo-version
 
 RWF invokes semantic version operations internally.  Users do not normally
 invoke version transitions through `rwf`.
@@ -172,7 +177,7 @@ release-major
 
 The consumer adapter derives and applies literal versions.
 
-### 5.2 repo-info
+### repo-info
 
 `repo-info` supplies repository/issue information without teaching core RWF
 GitHub/`gh` or another forge's API.
@@ -182,7 +187,7 @@ validation at start time.
 
 Issue #53 owns this adapter and issue commands.
 
-### 5.3 repo-ci
+### repo-ci
 
 Repository/CI-provider mechanics belong behind a portable adapter boundary.
 RWF owns candidate identity, required test coverage, legal transitions,
@@ -197,7 +202,7 @@ GitHub Actions is one provider implementation, not the workflow model.
 
 Issue #55 owns this migration.
 
-## 6. Issue workflow
+## Issue workflow
 
 ```text
 rwf issue info
@@ -231,7 +236,7 @@ recorded in Git history; it is not stored in ticket relationship state.
 `issue abort` stops active work without pretending the issue completed and
 without discarding durable evidence/history.
 
-## 7. Dependencies, lanes, and multiple agents
+## Dependencies, lanes, and multiple agents
 
 Lane planning uses only explicit direct ticket dependencies:
 
@@ -309,7 +314,7 @@ ticket-creation workflow are defined by [TICKET_STATE.md](TICKET_STATE.md).
 Repository-neutral decomposition guidance remains in
 [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
-## 8. RED/GREEN testing
+## RED/GREEN testing
 
 The unified public testing command is `rwf test`.  For active issue N,
 `rwf test RED <issue-N-group>` validates a group declared in `.ci/tests.json`,
@@ -333,7 +338,7 @@ temporary sandbox.  All test stages use the existing per-issue JSONL log.
 
 Issue #545 owns migration to the unified command family.
 
-## 9. Reusable validation evidence
+## Reusable validation evidence
 
 Workflow gates are based on whether every required test unit is satisfied for
 the current effective candidate/input fingerprint, not on whether one broad
@@ -364,7 +369,7 @@ evidence according to a deterministic fingerprint contract.
 Issue #16 owns durable evidence, reuse, invalidation, and local/hosted-provider
 equivalence.
 
-## 10. Testing commands
+## Testing commands
 
 The supported public testing interface is:
 
@@ -390,7 +395,11 @@ ancestry and exact record bytes against the run's immutable artifact.  Missing,
 expired, malformed, forged, mismatched or inaccessible artifacts fail closed.
 Read-only `results --remote` never dispatches a hosted stage.
 
-The on-demand workflow remains staged alongside existing Self CI.  Functional
+The implemented on-demand workflow triggers only for `.ci/run` changes on
+`issue-*` branches. `.ci/run-ci-request` is not its trigger; `.ci/rwf` is
+not yet implemented. Separate Self CI and migration/certification workflows
+have independent event triggers. The on-demand workflow remains alongside
+existing Self CI.  Functional
 certification of its five stages does not authorise replacing Self CI, merging,
 releasing or enabling protected production integration.  Server branch/ruleset
 enforcement is separately deferred under #85.
@@ -401,7 +410,7 @@ another CI cycle.  A PASS is reusable only with applicable matching
 candidate, test definition, inputs and environment, and complete evidence.
 Missing, failed, dirty or stale observations must not satisfy required tests.
 
-### 10.1 CI validation tiers
+### CI validation tiers
 
 Hosted Self CI uses the same validation hierarchy:
 
@@ -417,11 +426,15 @@ Regression is selected explicitly when a dependency-complete umbrella outcome
 is ready or when broader risk warrants it.  RepoWorkflow does not infer
 umbrella semantics from Initiative/Epic/Feature title prefixes.
 
-Authoritative `main` pushes are always integration candidates.  CI emits the
+Under the separate legacy Self CI policy, authoritative `main` pushes are
+integration candidates; this does **not** describe the on-demand workflow's
+trigger. That workflow only responds to `.ci/run` changes on `issue-*`
+branches. A candidate classification is not evidence that a paid test run
+was requested. Self CI emits the
 selected tier, groups, and reason so narrower evidence cannot be mistaken for a
 stronger gate.
 
-## 11. Status and guidance
+## Status and guidance
 
 `rwf status` answers where the current workflow stands: issue/context,
 branch/version identity, TDD/ART/AIT/MIT evidence, blockers, and relevant
@@ -434,7 +447,7 @@ Both derive from the same state/evidence model used by completion.
 Issue #58 owns alignment of these commands and removal of obsolete public
 commands.
 
-## 12. Commit/push remains Git
+## Commit/push remains Git
 
 Normal source work remains normal Git work:
 
@@ -447,7 +460,7 @@ git push
 RepoWorkflow does not replace ordinary source editing/commit commands unless a
 specific workflow invariant requires an owned operation.
 
-## 13. Completing work
+## Completing work
 
 ```text
 rwf done patch
@@ -474,4 +487,4 @@ Issue #56 owns the public `done` workflow.  Existing #17 owns prelim
 integration/reintegration/PRELIM mechanics and #18 owns protected-server
 enforcement.
 
-Further sections: [14. Existing lower-level work](PUBLIC_WORKFLOW_APPENDIX.md).
+Further sections: [Existing lower-level work](PUBLIC_WORKFLOW_APPENDIX.md).

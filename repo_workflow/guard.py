@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 
 from .git import current_branch, git, head_sha
+from .source_tip import source_tip
+from .version_evidence import tested_source_changed
 from .version_adapter import (
   DEVELOPMENT_VERSION_RE,
   STABLE_VERSION_RE as ADAPTER_STABLE_VERSION_RE,
@@ -92,26 +94,9 @@ def _assert_clean_full_checkout(root: Path) -> None:
 
 
 def _refresh_and_check_tags(root: Path, remote: str, version: str) -> None:
-  remote_result = git(root, "remote", "get-url", remote, check=False)
-  if remote_result.returncode or not remote_result.stdout.strip():
-    raise GuardError(f"authoritative remote is unavailable: {remote}")
-  tags = (f"v{version}", f"v{version}-CI-FAIL")
-  refs = [f"refs/tags/{tag}" for tag in tags]
-  remote_tags = git(root, "ls-remote", "--tags", remote, *refs, check=False)
-  if remote_tags.returncode:
-    detail = (remote_tags.stderr or remote_tags.stdout).strip()
-    raise GuardError(f"cannot establish authoritative tag state: {detail}")
-  present = {
-    line.split("\t", 1)[1].strip()
-    for line in remote_tags.stdout.splitlines()
-    if "\t" in line
-  }
-  for tag, ref in zip(tags, refs):
-    if ref in present:
-      raise GuardError(f"development iteration already has terminal result tag: {tag}")
-    local = git(root, "show-ref", "--verify", ref, check=False)
-    if local.returncode == 0:
-      git(root, "update-ref", "-d", ref)
+  issue = int(version.split("-issue.", 1)[1].split(".", 1)[0])
+  if tested_source_changed(root, issue, version, remote=remote):
+    raise GuardError("development version was tested on different source; prepare a new version")
 
 
 def _assert_request_bound_to_candidate(
@@ -132,6 +117,8 @@ def _assert_request_bound_to_candidate(
   if request_commit_result.returncode or not request_commit:
     raise GuardError("cannot establish the commit that requested CI")
   if request_commit == head:
+    return
+  if source_tip(root, head) == source_tip(root, request_commit):
     return
   ancestry = git(
     root,
@@ -193,7 +180,7 @@ def validate_candidate(
   _assert_request_bound_to_candidate(root, config, commit)
   remote = config["repository"]["authoritativeRemote"]
   _refresh_and_check_tags(root, remote, request)
-  return Candidate(request, commit, remote)
+  return Candidate(request, source_tip(root, commit), remote)
 
 
 def validate_stable_candidate(

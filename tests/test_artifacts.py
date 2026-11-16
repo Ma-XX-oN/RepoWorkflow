@@ -6,6 +6,7 @@ import unittest
 
 from repo_workflow.artifacts import (
   ArtifactError,
+  ArtifactResult,
   commit_artifact_changes,
   materialize_artifacts,
 )
@@ -80,6 +81,29 @@ class ArtifactTests(unittest.TestCase):
       self.assertNotEqual(before, after)
       changed = fx._run("diff-tree", "--no-commit-id", "--name-only", "-r", after).stdout.splitlines()
       self.assertEqual(changed, ["dist/bundle.js"])
+
+  def test_artifact_commit_preserves_unrelated_partial_staging(self):
+    body = "from pathlib import Path\nPath('dist').mkdir(exist_ok=True)\nPath('dist/bundle.js').write_text('x')\n"
+    td, root, fx = self.make(body)
+    with td:
+      unrelated = root / "unrelated.txt"
+      unrelated.write_text("original\n")
+      fx.commit("unrelated baseline")
+      unrelated.write_text("staged\n")
+      fx._run("add", "unrelated.txt")
+      unrelated.write_text("unstaged\n")
+      output = root / "dist" / "bundle.js"
+      output.parent.mkdir(exist_ok=True)
+      output.write_text("verified artifact bytes", encoding="utf-8")
+      commit = commit_artifact_changes(
+        root, ArtifactResult("PASS", ["dist/bundle.js"], []), "artifact",
+      )
+      self.assertEqual(
+        fx._run("diff-tree", "--no-commit-id", "--name-only", "-r", commit).stdout.strip(),
+        "dist/bundle.js",
+      )
+      self.assertEqual(fx._run("show", ":unrelated.txt").stdout, "staged\n")
+      self.assertEqual(unrelated.read_text(), "unstaged\n")
 
   def test_generator_may_not_change_git_history(self):
     body = (

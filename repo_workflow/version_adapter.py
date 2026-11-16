@@ -9,9 +9,10 @@ from .process import run_command
 
 
 DEVELOPMENT_VERSION_RE = re.compile(
-  r"^(\d+)\.(\d+)\.(\d+)-issue\.(\d+)\.(\d+)\.(\d+)$"
+  r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+  r"-issue\.([1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z"
 )
-STABLE_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+STABLE_VERSION_RE = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 
 
 class VersionAdapterError(RuntimeError):
@@ -127,8 +128,7 @@ def _validate_request(arguments: tuple[str, ...]) -> None:
   if (
     len(arguments) == 3
     and arguments[:2] == ("task", "--issue")
-    and arguments[2].isdigit()
-    and int(arguments[2]) > 0
+    and re.fullmatch(r"[1-9][0-9]*", arguments[2]) is not None
   ):
     return
   if arguments in {
@@ -160,7 +160,7 @@ def _expected_transition(
       return False
     major, minor, patch = stable_before
     issue = int(arguments[2])
-    return development_after == (major, minor, patch, issue, 0, 1)
+    return development_after == (major, minor, patch, issue, 1, 0)
 
   if arguments == ("task", "--increment", "CI-iteration"):
     if development_before is None or development_after is None:
@@ -175,7 +175,7 @@ def _expected_transition(
       return False
     major, minor, patch, issue, generation, _ = development_before
     return development_after == (
-      major, minor, patch, issue, generation + 1, 1
+      major, minor, patch, issue, generation + 1, 0
     )
 
   if stable_before is None or stable_after is None:

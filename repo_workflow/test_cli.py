@@ -13,6 +13,8 @@ import subprocess
 import sys
 
 from .git import changed_files, current_branch, git, head_sha
+from .testing_identity import testing_issue
+from .source_tip import source_tip
 from .local import verify_local
 from .test_regression_engine import self_regression
 from .test_integration_engine import run_local_integration
@@ -20,14 +22,18 @@ from .test_cache import reusable_local_group_passes, has_local_applicable_observ
 from .github_cache import hosted_cache_checker, read_remote_published_log
 from .self_ci import group_command, SelfCiError
 from .test_red_declaration import red_declaration
-from .test_catalogue import load_test_catalogue
+from .test_catalogue import load_test_catalogue, stage_groups
 from .test_results_reader import TestCommandError, results as read_results
 from .config import load_config
 from .terminal_tag import publish_terminal_tag
 from .local_terminal import publish_local_terminal, verify_consumer_retry
 from .engine_remote import prepare_engine_request
 from .engine_version_adapter import read_engine_version
+from .version_adapter import read_development_version
+from .test_hosted_candidate import hosted_candidate_bound, publish_if_local
+from .owned_commit import commit_owned_files
 from .test_worktree import tracked_input_changes
+from .manual_test_cli import after_automatic_integration
 
 STAGES = {
   "RED": "RED-testing",
@@ -36,7 +42,6 @@ STAGES = {
   "regression": "regression-testing",
   "integration": "integration-testing",
 }
-
 
 def _git(root: Path, *args: str) -> str:
   result = subprocess.run(
@@ -47,9 +52,7 @@ def _git(root: Path, *args: str) -> str:
     raise TestCommandError(result.stderr.strip() or "git operation failed")
   return result.stdout.strip()
 
-
 SELECTION = Path(".ci/red-green.txt")
-
 
 def _issue_prefix(root: Path) -> str:
   match = re.fullmatch(
@@ -58,7 +61,6 @@ def _issue_prefix(root: Path) -> str:
   if match is None:
     raise TestCommandError("RED/GREEN requires a current issue branch")
   return "issue-" + match.group(1) + "-"
-
 
 def _validate_selection(root: Path, name: str) -> str:
   prefix = _issue_prefix(root)
@@ -72,14 +74,12 @@ def _validate_selection(root: Path, name: str) -> str:
     )
   return name
 
-
 def _committed_selection(root: Path) -> str | None:
   result = subprocess.run(
     ["git", "-C", str(root), "show", "HEAD:.ci/red-green.txt"],
     capture_output=True, text=True, check=False,
   )
   return result.stdout if result.returncode == 0 else None
-
 
 def read_selection(root: Path) -> str | None:
   path = root / SELECTION
@@ -98,7 +98,6 @@ def read_selection(root: Path) -> str | None:
     raise TestCommandError("RED/GREEN selection must match committed state")
   return _validate_selection(root, lines[0])
 
-
 def _skip_without_selection(
   root: Path, stage: str, *, remote: bool,
 ) -> int:
@@ -113,9 +112,12 @@ def _skip_without_selection(
   )
   if match is None:
     raise TestCommandError("testing evidence requires an issue branch")
+  path = root / ".repoworkflow" / "validation" / (
+    "testResults-" + match.group(1) + ".jsonl"
+  )
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
-    "testSHA": head_sha(root),
+    "testSHA": _evidence_source_sha(root, path),
     "kind": stage,
     "result": "SKIPPED",
     "runner": "local",
@@ -124,13 +126,15 @@ def _skip_without_selection(
     "reason": "selection-file-absent",
     "groups": [],
   }
-  path = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
-  )
   path.parent.mkdir(parents=True, exist_ok=True)
   with path.open("a", encoding="utf-8") as handle:
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   return 0
+
+
+def validate_group(root: Path, name: str) -> str:
+  """Validate a RED/GREEN group without modifying repository state."""
+  return _validate_selection(root, name)
 
 
 def select_group(root: Path, name: str) -> str:
@@ -163,7 +167,6 @@ def select_group(root: Path, name: str) -> str:
     "test: select RED/GREEN group " + name, "--", SELECTION.as_posix(),
   )
   return name
-
 
 def request_remote(
   root: Path, stage: str, *, engine_root: Path | None = None,
@@ -198,10 +201,8 @@ def request_remote(
   print("Hosted request for " + stage + " committed after " + previous_tip)
   return 0
 
-
 def results(root: Path, *, remote: bool) -> int:
   return read_results(root, remote=remote, git_cmd=_git)
-
 
 def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
   path = root / catalogue_path
@@ -211,32 +212,64 @@ def _group_fingerprint(root: Path, catalogue_path: Path) -> str:
     raise TestCommandError("test catalogue cannot be fingerprinted") from error
   return hashlib.sha256(catalogue_bytes).hexdigest()
 
-
 def _uncommitted_inputs(root: Path, evidence_path: Path) -> list[str]:
   return tracked_input_changes(root, evidence_path)
+
+
+def _evidence_source_sha(root: Path, evidence_path: Path) -> str:
+  """Source revision unchanged by command-owned test-result-only commits.
+
+  Those commits must not invalidate reusable evidence, but every source change
+  must.  Inspect actual committed paths; a commit message alone is insufficient.
+  """
+  from .source_tip import source_tip
+
+  evidence_path.relative_to(root)  # Reject evidence outside this repository.
+  return source_tip(root)
 
 
 def _run_group_set(
   root: Path, stage: str, groups: tuple[str, ...], *,
   catalogue_path: Path = Path(".ci/tests.json"),
+  reuse: bool = True,
 ) -> int:
+  """Run selected groups, optionally leaving reuse selection to the caller.
+
+  Parameters
+  ----------
+  root : Path
+      Repository containing the registered catalogue.
+  stage : str
+      Recorded test stage.
+  groups : tuple of str
+      Registered groups selected for this execution.
+  catalogue_path : Path
+      Repository-relative catalogue.
+  reuse : bool
+      Consult the general local cache. Platform-aware completion workers select
+      applicable results first and disable this second cache lookup.
+
+  Returns
+  -------
+  int
+      Zero for success, one for failure, two for incomplete execution.
+  """
   if not groups:
     raise TestCommandError(
       "RED/GREEN tests do not exist. Build and register "
       "issue-N- test groups in .ci/tests.json."
       if stage == "GREEN" else "no temporary test groups in .ci/temp-tests.json"
     )
-  revision = head_sha(root)
   fingerprint = _group_fingerprint(root, catalogue_path)
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise TestCommandError("testing log requires an issue branch")
+  issue = testing_issue(root)
   path = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
+    "testResults-" + str(issue) + ".jsonl"
   )
+  revision = _evidence_source_sha(root, path)
+  execution_head = head_sha(root)
   uncommitted_before = _uncommitted_inputs(root, path)
   reusable = set()
-  if not uncommitted_before:
+  if reuse and not uncommitted_before:
     checker = hosted_cache_checker(root, stage)
     remote_raw = (
       read_remote_published_log(
@@ -311,7 +344,7 @@ def _run_group_set(
   uncommitted = sorted(set(uncommitted_before) | set(
     _uncommitted_inputs(root, path)
   ))
-  head_changed = head_sha(root) != revision
+  head_changed = head_sha(root) != execution_head
   path.parent.mkdir(parents=True, exist_ok=True)
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -334,14 +367,8 @@ def _run_group_set(
     handle.write(json.dumps(record, sort_keys=True) + "\n")
   return 2 if launch_missing else 1 if failures else 0
 
-
 def _assert_no_temporary_issue_sandbox(root: Path) -> None:
-  match = re.fullmatch(
-    r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root),
-  )
-  if match is None:
-    raise TestCommandError("integration requires a current issue branch")
-  sandbox = root / ".ci" / "temp-tests" / match.group(1)
+  sandbox = root / ".ci" / "temp-tests" / str(testing_issue(root, branch=current_branch(root)))
   if sandbox.exists() or sandbox.is_symlink():
     raise TestCommandError(
       "integration requires complete removal of temporary test sandbox "
@@ -349,8 +376,31 @@ def _assert_no_temporary_issue_sandbox(root: Path) -> None:
       + " (including sources, fixtures and build files)"
     )
 
-
 def run_test(
+  root: Path, stage: str, *, remote: bool, engine_root: Path,
+  group: str | None = None,
+) -> int:
+  """Own and commit the durable evidence created by this test command."""
+  status = _run_test_impl(
+    root, stage, remote=remote, engine_root=engine_root, group=group,
+  )
+  if stage in STAGES and not remote:
+    if stage in {"regression", "integration"}:
+      relative = f".repoworkflow/validation/testResults-{testing_issue(root, branch=current_branch(root))}.jsonl"
+      if (root / relative).is_file():
+        commit_owned_files(
+          root, [relative], "test: record " + stage + " outcome",
+        )
+    else:
+      match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
+      if match is not None:
+        relative = ".repoworkflow/validation/testResults-" + match.group(1) + ".jsonl"
+        if (root / relative).is_file():
+          commit_owned_files(root, [relative], "test: record " + stage + " outcome")
+  return status
+
+
+def _run_test_impl(
   root: Path, stage: str, *, remote: bool, engine_root: Path,
   group: str | None = None,
 ) -> int:
@@ -388,8 +438,7 @@ def run_test(
       dirty_inputs=_uncommitted_inputs,
       expectation=expectation, declaration_error=declaration_error,
     )
-  if group is not None:
-    raise TestCommandError("test group is only supported for RED")
+  if group is not None: raise TestCommandError("test group is only supported for RED")
   if stage == "GREEN":
     selected = read_selection(root)
     if selected is None:
@@ -413,16 +462,22 @@ def run_test(
     return request_remote(root, stage, engine_root=engine_root)
   if stage == "integration":
     _assert_no_temporary_issue_sandbox(root)
-    if (
-      root.resolve() == engine_root.resolve()
-      and (root / "VERSION").is_file()
-    ):
-      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
-      if match is None:
-        raise TestCommandError("integration requires issue branch")
-      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+    if (root.resolve() == engine_root.resolve() and (root / "VERSION").is_file()
+        and not hosted_candidate_bound(root)):
+      prepare_engine_request(root, stage=stage, issue=testing_issue(root, branch=current_branch(root)))
+    if root.resolve() != engine_root.resolve():
+      from .test_consumer_integration import run_consumer_integration
+      return run_consumer_integration(
+        root, engine_root=engine_root, run_groups=_run_group_set,
+        verify=verify_consumer_retry, verifier=verify_local,
+        manual_check=after_automatic_integration,
+        publish=publish_if_local if hosted_candidate_bound(root) else publish_local_terminal,
+        get_version=lambda consumer: read_development_version(
+          consumer, load_config(consumer)))
     rc = run_local_integration(root, engine_root=engine_root)
-    publish_local_terminal(root, stage="integration")
+    if rc == 0 and after_automatic_integration(root) != 0:
+      return 2
+    (publish_if_local if hosted_candidate_bound(root) else publish_local_terminal)(root, stage="integration")
     return rc
   if stage == "regression":
     temporary = Path(".ci/temp-tests.json")
@@ -437,12 +492,11 @@ def run_test(
     if (
       root.resolve() == engine_root.resolve()
       and (root / "VERSION").is_file()
+      and not hosted_candidate_bound(root)
     ):
-      match = re.match(r"^issue-([1-9][0-9]*)(?:-|$)", current_branch(root))
-      if match is None:
-        raise TestCommandError("regression requires issue branch")
-      prepare_engine_request(root, stage=stage, issue=int(match.group(1)))
+      prepare_engine_request(root, stage=stage, issue=testing_issue(root, branch=current_branch(root)))
     before = head_sha(root)
+    before_source = source_tip(root)
     prepared: list[tuple[str, str]] = []
     outcome = (
       self_regression(root)
@@ -455,15 +509,12 @@ def run_test(
         root, "temporary", selected, catalogue_path=temporary,
       )
       outcome = {0: "PASS", 1: "FAIL", 2: "INCOMPLETE"}[temporary_rc]
-    match = re.match(r"^issue-([0-9]+)(?:-|$)", current_branch(root))
-    if match is None:
-      raise TestCommandError("regression evidence requires an issue branch")
     path = root / ".repoworkflow" / "validation" / (
-      "testResults-" + match.group(1) + ".jsonl"
+      f"testResults-{testing_issue(root, branch=current_branch(root))}.jsonl"
     )
     uncommitted = _uncommitted_inputs(root, path)
-    tested_sha = prepared[0][0] if prepared else before
-    head_changed = head_sha(root) != tested_sha
+    tested_sha = prepared[0][0] if prepared else before_source
+    head_changed = after != before
     path.parent.mkdir(parents=True, exist_ok=True)
     record = {
       "uncommittedChanges": uncommitted,
@@ -473,6 +524,10 @@ def run_test(
       ),
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "kind": "regression",
+      **({
+        "catalogueSHA256": _group_fingerprint(root, Path(".ci/tests.json")),
+        "selectedGroups": list(stage_groups(root, "regression")),
+      } if root.resolve() == engine_root.resolve() and (root / ".ci/tests.json").is_file() else {}),
       "branch": current_branch(root),
       "testSHA": tested_sha,
       "sourceSHA": before,
@@ -494,6 +549,6 @@ def run_test(
     }
     with path.open("a", encoding="utf-8") as handle:
       handle.write(json.dumps(record, sort_keys=True) + "\n")
-    publish_local_terminal(root, stage="regression")
+    (publish_if_local if hosted_candidate_bound(root) else publish_local_terminal)(root, stage="regression")
     return {"PASS": 0, "FAIL": 1, "INCOMPLETE": 2}[outcome]
   raise TestCommandError(stage + " execution not yet implemented")

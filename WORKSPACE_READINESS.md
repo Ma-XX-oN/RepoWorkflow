@@ -3,7 +3,7 @@
 Status: authoritative semantic contract for deriving workspace eligibility from
 the RWF ticket dependency graph.
 
-## 1. Inputs and authority
+## Inputs and authority
 
 Readiness is derived from canonical direct ticket dependencies and current
 durable issue lifecycle state.
@@ -20,7 +20,7 @@ workspace existence, and local claim state are not dependency edges.
 The projection consumes normalized RWF ticket/state interfaces. It does not
 parse ticket prose or infer relationships from Git history.
 
-## 2. Ready
+## Ready
 
 An issue is ready when its lifecycle permits entry and every direct dependency
 is satisfied.
@@ -31,7 +31,7 @@ permits entry.
 Dependency satisfaction comes from canonical durable lifecycle state. Local
 workspace state cannot substitute for that durable fact.
 
-## 3. Blocked
+## Blocked
 
 An issue is blocked when its lifecycle permits entry but at least one direct
 dependency is unresolved.
@@ -42,7 +42,7 @@ replace them with transitive prerequisites or descriptive container tickets.
 For the same canonical ticket graph and lifecycle state, blocker output is
 deterministic.
 
-## 4. Independent work
+## Independent work
 
 Two issues with no dependency path between them are independently ready when
 their own direct dependencies are satisfied.
@@ -50,7 +50,7 @@ their own direct dependencies are satisfied.
 A shared prerequisite affects a consumer only through an explicit direct
 dependency edge from that consumer.
 
-## 5. Direct edges are authoritative
+## Direct edges are authoritative
 
 Scheduling uses direct dependency edges.
 
@@ -60,7 +60,7 @@ B is blocked but does not become an inferred direct A -> C edge.
 The readiness layer never changes decomposition semantics by manufacturing
 additional dependencies.
 
-## 6. Non-dependency facts
+## Non-dependency facts
 
 The following never block readiness by themselves:
 
@@ -71,7 +71,7 @@ The following never block readiness by themselves:
 
 These facts are not coerced into dependency ordering.
 
-## 7. Workspace creation
+## Workspace creation
 
 `rwf workspace ready` reports issues eligible to begin work.
 
@@ -82,7 +82,7 @@ If a command explicitly supports provisioning local context before an issue is
 ready, it must not present that issue as ready and must not perform canonical
 issue-start semantics.
 
-## 8. Lifecycle classification
+## Lifecycle classification
 
 Lifecycle classification precedes dependency classification:
 
@@ -102,7 +102,7 @@ satisfied.
 
 A local worker claim is not reconstructed from durable lifecycle state.
 
-## 9. Determinism and diagnostics
+## Determinism and diagnostics
 
 For identical canonical ticket and lifecycle inputs, the projection returns
 identical classifications and blocker identities.
@@ -124,7 +124,7 @@ again.
 
 The projection fails closed when required authoritative state cannot be read.
 
-## 10. Required semantic tests
+## Required semantic tests
 
 Implementation must prove at least:
 

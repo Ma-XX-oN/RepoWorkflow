@@ -13,6 +13,49 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "migrate-native-dependencies.py"
 
 
+def fixture_provider(arguments: list[str]) -> int:
+  """Strict process-level stand-in for dependency get/replace; never runs gh."""
+  state_path = Path(os.environ["FAKE_GH_STATE"])
+  state = json.loads(state_path.read_text(encoding="utf-8"))
+  with Path(os.environ["FAKE_PROVIDER_CALLS"]).open("a", encoding="utf-8") as log:
+    log.write(json.dumps(arguments) + "\n")
+  if len(arguments) < 3 or arguments[0] != "dependency":
+    print("unexpected provider arguments", file=sys.stderr)
+    return 2
+  op, issue = arguments[1], arguments[2]
+  if not issue.isdecimal() or int(issue) < 1 or issue not in state["deps"]:
+    print("unexpected dependency issue", file=sys.stderr)
+    return 2
+  if op == "get" and len(arguments) == 3:
+    if state.get("fail_read") == issue:
+      print("injected read failure", file=sys.stderr)
+      return 2
+    deps = state["deps"][issue]
+    total = state.get("total_override", {}).get(issue, len(deps))
+    if total != len(deps):
+      print("truncated provider dependency connection", file=sys.stderr)
+      return 2
+  elif op == "replace" and all(
+    item.isdecimal() and int(item) > 0 for item in arguments[3:]
+  ):
+    if state.get("fail_edit") == issue:
+      print("injected edit failure", file=sys.stderr)
+      return 2
+    deps = sorted({int(item) for item in arguments[3:]})
+    state["edits"] = state.get("edits", 0) + 1
+    if state.get("ignore_edit") != issue:
+      state["deps"][issue] = deps
+    state_path.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+    deps = state["deps"][issue]
+  else:
+    print("unexpected provider arguments", file=sys.stderr)
+    return 2
+  print(json.dumps({
+    "schema_version": 1, "issue": int(issue), "dependencies": deps,
+  }))
+  return 0
+
+
 class DependencyMigrationToolTests(unittest.TestCase):
   def make_repo(self, root: Path) -> None:
     subprocess.run(
@@ -20,7 +63,6 @@ class DependencyMigrationToolTests(unittest.TestCase):
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
     subprocess.run(
@@ -33,7 +75,6 @@ class DependencyMigrationToolTests(unittest.TestCase):
       cwd=root,
       check=True,
       capture_output=True,
-      text=True,
     )
     subprocess.run(
       [
@@ -76,52 +117,44 @@ class DependencyMigrationToolTests(unittest.TestCase):
     path.write_text(json.dumps(value), encoding="utf-8")
 
   def fake_gh(self, base: Path, state: dict) -> dict[str, str]:
+    """Inject a Python dependency provider through the product's command seam."""
     state_path = base / "provider.json"
     state_path.write_text(json.dumps(state), encoding="utf-8")
-    bin_dir = base / "bin"
-    bin_dir.mkdir()
-    gh = bin_dir / "gh"
-    gh.write_text(
-      "#!/usr/bin/env python3\n"
-      "import json, os, pathlib, sys\n"
-      "state_path = pathlib.Path(os.environ['FAKE_GH_STATE'])\n"
-      "state = json.loads(state_path.read_text())\n"
-      "args = sys.argv[1:]\n"
-      "def save(): state_path.write_text(json.dumps(state, sort_keys=True))\n"
-      "if args[:2] == ['issue', 'view']:\n"
-      "  issue = args[2]\n"
-      "  if state.get('fail_read') == issue:\n"
-      "    print('injected read failure', file=sys.stderr); raise SystemExit(1)\n"
-      "  deps = state['deps'].get(issue, [])\n"
-      "  total = state.get('total_override', {}).get(issue, len(deps))\n"
-      "  nodes = [{'number': n, 'title': f'Issue {n}', "
-      "'url': f'https://example.invalid/{n}', 'state': 'OPEN'} for n in deps]\n"
-      "  print(json.dumps({'blockedBy': {'nodes': nodes, 'totalCount': total}}))\n"
-      "elif args[:2] == ['issue', 'edit']:\n"
-      "  issue = args[2]\n"
-      "  if state.get('fail_edit') == issue:\n"
-      "    print('injected edit failure', file=sys.stderr); raise SystemExit(1)\n"
-      "  deps = set(state['deps'].get(issue, []))\n"
-      "  if '--remove-blocked-by' in args:\n"
-      "    raw = args[args.index('--remove-blocked-by') + 1]\n"
-      "    deps -= {int(x) for x in raw.split(',') if x}\n"
-      "  if '--add-blocked-by' in args:\n"
-      "    raw = args[args.index('--add-blocked-by') + 1]\n"
-      "    deps |= {int(x) for x in raw.split(',') if x}\n"
-      "  if state.get('ignore_edit') != issue:\n"
-      "    state['deps'][issue] = sorted(deps)\n"
-      "  state['edits'] = state.get('edits', 0) + 1\n"
-      "  save()\n"
-      "else:\n"
-      "  print('unexpected gh args: ' + repr(args), file=sys.stderr)\n"
-      "  raise SystemExit(2)\n",
-      encoding="utf-8",
-    )
-    gh.chmod(0o755)
+    calls = base / "provider-calls.jsonl"
+    calls.write_text("", encoding="utf-8")
     env = dict(os.environ)
-    env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
     env["FAKE_GH_STATE"] = str(state_path)
+    env["FAKE_PROVIDER_CALLS"] = str(calls)
+    config = {
+      "schema": 1,
+      "versionCommand": [sys.executable, "-c", "print('1.0.0')"],
+      "repository": {
+        "integrationBranch": "main", "authoritativeRemote": "origin",
+      },
+      "environments": [{
+        "id": "fixture", "platform": "any",
+        "validationCommand": [sys.executable, "-c", "print('ok')"],
+      }],
+      "dependencyCommand": [
+        sys.executable, str(Path(__file__).resolve()), "--fixture-provider",
+      ],
+    }
+    path = base / "repo" / ".ci" / "repoworkflow.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(config), encoding="utf-8")
     return env
+
+  def verify_provider(self, root: Path, env: dict[str, str]) -> None:
+    configured = json.loads(
+      (root / ".ci" / "repoworkflow.json").read_text(encoding="utf-8")
+    )["dependencyCommand"]
+    expected = [
+      sys.executable, str(Path(__file__).resolve()), "--fixture-provider",
+    ]
+    if configured != expected or "GH_TOKEN" in env or "GITHUB_TOKEN" in env:
+      raise RuntimeError("nonhermetic dependencyCommand: refusing real gh")
 
   def run_tool(
     self,
@@ -130,6 +163,7 @@ class DependencyMigrationToolTests(unittest.TestCase):
     env: dict[str, str],
     *args: str,
   ):
+    self.verify_provider(root, env)
     return subprocess.run(
       [
         sys.executable,
@@ -143,7 +177,7 @@ class DependencyMigrationToolTests(unittest.TestCase):
       cwd=root,
       env=env,
       capture_output=True,
-      text=True,
+      text=True, encoding="utf-8", errors="strict",
     )
 
   def state(self, env: dict[str, str]) -> dict:
@@ -158,6 +192,36 @@ class DependencyMigrationToolTests(unittest.TestCase):
     self.manifest(manifest)
     env = self.fake_gh(base, state)
     return root, manifest, env
+
+  def test_provider_boundary_never_resolves_real_gh(self):
+    with tempfile.TemporaryDirectory() as td:
+      root, manifest, env = self.setup_case(
+        td, {"deps": {"1": [], "2": [], "3": []}, "edits": 0}
+      )
+      self.assertNotIn("GH_TOKEN", env)
+      self.assertNotIn("GITHUB_TOKEN", env)
+      result = self.run_tool(root, manifest, env)
+      self.assertEqual(result.returncode, 0, result.stderr)
+      calls = [
+        json.loads(line) for line in
+        Path(env["FAKE_PROVIDER_CALLS"]).read_text(encoding="utf-8").splitlines()
+      ]
+      self.assertEqual(calls, [
+        ["dependency", "get", "1"],
+        ["dependency", "get", "2"],
+        ["dependency", "get", "3"],
+      ])
+      config = root / ".ci" / "repoworkflow.json"
+      data = json.loads(config.read_text(encoding="utf-8"))
+      data["dependencyCommand"] = ["gh", "issue", "view"]
+      config.write_text(json.dumps(data), encoding="utf-8")
+      with self.assertRaisesRegex(RuntimeError, "nonhermetic dependencyCommand"):
+        self.run_tool(root, manifest, env)
+      self.assertEqual(len(calls), len(
+        Path(env["FAKE_PROVIDER_CALLS"]).read_text(
+          encoding="utf-8"
+        ).splitlines()
+      ))
 
   def test_dry_run_is_read_only_and_reports_complete_diff(self):
     with tempfile.TemporaryDirectory() as td:
@@ -280,4 +344,6 @@ class DependencyMigrationToolTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
+  if len(sys.argv) > 1 and sys.argv[1] == "--fixture-provider":
+    raise SystemExit(fixture_provider(sys.argv[2:]))
   unittest.main()

@@ -3,8 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .git import changed_files, git, head_sha, repository_state, restore_repository_state
+from .git import changed_files, git, git_bytes, git_wire_path, head_sha, repository_state, restore_repository_state
 from .guard import Candidate, GuardError, validate_candidate
+from .source_tip import source_tip
+from .version_evidence import tested_source_changed
 from .version_adapter import (
   VersionAdapterError,
   read_development_version,
@@ -18,28 +20,8 @@ _VERSION_PARTS_RE = re.compile(
 )
 
 
-def _terminal_tag(root: Path, remote: str, version: str) -> str | None:
-  remote_result = git(root, "remote", "get-url", remote, check=False)
-  if remote_result.returncode or not remote_result.stdout.strip():
-    raise GuardError(f"authoritative remote is unavailable: {remote}")
-  tags = (f"v{version}", f"v{version}-CI-FAIL")
-  refs = [f"refs/tags/{tag}" for tag in tags]
-  result = git(root, "ls-remote", "--tags", remote, *refs, check=False)
-  if result.returncode:
-    detail = (result.stderr or result.stdout).strip()
-    raise GuardError(f"cannot establish authoritative tag state: {detail}")
-  present = {
-    line.split("\t", 1)[1].strip()
-    for line in result.stdout.splitlines()
-    if "\t" in line
-  }
-  for tag, ref in zip(tags, refs):
-    if ref in present:
-      return tag
-  return None
-
-
-def _assert_ci_iteration_advanced(before: str, after: str) -> None:
+def _assert_implementation_advanced(before: str, after: str) -> None:
+  """Require Q+1/R=0 while preserving the stable base and issue identity."""
   before_match = _VERSION_PARTS_RE.fullmatch(before)
   after_match = _VERSION_PARTS_RE.fullmatch(after)
   if before_match is None or after_match is None:
@@ -47,24 +29,25 @@ def _assert_ci_iteration_advanced(before: str, after: str) -> None:
   expected = {
     "base": before_match.group("base"),
     "issue": before_match.group("issue"),
-    "generation": before_match.group("generation"),
-    "iteration": str(int(before_match.group("iteration")) + 1),
+    "generation": str(int(before_match.group("generation")) + 1),
+    "iteration": "0",
   }
   actual = {name: after_match.group(name) for name in expected}
   if actual != expected:
     raise GuardError(
-      "repository version adapter did not perform exactly one CI-iteration increment: "
+      "repository version adapter did not prepare exactly one implementation revision: "
       f"{before} -> {after}"
     )
 
 
-def _advance_ci_iteration(root: Path, config: dict, version: str) -> str:
+def _advance_implementation(root: Path, config: dict, version: str) -> str:
+  """Prepare the next implementation revision through the consumer adapter."""
   try:
-    run_transition(root, config, "task", "--increment", "CI-iteration")
+    run_transition(root, config, "task", "--increment", "merge-integration-failed")
     advanced = read_development_version(root, config)
   except VersionAdapterError as exc:
     raise GuardError(str(exc)) from exc
-  _assert_ci_iteration_advanced(version, advanced)
+  _assert_implementation_advanced(version, advanced)
   return advanced
 
 
@@ -96,6 +79,8 @@ def _request_needs_refresh(root: Path, config: dict, version: str) -> bool:
   head = head_sha(root)
   if request_commit == head:
     return False
+  if source_tip(root) == source_tip(root, request_commit):
+    return False
   ancestry = git(
     root,
     "merge-base",
@@ -107,22 +92,18 @@ def _request_needs_refresh(root: Path, config: dict, version: str) -> bool:
   if ancestry.returncode:
     return True
   allowed = {
-    path.replace("\\", "/")
+    path
     for artifact in config.get("artifacts", [])
     if artifact.get("committed", True)
     for path in artifact.get("outputs", [])
   }
-  changed = {
-    line.strip().replace("\\", "/")
-    for line in git(
-      root,
-      "log",
-      "--format=",
-      "--name-only",
-      f"{request_commit}..{head}",
-    ).stdout.splitlines()
-    if line.strip()
-  }
+  raw = git_bytes(
+    root, "log", "--format=", "--name-only", "-z",
+    f"{request_commit}..{head}",
+  ).stdout
+  if raw and not raw.endswith(b"\0"):
+    raise GuardError("unterminated Git history path record")
+  changed = {git_wire_path(item) for item in raw.split(b"\0") if item}
   return bool(changed - allowed)
 
 
@@ -144,6 +125,7 @@ def prepare_development_candidate(
   config: dict,
   *,
   push: bool = False,
+  parent_reintegration: bool = False,
 ) -> tuple[Candidate, bool]:
   root = root.resolve()
   if changed_files(root):
@@ -158,8 +140,13 @@ def prepare_development_candidate(
       version = read_development_version(root, config)
     except VersionAdapterError as exc:
       raise GuardError(str(exc)) from exc
-    while _terminal_tag(root, remote, version) is not None:
-      version = _advance_ci_iteration(root, config, version)
+    issue = int(_VERSION_PARTS_RE.fullmatch(version).group("issue"))
+    if parent_reintegration:
+      run_transition(root, config, "task", "--increment", "CI-iteration")
+      version = read_development_version(root, config)
+      prepared = True
+    while not parent_reintegration and tested_source_changed(root, issue, version, remote=remote):
+      version = _advance_implementation(root, config, version)
       prepared = True
 
     if _request_needs_refresh(root, config, version):

@@ -14,7 +14,7 @@ repository-neutral
 adequacy policy in [TEST_ADEQUACY.md](TEST_ADEQUACY.md).  These concrete stage
 requirements do not replace that gate; both apply.
 
-## 1. Test principles
+## Test principles
 
 RepoWorkflow must test policy at several levels:
 
@@ -42,13 +42,13 @@ Tests must not depend on the user's machine or manual acceptance.  Temporary
 repositories, remotes, GitHub test branches/PRs where required, and automated
 shell interaction are the test harness.
 
-## 1.1 Validation depth by workflow stage
+## Validation depth by workflow stage
 
 RepoWorkflow CI distinguishes issue verification, regression, and integration
 because they establish different facts and have different cost.
 
 Issue development runs the issue-owned catalogue group(s), plus any groups
-expanded from durable high-risk aliases and cheap invariant groups.  This is
+expanded from durable high-risk aliases. Integration-stage checks are not\nautomatically added to ordinary issue verification. This is
 the normal pull-request feedback path.  It must not claim regression or
 integration evidence.
 
@@ -61,8 +61,10 @@ tier is selected explicitly by the workflow that knows the umbrella outcome is
 complete.
 
 Integration runs the broad validation suite plus all authoritative
-cross-platform/provider probes.  An authoritative push to `main` is always an
-integration candidate.  Full platform probes are therefore integration gates,
+cross-platform/provider probes. Under separate legacy Self CI policy, an
+authoritative push to `main` is an integration candidate, not a request to
+run the on-demand workflow. The on-demand workflow runs only when `.ci/run`
+changes on an `issue-*` branch. Full platform probes are integration gates,
 not ordinary issue-development feedback.
 
 Documentation-only changes retain the dedicated fast path and may skip code
@@ -72,11 +74,30 @@ but issue or regression evidence must never masquerade as integration evidence.
 Every CI plan records the selected tier, selected groups where applicable, and
 the reason for that selection.
 
+## 1.2 Catalogue stage terminology
+
+The authoritative `.ci/tests.json` uses `type: regression` or
+`type: integration` for retained automatic tests. `manual` identifies
+separately authorized manual acceptance cases. `invariant` is **not** a
+test stage; CI boundary checks belong to integration.
+
+RED/GREEN tests use issue-owned `issue-<number>-...` group names and
+`.ci/red-green.txt`. Short-lived tests belong to `.ci/temp-tests.json`;
+retire obsolete tests instead of promoting them automatically. Stage
+ownership is established by the acceptance contract, not filenames.
+
+Aliases associate named groups, not stages. `rwf test` selects the stage,
+and `.ci/run` invokes that stage remotely. The staged engine runs only
+registered targets, deduplicates native module identities, and records exact
+catalogue/source identity. See [TEST_CATALOGUE.md](TEST_CATALOGUE.md).
+No standalone discovery run substitutes for RWF published evidence.
+ See [consumer integration](WORKFLOW_INTEGRATION.md#19-consumer-integration-execution-and-evidence).
+
 ## 2. Cross-cutting tests
 
 These tests apply across implementation stages.
 
-### 2.1 State and command consistency
+### State and command consistency
 
 - every legal state-machine transition is reachable through its documented
   command;
@@ -88,7 +109,7 @@ These tests apply across implementation stages.
   transition explicitly records failure evidence;
 - `repo-workflow` and `rwf` behave equivalently.
 
-### 2.2 Exact-candidate identity
+### Exact-candidate identity
 
 - evidence records the exact tested SHA;
 - evidence for SHA A is accepted for A;
@@ -98,7 +119,7 @@ These tests apply across implementation stages.
 - mutations made by validators are detected, rolled back where specified, and
   cannot produce PASS evidence.
 
-### 2.3 Validation environment evidence
+### Validation environment evidence
 
 - every authoritative validation record includes structured `platform`
   evidence with OS and architecture;
@@ -120,14 +141,14 @@ These tests apply across implementation stages.
   suite rather than assuming that evidence is portable merely because its SHA
   matches.
 
-### 2.4 Git ref immutability and reachability
+### Git ref immutability and reachability
 
 - task, PRELIM, and stable tags cannot be reused or moved;
 - deleting an ephemeral branch does not make a tagged candidate unreachable;
 - squashing the final integration does not destroy PRELIM reachability;
 - malformed or unauthorized refs are rejected.
 
-### 2.5 Concurrency and worker isolation
+### Concurrency and worker isolation
 
 Use at least two independent clones against one disposable remote.
 
@@ -138,7 +159,7 @@ Use at least two independent clones against one disposable remote.
 - concurrent audit updates do not silently lose records;
 - stale observations are rejected before destructive cleanup or integration.
 
-### 2.6 Failure atomicity
+### Failure atomicity
 
 Inject failures at mutation boundaries such as version update, commit, tag,
 push, audit append, and cleanup.
@@ -149,7 +170,7 @@ push, audit append, and cleanup.
 - rerunning after an interrupted operation is deterministic or gives an
   actionable recovery state.
 
-### 2.6 Platform coverage
+### Platform coverage
 
 - run the portable unit/integration suite on Linux and Windows;
 - exercise Git invocation, path handling, process invocation, quoting, line
@@ -157,7 +178,7 @@ push, audit append, and cleanup.
 - platform-specific consumer validation remains INCOMPLETE rather than falsely
   PASS when the required platform/capability is unavailable.
 
-## 3. Stage 1 - repository version adapter
+## Stage 1 - repository version adapter
 
 This stage covers the repository-owned `repo-version` contract and RWF
 forwarding.
@@ -179,14 +200,14 @@ Required tests:
 - equivalent adapter behaviour works through `repo-workflow version` and
   `rwf version`.
 
-## 4. Stage 2 - state machine, guidance, CLI, alias, and completion
+## Stage 2 - state machine, guidance, CLI, alias, and completion
 
 The complete Stage 2 TDD contract is maintained in
 [COMMAND_GRAMMAR_TESTS.md](COMMAND_GRAMMAR_TESTS.md).  Keep the concrete
 state-machine, parser, completion, diagnostic, alias, and shell-interaction
 test matrix there so this strategy remains below the project size ceiling.
 
-## 5. Stage 3 - validation audit and local/hosted equivalence
+## Stage 3 - validation audit and local/hosted equivalence
 
 Required audit tests:
 
@@ -208,12 +229,13 @@ Required validation-reuse tests:
 - changed validation-relevant candidate requires fresh evidence;
 - INCOMPLETE evidence is not treated as PASS or FAIL;
 - genuine FAIL creates only the appropriate immutable failure evidence;
-- a pushed candidate always receives server-side examination even when hosted
-  execution is skipped because exact local evidence is complete;
+- under the separately configured legacy Self CI path, a pushed candidate
+  receives server-side examination when that workflow is triggered; on-demand
+  execution instead requires a `.ci/run` change on an `issue-*` branch;
 - local and hosted paths invoke the same validation contract and produce
   semantically equivalent results.
 
-## 6. Stage 4 - GUID preliminary integration, reintegration, and PRELIM tags
+## Stage 4 - GUID preliminary integration, reintegration, and PRELIM tags
 
 Required creation tests:
 
@@ -264,7 +286,7 @@ Required cleanup tests:
 - PRELIM tags/audit evidence survive cleanup;
 - a later integration creates a fresh GUID from then-current server main.
 
-## 7. Stage 5 - local Git guard layer
+## Stage 5 - local Git guard layer
 
 Each guard needs positive and negative tests.
 
@@ -287,7 +309,7 @@ Required tests:
 - absence/bypass of local hooks cannot be mistaken for server authorization;
 - guard failure is a STOP and leaves no repair-forward mutation.
 
-## 8. Stage 6 - protected server integration and stable finalization
+## Stage 6 - protected server integration and stable finalization
 
 Use hosted integration tests where server behaviour itself is the contract.
 
@@ -303,7 +325,9 @@ Required server tests:
   another SHA;
 - ordinary development actors cannot arbitrarily create, update, or delete
   protected stable tags;
-- server examines pushed candidates and runs only missing automated validation.
+- the applicable separately triggered server workflow examines pushed
+  candidates and runs only missing automated validation; ordinary source
+  pushes do not invoke the `.ci/run`-gated on-demand workflow.
 
 Required stable-finalization tests:
 
@@ -321,14 +345,14 @@ Where GitHub plan/repository permissions make a protection mechanism
 unavailable, the test must record that as an external capability dependency;
 RWF must not silently claim that boundary is enforced.
 
-## 9. Stage 7 - consumer pilot and full lifecycle certification
+## Stage 7 - consumer pilot and full lifecycle certification
 
 The pilot must be automated and disposable enough that the user is not the
 test harness.
 
 At minimum, exercise these complete scenarios:
 
-### 9.1 Happy path
+### Happy path
 
 Exercise both required forms:
 
@@ -345,32 +369,55 @@ an explicit human-result transition.
 Verify every intermediate branch, version, SHA, tag, audit record, legal next
 action, and cleanup result.
 
-### 9.2 ART failure and recovery
+The expected `Q`/`R` outcomes in the following failure scenarios verify the
+definition in [WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
 
-ART FAIL -> immutable failure evidence -> automatic `R` increment ->
-development fix -> new candidate -> PASS.  Prove failed evidence remains
-reachable and cannot validate the replacement candidate.
+### ART failure and recovery
 
-### 9.3 AIT failure and recovery
+ART FAIL -> immutable failure evidence -> version unchanged -> development
+fix -> preparation advances `Q` once and resets `R` to zero -> new candidate -> PASS. Prove failed
+evidence remains reachable and cannot validate the replacement candidate, and
+that source edits before preparation do not each advance the version.
 
-AIT FAIL -> immutable integration-rejection evidence -> automatic `Q`
-increment and `R` reset -> return to development -> new ART/AIT validation ->
-AIT succeeds.  Prove no user result entry is required and that AIT failure is
-not misclassified as an ART/CI iteration.
+### AIT failure and recovery
 
-### 9.4 MIT failure and recovery
+AIT FAIL during development -> immutable integration-rejection evidence ->
+version unchanged -> development fix -> preparation advances `Q` once and resets `R` -> new
+ART/AIT validation -> AIT succeeds.  Prove no user result entry is required and
+that a development AIT failure alone does not advance either counter.
 
-MIT FAIL -> manual rejection evidence -> automatic `Q` increment and `R` reset
--> return to development -> fresh automated validation -> required MIT -> MIT
-succeeds.
+### MIT failure and recovery
 
-### 9.5 INCOMPLETE and retry
+MIT FAIL during development -> manual rejection evidence -> version unchanged
+-> development fix -> preparation advances `Q` once and resets `R` -> fresh automated
+validation -> required MIT -> MIT succeeds.
+
+### PRELIM integration failure and recovery
+
+PRELIM server run -> any ART, AIT or MIT FAIL -> immutable failure evidence ->
+version unchanged -> originator informed -> repair from that PRELIM -> prepare
+the changed implementation with the next `Q` and `R=0` -> new PRELIM -> PASS.
+Prove the same holds for each test class. A merge conflict alone leaves the
+counters unchanged; preparing a successfully reconstructed candidate applies
+the task-version rules.
+
+### Implementation revisions and parent reintegration
+
+Exercise `Q.R=3.0 -> 3.1 -> 3.2` by reintegrating the same implementation
+against successive newer parent tips. Prepare changed issue code as `4.0`,
+including when its parent also changed. Prove that repeated preparation of the
+same candidate does not increment again, and that additional tests, remaining
+platforms, unchanged retries, MIT pauses and report commits preserve the version.
+Changed relevant test inputs must invalidate the affected evidence without
+advancing either counter unless an implementation or parent transition applies.
+
+### INCOMPLETE and retry
 
 Missing capability/environment -> INCOMPLETE -> no terminal tag -> unchanged
 candidate may retry -> changed candidate cannot inherit the incomplete run as
 terminal evidence.
 
-### 9.6 Exact integrated-candidate validation
+### Exact integrated-candidate validation
 
 Construct a prelim candidate by combining an already accepted task with the
 current parent.  Prove the resulting SHA cannot inherit task-candidate ART,
@@ -380,30 +427,30 @@ acceptance contract applies to the integrated result.  Verify complete local
 evidence is reusable for the exact prelim SHA and that the server runs missing
 automated ART/AIT rather than asking the user to run them.
 
-### 9.7 Main advances during integration
+### Main advances during integration
 
 Run the A/B/B'/C reintegration scenario from Stage 4 end to end, including
 server rejection of stale B' and successful fresh validation of C.
 
-### 9.8 Concurrent workers
+### Concurrent workers
 
 Two accepted tasks begin separate integration attempts against the same remote.
 Verify unique GUID branches, no ref collision, no cross-worker cleanup, and
 correct stale handling when one lands first.
 
-### 9.9 Squash integration and evidence retention
+### Squash integration and evidence retention
 
 Land an integration using squash semantics, clean up the prelim branch, and
 prove the PRELIM tag still reaches the exact tested pre-squash candidate while
 the stable tag identifies the final server-main release commit.
 
-### 9.10 Guard/bypass defence in depth
+### Guard/bypass defence in depth
 
 Demonstrate that an operation blocked locally is also rejected at the server
 boundary when local hooks are absent or bypassed, for every remotely enforceable
 critical invariant.
 
-## 10. Stage completion gates
+## Stage completion gates
 
 An implementation stage is complete only when the universal adequacy gate in
 [TEST_ADEQUACY.md](TEST_ADEQUACY.md) is satisfied and:
@@ -423,7 +470,7 @@ An implementation stage is complete only when the universal adequacy gate in
 The final RWF lifecycle is certifiable only when the complete Stage 7 system
 suite passes in addition to all lower-level tests.
 
-## 11. Regression rule for future changes
+## Regression rule for future changes
 
 Every defect found in RepoWorkflow must receive a regression test that fails
 for the defect before or alongside the fix and passes afterward.
@@ -453,7 +500,6 @@ Platform probes, semantic/topology tests, integration tests, and assembled
 public-workflow tests establish different facts.  Passing one category must
 not be cited as evidence for another without an explicit test that crosses the
 relevant boundary.
-
 
 For hosted CI that validates mutable branch or pull-request heads, newer
 candidates should cancel obsolete in-progress candidates when the platform

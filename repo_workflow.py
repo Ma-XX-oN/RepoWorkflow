@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import codecs
+import io
 import json
+import os
+import subprocess
 from pathlib import Path
 import sys
 
@@ -24,6 +28,7 @@ from repo_workflow.classification import (
 from repo_workflow.config import ConfigError, load_config
 from repo_workflow.git import (
   GitError,
+  current_branch,
   changed_files,
   head_sha,
   repository_state,
@@ -60,6 +65,12 @@ from repo_workflow.lane_list import LaneListError
 from repo_workflow.lane_selection import LaneSelectionError
 from repo_workflow.lane_render import LaneRenderError
 from repo_workflow.repo_info_adapter import RepoInfoError
+from repo_workflow.remote_status import RemoteStatusError
+from repo_workflow.output import configure_utf8_output
+from repo_workflow.remote_invocation import (
+  RemoteInvocationError, emit_outcome, invoke_numbered,
+)
+from repo_workflow.remote_result import RemoteResultError, publish_result
 from repo_workflow.relationship_store import RelationshipStoreError
 from repo_workflow.runtime_identity import RuntimeIdentityError
 from repo_workflow.state_store import StateStoreError
@@ -84,6 +95,11 @@ from repo_workflow.workspace_worktree import WorktreeError
 ENGINE_ROOT = Path(__file__).resolve().parent
 
 
+def _configure_utf8_output() -> bool:
+  """Compatibility alias for the shared, strict UTF-8 output boundary."""
+  return configure_utf8_output()
+
+
 def _root(value: str) -> Path:
   return Path(value).resolve()
 
@@ -92,6 +108,14 @@ def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(description="Shared repository workflow engine")
   parser.add_argument("--root", default=".", help="consumer repository root")
   commands = parser.add_subparsers(dest="command", required=True)
+
+  commands.add_parser("manual-prompt", help="read the current [MIT n/m] prompt prefix")
+
+  done_worker = commands.add_parser("done-worker", help="execute a PRELIM CI worker phase")
+  done_worker.add_argument("phase", choices=("prepare", "test", "accept", "dispatch"))
+  done_worker.add_argument("--prelim-ref")
+  done_worker.add_argument("--plan")
+  done_worker.add_argument("--output")
 
   preflight = commands.add_parser("preflight")
   preflight.add_argument("--expected-sha")
@@ -214,10 +238,53 @@ def main(argv: list[str] | None = None) -> int:
         return handle_completion(root, words, describe=describe)
       if mode == "help":
         return handle_help(root, words)
+      if (
+        os.environ.get("RWF_HOSTED_INVOCATION") == "1"
+        and current_branch(root).startswith("CMD-")
+        and words[:2] != ["test", "results"]
+        and not (len(words) >= 2 and words[-2] == "--remote")
+      ):
+        raise RemoteInvocationError(
+          "hosted CMD invocation requires numbered --remote suffix"
+        )
+      if len(words) >= 2 and words[-2] == "--remote":
+        outcome = invoke_numbered(
+          root, words,
+          lambda source, local: subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()),
+             "--root", str(source), *local],
+            cwd=source, stdin=subprocess.DEVNULL,
+            capture_output=True, check=False,
+          ),
+          publish=lambda completed: publish_result(root, completed),
+        )
+        emit_outcome(outcome)
+        return outcome.exit_code
       return handle_public(root, words, engine_root=ENGINE_ROOT)
 
     args = build_parser().parse_args(argv)
     root = _root(args.root)
+    if args.command == "done-worker":
+      from repo_workflow.done_workflow import prepare_done, run_done_tests, accept_done, dispatch_done
+      if args.phase == "prepare":
+        if not args.prelim_ref:
+          raise ValueError("done-worker prepare requires --prelim-ref")
+        value = prepare_done(root, args.prelim_ref, engine_root=ENGINE_ROOT)
+      else:
+        if not args.plan:
+          raise ValueError("done-worker phase requires --plan")
+        plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+        if plan.get("status") != "prepared":
+          raise ValueError("done-worker requires a prepared execution plan")
+        value = {"test": run_done_tests, "accept": accept_done, "dispatch": dispatch_done}[args.phase](root, plan)
+      if args.output:
+        Path(args.output).write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+      print(json.dumps(value, sort_keys=True))
+      return 1 if value["status"] in {"failed", "conflict"} else 0
+    if args.command == "manual-prompt":
+      from repo_workflow.manual_test_cli import manual_prompt
+      print(manual_prompt(root), end="")
+      return 0
     if args.command == "preflight":
       candidate = validate_candidate(
         root,
@@ -421,6 +488,9 @@ def main(argv: list[str] | None = None) -> int:
     StateStoreError,
     TicketDependencyError,
     RepoInfoError,
+    RemoteStatusError,
+    RemoteInvocationError,
+    RemoteResultError,
     ResultError,
     GitError,
     GuardError,
@@ -436,4 +506,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+  if not _configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main())

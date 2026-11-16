@@ -1,8 +1,8 @@
-# 14. Use decomposition to expose architecture problems — companion sections
+# Use decomposition to expose architecture problems — companion sections
 
 Continued from [WORK_GRAPH_METHODOLOGY.md](WORK_GRAPH_METHODOLOGY.md).
 
-## 14. Use decomposition to expose architecture problems
+## Use decomposition to expose architecture problems
 
 During issue refinement, treat the following as diagnostic signals:
 
@@ -21,7 +21,7 @@ During issue refinement, treat the following as diagnostic signals:
 These are reasons to inspect boundaries, not automatic reasons to create more
 issues.  Split only when a cleaner independently testable contract appears.
 
-## 15. Testing and refinement companion
+## Testing and refinement companion
 
 Verification procedures and acceptance checklists are defined in
 [WORK_GRAPH_TESTING.md](WORK_GRAPH_TESTING.md); public-workflow first-use

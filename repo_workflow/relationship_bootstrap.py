@@ -23,6 +23,7 @@ from .relationship_store import (
 from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import issue_info, resolve_info_config
 from .state_store import WriterIdentity
+from .owned_commit import commit_owned_files
 from .ticket_dependency_adapter import (
   TicketDependencyError,
   read_ticket_relationships,
@@ -59,8 +60,8 @@ def ensure_relationship_graph(
   requested_set = set(requested)
   policy = FollowPolicy() if follow is None else follow
   context = ShowChildrenPolicy() if show_children is None else show_children
-  dependency_config = resolve_dependency_config(root)
-  info_config = resolve_info_config(root)
+  dependency_config = None
+  info_config = None
   if (
     refresh
     and snapshot is not None
@@ -106,6 +107,9 @@ def ensure_relationship_graph(
     current = issues.get(issue)
     provider: IssueRelationships | None = None
     if refresh or current is None:
+      if dependency_config is None:
+        dependency_config = resolve_dependency_config(root)
+        info_config = resolve_info_config(root)
       cached_provider = provider_cache.get(issue)
       if cached_provider is not None:
         provider, provider_dependants, info = cached_provider
@@ -217,6 +221,10 @@ def ensure_relationship_graph(
       store.create(graph, writer)
     else:
       store.replace(snapshot.revision, graph, writer)
+    commit_owned_files(
+      root, [".repoworkflow/tickets.csv"],
+      "tickets: commit acquired relationship state",
+    )
   else:
     assert snapshot is not None
     graph = snapshot.graph

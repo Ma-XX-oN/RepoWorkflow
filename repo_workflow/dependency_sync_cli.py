@@ -14,6 +14,7 @@ from .relationship_store import RelationshipStore
 from .relationships import IssueRelationships, RelationshipGraph
 from .repo_info_adapter import resolve_info_config
 from .runtime_identity import runtime_writer_identity
+from .owned_commit import commit_owned_files
 from .ticket_dependency_adapter import (
   read_ticket_dependencies,
   replace_ticket_dependencies,
@@ -178,6 +179,10 @@ def _from_tickets(
   })
   if graph != snapshot.graph:
     store.replace(snapshot.revision, graph, runtime_writer_identity())
+    commit_owned_files(
+      root, [".repoworkflow/tickets.csv"],
+      "rwf: synchronize ticket titles and dependencies",
+    )
 
   for issue, status, replacement, comparison in results:
     print(json.dumps({

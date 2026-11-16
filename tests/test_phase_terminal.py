@@ -14,13 +14,11 @@ class PhaseTerminalTests(unittest.TestCase):
     self.assertEqual(result.next_version, VERSION)
     self.assertIsNone(result.next_request)
 
-  def test_regression_fail_advances_r_only_for_next_attempt(self):
+  def test_regression_failure_does_not_change_source_version(self):
     result = plan_phase(VERSION, phase="regression", outcome="FAIL")
     self.assertEqual(result.terminal_tag, "v" + VERSION + "-CI-FAIL")
-    self.assertEqual(result.next_version, "1.2.3-issue.571.2.8")
-    self.assertEqual(result.next_request, (
-      "task", "--increment", "CI-iteration",
-    ))
+    self.assertEqual(result.next_version, VERSION)
+    self.assertIsNone(result.next_request)
 
   def test_integration_pass_uses_distinct_prelim_without_r_increment(self):
     regression = plan_phase(VERSION, phase="regression", outcome="PASS")
@@ -30,13 +28,22 @@ class PhaseTerminalTests(unittest.TestCase):
     self.assertEqual(result.next_version, VERSION)
     self.assertIsNone(result.next_request)
 
-  def test_integration_failure_advances_q_and_resets_r_next_cycle(self):
+  def test_integration_failure_does_not_change_source_version(self):
     result = plan_phase(VERSION, phase="integration", outcome="FAIL")
     self.assertEqual(result.terminal_tag, "v1.2.3-PRELIM-571.2.7-CI-FAIL")
-    self.assertEqual(result.next_version, "1.2.3-issue.571.3.1")
-    self.assertEqual(result.next_request, (
-      "task", "--increment", "merge-integration-failed",
-    ))
+    self.assertEqual(result.next_version, VERSION)
+    self.assertIsNone(result.next_request)
+
+  def test_r_zero_is_valid_and_failure_keeps_version(self):
+    reset = "1.2.3-issue.571.3.0"
+    self.assertEqual(
+      plan_phase(reset, phase="regression", outcome="FAIL").next_version,
+      reset,
+    )
+    self.assertEqual(
+      plan_phase(reset, phase="integration", outcome="PASS").terminal_tag,
+      "v1.2.3-PRELIM-571.3.0",
+    )
 
   def test_incomplete_does_not_consume_version_or_tag(self):
     for phase in ("regression", "integration"):
@@ -55,7 +62,7 @@ class PhaseTerminalTests(unittest.TestCase):
     large = "999.888.777-issue.123456.99.9999"
     self.assertEqual(
       plan_phase(large, phase="integration", outcome="FAIL").next_version,
-      "999.888.777-issue.123456.100.1",
+      large,
     )
 
   def test_repeated_calculation_is_idempotent_and_pure(self):
@@ -66,14 +73,15 @@ class PhaseTerminalTests(unittest.TestCase):
   def test_full_regression_integration_retry_lifecycle(self):
     first = plan_phase(VERSION, phase="regression", outcome="FAIL")
     self.assertEqual(first.terminal_tag, "v" + VERSION + "-CI-FAIL")
-    second = plan_phase(first.next_version, phase="regression", outcome="PASS")
-    self.assertEqual(second.next_version, "1.2.3-issue.571.2.8")
+    # Source corrections, rather than terminal outcomes, prepare these versions.
+    second = plan_phase("1.2.3-issue.571.3.0", phase="regression", outcome="PASS")
+    self.assertEqual(second.next_version, "1.2.3-issue.571.3.0")
     third = plan_phase(second.next_version, phase="integration", outcome="FAIL")
-    self.assertEqual(third.terminal_tag, "v1.2.3-PRELIM-571.2.8-CI-FAIL")
-    self.assertEqual(third.next_version, "1.2.3-issue.571.3.1")
-    fourth = plan_phase(third.next_version, phase="regression", outcome="PASS")
+    self.assertEqual(third.terminal_tag, "v1.2.3-PRELIM-571.3.0-CI-FAIL")
+    self.assertEqual(third.next_version, second.next_version)
+    fourth = plan_phase("1.2.3-issue.571.4.0", phase="regression", outcome="PASS")
     fifth = plan_phase(fourth.next_version, phase="integration", outcome="PASS")
-    self.assertEqual(fifth.terminal_tag, "v1.2.3-PRELIM-571.3.1")
+    self.assertEqual(fifth.terminal_tag, "v1.2.3-PRELIM-571.4.0")
     self.assertEqual(fifth.next_version, fourth.next_version)
     self.assertEqual(len({
       first.terminal_tag, second.terminal_tag,
@@ -90,10 +98,15 @@ class PhaseTerminalTests(unittest.TestCase):
           )
           self.assertEqual(first, repeat)
           opposite = "FAIL" if terminal == "PASS" else "PASS"
-          with self.assertRaisesRegex(PhaseTransitionError, "immutable"):
-            plan_phase(
+          if terminal == "PASS":
+            replacement = plan_phase(
               VERSION, phase=phase, outcome=opposite, prior_terminal=terminal,
             )
+            self.assertEqual(replacement.next_version, VERSION)
+            self.assertTrue(replacement.terminal_tag.endswith("-CI-FAIL"))
+          else:
+            with self.assertRaisesRegex(PhaseTransitionError, "immutable"):
+              plan_phase(VERSION, phase=phase, outcome=opposite, prior_terminal=terminal)
           with self.assertRaisesRegex(PhaseTransitionError, "immutable"):
             plan_phase(
               VERSION, phase=phase, outcome="INCOMPLETE",
@@ -125,7 +138,7 @@ class PhaseTerminalTests(unittest.TestCase):
           plan_phase(VERSION, phase="regression", outcome=outcome)
     for version in (
       "", "1.2.3", "1.2.3-issue.0.0.1",
-      "1.2.3-issue.571.2.0", "1.2.3-issue.571.2.7-extra",
+      "1.2.3-issue.571.2.00", "1.2.3-issue.571.2.7-extra",
       "1.2.3-issue.571.2.-1",
       "01.2.3-issue.571.2.7", "1.02.3-issue.571.2.7",
       "1.2.3-issue.0571.2.7", "1.2.3-issue.571.02.7",

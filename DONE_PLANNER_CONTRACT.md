@@ -1,5 +1,9 @@
 # Read-only done planner (#108)
 
+For completion submission, versioning and PRELIM generation semantics, the
+[approved single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md) supersedes
+conflicting requirements below. Historical requirements are retained for audit.
+
 Status: V3 candidate, not merged.  No mutating done executor is enabled.
 
 ## Boundary

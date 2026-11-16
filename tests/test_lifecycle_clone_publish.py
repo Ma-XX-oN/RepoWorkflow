@@ -26,6 +26,9 @@ class IndependentCloneLifecyclePublicationTests(unittest.TestCase):
       self.git(seed, "config", "user.name", "Test Agent")
       self.git(seed, "config", "user.email", "test@example.invalid")
       (seed / "README.md").write_text("seed\n", encoding="utf-8")
+      (seed / ".gitattributes").write_text(
+        ".repoworkflow/tickets.csv text eol=lf\n", encoding="utf-8",
+      )
       RelationshipStore(seed).create(
         RelationshipGraph(issues={"1": IssueRelationships("One", ())}),
         WriterIdentity("seed", "session"),

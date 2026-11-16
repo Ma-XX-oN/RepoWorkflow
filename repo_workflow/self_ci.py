@@ -78,18 +78,27 @@ def _group_records(
   return records
 
 
-def _groups_of_type(root: Path, kind: str) -> tuple[str, ...]:
-  return tuple(sorted(
-    group
-    for group, (_declaration, metadata) in _group_records(root).items()
-    if metadata.get("type") == kind
-  ))
-
-
 def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
+  # Lazy import preserves standalone CLI fixture tests without the MIT module.
+  from .manual_test_catalogue import ManualCatalogueError, read_manual_cases
+  try:
+    manual_names = {case.name for case in read_manual_cases(root, int(issue))}
+  except ManualCatalogueError as error:
+    raise SelfCiError("manual test catalogue invalid: " + str(error)) from error
   catalogue = load_test_catalogue(root)
+  # RED probes remain explicitly selectable by rwf test RED, but not by
+  # automatic issue CI or retained regression/integration verification.
+  records = _group_records(root)
+  red_names = {
+    name for name, (_, metadata) in records.items()
+    if metadata.get("lifecycle") == "RED"
+  }
   prefix = f"issue-{issue}-"
-  owned = tuple(sorted(group for group in catalogue.groups if group.startswith(prefix)))
+  # Manual cases share the catalogue, but are never runnable CI commands.
+  owned = tuple(sorted(
+    group for group in catalogue.groups
+    if group.startswith(prefix) and group not in manual_names and group not in red_names
+  ))
   if not owned:
     raise SelfCiError(
       f"issue {issue} has no verification group in .ci/tests.json"
@@ -100,7 +109,8 @@ def issue_verification_groups(root: Path, issue: str) -> tuple[str, ...]:
     owned,
     lifecycle.high_risk_aliases,
   ))
-  selected.update(_groups_of_type(root, "invariant"))
+  selected.update(name for name, (_, metadata) in records.items()
+                  if metadata.get("type") == "invariant")
   return tuple(sorted(selected))
 
 

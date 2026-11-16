@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
-import subprocess
+
+from .git import GitError, git_bytes
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
 _MARKER = re.compile(
@@ -26,15 +27,13 @@ class HostedVersionError(ValueError):
 
 def _git(root: Path, *args: str) -> str:
   try:
-    result = subprocess.run(
-      ["git", "-C", str(root), *args], capture_output=True,
-      text=True, check=False,
-    )
-  except (OSError, UnicodeError) as error:
+    result = git_bytes(root, *args, check=False)
+    decoded = result.stdout.decode("utf-8", "strict")
+  except (GitError, UnicodeError) as error:
     raise HostedVersionError("cannot decode hosted Git request") from error
   if result.returncode:
     raise HostedVersionError("cannot verify hosted Git request")
-  return result.stdout
+  return decoded
 
 
 def _single_parent(root: Path, sha: str) -> str:
@@ -186,7 +185,9 @@ def resolve_hosted_version(
     return identity
   versions = set()
   version_owners: dict[str, tuple[str, str]] = {}
-  terminal_outcomes: dict[str, str] = {}
+  conflicting_owners: set[tuple[str, str]] = set()
+  terminal_outcomes: dict[tuple[str, str], str] = {}
+  conflicting_outcomes: set[tuple[str, str]] = set()
   try:
     lines = canonical_log.read_text(encoding="utf-8").splitlines()
   except (OSError, UnicodeError) as error:
@@ -215,25 +216,28 @@ def resolve_hosted_version(
     if record.get("result") not in {"succeeded", "failed", "incomplete"}:
       raise HostedVersionError("version evidence has no valid result")
     if record.get("result") == "incomplete":
-      if (version, kind) in terminal_outcomes:
-        raise HostedVersionError("incomplete result after terminal outcome")
       continue  # No terminal allocation and no version consumed.
     namespace = (version, kind)
     prior = version_owners.get(namespace)
     if prior is not None and prior != owner:
-      raise HostedVersionError("version evidence claimed by different candidate or phase")
+      # Preserve historical conflicted evidence without letting it allocate
+      # identity to this or any other candidate using that namespace.
+      conflicting_owners.add(namespace)
     version_owners[namespace] = owner
     terminal_result = record["result"]
     earlier_result = terminal_outcomes.get(namespace)
-    if earlier_result is not None and earlier_result != terminal_result:
-      raise HostedVersionError("conflicting terminal version outcomes")
+    if earlier_result == "failed" and terminal_result == "succeeded":
+      conflicting_outcomes.add(namespace)
     terminal_outcomes[namespace] = terminal_result
     if owner[0] != identity["candidate_sha"]:
       continue
     source_branch = record.get("branch")
-    if not isinstance(source_branch, str) or re.fullmatch(
-      "issue-" + match.group(1) + r"(?:-.*)?", source_branch,
-    ) is None:
+    branch_issue = re.fullmatch(
+      r"(?:PRELIM-)?issue-([1-9][0-9]*)(?:[-/].*)?", source_branch,
+    ) if isinstance(source_branch, str) else None
+    if (not isinstance(source_branch, str) or not source_branch.strip()
+        or any(ord(character) < 32 for character in source_branch)
+        or branch_issue is not None and branch_issue.group(1) != match.group(1)):
       raise HostedVersionError("version evidence belongs to another branch")
     if kind != identity["stage"]:
       continue
@@ -242,6 +246,14 @@ def resolve_hosted_version(
     if record.get("uncommittedChanges") != []:
       raise HostedVersionError("version evidence used dirty inputs")
     versions.add(version)
+  if any((version, identity["stage"]) in conflicting_outcomes
+         for version in versions):
+    raise HostedVersionError("conflicting terminal version outcomes")
+  if any((version, identity["stage"]) in conflicting_owners
+         for version in versions):
+    raise HostedVersionError(
+      "version evidence claimed by different candidate or phase"
+    )
   if len(versions) > 1:
     raise HostedVersionError("conflicting development versions")
   identity["test_version"] = next(iter(versions)) if versions else None

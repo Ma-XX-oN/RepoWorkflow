@@ -8,7 +8,7 @@ Git branches and worktrees.  It is subordinate to
 [WORKSPACE_MODEL.md](WORKSPACE_MODEL.md): Git mechanics must implement the
 workspace semantics without becoming the semantic authority.
 
-## 1. Purpose
+## Purpose
 
 The backend provides isolated filesystem/Git contexts so multiple workers can
 operate on independent issues concurrently in one repository.
@@ -32,7 +32,7 @@ It does not own:
 - validation evidence;
 - integration authorization.
 
-## 2. Inputs
+## Inputs
 
 Provisioning receives normalized semantic inputs:
 
@@ -50,7 +50,7 @@ The caller must resolve semantic issue/base policy before invoking the backend.
 The backend verifies Git facts but does not infer semantic dependencies from
 branch ancestry.
 
-## 3. Base identity
+## Base identity
 
 Provisioning is bound to an exact base SHA.
 
@@ -66,7 +66,7 @@ either:
 
 It must not silently create the worktree from a different commit.
 
-## 4. Branch identity
+## Branch identity
 
 Each workspace uses a deterministic issue branch name supplied by the semantic
 workflow layer.
@@ -82,7 +82,7 @@ The backend must reject:
 The backend may reuse an existing compatible branch only when the caller
 explicitly requests reuse and all ownership/base checks pass.
 
-## 5. Worktree path
+## Worktree path
 
 The worktree path is deterministic for a given local workspace unless the
 caller explicitly selects another path before creation.
@@ -96,7 +96,7 @@ The backend must reject a path that:
 
 Path comparison must use platform-appropriate canonicalization.
 
-## 6. Provision transaction
+## Provision transaction
 
 Provisioning is a transaction with these logical stages:
 
@@ -115,7 +115,7 @@ If any stage fails, rollback removes only resources created by this attempt.
 
 Pre-existing compatible resources must never be deleted during rollback.
 
-## 7. Provision postconditions
+## Provision postconditions
 
 On success:
 
@@ -129,7 +129,7 @@ On success:
 The backend returns normalized facts sufficient for the workspace store to
 record the materialized context.
 
-## 8. Failure atomicity
+## Failure atomicity
 
 A failed provision operation must not report success.
 
@@ -146,7 +146,7 @@ Rollback rules:
 
 Silent orphan creation is forbidden.
 
-## 9. Existing worktree detection
+## Existing worktree detection
 
 Before mutation, enumerate Git's registered worktrees and normalize:
 
@@ -161,7 +161,7 @@ Do not rely solely on directory existence.
 An existing registered worktree is reusable only when it is proven to be the
 same workspace context.
 
-## 10. Dirty-work protection
+## Dirty-work protection
 
 Retirement and rollback must inspect the target worktree for protected work.
 
@@ -179,7 +179,7 @@ A normal cleanup operation must stop rather than discard protected work.
 No automatic `git reset --hard`, `git clean -fd`, or equivalent destructive
 fallback is permitted.
 
-## 11. Retirement transaction
+## Retirement transaction
 
 Retirement proceeds:
 
@@ -199,7 +199,7 @@ Branch deletion is a separate explicit policy decision.
 Closing a workspace does not inherently mean its issue branch should be
 deleted.
 
-## 12. Branch deletion safety
+## Branch deletion safety
 
 A branch may be deleted only when the caller's policy authorizes it and the
 backend proves deletion will not lose required work.
@@ -214,7 +214,7 @@ A branch is not disposable merely because:
 The backend must use exact Git reachability facts required by the caller's
 cleanup policy.
 
-## 13. Stale/orphan worktrees
+## Stale/orphan worktrees
 
 The backend must distinguish:
 
@@ -230,7 +230,7 @@ Recovery must be diagnostic first.
 The initial implementation may require explicit cleanup/recovery rather than
 auto-repair when ownership is ambiguous.
 
-## 14. Concurrency
+## Concurrency
 
 Two workers may provision different workspaces concurrently.
 
@@ -243,7 +243,7 @@ one successful owner.
 Git's own locking/errors are useful evidence but do not replace workspace CAS
 claim semantics.
 
-## 15. Platform requirements
+## Platform requirements
 
 The backend must work with standard Git worktree behaviour on supported Linux
 and Windows environments.
@@ -259,7 +259,7 @@ Tests must cover:
 
 Shell-specific quoting must remain below the semantic interface.
 
-## 16. No remote/provider dependency
+## No remote/provider dependency
 
 Provisioning and retirement are local Git operations.
 
@@ -272,7 +272,7 @@ The backend must not require:
 
 Remote publication remains a separate workflow responsibility.
 
-## 17. Recovery records
+## Recovery records
 
 When a mutation cannot roll back fully, return a structured recovery result
 containing at least:
@@ -288,7 +288,7 @@ recommended_next_action
 
 The recovery result must not claim that cleanup occurred when it did not.
 
-## 18. Integration tests
+## Integration tests
 
 Production-shaped tests must use disposable real Git repositories and actual
 `git worktree` commands.

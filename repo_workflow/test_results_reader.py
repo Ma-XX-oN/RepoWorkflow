@@ -111,3 +111,36 @@ def results(root: Path, *, remote: bool, git_cmd) -> int:
   return 0
 
 
+
+
+def results_for_landed_tip(
+  *, destination: str, landed_sha: str,
+  read_destination, read_promotion, read_source_log,
+  emit=print,
+) -> int:
+  """Show original source results and a separate landed provenance record.
+
+  The reader never overwrites immutable historic testing logs or emits a
+  synthetic test PASS at the merge SHA. A trusted host must supply all three
+  independently authenticated reader callbacks.
+  """
+  from .done_results_discovery import discover_landed_results
+  outcome = discover_landed_results(
+    destination=destination, landed_sha=landed_sha,
+    read_destination=read_destination,
+    read_promotion=read_promotion, read_source_log=read_source_log,
+  )
+  # Use distinct record types: result entries remain attributed to source.
+  for record in outcome.original_results:
+    emit(json.dumps(record,sort_keys=True))
+  emit(json.dumps({
+    "kind":"source-tested-accepted-at-destination",
+    "destination":outcome.destination,
+    "landedSHA":outcome.landed_sha,
+    "testedSourceSHA":outcome.tested_source_sha,
+    "operationId":outcome.operation_id,
+    "evidenceStages":list(sorted(
+      stage.stage for stage in outcome.evidence.stages)),
+    "result":"promoted",
+  },sort_keys=True))
+  return 0

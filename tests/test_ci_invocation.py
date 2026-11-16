@@ -7,6 +7,7 @@ from repo_workflow.ci_invocation import (
   CiInvocationError,
   parse_invocation,
   verify_invocation,
+  original_candidate,
 )
 
 
@@ -68,10 +69,10 @@ class CiInvocationTests(unittest.TestCase):
   def invoke(self, previous_tip=None, stage="regression-testing"):
     directory = self.root / ".ci"
     directory.mkdir(exist_ok=True)
-    (directory / "run").write_text(
-      f"{stage} {previous_tip or self.git('rev-parse', 'HEAD')}\n"
+    (directory / "run").write_bytes(
+      f"{stage} {previous_tip or self.git('rev-parse', 'HEAD')}\n".encode("utf-8")
     )
-    self.git("add", ".ci/run")
+    self.git("-c", "core.autocrlf=false", "add", ".ci/run")
     self.git("commit", "-qm", "invoke CI")
 
   def test_dedicated_request_committed_after_current_tip(self):
@@ -94,6 +95,53 @@ class CiInvocationTests(unittest.TestCase):
     self.git("add", "source.py")
     self.invoke()
     with self.assertRaisesRegex(CiInvocationError, "only .ci/run"):
+      verify_invocation(self.root)
+
+  def test_committed_marker_extra_blank_line_fails_closed(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_text(
+      f"regression-testing {self.base}\n\n"
+    )
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "malformed CI request")
+    with self.assertRaises(CiInvocationError):
+      verify_invocation(self.root)
+
+  def test_committed_marker_crlf_fails_closed(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_bytes(
+      f"regression-testing {self.base}\r\n".encode("utf-8")
+    )
+    self.git("-c", "core.autocrlf=false", "add", ".ci/run")
+    self.git("commit", "-qm", "CRLF CI request")
+    with self.assertRaises(CiInvocationError):
+      verify_invocation(self.root)
+
+  def test_historical_retry_rejects_noncanonical_marker(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_bytes(
+      f"regression-testing {self.base}\r\n".encode("utf-8")
+    )
+    self.git("-c", "core.autocrlf=false", "add", ".ci/run")
+    self.git("commit", "-qm", "historical malformed request")
+    malformed_tip = self.git("rev-parse", "HEAD")
+    self.invoke(previous_tip=malformed_tip)
+    self.assertEqual(verify_invocation(self.root).previous_tip, malformed_tip)
+    with self.assertRaises(CiInvocationError):
+      original_candidate(self.root, malformed_tip)
+
+  def test_committed_marker_non_utf8_fails_closed(self):
+    directory = self.root / ".ci"
+    directory.mkdir(exist_ok=True)
+    (directory / "run").write_bytes(
+      f"regression-testing {self.base}".encode("utf-8") + b"\xff"
+    )
+    self.git("add", ".ci/run")
+    self.git("commit", "-qm", "invalid UTF-8 CI request")
+    with self.assertRaises(CiInvocationError):
       verify_invocation(self.root)
 
   def test_no_request_fails_closed(self):

@@ -1,3 +1,4 @@
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -13,12 +14,20 @@ ROOT = Path(__file__).resolve().parents[1]
 CLI = ROOT / "repo_workflow.py"
 
 
+def capture_utf8(argv, **kwargs):
+  result = subprocess.run(argv, capture_output=True, check=False, **kwargs)
+  return subprocess.CompletedProcess(
+    result.args,
+    result.returncode,
+    io.TextIOWrapper(io.BytesIO(result.stdout), encoding="utf-8", errors="strict", newline=None).read(),
+    io.TextIOWrapper(io.BytesIO(result.stderr), encoding="utf-8", errors="strict", newline=None).read(),
+  )
+
+
 class WorkflowCliTests(unittest.TestCase):
   def run_cli(self, root: Path, *args: str):
-    return subprocess.run(
-      [sys.executable, str(CLI), "--root", str(root), *args],
-      capture_output=True,
-      text=True,
+    return capture_utf8(
+      [sys.executable, "-X", "utf8", str(CLI), "--root", str(root), *args],
     )
 
   def test_human_and_json_what_next_report_same_transitions(self):
@@ -154,13 +163,46 @@ class WorkflowCliTests(unittest.TestCase):
       root.mkdir()
       fx = RepoFixture(root)
       for alias in ("repo-workflow", "rwf"):
-        completed = subprocess.run(
-          [str(ROOT / alias), "--root", str(root), "version"],
-          capture_output=True,
-          text=True,
+        argv = (
+          [sys.executable, "-X", "utf8", str(CLI)]
+          if sys.platform == "win32"
+          else [str(ROOT / alias)]
+        )
+        completed = capture_utf8(
+          [*argv, "--root", str(root), "version"],
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertEqual(completed.stdout.strip(), fx.version)
+
+  def test_capture_rejects_invalid_utf8_in_both_streams(self):
+    for descriptor in (1, 2):
+      with self.subTest(descriptor=descriptor):
+        with self.assertRaises(UnicodeDecodeError):
+          capture_utf8([
+            sys.executable,
+            "-c",
+            f"import os; os.write({descriptor}, bytes([255]))",
+          ])
+
+  def test_capture_universal_newlines_preserves_unicode_and_escape_distinction(self):
+    output = (
+      "real → 東京\r\n"
+      "literal \\u2192\n"
+      "tail\r"
+    ).encode("utf-8")
+    completed = capture_utf8([
+      sys.executable,
+      "-c",
+      "import os; os.write(1, " + repr(output) + ")",
+    ])
+    self.assertEqual(completed.returncode, 0, completed.stderr)
+    self.assertEqual(
+      completed.stdout,
+      "real → 東京\n"
+      "literal \\u2192\n"
+      "tail\n",
+    )
+    self.assertNotEqual("→", "\\u2192")
 
   def test_unknown_command_uses_shared_diagnostic(self):
     with tempfile.TemporaryDirectory() as td:

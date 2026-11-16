@@ -38,9 +38,8 @@ arguments it must:
 
 - exit zero only when the repository's version state is internally valid;
 - print exactly one canonical version to stdout;
-- report task versions as `x.y.z-issue.P.Q.R`, where `P` is the issue,
-  `Q` is the integration-failure generation, and `R` is the
-  regression-validation iteration;
+- report task versions as `x.y.z-issue.P.Q.R`, where `P` is the issue
+  ([`Q`/`R` definition](WORKFLOW_LIFECYCLE.md#task-versions));
 - report stable versions as plain `x.y.z`;
 - leave the worktree, candidate history, symbolic `HEAD`, and local Git refs
   unchanged.
@@ -64,6 +63,52 @@ commits, move `HEAD`, or mutate Git refs.
 Lower-level distributed commands compare the adapter's reported development
 version with `.ci/run-ci-request`.  The normal local `verify` path prepares
 that request binding before validation.
+
+### `versionOutputs` (consumer-owned publication paths)
+
+For a successful `rwf issue start N` that changes a *stable* repository version
+into an issue-qualified development version, the consumer must explicitly
+declare the version-bearing Git file path(s) under `versionOutputs`:
+
+```json
+"versionOutputs": ["VERSION"]
+```
+
+This example is a **consumer choice**, not a built-in RWF version filename.
+The existing `versionCommand` semantic adapter continues to own how it stores
+and derives the version, and remains forbidden from committing or moving Git refs.
+Core RWF does not inspect the adapter's storage implementation.
+
+The declaration is an optional schema-1 array of unique canonical
+repository-relative paths. Read-only version operations do not need it.
+A version-changing issue start requires a nonempty declaration and refuses
+missing paths, symlinks, duplicate or invalid path names, and already modified
+version outputs **before** invoking the mutation. Paths must refer to
+tracked regular files. After a successful transition the caller commits
+only these declared files together with its exact lifecycle and transaction
+records using the existing selective command-owned Git commit helper.
+Unrelated staged or unstaged files are never automatically included.
+
+This declaration does not authorize other workflow commands to mutate
+version files or bypass the consumer adapter's transactional guarantees.
+In particular, a missing declaration is not permission to guess a path,
+stage all changed files, or consider uncommitted version storage published.
+
+### `hostCommand`
+
+The optional command selects the repository-owned implementation of the
+portable `repo-host` mutation contract in
+`REPOSITORY_HOST_MUTATION_CONTRACT.md`.  It is an executable argument array,
+not a shell command.  `dispatch_configured` reads the validated
+`.ci/repoworkflow.json` command and sends one versioned JSON request on
+stdin.  Missing or invalid configuration fails closed.  It must not discover
+a mutating provider from a branch name, issue field, or arbitrary request.
+
+Before a mutation, the dispatcher obtains the declared capability map.
+A missing, false, or malformed capability fails without a mutation call.
+Authorization, persistent idempotency, atomic acceptance, and provider-specific
+mechanics remain the configured adapter's responsibility.  This setting
+does not grant authority to mutate a remote repository.
 
 ### `infoCommand`\n\nThe optional command selects the repository-owned implementation of the portable\nread-only `repo-info` contract in `REPO_INFO_CONTRACT.md`.  Core RWF appends\nonly the semantic operation arguments defined by that contract.  When a workflow\nrequires repository information and no command is configured, the operation\nfails explicitly.\n\nThe command must not modify the worktree, candidate history, symbolic `HEAD`, or\nlocal Git refs.  Successful output is validated against the provider-neutral\nJSON schema before it reaches workflow callers; malformed output and provider\nfailures are never converted into empty successful results.\n\n### `dependencyCommand`
 
@@ -163,8 +208,8 @@ The command:
 
 1. reads the repository's development version;
 2. checks authoritative terminal-tag state;
-3. advances a consumed iteration through
-   `versionCommand task --increment CI-iteration` when necessary;
+3. prepares the candidate version through `versionCommand` when
+   required ([rule](WORKFLOW_LIFECYCLE.md#task-versions));
 4. refreshes `.ci/run-ci-request` after ordinary source commits when necessary;
 5. commits only the bookkeeping/version changes it performed;
 6. validates that prepared candidate through the normal guard;

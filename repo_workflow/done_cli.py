@@ -1,0 +1,165 @@
+"""Native rwf done request boundary, distinct from read-only #108 plan.
+
+A command is never a merge permit. The caller must supply a trusted,
+provider-bound executor that returns the independently verified terminal,
+retirement, promotion and lifecycle result, not an asserted PASS boolean.
+"""
+import json
+
+from .done_completion import VerifiedCompletion
+from .done_runtime import (
+  VerifiedNativeDone,VerifiedDeferredDone,VerifiedFailedDone,
+)
+from .done_shared_lifecycle import (
+  SharedLifecycleEvidence,SharedAuthorityObservation,
+)
+from .done_planner import DonePlan
+from .done_source_identity import EffectiveSource
+
+
+class DoneCommandError(ValueError):
+  """No verified executor or legal integration result is available."""
+
+
+def execute_done_command(release, *, trusted_executor, emit, root=None, engine_root=None):
+  """Dispatch patch/minor/major only to an authenticated provider executor."""
+  if release not in {"patch","minor","major"} or type(release) is not str:
+    raise DoneCommandError("done requires patch, minor, or major")
+  if trusted_executor is None and root is not None and engine_root is not None:
+    from .done_native import execute_native_done
+    trusted_executor = lambda requested: execute_native_done(root, requested, engine_root=engine_root)
+  if not callable(trusted_executor) or not callable(emit):
+    raise DoneCommandError("independent done execution authority is unavailable")
+  try:
+    outcome=trusted_executor(release)
+  except ValueError as error:
+    raise DoneCommandError(str(error)) from error
+  except Exception as error:
+    raise DoneCommandError(
+      "done provider outcome UNKNOWN; readback required") from error
+  from .done_submission import SubmittedDone
+  from .done_native import FunctionalDone
+  if isinstance(outcome, FunctionalDone):
+    value = outcome.value
+    emit(json.dumps(value, sort_keys=True))
+    return {"done": 0, "submitted": 0, "ignored": 0, "waiting": 3,
+            "stale": 3, "conflict": 4, "failed": 1}[value["status"]]
+  if isinstance(outcome, SubmittedDone):
+    emit(json.dumps({"result":"submitted","prelim_ref":outcome.ready.ref,
+                     "candidate_sha":outcome.ready.sha,"version":outcome.version,
+                     "parent_sha":outcome.parent_sha,"release":outcome.release}, sort_keys=True))
+    return 0
+  if isinstance(outcome,VerifiedNativeDone):
+    completed=outcome.completion
+    shared=outcome.shared
+    authority=outcome.authority
+    plan=outcome.plan
+    source=outcome.source
+    if (not isinstance(plan,DonePlan)
+        or plan.release!=release
+        or plan.allowed is not True
+        or plan.disposition not in ("ALLOWED","QUEUE_ELIGIBLE")
+        or type(plan.issue) is not str
+        or not plan.issue.isdecimal()
+        or not isinstance(source,EffectiveSource)
+        or source.tested_source_sha!=plan.candidate_sha
+        or not isinstance(completed,VerifiedCompletion)
+        or not isinstance(shared,SharedLifecycleEvidence)
+        or not isinstance(authority,SharedAuthorityObservation)
+        or shared.issue!=int(plan.issue)
+        or shared.independently_authenticated is not True
+        or authority.independently_authenticated is not True
+        or shared.repository!=authority.repository
+        or shared.branch!=authority.branch
+        or shared.commit_sha!=authority.commit_sha
+        or shared.operation_id!=completed.operation_id
+        or shared.accepted_sha!=completed.terminal.accepted_sha
+        or shared.landed_sha!=completed.landed_sha
+        or shared.revision!=completed.lifecycle.get("revision")
+        or type(shared.lifecycle_digest) is not str
+        or len(shared.lifecycle_digest)!=64
+        or type(shared.intent_digest) is not str
+        or len(shared.intent_digest)!=64):
+      raise DoneCommandError(
+        "shared canonical authority was not certified before native DONE")
+    terminal=completed.terminal
+    proof=completed.promotion
+    lifecycle=completed.lifecycle
+    if (proof.operation_id != completed.operation_id
+        or proof.landed_sha != completed.landed_sha
+        or proof.accepted_candidate_sha != terminal.accepted_sha
+        or terminal.operation_id != completed.operation_id
+        or terminal.landed_sha != completed.landed_sha
+        or len(completed.retired)!=1
+        or any(getattr(r,"absent_after",None) is not True
+               for r in completed.retired)
+        or type(lifecycle) is not dict
+        or lifecycle.get("result")!="done"
+        or lifecycle.get("operation_id")!=completed.operation_id
+        or lifecycle.get("landed_sha")!=completed.landed_sha
+        or type(lifecycle.get("revision")) is not int
+        or lifecycle["revision"]<1):
+      raise DoneCommandError("provider completed result is not certified")
+    emit(json.dumps({
+      "status":"DONE","release":release,
+      "landed_sha":completed.landed_sha,
+      "operation_id":completed.operation_id,
+      "evidence":"source-tested-accepted-at-destination",
+      "canonical_commit_sha":shared.commit_sha,
+      "canonical_lifecycle_revision":shared.revision,
+    },sort_keys=True))
+    return 0
+  if isinstance(outcome,VerifiedDeferredDone):
+    event=outcome.provider_event
+    outcome=outcome.attempt
+    if (getattr(event,"guid",None)!=outcome.ready.guid
+        or getattr(event,"destination",None)!=outcome.ready.destination
+        or getattr(event,"reason",None)!="timeout"
+        or getattr(event,"prelim_sha",None)!=outcome.ready.sha
+        or getattr(event,"evidence_ref",None)!=outcome.evidence_ref
+        or type(getattr(event,"lease_generation",None)) is not int
+        or event.lease_generation+1!=outcome.released_generation):
+      raise DoneCommandError("MIT deferred provider evidence differs")
+    if (outcome.ready.guid
+        and type(outcome.evidence_ref) is str
+        and outcome.evidence_ref.strip()
+        and type(outcome.released_generation) is int
+        and outcome.released_generation>0):
+      emit(json.dumps({
+        "status":"MIT_TIMEOUT_DEFERRED","release":release,
+        "guid":outcome.ready.guid,
+        "evidence_ref":outcome.evidence_ref,
+      },sort_keys=True))
+      return 3
+    raise DoneCommandError("MIT defer readback is incomplete")
+  if isinstance(outcome,VerifiedFailedDone):
+    handoff=outcome.persisted_handoff
+    outcome=outcome.attempt
+    if (handoff.handoff.guid!=outcome.ready.guid
+        or handoff.handoff.issue!=int(
+          outcome.ready.umbrella.removeprefix("issue-"))
+        or handoff.handoff.destination!=outcome.ready.destination
+        or handoff.handoff.prelim_sha!=outcome.ready.sha
+        or handoff.handoff.failure_kind!=outcome.failed_stage+"_FAIL"
+        or len(handoff.per_issue_refs)
+           !=len(handoff.handoff.owner_issue_ids)
+        or {issue for issue,_ in handoff.per_issue_refs}
+           !=set(handoff.handoff.owner_issue_ids)
+        or any(type(ref) is not str or not ref.strip()
+               for _,ref in handoff.per_issue_refs)):
+      raise DoneCommandError("durable owner handoff differs")
+    if (outcome.ready.guid
+        and outcome.failed_stage in {"ART","AIT","release","MIT"}
+        and type(outcome.evidence_ref) is str
+        and outcome.evidence_ref.strip()
+        and type(outcome.released_generation) is int
+        and outcome.released_generation>0):
+      emit(json.dumps({
+        "status":"FAILED_STAGE","release":release,
+        "guid":outcome.ready.guid,
+        "stage":outcome.failed_stage,
+        "evidence_ref":outcome.evidence_ref,
+      },sort_keys=True))
+      return 4
+    raise DoneCommandError("failed-stage terminal unverified")
+  raise DoneCommandError("unverified done outcome; no success claim permitted")

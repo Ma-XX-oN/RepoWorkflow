@@ -2,7 +2,7 @@
 
 Status: authoritative branch-parent identity and recovery contract.
 
-## 1. Single source of truth
+## Single source of truth
 
 Every RWF work branch has exactly one semantic parent branch.
 
@@ -15,7 +15,7 @@ ticket/dependency state.
 Dependency topology never implies branch topology, and branch topology never
 creates a dependency edge.
 
-## 2. Parent identity marker
+## Parent identity marker
 
 The first commit created specifically for an RWF work branch is an empty
 structured identity commit.
@@ -32,7 +32,7 @@ Names are canonical branch names without ref prefixes.
 The marker is permanent logical branch history. Pause checkpoints and later
 work never modify or replace it.
 
-## 3. Creation
+## Creation
 
 For new work branch `W` from current branch `P`:
 
@@ -44,7 +44,7 @@ For new work branch `W` from current branch `P`:
 
 No ticket relationship record is written for the parent.
 
-## 4. Recovery
+## Recovery
 
 Given work branch `W`:
 
@@ -62,7 +62,7 @@ fails closed.
 
 Recovery performs no network operation.
 
-## 5. Required cases
+## Required cases
 
 The same rules cover:
 
@@ -78,7 +78,7 @@ The same rules cover:
 Inherited identity markers for ancestor work branches are ignored because their
 `RWF-Branch` value does not equal the current work branch.
 
-## 6. Invariants
+## Invariants
 
 - A work branch has exactly one semantic parent.
 - Creation parent and completion target are the same fact.
@@ -91,7 +91,7 @@ Inherited identity markers for ancestor work branches are ignored because their
 - Ambiguity fails closed.
 - Normal push/fetch preserves parent evidence.
 
-## 7. Verification
+## Verification
 
 Implementations test at least:
 

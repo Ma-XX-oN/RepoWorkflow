@@ -102,13 +102,20 @@ class LocalVerifyTests(unittest.TestCase):
         f"v{fx.version}",
       )
 
-  def test_local_verify_advances_consumed_iteration_automatically(self):
+  def publish_tested_version(self, fx, tag):
+    """Publish a fixed-source annotated result in the consumer fixture."""
+    fx._run("tag", "-a", tag, "-m", tag)
+    fx._run("push", "origin", "refs/tags/" + tag)
+
+  def test_local_verify_advances_version_after_source_correction(self):
     td, root, fx = self.make_consumer()
     with td:
-      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+      self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
+      (root / "source.txt").write_text("corrected source\n")
+      fx.commit("fix: correct tested source")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
-      next_version = "1.0.0-issue.1.0.2"
+      next_version = "1.0.0-issue.1.1.0"
       self.assertEqual((root / "VERSION").read_text().strip(), next_version)
       self.assertEqual((root / ".ci" / "run-ci-request").read_text().strip(), next_version)
       self.assertEqual(
@@ -116,14 +123,36 @@ class LocalVerifyTests(unittest.TestCase):
         f"v{next_version}",
       )
 
+  def test_consumer_parent_reintegration_preserves_q_and_resumes(self):
+    """A real consumer adapter prepares R+1 once for a reconstructed parent."""
+    from repo_workflow.config import load_config
+    from repo_workflow.done_submission import prepare_submission_candidate
+
+    td, root, fx = self.make_consumer()
+    with td:
+      (root / "VERSION").write_text("1.0.0-issue.1.3.0\n", encoding="utf-8")
+      (root / ".ci/run-ci-request").write_text("1.0.0-issue.1.3.0\n", encoding="utf-8")
+      source = fx.commit("third implementation prepared")
+      fx._run("checkout", "main")
+      (root / "parent-source").write_text("new parent\n", encoding="utf-8")
+      parent = fx.commit("parent advances")
+      fx._run("checkout", "issue-1-test")
+      config = load_config(root)
+      first = prepare_submission_candidate(root, source, parent, config, 1, root / "RepoWorkflow")
+      self.assertEqual(first[1], "1.0.0-issue.1.3.1")
+      self.assertEqual(prepare_submission_candidate(
+        root, source, parent, config, 1, root / "RepoWorkflow"), first)
+
   def test_local_verify_skips_consecutive_consumed_iterations(self):
     td, root, fx = self.make_consumer()
     with td:
-      fx.tag_remote(f"v{fx.version}-CI-FAIL")
-      fx.tag_remote("v1.0.0-issue.1.0.2")
+      self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
+      self.publish_tested_version(fx, "v1.0.0-issue.1.1.0")
+      (root / "source.txt").write_text("corrected source\n")
+      fx.commit("fix: correct tested source")
 
       self.assertEqual(verify_local(root, engine_root=root / "RepoWorkflow"), "PASS")
-      next_version = "1.0.0-issue.1.0.3"
+      next_version = "1.0.0-issue.1.2.0"
       self.assertEqual((root / "VERSION").read_text().strip(), next_version)
       self.assertEqual(
         (root / ".ci" / "run-ci-request").read_text().strip(),
@@ -272,7 +301,9 @@ class LocalVerifyTests(unittest.TestCase):
       (root / ".ci" / "run-ci-request").write_text(fx.version + "\n")
       fx.commit("make semantic CI increment fail")
       fx.push()
-      fx.tag_remote(f"v{fx.version}-CI-FAIL")
+      self.publish_tested_version(fx, f"v{fx.version}-CI-FAIL")
+      (root / "source.txt").write_text("corrected source\n")
+      fx.commit("fix: correct tested source")
       before = fx.head()
 
       with self.assertRaisesRegex(GuardError, "version adapter failed"):
@@ -310,7 +341,7 @@ class LocalVerifyTests(unittest.TestCase):
           raise GitError("injected atomic publication failure")
         return git_command(path, *args, **kwargs)
 
-      with patch("repo_workflow.local.git", side_effect=reject_branch_push):
+      with patch("repo_workflow.terminal_tag._git", side_effect=reject_branch_push):
         with self.assertRaisesRegex(GitError, "injected atomic publication failure"):
           verify_local(root, engine_root=root / "RepoWorkflow", push=True)
 

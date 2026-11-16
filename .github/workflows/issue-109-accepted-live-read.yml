@@ -1,0 +1,101 @@
+name: RWF109 accepted assembly live read-only provider matrix
+on:
+  push:
+    branches: [issue-109-accepted-assembly-20261030]
+    paths: [.ci/run]
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tested_sha: ${{ steps.request.outputs.tested_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Resolve exact authorized source from .ci/run
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/on-demand-ci-plan.py > plan.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          plan=json.loads(Path('plan.json').read_text(encoding='utf-8'))
+          assert plan['stage'] in {'regression-testing', 'integration-testing'}
+          sha=plan['tested_sha']
+          assert len(sha)==40 and all(ch in '0123456789abcdef' for ch in sha)
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+            stream.write('tested_sha='+sha+'\n')
+          PY
+  live-read:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tested_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify exact accepted source
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ needs.plan.outputs.tested_sha }}"
+      - name: Read real remote READY and destination with v2 host
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from repo_workflow.done_host_transport import bind_native_integration_host
+          from repo_workflow.done_host_coordinator import IntegrationHostCoordinator
+          from repo_workflow.prelim_queue import discover_ready_prelims, latest_prelims
+
+          repository = "Ma-XX-oN/RepoWorkflow"
+          def api(path):
+            request = Request(
+              "https://api.github.com/repos/" + repository + "/" + path,
+              headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                       "Accept": "application/vnd.github+json"})
+            with urlopen(request, timeout=30) as response:
+              return json.load(response)
+
+          before = api("git/ref/heads/main")["object"]["sha"]
+          host = bind_native_integration_host(
+            repository=repository, engine_root=Path.cwd())
+          coordinator = IntegrationHostCoordinator(host)
+          ready = coordinator.read_ready_prelims()
+          inventory = host.request(
+            "refs.list", "rwf109-accepted-read-only-independent-inventory",
+            {"prefix": "refs/heads/PRELIM-"})
+          assert type(inventory) is dict and "refs" in inventory
+          expected = latest_prelims(discover_ready_prelims(inventory["refs"]))
+          assert set(r.ref for r in ready) == set(r.ref for r in expected)
+          lease = coordinator.read_destination_lease("main")
+          assert lease.destination == "main" and lease.generation >= 0
+          dest = host.request(
+            "destination.read", "rwf109-accepted-read-only-destination",
+            {"destination": "main"})
+          after = api("git/ref/heads/main")["object"]["sha"]
+          assert before == after == dest["sha"]
+          assert dest["ref"] == "refs/heads/main"
+          print("RWF109_LIVE_PROVIDER_READ=PASS",
+                "main_sha="+after, "ready_count="+str(len(ready)),
+                "lease_generation="+str(lease.generation), flush=True)
+          PY

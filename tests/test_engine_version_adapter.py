@@ -2,6 +2,7 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from repo_workflow.engine_version_adapter import (
   EngineVersionError, read_engine_version, transition_engine_version,
@@ -27,12 +28,12 @@ class EngineVersionAdapterTests(unittest.TestCase):
 
   def test_task_start_prepares_explicit_source_version(self):
     self.assertEqual(self.transition("task --issue", 572), (
-      "0.1.121", "0.1.121-issue.572.0.1",
+      "0.1.121", "0.1.121-issue.572.1.0",
     ))
     self.assertEqual(read_engine_version(self.root),
-                     "0.1.121-issue.572.0.1")
+                     "0.1.121-issue.572.1.0")
     self.assertEqual(self.state.read_text(),
-                     "0.1.121-issue.572.0.1\n")
+                     "0.1.121-issue.572.1.0\n")
 
   def test_task_start_twice_does_not_overwrite_development_version(self):
     self.transition("task --issue", 572)
@@ -41,21 +42,53 @@ class EngineVersionAdapterTests(unittest.TestCase):
       self.transition("task --issue", 572)
     self.assertEqual(self.state.read_bytes(), prior)
 
-  def test_regression_failure_increments_r_only(self):
+  def test_parent_reintegration_increments_r_only(self):
     self.transition("task --issue", 572)
     self.assertEqual(self.transition(
       "task --increment CI-iteration",
-    )[1], "0.1.121-issue.572.0.2")
+    )[1], "0.1.121-issue.572.1.1")
     self.assertEqual(self.transition(
       "task --increment CI-iteration",
-    )[1], "0.1.121-issue.572.0.3")
+    )[1], "0.1.121-issue.572.1.2")
 
-  def test_integration_rejection_increments_q_and_resets_r(self):
+  def test_changed_implementation_increments_q_and_resets_r(self):
     self.transition("task --issue", 572)
     self.transition("task --increment CI-iteration")
     self.assertEqual(self.transition(
       "task --increment merge-integration-failed",
-    )[1], "0.1.121-issue.572.1.1")
+    )[1], "0.1.121-issue.572.2.0")
+
+  def test_parent_reintegration_starts_at_one_after_new_implementation(self):
+    self.transition("task --issue", 572)
+    self.transition("task --increment merge-integration-failed")
+    self.assertEqual(read_engine_version(self.root), "0.1.121-issue.572.2.0")
+    self.assertEqual(self.transition("task --increment CI-iteration")[1],
+                     "0.1.121-issue.572.2.1")
+
+  def test_consecutive_implementation_revisions_reset_r_each_time(self):
+    self.transition("task --issue", 572)
+    self.transition("task --increment merge-integration-failed")
+    self.assertEqual(self.transition(
+      "task --increment merge-integration-failed",
+    )[1], "0.1.121-issue.572.3.0")
+
+  def test_zero_padded_r_rejected_without_mutation(self):
+    self.state.parent.mkdir()
+    self.state.write_text("0.1.121-issue.572.2.00\n")
+    original = self.state.read_bytes()
+    with self.assertRaises(EngineVersionError):
+      self.transition("task --increment CI-iteration")
+    self.assertEqual(self.state.read_bytes(), original)
+
+  def test_atomic_replace_failure_leaves_version_and_no_temporary_file(self):
+    self.transition("task --issue", 572)
+    before = self.state.read_bytes()
+    with patch("repo_workflow.engine_version_adapter.os.replace",
+               side_effect=OSError("injected replace failure")):
+      with self.assertRaisesRegex(OSError, "injected replace failure"):
+        self.transition("task --increment merge-integration-failed")
+    self.assertEqual(self.state.read_bytes(), before)
+    self.assertEqual(list(self.state.parent.glob(".engine-version-*")), [])
 
   def test_no_implicit_mutation_after_success_or_incomplete(self):
     self.transition("task --issue", 572)

@@ -25,11 +25,51 @@ def manifest_digest(path: Path) -> str:
   return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _committed_manifest(root: Path) -> tuple[bytes, bytes] | None:
+  """Return Git's raw committed blob and separate checkout-materialized bytes."""
+  from .git import GitError, git_bytes, git_checkout_bytes
+  relative = MANIFEST_RELATIVE.as_posix()
+  try:
+    record = git_bytes(root, "ls-tree", "-z", "HEAD", "--", relative).stdout
+    if not record:
+      return None
+    if not record.endswith(b"\0") or record.count(b"\0") != 1:
+      raise DependencyMigrationCertificationError("ambiguous committed migration manifest")
+    header, separator, name = record[:-1].partition(b"\t")
+    fields = header.split(b" ")
+    if (separator != b"\t" or name != relative.encode("utf-8")
+        or len(fields) != 3 or fields[0] not in (b"100644", b"100755")
+        or fields[1] != b"blob"):
+      raise DependencyMigrationCertificationError("committed migration manifest is not a regular Git file")
+    raw = git_bytes(root, "show", "HEAD:" + relative).stdout
+    checkout = git_checkout_bytes(root, relative)
+    if checkout is None:
+      raise DependencyMigrationCertificationError("committed migration manifest cannot be checked out")
+    return raw, checkout
+  except (GitError, OSError, UnicodeError) as error:
+    raise DependencyMigrationCertificationError(
+      "cannot verify Git-committed migration manifest"
+    ) from error
+
+
 def require_dependency_migration_certified(root: Path) -> None:
   root = Path(root).resolve()
   manifest_path = root / MANIFEST_RELATIVE
-  if not manifest_path.is_file():
+  committed = _committed_manifest(root)
+  if committed is None:
+    if manifest_path.exists() or manifest_path.is_symlink():
+      raise DependencyMigrationCertificationError(
+        "uncommitted migration manifest is not certified"
+      )
     return
+  raw, checkout = committed
+  try:
+    if manifest_path.is_symlink() or not manifest_path.is_file() or manifest_path.read_bytes() != checkout:
+      raise DependencyMigrationCertificationError(
+        "committed migration manifest worktree does not match Git checkout"
+      )
+  except OSError as error:
+    raise DependencyMigrationCertificationError("cannot read committed migration manifest worktree") from error
 
   certification_path = root / CERTIFICATION_RELATIVE
   if not certification_path.is_file():
@@ -69,7 +109,7 @@ def require_dependency_migration_certified(root: Path) -> None:
     raise DependencyMigrationCertificationError(
       "dependency migration certification identifies the wrong repository"
     )
-  if value["manifest_sha256"] != manifest_digest(manifest_path):
+  if value["manifest_sha256"] != hashlib.sha256(raw).hexdigest():
     raise DependencyMigrationCertificationError(
       "dependency migration certification does not match current manifest"
     )
@@ -96,10 +136,17 @@ def certification_value(
       "provider readback digest must be lowercase SHA-256"
     )
   root = Path(root).resolve()
+  committed = _committed_manifest(root)
+  if committed is None:
+    raise DependencyMigrationCertificationError("no Git-committed migration manifest to certify")
+  raw, checkout = committed
+  path = root / MANIFEST_RELATIVE
+  if path.is_symlink() or not path.is_file() or path.read_bytes() != checkout:
+    raise DependencyMigrationCertificationError("committed migration manifest worktree does not match Git checkout")
   return {
     "schema_version": 1,
     "migration_id": "repoworkflow-native-dependencies-v1",
     "repository": "Ma-XX-oN/RepoWorkflow",
-    "manifest_sha256": manifest_digest(root / MANIFEST_RELATIVE),
+    "manifest_sha256": hashlib.sha256(raw).hexdigest(),
     "provider_readback_sha256": provider_readback_sha256,
   }

@@ -24,7 +24,6 @@ from .git import (
 from .guard import validate_candidate, validate_stable_candidate
 from .repository_policy import check_repository_policy
 from .results import (
-  assert_terminal_tag_available,
   finalize_results,
   finalize_stable_results,
   run_environment,
@@ -148,15 +147,12 @@ def verify_local(
       branch = current_branch(root)
       remote = config["repository"]["authoritativeRemote"]
       candidate = validate_candidate(root, config)
-      tag = (
-        f"v{candidate.version}"
-        if outcome == "PASS"
-        else f"v{candidate.version}-CI-FAIL"
-      )
-      assert_terminal_tag_available(root, candidate, tag, push=True)
-      git(root, "tag", "-a", tag, candidate.commit, "-m", tag)
       # Publish the candidate branch and immutable terminal result as one remote transaction.
-      git(root, "push", "--atomic", remote, f"HEAD:{branch}", f"refs/tags/{tag}")
+      from .terminal_tag import _publish_fixed_tag
+      _publish_fixed_tag(root, stage="regression", remote=remote,
+                         version=candidate.version, candidate=candidate.commit,
+                         outcome=outcome, push=True,
+                         additional_refspecs=(f"HEAD:refs/heads/{branch}",))
   except Exception:
     restore_repository_state(root, before)
     raise

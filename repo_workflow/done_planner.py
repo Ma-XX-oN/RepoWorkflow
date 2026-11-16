@@ -85,6 +85,7 @@ class DonePlan:
   queue_track: str | None
   missing_gates: tuple[str, ...]
   next_transitions: tuple[str, ...]
+  submission_allowed: bool = False
 
   def to_json_value(self) -> dict:
     return {
@@ -99,6 +100,7 @@ class DonePlan:
       "queue_track": self.queue_track,
       "missing_gates": list(self.missing_gates),
       "next_transitions": list(self.next_transitions),
+      "submission_allowed": self.submission_allowed,
     }
 
 
@@ -298,6 +300,28 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
   if facts.mit == "timeout":
     disposition = "DEFERRED_MIT" if not hard_blocks else disposition
 
+  # Submission can ask the server to execute missing tests and reconstruct a
+  # stale parent. It is distinct from permission to perform the final merge.
+  pending_work = {
+    *(f"{name}-exact-current-PASS" for name in GATE_NAMES),
+    "current-authorization", "stale-parent-tip", "accepted-lifecycle",
+    "verified-mit-applicability", "unpinned-mit-candidate",
+    "mit-scheduling-obligation", "stale-mit-candidate", "stale-mit-PASS",
+  }
+  known_failure = any(
+    isinstance(gate, GateObservation)
+    and gate.authenticated is True and bool(gate.evidence_ref)
+    and gate.candidate_sha == facts.candidate_sha
+    and gate.parent_sha == facts.current_parent_sha
+    and gate.status == "FAIL"
+    for gate in facts.validation
+  ) or (facts.mit == "failed" and facts.mit_candidate_sha == facts.candidate_sha)
+  submission_allowed = (
+    not known_failure
+    and facts.lifecycle_state in {"active", "in_review", "accepted"}
+    and all(reason in pending_work for reason in missing)
+  )
+
   return DonePlan(
     issue=str(facts.issue),
     release=facts.release,
@@ -310,4 +334,5 @@ def plan_done(facts: DoneSnapshot) -> DonePlan:
     queue_track=queue_track,
     missing_gates=tuple(missing),
     next_transitions=tuple(dict.fromkeys(next_steps)),
+    submission_allowed=submission_allowed,
   )

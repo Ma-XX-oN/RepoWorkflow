@@ -12,20 +12,17 @@ import os
 from pathlib import Path
 import platform
 import re
-import subprocess
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen, build_opener, HTTPRedirectHandler
 from zipfile import ZipFile, BadZipFile
 
 from .ci_invocation import original_candidate
+from .process import run_command
 
 
 def _git(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    text=True, capture_output=True, check=False,
-  )
+  result = run_command(["git", "-C", str(root), *args], root)
   if result.returncode:
     raise ValueError("cannot verify prior hosted publication")
   return result.stdout.strip()

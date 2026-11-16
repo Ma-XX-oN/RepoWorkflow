@@ -1,6 +1,10 @@
 # Integration, Audit, and Release Lifecycle
 
-## 9. Validation audit trail
+The [approved single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md) governs
+completion submission, deferred validation and generation selection. It
+supersedes conflicting two-branch requirements retained below for audit.
+
+## Validation audit trail
 
 The initial storage proposal is one append-only JSONL file per issue:
 
@@ -73,13 +77,17 @@ If same-issue JSONL merge handling is automated, correctness must not depend on
 GitHub having a locally configured custom merge driver.  A local union/custom
 driver may be an ergonomic aid, not the remote source of correctness.
 
-## 10. Local and hosted validation equivalence
+## Local and hosted validation equivalence
 
 Ordinary source pushes do not start paid test jobs.  Testing is requested
 explicitly through the public `rwf test` stages.  A local invocation runs
 the selected stage and appends observations to the existing per-issue
 `.repoworkflow/validation/testResults-<issue#>.jsonl` log.
 
+The implemented on-demand workflow responds to `.ci/run` changes on
+`issue-*` branches, not ordinary source pushes or changes to the unrelated
+`.ci/run-ci-request` bookkeeping file. `.ci/rwf` is a planned rename only.
+Separate Self CI and certification workflows retain independent trigger rules.
 A hosted request uses `rwf test <stage> --remote`: it creates and pushes a
 dedicated `.ci/run` commit containing the stage marker and immediate
 pre-invocation tip SHA.  The server verifies that invocation and executes
@@ -118,7 +126,7 @@ the same logical stage and catalogue selection, with provider-bound results.
 Protected server integration must independently recheck current candidate
 and destination-tip evidence at merge acceptance.
 
-## 11. Integration request/version intent
+## Integration request/version intent
 
 Version intent that cannot be reconstructed from Git must travel with the
 candidate in repository workflow state, for example a minimal request recording
@@ -137,7 +145,7 @@ Server validation independently checks that:
 - the consumer adapter derives the same literal version as the candidate;
 - the candidate version was not manually changed into an inconsistent state.
 
-## 12. Integration ticket/PR
+## Integration ticket/PR
 
 Task and integration claims are distinct.
 
@@ -158,7 +166,7 @@ policy.  `what-next` and completion expose it only when legal, and required-PR
 mode blocks transitions that would bypass the PR boundary.  PR creation itself
 never implies validation, acceptance, currency, or merge authorization.
 
-## 13. Protected server integration
+## Protected server integration
 
 The remote server is the hard boundary.
 
@@ -181,7 +189,7 @@ current-base requirement must ensure that a candidate tested against an older
 A guard failure is an authoritative STOP signal.  Do not merge first and repair
 versions or source state afterward.
 
-## 14. Stable finalization
+## Stable finalization
 
 Only after the accepted candidate reaches protected **server `main`** may the
 stable release be finalized.
@@ -197,7 +205,7 @@ The controlled finalizer must:
 The local machine may create PRELIM and task tags according to workflow rules,
 but it does not create the final stable tag before server integration.
 
-## 15. Major releases
+## Major releases
 
 Normal integration exposes only patch and minor increment intent.
 
@@ -212,7 +220,7 @@ resetting `Y` and `Z` as appropriate.  The resulting candidate still passes
 through the same exact-candidate validation, stale-base protection, protected
 server integration, and stable-finalization rules.
 
-## 16. Local Git guard layer
+## Local Git guard layer
 
 Consumer repositories should install local hooks that call centralized
 RepoWorkflow policy rather than duplicating policy in shell fragments.
@@ -232,7 +240,7 @@ Useful checks include:
 These hooks primarily prevent mistakes.  The server remains authoritative if a
 clone lacks the hooks or an operator deliberately bypasses them.
 
-## 17. Immutable evidence
+## Immutable evidence
 
 Task, PRELIM, and stable tags are unique immutable refs once created.
 
@@ -243,7 +251,7 @@ server integration is squashed.
 Audit records preserve semantic metadata; tags preserve durable Git object
 reachability.  Both are useful and serve different purposes.
 
-## 18. Implementation order
+## Implementation order
 
 Implementation is tracked by issue #14 and its child/related issues.
 
@@ -277,3 +285,37 @@ RepoWorkflow change without waiting for separate user merge authorization.
 This exception applies only to the RepoWorkflow repository and must not be
 inherited by consumer repositories.
 
+
+## 19. Consumer integration execution and evidence
+
+The public `rwf test integration` stage in a consumer repository is distinct
+from RWF's own self-integration probes. The consumer must provide its canonical
+`.ci/repoworkflow.json` environment validation adapter, and the retained
+`.ci/tests.json` catalogue must contain an explicit `type: integration`
+target. Regression-only test coverage is insufficient.
+
+Integration executes the required consumer environment checks and then all
+retained regression and integration catalogue groups. An environment FAIL or
+INCOMPLETE prevents integration group execution and cannot produce an
+integration PASS. Group failures, dirty input, changed source identity,
+missing manual approval, and nonreusable evidence prevent integration terminal
+publication. Automatic group observations use a nonterminal
+`integration-automatic` kind; only after all manual gates pass may an
+append-only `integration` terminal record be written. Results are append-only, bound to the exact candidate and
+canonical development version.
+
+Regression and integration results for unchanged inputs share one development
+version; when either counter advances is defined in
+[WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
+Any required version transition is committed before the
+candidate is validated. A local one-platform consumer PASS is not a substitute
+for required hosted environments, provider-stage acceptance, or an authorized
+`rwf done` executor.
+
+The engine checkout continues to use its own integration probes; consumer
+adapters must not silently substitute those probes for consumer tests.
+
+The engine's on-demand version preparation follows the same
+[task-version rules](WORKFLOW_LIFECYCLE.md#task-versions); terminal evidence cannot be
+reassigned across source candidates. The transition is made by the engine version adapter before the
+dedicated `.ci/run` request, not by moving terminal tags.

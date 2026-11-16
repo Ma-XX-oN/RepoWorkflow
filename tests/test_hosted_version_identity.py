@@ -36,7 +36,8 @@ class HostedIdentityTests(unittest.TestCase):
     tip = self.git("rev-parse", "HEAD")
     marker = self.root / ".ci/run"
     marker.parent.mkdir(exist_ok=True)
-    marker.write_text(("temp" if stage == "temporary" else stage) + "-testing " + (sha or tip) + "\n")
+    marker.write_text(("temp" if stage == "temporary" else stage) + "-testing " + (sha or tip) + "\n",
+                      encoding="utf-8", newline="\n")
     self.git("add", ".ci/run")
     self.git("commit", "-qm", "request")
     return self.git("rev-parse", "HEAD")
@@ -231,10 +232,12 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence(kind="integration", testVersion="0.1.121-issue.570.0.3")
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
 
-  def test_conflicting_pass_and_fail_for_same_terminal_version(self):
+  def test_later_failure_keeps_version_and_cannot_be_replaced_by_pass(self):
     sha = self.invoke()
     self.evidence(result="succeeded")
     self.evidence(result="failed")
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"], VERSION)
+    self.evidence(result="succeeded")
     with self.assertRaisesRegex(HostedVersionError, "conflicting terminal"):
       resolve_hosted_version(self.root, sha, self.log)
 
@@ -269,12 +272,12 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence(result="incomplete")
     self.assertIsNone(resolve_hosted_version(self.root, sha, self.log)["test_version"])
 
-  def test_incomplete_after_terminal_version_is_invalid(self):
+  def test_additional_incomplete_work_keeps_the_same_source_version(self):
     sha = self.invoke()
     self.evidence(result="succeeded")
     self.evidence(result="incomplete")
-    with self.assertRaisesRegex(HostedVersionError, "after terminal"):
-      resolve_hosted_version(self.root, sha, self.log)
+    self.assertEqual(resolve_hosted_version(self.root, sha, self.log)["test_version"],
+                     VERSION)
 
   def test_incomplete_followed_by_complete_preserves_same_version(self):
     sha = self.invoke()
@@ -296,6 +299,17 @@ class HostedIdentityTests(unittest.TestCase):
     self.evidence(testSHA="f" * 40)
     with self.assertRaisesRegex(HostedVersionError, "different candidate"):
       resolve_hosted_version(self.root, sha, self.log)
+
+  def test_historical_collision_cannot_poison_new_iteration(self):
+    sha = self.invoke()
+    self.evidence(testSHA="e" * 40)
+    self.evidence(testSHA="f" * 40)
+    next_version = "0.1.121-issue.570.0.2"
+    self.evidence(testVersion=next_version)
+    self.assertEqual(
+      resolve_hosted_version(self.root, sha, self.log)["test_version"],
+      next_version,
+    )
 
   def test_other_candidate_with_distinct_version_is_ignored(self):
     sha = self.invoke()
@@ -379,7 +393,7 @@ class HostedIdentityTests(unittest.TestCase):
     tip = self.git("rev-parse", "HEAD")
     path = self.root / ".ci/run"
     path.parent.mkdir(exist_ok=True)
-    path.write_text("regression-testing " + tip + "\n")
+    path.write_text("regression-testing " + tip + "\n", encoding="utf-8", newline="\n")
     (self.root / "source").write_text("changed\n")
     self.git("add", ".ci/run", "source")
     self.git("commit", "-qm", "invalid multi-path invocation")

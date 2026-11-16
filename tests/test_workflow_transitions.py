@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WorkflowTransitionTests(unittest.TestCase):
-  def test_regression_failure_advances_only_ci_iteration(self):
+  def test_regression_failure_preserves_version_and_candidate(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
@@ -25,15 +25,36 @@ class WorkflowTransitionTests(unittest.TestCase):
       ) as verify:
         outcome = validate_regression(root, engine_root=ROOT)
 
-      verify.assert_called_once_with(root, engine_root=ROOT, push=False)
+      verify.assert_called_once_with(root.resolve(), engine_root=ROOT, push=False)
       self.assertEqual(outcome, "FAIL")
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
-        "1.0.0-issue.1.3.8",
+        "1.0.0-issue.1.3.7",
       )
-      self.assertNotEqual(fx.head(), failed_candidate)
+      self.assertEqual(fx.head(), failed_candidate)
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
-      self.assertEqual(discover_facts(root).regression, "missing")
+      self.assertEqual(discover_facts(root).regression, "FAIL")
+
+  def test_regression_failure_keeps_zero_reintegrations(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td) / "repo"
+      root.mkdir()
+      fx = RepoFixture(root, version="1.0.0-issue.1.4.0")
+      failed_candidate = fx.head()
+      with patch(
+        "repo_workflow.workflow_transitions.verify_local",
+        return_value="FAIL",
+      ) as verify:
+        outcome = validate_regression(root, engine_root=ROOT)
+      verify.assert_called_once_with(root.resolve(), engine_root=ROOT, push=False)
+      self.assertEqual(outcome, "FAIL")
+      self.assertEqual(
+        (root / "VERSION").read_text().strip(),
+        "1.0.0-issue.1.4.0",
+      )
+      self.assertEqual(fx.head(), failed_candidate)
+      self.assertEqual(fx._run("status", "--porcelain").stdout, "")
+      self.assertEqual(discover_facts(root).regression, "FAIL")
 
   def test_regression_pass_does_not_advance_version(self):
     with tempfile.TemporaryDirectory() as td:
@@ -67,7 +88,7 @@ class WorkflowTransitionTests(unittest.TestCase):
       self.assertEqual((root / "VERSION").read_text().strip(), fx.version)
       self.assertEqual(discover_facts(root).regression, "INCOMPLETE")
 
-  def test_integration_failure_advances_generation_and_resets_iteration(self):
+  def test_integration_failure_preserves_version_and_regression_result(self):
     with tempfile.TemporaryDirectory() as td:
       root = Path(td) / "repo"
       root.mkdir()
@@ -78,11 +99,11 @@ class WorkflowTransitionTests(unittest.TestCase):
 
       self.assertEqual(
         (root / "VERSION").read_text().strip(),
-        "1.0.0-issue.1.4.1",
+        "1.0.0-issue.1.3.7",
       )
       self.assertEqual(fx._run("status", "--porcelain").stdout, "")
       facts = discover_facts(root)
-      self.assertEqual(facts.regression, "missing")
+      self.assertEqual(facts.regression, "PASS")
       self.assertEqual(facts.integration_result, "failed")
 
   def test_integration_success_keeps_version_and_records_result(self):

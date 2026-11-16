@@ -50,7 +50,7 @@ class EngineRemotePreparationTests(unittest.TestCase):
     self.assertNotEqual(prepared, original)
     self.assertEqual(
       self.git("show", prepared + ":.ci/engine-version"),
-      "0.1.121-issue.572.0.1",
+      "0.1.121-issue.572.1.0",
     )
     self.assertEqual(
       self.git("show", marker + ":.ci/run"),
@@ -65,7 +65,7 @@ class EngineRemotePreparationTests(unittest.TestCase):
     )
     self.assertEqual(
       self.git("show", "HEAD:.ci/engine-version"),
-      "0.1.121-issue.572.0.1",
+      "0.1.121-issue.572.1.0",
     )
 
   def test_nonterminal_remote_command_does_not_prepare_version(self):
@@ -76,11 +76,11 @@ class EngineRemotePreparationTests(unittest.TestCase):
 
   def test_first_request_prepares_committed_dev_version(self):
     previous = self.git("rev-parse", "HEAD")
-    self.assertEqual(self.prepare(), "0.1.121-issue.572.0.1")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
     self.assertNotEqual(self.git("rev-parse", "HEAD"), previous)
     self.assertEqual(
       self.git("show", "HEAD:.ci/engine-version"),
-      "0.1.121-issue.572.0.1",
+      "0.1.121-issue.572.1.0",
     )
 
   def test_same_stage_retry_does_not_bump_without_terminal_tag(self):
@@ -89,20 +89,57 @@ class EngineRemotePreparationTests(unittest.TestCase):
     self.assertEqual(self.prepare(), first)
     self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
 
-  def test_regression_fail_advances_r_for_next_regression(self):
+  def test_regression_fail_does_not_increment_unchanged_source(self):
     self.prepare()
-    self.publish("v0.1.121-issue.572.0.1-CI-FAIL")
-    self.assertEqual(self.prepare(), "0.1.121-issue.572.0.2")
+    self.publish("v0.1.121-issue.572.1.0-CI-FAIL")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
 
-  def test_integration_fail_advances_q_for_next_generation(self):
+  def test_integration_fail_does_not_increment_unchanged_source(self):
     self.prepare()
-    self.publish("v0.1.121-PRELIM-572.0.1-CI-FAIL")
-    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.1")
+    self.publish("v0.1.121-PRELIM-572.1.0-CI-FAIL")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
 
-  def test_integration_pass_never_increments_regression_r(self):
+  def test_corrected_source_increments_once_then_reuses_candidate(self):
     self.prepare()
-    self.publish("v0.1.121-issue.572.0.1")
-    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.0.1")
+    self.publish("v0.1.121-PRELIM-572.1.0-CI-FAIL")
+    (self.root / "source.txt").write_text("correction\n", encoding="utf-8")
+    self.git("add", "source.txt")
+    self.git("commit", "-qm", "fix: correct source")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.2.0")
+    candidate = self.git("rev-parse", "HEAD")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.2.0")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.2.0")
+    self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
+    self.publish("v0.1.121-issue.572.2.0-CI-FAIL")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.2.0")
+
+  def test_zero_iteration_does_not_bypass_issue_ownership(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.1.0-CI-FAIL")
+    self.assertEqual(self.prepare(), "0.1.121-issue.572.1.0")
+    candidate = self.git("rev-parse", "HEAD")
+    self.git("checkout", "-qb", "issue-573-other")
+    with self.assertRaises(EnginePreparationError):
+      prepare_engine_request(self.root, stage="regression", issue=573)
+    self.assertEqual(self.git("rev-parse", "HEAD"), candidate)
+
+  def test_integration_pass_reuses_version_for_unchanged_regression(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.1.0")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.1.0")
+    self.assertEqual(self.prepare("regression"), "0.1.121-issue.572.1.0")
+
+  def test_integration_pass_reuses_version_for_unchanged_integration(self):
+    self.prepare()
+    self.publish("v0.1.121-PRELIM-572.1.0")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.1.0")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.1.0")
+
+  def test_regression_pass_reuses_version_for_unchanged_integration(self):
+    self.prepare()
+    self.publish("v0.1.121-issue.572.1.0")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.1.0")
+    self.assertEqual(self.prepare("integration"), "0.1.121-issue.572.1.0")
 
   def test_invalid_stage_and_issue_never_change_history(self):
     original = self.git("rev-parse", "HEAD")

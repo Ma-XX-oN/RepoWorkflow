@@ -26,14 +26,62 @@ class ShippedTestLauncher(unittest.TestCase):
       capture_output=True, text=True, check=False,
     )
 
-  def test_all_six_stage_help_commands_are_reachable(self):
+  def assert_cmd_transport(self, bare, number, source, stage):
+    """Verify one CMD publication without rewriting the source branch."""
+    self.assertEqual(self.git("rev-parse", "HEAD"), source)
+    self.assertFalse((self.root / ".ci/run").exists())
+    branch = f"CMD-{number}-issue-545-fixture"
+    cmd = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse", f"refs/heads/{branch}"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", cmd + "^"), source)
+    self.assertEqual(self.git("show", cmd + ":.ci/rwf"),
+                     f"test {stage} --remote 0")
+    self.assertEqual(
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", cmd),
+      ".ci/rwf",
+    )
+    remote_source = subprocess.run(
+      ["git", "--git-dir", str(bare), "rev-parse",
+       "refs/heads/issue-545-fixture"],
+      text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    self.assertEqual(remote_source, source)
+
+  def test_static_stage_help_commands_are_reachable(self):
     for name in (
-      "RED", "temporary", "GREEN", "regression", "integration", "results",
+      "temporary", "GREEN", "regression", "integration", "results",
     ):
       with self.subTest(stage=name):
         out = self.launcher("test", name, "--help")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("--remote", out.stdout + out.stderr)
+
+  def test_shipped_red_help_is_current_issue_aware(self):
+    missing = self.launcher("test", "RED", "--help")
+    tab = self.launcher("complete", "test", "RED", "")
+    double = self.launcher("complete", "--describe", "test", "RED", "")
+    for response in (missing, tab, double):
+      self.assertEqual(response.returncode, 2, response)
+      self.assertEqual(response.stdout, "")
+      self.assertIn("RED/GREEN tests do not exist", response.stderr)
+    self.assertEqual({x.stderr for x in (missing, tab, double)},
+                     {missing.stderr})
+
+    self._catalogue(
+      self.root / ".ci/tests.json", issue_group="issue-545-red-help",
+    )
+    described = self.launcher("test", "RED", "--help")
+    double = self.launcher(
+      "complete", "--describe", "test", "RED", "",
+    )
+    single = self.launcher("complete", "test", "RED", "")
+    for result in (described, double, single):
+      self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(described.stdout, double.stdout)
+    self.assertIn("issue-545-red-help", single.stdout)
+    self.assertIn("issue-545-red-help", described.stdout)
 
   def test_shipped_completion_lists_six_current_testing_stages(self):
     output = self.launcher("complete", "test", "")
@@ -62,19 +110,7 @@ class ShippedTestLauncher(unittest.TestCase):
     previous = self.git("rev-parse", "HEAD")
     out = self.launcher("test", "regression", "--remote")
     self.assertEqual(out.returncode, 0, out.stderr)
-    current = self.git("rev-parse", "HEAD")
-    self.assertNotEqual(current, previous)
-    self.assertEqual(self.git("rev-parse", "HEAD^"), previous)
-    self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "regression-testing " + previous + "\n",
-    )
-    remote_tip = subprocess.run(
-      ["git", "--git-dir", str(bare), "rev-parse",
-       "refs/heads/issue-545-fixture"],
-      text=True, capture_output=True, check=True,
-    ).stdout.strip()
-    self.assertEqual(remote_tip, current)
+    self.assert_cmd_transport(bare, 1, previous, "regression")
 
   def test_absent_red_selection_records_skipped_and_not_pass(self):
     out = self.launcher("test", "RED")
@@ -99,24 +135,35 @@ class ShippedTestLauncher(unittest.TestCase):
     self.git("add", ".ci/tests.json", "smoke_case.py")
     self.git("commit", "-m", "register declared RED test")
     bare = self.remote()
-    out = self.launcher("test", "RED", "issue-545-remote-red", "--remote")
-    self.assertEqual(out.returncode, 0, out.stderr)
-    head = self.git("rev-parse", "HEAD")
-    selected_commit = self.git("rev-parse", "HEAD^")
+    original_source = self.git("rev-parse", "HEAD")
+    result = self.launcher("test", "RED", "issue-545-remote-red", "--remote")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    selected_source = self.git("rev-parse", "HEAD")
+    self.assertEqual(selected_source, original_source)
+    self.assertFalse((self.root / ".ci/red-green.txt").exists())
+    self.assertFalse((self.root / ".ci/run").exists())
+    branch = "CMD-1-issue-545-fixture"
+    self.assertIn(branch, result.stdout)
+    tip = subprocess.run(
+        ["git", "--git-dir", str(bare), "rev-parse",
+         f"refs/heads/{branch}"],
+        text=True, capture_output=True, check=True,
+      ).stdout.strip()
+    self.assertEqual(self.git("rev-parse", f"{tip}^"), selected_source)
     self.assertEqual(
-      self.git("show", "HEAD^:.ci/red-green.txt"),
-      "issue-545-remote-red",
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", tip),
+      ".ci/rwf",
     )
     self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "RED-testing " + selected_commit + "\n",
+      self.git("show", f"{tip}:.ci/rwf"),
+      "test RED issue-545-remote-red --remote 0",
     )
-    remote_head = subprocess.run(
+    published_source = subprocess.run(
       ["git", "--git-dir", str(bare), "rev-parse",
        "refs/heads/issue-545-fixture"],
       text=True, capture_output=True, check=True,
     ).stdout.strip()
-    self.assertEqual(remote_head, head)
+    self.assertEqual(published_source, original_source)
 
   def test_missing_red_declaration_prevents_remote_publication(self):
     self._catalogue(
@@ -129,12 +176,41 @@ class ShippedTestLauncher(unittest.TestCase):
     out = self.launcher("test", "RED", "issue-545-missing-remote", "--remote")
     self.assertEqual(out.returncode, 2, out.stderr)
     selected = self.git("rev-parse", "HEAD")
-    self.assertNotEqual(selected, initial)
-    self.assertEqual(self.git("rev-parse", "HEAD^"), initial)
+    self.assertEqual(selected, initial)
+    self.assertFalse((self.root / ".ci/red-green.txt").exists())
+    self.assertIn("expected-failure-declaration-missing", out.stderr)
     self.assertFalse((self.root / ".ci/run").exists())
     after = self.git("ls-remote", "origin", "refs/heads/issue-545-fixture")
     self.assertEqual(after.split()[0], initial)
 
+
+  def test_missing_remote_red_declaration_preserves_prior_selection(self):
+    catalogue = self.root / ".ci/tests.json"
+    self._catalogue(catalogue, issue_group="issue-545-prior-selection")
+    data = json.loads(catalogue.read_text(encoding="utf-8"))
+    data["tests"].append({
+      "test-harness": "unittest",
+      "issue-545-missing-remote": {
+        "type": "regression", "name": "smoke_case",
+      },
+    })
+    catalogue.write_text(json.dumps(data), encoding="utf-8")
+    self.git("add", ".ci/tests.json", "smoke_case.py")
+    self.git("commit", "-m", "register both issue RED groups")
+    selection = self.root / ".ci/red-green.txt"
+    selection.write_text("issue-545-prior-selection\n", encoding="utf-8")
+    self.git("add", ".ci/red-green.txt")
+    self.git("commit", "-m", "explicitly select original RED group")
+    self.remote()
+    before = self.git("rev-parse", "HEAD")
+    out = self.launcher("test", "RED", "issue-545-missing-remote", "--remote")
+    self.assertEqual(out.returncode, 2, out.stderr)
+    self.assertIn("expected-failure-declaration-missing", out.stderr)
+    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    self.assertEqual(selection.read_text(encoding="utf-8"),
+                     "issue-545-prior-selection\n")
+    self.assertEqual(self.git("status", "--porcelain"), "")
+    self.assertEqual(self.git("ls-remote", "origin", "refs/heads/CMD-*"), "")
 
   def test_temporary_remote_request_with_valid_manifest(self):
     self._catalogue(
@@ -147,18 +223,7 @@ class ShippedTestLauncher(unittest.TestCase):
     before = self.git("rev-parse", "HEAD")
     out = self.launcher("test", "temporary", "--remote")
     self.assertEqual(out.returncode, 0, out.stderr)
-    self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "temp-testing " + before + "\n",
-    )
-    head = self.git("rev-parse", "HEAD")
-    remote_head = subprocess.run(
-      ["git", "--git-dir", str(bare), "rev-parse",
-       "refs/heads/issue-545-fixture"],
-      text=True, capture_output=True, check=True,
-    ).stdout.strip()
-    self.assertEqual(remote_head, head)
-
+    self.assert_cmd_transport(bare, 1, before, "temporary")
 
   def test_shipped_red_uses_predeclared_behavioural_failure(self):
     self._catalogue(
@@ -200,30 +265,16 @@ class ShippedTestLauncher(unittest.TestCase):
     before = self.git("rev-parse", "HEAD")
     out = self.launcher("test", "integration", "--remote")
     self.assertEqual(out.returncode, 0, out.stderr)
-    head = self.git("rev-parse", "HEAD")
-    self.assertNotEqual(head, before)
-    self.assertEqual(self.git("rev-parse", "HEAD^"), before)
-    self.assertEqual(
-      (self.root / ".ci/run").read_text(),
-      "integration-testing " + before + "\n",
-    )
-    remote_head = subprocess.run(
-      ["git", "--git-dir", str(bare), "rev-parse",
-       "refs/heads/issue-545-fixture"],
-      capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    self.assertEqual(remote_head, head)
+    self.assert_cmd_transport(bare, 1, before, "integration")
 
-
-  def test_remote_red_and_green_without_selection_are_skipped(self):
-    self.remote()
+  def test_remote_red_and_green_without_selection_submit_cmd(self):
+    bare = self.remote()
     before = self.git("rev-parse", "HEAD")
-    for stage in ("RED", "GREEN"):
+    for number, stage in enumerate(("RED", "GREEN"), start=1):
       with self.subTest(stage=stage):
         out = self.launcher("test", stage, "--remote")
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual(self.git("rev-parse", "HEAD"), before)
-        self.assertFalse((self.root / ".ci/run").exists())
+        self.assert_cmd_transport(bare, number, before, stage)
 
   def test_missing_temporary_manifest_rejects_valid_remote_placement(self):
     self.remote()

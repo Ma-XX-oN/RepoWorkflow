@@ -28,10 +28,11 @@ Required state-machine tests:
 - server examination automatically runs missing ART/AIT only; it never creates
   MIT evidence;
 - AIT PASS, FAIL, and INCOMPLETE transitions, including automatic result
-  recording and that AIT FAIL advances `Q` and resets `R`;
+  recording and the AIT FAIL version consequence
+  ([Task versions](WORKFLOW_LIFECYCLE.md#task-versions));
 - MIT-required state only when manual integration testing is declared;
-- MIT succeeded and failed human-result transitions, including that MIT FAIL
-  advances `Q` and resets `R`;
+- MIT succeeded and failed human-result transitions, including the MIT FAIL
+  version consequence ([Task versions](WORKFLOW_LIFECYCLE.md#task-versions));
 - AIT PASS -> MIT-required when MIT is declared, versus AIT PASS -> accepted
   integration requirement when no MIT is declared;
 - acceptance with AIT but no MIT, proving no unnecessary user test gate is
@@ -292,11 +293,13 @@ These tests source the shipped Bash script and directly set `COMP_WORDS`,
 55. `version release-major` forwards `release-major`.
 56. RepoWorkflow never constructs a literal target version for those semantic
     mutations.
-57. ART FAIL advances only `R` by exactly one through
+57. Preparing reintegration against a newer parent advances only `R`, by exactly one, through
     `task --increment CI-iteration`.
-58. Integration FAIL advances `Q`, resets `R`, and leaves the issue
-    component `P` unchanged through
-    `task --increment merge-integration-failed`.
+58. Preparing a changed implementation advances `Q`, resets `R` to zero and leaves `P` unchanged
+    through `task --increment merge-integration-failed`.
+
+Items 57-58 test the adapter forwarding; when each transition occurs is
+defined in [WORKFLOW_LIFECYCLE.md: Task versions](WORKFLOW_LIFECYCLE.md#task-versions).
 59. Adapter query/mutation may change only the documented worktree state and
     must not move HEAD, create commits, or mutate Git refs.
 60. `repo-workflow` and `rwf` execute equivalent public commands.
@@ -311,3 +314,34 @@ These tests source the shipped Bash script and directly set `COMP_WORDS`,
 64. The issue branch passes the repository's authoritative local/hosted
     validation on the exact final candidate.
 
+## RWF #702 manual integration public CLI acceptance additions (V3)
+
+The following tests supplement historical workflow grammar tests above.
+The historical `rwf validate` wording is not a live public alias; the
+current public surface is exclusively `rwf test`.
+
+- Invoke the shipped `./rwf` launcher in a disposable Git checkout. Probe
+  help and completion for existing six unified stages, `--remote`, the
+  new `--manual` flag, and current-issue case-name descriptions.
+- With no selected case, `test succeeded` and `test failed` reject;
+  neither is advertised by completion. The parser must still recognise
+  the tokens as syntactically valid.
+- Discover 0, 1 and multiple cases; sort full names lexicographically.
+  `--manual` presents the first outstanding case only. Explicit case
+  lookup must reject undeclared and foreign names. Selection never PASSes.
+- Test repeated selection/resume, case-specific PASS and only-then next-case
+  discovery. A duplicate terminal result must be rejected without mutation.
+- Reject a multiple-active selection, stale source SHA, stale definition
+  fingerprint, absent selection and invalid result state. Completion must
+  be read-only, including detailed/double-Tab descriptions.
+- Test a genuine CLI FAIL outcome and verify nonzero exit, canonical result
+  readback, same-candidate reselection refusal and no fabricated remote
+  provider record. Exact lifecycle/version/provider effects remain separately
+  owned by #701 and independently certified by #703.
+- Run original automatic RED/temporary/GREEN/regression/integration/results
+  tests and hosted `--remote` tests without functional regressions.
+- Test that the local automatic integration path does not publish a terminal
+  PASS while manual cases remain outstanding. No-manual test suites preserve
+  legacy automatic test completion.
+- The #702 subprocess fixture uses injected A/B API stubs, NOT actual
+  GitHub provider certification or a full A+B+C assembled candidate.

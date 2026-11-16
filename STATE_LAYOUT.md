@@ -6,11 +6,11 @@ This document defines where RWF state belongs and which scope is authoritative.
 It separates durable repository facts from clone-local coordination and
 worktree-local execution context.
 
-## 1. Three storage scopes
+## Three storage scopes
 
 RWF uses three distinct scopes.
 
-### 1.1 Durable repository state
+### Durable repository state
 
 Durable/shared workflow facts live in the repository-controlled
 `.repoworkflow/` tree and are versioned with repository history.
@@ -24,7 +24,7 @@ Examples include:
 
 Durable state may be shared across clones through normal repository history.
 
-### 1.2 Clone-common local state
+### Clone-common local state
 
 Local coordination that must be visible to every worktree in one clone lives
 under the clone's Git common directory:
@@ -45,7 +45,7 @@ This state is local to one clone and must never be committed.
 Git worktrees share the same clone-common namespace so two worktrees cannot
 independently claim the same local workspace.
 
-### 1.3 Worktree-local state
+### Worktree-local state
 
 Execution/navigation state belonging to one worktree lives under that
 worktree's Git directory:
@@ -68,7 +68,7 @@ The semantic current-work/re-entry record is defined in
 [CURRENT_WORK_STATE.md](CURRENT_WORK_STATE.md).  Its persistent semantic
 store/reader is owned by #172.
 
-## 2. Git path resolution
+## Git path resolution
 
 Implementations must derive paths from Git rather than assuming that
 `.git` is a directory.
@@ -84,7 +84,7 @@ repository's Git metadata.  Code must handle that case correctly.
 
 Path resolution must work on supported Linux and Windows environments.
 
-## 3. Authority rules
+## Authority rules
 
 A state category has exactly one authoritative scope.
 
@@ -99,7 +99,7 @@ A caller must not:
 When durable and local records reference the same issue, durable facts win for
 workflow history and local facts win only for local execution ownership.
 
-## 4. Workspace placement
+## Workspace placement
 
 The workspace subsystem uses both local scopes.
 
@@ -128,7 +128,7 @@ observe the same revision and owner.
 A worktree resume pointer may be worktree-local because it belongs only to that
 checkout.
 
-## 5. Durable synchronized ticket placement
+## Durable synchronized ticket placement
 
 Canonical synchronized ticket state is durable repository state and is stored
 in one committed compact file:
@@ -146,7 +146,7 @@ Branch-parent identity is not durable ticket state. It is recorded in ordinary
 Git history as defined by
 [PARENT_BRANCH_WORKFLOW.md](PARENT_BRANCH_WORKFLOW.md).
 
-## 5.1 Durable lifecycle placement
+## Durable lifecycle placement
 
 Canonical issue lifecycle/history is durable repository state.
 
@@ -157,7 +157,7 @@ store/reader is owned by #164.
 Lifecycle truth must not be reconstructed from clone-local current-work or
 workspace records.
 
-## 6. Atomicity boundary
+## Atomicity boundary
 
 Durable mutation concurrency and writer identity are defined by
 [STATE_CONCURRENCY.md](STATE_CONCURRENCY.md).
@@ -173,7 +173,7 @@ A workflow transition that updates both durable and local facts must define:
 Local convenience state must never cause a failed durable mutation to appear
 successful.
 
-## 7. Clone deletion and portability
+## Clone deletion and portability
 
 Deleting one clone may destroy clone-common and worktree-local state.
 
@@ -185,7 +185,7 @@ loss must therefore be durable.
 Conversely, recreating a clone must not require recovery of old local claims or
 session IDs from repository history.
 
-## 8. Multi-worktree invariants
+## Multi-worktree invariants
 
 With multiple worktrees:
 
@@ -196,7 +196,7 @@ With multiple worktrees:
   worktrees in that clone;
 - no worktree path or branch ancestry implies issue dependency.
 
-## 9. Multi-clone invariants
+## Multi-clone invariants
 
 Clone-common claims coordinate only workers sharing one clone.
 
@@ -207,7 +207,7 @@ identity, server/integration controls, and other explicit shared mechanisms.
 
 RWF must not falsely present a clone-local workspace claim as global exclusion.
 
-## 10. Local-only initialization
+## Local-only initialization
 
 `rwf init local-only` may keep the entire RWF footprint local.
 
@@ -223,7 +223,7 @@ Local-only data should be excluded through Git-local mechanisms such as
 `.git/info/exclude` rather than by mutating project `.gitignore` solely for
 local use.
 
-## 11. Migration from existing local cache
+## Migration from existing local cache
 
 Existing RWF local cache files under a worktree Git directory remain
 worktree-local unless explicitly migrated.
@@ -234,7 +234,7 @@ clone-common authoritative claim state.
 Workspace implementation begins with the new scoped layout rather than reusing
 an ambiguous existing cache file.
 
-## 12. Testing requirements
+## Testing requirements
 
 Implementations consuming this contract must test:
 

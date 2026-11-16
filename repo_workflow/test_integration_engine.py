@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import platform
@@ -17,6 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 from .git import current_branch, head_sha
 from .engine_version_adapter import read_engine_version
 from .test_regression_engine import self_regression
+from .test_catalogue import stage_groups
+from .test_worktree import tracked_input_changes
+from .testing_identity import testing_issue
+from .source_tip import source_tip
 
 PROBES = (
   ("argv-limits", "probe-argv-limits.py"),
@@ -26,28 +31,25 @@ PROBES = (
 
 
 def _dirty(root: Path, evidence: Path) -> list[str]:
-  output = subprocess.run(
-    ["git", "-C", str(root), "status", "--porcelain=v1", "-z",
-     "--untracked-files=all"],
-    check=True, capture_output=True,
-  ).stdout.decode("utf-8", "surrogateescape")
-  relative = evidence.relative_to(root).as_posix()
-  return sorted({
-    line[3:] for line in output.split("\0")
-    if line and line[3:] != relative
-  })
+  return tracked_input_changes(root, evidence)
 
 
 def _probe(engine_root: Path, filename: str) -> int:
-  completed = subprocess.run(
-    [sys.executable, str(engine_root / "scripts" / filename)],
-    cwd=engine_root, capture_output=True, text=True, check=False,
-    env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-  )
-  if completed.stdout:
-    print(completed.stdout, end="")
-  if completed.stderr:
-    print(completed.stderr, end="", file=sys.stderr)
+  try:
+    completed = subprocess.run(
+      [sys.executable, str(engine_root / "scripts" / filename)],
+      cwd=engine_root, capture_output=True, check=False,
+      env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+    )
+    stdout = completed.stdout.decode("utf-8", "strict")
+    stderr = completed.stderr.decode("utf-8", "strict")
+  except (OSError, UnicodeError):
+    print("integration probe cannot execute or decode UTF-8 output", file=sys.stderr)
+    return 2
+  if stdout:
+    print(stdout, end="")
+  if stderr:
+    print(stderr, end="", file=sys.stderr)
   return completed.returncode
 
 
@@ -59,15 +61,12 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
     raise ValueError(
       "consumer integration requires an authoritative environment adapter"
     )
-  match = re.fullmatch(r"issue-([1-9][0-9]*)(?:-.*)?", current_branch(root))
-  if match is None:
-    raise ValueError("integration requires a current issue branch")
   log = root / ".repoworkflow" / "validation" / (
-    "testResults-" + match.group(1) + ".jsonl"
+    f"testResults-{testing_issue(root)}.jsonl"
   )
-  candidate = head_sha(root)
+  candidate = source_tip(root)
   before_dirty = _dirty(root, log)
-  regression = self_regression(root)
+  regression = self_regression(root, stage="integration")
   observations = [{
     "group": "regression",
     "exit_code": 0 if regression == "PASS" else 1,
@@ -83,7 +82,7 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
           "group": name, "exit_code": future.result(),
         })
   dirty = sorted(set(before_dirty) | set(_dirty(root, log)))
-  history_changed = head_sha(root) != candidate
+  history_changed = source_tip(root) != candidate
   success = (
     regression == "PASS"
     and len(observations) == len(PROBES) + 1
@@ -92,6 +91,10 @@ def run_local_integration(root: Path, *, engine_root: Path) -> int:
   record = {
     "timestamp": datetime.now(timezone.utc).isoformat(),
     "kind": "integration",
+    **({
+      "catalogueSHA256": hashlib.sha256((root / ".ci/tests.json").read_bytes()).hexdigest(),
+      "selectedGroups": list(stage_groups(root, "integration")),
+    } if (root / ".ci/tests.json").is_file() else {}),
     "branch": current_branch(root),
     "testSHA": candidate,
     "sourceSHA": candidate,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import fnmatch
 import json
 from pathlib import Path
-import subprocess
+from .git import GitError, git_bytes, git_wire_path
 from typing import Any
 
 
@@ -46,8 +46,6 @@ def load_change_classes(root: Path) -> dict[str, dict[str, Any]]:
 
 
 def _matches(path: str, pattern: str) -> bool:
-  path = path.replace("\\", "/")
-  pattern = pattern.replace("\\", "/")
   if pattern.startswith("**/") and fnmatch.fnmatchcase(path, pattern[3:]):
     return True
   return fnmatch.fnmatchcase(path, pattern)
@@ -57,28 +55,20 @@ def classify_paths(
   paths: list[str],
   classes: dict[str, dict[str, Any]],
 ) -> tuple[str | None, str]:
-  normalized = [path.replace("\\", "/") for path in paths]
   for name, policy in classes.items():
-    if normalized and all(
+    if paths and all(
       any(_matches(path, pattern) for pattern in policy["paths"])
-      for path in normalized
+      for path in paths
     ):
       return name, policy["validation"]
   return None, "full"
 
 
 def changed_paths(root: Path, base: str, head: str = "HEAD") -> list[str]:
-  completed = subprocess.run(
-    ["git", "diff", "--name-only", "-z", base, head],
-    cwd=root,
-    check=False,
-    capture_output=True,
-  )
-  if completed.returncode:
-    stderr = completed.stderr.decode(errors="replace").strip()
-    raise ClassificationError(f"cannot determine changed files: {stderr}")
-  return sorted(
-    item.decode(errors="surrogateescape")
-    for item in completed.stdout.split(b"\0")
-    if item
-  )
+  try:
+    raw = git_bytes(root, "diff", "--name-only", "-z", base, head).stdout
+    if raw and not raw.endswith(b"\0"):
+      raise ClassificationError("unterminated Git path record")
+    return sorted(git_wire_path(item) for item in raw.split(b"\0") if item)
+  except GitError as error:
+    raise ClassificationError("cannot determine changed files") from error

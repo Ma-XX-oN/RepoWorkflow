@@ -7,11 +7,11 @@ TEST_NAMES = (
   "tests.test_lane_decomposition",
   "tests.test_lane_selection",
   (
-    "tests.test_first_use_lanes.FirstUseLanesTests."
+    "tests.test_first_use_lanes.FirstUseGraphTests."
     "test_group_boundary_stops_provider_component_until_followed"
   ),
   (
-    "tests.test_first_use_lanes.FirstUseLanesTests."
+    "tests.test_first_use_lanes.FirstUseGraphTests."
     "test_refresh_preserves_consumed_follow_budget"
   ),
 )

@@ -14,6 +14,16 @@ is preserved as history; it does not license new schema-3 shortcuts.
 
 ## How to read this specification
 
+For #583 functional certification, the operator-approved
+[single-PRELIM contract](SINGLE_PRELIM_WORKFLOW.md) governs completion.
+External authorization/evidence verifier programs are not required.
+Adversarial attack investigation, implementation and certification are excluded.
+The transition table still requires ordinary authorized actions, recorded review
+outcomes, applicable test results and exact candidate/parent/input matching.
+Missing tests may be deferred to CI; they must pass before integration.
+Candidate reconstruction after parent advancement invalidates affected results
+and requires revalidation. It does not require immutable submission contents.
+
 This is a **test plan**, not a report of executed tests. Each ID names one
 requirement-derived acceptance scenario. The **Expected result** column
 describes the required behaviour; it must never be filled in from the code
@@ -29,7 +39,7 @@ against an identified candidate and verified from persistent/provider evidence.
 | Graph and CLI | G01–G15 | 15 | Display, refresh and public output |
 | **Total** | | **74** | **Specification cases, not 74 passes** |
 
-## 1. Transition oracle
+## Transition oracle
 
 ### State-transition diagram (same T01–T08 IDs as the table)
 
@@ -70,7 +80,7 @@ stateDiagram-v2
 | T05 | accepted | reject/reopen | active | Acceptance invalidation or rejection recorded |
 | T06 | active | abort | aborted | Authorized abandonment; durable reason/evidence |
 | T07 | aborted | re-enter | active | Authorized new work generation; history retained |
-| T08 | accepted | complete | completed | Current exact-candidate acceptance and separate integration/authorization gates |
+| T08 | accepted | complete | completed | Current exact-candidate acceptance, applicable passing tests and expected-parent integration |
 
 All other state/request pairs, including same-state repeats, fail closed
 without appending a lifecycle transition.  An exact replay of an already
@@ -85,10 +95,10 @@ of the six initial states: 42 pairs.  T01–T08 must produce the listed
 successors; the other 34 must preserve state, history and revision and return
 a rejected/explicitly proven idempotent outcome.  Test the complete request
 shape, including mandatory evidence, in each positive row; reject missing,
-stale, mismatched and forged inputs independently.  Verify the authoritative
+stale and mismatched inputs. Verify the authoritative
 persisted record after each attempt, not only the return code.
 
-## 2. Lifecycle history and evidence oracle
+## Lifecycle history and evidence oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -119,7 +129,7 @@ Generic record revisions and provenance belong to the canonical envelope.
 History events retain their historical schema representation; normalization
 applies to interpretation, not retroactive mutation.
 
-## 3. Concurrency, atomicity and recovery oracle
+## Concurrency, atomicity and recovery oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -142,7 +152,7 @@ applies to interpretation, not retroactive mutation.
 An operation must not claim a completed transition on a partially published
 multi-record result.  Do not infer global exclusivity from clone-local locks.
 
-## 4. CSV projection and semantic merge oracle
+## CSV projection and semantic merge oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -173,7 +183,7 @@ Rows and dependency lists retain canonical numeric order.  The empty revision
 exception applies *only* to a proven never-started issue.  A projection is
 not an authority for transitions, nor a guarantee of live freshness.
 
-## 5. Graph and public-command oracle
+## Graph and public-command oracle
 
 | ID | Scenario / input | Expected result |
 | --- | --- | --- |
@@ -195,11 +205,11 @@ not an authority for transitions, nor a guarantee of live freshness.
 
 
 
-## 6. Execution evidence requirements and example ledger
+## Execution evidence requirements and example ledger
 
 **No test outcome is certified by this document.** The 74 acceptance cases
-in sections 1–5 specify scenarios and expected results; they are not test
-execution records. The five entries below illustrate the ledger format only.
+in the five oracle sections above specify scenarios and expected results;
+they are not test execution records. The five entries below illustrate the ledger format only.
 They do not assert that the tests were never run elsewhere. Actual execution
 results must be established from exact-revision, independently checked evidence.
 

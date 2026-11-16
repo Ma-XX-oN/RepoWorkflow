@@ -6,6 +6,53 @@ the complete schema and TDD policy remain under design and are not frozen here.
 
 The authoritative repository catalogue is `.ci/tests.json`.
 
+## Completeness and RED-oracle staging
+
+Every shipped `tests/test_*.py` module must be represented by exactly one
+native test target in the retained `.ci/tests.json` catalogue or the
+issue-scoped `.ci/temp-tests.json` catalogue. `scripts/validate.py` checks
+both inventories and fails closed on unclassified modules or missing targets.
+Only retained regression/integration declarations run in broad stages;
+temporary targets are selected explicitly, never promoted silently.
+
+The #703 MIT negative and version-contract modules are registered in the
+**authoritative** `.ci/tests.json` as issue-owned groups with
+`type: regression`, `lifecycle: GREEN`. Their six independent native
+Ubuntu/macOS/Windows jobs passed in GitHub Actions run 41251290328;
+they are now ordinary retained regression/integration coverage. The historical
+RED marker remains supported for newly failing RED oracles: lifecycle is
+separate from test type, and `lifecycle: RED` excludes a group from retained
+regression/integration and automatic issue verification until its owner
+certifies GREEN. These automated tests are not `type: manual` MIT cases,
+which have distinct operator-case contracts. Their former duplicated
+`.ci/temp-tests.json` declarations were retired.
+
+Classify new or relocated test modules before running a broad stage. When
+retiring a temporary test, remove its temporary registration and its file
+if obsolete, or move the still-required test into retained catalogue coverage.
+See [TEST_STRATEGY.md](TEST_STRATEGY.md) and
+[#778](https://github.com/Ma-XX-oN/RepoWorkflow/issues/778).
+
+The executable stage vocabulary is **RED, GREEN, temporary, regression, and
+integration**. Catalogue group metadata uses `type: regression` or
+`type: integration` for retained automated suites, and `type: manual` only
+for separately authorized manual integration cases. `type: invariant` is invalid:
+an invariant is a requirement being tested, not a separate RWF execution
+stage. Issue-specific RED/GREEN selectors are named `issue-<number>-...`;
+the optional temporary catalogue is `.ci/temp-tests.json`. Do not infer
+that unregistered files are automatically regression tests, or migrate
+short-lived tests into retained suites without verifying their ownership
+and value.
+
+`aliases` are **named associations of already registered group keys**,
+used for durable high-risk group expansion and other named selections.
+They do not define the regression or integration stages; stage membership
+is defined by per-group `type`. An integration stage includes the
+applicable broad regression obligations and integration-only probes as
+specified in `TEST_STRATEGY.md`.
+
+
+
 The catalogue has three top-level collections: `test-harnesses`, `tests`,
 and `aliases`.  `test-harnesses` is the Rosetta dictionary.  Each key names
 a harness and its value describes how native test targets are translated into
@@ -160,11 +207,31 @@ temporary selection file.  The exact file-content template/schema is still
 under design and must be settled before this part of the Rosetta contract is
 implemented.
 
-The catalogue is static.  Full regression selection is derived from entries
-whose metadata says `type: regression`; fast selection is derived from speed
-metadata; group selection matches canonical group keys.  Separate manually
-maintained aggregate suite membership is intentionally avoided because it would
-create multiple places that must remain synchronized.
+For the current inventory of test modules not yet directly registered, see
+[the unregistered module classification review](TEST_CLASSIFICATION_REVIEW_20261031.md).
+This review is not a reason to automatically promote unverified candidates;
+each retained or retired group needs issue-contract evidence.
+
+The catalogue is static.  The **intended** retained regression membership
+comes from entries whose metadata says `type: regression`; integration entries
+mark the separate cross-boundary stage. Fast selection is derived from speed
+metadata; group selection matches canonical group keys. Separate manually
+maintained aggregate suite membership is intentionally avoided because it
+would create multiple places that must remain synchronized.
+
+**Current stage selection implementation (unmerged #109 candidate):**
+`rwf test regression` invokes `scripts/validate.py regression`, which
+selects the registered `type: regression` test modules and executes their
+unique unittest case identities without filesystem discovery. `rwf test
+integration` selects both regression and integration modules, then executes
+the three separately registered platform probes. Imported TestCase aliases
+from another stage cannot cross the declared module boundary. The catalogue
+and the exact selected group names are bound into canonical testing evidence.
+Issue-specific RED tests are **not** promoted into retained stages merely
+because their source modules exist. Local or hosted execution still must
+use RWF's `rwf test` entrypoints and published testing-log contract.
+This code path requires a successful exact-candidate broad regression and
+integration acceptance before it can be marked certified.
 
 When many selected tests are representable in one native invocation, RWF may
 batch them.  Batching must preserve whole test selections and respect the

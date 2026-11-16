@@ -11,7 +11,7 @@ import re
 
 _VERSION = re.compile(
   r"(?P<base>[0-9]+\.[0-9]+\.[0-9]+)-issue\."
-  r"(?P<issue>[1-9][0-9]*)\.(?P<q>[0-9]+)\.(?P<r>[1-9][0-9]*)"
+  r"(?P<issue>[1-9][0-9]*)\.(?P<q>[0-9]+)\.(?P<r>[0-9]+)"
 )
 _TERMINAL = {"PASS", "FAIL", "INCOMPLETE"}
 _PHASES = {"regression", "integration"}
@@ -43,7 +43,8 @@ def plan_phase(
   if prior_terminal is not None and prior_terminal not in {"PASS", "FAIL"}:
     raise PhaseTransitionError("invalid prior terminal state")
   if prior_terminal is not None and (
-    outcome == "INCOMPLETE" or outcome != prior_terminal
+    outcome == "INCOMPLETE" or (outcome != prior_terminal
+                                and (prior_terminal, outcome) != ("PASS", "FAIL"))
   ):
     raise PhaseTransitionError("terminal outcome is already immutable")
   match = _VERSION.fullmatch(version)
@@ -72,10 +73,6 @@ def plan_phase(
     if outcome == "FAIL":
       # Existing CI-FAIL outcome suffix, composed with the PRELIM namespace.
       tag += "-CI-FAIL"
-      if phase == "regression":
-        request = ("task", "--increment", "CI-iteration")
-        next_version = f"{base}-issue.{issue}.{q}.{r + 1}"
-      else:
-        request = ("task", "--increment", "merge-integration-failed")
-        next_version = f"{base}-issue.{issue}.{q + 1}.1"
+      # Recording a result does not change source or prepare another candidate.
+      # Version preparation happens before testing a changed source tip.
   return PhasePlan(phase, outcome, version, tag, next_version, request)

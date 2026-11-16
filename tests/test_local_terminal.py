@@ -91,7 +91,7 @@ class LocalTerminalTests(unittest.TestCase):
     with self.assertRaisesRegex(TerminalTagError, "unavailable"):
       publish_local_terminal(self.root, stage="integration")
 
-  def test_local_failure_tag_drives_next_explicit_r_transition(self):
+  def test_local_failure_tag_keeps_version_until_source_changes(self):
     state = self.root / ".ci/engine-version"
     state.parent.mkdir()
     state.write_text(VERSION + "\n")
@@ -105,9 +105,9 @@ class LocalTerminalTests(unittest.TestCase):
     )
     self.assertEqual(
       prepare_engine_request(self.root, stage="regression", issue=572),
-      "0.1.122-issue.572.0.2",
+      VERSION,
     )
-    self.assertEqual(state.read_text(), "0.1.122-issue.572.0.2\n")
+    self.assertEqual(state.read_text(), VERSION + "\n")
 
 
 if __name__ == "__main__":

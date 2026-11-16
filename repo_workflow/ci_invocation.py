@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from .process import run_command_bytes
 import re
-import subprocess
 
 
 STAGES = frozenset({
@@ -42,24 +42,29 @@ def parse_invocation(text: str) -> CiInvocation:
   return CiInvocation(parts[0], parts[1])
 
 
-def _git(root: Path, *args: str) -> str:
-  result = subprocess.run(
-    ["git", "-C", str(root), *args],
-    capture_output=True,
-    text=True,
-    check=False,
-  )
+def _git(root: Path, *args: str, raw: bool = False) -> str:
+  result = run_command_bytes(["git", "-C", str(root), *args], root)
   if result.returncode:
+    try:
+      diagnostic = result.stderr.decode("utf-8", "strict")
+    except UnicodeDecodeError as error:
+      raise CiInvocationError("invalid UTF-8 Git diagnostic") from error
     raise CiInvocationError(
-      f"cannot verify CI invocation commit: {result.stderr.strip()}"
+      "cannot verify CI invocation commit: " + diagnostic.strip()
     )
-  return result.stdout.strip()
+  try:
+    output = result.stdout.decode("utf-8", "strict")
+  except UnicodeDecodeError as error:
+    raise CiInvocationError(
+      "committed CI marker is not UTF-8" if raw else "invalid UTF-8 Git output"
+    ) from error
+  return output if raw else output.strip()
 
 
 def verify_invocation(root: Path) -> CiInvocation:
   """Require HEAD to be a dedicated request commit on its direct parent."""
   try:
-    raw = _git(root, "show", "HEAD:.ci/run")
+    raw = _git(root, "show", "HEAD:.ci/run", raw=True)
   except CiInvocationError as error:
     if "does not exist in" in str(error):
       raise CiInvocationError("missing committed .ci/run invocation") from error
@@ -99,7 +104,7 @@ def original_candidate(root: Path, tip: str) -> str:
       root, "diff-tree", "--no-commit-id", "--name-only", "-r", sha,
     ).splitlines()
     if changed == [".ci/run"]:
-      request = parse_invocation(_git(root, "show", sha + ":.ci/run"))
+      request = parse_invocation(_git(root, "show", sha + ":.ci/run", raw=True))
       if request.previous_tip != parent:
         raise CiInvocationError("historical CI invocation ancestry mismatch")
     elif (len(changed) == 1 and re.fullmatch(

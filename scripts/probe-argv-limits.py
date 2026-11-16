@@ -98,4 +98,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+  # All Python output, including print() and tracebacks, uses one UTF-8 boundary.
+  from pathlib import Path
+  import sys
+  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  from repo_workflow.output import configure_utf8_output
+  if not configure_utf8_output():
+    raise SystemExit(2)
   raise SystemExit(main())

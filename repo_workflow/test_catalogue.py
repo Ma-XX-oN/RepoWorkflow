@@ -74,8 +74,57 @@ def _group_keys(tests: object) -> frozenset[str]:
         raise TestCatalogueError(f"duplicate test group: {key}")
       if not isinstance(value, dict):
         raise TestCatalogueError(f"test group {key} must be an object")
+      lifecycle = value.get("lifecycle")
+      if lifecycle is not None and (
+        lifecycle not in {"RED", "GREEN"} or value.get("type") == "manual"
+      ):
+        raise TestCatalogueError(
+          f"test group {key} has invalid RED/GREEN lifecycle"
+        )
+      stage = value.get("type")
+      if not isinstance(stage, str) or stage not in {
+        "regression", "integration", "manual", "invariant"
+      }:
+        raise TestCatalogueError(
+          f"test group {key} must use regression, integration, manual or invariant type"
+        )
       groups.add(key)
   return frozenset(groups)
+
+
+def stage_groups(root: Path, stage: str) -> tuple[str, ...]:
+  """Select retained groups by declared stage, not aliases or discovery.
+
+  Integration includes regression obligations. Duplicate native targets are
+  selected once, retaining the earliest canonical group name.
+  """
+  if stage not in {"regression", "integration"}:
+    raise TestCatalogueError("unknown retained testing stage: " + stage)
+  path = Path(root) / CATALOGUE_PATH
+  try:
+    value = json.loads(path.read_text(encoding="utf-8"))
+  except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    raise TestCatalogueError("cannot read authoritative test catalogue") from error
+  parse_test_catalogue(value)
+  allowed = {"regression"} if stage == "regression" else {
+    "regression", "integration"
+  }
+  allowed.add("invariant")
+  selected: dict[tuple[str, str], str] = {}
+  for declaration in value["tests"]:
+    harness = declaration["test-harness"]
+    for group, metadata in declaration.items():
+      if group in {"test-harness", "command"}:
+        continue
+      if metadata["type"] not in allowed or metadata.get("lifecycle") == "RED":
+        continue
+      target = metadata.get("name")
+      if not isinstance(target, str) or not target:
+        raise TestCatalogueError("retained group lacks native target: " + group)
+      selected.setdefault((harness, target), group)
+  if not selected:
+    raise TestCatalogueError("no registered tests for " + stage)
+  return tuple(sorted(selected.values()))
 
 
 def _aliases(value: object, groups: frozenset[str]) -> dict[str, tuple[str, ...]]:

@@ -8,6 +8,7 @@ from repo_workflow.test_catalogue import (
   TestCatalogueError,
   load_test_catalogue,
   parse_test_catalogue,
+  stage_groups,
 )
 
 
@@ -43,6 +44,62 @@ class TestCatalogueTests(unittest.TestCase):
         ],
       },
     }
+
+  def test_stage_selection_is_catalogue_owned_and_deduplicated(self):
+    value = self.value()
+    value["tests"][0]["issue-474-alias"] = {
+      "type": "regression", "name": "tests.test_test_catalogue",
+    }
+    value["tests"][0]["issue-474-integration"] = {
+      "type": "integration", "name": "tests.test_completion",
+    }
+    value["tests"][0]["issue-474-manual--review"] = {
+      "type": "manual", "instructions": "Inspect",
+      "expected_result": "PASS",
+    }
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      path = root / CATALOGUE_PATH
+      path.parent.mkdir()
+      path.write_text(json.dumps(value), encoding="utf-8")
+      self.assertEqual(stage_groups(root, "regression"), (
+        "issue-456-grammar", "issue-474-catalogue",
+      ))
+      self.assertEqual(stage_groups(root, "integration"), (
+        "issue-456-grammar", "issue-474-catalogue",
+        "issue-474-integration",
+      ))
+      with self.assertRaisesRegex(TestCatalogueError, "unknown retained"):
+        stage_groups(root, "temporary")
+
+  def test_red_lifecycle_is_registered_but_excluded_from_retained_stages(self):
+    value = self.value()
+    value["tests"][0]["issue-703-negative-red"] = {
+      "type": "regression", "lifecycle": "RED",
+      "name": "tests.test_manual_mit_negative_acceptance",
+    }
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      path = root / CATALOGUE_PATH
+      path.parent.mkdir()
+      path.write_text(json.dumps(value), encoding="utf-8")
+      self.assertIn(
+        "issue-703-negative-red", load_test_catalogue(root).groups
+      )
+      for stage in ("regression", "integration"):
+        self.assertNotIn("issue-703-negative-red", stage_groups(root, stage))
+      value["tests"][0]["issue-703-negative-red"]["lifecycle"] = "GREEN"
+      path.write_text(json.dumps(value), encoding="utf-8")
+      self.assertIn("issue-703-negative-red", stage_groups(root, "regression"))
+
+  def test_invalid_red_lifecycle_fails_closed(self):
+    value = self.value()
+    value["tests"][0]["issue-703-invalid"] = {
+      "type": "regression", "lifecycle": "unfinished",
+      "name": "tests.test_manual_mit_negative_acceptance",
+    }
+    with self.assertRaisesRegex(TestCatalogueError, "invalid RED/GREEN"):
+      parse_test_catalogue(value)
 
   def test_aliases_expand_by_sorted_union_and_deduplicate(self):
     catalogue = parse_test_catalogue(self.value())
@@ -94,6 +151,32 @@ class TestCatalogueTests(unittest.TestCase):
       },
     })
     with self.assertRaisesRegex(TestCatalogueError, "duplicate test group"):
+      parse_test_catalogue(value)
+
+  def test_integration_is_an_authoritative_stage(self):
+    value = self.value()
+    value["tests"][0]["issue-474-catalogue"]["type"] = "integration"
+    self.assertIn("issue-474-catalogue", parse_test_catalogue(value).groups)
+
+  def test_legacy_invariant_type_is_rejected(self):
+    value = self.value()
+    value["tests"][0]["issue-474-catalogue"]["type"] = "invariant"
+    with self.assertRaisesRegex(TestCatalogueError, "regression, integration or manual"):
+      parse_test_catalogue(value)
+
+  def test_manual_integration_case_type_is_retained(self):
+    value = self.value()
+    value["tests"][0]["issue-474-catalogue"] = {
+      "type": "manual",
+      "instructions": "Inspect the candidate.",
+      "expected_result": "Expected terminal observed.",
+    }
+    self.assertIn("issue-474-catalogue", parse_test_catalogue(value).groups)
+
+  def test_undefined_type_is_rejected(self):
+    value = self.value()
+    del value["tests"][0]["issue-474-catalogue"]["type"]
+    with self.assertRaisesRegex(TestCatalogueError, "regression, integration or manual"):
       parse_test_catalogue(value)
 
   def test_aliases_are_not_recursive(self):

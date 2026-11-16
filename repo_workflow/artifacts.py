@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 import sys
 
-from .git import changed_files, git, head_sha, repository_state
+from .git import changed_files, git, git_bytes, git_wire_path, head_sha, repository_state
 from .process import run_command
+from .owned_commit import commit_owned_files
 
 
 ARTIFACT_ENVIRONMENT_ID = "__repoworkflow_artifacts__"
@@ -85,7 +86,7 @@ def materialize_artifacts(root: Path, config: dict) -> ArtifactResult:
         f"current platform is {actual_platform}"
       )
       break
-    allowed = {path.replace("\\", "/") for path in artifact["outputs"]}
+    allowed = set(artifact["outputs"])
     before_changed = set(changed_files(root))
     before_state = repository_state(root)
     before_fingerprints = {
@@ -160,7 +161,7 @@ def materialize_artifacts(root: Path, config: dict) -> ArtifactResult:
       break
   changed = changed_files(root)
   all_allowed = {
-    path.replace("\\", "/")
+    path
     for artifact in artifacts
     for path in artifact["outputs"]
   }
@@ -187,17 +188,6 @@ def commit_artifact_changes(
     raise ArtifactError("only a successful artifact result may be committed")
   if not result.changed_files:
     return head_sha(root)
-  git(root, "add", "--all", "--", *result.changed_files)
-  staged = sorted(
-    line.strip().replace("\\", "/")
-    for line in git(root, "diff", "--cached", "--name-only").stdout.splitlines()
-    if line.strip()
-  )
-  expected = sorted(result.changed_files)
-  if staged != expected:
-    raise ArtifactError(
-      "staged artifact paths do not match verified changes: "
-      f"expected={expected}, staged={staged}"
-    )
-  git(root, "commit", "-m", message)
-  return head_sha(root)
+  # The verified artifact declaration owns these exact output paths. Preserve
+  # staged edits to unrelated files through the shared selective-commit helper.
+  return commit_owned_files(root, result.changed_files, message) or head_sha(root)

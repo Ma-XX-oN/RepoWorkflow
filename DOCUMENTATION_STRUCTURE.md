@@ -5,17 +5,127 @@ Status: authoritative policy for structuring RepoWorkflow source documentation.
 This document defines how documentation should be kept concise and navigable
 without sacrificing authoritative information.
 
-## 1. Purpose
+General engineering guidance is indexed in [BEST_PRACTICES.md](BEST_PRACTICES.md),
+which links to the authoritative specialist procedures.
 
-The practical ~500-line documentation ceiling is a maintainability signal, not
-a content budget.
+## Hierarchical navigation
+
+Use descriptive, unnumbered Markdown headings for documentation sections.
+Reserve numbering for ordered procedures, enumerated contractual identifiers,
+and numbers that carry substantive meaning. Numbered headings change GitHub
+fragment identifiers when sections are inserted or rearranged, so preserve
+or update references and verify that fragment links resolve to their intended
+sections when migrating existing headings. Historical audit records retain
+their original wording and identities.
+
+
+Use [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for a short entry point
+that links to increasingly focused contracts. A specialist document should
+own its subject and cross-link to another branch when a real task crosses
+boundaries. Avoid duplicating authoritative detail in overview pages.
+For environment selection, see
+[EXECUTION_ENVIRONMENTS.md](EXECUTION_ENVIRONMENTS.md).
+
+## Documentation architecture: recursively scoped navigation
+
+The documentation is a **hierarchy of increasingly specific answers**,
+with cross-links wherever one issue spans multiple subjects. Each level
+should summarize its purpose briefly and point to the next level only
+when more detail is required.
+
+1. **Repository entry points:** `README.md` introduces RepoWorkflow;
+   `AGENTS.md` directs coding agents to
+   [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md).
+2. **Topic index:** `DOCUMENTATION_INDEX.md` maps tasks and major areas
+   to short overviews. It should not copy full procedures.
+3. **Domain overview:** A topic's overview states scope, key invariants,
+   boundaries and which specialist contract controls each question.
+4. **Specialist contract:** The authoritative document contains the
+   complete requirements, procedures and acceptance semantics for one
+   coherent subject. Link to its deeper evidence or examples as needed.
+5. **Evidence and examples:** Focused test matrices, experiment reports
+   and issue-specific records support their parent contract without
+   silently becoming alternative sources of policy.
+
+**Recursive application:** A specialist may become an overview for a
+narrower subject. Every new level follows the same pattern: brief
+orientation, explicit authoritative owner, focused subordinate links.
+Do not impose a fixed maximum depth, duplicate a contract, or create
+trivial pages just to satisfy the shape of the tree.
+
+**Cross-cutting links:** Link directly across branches when useful.
+For example, a missing local Python dependency links from
+[bug investigation](BUG_INVESTIGATION.md) to
+[execution environments](EXECUTION_ENVIRONMENTS.md), then to
+[test adequacy](TEST_ADEQUACY.md). Do not force readers back through
+the root index or pretend the hierarchy represents issue dependencies.
+
+### Adding or reorganizing documentation
+
+Before adding a document:
+
+1. Search the index and existing specialist pages for the authoritative
+   owner of the subject. Extend that owner if the new material fits.
+2. If the subject is independent, create a focused specialist document
+   under the nearest logical overview. Give it a clear purpose, status
+   and links to its controlling contracts.
+3. Add a **short navigation link** from its immediate parent. Update
+   `DOCUMENTATION_INDEX.md` only for new major topics or high-value
+   task entry routes; do not index every leaf redundantly.
+4. Add cross-links from other branches only when they solve a real
+   discovery problem. Prefer links that explain *why* to follow them.
+5. Preserve every existing authoritative statement during moves.
+   Keep historical evidence distinct from current policy and do not
+   turn a proposed implementation into a verified capability.
+6. Verify relative links, discoverability from `README.md` or
+   `AGENTS.md`, coherent ownership, and no circular reading
+   prerequisites. Navigation cycles are acceptable; mandatory
+   prerequisite cycles are not.
+7. Apply the [500-soft / 800-hard file-length rule](SOURCE_SIZE_RATIONALE.md)
+   and 80-soft / 120-strong line-width guidance without arbitrary
+   splitting or loss of semantics.
+
+**Placement test:** A reader starting with only a problem description
+should be able to navigate from the short index to its authoritative
+procedure in a small number of purposeful clicks, and find a directly
+linked alternative execution environment when the first approach fails.
+
+## Purpose
+
+A document reaching **500 lines** triggers a soft maintainability review;
+**800 lines or more** violates the hard ceiling enforced by the source-size
+test. Neither threshold is permission to remove authoritative content.
+
+For the complete origin, single-response agent retrieval objective, measured
+GitHub connector observations, and unverified token-budget boundary, see
+[SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md). The practical ceiling
+is not a demonstrated technical truncation threshold.
 
 A document approaching the ceiling should trigger a review of its
 responsibilities.  The goal is not to make the file numerically smaller.  The
 goal is to keep each authoritative document focused enough that its subject,
 ownership, invariants, and relationships remain easy to understand and verify.
 
-## 2. Preserve semantics
+## Line readability for agents and humans
+
+Source code and documentation are primarily consumed by agents, but must
+remain comfortable for humans to read without horizontal scrolling.
+
+- **80 characters is a soft limit** for ordinary source and prose lines.
+  Exceeding it should prompt a readability review, not an automatic split.
+- **120 characters is a strong limit**. Exceed it only when wrapping would
+  damage correctness or clarity, such as an indivisible URL, externally
+  defined identifier, or exact machine-consumed literal.
+- Prefer meaningful wrapping, shorter expressions, and coherent formatting
+  over minification or arbitrary file/module splits.
+- Do not break authoritative strings, data, URLs, test expectations or
+  formatting contracts merely to comply with a numeric width.
+
+These are writing and review guidelines, not newly implemented CI gates.
+The separate file-length and single-response-retrieval rationale is in
+[SOURCE_SIZE_RATIONALE.md](SOURCE_SIZE_RATIONALE.md).
+
+## Preserve semantics
 
 Do not satisfy a size limit by deleting, weakening, or compressing information
 that is still authoritative.
@@ -40,7 +150,7 @@ information is lost.
 Concision becomes a problem only when it creates ambiguity, removes necessary
 context, or silently discards constraints.
 
-## 3. Split by responsibility
+## Split by responsibility
 
 When a document becomes too broad, identify a real subject or responsibility
 boundary and move that complete responsibility into a focused companion
@@ -77,7 +187,7 @@ Document B
 
 Do not create arbitrary "part 1" / "part 2" pages merely to move lines.
 
-## 4. One authoritative owner
+## One authoritative owner
 
 After a split, each semantic rule should have one authoritative home.
 
@@ -94,7 +204,7 @@ WORK_GRAPH_TESTING.md defines how those semantics are verified.
 
 Cross-references should reduce duplication, not hide important relationships.
 
-## 5. Preserve context during extraction
+## Preserve context during extraction
 
 When moving material to a companion document:
 
@@ -109,7 +219,7 @@ When moving material to a companion document:
 A split is incomplete if a reader must reconstruct the old document mentally to
 understand either new one.
 
-## 6. Line count is a trigger, not a target
+## Line count is a trigger, not a target
 
 Do not optimize a document toward 499 or 500 lines.
 
@@ -122,7 +232,7 @@ Likewise, do not split a focused document merely because it is moderately long
 if there is no sound responsibility boundary.  The structural boundary is the
 primary criterion.
 
-## 7. Relationship to source-size policy
+## Relationship to source-size policy
 
 The same principle applies to authoritative production source:
 
@@ -134,7 +244,7 @@ The same principle applies to authoritative production source:
 Source and documentation differ in mechanics, but both use the size ceiling as
 an architectural diagnostic rather than a deletion quota.
 
-## 8. Review checklist
+## Review checklist
 
 Before accepting a size-driven split, verify:
 
@@ -152,7 +262,7 @@ Before accepting a size-driven split, verify:
 If the last answer is yes, restore the lost context or find a better structural
 split.
 
-## 9. Principle
+## Principle
 
 Prefer several concise, directed, semantically complete documents over either:
 

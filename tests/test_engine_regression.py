@@ -33,7 +33,13 @@ class EngineRegressionTests(unittest.TestCase):
       )
     self.assertEqual(result, 0)
     consumer.assert_not_called()
-    self.assertEqual(self.git("rev-parse", "HEAD"), before)
+    evidence_commit = self.git("rev-parse", "HEAD")
+    self.assertNotEqual(evidence_commit, before)
+    self.assertEqual(self.git("rev-parse", "HEAD^"), before)
+    self.assertEqual(
+      self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
+      ".repoworkflow/validation/testResults-545.jsonl",
+    )
     log = self.root / ".repoworkflow/validation/testResults-545.jsonl"
     entry = json.loads(log.read_text().splitlines()[-1])
     self.assertEqual(entry["testSHA"], before)

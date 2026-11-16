@@ -4,18 +4,31 @@ import csv
 import json
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tests.support import RepoFixture
 
 
 ROOT = Path(__file__).resolve().parents[1]
 RWF = ROOT / "rwf"
+PYTHON_ENTRY = ROOT / "repo_workflow.py"
 CANONICAL_TICKETS = ROOT / ".repoworkflow" / "tickets.csv"
 TYPE_PREFIXES = ("Initiative:", "Epic:", "Feature:")
+
+
+def capture_utf8(command, *, cwd):
+  result = subprocess.run(command, cwd=cwd, capture_output=True, check=False)
+  return subprocess.CompletedProcess(
+    result.args,
+    result.returncode,
+    result.stdout.decode("utf-8", "strict"),
+    result.stderr.decode("utf-8", "strict"),
+  )
 
 
 class CanonicalLaneSmokeTests(unittest.TestCase):
@@ -99,12 +112,43 @@ class CanonicalLaneSmokeTests(unittest.TestCase):
     )
 
   def run_rwf(self, root: Path, *args: str):
-    return subprocess.run(
-      [str(RWF), "--root", str(root), *args],
-      cwd=root,
-      capture_output=True,
-      text=True,
+    # A POSIX shell launcher is not directly executable by Win32.
+    # The existing Python CLI is the same application on every platform.
+    executable = (
+      [sys.executable, str(PYTHON_ENTRY)]
+      if sys.platform == "win32"
+      else [str(RWF)]
     )
+    return capture_utf8(
+      [*executable, "--root", str(root), *args],
+      cwd=root,
+    )
+
+  def test_invalid_utf8_cli_output_is_not_silently_replaced(self):
+    with tempfile.TemporaryDirectory() as td:
+      root = Path(td)
+      stub = root / "stub_cli.py"
+      stub.write_text(
+        "import os\n"
+        "os.write(1, bytes([255]))\n",
+        encoding="utf-8",
+      )
+      if sys.platform == "win32":
+        with patch(f"{__name__}.PYTHON_ENTRY", stub):
+          with self.assertRaises(UnicodeDecodeError):
+            self.run_rwf(root, "issue", "list")
+      else:
+        launcher = root / "run-stub"
+        launcher.write_text(
+          "#!/bin/sh\n"
+          f"exec {shlex.quote(sys.executable)} "
+          f"{shlex.quote(str(stub))} \"$@\"\n",
+          encoding="utf-8",
+        )
+        launcher.chmod(0o755)
+        with patch(f"{__name__}.RWF", launcher):
+          with self.assertRaises(UnicodeDecodeError):
+            self.run_rwf(root, "issue", "list")
 
   def test_current_typed_issue_smoke_renders_through_public_cli(self):
     with tempfile.TemporaryDirectory() as td:

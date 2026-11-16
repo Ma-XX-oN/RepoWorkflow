@@ -7,8 +7,8 @@ in each repository.
 
 The central boundary is:
 
-> GitHub workflow YAML is only a bootstrap. Repository workflow logic must remain
-> executable locally and on other CI platforms.
+> CI-provider workflow configuration is only a bootstrap. Repository workflow
+> logic must remain executable locally and on other CI platforms.
 
 A consumer is structured broadly as:
 
@@ -21,6 +21,33 @@ Project/
 ├── scripts/                    # repository-specific operations
 └── tests/
 ```
+
+## Find the right documentation
+
+**Hosted testing trigger:** changing `.ci/run` on an `issue-*` branch
+invokes the on-demand GitHub workflow; ordinary source-only pushes do not.
+`.ci/run-ci-request` is a separate legacy candidate-bookkeeping file, **not**
+the trigger; `.ci/rwf` is only a proposed future name. Other workflows have
+independent triggers. See [CI invocation](CI_INVOCATION_CONTRACT.md) and
+[execution environments](EXECUTION_ENVIRONMENTS.md).
+
+Start at the [documentation map](DOCUMENTATION_INDEX.md) for a short,
+task-oriented route into authoritative specialist contracts. If local tools
+or network access are insufficient, check
+[execution environments](EXECUTION_ENVIRONMENTS.md) before ruling out
+GitHub Actions as a testing workbench.
+
+## Engineering best practices (humans and AI agents)
+
+**Start with [BEST_PRACTICES.md](BEST_PRACTICES.md)** before implementing, reviewing,
+porting or certifying code in RepoWorkflow or a consumer project. This is the
+repository-neutral engineering entry point, including portability, root-cause
+investigation, testing and evidence-based completion. For architecture-level
+reuse, centralized wrappers and minimal duplicated logic, see
+[DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md). Specialist contracts:
+[BUG_INVESTIGATION.md](BUG_INVESTIGATION.md),
+[TEST_ADEQUACY.md](TEST_ADEQUACY.md) and
+[DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md).
 
 ## Runtime dependencies
 
@@ -36,12 +63,22 @@ The terminal styling adapter uses the declared capability-aware backend.
 it never silently degrades to uncoloured output.  `color auto` may remain
 unstyled when styling is unavailable or inappropriate for the output stream.
 
+## Agent prompts and coordinated dispatch
+
+The [AGENT-CMD protocol](AGENT-CMD-PROTOCOL.md) specifies how named Prompt
+Markdown (`.pmd`) files are loaded and expanded from ChatGPT Library.
+The [PMD authoring guide](PMD_AUTHORING.md) specifies version checking,
+claim-safe updates, ticket workers and reusable examples.
+The [coordinated prompt packaging guide](AGENT_PROMPT_PACKAGING.md)
+specifies one controller-ticket-named shared PMD and separate complete
+conversation SPINUP blocks per worker, not issue-comment launch queues.
+
 ## Responsibilities
 
 RepoWorkflow owns common lifecycle and invariant machinery:
 
 - `.ci/run-ci-request` candidate binding and refresh;
-- automatic development-iteration advancement after a consumed terminal result;
+- automatic candidate version preparation under the task-version rules;
 - authoritative remote terminal-tag checks;
 - exact-candidate and clean-checkout validation;
 - PASS / FAIL / INCOMPLETE semantics and result aggregation;
@@ -123,10 +160,11 @@ The launcher first establishes the pinned engine as described above. The engine
 then owns candidate bookkeeping. The caller does not manually refresh
 `.ci/run-ci-request`, reorder bookkeeping commits, or opt into terminal tagging.
 Before validation, `verify` rebinds the request after ordinary source commits
-when necessary. If the current development iteration is already consumed
-remotely, RepoWorkflow invokes the repository-owned semantic version adapter
-with `task --increment CI-iteration`, verifies that only `R` advanced by one,
-and records the resulting version/request change in one bookkeeping commit.
+when necessary. When a version transition is required
+([rule](WORKFLOW_LIFECYCLE.md#task-versions)), RepoWorkflow invokes the
+repository-owned semantic version adapter, verifies the requested successor,
+and records the resulting
+version/request change in one bookkeeping commit.
 
 A completed development result always creates a local terminal tag:
 
@@ -176,6 +214,7 @@ The intended human-facing interface is the Git-like `rwf` command family:
 
 ```text
 rwf init
+rwf start ...
 rwf status
 rwf what-next
 rwf issue ...
@@ -216,6 +255,9 @@ methodology.
   invariants before extending them.
 - [GRAPH_RENDERER.md](GRAPH_RENDERER.md) defines the constrained,
   project-neutral sibling-group DAG renderer used by lane graph display.
+- [WORK_GRAPH_VISUAL_CONVENTIONS.md](WORK_GRAPH_VISUAL_CONVENTIONS.md) defines
+  the four-state Mermaid **Progress Graph (PG)** colours and symbols, and
+  distinguishes the six-state RWF **Lifecycle Graph (LG)**.
 - [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) defines how size
   limits trigger concise rewrites or responsibility-based splits without
   losing authoritative semantics.

@@ -18,6 +18,34 @@
   "tests": [
     {
       "test-harness": "unittest",
+      "issue-109-single-prelim": {
+        "type": "regression",
+        "name": "tests.test_single_prelim"
+      },
+      "issue-109-submission": {
+        "type": "regression",
+        "name": "tests.test_done_submission"
+      },
+      "issue-109-functional-workflow": {
+        "type": "regression",
+        "name": "tests.test_done_workflow"
+      },
+      "issue-109-done-dispatch": {
+        "type": "regression",
+        "name": "tests.test_done_dispatch"
+      },
+      "issue-102-prelim-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_validation"
+      },
+      "issue-84-prelim-integration": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration"
+      },
+      "issue-82-prelim-candidate": {
+        "type": "regression",
+        "name": "tests.test_prelim_attempt"
+      },
       "issue-456-command-grammar": {
         "type": "regression",
         "name": "tests.test_quantified_grammar"
@@ -30,8 +58,8 @@
         "type": "regression",
         "name": "tests.test_self_ci_tiers"
       },
-      "invariant-self-ci-contract": {
-        "type": "invariant",
+      "integration-self-ci-contract": {
+        "type": "integration",
         "name": "tests.test_self_ci"
       },
       "issue-477-risk-scoped-ci": {
@@ -378,6 +406,696 @@
         "type": "regression",
         "name": "tests.test_local_terminal"
       },
+      "issue-109-consumer-integration-adapter": {
+        "type": "regression",
+        "name": "tests.test_consumer_integration_adapter"
+      },
+      "issue-109-provider-pipeline": {
+        "type": "regression",
+        "name": "tests.test_done_provider_pipeline"
+      },
+      "issue-109-retirement-bridge": {
+        "type": "regression",
+        "name": "tests.test_done_retirement_bridge"
+      },
+      "issue-109-terminal-v2": {
+        "type": "regression",
+        "name": "tests.test_done_terminal_v2"
+      },
+      "issue-109-prelim-candidate": {
+        "type": "regression",
+        "name": "tests.test_done_prelim_candidate"
+      },
+      "issue-109-lifecycle-binding": {
+        "type": "regression",
+        "name": "tests.test_done_lifecycle_binding"
+      },
+      "issue-109-landed-results": {
+        "type": "regression",
+        "name": "tests.test_done_landed_results"
+      },
+      "issue-109-failed-terminal": {
+        "type": "regression",
+        "name": "tests.test_done_failed_attempt"
+      },
+      "issue-109-ready-scheduler": {
+        "type": "regression",
+        "name": "tests.test_done_ready_scheduler"
+      },
+      "issue-109-current-policy": {
+        "type": "regression",
+        "name": "tests.test_done_current_policy"
+      },
+      "issue-109-hosted-artifact-bridge": {
+        "type": "regression",
+        "name": "tests.test_done_stage_hosted"
+      },
+      "issue-109-source-identity": {
+        "type": "regression",
+        "name": "tests.test_done_source_identity"
+      },
+      "issue-109-done-runtime": {
+        "type": "regression",
+        "name": "tests.test_done_runtime"
+      },
+      "issue-109-done-cli": {
+        "type": "regression",
+        "name": "tests.test_done_cli"
+      },
+      "issue-109-promotion-provider": {
+        "type": "regression",
+        "name": "tests.test_done_promotion_provider"
+      },
+      "issue-109-results-discovery": {
+        "type": "regression",
+        "name": "tests.test_done_results_discovery"
+      },
+      "issue-109-failure-handoff": {
+        "type": "regression",
+        "name": "tests.test_done_failure_handoff"
+      },
+      "issue-109-queue-cycle": {
+        "type": "regression",
+        "name": "tests.test_done_queue_cycle"
+      },
+      "issue-109-queue-scheduler": {
+        "type": "regression",
+        "name": "tests.test_done_queue_scheduler"
+      },
+      "issue-109-completion": {
+        "type": "regression",
+        "name": "tests.test_done_completion"
+      },
+      "issue-109-canonical-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_done_canonical_lifecycle"
+      },
+      "issue-109-shared-lifecycle": {
+        "type": "regression",
+        "name": "tests.test_done_shared_lifecycle"
+      },
+      "issue-109-check-issuer": {
+        "type": "regression",
+        "name": "tests.test_done_check_issuer"
+      },
+      "issue-109-hosted-stages": {
+        "type": "regression",
+        "name": "tests.test_done_hosted_stage_pipeline"
+      },
+      "issue-109-policy-admission": {
+        "type": "regression",
+        "name": "tests.test_done_policy_admission"
+      },
+      "issue-109-stage-certification": {
+        "type": "regression",
+        "name": "tests.test_done_stage_certification"
+      },
+      "issue-109-mit-defer-v2": {
+        "type": "regression",
+        "name": "tests.test_done_mit_defer_v2"
+      },
+      "issue-109-evidence-provider": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_provider"
+      },
+      "issue-109-evidence-promotion": {
+        "type": "regression",
+        "name": "tests.test_done_evidence_promotion"
+      },
+      "issue-109-host-coordination": {
+        "type": "regression",
+        "name": "tests.test_done_host_coordinator"
+      },
+      "issue-109-provider-acceptance": {
+        "type": "regression",
+        "name": "tests.test_done_provider_acceptance"
+      },
+      "issue-109-executor": {
+        "type": "regression",
+        "name": "tests.test_done_executor"
+      },
+      "issue-109-coordination": {
+        "type": "regression",
+        "name": "tests.test_integration_coordination"
+      },
+      "issue-683-prelim-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready"
+      },
+      "issue-683-prelim-ready-git": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_git"
+      },
+      "issue-683-prelim-ready-bridge": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_bridge"
+      },
+      "issue-683-prelim-ready-recorded": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_recorded"
+      },
+      "issue-683-prelim-ready-authority": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_authority"
+      },
+      "issue-683-provider-scope": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_provider_scope"
+      },
+      "issue-683-hosted-candidate-pin": {
+        "type": "regression",
+        "name": "tests.test_hosted_candidate"
+      },
+      "issue-683-destination-preparation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_prepare"
+      },
+      "issue-683-destination-validation": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_validation"
+      },
+      "issue-683-destination-publication": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_publish"
+      },
+      "issue-683-destination-roundtrip": {
+        "type": "regression",
+        "name": "tests.test_prelim_ready_v2_roundtrip"
+      },
+      "issue-683-historical-version-collision": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_history_collision"
+      },
+      "issue-683-integration-ready": {
+        "type": "regression",
+        "name": "tests.test_prelim_integration_ready"
+      },
+      "issue-109-native-host-transport": {
+        "type": "regression",
+        "name": "tests.test_done_host_transport"
+      },
+      "integration-ci-invocation-trigger": {
+        "type": "integration",
+        "name": "tests.test_ci_invocation_trigger_contract"
+      },
+      "regression-actions-policy": {
+        "type": "regression",
+        "name": "tests.test_actions_policy"
+      },
+      "regression-artifacts": {
+        "type": "regression",
+        "name": "tests.test_artifacts"
+      },
+      "regression-branch-policy": {
+        "type": "regression",
+        "name": "tests.test_branch_policy"
+      },
+      "regression-classification": {
+        "type": "regression",
+        "name": "tests.test_classification"
+      },
+      "regression-command-diagnostics": {
+        "type": "regression",
+        "name": "tests.test_command_diagnostics"
+      },
+      "regression-completion-spec": {
+        "type": "regression",
+        "name": "tests.test_completion_spec"
+      },
+      "regression-config": {
+        "type": "regression",
+        "name": "tests.test_config"
+      },
+      "regression-contract": {
+        "type": "regression",
+        "name": "tests.test_contract"
+      },
+      "regression-current-work-store": {
+        "type": "regression",
+        "name": "tests.test_current_work_store"
+      },
+      "regression-dependency-comparison": {
+        "type": "regression",
+        "name": "tests.test_dependency_comparison"
+      },
+      "regression-dependency-migration-manifest": {
+        "type": "regression",
+        "name": "tests.test_dependency_migration_manifest"
+      },
+      "regression-graph-boundary-order": {
+        "type": "regression",
+        "name": "tests.test_graph_boundary_order"
+      },
+      "integration-github-integration-provider": {
+        "type": "integration",
+        "name": "tests.test_github_integration_provider"
+      },
+      "integration-integration-evidence-external": {
+        "type": "integration",
+        "name": "tests.test_integration_evidence_external"
+      },
+      "integration-integration-host-git-cas": {
+        "type": "integration",
+        "name": "tests.test_integration_host_git_cas"
+      },
+      "integration-integration-host-v2-entrypoint": {
+        "type": "integration",
+        "name": "tests.test_integration_host_v2_entrypoint"
+      },
+      "integration-integration-lease-github": {
+        "type": "integration",
+        "name": "tests.test_integration_lease_github"
+      },
+      "integration-integration-retirement-github": {
+        "type": "integration",
+        "name": "tests.test_integration_retirement_github"
+      },
+      "integration-integration-terminal-github": {
+        "type": "integration",
+        "name": "tests.test_integration_terminal_github"
+      },
+      "integration-repo-host-authority-isolation": {
+        "type": "integration",
+        "name": "tests.test_repo_host_authority_isolation"
+      },
+      "integration-repo-host-github-integration-mit": {
+        "type": "integration",
+        "name": "tests.test_repo_host_github_integration_mit"
+      },
+      "integration-workspace-integration": {
+        "type": "integration",
+        "name": "tests.test_workspace_integration"
+      },
+      "integration-prelim-queue-git": {
+        "type": "integration",
+        "name": "tests.test_prelim_queue_git"
+      },
+      "regression-graph-boundary-plan": {
+        "type": "regression",
+        "name": "tests.test_graph_boundary_plan"
+      },
+      "regression-graph-cell-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_cell_semantics"
+      },
+      "regression-graph-geometry-interactions": {
+        "type": "regression",
+        "name": "tests.test_graph_geometry_interactions"
+      },
+      "regression-graph-long-plan": {
+        "type": "regression",
+        "name": "tests.test_graph_long_plan"
+      },
+      "regression-graph-long-routes": {
+        "type": "regression",
+        "name": "tests.test_graph_long_routes"
+      },
+      "regression-graph-quality": {
+        "type": "regression",
+        "name": "tests.test_graph_quality"
+      },
+      "regression-graph-render-model": {
+        "type": "regression",
+        "name": "tests.test_graph_render_model"
+      },
+      "regression-graph-route-semantics": {
+        "type": "regression",
+        "name": "tests.test_graph_route_semantics"
+      },
+      "regression-guard": {
+        "type": "regression",
+        "name": "tests.test_guard"
+      },
+      "regression-relationships": {
+        "type": "regression",
+        "name": "tests.test_relationships"
+      },
+      "regression-relationship-store": {
+        "type": "regression",
+        "name": "tests.test_relationship_store"
+      },
+      "regression-state-store": {
+        "type": "regression",
+        "name": "tests.test_state_store"
+      },
+      "integration-canonical-lane-smoke": {
+        "type": "integration",
+        "name": "tests.test_canonical_lane_smoke"
+      },
+      "integration-cli": {
+        "type": "integration",
+        "name": "tests.test_cli"
+      },
+      "regression-dependency-migration-certification": {
+        "type": "regression",
+        "name": "tests.test_dependency_migration_certification"
+      },
+      "integration-dependency-migration-tool": {
+        "type": "integration",
+        "name": "tests.test_dependency_migration_tool"
+      },
+      "integration-dependency-sync-cli": {
+        "type": "integration",
+        "name": "tests.test_dependency_sync_cli"
+      },
+      "regression-dependency-sync-from-tickets": {
+        "type": "regression",
+        "name": "tests.test_dependency_sync_from_tickets"
+      },
+      "regression-dependency-sync-to-tickets": {
+        "type": "regression",
+        "name": "tests.test_dependency_sync_to_tickets"
+      },
+      "integration-done-cas-git": {
+        "type": "integration",
+        "name": "tests.test_done_cas_git"
+      },
+      "regression-dotnet-toolchain-projection": {
+        "type": "regression",
+        "name": "tests.test_dotnet_toolchain_projection"
+      },
+      "regression-fail-diagnostics": {
+        "type": "regression",
+        "name": "tests.test_fail_diagnostics"
+      },
+      "regression-finalize": {
+        "type": "regression",
+        "name": "tests.test_finalize"
+      },
+      "integration-first-use-lanes-provider": {
+        "type": "integration",
+        "name": "tests.test_first_use_lanes_provider"
+      },
+      "integration-first-use-lanes-refresh": {
+        "type": "integration",
+        "name": "tests.test_first_use_lanes_refresh"
+      },
+      "integration-first-use-lanes-state": {
+        "type": "integration",
+        "name": "tests.test_first_use_lanes_state"
+      },
+      "integration-git-protocol-boundary-p10": {
+        "type": "integration",
+        "name": "tests.test_git_protocol_boundary_p10"
+      },
+      "integration-github-adapter": {
+        "type": "integration",
+        "name": "tests.test_github_adapter"
+      },
+      "integration-github-ticket-dependencies": {
+        "type": "integration",
+        "name": "tests.test_github_ticket_dependencies"
+      },
+      "integration-github-toolchain-cli": {
+        "type": "integration",
+        "name": "tests.test_github_toolchain_cli"
+      },
+      "regression-github-toolchains": {
+        "type": "regression",
+        "name": "tests.test_github_toolchains"
+      },
+      "integration-high-risk-cli": {
+        "type": "integration",
+        "name": "tests.test_high_risk_cli"
+      },
+      "integration-hosted-version-utf8": {
+        "type": "integration",
+        "name": "tests.test_hosted_version_utf8"
+      },
+      "integration-integration-acceptance-intent": {
+        "type": "integration",
+        "name": "tests.test_integration_acceptance_intent"
+      },
+      "regression-integration-admission": {
+        "type": "regression",
+        "name": "tests.test_integration_admission"
+      },
+      "integration-integration-destination-accept-github": {
+        "type": "integration",
+        "name": "tests.test_integration_destination_accept_github"
+      },
+      "integration-integration-destination-github": {
+        "type": "integration",
+        "name": "tests.test_integration_destination_github"
+      },
+      "integration-integration-host-v2": {
+        "type": "integration",
+        "name": "tests.test_integration_host_v2"
+      },
+      "integration-issue-info-cli": {
+        "type": "integration",
+        "name": "tests.test_issue_info_cli"
+      },
+      "integration-issue-list": {
+        "type": "integration",
+        "name": "tests.test_issue_list"
+      },
+      "integration-issue-metadata": {
+        "type": "integration",
+        "name": "tests.test_issue_metadata"
+      },
+      "integration-issue-start": {
+        "type": "integration",
+        "name": "tests.test_issue_start"
+      },
+      "integration-lane-component-selection-cli": {
+        "type": "integration",
+        "name": "tests.test_lane_component_selection_cli"
+      },
+      "integration-lane-count": {
+        "type": "integration",
+        "name": "tests.test_lane_count"
+      },
+      "regression-lane-decomposition": {
+        "type": "regression",
+        "name": "tests.test_lane_decomposition"
+      },
+      "integration-lane-diagnostics": {
+        "type": "integration",
+        "name": "tests.test_lane_diagnostics"
+      },
+      "regression-lane-follow-grammar": {
+        "type": "regression",
+        "name": "tests.test_lane_follow_grammar"
+      },
+      "integration-lane-list": {
+        "type": "integration",
+        "name": "tests.test_lane_list"
+      },
+      "integration-lane-selection": {
+        "type": "integration",
+        "name": "tests.test_lane_selection"
+      },
+      "regression-lane-show-children": {
+        "type": "regression",
+        "name": "tests.test_lane_show_children"
+      },
+      "regression-lane-show-children-grammar": {
+        "type": "regression",
+        "name": "tests.test_lane_show_children_grammar"
+      },
+      "regression-lane-traversal": {
+        "type": "regression",
+        "name": "tests.test_lane_traversal"
+      },
+      "integration-launcher": {
+        "type": "integration",
+        "name": "tests.test_launcher"
+      },
+      "integration-launcher-discovery": {
+        "type": "integration",
+        "name": "tests.test_launcher_discovery"
+      },
+      "integration-launcher-discovery-utf8": {
+        "type": "integration",
+        "name": "tests.test_launcher_discovery_utf8"
+      },
+      "integration-local-launcher": {
+        "type": "integration",
+        "name": "tests.test_local_launcher"
+      },
+      "integration-local-terminal-jsonl-p16": {
+        "type": "integration",
+        "name": "tests.test_local_terminal_jsonl_p16"
+      },
+      "regression-manual-self-ci-selection": {
+        "type": "regression",
+        "name": "tests.test_manual_self_ci_selection"
+      },
+      "regression-manual-test-catalogue": {
+        "type": "regression",
+        "name": "tests.test_manual_test_catalogue"
+      },
+      "integration-manual-test-cli": {
+        "type": "integration",
+        "name": "tests.test_manual_test_cli"
+      },
+      "regression-manual-test-result": {
+        "type": "regression",
+        "name": "tests.test_manual_test_result"
+      },
+      "integration-native-dependency-migration-workflow": {
+        "type": "integration",
+        "name": "tests.test_native_dependency_migration_workflow"
+      },
+      "regression-orchestrate": {
+        "type": "regression",
+        "name": "tests.test_orchestrate"
+      },
+      "integration-parent-branch": {
+        "type": "integration",
+        "name": "tests.test_parent_branch"
+      },
+      "integration-portability-subprocess": {
+        "type": "integration",
+        "name": "tests.test_portability_subprocess"
+      },
+      "regression-prelim-queue": {
+        "type": "regression",
+        "name": "tests.test_prelim_queue"
+      },
+      "regression-prelim-retirement": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement"
+      },
+      "regression-prelim-retirement-evidence": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_evidence"
+      },
+      "regression-prelim-retirement-execute": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_execute"
+      },
+      "regression-prelim-retirement-github": {
+        "type": "regression",
+        "name": "tests.test_prelim_retirement_github"
+      },
+      "integration-prelim-retirement-remote": {
+        "type": "integration",
+        "name": "tests.test_prelim_retirement_remote"
+      },
+      "integration-process-boundary-p10": {
+        "type": "integration",
+        "name": "tests.test_process_boundary_p10"
+      },
+      "integration-provider-adapter-p11": {
+        "type": "integration",
+        "name": "tests.test_provider_adapter_p11"
+      },
+      "regression-real-provider-lane-certification": {
+        "type": "regression",
+        "name": "tests.test_real_provider_lane_certification"
+      },
+      "integration-red-completion-cli": {
+        "type": "integration",
+        "name": "tests.test_red_completion_cli"
+      },
+      "integration-relationship-registration": {
+        "type": "integration",
+        "name": "tests.test_relationship_registration"
+      },
+      "integration-renderer-certification-binding": {
+        "type": "integration",
+        "name": "tests.test_renderer_certification_binding"
+      },
+      "integration-repo-info-adapter": {
+        "type": "integration",
+        "name": "tests.test_repo_info_adapter"
+      },
+      "integration-repository-policy": {
+        "type": "integration",
+        "name": "tests.test_repository_policy"
+      },
+      "integration-results": {
+        "type": "integration",
+        "name": "tests.test_results"
+      },
+      "regression-runtime-identity": {
+        "type": "regression",
+        "name": "tests.test_runtime_identity"
+      },
+      "integration-stable-adapter": {
+        "type": "integration",
+        "name": "tests.test_stable_adapter"
+      },
+      "integration-stable-release": {
+        "type": "integration",
+        "name": "tests.test_stable_release"
+      },
+      "integration-template": {
+        "type": "integration",
+        "name": "tests.test_template"
+      },
+      "regression-terminal-style": {
+        "type": "regression",
+        "name": "tests.test_terminal_style"
+      },
+      "regression-test-catalogue": {
+        "type": "regression",
+        "name": "tests.test_test_catalogue"
+      },
+      "regression-ticket-admission": {
+        "type": "regression",
+        "name": "tests.test_ticket_admission"
+      },
+      "integration-ticket-dependency-adapter": {
+        "type": "integration",
+        "name": "tests.test_ticket_dependency_adapter"
+      },
+      "integration-ticket-merge": {
+        "type": "integration",
+        "name": "tests.test_ticket_merge"
+      },
+      "integration-transaction": {
+        "type": "integration",
+        "name": "tests.test_transaction"
+      },
+      "regression-version-adapter": {
+        "type": "regression",
+        "name": "tests.test_version_adapter"
+      },
+      "integration-windows-unicode-output-p9": {
+        "type": "integration",
+        "name": "tests.test_windows_unicode_output_p9"
+      },
+      "regression-workflow-state": {
+        "type": "regression",
+        "name": "tests.test_workflow_state"
+      },
+      "regression-workflow-transitions": {
+        "type": "regression",
+        "name": "tests.test_workflow_transitions"
+      },
+      "integration-workspace-cli": {
+        "type": "integration",
+        "name": "tests.test_workspace_cli"
+      },
+      "regression-workspace-readiness": {
+        "type": "regression",
+        "name": "tests.test_workspace_readiness"
+      },
+      "regression-workspace-store": {
+        "type": "regression",
+        "name": "tests.test_workspace_store"
+      },
+      "integration-workspace-worktree": {
+        "type": "integration",
+        "name": "tests.test_workspace_worktree"
+      },
+      "issue-583-authoritative-validate": {
+        "type": "regression",
+        "name": "tests.test_validate_script"
+      },
+      "issue-703-mit-negative-acceptance": {
+        "type": "regression",
+        "lifecycle": "GREEN",
+        "name": "tests.test_manual_mit_negative_acceptance"
+      },
+      "issue-703-mit-version-contract": {
+        "type": "regression",
+        "lifecycle": "GREEN",
+        "name": "tests.test_manual_mit_version_contract"
+      },
       "issue-583-lifecycle-cross-product": {
         "type": "regression",
         "name": "tests.test_lifecycle_store"
@@ -385,21 +1103,208 @@
       "issue-583-clone-publication": {
         "type": "regression",
         "name": "tests.test_lifecycle_clone_publish"
+      },
+      "issue-583-legacy-migration": {
+        "type": "regression",
+        "name": "tests.test_legacy_lifecycle_migration"
+      },
+      "issue-583-candidate-revalidation": {
+        "type": "regression",
+        "name": "tests.test_six_state_candidate_revalidation"
+      },
+      "issue-583-clone-recovery": {
+        "type": "regression",
+        "name": "tests.test_six_state_clone_recovery"
+      },
+      "issue-583-layout-stability": {
+        "type": "regression",
+        "name": "tests.test_six_state_layout_stability"
+      },
+      "issue-583-csv-merge": {
+        "type": "regression",
+        "name": "tests.test_six_state_merge_negative"
+      },
+      "issue-583-csv-freshness": {
+        "type": "regression",
+        "name": "tests.test_six_state_negative_csv"
+      },
+      "issue-583-terminal-accessibility": {
+        "type": "regression",
+        "name": "tests.test_six_state_terminal_accessibility"
+      },
+      "issue-583-transaction-recovery": {
+        "type": "regression",
+        "name": "tests.test_six_state_transaction_recovery"
+      },
+      "issue-583-live-provider-title": {
+        "type": "integration",
+        "name": "tests.test_six_state_live_provider_title"
       }
     },
     {
       "test-harness": "script-runner",
-      "issue-583-authoritative-validate": {
-        "type": "regression",
-        "name": "scripts/validate.py"
-      },
       "issue-583-graph-platform-probe": {
-        "type": "regression",
+        "type": "integration",
         "name": "scripts/probe-graph-renderer.py"
       },
       "issue-583-ticket-merge-probe": {
-        "type": "regression",
+        "type": "integration",
         "name": "scripts/probe-ticket-merge.py"
+      },
+      "issue-583-argv-limits-probe": {
+        "type": "integration",
+        "name": "scripts/probe-argv-limits.py"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-utf8-output-enforcement": {
+        "type": "invariant",
+        "name": "tests.test_output_enforcement"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-786-cmd-wrapper": {
+        "type": "regression",
+        "name": "tests.test_remote_invocation_786"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-788-hosted-forward": {
+        "type": "regression",
+        "name": "tests.test_issue788_hosted_forward"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-791-publisher-wiring": {
+        "type": "regression",
+        "name": "tests.test_issue791_publisher_wiring"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-strict-provider-utf8": {
+        "type": "regression",
+        "name": "tests.test_provider_adapter_p11"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-git-protocol": {
+        "type": "regression",
+        "name": "tests.test_git_protocol_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-736-process-boundary": {
+        "type": "regression",
+        "name": "tests.test_process_boundary_p10"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-719-launcher-discovery-utf8": {
+        "type": "regression",
+        "name": "tests.test_launcher_discovery_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-728-local-terminal-jsonl": {
+        "type": "regression",
+        "name": "tests.test_local_terminal_jsonl_p16"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-737-hosted-version-utf8": {
+        "type": "regression",
+        "name": "tests.test_hosted_version_utf8"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-portable-subprocess": {
+        "type": "regression",
+        "name": "tests.test_portability_subprocess"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-727-windows-unicode-output": {
+        "type": "regression",
+        "name": "tests.test_windows_unicode_output_p9"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-792-provider-status": {
+        "type": "regression",
+        "name": "tests.test_issue792_provider_status"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-790-remote-status": {
+        "type": "regression",
+        "name": "tests.test_remote_status_790"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-789-cmd-results": {
+        "type": "regression",
+        "name": "tests.test_remote_result_789"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "invariant-self-ci-contract": {
+        "type": "invariant",
+        "name": "tests.test_self_ci"
+      },
+      "invariant-ci-invocation-trigger": {
+        "type": "invariant",
+        "name": "tests.test_ci_invocation_trigger_contract"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-renderer-certification-binding": {
+        "type": "invariant",
+        "name": "tests.test_renderer_certification_binding.RendererCertificationBindingTests.test_renderer_certification_matches_material_inputs"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-issue-start-version-commit": {
+        "type": "regression",
+        "name": "tests.test_issue_start"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-high-risk-remote-completion": {
+        "type": "regression",
+        "name": "tests.test_high_risk_cli"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-660-workspace-remote-completion": {
+        "type": "regression",
+        "name": "tests.test_workspace_cli"
+      }
+    },
+    {
+      "test-harness": "unittest",
+      "issue-787-cmd-transport": {
+        "type": "regression",
+        "name": "tests.test_issue787_remote_request"
       }
     }
   ],
@@ -412,7 +1317,14 @@
     ],
     "self-ci": [
       "issue-476-staged-self-ci",
+      "integration-self-ci-contract",
       "invariant-self-ci-contract"
+    ],
+    "issue-790-remote-status": [
+      "issue-790-remote-status"
+    ],
+    "issue-792-provider-status": [
+      "issue-792-provider-status"
     ]
   }
 }

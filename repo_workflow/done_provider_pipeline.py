@@ -1,0 +1,236 @@
+"""One guarded PRELIM -> certification -> CAS -> immutable provider terminal.
+
+Post-terminal #103 retirement, evidence promotion, queue scheduling and
+lifecycle completion are distinct required stages, not completed here.
+"""
+from dataclasses import dataclass
+import re
+
+from .done_executor import (
+  CertifiedAttempt, DoneExecutionError, execute_certified_done,
+)
+from .done_planner import DonePlan
+from .done_host_coordinator import IntegrationHostCoordinator
+from .done_mit_defer_v2 import defer_mit_with_provider
+from .done_stage_certification import (
+  MitTimedOut, StageFailed, CertifiedStages, VerifiedStage,
+)
+from .done_prelim_candidate import verify_prelim_candidate
+from .done_failed_attempt import FailedIntegrationEvidence, record_failed_attempt
+from .done_policy_admission import current_destination_admission
+from .done_provider_acceptance import (
+  DestinationAcceptanceFacts, bind_v2_destination_accept,
+)
+from .done_terminal_v2 import publish_integrated_terminal
+from .integration_admission import AdmissionDecision
+from .integration_coordination import claim_prelim, release_prelim
+from .prelim_queue import ReadyPrelim
+
+
+@dataclass(frozen=True)
+class FailedProviderAttempt:
+  ready: ReadyPrelim
+  failed_stage: str
+  evidence_ref: str
+  released_generation: int
+
+
+@dataclass(frozen=True)
+class DeferredProviderAttempt:
+  ready: ReadyPrelim
+  evidence_ref: str
+  released_generation: int
+
+
+@dataclass(frozen=True)
+class AcceptedProviderAttempt:
+  ready: ReadyPrelim
+  accepted: object
+  terminal: object
+  released_generation: int
+  plan: DonePlan | None = None
+
+
+def accept_one_ready_submission(
+    *, host, ready, holder, original_plan,
+    refresh_plan, prepare_and_certify, admission_check,
+    provider_facts, verify_provider_result,
+    integration_id,
+    terminal_evidence_ref, terminal_request_id,
+    reconcile_unknown=None,
+    mit_event_request_id=None, mit_read_request_id=None,
+    stage_certify=None, immediate_parent_oracle=None,
+):
+  """Bind actual provider operations; no implicit PASS or remote retry."""
+  if not isinstance(ready, ReadyPrelim):
+    raise DoneExecutionError("immutable published READY required")
+  if (not isinstance(original_plan, DonePlan)
+      or not (original_plan.allowed or original_plan.submission_allowed)):
+    raise DoneExecutionError("submission is not eligible for certification")
+  if (not isinstance(provider_facts, DestinationAcceptanceFacts)
+      or not isinstance(ready.umbrella, str)
+      or re.fullmatch(r"issue-([1-9][0-9]*)", ready.umbrella) is None
+      or provider_facts.repository != getattr(host, "repository", None)
+      or provider_facts.ticket != int(ready.umbrella.removeprefix("issue-"))
+      or provider_facts.destination != ready.destination
+      or provider_facts.guid != ready.guid
+      or provider_facts.holder != holder
+      or str(provider_facts.ticket) != original_plan.issue):
+    raise DoneExecutionError("acceptance identity differs before lease claim")
+  if not callable(stage_certify):
+    raise DoneExecutionError("independent stage certification is mandatory")
+  if not callable(immediate_parent_oracle):
+    raise DoneExecutionError("current destination parent oracle required")
+  provider = IntegrationHostCoordinator(host)
+  if ready not in provider.read_ready_prelims():
+    raise DoneExecutionError("READY physical SHA differs from submission")
+  preflight = current_destination_admission(
+    host, original_plan, immediate_parent_oracle)
+  if preflight.allowed is not True:
+    raise DoneExecutionError("current destination admission denied before claim")
+  before_claim = provider.read_destination_lease(ready.destination)
+  if provider_facts.lease_generation != before_claim.generation + 1:
+    raise DoneExecutionError("destination lease generation is stale")
+  lease = claim_prelim(provider, ready, holder)
+  if provider_facts.lease_generation != lease.generation:
+    raise DoneExecutionError("acceptance facts mismatch authoritative lease")
+  prepared = []
+  prepared_stages = []
+  observed_failure = []
+
+  def prepare(plan):
+    attempt = prepare_and_certify(plan)
+    if (not isinstance(attempt, CertifiedAttempt)
+        or attempt.source_prelim_ref != ready.ref
+        or attempt.source_prelim_sha != ready.sha):
+      raise DoneExecutionError("certified source differs from immutable READY")
+    try:
+      stages = stage_certify(attempt.tested_candidate_sha,
+                             plan.expected_parent_sha)
+    except StageFailed as failed:
+      observed_failure.append((attempt,plan,failed))
+      raise
+    if (not isinstance(stages, CertifiedStages)
+        or stages.source_sha != attempt.tested_candidate_sha
+        or stages.parent_sha != plan.expected_parent_sha
+        or stages.mit_policy.source_sha != attempt.tested_candidate_sha
+        or stages.mit_policy.parent_sha != plan.expected_parent_sha
+        or stages.mit_policy.independently_authenticated is not True
+        or any(not isinstance(receipt, VerifiedStage)
+               or receipt.status != "PASS"
+               or receipt.independently_authenticated is not True
+               or receipt.source_sha != attempt.tested_candidate_sha
+               or receipt.parent_sha != plan.expected_parent_sha
+               for receipt in stages.stages)
+        or {receipt.stage for receipt in stages.stages}
+           != ({'ART', 'AIT', 'release', 'MIT'}
+               if stages.mit_policy.required else {'ART', 'AIT', 'release'})):
+      raise DoneExecutionError('authenticated stage identity differs')
+    candidate = verify_prelim_candidate(
+      host=host, ready=ready,
+      expected_parent_sha=plan.expected_parent_sha,
+      accepted_sha=attempt.tested_candidate_sha)
+    if (attempt.candidate_ref != candidate.prelim_ref
+        or attempt.expected_destination_sha != candidate.expected_destination_sha):
+      raise DoneExecutionError("verified PRELIM differs from certified attempt")
+    prepared_stages.append(stages)
+    prepared.append(attempt)
+    return attempt
+
+  def current_admission(plan):
+    observation = current_destination_admission(
+      host, plan, immediate_parent_oracle)
+    if observation.allowed is not True:
+      return observation
+    decision = admission_check(plan)
+    if (not isinstance(decision, AdmissionDecision)
+        or decision.allowed is not True):
+      return decision
+    if prepared:
+      if len(prepared) != 1 or len(prepared_stages) != 1:
+        raise DoneExecutionError("exact candidate stage history incomplete")
+      # Release or MIT permission may be revoked after candidate certification.
+      # Confirm identical authenticated evidence immediately before CAS.
+      try:
+        current = stage_certify(
+          prepared[0].tested_candidate_sha, plan.expected_parent_sha)
+      except StageFailed as failure:
+        observed_failure.append((prepared[0], plan, failure))
+        raise
+      if current != prepared_stages[0]:
+        raise DoneExecutionError(
+          "authenticated stages changed before integration CAS")
+    return decision
+
+  try:
+    executable_plan = original_plan
+    certify = prepare
+    if not original_plan.allowed:
+      # Complete deferred certification before entering the strict merge
+      # executor. Its missing-gate, disposition and final CAS guards remain
+      # mandatory and unchanged.
+      certified = prepare(original_plan)
+      executable_plan = refresh_plan()
+      if (not isinstance(executable_plan, DonePlan)
+          or any(getattr(executable_plan, field) != getattr(original_plan, field)
+                 for field in ("issue", "release", "target", "candidate_sha",
+                               "expected_parent_sha"))):
+        raise DoneExecutionError("candidate changed during deferred certification")
+      certify = lambda plan: certified
+    accepted = execute_certified_done(
+      executable_plan, refresh_plan, certify, current_admission,
+      bind_v2_destination_accept(host, provider_facts),
+      verify_provider_result, reconcile_unknown=reconcile_unknown)
+  except StageFailed as failure:
+    if len(observed_failure) != 1:
+      raise DoneExecutionError("failed-stage provenance UNKNOWN") from failure
+    attempt, failed_plan, observed = observed_failure[0]
+    receipt=observed.receipt
+    if (failure is not observed
+        or not isinstance(receipt, VerifiedStage)
+        or receipt.stage != failure.stage
+        or receipt.status != "FAIL"
+        or receipt.independently_authenticated is not True
+        or receipt.source_sha != attempt.tested_candidate_sha
+        or receipt.parent_sha != failed_plan.expected_parent_sha
+        or not receipt.evidence_ref):
+      raise DoneExecutionError("failed-stage provider evidence unverified")
+    verified_failure=FailedIntegrationEvidence(
+      ready.guid,attempt.tested_candidate_sha,
+      failed_plan.expected_parent_sha,failed_plan.expected_parent_sha,
+      integration_id,attempt.operation_id,receipt.evidence_ref,True)
+    _,released=record_failed_attempt(
+      host=host,ready=ready,lease=lease,holder=holder,
+      evidence=verified_failure,
+      terminal_request_id=terminal_request_id,
+      read_request_id=terminal_request_id+"-failed-read")
+    return FailedProviderAttempt(
+      ready,failure.stage,receipt.evidence_ref,released.generation)
+  except MitTimedOut as deferred:
+    if (type(mit_event_request_id) is not str
+        or type(mit_read_request_id) is not str):
+      raise DoneExecutionError("MIT defer event IDs required") from deferred
+    recorded = defer_mit_with_provider(
+      host=host, ready=ready, lease=lease, holder=holder,
+      reason="timeout", evidence_ref=deferred.evidence_ref,
+      event_request_id=mit_event_request_id,
+      read_request_id=mit_read_request_id)
+    return DeferredProviderAttempt(
+      ready, deferred.evidence_ref, recorded.released_generation)
+  if len(prepared) != 1:
+    raise DoneExecutionError("certified PRELIM candidate is not unique")
+  terminal = publish_integrated_terminal(
+    host=host, ready=ready,
+    candidate_ref=prepared[0].candidate_ref,
+    accepted_sha=prepared[0].tested_candidate_sha,
+    old_destination_sha=original_plan.expected_parent_sha,
+    landed_sha=accepted.landed_sha,
+    operation_id=accepted.operation_id,
+    integration_id=integration_id,
+    terminal_evidence_ref=terminal_evidence_ref,
+    record_request_id=terminal_request_id,
+    accepted_integration=accepted)
+  released = release_prelim(
+    provider, lease, holder, terminal_result="integrated")
+  return AcceptedProviderAttempt(
+    ready, accepted, terminal, released.generation, executable_plan)

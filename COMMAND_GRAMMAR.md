@@ -7,7 +7,7 @@ argument validation, completion candidates, completion help, normal `--help`,
 and shared diagnostics.  Shell adapters render that structure; they do not
 maintain independent command policy.
 
-## 1. Static command tree
+## Static command tree
 
 The human-authored form remains a plain recursive dictionary.
 
@@ -112,7 +112,7 @@ occurrences without changing whether the switch is otherwise selected.
 Quantifier syntax is regex-style: `?`, `*`, `+`, `{n}`, `{n,}`, and
 `{n,m}`.
 
-## 2. Ordered parameters and switch parameters
+## Ordered parameters and switch parameters
 
 An ordered slot is one dictionary of alternatives.  Literal keys match
 themselves.  Angle-bracket parameter keys describe positional values.  A
@@ -161,7 +161,7 @@ cardinality:
 
 Parser, completion, help, and diagnostics consume these exact structures.
 
-## 3. Dynamic provider result contracts
+## Dynamic provider result contracts
 
 The quantified value form introduced by #456 is the simple catalogue/value
 provider:
@@ -202,7 +202,7 @@ Provider results must be validated according to the provider form being used;
 callers must not infer unrelated semantics merely from an arbitrary Python
 container type.
 
-## 4. Dynamic state projection
+## Dynamic state projection
 
 There is no separate `_for-states` field.
 
@@ -229,7 +229,7 @@ General-syntax diagnosis may evaluate a general projection while legal
 completion evaluates the current-state projection, but both come from the same
 authored command tree/providers.
 
-## 5. Catalogue completion
+## Catalogue completion
 
 Repository-owned catalogues remain authoritative for their identifiers and
 metadata.  The grammar does not duplicate those definitions.
@@ -264,7 +264,7 @@ Test catalogue:
 
 That runtime diagnosis is distinct from descriptive help.
 
-## 6. First Tab, double Tab, and --help
+## First Tab, double Tab, and --help
 
 One Tab performs ordinary completion or a contextual completion diagnostic.
 
@@ -288,7 +288,7 @@ while single Tab inserts/completes issue numbers.
 Contextual first-Tab/runtime errors must be actionable.  `--help` should
 explain command usage/configuration rather than merely repeat the runtime error.
 
-## 7. Executable nodes and <last-terminal>
+## Executable nodes and <last-terminal>
 
 When a node is executable as-is and also has continuations, completion may
 present its current-node action as:
@@ -300,7 +300,7 @@ present its current-node action as:
 The sentinel is display-only.  It is never inserted into the command line and
 is rejected if typed manually.
 
-## 8. Shared diagnostics
+## Shared diagnostics
 
 Parsing, manual execution, and completion use one command-path analyser.
 
@@ -342,9 +342,10 @@ Legal transitions:
 ```
 
 Catalogue/custom handlers may instead provide domain-specific diagnostics, such
-as the missing issue-scoped TDD group error in section 4.
+as the missing issue-scoped TDD group error in
+[catalogue completion](#catalogue-completion).
 
-## 9. Shell adapters
+## Shell adapters
 
 Bash, zsh, and other supported shells are presentation adapters.
 
@@ -360,7 +361,7 @@ rwf init zsh
 
 The platform-neutral Python engine remains authoritative.
 
-## 10. Read-only completion invariant
+## Read-only completion invariant
 
 Completion/help/diagnostic paths must not:
 
@@ -373,7 +374,7 @@ Completion/help/diagnostic paths must not:
 Tests must prove that failed and successful completion leave workflow/repository
 state unchanged.
 
-## 11. Implementation ownership
+## Implementation ownership
 
 Issue #52 owns migration from the return-shape-coupled provider model to the
 explicit completion specification.  Issue #456 owns the quantified command,
@@ -385,3 +386,48 @@ Issue #27 owns shell initialization/registration.
 
 The complete public command model is defined in
 [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md).
+
+## 12. Manual integration CLI projection (RWF #702)
+
+Manual integration uses the same public `test` command grammar and the
+existing shell completion/help entrypoints. These are the public forms:
+
+```text
+rwf test integration
+rwf test integration --manual
+rwf test integration issue-X-manual--NAME
+rwf test succeeded
+rwf test failed
+rwf test results
+```
+
+The `integration` command runs automatic integration first; completion of
+automatic tests does not satisfy a required manual case. `--manual` selects
+the lexicographically first outstanding current-issue case. A case argument
+selects exactly that declared case, without treating its name as an executable
+command. The current case's instructions and expected result are printed.
+Neither operation records PASS. No declared manual cases is reported explicitly.
+
+The grammar always recognises the `succeeded` and `failed` tokens as
+syntactically valid. Legal-only completion exposes these tokens only if the
+durable selection service rereads exactly one active selection bound to
+the current issue, source SHA and current case-definition fingerprint.
+The dispatcher rejects absent, ambiguous, terminal and stale selection
+before recording a result. PASS does not select another case. FAIL is
+delegated to the durable lifecycle/version rejection service and blocks
+integration. Both results are read from the canonical testing JSONL.
+
+`--remote` remains available for existing automatic stages. It cannot
+select or report a manual case, and combining it with a manual form is an
+error. State/help/completion paths are read-only and may not create
+manual selections or results.
+
+The CLI calls `select_manual_case` and `read_active_manual_selection`
+from B `manual_test_state.py`, and `record_manual_result` from B
+`manual_test_result.py`. For the first-outstanding projection it calls B's
+`read_manual_case_results(root, issue, candidate_sha, cases=...)`. B
+validates the current case definitions and canonical per-issue testing
+JSONL and rejects a pending journal as UNKNOWN before any result is reused.
+No other selection or evidence store is introduced. Result submission passes explicit
+clone-local writer provenance and a `local-operator-assertion:` evidence
+reference; it never claims an external provider check ran.
