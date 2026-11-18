@@ -134,12 +134,17 @@ worktree's index or files.
 
 ## Remote Commands
 
-All commands can take `--remote [--poll <seconds> ...]` which updates the
+Remote-capable commands can take `--remote [--poll <seconds> ...]` which updates the
 `.ci/rwf` file, which triggers a CI action.  The `.ci/rwf` file contains the
 parameters to `rwf` and adds a `n` item to the `--remote` switch.  E.g. `rwf
 <some-command> --remote [--poll <seconds> ...]` will result in `.ci/rwf` to
 contain `<some-command> --remote n [--poll <seconds> ...]`, where `n` is the
 retry number starting at `0`.
+
+`parent`, `resume`, `fix`, `pause`, and shell activation are local-only.
+They reject `--remote` with an explanation that the operation acts on the
+caller's local checkout or shell. Their help and tab completion do not offer
+`--remote` or its dependent polling options. The commands remain available locally.
 
 All remote commands are put in a CMD branch off of the branch to execute from.
 The command is executed from the parent branch.  The CMD branch must be
@@ -175,7 +180,7 @@ To only run the automated integration tests, do the following:
 
 ```
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
-$ rwf test integration --AITs
+$ rwf test integration --automatic
 ```
 
 Counting the tests can be done by:
@@ -224,9 +229,13 @@ without invalidating the code head), then the version is incremented prior to
 running the tests.
 
 The test results are committed in the repo under
-`.ci/test-results/<id-range>/<test-name>.jsonl`.  The `<id-range>` is to prevent
+`.ci/test-results/<id-range>/<issue>.jsonl`.  The `<id-range>` is to prevent
 overfilling a directory with files causing performance issues and/or failures.
 Not sure what the size of a range should be.
+
+Each JSONL test-result record contains `"source": "<ticket-id>[-addendum]"`,
+identifying the originating ticket and optional addendum. This remains the
+same when its results are copied or integrated into another branch.
 
 A version tag is added to the repo after the tests, which is either the
 `v<version>` on test success or the `v<version>-CI-FAIL` if any of the tests
