@@ -46,9 +46,9 @@ worktrees. A worker operating directly through the Git host does not require the
 | `.rwf/ci/rwf` | Arguments for the RWF command submitted to CI on a CMD branch. |
 | `.rwf/ci/cmd-results.txt` | Output/result of that CI command on its CMD branch. |
 | `.rwf/ci/test-results/<id-range>/<issue>.jsonl` | Append-only test results, one file per ticket, in ranges of 1,000 issue numbers. |
-| `<worktree-git-dir>/rwf/last-paused.txt` | Line stack of arguments for `rwf resume <ticket-id> [addendum]`. Pause appends an entry after successfully checkpointing work. Argumentless resume uses the last entry and removes it only after successful resume. Explicit resume removes its matching entry while preserving the others. |
+| `<worktree-git-dir>/rwf/last-paused.txt` | Line stack of arguments for `rwf resume <ticket-id> [<addendum>]`. Pause appends an entry after successfully checkpointing work. Argumentless resume uses the last entry and removes it only after successful resume. Explicit resume removes its matching entry while preserving the others. |
 
-Each test-result record includes `"source": "<ticket-id>[-addendum]"`, tester
+Each test-result record includes `"source": "<ticket-id>[-<addendum>]"`, tester
 identity and the information needed to determine which test, source and
 environment it applies to. Copying results preserves their source. Integration
 preserves existing records and appends new records from both sides through
@@ -60,7 +60,7 @@ The current ticket is derived from the current RWF branch name. There is no
 ### Ticket claims
 
 ```text
-rwf start <ticket-id> [addendum] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
+rwf start <ticket-id> [<addendum>] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
 ```
 
 Start records the invoking user and any supplied AI identity in one CSV field
@@ -150,7 +150,7 @@ The `RWF` in the prompt shows that the bash hooks are active.
 
 ```
 <user> <system> <repo-dir> RWF (<git-branch>)
-$ rwf start <ticket-id> [addendum] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
+$ rwf start <ticket-id> [<addendum>] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
 
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
 $ # branch made from <git-branch>
@@ -211,7 +211,7 @@ including when `done` initiates that first test. Subsequent preparation follows
 the source-change and parent-reintegration increment rules rather than
 reinitializing the counters. If moving to tip of parent
 fails, agent is signalled by email.  So that they can pull the repo, fix the
-merge on the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-addendum]`,
+merge on the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`,
 optionally test it, push it and then run `rwf done --remote` to have remaining
 tests to be executed.
 
@@ -223,18 +223,18 @@ If remaining tests done on server show failure, the agent will be contacted by
 email, or the agent can look at the test results using `rwf test results
 issue-<ticket-id> [--remote [--poll [<seconds> ...]]]`.  Without `--remote` it
 reports the local test results.  On test failure, just like merge failure, agent
-will edit the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-addendum]`, push it
+will edit the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`, push it
 and then submit `rwf done --remote`.
 
 I'm thinking that it might be a good idea to have a `rwf fix <ticket-id>
-[addendum]` so that it's easier to come back to the branch. E.g.
+[<addendum>]` so that it's easier to come back to the branch. E.g.
 
 ```
 <user> <system> <repo-dir> RWF (<git-branch>)
 $ git pull
 
 <user> <system> <repo-dir> RWF (<git-branch>)
-$ rwf fix <ticket-id> [addendum]
+$ rwf fix <ticket-id> [<addendum>]
 
 <user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
 $ # P.Q are the latest ones.
@@ -312,7 +312,7 @@ branching off the tip of the parent.  Any results are stored in
 `.rwf/ci/cmd-results.txt` in that CMD branch.  The execution of a CMD may result in
 mutation of that branch, which is why the CMD branch MUST be rooted to the tip
 of the parent branch.  The CMD branch is named
-`CMD-<cmd-number>-issue-<ticket-id>.Q.R-<title>[-addendum]`.
+`CMD-<cmd-number>-issue-<ticket-id>.Q.R-<title>[-<addendum>]`.
 
 ## Testing
 
@@ -379,7 +379,8 @@ If doing integration testing and there are manual tests, then it should look lik
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
 $ rwf test integration [--manual|particular-test-ids...]
 
-# Runs integration tests.  On running a manual test, will wait for completion.
+# Runs integration tests.  Automated first, manual second.
+# On running a manual test, will wait for completion.
 # A is the current number of manual tests already reported succeeded or failed.
 # B is the total number of manual tests to be done.
 
@@ -459,7 +460,7 @@ overfilling a directory with files causing performance issues and/or failures.
 Each range spans 1,000 issue numbers: `0-999`, `1000-1999`, and so on.
 For example, issue 109 uses `0-999/109.jsonl`.
 
-Each JSONL test-result record contains `"source": "<ticket-id>[-addendum]"`,
+Each JSONL test-result record contains `"source": "<ticket-id>[-<addendum>]"`,
 identifying the originating ticket and optional addendum. This remains the
 same when its results are copied or integrated into another branch.
 
