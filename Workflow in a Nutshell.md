@@ -1,29 +1,43 @@
 # Workflow in a Nutshell
 
+This document is authoritative. Where other RWF documents conflict with it,
+this document wins and the other documents are to be brought into line.
+
 ## Files
 
-RWF uses the following repository files and worktree-local files.
+RWF uses the following repository files, umbrella-branch files and
+worktree-local files.
 
 ```text
 <repository>/
 └── .rwf/
     ├── tickets.csv
     ├── repo/
-    │   ├── version
-    │   ├── info
     │   ├── ci
-    │   ├── host
-    │   └── contact
+    │   ├── tracker
+    │   ├── version
+    │   ├── contact
+    │   └── owner.txt
     └── ci/
-        ├── tests-permanent.json
+        ├── rwf                      (CMD branches only)
+        ├── cmd-results.txt          (CMD branches only)
+        ├── testers.txt
+        ├── tests-regression.json
+        ├── tests-integration.json
         ├── tests-temporary.json
         ├── tests-temporary/
-        ├── testers.txt
         ├── MIT-timeout.txt
-        ├── rwf
-        ├── cmd-results.txt
         └── test-results/
             └── <id-range>/<issue>.jsonl
+
+UMBRELLA-<parent-branch>             (orphan branch, one per merge destination)
+└── .rwf/
+    ├── merge-authorise.csv
+    └── ci/
+        └── queue/
+            ├── active/
+            ├── queued/
+            └── timed-out/
 
 <worktree-git-dir>/
 └── rwf/
@@ -37,15 +51,18 @@ worktrees. A worker operating directly through the Git host does not require the
 
 | File | Purpose |
 | --- | --- |
-| `.rwf/tickets.csv` | Ticket number, title, state, dependencies and one claimant identity field: `<user>[;<agent-name>;<chat-id>[;<session-id>]]`. The user is the person under whom the AI is working. |
-| `.rwf/ci/tests-permanent.json` | Catalogue of retained tests, including regression, automatic integration and manual integration tests. RED/GREEN selection uses the catalogue; it does not require a second permanent catalogue. |
+| `.rwf/tickets.csv` | One row per ticket with columns `issue,title,dependencies,state,claimant,release`. See [Ticket claims](#ticket-claims) and [Release intent](#release-intent). |
+| `.rwf/repo/*` | Repository adapter scripts and the repository owner. See [Repository adapter scripts](#repository-adapter-scripts). |
+| `.rwf/ci/tests-regression.json` | Catalogue of regression tests, including each ticket's RED/GREEN test. |
+| `.rwf/ci/tests-integration.json` | Catalogue of automatic and manual integration tests. |
 | `.rwf/ci/tests-temporary.json` | Catalogue of temporary development tests. |
-| `.rwf/ci/tests-temporary/` | Temporary test files. `done` removes the completing ticket's files and catalogue entries after successful testing. |
+| `.rwf/ci/tests-temporary/` | Temporary test files. Regression and integration test sources stay wherever the repository's test harness expects them. |
+| `.rwf/ci/rwf` | Arguments for the RWF command submitted to CI. Exists only on CMD branches. |
+| `.rwf/ci/cmd-results.txt` | Output/result of that CI command. Exists only on CMD branches. |
 | `.rwf/ci/testers.txt` | Accepted tester identities. Everyone is currently trusted; the list is not enforced. |
-| `.rwf/ci/MIT-timeout.txt` | Merge-slot wait in `[[h:]m:]s` format. Absent or empty means zero. Zero releases the CI slot immediately while MIT remains outstanding; local execution returns to the MIT prompt. Timeout is not test failure. |
-| `.rwf/ci/rwf` | Arguments for the RWF command submitted to CI on a CMD branch. |
-| `.rwf/ci/cmd-results.txt` | Output/result of that CI command on its CMD branch. |
+| `.rwf/ci/MIT-timeout.txt` | How long the queue's active PRELIM waits for manual results, in `[[h:]m:]s` format. Absent or empty means zero. Timeout is not test failure. See [Integration Tests](#integration-tests). |
 | `.rwf/ci/test-results/<id-range>/<issue>.jsonl` | Append-only test results, one file per ticket, in ranges of 1,000 issue numbers. |
+| `UMBRELLA-<parent-branch>` | Orphan branch holding the merge authorisations and PRELIM merge queue for one merge destination. See [Umbrella branches](#umbrella-branches). |
 | `<worktree-git-dir>/rwf/last-paused.txt` | Line stack of arguments for `rwf resume <ticket-id> [<addendum>]`. Pause appends an entry after successfully checkpointing work. Argumentless resume uses the last entry and removes it only after successful resume. Explicit resume removes its matching entry while preserving the others. |
 
 Each test-result record includes `"source": "<ticket-id>[-<addendum>]"`, tester
@@ -54,8 +71,9 @@ environment it applies to. Copying results preserves their source. Integration
 preserves existing records and appends new records from both sides through
 RWF's append-aware reconciliation, rather than ordinary text merging.
 
-The current ticket is derived from the current RWF branch name. There is no
-`current-ticket.txt` or separate persisted current-ticket selection.
+The current ticket is derived from the current RWF branch name (issue or
+PRELIM branch). There is no `current-ticket.txt` or separate persisted
+current-ticket selection.
 
 ### Ticket claims
 
@@ -63,16 +81,16 @@ The current ticket is derived from the current RWF branch name. There is no
 rwf start <ticket-id> [<addendum>] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
 ```
 
-Start records the invoking user and any supplied AI identity in one CSV field
-on the ticket's row. The field has the form
-`<user>[;<agent-name>;<chat-id>[;<session-id>]]`; the preceding comma separates
-this field from the other CSV fields. Agent name and chat ID are supplied
-together; session ID is optional. Without AI arguments, the identity is the
-user alone. Use normal CSV quoting when required by the field contents.
+Start records the invoking user and any supplied AI identity in the `claimant`
+column of the ticket's row. The field has the form
+`<user>[;<agent-name>;<chat-id>[;<session-id>]]`. Agent name and chat ID are
+supplied together; session ID is optional. Without AI arguments, the identity
+is the user alone. Use normal CSV quoting when required by the field contents.
+A blank `claimant` means the ticket is unclaimed.
 
-This complete field is the claimant identity. It identifies both the user and
-the AI acting for that user; agent/chat/session values are not separate claim
-columns.
+This complete field is the claimant identity, also called the worker ID. It
+identifies both the user and the AI acting for that user; agent/chat/session
+values are not separate claim columns.
 
 Use `--user <user>` when supplied; otherwise resolve the user with
 `git config --get user.name` in the target repository. If no nonblank user is
@@ -86,20 +104,77 @@ The normal prescribed issue branch is the claim boundary. A worker checks the
 claim, records this identity in that branch's `tickets.csv`,
 and publishes the branch using atomic create-if-absent semantics. Competing
 creation of the same branch must not overwrite the winner. Updates to an
-existing claim use its expected previous branch tip. An existing claim by
-another worker requires explicit instruction to reclaim it.
+existing claim use its expected previous branch tip. `start` fails if the
+branch already exists; an existing branch is re-entered with `resume`, and
+another worker's claim is taken over only with `resume --reclaim` (see
+[Pausing a Ticket](#pausing-a-ticket)).
+
+When starting, RWF attempts to reach the ticket server through
+`.rwf/repo/tracker` and resynchronizes the ticket's title in `tickets.csv` if
+it has changed. A ticket's title must not change while the ticket is in
+progress, because the branch name contains it.
+
+If any of the ticket's dependencies are incomplete, `start` and `resume` still
+proceed, but warn that a speculative ticket is being started or resumed and
+list the incomplete dependencies.
 
 An addendum is an explicitly justified replacement implementation, not an
 ordinary parallel claim or an automatic workaround for an existing claim.
-The superseded implementation must stop progressing and must not reach `done`.
-The optional addendum precedes the options; AI identity arguments follow
-`--agent`.
+The superseded implementation must stop progressing and must not reach `done`;
+`merge-authorise.csv` prevents it from merging (see
+[Umbrella branches](#umbrella-branches)). The optional addendum precedes the
+options; AI identity arguments follow `--agent`.
 
-Lane selection, lane settings/diagnostics and workspace registry/claim files
-are excluded from this simplified workflow. There is no separate workflow
-`state.json`, PRELIM checkpoint store or engine-version file. Additional
-persistent information requires a specific workflow purpose and must not
-duplicate information available from Git or the existing files.
+### Parent identity
+
+`start` creates the issue branch from the current branch. The first commit on
+the new branch is an empty identity commit whose message contains:
+
+```text
+RWF-Branch: <issue-branch>
+RWF-Parent: <parent-branch>
+```
+
+Git does not record which branch a branch was created from, so RWF recovers
+the parent from this commit: walk the branch's first-parent history and read
+`RWF-Parent` from the identity commit whose `RWF-Branch` equals the branch.
+The identity commit's first parent is the exact commit the branch was created
+from. Missing, duplicate or malformed identity commits fail rather than guess.
+
+This also distinguishes the two meanings of a dependency in `tickets.csv`. If
+ticket B's recorded parent is ticket A's branch and A depends on B, then A is
+B's umbrella. Any other dependency on B is an ordinary prerequisite.
+
+### Release intent
+
+The `release` column holds `patch`, `minor` or `major`. It only takes effect
+when the merge destination is `main`; a child merging into an umbrella uses
+the umbrella's own value when the umbrella merges. On the ticket server it is
+recorded as a label (for example `release:minor`) and synchronized with the
+CSV like the other ticket fields.
+
+A blank `release` is an error. `start` warns loudly about it. `done` stops with
+an error before doing anything else, including before submitting a remote
+request when invoked as `rwf done --remote`.
+
+### Ticket commands
+
+```text
+rwf abort
+rwf reopen <ticket-id>
+```
+
+`abort` stops work on the current ticket without completing it and without
+discarding its branch, history or test evidence. `reopen` returns a completed
+ticket to active work; `done` refuses an already completed ticket until it is
+reopened.
+
+Lane selection, lane settings/diagnostics, the Lifecycle Graph and workspace
+registry/claim files are excluded from this simplified workflow. Progress
+Graphs remain. There is no separate workflow `state.json`, PRELIM checkpoint
+store or engine-version file. Additional persistent information requires a
+specific workflow purpose and must not duplicate information available from
+Git or the existing files.
 
 ## Initialisation
 
@@ -110,15 +185,17 @@ repository/provider-specific work:
 
 | Script | Responsibility |
 | --- | --- |
+| `.rwf/repo/ci` | CI execution, runner/environment setup, result/artifact transport and CI run status. See [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md#repo-ci). |
+| `.rwf/repo/tracker` | All ticket-server operations: read, list, update and comment on tickets, and synchronize titles, dependencies and release labels with `tickets.csv`. Nothing more. |
 | `.rwf/repo/version` | Read and change the repository version through its defined API. Own the version storage details. See [REPO_VERSION_ADAPTER.md](REPO_VERSION_ADAPTER.md). |
-| `.rwf/repo/info` | Read repository and ticket information. See [REPO_INFO_CONTRACT.md](REPO_INFO_CONTRACT.md). |
-| `.rwf/repo/ci` | CI execution, runner/environment setup and result/artifact transport. See [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md#repo-ci). |
-| `.rwf/repo/host` | Repository-host mutations, including conditional ref updates and ticket operations. See [REPOSITORY_HOST_MUTATION_CONTRACT.md](REPOSITORY_HOST_MUTATION_CONTRACT.md). |
-| `.rwf/repo/contact` | Deliver notifications to the implementing user or assigned manual tester using email or another contact mechanism. Recipient resolution and delivery belong here. Its exact invocation contract remains to be defined. |
+| `.rwf/repo/contact` | `contact <worker-id>` delivers the message read from stdin to that worker, by email or another contact mechanism. `<worker-id>` is `<user>[;<agent-name>;<chat-id>[;<session-id>]]`. Recipient resolution and delivery belong here. |
+| `.rwf/repo/owner.txt` | Not a script: contains the worker ID of the repository owner, who is contacted for merges into `main`. |
 
-RWF supplies the notification's recipient context and message to
-`.rwf/repo/contact`. References to email below mean notification through this
-adapter. Repository initialization follows:
+Branch updates need no adapter: a push of a merge result to the parent is
+rejected by Git unless it fast-forwards the parent's current tip.
+
+References to email below mean notification through `.rwf/repo/contact`.
+Repository initialization follows:
 
 ```
 <user> <system> <repo-dir> (<git-branch>)
@@ -153,16 +230,16 @@ The `RWF` in the prompt shows that the bash hooks are active.
 $ rwf start <ticket-id> [<addendum>] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
 
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
-$ # branch made from <git-branch>
+$ # branch made from <git-branch>, starting with its identity commit
 
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
-$ # agent creates the RED tests (optional) and adds 
-  # `issue-<ticket>-<regression-test-name>`and/or
-  # `issue-<ticket>-[manual--]<integration-test-name>` to test catalogue and/or
-  # `issue-<ticket>-[temp--]<integration-test-name>` to temp test catalogue.
+$ # agent creates the RED test (optional) and adds
+  # `issue-<ticket>-<regression-test-name>` to the regression catalogue and/or
+  # `issue-<ticket>-[manual--]<integration-test-name>` to the integration catalogue and/or
+  # `issue-<ticket>-[temp--]<test-name>` to the temporary catalogue.
 
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
-$ rwf test RED issue-<ticket-id>-<regression-test-name> # must fail
+$ rwf test RED # must fail
 
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
 $ # agent implements task
@@ -189,35 +266,58 @@ $ rwf parent
 $ # back at starting branch
 ```
 
+`rwf parent` switches to the current branch's parent, as recorded by its
+identity commit. It is only permitted when Git can switch branches without
+complaint.
+
 ## Done
 
-Run all required automatic tests before bringing manual testers into the loop.
+`done` performs these steps in order:
 
-Completion runs the ticket's temporary tests as well as the other required
-tests, reusing applicable results where available. After successful testing,
-`done` removes that ticket's temporary test files from
-`.rwf/ci/tests-temporary/` and their entries from
-`.rwf/ci/tests-temporary.json`, and records the cleanup in Git before merging
-into the parent. Preserve the JSONL test results. Do not remove another ticket's
-temporary tests. Failed or unfinished testing leaves the tests available for
-repair and retry; when testing is deferred to the server, cleanup is deferred
-with it. Cleanup must not silently reuse evidence invalidated by changes to
-the remaining test inputs.
+1. Fail loudly if the ticket's `release` is blank.
+2. Check the ticket's state in `.rwf/tickets.csv` at destination parent tip A.
+   If the ticket is already completed, report an error and stop.
+3. Check that the ticket's claimant is authorised to merge into the parent by
+   the parent's `merge-authorise.csv` (see [Umbrella branches](#umbrella-branches)).
+   If not, fail with an error and contact the parent branch's claimant, or the
+   repository owner when the parent is `main`. Nothing is queued or held. Once
+   `merge-authorise.csv` is updated, running `done` again is accepted.
+4. Create the PRELIM branch at the tip of the parent and prepare its version
+   (see [Tests and Versioning](#tests-and-versioning)).
+5. Run any outstanding required tests, all automatic tests before any manual
+   test. This includes the ticket's temporary tests if they have not already
+   passed. Temporary tests and their catalogue entries are left in place so
+   they can easily be run again.
+6. After required testing passes, record the ticket as completed in
+   `.rwf/tickets.csv` and commit that update.
+7. Merge into the parent.
+8. Create the success version tag on the integrated commit containing the
+   completed-ticket record and test evidence.
 
-`rwf done` should create the PRELIM branch
-`PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`, retaining the version already
-prepared through testing. Before the ticket's first test, initialize `Q=0, R=0`,
-including when `done` initiates that first test. Subsequent preparation follows
-the source-change and parent-reintegration increment rules rather than
-reinitializing the counters. If moving to tip of parent
-fails, agent is signalled by email.  So that they can pull the repo, fix the
-merge on the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`,
-optionally test it, push it and then run `rwf done --remote` to have remaining
-tests to be executed.
+The order is: test, commit completion, merge, then tag.
 
-Be aware that there should be a space where if the agent isn't part of a group
-which is trusted with tests, then those test results will not be used as part of
-validation.  For now, we are assuming everyone is trusted.
+The PRELIM branch is named `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`.
+For each ticket, only the latest PRELIM version is ever considered for
+testing and merging. Older PRELIM versions are ignored, even when the latest
+fails; RWF never falls back to an older one.
+
+Update the parent only if it still points to A. Locally, Git
+provides this atomic check and update through `git update-ref
+refs/heads/<parent> <C> <A>`; remotely, the push of the merge result is
+rejected unless it fast-forwards A. If another integration advances the
+parent, recheck the destination ticket state, reconstruct against its new tip
+and rerun the invalidated tests before retrying.
+Never merge first and roll back afterward. Local completion must also respect
+any worktree using the parent: a ref update alone does not update that
+worktree's index or files.
+
+If moving to the tip of the parent fails, the agent is signalled by email, so
+that they can pull the repo, fix the merge on the latest
+`PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`, optionally test it, push
+it and then run `rwf done --remote` to have the remaining tests executed.
+
+Test results are only used for validation when the tester is trusted. For now,
+everyone is trusted. Security work is deferred.
 
 If remaining tests done on server show failure, the agent will be contacted by
 email, or the agent can look at the test results using `rwf test results
@@ -226,8 +326,8 @@ reports the local test results.  On test failure, just like merge failure, agent
 will edit the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`, push it
 and then submit `rwf done --remote`.
 
-I'm thinking that it might be a good idea to have a `rwf fix <ticket-id>
-[<addendum>]` so that it's easier to come back to the branch. E.g.
+`rwf fix <ticket-id> [<addendum>]` makes it easy to come back to the latest
+PRELIM branch. E.g.
 
 ```
 <user> <system> <repo-dir> RWF (<git-branch>)
@@ -237,7 +337,7 @@ $ git pull
 $ rwf fix <ticket-id> [<addendum>]
 
 <user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
-$ # P.Q are the latest ones.
+$ # Q.R are the latest ones.
 
 <user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
 $ rwf test results  # optionally look at the test results locally.
@@ -257,27 +357,6 @@ Note that `<repo-dir>` can be any directory within the repo's directory.
 An agent authorised to merge into the local parent can use `rwf done` offline
 instead of `git push` followed by `rwf done --remote`.
 
-For both local and remote completion, `done` checks the ticket's state in
-`.rwf/tickets.csv` at destination parent tip A. If the ticket is already
-completed, report an error and stop. Otherwise continue normally, preparing
-and testing candidate C against A.
-Update the parent only if it still points to A. Locally, Git
-provides this atomic check and update through `git update-ref
-refs/heads/<parent> <C> <A>`; remote completion requires the equivalent
-conditional destination update. If another integration advances the parent,
-recheck the destination ticket state, reconstruct against its new tip and rerun
-the invalidated tests before retrying.
-Never merge first and roll back afterward. Local completion must also respect
-any worktree using the parent: a ref update alone does not update that
-worktree's index or files.
-
-After required testing passes, record the ticket as completed in
-`.rwf/tickets.csv` and commit that update before merging to parent. This
-completion-record update preserves the applicable test results. After the
-conditional parent update succeeds, create the success version tag on the
-integrated commit containing the completed-ticket record and test evidence.
-The order is: test, commit completion, merge, then tag.
-
 After successful integration, synchronize completion with the ticket system
 and retire the processed PRELIM branch.
 Retain test evidence in repository history. Offline execution reports local
@@ -286,47 +365,129 @@ when connectivity returns. Report any unfinished tag creation or PRELIM
 retirement explicitly. Retrying these finishing steps must not merge the ticket
 again.
 
+### Remote done
+
+`rwf done --remote` is the only remote command whose execution differs from
+its local form. It performs the same checks as local `done`, then wraps local
+`done` with the PRELIM queue and MIT deferral and timeout handling described
+under [Umbrella branches](#umbrella-branches) and
+[Integration Tests](#integration-tests).
+
+When manual tests are needed, the manual tester is contacted. The tester pulls
+the PRELIM branch, runs the manual tests, reports `rwf test succeeded` or
+`rwf test failed` for each, pushes the results and submits `rwf done --remote`.
+This is the only reason a further `rwf done --remote` is needed.
+
+## Umbrella branches
+
+Every merge destination (parent branch) has an orphan branch named
+`UMBRELLA-<parent-branch>`. Being an orphan, it shares no history with the
+code and can never be merged into it. `main` is treated as an implicit
+umbrella and has `UMBRELLA-main`.
+
+The UMBRELLA branch is created, using atomic create-if-absent, the first time
+a `done --remote` targets that parent. When the umbrella ticket itself
+completes, its `done` errors if anything remains in its queue, and otherwise
+deletes its UMBRELLA branch. `UMBRELLA-main` is never deleted.
+
+### Merge authorisation
+
+`.rwf/merge-authorise.csv` on the UMBRELLA branch lists which tickets may
+merge into that parent, with columns `ticket-id,addendum,claimant`. `addendum`
+and `claimant` may be blank. A blank `claimant` authorises whoever is the
+ticket's claimant in `tickets.csv`; a non-blank one authorises only that
+claimant identity. `done` checks the ticket's claimant in `tickets.csv`, not
+the identity of whoever invokes `done`, so a tester submitting `done --remote`
+after recording manual results is accepted.
+
+### PRELIM queue
+
+`.rwf/ci/queue/` on the UMBRELLA branch holds one empty file per queued
+PRELIM, named after the PRELIM branch:
+
+| Directory | Contents |
+| --- | --- |
+| `active/` | Zero or one PRELIM currently being processed. |
+| `queued/` | PRELIMs waiting to be processed. |
+| `timed-out/` | PRELIMs whose manual-test wait expired. |
+
+Queue transitions are file moves committed to the UMBRELLA branch:
+
+1. `done --remote` adds its PRELIM to `queued/`, unless it is already present.
+2. When `active/` is empty, a randomly selected entry moves from `queued/` to
+   `active/`. Only the active PRELIM is tested, so time isn't spent on
+   candidates whose results would be invalidated by the next merge.
+3. On successful merge the active entry is removed. When its wait for manual
+   results expires, it moves to `timed-out/`.
+4. When `queued/` is empty, all `timed-out/` entries move back to `queued/`,
+   so none are forgotten.
+
+A delayed CI wake-up continues processing after a timeout without keeping a
+runner busy. There is at most one pending wake-up per parent; a new
+`done --remote` for the same parent replaces it. A wake-up rechecks the
+queue's current state before acting.
+
 ## Remote Commands
 
-Remote-capable commands can take `--remote [--poll <seconds> ...]` which updates the
-`.rwf/ci/rwf` file, which triggers a CI action.  The `.rwf/ci/rwf` file contains the
-parameters to `rwf` and adds a `n` item to the `--remote` switch.  E.g. `rwf
-<some-command> --remote [--poll <seconds> ...]` will result in `.rwf/ci/rwf` to
-contain `<some-command> --remote n [--poll <seconds> ...]`, where `n` is the
-retry number starting at `0`.
+Only `--remote` commands ever trigger execution. An ordinary push never does.
+
+Remote-capable commands can take `--remote [--poll [<seconds> ...]]` which
+updates the `.rwf/ci/rwf` file, which triggers a CI action.  The `.rwf/ci/rwf`
+file contains the parameters to `rwf` and adds a `n` item to the `--remote`
+switch.  E.g. `rwf <some-command> --remote [--poll [<seconds> ...]]` will
+result in `.rwf/ci/rwf` containing `<some-command> --remote n`, where `n` is the
+retry number starting at `0`. `--poll` is client-side and is not recorded.
 
 `--poll` checks immediately and then waits between status checks. Supplied
 seconds are successive delays: `--poll 5 15 60` waits 5 seconds, then 15,
 then repeats 60-second delays until completion. With no numbers, `--poll`
 uses 15-second delays. Without `--poll`, submission returns without waiting.
-These delays are separate from the manual-test merge-slot timeout.
+These delays are separate from the manual-test timeout.
+
+The status of a previously submitted command is read without resubmitting it:
+
+```text
+rwf remote-status [<cmd-number>] [--poll [<seconds> ...]]
+```
+
+Without `<cmd-number>`, it reports the most recent command.
 
 `parent`, `resume`, `fix`, `pause`, and shell activation are local-only.
 They reject `--remote` with an explanation that the operation acts on the
 caller's local checkout or shell. Their help and tab completion do not offer
 `--remote` or its dependent polling options. The commands remain available locally.
 
-All remote commands are put in a CMD branch off of the branch to execute from.
-The command is executed from the parent branch.  The CMD branch must be
-branching off the tip of the parent.  Any results are stored in
-`.rwf/ci/cmd-results.txt` in that CMD branch.  The execution of a CMD may result in
-mutation of that branch, which is why the CMD branch MUST be rooted to the tip
-of the parent branch.  The CMD branch is named
-`CMD-<cmd-number>-issue-<ticket-id>.Q.R-<title>[-<addendum>]`.
+All remote commands are put in a CMD branch off the tip of the branch to
+execute from (the source branch). The CMD branch is named
+`CMD-<cmd-number>-<source-branch>`. The CI enters from the CMD branch, reads
+the command from `.rwf/ci/rwf`, switches to the CMD branch's parent (the
+source branch) and executes the command there. The execution may mutate the
+source branch, for example by committing test results, which is why the CMD
+branch MUST be rooted at the tip of the source branch. The command's output
+and result are stored in `.rwf/ci/cmd-results.txt` in that CMD branch.
 
 ## Testing
 
-Tests are declared in `.rwf/ci/tests-permanent.json` or
-`.rwf/ci/tests-temporary.json`. The catalogues determine which tests exist and
-which regression, automatic integration or manual integration selection they
-belong to. RED/GREEN is a development use of regression tests, not a separate
-test category or catalogue.
+Tests are declared in `.rwf/ci/tests-regression.json`,
+`.rwf/ci/tests-integration.json` or `.rwf/ci/tests-temporary.json`. The
+catalogues determine which tests exist and which regression, automatic
+integration or manual integration selection they belong to. RED/GREEN is a
+development use of a regression test, not a separate test category or
+catalogue.
 
 Tests may run individually or in groups, locally or through supported remote
 commands. Applicable results already recorded for the same source, test inputs
 and environment can be reused. Required tests without applicable passing
 results remain outstanding and are run during completion, including on the
 server when deferred. An applicable failure prevents merge.
+
+By default all selected tests are run, regardless of failures. Add
+`--stop-on-fail` to stop at the first failure, e.g.
+`rwf test --stop-on-fail (regression|integration) [particular-test-ids...]`.
+
+A test that cannot be run, for example because of a parse or build error or
+an infrastructure failure, is INCOMPLETE. An INCOMPLETE result gets no version
+id or tag.
 
 Results are appended to `.rwf/ci/test-results/<id-range>/<issue>.jsonl`, with
 the originating `source`, tester identity, tested source and relevant test and
@@ -340,38 +501,43 @@ policy is applied; ticket ownership and test-result attribution remain distinct.
 Temporary tests support development or diagnosis and are registered in
 `.rwf/ci/tests-temporary.json`. Their files live in
 `.rwf/ci/tests-temporary/`. Run them with `rwf test temporary`.
-`done` owns their removal after successful testing, as described under
-[Done](#done). Permanent regression tests belong in their permanent location
-and catalogue from creation; they must not be placed in the temporary directory.
-Cleanup deletes the temporary tests but preserves their JSONL evidence. Their
-source remains reviewable in the ticket branch's Git history before cleanup.
+`done` runs the current ticket's temporary tests if they have not already
+passed, and leaves them in place afterwards. Permanent regression tests belong
+in their permanent location and catalogue from creation; they must not be
+placed in the temporary directory.
 
 ### Regression Tests
 
 Regression tests check required behavior and protect it against later changes.
-Register retained tests in `.rwf/ci/tests-permanent.json`.
+Register them in `.rwf/ci/tests-regression.json`.
 
 Each ticket should define one focused RED/GREEN regression test. Needing
 multiple independent tests is a reason to revisit ticket decomposition;
 combining independent tests inside one test to disguise that need is not
 acceptable. Existing required regression and integration coverage still runs.
 
+The ticket's RED/GREEN test is its single `issue-<ticket-id>-<description>`
+entry in `.rwf/ci/tests-regression.json`. `rwf test RED` and `rwf test GREEN`
+take no test name; they error if the ticket has no such entry or more than one.
+
 The optional RED/GREEN development sequence is:
 
 1. Write and register the regression test for the intended behavior.
-2. Run `rwf test RED issue-<ticket-id>-<regression-test-name>` before the
-   implementation. Confirm the expected failure, rather than a runner error.
+2. Run `rwf test RED` before the implementation. Confirm the expected failure,
+   rather than a runner error.
 3. Implement the change.
-4. Run `rwf test GREEN` to rerun the remembered selection without retyping its
-   name. Fix the implementation until the selected tests pass.
+4. Run `rwf test GREEN`. Fix the implementation until the test passes.
 
 Skipping RED/GREEN does not exempt any required test from final validation.
-The same retained tests participate in regression testing afterward.
+The same tests participate in regression testing afterward.
 `rwf test regression [particular-test-ids...]` runs the selected regression
 tests, or the full regression selection when IDs are omitted. Partial passing
 runs can collectively satisfy coverage when their evidence remains applicable.
 
 ### Integration Tests
+
+`rwf test integration` runs integration tests only; it does not also run
+regression tests.
 
 If doing integration testing and there are manual tests, then it should look like this:
 
@@ -388,11 +554,10 @@ $ rwf test integration [--manual|particular-test-ids...]
 $ rwf test [succeeded|failed]
 ```
 
-Also tests default to stop on first failure.  Can specify flag `rwf test
---cont-on-fail (regression|integration)
-[particular-test-ids]` to run them all, regardless of successfulness.
-
 Manual integration tests are named `issue-<ticket-id>-manual--<description>`.
+A manual test declares a command that RWF runs, typically bringing up a GUI;
+RWF waits for it to finish and returns to the prompt, where the tester reports
+the outcome.
 
 To only run the automated integration tests, do the following:
 
@@ -409,41 +574,60 @@ $ rwf test integration [--manual|--automatic|particular-test-ids...] --count
 ```
 
 Remote `done` completes all required automatic tests before emailing the manual
-tester. The merge slot waits for manual results for the duration configured in
-`.rwf/ci/MIT-timeout.txt`, using `[[h:]m:]s`: `45` is 45 seconds, `2:30` is
-2 minutes 30 seconds, and `1:02:30` is 1 hour 2 minutes 30 seconds. On expiry,
-release the slot so other submissions progress. Keep this submission queued
-and unmerged until its required manual results pass; timeout is not test failure.
+tester. The queue's active PRELIM waits for manual results for the duration
+configured in `.rwf/ci/MIT-timeout.txt`, using `[[h:]m:]s`: `45` is 45 seconds,
+`2:30` is 2 minutes 30 seconds, and `1:02:30` is 1 hour 2 minutes 30 seconds.
+On expiry, the PRELIM moves to `timed-out/` so other submissions progress. It
+stays unmerged until its required manual results pass; timeout is not test
+failure.
 
-An absent or empty timeout file defaults to `0`. In CI, zero releases the merge
-slot without waiting while preserving the outstanding manual-test obligation.
-For local execution outside CI, return to the `[MIT A/B]` shell prompt so the
-tester can perform and report the manual tests.
+An absent or empty timeout file defaults to `0`. In CI, zero moves the PRELIM
+to `timed-out/` without waiting while preserving the outstanding manual-test
+obligation. For local execution outside CI, return to the `[MIT A/B]` shell
+prompt so the tester can perform and report the manual tests.
 
 ## Pausing a Ticket
 
-This is similar to git stash.
+This is similar in purpose to git stash, but the work is saved as an ordinary
+commit on the issue branch.
 
 ```
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
-$ rwf pause [--save-untracked [specific-files...]] # save all untracked if no specific-files specified.
+$ rwf pause [-u|--include-untracked|-a|--all]
+
+<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+$ rwf parent
 
 <user> <system> <repo-dir> RWF (parent-branch)
 $ # do what needs to be done
 
 <user> <system> <repo-dir> RWF (parent-branch)
-$ rwf resume [<ticket-id> [<addendum>]] # if ticket id isn't specified, resume last paused.
+$ rwf resume [<ticket-id> [<addendum>]] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]] [--reclaim]
 
 <user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
 $ # back to where you were.
 ```
 
-There will be a `<worktree-git-dir>/rwf/last-paused.txt` file to store the last paused
-parameters used to restore the last paused.  E.g. `[<ticket-id> [<addendum>]]`.
+`pause` creates exactly one commit at the branch tip, marked with
+`RWF-Pause: 1` in its message. Plain `pause` saves staged and unstaged changes
+to tracked files; `-u`/`--include-untracked` also saves untracked files;
+`-a`/`--all` also saves ignored files. A clean worktree produces an empty
+pause commit. The pause commit is ordinary branch history that travels with
+push and fetch. `pause` stays on the issue branch; use `rwf parent` to switch
+away. After a successful pause, the arguments for resuming it are appended to
+`<worktree-git-dir>/rwf/last-paused.txt`.
 
+`resume` switches to the existing issue branch and continues from its tip. It
+does not decode, remove or restore the pause commit, and the pre-pause
+staged/unstaged distinction is not restored. Without arguments, it resumes the
+last entry in `last-paused.txt`. `resume` fails if there is no branch to
+resume.
 
-I think an explicit `resume` is better than overloading `start`.  `start` should
-fail if the branch already exists. `resume` should fail if no branch to resume.
+`resume` fails if the resuming identity differs from the ticket's claimant,
+unless `--reclaim` is given, which replaces the claimant. `--reclaim` also
+fails if the identity is the same as the current claimant.
+
+`start` fails if the branch already exists; use `resume` instead.
 
 ## Tests and Versioning
 
@@ -453,6 +637,14 @@ and reset R to zero. Reintegrating unchanged implementation against a newer
 parent increments R. If both change, increment Q and reset R to zero.
 Additional tests, unchanged retries and test-log-only commits reuse the
 prepared version without incrementing either counter.
+
+When `done` prepares a PRELIM for merging into an umbrella, it reads the
+parent's version and increments it (Q+1, R=0), and the merge result carries
+that version. Each child would otherwise set the shared version to its own
+issue number, either relabelling the umbrella or conflicting with other
+children. When the destination is `main`, the stable version is incremented
+according to the ticket's `release` value instead. Both happen when the
+PRELIM is prepared, before its tests run.
 
 The test results are committed in the repo under
 `.rwf/ci/test-results/<id-range>/<issue>.jsonl`.  The `<id-range>` is to prevent
