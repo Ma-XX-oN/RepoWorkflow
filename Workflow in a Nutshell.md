@@ -10,27 +10,37 @@ worktree-local files.
 
 ```text
 <repository>/
-└── .rwf/
-    ├── tickets.csv
-    ├── repo/
-    │   ├── ci
-    │   ├── tracker
-    │   ├── version
-    │   ├── contact
-    │   └── owner.txt
-    └── ci/
-        ├── rwf                      (CMD branches only)
-        ├── cmd-results.txt          (CMD branches only)
-        ├── testers.txt
-        ├── tests-regression.json
-        ├── tests-integration.json
-        ├── tests-temporary.json
-        ├── tests-temporary/
-        ├── MIT-timeout.txt
-        └── test-results/
-            └── <id-range>/<issue>.jsonl
+├── .rwf/
+│   ├── tickets.csv
+│   ├── to-umbrella/
+│   │   └── <issue-id>.md
+│   ├── repo/
+│   │   ├── ci
+│   │   ├── tracker
+│   │   ├── version
+│   │   ├── contact
+│   │   └── owner.txt
+│   └── ci/
+│       ├── rwf                      (CMD branches only)
+│       ├── cmd-results.txt          (CMD branches only)
+│       ├── testers.txt
+│       ├── tests-regression.json
+│       ├── tests-integration.json
+│       ├── tests-temporary.json
+│       ├── tests-temporary/
+│       ├── MIT-timeout.txt
+│       └── test-results/
+│           └── <id-range>/<issue>.jsonl
+└── RepoWorkflow
+    ├── rwf
+    └── repo/
+        └── GitHub/
+            ├── ci
+            ├── tracker
+            ├── version
+            └── contact
 
-UMBRELLA-<parent-branch>             (orphan branch, one per merge destination)
+UMBRELLA-<parent-key>             (orphan branch, one per merge destination)
 └── .rwf/
     ├── merge-authorise.csv
     └── ci/
@@ -51,7 +61,8 @@ worktrees. A worker operating directly through the Git host does not require the
 
 | File | Purpose |
 | --- | --- |
-| `.rwf/tickets.csv` | One row per ticket with columns `issue,title,dependencies,state,claimant,release`. See [Ticket claims](#ticket-claims) and [Release intent](#release-intent). |
+| `.rwf/tickets.csv` | One row per ticket with columns `issue,alias,title,dependencies,state,claimant,bump-ver`. See [Ticket claims](#ticket-claims), [Ticket state](#ticket-state), [Version bump](#version-bump), [Ticket synchronization](#ticket-synchronization) and [Breaking down a ticket](#breaking-down-a-ticket). |
+| `.rwf/to-umbrella/<issue-id>.md` | Pending breakdown of a ticket into child tickets. Exists only until all the child tickets have been created. See [Breaking down a ticket](#breaking-down-a-ticket). |
 | `.rwf/repo/*` | Repository adapter scripts and the repository owner. See [Repository adapter scripts](#repository-adapter-scripts). |
 | `.rwf/ci/tests-regression.json` | Catalogue of regression tests, including each ticket's RED/GREEN test. |
 | `.rwf/ci/tests-integration.json` | Catalogue of automatic and manual integration tests. |
@@ -62,7 +73,7 @@ worktrees. A worker operating directly through the Git host does not require the
 | `.rwf/ci/testers.txt` | Accepted tester identities. Everyone is currently trusted; the list is not enforced. |
 | `.rwf/ci/MIT-timeout.txt` | How long the queue's active PRELIM waits for manual results, in `[[h:]m:]s` format. Absent or empty means zero. Timeout is not test failure. See [Integration Tests](#integration-tests). |
 | `.rwf/ci/test-results/<id-range>/<issue>.jsonl` | Append-only test results, one file per ticket, in ranges of 1,000 issue numbers. |
-| `UMBRELLA-<parent-branch>` | Orphan branch holding the merge authorisations and PRELIM merge queue for one merge destination. See [Umbrella branches](#umbrella-branches). |
+| `UMBRELLA-<parent-key>` | Orphan branch holding the merge authorisations and PRELIM merge queue for one merge destination. See [Umbrella branches](#umbrella-branches). |
 | `<worktree-git-dir>/rwf/last-paused.txt` | Line stack of arguments for `rwf resume <ticket-id> [<addendum>]`. Pause appends an entry after successfully checkpointing work. Argumentless resume uses the last entry and removes it only after successful resume. Explicit resume removes its matching entry while preserving the others. |
 
 Each test-result record includes `"source": "<ticket-id>[-<addendum>]"`, tester
@@ -74,6 +85,24 @@ RWF's append-aware reconciliation, rather than ordinary text merging.
 The current ticket is derived from the current RWF branch name (issue or
 PRELIM branch). There is no `current-ticket.txt` or separate persisted
 current-ticket selection.
+
+### Branch names
+
+An issue branch is named `issue-<ticket-id>[-<addendum>]--<title>`, where
+`<title>` is the ticket's title made safe for a branch name: lowercase words
+joined by hyphens, with punctuation removed. The first `--` separates the
+stable key `issue-<ticket-id>[-<addendum>]` from the title. An addendum may not
+contain `--`; the title may.
+
+RWF identifies a branch only by its stable key; the title is there for people
+reading branch lists. When the ticket's title changes, the branch is renamed
+to the new title: locally with `git branch -m`, and on the server through the
+Git host's branch-rename operation. Renaming changes no commit.
+
+Everything that refers to a branch uses its stable key, never the full name:
+identity commits, `PRELIM-issue-<ticket-id>.Q.R[-<addendum>]`,
+`UMBRELLA-<parent-key>` and `CMD-<cmd-number>-<source-key>` branches,
+`last-paused.txt` entries and queue entries. `main` is its own key.
 
 ### Ticket claims
 
@@ -109,10 +138,10 @@ branch already exists; an existing branch is re-entered with `resume`, and
 another worker's claim is taken over only with `resume --reclaim` (see
 [Pausing a Ticket](#pausing-a-ticket)).
 
-When starting, RWF attempts to reach the ticket server through
-`.rwf/repo/tracker` and resynchronizes the ticket's title in `tickets.csv` if
-it has changed. A ticket's title must not change while the ticket is in
-progress, because the branch name contains it.
+`start` never contacts the ticket server; it works from the local
+`tickets.csv`, so it works offline. To start from fresh server data, run
+`rwf issue <ticket-id> from-tickets replace` first (see
+[Ticket synchronization](#ticket-synchronization)).
 
 If any of the ticket's dependencies are incomplete, `start` and `resume` still
 proceed, but warn that a speculative ticket is being started or resumed and
@@ -131,31 +160,74 @@ options; AI identity arguments follow `--agent`.
 the new branch is an empty identity commit whose message contains:
 
 ```text
-RWF-Branch: <issue-branch>
-RWF-Parent: <parent-branch>
+RWF-Branch: <issue-branch-key>
+RWF-Parent: <parent-branch-key>
 ```
 
-Git does not record which branch a branch was created from, so RWF recovers
-the parent from this commit: walk the branch's first-parent history and read
-`RWF-Parent` from the identity commit whose `RWF-Branch` equals the branch.
+Both values are stable keys (see [Branch names](#branch-names)), so renaming
+a branch for a title change does not affect them. Git does not record which
+branch a branch was created from, so RWF recovers the parent from this commit:
+walk the branch's first-parent history and read `RWF-Parent` from the identity
+commit whose `RWF-Branch` equals the branch's key.
+If the ticket has an `alias`, the identity commit may name the branch by its
+placeholder instead (see [Breaking down a ticket](#breaking-down-a-ticket)).
 The identity commit's first parent is the exact commit the branch was created
 from. Missing, duplicate or malformed identity commits fail rather than guess.
 
-This also distinguishes the two meanings of a dependency in `tickets.csv`. If
-ticket B's recorded parent is ticket A's branch and A depends on B, then A is
-B's umbrella. Any other dependency on B is an ordinary prerequisite.
+A ticket's parent is always its nearest enclosing umbrella, never the ticket
+that depends on it. A ticket that is not part of an umbrella has `main` as its
+parent. A nested umbrella's parent is its own enclosing umbrella.
+Dependencies between tickets in the same umbrella only control the order in
+which they become eligible to start; they never make one ticket the parent of
+another.
 
-### Release intent
+### Version bump
 
-The `release` column holds `patch`, `minor` or `major`. It only takes effect
-when the merge destination is `main`; a child merging into an umbrella uses
-the umbrella's own value when the umbrella merges. On the ticket server it is
-recorded as a label (for example `release:minor`) and synchronized with the
-CSV like the other ticket fields.
+The `bump-ver` column holds `patch`, `minor` or `major`: how the stable version
+is incremented when the ticket merges into `main`. It is only relevant to
+tickets whose parent is `main`; a child merging into an umbrella never merges
+into `main` itself, so its `bump-ver` is ignored and may be blank. On the
+ticket server it is recorded as a label (for example `bump-ver:minor`). The
+server is authoritative: `from-tickets` always pulls it, and `to-tickets` never
+pushes it.
 
-A blank `release` is an error. `start` warns loudly about it. `done` stops with
-an error before doing anything else, including before submitting a remote
-request when invoked as `rwf done --remote`.
+For a ticket whose parent is `main`, a blank `bump-ver` is an error. `start`
+warns loudly about it. `done` stops with an error before doing anything else,
+including before submitting a remote request when invoked as
+`rwf done --remote`.
+
+### Ticket state
+
+The `state` column holds one of four values:
+
+| State | Meaning |
+| --- | --- |
+| `not_started` | No work has started. |
+| `active` | Set by `start` and `resume`; work is underway. |
+| `completed` | Set by `done` when the ticket merges. Only `completed` satisfies a dependency. |
+| `aborted` | Set by `abort`. The branch still exists but work has stopped. |
+
+Progress Graph status is derived from the stored state and the states of the
+ticket's dependencies, and is never stored:
+
+| Stored state | Dependencies all `completed` | Progress Graph status |
+| --- | --- | --- |
+| `completed` | n/a | ♥ Done |
+| `active` | yes | ◐ In progress |
+| `active` | no | ◑ Speculative |
+| `not_started` or `aborted` | yes | ○ Not started |
+| `not_started` or `aborted` | no | 🧱 Blocked |
+
+State is synchronized with the ticket server in both directions (see
+[Ticket synchronization](#ticket-synchronization)). How each state is
+represented depends on the tracker; for example, on GitHub:
+
+| RWF state | GitHub |
+| --- | --- |
+| `not_started` | Open, unassigned |
+| `active` | Open, assigned |
+| `completed` | Closed as completed |
+| `aborted` | Closed as not planned |
 
 ### Ticket commands
 
@@ -165,9 +237,77 @@ rwf reopen <ticket-id>
 ```
 
 `abort` stops work on the current ticket without completing it and without
-discarding its branch, history or test evidence. `reopen` returns a completed
-ticket to active work; `done` refuses an already completed ticket until it is
-reopened.
+discarding its branch, history or test evidence; its state becomes `aborted`.
+`reopen` returns a completed ticket to `active`; `done` refuses an already
+completed ticket until it is reopened.
+
+### Ticket synchronization
+
+```text
+rwf issue [<ISSUE>...] to-tickets (compare|replace (all|dependencies|descendants)...) [ticket-dependencies]
+rwf issue [<ISSUE>...] from-tickets (compare|replace) [ticket-dependencies]
+```
+
+`to-tickets` pushes `tickets.csv` to the ticket server and `from-tickets`
+pulls from it, both through `.rwf/repo/tracker`. `compare` shows the
+differences, including placeholder tickets that would be created, and changes
+nothing; `replace` applies them.
+
+- `to-tickets` pushes state and dependency links, and creates the tickets for
+  placeholder descendants, including their titles, descriptions and
+  dependencies. `replace all` does everything; `replace dependencies` and
+  `replace descendants` limit it to dependency links or to creating
+  descendants. It never pushes titles or `bump-ver`; the server is
+  authoritative for both.
+- `from-tickets` pulls titles, dependencies, `bump-ver` and state. A title
+  change renames the ticket's branches (see [Branch names](#branch-names)).
+
+`<ISSUE>...` is one or more real ticket IDs; placeholders are not accepted.
+Without `<ISSUE>`, the nearest ticket at or above the current one that has a
+real ID is used: in `660.A` or `660.A.B` that is 660. Syncing a ticket always
+creates all of its placeholder descendants. `ticket-dependencies` also
+includes every ticket the named tickets depend on, through every level, for
+example the whole breakdown under an umbrella.
+
+When `to-tickets` pushes the `active` state, it assigns the ticket to the
+account running the push, and posts a claim comment whenever the claimant has
+changed since the last one:
+
+```text
+RWF-CLAIM
+
+Issue: #<ticket-id>
+Claimant: <worker-id>
+Started: <timestamp>
+Branch: <branch-key>
+Parent: <parent-branch-key>
+Action: CLAIM|RECLAIM
+```
+
+When it pushes the `completed` state, it closes the ticket and posts:
+
+```text
+RWF-DONE
+
+Issue: #<ticket-id>
+Claimant: <worker-id>
+Started: <timestamp>
+Done: <timestamp>
+Branch: <branch-key>
+Parent: <parent-branch-key>
+Merge: <merge-commit-sha>
+Version: v<version>
+```
+
+The timestamps come from Git, not from the time of the push, because `start`
+and `done` can run offline. `Started` is the date of the branch's identity
+commit, or for a `RECLAIM`, of the commit that changed the claimant in
+`tickets.csv`. `Done` is the date of the commit that recorded the ticket as
+`completed`.
+
+`start` and local `done` never contact the ticket server. `done --remote`
+runs in CI with server access, so it synchronizes the ticket as part of
+completion.
 
 Lane selection, lane settings/diagnostics, the Lifecycle Graph and workspace
 registry/claim files are excluded from this simplified workflow. Progress
@@ -186,13 +326,26 @@ repository/provider-specific work:
 | Script | Responsibility |
 | --- | --- |
 | `.rwf/repo/ci` | CI execution, runner/environment setup, result/artifact transport and CI run status. See [PUBLIC_WORKFLOW.md](PUBLIC_WORKFLOW.md#repo-ci). |
-| `.rwf/repo/tracker` | All ticket-server operations: read, list, update and comment on tickets, and synchronize titles, dependencies and release labels with `tickets.csv`. Nothing more. |
+| `.rwf/repo/tracker` | All ticket-server operations: read, list, create, update and comment on tickets, and synchronize titles, dependencies, `bump-ver` labels and state with `tickets.csv`. Nothing more. The GitHub implementation's limits are in [TRACKER_GITHUB.md](TRACKER_GITHUB.md). |
 | `.rwf/repo/version` | Read and change the repository version through its defined API. Own the version storage details. See [REPO_VERSION_ADAPTER.md](REPO_VERSION_ADAPTER.md). |
 | `.rwf/repo/contact` | `contact <worker-id>` delivers the message read from stdin to that worker, by email or another contact mechanism. `<worker-id>` is `<user>[;<agent-name>;<chat-id>[;<session-id>]]`. Recipient resolution and delivery belong here. |
 | `.rwf/repo/owner.txt` | Not a script: contains the worker ID of the repository owner, who is contacted for merges into `main`. |
 
 Branch updates need no adapter: a push of a merge result to the parent is
 rejected by Git unless it fast-forwards the parent's current tip.
+
+RepoWorkflow ships example adapters for each supported host under
+`RepoWorkflow/repo/<host>/`, for example `RepoWorkflow/repo/GitHub/`. They are
+installed with:
+
+```text
+rwf init repo <host> [--change]
+```
+
+where `<host>` is a directory under `RepoWorkflow/repo/`. It copies that
+host's adapters into `.rwf/repo/`. `--change` switches an initialized
+repository to another host by copying the new host's adapters over the
+existing ones.
 
 References to email below mean notification through `.rwf/repo/contact`.
 Repository initialization follows:
@@ -229,37 +382,37 @@ The `RWF` in the prompt shows that the bash hooks are active.
 <user> <system> <repo-dir> RWF (<git-branch>)
 $ rwf start <ticket-id> [<addendum>] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]]
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ # branch made from <git-branch>, starting with its identity commit
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ # agent creates the RED test (optional) and adds
   # `issue-<ticket>-<regression-test-name>` to the regression catalogue and/or
   # `issue-<ticket>-[manual--]<integration-test-name>` to the integration catalogue and/or
   # `issue-<ticket>-[temp--]<test-name>` to the temporary catalogue.
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test RED # must fail
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ # agent implements task
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test GREEN # must succeed, if not go back to "agent implements task"
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test regression [particular-test-ids...] # optional.  If not done, will be done on DONE.
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test integration [particular-test-ids...] # optional.  If not done, will be done on DONE.
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ git push
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf done --remote
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf parent
 
 <user> <system> <repo-dir> RWF (<git-branch>)
@@ -274,7 +427,7 @@ complaint.
 
 `done` performs these steps in order:
 
-1. Fail loudly if the ticket's `release` is blank.
+1. If the parent is `main`, fail loudly if the ticket's `bump-ver` is blank.
 2. Check the ticket's state in `.rwf/tickets.csv` at destination parent tip A.
    If the ticket is already completed, report an error and stop.
 3. Check that the ticket's claimant is authorised to merge into the parent by
@@ -296,7 +449,7 @@ complaint.
 
 The order is: test, commit completion, merge, then tag.
 
-The PRELIM branch is named `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`.
+The PRELIM branch is named `PRELIM-issue-<ticket-id>.Q.R[-<addendum>]`.
 For each ticket, only the latest PRELIM version is ever considered for
 testing and merging. Older PRELIM versions are ignored, even when the latest
 fails; RWF never falls back to an older one.
@@ -313,7 +466,7 @@ worktree's index or files.
 
 If moving to the tip of the parent fails, the agent is signalled by email, so
 that they can pull the repo, fix the merge on the latest
-`PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`, optionally test it, push
+`PRELIM-issue-<ticket-id>.Q.R[-<addendum>]`, optionally test it, push
 it and then run `rwf done --remote` to have the remaining tests executed.
 
 Test results are only used for validation when the tester is trusted. For now,
@@ -323,7 +476,7 @@ If remaining tests done on server show failure, the agent will be contacted by
 email, or the agent can look at the test results using `rwf test results
 issue-<ticket-id> [--remote [--poll [<seconds> ...]]]`.  Without `--remote` it
 reports the local test results.  On test failure, just like merge failure, agent
-will edit the latest `PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>]`, push it
+will edit the latest `PRELIM-issue-<ticket-id>.Q.R[-<addendum>]`, push it
 and then submit `rwf done --remote`.
 
 `rwf fix <ticket-id> [<addendum>]` makes it easy to come back to the latest
@@ -336,19 +489,19 @@ $ git pull
 <user> <system> <repo-dir> RWF (<git-branch>)
 $ rwf fix <ticket-id> [<addendum>]
 
-<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R[-<addendum>])
 $ # Q.R are the latest ones.
 
-<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R[-<addendum>])
 $ rwf test results  # optionally look at the test results locally.
 
-<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R[-<addendum>])
 $ # do fixes.
 
-<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R[-<addendum>])
 $ git push
 
-<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (PRELIM-issue-<ticket-id>.Q.R[-<addendum>])
 $ rwf done --remote
 ```
 
@@ -357,13 +510,14 @@ Note that `<repo-dir>` can be any directory within the repo's directory.
 An agent authorised to merge into the local parent can use `rwf done` offline
 instead of `git push` followed by `rwf done --remote`.
 
-After successful integration, synchronize completion with the ticket system
-and retire the processed PRELIM branch.
-Retain test evidence in repository history. Offline execution reports local
-integration completed and ticket-system synchronization outstanding; synchronize
-when connectivity returns. Report any unfinished tag creation or PRELIM
-retirement explicitly. Retrying these finishing steps must not merge the ticket
-again.
+After successful integration, retire the processed PRELIM branch, delete the
+CMD branches whose source is the ticket's issue or PRELIM branches, and retain
+test evidence in repository history. `done --remote` then synchronizes the
+completed ticket with the ticket server. Local `done` does not contact the
+ticket server; the completion is pushed by the next `to-tickets` (see
+[Ticket synchronization](#ticket-synchronization)). Report any unfinished tag
+creation or PRELIM retirement explicitly. Retrying these finishing steps must
+not merge the ticket again.
 
 ### Remote done
 
@@ -381,14 +535,22 @@ This is the only reason a further `rwf done --remote` is needed.
 ## Umbrella branches
 
 Every merge destination (parent branch) has an orphan branch named
-`UMBRELLA-<parent-branch>`. Being an orphan, it shares no history with the
+`UMBRELLA-<parent-key>`. Being an orphan, it shares no history with the
 code and can never be merged into it. `main` is treated as an implicit
 umbrella and has `UMBRELLA-main`.
 
-The UMBRELLA branch is created, using atomic create-if-absent, the first time
-a `done --remote` targets that parent. When the umbrella ticket itself
-completes, its `done` errors if anything remains in its queue, and otherwise
-deletes its UMBRELLA branch. `UMBRELLA-main` is never deleted.
+A ticket becomes an umbrella when `rwf umbrella make` creates its UMBRELLA
+branch (see [Breaking down a ticket](#breaking-down-a-ticket)); the existence
+of that branch is the only record that the ticket is an umbrella. `rwf init`
+creates `UMBRELLA-main`. Both use atomic create-if-absent.
+
+When the umbrella ticket itself completes, its `done` errors if anything
+remains in its queue, and otherwise deletes its UMBRELLA branch.
+`UMBRELLA-main` is never deleted.
+
+An UMBRELLA branch whose name contains a placeholder is renamed when the
+placeholder is replaced by a ticket ID, along with the ticket's own branches,
+in the same way as for a title change (see [Branch names](#branch-names)).
 
 ### Merge authorisation
 
@@ -427,6 +589,176 @@ runner busy. There is at most one pending wake-up per parent; a new
 `done --remote` for the same parent replaces it. A wake-up rechecks the
 queue's current state before acting.
 
+## Breaking down a ticket
+
+```text
+rwf umbrella make [<filename>|--stdin]
+rwf umbrella edit [<issue-id>]
+```
+
+`umbrella make` converts the current ticket into an umbrella by creating its
+UMBRELLA branch, and breaks it down into child tickets described by a graph
+file. It only changes files: it writes the graph file to
+`.rwf/to-umbrella/<issue-id>.md`, adds each child to `tickets.csv` and to the
+new UMBRELLA branch's `merge-authorise.csv` under its placeholder ID, and
+commits. The tickets themselves are created on the ticket server later by
+`to-tickets` (see [Creating the tickets](#creating-the-tickets)).
+
+Like `git commit`, it builds the file from two templates:
+
+- With `<filename>` or `--stdin`, that input followed by the instructions
+  template is written to `.rwf/to-umbrella/<issue-id>.md`.
+- With neither, the graph template followed by the instructions template is
+  written there, with the ticket ID filled in, and opened in Git's configured
+  editor (`git var GIT_EDITOR`).
+
+If the file contains only whitespace once HTML comments are removed, it is
+deleted and nothing else changes. Otherwise it is verified before the command
+returns (see [Creating the tickets](#creating-the-tickets)); a failure is
+reported loudly with a specific error message.
+
+`umbrella edit` reopens a pending breakdown file in the editor and verifies it
+again when the editor closes. `<issue-id>` defaults to the current ticket. It
+is only possible while the file is pending, and only placeholder nodes may be
+changed; nodes that already have ticket IDs exist on the server. Changed
+titles are written to `tickets.csv` when the editor closes.
+
+Graph template:
+
+````markdown
+<!--
+## Graph
+```mermaid
+graph TD
+  A --> <ticket-id>
+  B --> <ticket-id>
+  A --> B
+```
+
+## Node A
+<title>
+
+<description>
+
+## Node B
+<title>
+
+<description>
+-->
+````
+
+Instructions template:
+
+```markdown
+<!-- The DAG must have no cycles and each node must have a path to
+     <ticket-id> -->
+```
+
+An umbrella is implemented in rounds: the children whose dependencies are
+complete are started from the umbrella's current tip, implemented and merged
+into the umbrella, and then the next ready children are selected, until the
+umbrella is finished.
+
+A child may also be started speculatively, before its dependencies are
+complete; `start` warns that it is speculative and lists the incomplete
+dependencies (see [Ticket claims](#ticket-claims)). It also starts from the
+umbrella's current tip, so it does not yet contain its dependencies' work, and
+picks that work up when it is reintegrated with the umbrella's tip after they
+merge.
+
+### Graph file
+
+````markdown
+## Graph
+```mermaid
+graph TD
+  A --> 660
+  B --> 660
+  A --> B
+```
+
+## Node A
+<title>
+
+<description>
+
+## Node B
+<title>
+
+<description>
+````
+
+- The `## Graph` section is a Mermaid graph whose edges funnel into the ticket
+  being broken down. Its node IDs are placeholders, one per new ticket.
+- Each node has a `## Node <id>` section. Its first line is the ticket's
+  title; the rest is the description.
+- The graph is self-contained: it does not refer to existing tickets other
+  than the one being broken down.
+- Every node is a child of the ticket being broken down: it branches from, and
+  merges into, that ticket's branch. Edges between nodes are ordinary
+  dependencies that only control order.
+- Any child can later be broken down into its own umbrella with
+  `rwf umbrella make` on that child. The original graph does not show this.
+
+### Placeholders
+
+Placeholder IDs are qualified by the ticket being broken down and use
+spreadsheet-style uppercase names at each level, separated by dots: `660.A`,
+`660.B`, … `660.Z`, `660.AA`, and so on. A ticket broken down while it still
+has a placeholder ID nests another level, e.g. `660.A.B`. Uppercase only
+avoids branch-name collisions on case-insensitive filesystems.
+
+Placeholder rows are added to `tickets.csv` so work can continue offline, and
+a placeholder ticket may be started. A `git push` should preferably not be
+done until its tickets have been created on the tracker.
+
+When a placeholder is replaced by a real ticket ID:
+
+- Every reference to it in `tickets.csv` and in the umbrella's
+  `merge-authorise.csv` is replaced.
+- If the ticket was already started under its placeholder, its `alias` column
+  records the placeholder, because its branch's identity commit still names the
+  placeholder. Parent lookup and the `tickets.csv` merge driver match on
+  `alias`. A ticket created on the tracker before it was started has a blank
+  `alias`.
+- Its branches (issue, PRELIM and UMBRELLA) are renamed. On the server the new
+  names are pushed and the placeholder-named branches are deleted.
+
+### Creating the tickets
+
+`umbrella make` and `umbrella edit` verify the whole file: the graph has no
+cycles, every node has a path to the ticket being broken down, every node has
+a section with a title, and no node refers to an existing ticket other than
+the one being broken down.
+
+The tickets are created by `to-tickets` (see
+[Ticket synchronization](#ticket-synchronization)):
+
+1. For each node, mark its heading as `## Node <id> - ticket creation
+   attempted`, then create the ticket through `.rwf/repo/tracker`. On a retry,
+   a node marked as attempted is first looked up on the server by its exact
+   title and only created if it is not found.
+2. As each ticket is created, replace its placeholder with the ticket ID in
+   the file, in `tickets.csv` and in the umbrella's `merge-authorise.csv`.
+3. When every ticket exists, synchronize the dependencies, append the
+   breakdown note to the umbrella ticket's description, delete the pending
+   file and commit.
+
+If the tracker is unreachable, the partly converted file stays in place, and
+a later `to-tickets` or `done --remote` resumes it.
+
+### Breakdown note
+
+The note is appended to the end of the umbrella ticket's description, not
+added as a comment. It contains:
+
+- The Mermaid graph, with each node labelled `<id> - <title>`, the title
+  truncated to about 10–15 characters at a word boundary and ending with `...`
+  when shortened. Where the tracker renders Mermaid links and tooltips, each
+  node links to its ticket and shows the full title on hover.
+- A list of the child tickets, one `#<id> - <title>` per line, so that links
+  and full titles are available even where the graph cannot link.
+
 ## Remote Commands
 
 Only `--remote` commands ever trigger execution. An ordinary push never does.
@@ -459,7 +791,7 @@ caller's local checkout or shell. Their help and tab completion do not offer
 
 All remote commands are put in a CMD branch off the tip of the branch to
 execute from (the source branch). The CMD branch is named
-`CMD-<cmd-number>-<source-branch>`. The CI enters from the CMD branch, reads
+`CMD-<cmd-number>-<source-key>`, using the source branch's stable key. The CI enters from the CMD branch, reads
 the command from `.rwf/ci/rwf`, switches to the CMD branch's parent (the
 source branch) and executes the command there. The execution may mutate the
 source branch, for example by committing test results, which is why the CMD
@@ -542,7 +874,7 @@ regression tests.
 If doing integration testing and there are manual tests, then it should look like this:
 
 ```
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test integration [--manual|particular-test-ids...]
 
 # Runs integration tests.  Automated first, manual second.
@@ -550,7 +882,7 @@ $ rwf test integration [--manual|particular-test-ids...]
 # A is the current number of manual tests already reported succeeded or failed.
 # B is the total number of manual tests to be done.
 
-<user> <system> <repo-dir> RWF MIT A/B (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF MIT A/B (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test [succeeded|failed]
 ```
 
@@ -562,14 +894,14 @@ the outcome.
 To only run the automated integration tests, do the following:
 
 ```
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test integration --automatic
 ```
 
 Counting the tests can be done by:
 
 ```
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf test integration [--manual|--automatic|particular-test-ids...] --count
 ```
 
@@ -592,10 +924,10 @@ This is similar in purpose to git stash, but the work is saved as an ordinary
 commit on the issue branch.
 
 ```
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf pause [-u|--include-untracked|-a|--all]
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ rwf parent
 
 <user> <system> <repo-dir> RWF (parent-branch)
@@ -604,7 +936,7 @@ $ # do what needs to be done
 <user> <system> <repo-dir> RWF (parent-branch)
 $ rwf resume [<ticket-id> [<addendum>]] [--user <user>] [--agent <agent-name> <chat-id> [<session-id>]] [--reclaim]
 
-<user> <system> <repo-dir> RWF (issue-<ticket-id>-<title>[-<addendum>])
+<user> <system> <repo-dir> RWF (issue-<ticket-id>[-<addendum>]--<title>)
 $ # back to where you were.
 ```
 
@@ -643,7 +975,7 @@ parent's version and increments it (Q+1, R=0), and the merge result carries
 that version. Each child would otherwise set the shared version to its own
 issue number, either relabelling the umbrella or conflicting with other
 children. When the destination is `main`, the stable version is incremented
-according to the ticket's `release` value instead. Both happen when the
+according to the ticket's `bump-ver` value instead. Both happen when the
 PRELIM is prepared, before its tests run.
 
 The test results are committed in the repo under
